@@ -61,6 +61,13 @@ export default function Home() {
     if(local) try { setDraft(JSON.parse(local)); } catch {}
     fetch("/api/state").then(r=>r.ok?r.json():null).then(v=>v?.players&&setData(v)).catch(()=>{});
   },[]);
+  useEffect(()=>{
+    const timer=setInterval(()=>{
+      if(document.visibilityState!=="visible"||saving)return;
+      fetch("/api/state").then(r=>r.ok?r.json():null).then(v=>v?.players&&setData(v)).catch(()=>{});
+    },15000);
+    return ()=>clearInterval(timer);
+  },[saving]);
   useEffect(()=>{ localStorage.setItem("scaa-draft",JSON.stringify(draft)); },[draft]);
   useEffect(()=>{
     if(data.players.length<2)return;
@@ -80,6 +87,23 @@ export default function Home() {
       setToast(message);
     } catch { setToast("未能連接伺服器；資料仍保留在此畫面，請稍後再試。"); }
     finally { setSaving(false); setTimeout(()=>setToast(""),3200); }
+  }
+
+  async function resetAll(){
+    const typed=prompt("此操作會永久刪除所有球員、比賽及審計紀錄。請輸入 RESET 繼續：");
+    if(typed!=="RESET")return;
+    if(!confirm("最後確認：清除並重設所有共用資料？此操作無法復原。"))return;
+    setSaving(true);
+    try{
+      const response=await fetch("/api/state",{method:"DELETE"});
+      if(!response.ok)throw new Error();
+      const fresh=await response.json();
+      setData(fresh);
+      localStorage.removeItem("scaa-draft");
+      setDraft({a:"",b:"",scoreA:4,scoreB:2,date:today,giver:"",points:0});
+      setToast("所有共用資料已清除並重設。");
+    }catch{setToast("重設失敗，資料沒有被清除。請稍後再試。");}
+    finally{setSaving(false);setTimeout(()=>setToast(""),3200);}
   }
 
   const ranked=useMemo(()=>[...data.players].sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name)),[data]);
@@ -153,11 +177,11 @@ export default function Home() {
       <div className="public-note"><b>公開模式</b><span>任何人均可查看及編輯</span></div>
     </aside>
     <main>
-      <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="status"><i/> 資料公開 · {saving?"儲存中…":"已同步"}</div></header>
+      <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div></header>
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>setModal("match")} onPlayer={(p)=>{setDetail(p);setModal("detail")}}/>}
       {tab==="matches"&&<Matches data={data} onVoid={voidMatch}/>}
       {tab==="players"&&<Players data={data} onAdd={()=>{setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:""});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}}/>}
-      {tab==="settings"&&<SettingsView data={data} onEdit={()=>setModal("settings")}/>}
+      {tab==="settings"&&<SettingsView data={data} onEdit={()=>setModal("settings")} onReset={resetAll}/>}
     </main>
     <button className="fab" onClick={()=>setModal("match")}><span>＋</span>記錄</button>
     <nav className="bottom">{[["leaderboard","榜","◆"],["matches","比賽","◫"],["record","記錄","＋"],["players","球員","◎"],["settings","設定","⚙"]].map(([id,label,icon])=>
@@ -203,10 +227,11 @@ function Players({data,onAdd,onEdit,onDelete,onOpen}:{data:AppState;onAdd:()=>vo
     <div className="player-grid">{data.players.length===0?<Empty text="尚未有球員" sub="新增球員後便可開始記錄比賽。"/>:data.players.map(p=><article className="player-card" key={p.id}><button className="profile-hit" onClick={()=>onOpen(p)}><i>{p.short}</i><div><h3>{p.name}</h3><p>{Math.round(p.rating)} ELO · 正式 {p.handicap??"未提供"} · 建議 {suggestedHandicap(p,data)==null?"未提供":Math.round(suggestedHandicap(p,data)!)}</p></div></button><div className="player-actions"><button className="more" onClick={()=>onEdit(p)}>編輯</button><button className="danger-link static" onClick={()=>onDelete(p)}>刪除</button></div></article>)}</div></>;
 }
 
-function SettingsView({data,onEdit}:{data:AppState;onEdit:()=>void}) {
+function SettingsView({data,onEdit,onReset}:{data:AppState;onEdit:()=>void;onReset:()=>void}) {
   const s=data.settings; return <><section className="hero small"><div><p className="kicker">公開設定</p><h1>ELO 設定</h1><p>任何訪客均可修改；所有變更會寫入審計紀錄。</p></div><button className="primary" onClick={onEdit}>編輯設定</button></section>
     <div className="settings-grid">{[["起始 ELO",s.start],["臨時門檻",`${s.provisionalGames} 場`],["臨時／正式 K",`${s.kProvisional} / ${s.kRated}`],["每點換算",`${s.conversion} ELO`],["調整上限",`±${s.cap} ELO`]].map(x=><div className="setting" key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></div>)}</div>
-    <section className="audit"><h2>審計紀錄</h2>{data.audits.slice(0,12).map(a=><div key={a.id}><span>{a.text}</span><small>{new Date(a.at).toLocaleString("zh-HK")}</small></div>)}</section></>;
+    <section className="audit"><h2>審計紀錄</h2>{data.audits.slice(0,12).map(a=><div key={a.id}><span>{a.text}</span><small>{new Date(a.at).toLocaleString("zh-HK")}</small></div>)}</section>
+    <section className="danger-zone"><div><h2>清除並重設資料</h2><p>永久刪除共用資料庫內所有球員、比賽及審計紀錄，並恢復預設 ELO 設定。</p></div><button onClick={onReset}>清除所有資料</button></section></>;
 }
 
 function MatchForm({data,draft,setDraft,preview,a,b,onSave}:{data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;onSave:()=>void}) {

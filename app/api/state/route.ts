@@ -1,6 +1,12 @@
 import { env } from "cloudflare:workers";
 
-const initial = JSON.stringify({ players: [], matches: [], settings: null, audits: [] });
+const initialState = () => ({
+  players: [],
+  matches: [],
+  settings: { start: 1500, provisionalGames: 10, kProvisional: 40, kRated: 24, conversion: 8, cap: 200 },
+  audits: [{ id: crypto.randomUUID(), text: "清除並重設所有資料", at: new Date().toISOString() }],
+});
+const initial = JSON.stringify(initialState());
 
 async function ensure() {
   const db = env.DB;
@@ -26,4 +32,13 @@ export async function PUT(request:Request) {
     await db.prepare("UPDATE app_state SET data = ?, updated_at = ? WHERE id = 1").bind(JSON.stringify(body),new Date().toISOString()).run();
     return Response.json({ok:true});
   } catch { return Response.json({error:"save failed"},{status:500}); }
+}
+
+export async function DELETE() {
+  try {
+    const db=await ensure();
+    const fresh=initialState();
+    await db.prepare("UPDATE app_state SET data = ?, updated_at = ? WHERE id = 1").bind(JSON.stringify(fresh),new Date().toISOString()).run();
+    return Response.json(fresh);
+  } catch { return Response.json({error:"reset failed"},{status:500}); }
 }
