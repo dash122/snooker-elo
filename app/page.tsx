@@ -9,11 +9,13 @@ type Player = {
 };
 type Match = {
   id: string; a: string; b: string; scoreA: number; scoreB: number; playedOn: string;
+  entryMode?: "match" | "aggregate"; frameEvidence?: number;
   actual: number; giver: string | null; official: number | null; extra: number;
   expectedA: number; beforeA: number; beforeB: number; afterA: number; afterB: number;
   deltaA: number; marginMultiplier?: number; status: "confirmed" | "void"; createdAt: string;
 };
-type Calibration = { rawEstimate:number; estimate:number; lower:number; upper:number; usableMatches:number; confidence:string; updatedAt:string };
+type CalibrationPoint = { estimate:number; usableMatches:number; at:string };
+type Calibration = { rawEstimate:number; estimate:number; lower:number; upper:number; usableMatches:number; handicapLevels:number; confidence:string; updatedAt:string; history?:CalibrationPoint[] };
 type Settings = { start: number; provisionalGames: number; kProvisional: number; kRated: number; conversion: number; cap: number; calibration?:Calibration };
 type AppState = { players: Player[]; matches: Match[]; settings: Settings; audits: { id: string; text: string; at: string }[] };
 
@@ -40,31 +42,47 @@ function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,
   const result = scoreA === scoreB ? .5 : scoreA > scoreB ? 1 : 0;
   const k = games(a)<s.provisionalGames || games(b)<s.provisionalGames ? s.kProvisional : s.kRated;
   const totalFrames = scoreA + scoreB;
-  const marginMultiplier = scoreA === scoreB || totalFrames === 0 ? 1 : 1 + Math.abs(scoreA-scoreB)/totalFrames;
-  const deltaA = k*(result-expectedA)*marginMultiplier;
-  return { official,actual,extra,expectedA,deltaA,marginMultiplier };
+  const frameShare = totalFrames ? scoreA/totalFrames : .5;
+  const frameEvidence = Math.min(totalFrames,20);
+  const matchDelta = k*(result-expectedA);
+  const frameDelta = (k/5)*frameEvidence*(frameShare-expectedA);
+  const deltaA = matchDelta+frameDelta;
+  return { official,actual,extra,expectedA,deltaA,frameShare,frameEvidence,matchDelta,frameDelta };
 }
 
 function recalibrate(settings:Settings,matches:Match[]):Settings {
-  const usable=matches.filter(m=>m.status==="confirmed"&&m.actual!==0&&Number.isFinite(m.beforeA)&&Number.isFinite(m.beforeB));
+  const usable=matches.filter(m=>m.status==="confirmed"&&m.actual!==0&&(m.scoreA+m.scoreB)>0&&Number.isFinite(m.beforeA)&&Number.isFinite(m.beforeB));
   const n=usable.length, prior=8;
-  if(n<10) return {...settings,calibration:{rawEstimate:prior,estimate:settings.conversion,lower:2,upper:14,usableMatches:n,confidence:"資料不足",updatedAt:new Date().toISOString()}};
+  const levels=new Set(usable.map(m=>Math.abs(m.actual))).size;
+  const now=new Date().toISOString();
+  const oldHistory=settings.calibration?.history??[];
+  if(n<10||levels<2) return {...settings,calibration:{rawEstimate:prior,estimate:settings.conversion,lower:1,upper:20,usableMatches:n,handicapLevels:levels,confidence:"資料不足",updatedAt:now,history:oldHistory}};
   let best=prior,bestLoss=Infinity;
+  const losses:{candidate:number;loss:number}[]=[];
   for(let candidate=1;candidate<=20;candidate+=.25){
-    let loss=0;
+    let loss=0,weight=0;
     for(const m of usable){
       const adjustment=Math.max(-settings.cap,Math.min(settings.cap,candidate*m.actual));
       const predicted=1/(1+10**(((m.beforeB+adjustment)-m.beforeA)/400));
-      const actual=m.scoreA===m.scoreB?.5:m.scoreA>m.scoreB?1:0;
-      loss+=(predicted-actual)**2;
+      const frames=m.scoreA+m.scoreB;
+      const actual=m.scoreA/frames;
+      const evidence=Math.min(frames,20);
+      loss+=evidence*(predicted-actual)**2;
+      weight+=evidence;
     }
+    loss/=weight;
+    losses.push({candidate,loss});
     if(loss<bestLoss){bestLoss=loss;best=candidate;}
   }
   const shrunk=(30*prior+n*best)/(30+n);
   const estimate=Math.max(1,Math.min(20,settings.conversion+Math.max(-.25,Math.min(.25,shrunk-settings.conversion))));
-  const spread=Math.max(.75,4/Math.sqrt(n/30));
-  const confidence=n>=150?"高":n>=75?"中":n>=30?"低":"初步";
-  return {...settings,conversion:Number(estimate.toFixed(2)),calibration:{rawEstimate:Number(best.toFixed(2)),estimate:Number(estimate.toFixed(2)),lower:Number(Math.max(1,estimate-spread).toFixed(2)),upper:Number(Math.min(20,estimate+spread).toFixed(2)),usableMatches:n,confidence,updatedAt:new Date().toISOString()}};
+  const threshold=bestLoss+Math.max(.0025,bestLoss*.1);
+  const plausible=losses.filter(x=>x.loss<=threshold).map(x=>x.candidate);
+  const lower=Math.min(...plausible),upper=Math.max(...plausible);
+  const confidence=n>=150&&levels>=5?"高":n>=75&&levels>=4?"中":n>=30&&levels>=3?"低":"初步";
+  const rounded=Number(estimate.toFixed(2));
+  const history=[...oldHistory,{estimate:rounded,usableMatches:n,at:now}].slice(-20);
+  return {...settings,conversion:rounded,calibration:{rawEstimate:Number(best.toFixed(2)),estimate:rounded,lower:Number(lower.toFixed(2)),upper:Number(upper.toFixed(2)),usableMatches:n,handicapLevels:levels,confidence,updatedAt:now,history}};
 }
 
 function replay(players:Player[],matches:Match[],settings:Settings) {
@@ -87,7 +105,7 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
       p.wins+=r==="W"?1:0;p.losses+=r==="L"?1:0;p.draws+=r==="D"?1:0;
       p.framesWon+=fw;p.framesLost+=fl;p.form=[r,...p.form].slice(0,5);
     }
-    updated.set(m.id,{...m,expectedA:result.expectedA,beforeA,beforeB,afterA:a.rating,afterB:b.rating,deltaA:result.deltaA,marginMultiplier:result.marginMultiplier});
+    updated.set(m.id,{...m,expectedA:result.expectedA,beforeA,beforeB,afterA:a.rating,afterB:b.rating,deltaA:result.deltaA,frameEvidence:result.frameEvidence});
   }
   return {players:rebuilt,matches:matches.filter(m=>m.status==="confirmed").map(m=>updated.get(m.id)??m)};
 }
@@ -102,7 +120,7 @@ export default function Home() {
   const [editingPlayer,setEditingPlayer] = useState<Player|null>(null);
   const [toast,setToast] = useState("");
   const [saving,setSaving] = useState(false);
-  const [draft,setDraft] = useState({a:"marco",b:"jason",scoreA:4,scoreB:2,date:today,giver:"marco",points:4});
+  const [draft,setDraft] = useState({mode:"match" as "match"|"aggregate",a:"",b:"",scoreA:0,scoreB:0,date:today,giver:"",points:0});
   const [playerForm,setPlayerForm] = useState({name:"",short:"",handicap:"",rating:""});
 
   useEffect(()=>{
@@ -149,7 +167,7 @@ export default function Home() {
       const fresh=await response.json();
       setData(fresh);
       localStorage.removeItem("scaa-draft");
-      setDraft({a:"",b:"",scoreA:4,scoreB:2,date:today,giver:"",points:0});
+      setDraft({mode:"match",a:"",b:"",scoreA:0,scoreB:0,date:today,giver:"",points:0});
       setToast("所有共用資料已清除並重設。");
     }catch{setToast("重設失敗，資料沒有被清除。請稍後再試。");}
     finally{setSaving(false);setTimeout(()=>setToast(""),3200);}
@@ -161,13 +179,13 @@ export default function Home() {
   const preview=a&&b&&a.id!==b.id?calc(a,b,+draft.scoreA,+draft.scoreB,draft.giver,+draft.points,data.settings):null;
 
   function saveMatch(){
-    if(!a||!b||a.id===b.id||draft.scoreA<0||draft.scoreB<0){setToast("請選擇兩位不同球員及有效比分。");return;}
+    if(!a||!b||a.id===b.id||draft.scoreA<0||draft.scoreB<0||(+draft.scoreA+ +draft.scoreB)===0){setToast("請選擇兩位不同球員，比分總局數必須大於 0。");return;}
     if(!preview)return;
     const now=new Date().toISOString(), id=crypto.randomUUID();
     const match:Match={id,a:a.id,b:b.id,scoreA:+draft.scoreA,scoreB:+draft.scoreB,playedOn:draft.date||today,
       actual:preview.actual,giver:draft.giver||null,official:preview.official,extra:preview.extra,expectedA:preview.expectedA,
       beforeA:a.rating,beforeB:b.rating,afterA:a.rating+preview.deltaA,afterB:b.rating-preview.deltaA,deltaA:preview.deltaA,
-      marginMultiplier:preview.marginMultiplier,status:"confirmed",createdAt:now};
+      entryMode:draft.mode??"match",frameEvidence:preview.frameEvidence,status:"confirmed",createdAt:now};
     const resultA=draft.scoreA===draft.scoreB?"D":draft.scoreA>draft.scoreB?"W":"L";
     const resultB=resultA==="D"?"D":resultA==="W"?"L":"W";
     const players=data.players.map(p=>{
@@ -269,7 +287,7 @@ function Matches({data,onVoid}:{data:AppState;onVoid:(m:Match)=>void}) {
   return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽紀錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
     <div className="filters"><input placeholder="搜尋球員…" /><input type="date"/><select><option>所有賽事</option><option>已確認</option></select></div>
     <div className="match-list">{data.matches.length===0?<Empty text="尚未有比賽紀錄" sub="記錄第一場比賽後，詳情會顯示在這裡。"/>:data.matches.map(m=>
-      <article className={`match ${m.status}`} key={m.id}><div><span className="pill">{m.status==="void"?"已作廢":"已確認"}</span><small>{m.playedOn}</small></div>
+      <article className={`match ${m.status}`} key={m.id}><div><span><span className="pill">{m.status==="void"?"已作廢":"已確認"}</span> <span className="pill muted">{m.entryMode==="aggregate"?"歷史匯總":"單場"}</span></span><small>{m.playedOn}</small></div>
         <h3>{name(m.a)} <b>{m.scoreA}–{m.scoreB}</b> {name(m.b)}</h3>
         <p>實際讓分 {m.actual>0?`${name(m.a)} 讓 ${m.actual}`:m.actual<0?`${name(m.b)} 讓 ${Math.abs(m.actual)}`:"無"} · 額外讓分 {m.extra}</p>
         <div className="delta"><span>{Math.round(m.beforeA)} → {Math.round(m.afterA)} <b>{m.deltaA>=0?"+":""}{Math.round(m.deltaA)}</b></span><span>預測 A 勝率 {Math.round(m.expectedA*100)}%</span></div>
@@ -284,7 +302,7 @@ function Players({data,onAdd,onEdit,onDelete,onOpen}:{data:AppState;onAdd:()=>vo
 function SettingsView({data,onEdit,onReset}:{data:AppState;onEdit:()=>void;onReset:()=>void}) {
   const s=data.settings,c=s.calibration; return <><section className="hero small"><div><p className="kicker">公開設定</p><h1>ELO 設定</h1><p>實際讓分直接影響 ELO；正式讓分只作參考。</p></div><button className="primary" onClick={onEdit}>編輯設定</button></section>
     <div className="settings-grid">{[["起始 ELO",s.start],["臨時門檻",`${s.provisionalGames} 場`],["臨時／正式 K",`${s.kProvisional} / ${s.kRated}`],["持續校準換算率",`${s.conversion} ELO／分`],["調整上限",`±${s.cap} ELO`]].map(x=><div className="setting" key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></div>)}</div>
-    <section className="calibration-card"><div><p className="kicker">每場自動更新</p><h2>讓分換算持續學習</h2><p>目前每讓 1 分約等於 <b>{s.conversion} ELO</b>。系統只使用實際讓分與賽果估算，正式讓分不參與計算。</p></div><div className="calibration-stats"><span><small>可用賽事</small><b>{c?.usableMatches??0}</b></span><span><small>信心</small><b>{c?.confidence??"資料不足"}</b></span><span><small>估計範圍</small><b>{c?`${c.lower}–${c.upper}`:"—"}</b></span></div></section>
+    <section className="calibration-card"><div><p className="kicker">每場自動更新</p><h2>讓分換算持續學習</h2><p>目前每讓 1 分約等於 <b>{s.conversion} ELO</b>。系統比較「按 ELO 及實際讓分預測的局數比例」與真實局數比例；最多採計每筆 20 局，避免大型匯總壟斷結果。正式讓分不參與計算。</p>{c?.history&&c.history.length>1&&<small className="calibration-history">最近校準：{c.history.slice(-5).map(x=>x.estimate).join(" → ")} ELO／分</small>}</div><div className="calibration-stats"><span><small>可用紀錄</small><b>{c?.usableMatches??0}</b></span><span><small>讓分級別</small><b>{c?.handicapLevels??0}</b></span><span><small>信心</small><b>{c?.confidence??"資料不足"}</b></span><span><small>合理範圍</small><b>{c?`${c.lower}–${c.upper}`:"—"}</b></span></div></section>
     <section className="audit"><h2>審計紀錄</h2>{data.audits.slice(0,12).map(a=><div key={a.id}><span>{a.text}</span><small>{new Date(a.at).toLocaleString("zh-HK")}</small></div>)}</section>
     <section className="danger-zone"><div><h2>清除並重設資料</h2><p>永久刪除共用資料庫內所有球員、比賽及審計紀錄，並恢復預設 ELO 設定。</p></div><button onClick={onReset}>清除所有資料</button></section></>;
 }
@@ -298,11 +316,13 @@ function MatchForm({data,draft,setDraft,preview,a,b,onSave}:{data:AppState;draft
   };
   return <><p className="kicker">快速記錄</p><h2>記錄比賽</h2><p className="sub">自由賽制，只需輸入最終局數；同分即為和局。</p>
     {data.players.length<2&&<p className="warning">請先新增至少兩位活躍球員。</p>}
+    <div className="entry-mode" role="group" aria-label="紀錄類型"><button type="button" className={(draft.mode??"match")==="match"?"active":""} onClick={()=>update("mode","match")}><b>單場比賽</b><small>一場比賽的最終局數</small></button><button type="button" className={draft.mode==="aggregate"?"active":""} onClick={()=>update("mode","aggregate")}><b>歷史匯總</b><small>同一對手多場局數合計</small></button></div>
+    {draft.mode==="aggregate"&&<p className="aggregate-note">匯總會以同一個賽前 ELO 基準計算。例：70–70 為中性局數證據，不會因輸入次序造成偏差。</p>}
     <div className="step-label"><b>1</b> 球員與日期</div><div className="two"><label>球員 A<select value={draft.a} onChange={e=>update("a",e.target.value)}>{data.players.filter(p=>p.active).map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label><label>球員 B<select value={draft.b} onChange={e=>update("b",e.target.value)}>{data.players.filter(p=>p.active).map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label></div>
     <label>比賽日期<input type="date" value={draft.date} onChange={e=>update("date",e.target.value)}/></label>
     <div className="step-label"><b>2</b> 實際讓分</div>{fairActual!=null&&<div className="fair-tip"><div><small>ELO 建議公平讓分</small><b>{fairActual>=0?a.name:b.name} 讓 {Math.round(Math.abs(fairActual))} 分</b><span>套用後預測勝率接近 50／50</span></div><button type="button" onClick={applyFair}>套用建議</button></div>}<div className="two"><label>讓分提供者<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">沒有讓分</option><option value={a?.id}>{a?.name}</option><option value={b?.id}>{b?.name}</option></select></label><label>每局讓分<input type="number" min="0" step="1" value={draft.points} onChange={e=>update("points",+e.target.value)}/></label></div>
     <div className="step-label"><b>3</b> 最終比分</div><div className="score-input"><label>{a?.short}<input type="number" min="0" value={draft.scoreA} onChange={e=>update("scoreA",+e.target.value)}/></label><strong>–</strong><label>{b?.short}<input type="number" min="0" value={draft.scoreB} onChange={e=>update("scoreB",+e.target.value)}/></label></div>
-    {preview&&<div className="preview"><div><small>{a.name}</small><b>{Math.round(a.rating)} <em className={preview.deltaA>=0?"positive":"negative"}>{preview.deltaA>=0?"+":""}{Math.round(preview.deltaA)}</em></b></div><div><small>預測勝率</small><b>{Math.round(preview.expectedA*100)}% / {Math.round((1-preview.expectedA)*100)}%</b></div><div><small>{b.name}</small><b>{Math.round(b.rating)} <em className={preview.deltaA<=0?"positive":"negative"}>{-preview.deltaA>=0?"+":""}{Math.round(-preview.deltaA)}</em></b></div><p>正式讓分參考：{preview.official??"未提供"} · 實際讓分：{preview.actual} · 換算率：{data.settings.conversion} ELO／分 · 比分倍率 ×{preview.marginMultiplier.toFixed(2)}</p></div>}
+    {preview&&<div className="preview"><div><small>{a.name}</small><b>{Math.round(a.rating)} <em className={preview.deltaA>=0?"positive":"negative"}>{preview.deltaA>=0?"+":""}{Math.round(preview.deltaA)}</em></b></div><div><small>預測局數比例</small><b>{Math.round(preview.expectedA*100)}% / {Math.round((1-preview.expectedA)*100)}%</b></div><div><small>{b.name}</small><b>{Math.round(b.rating)} <em className={preview.deltaA<=0?"positive":"negative"}>{-preview.deltaA>=0?"+":""}{Math.round(-preview.deltaA)}</em></b></div><p>{draft.mode==="aggregate"?"歷史匯總":"單場"} · 實際局數比例 {Math.round(preview.frameShare*100)}% · 局數證據採計 {preview.frameEvidence}/20 · 勝負影響 {preview.matchDelta>=0?"+":""}{preview.matchDelta.toFixed(1)} · 局數影響 {preview.frameDelta>=0?"+":""}{preview.frameDelta.toFixed(1)} · 換算率 {data.settings.conversion} ELO／分</p></div>}
     <button className="primary full" disabled={data.players.length<2} onClick={onSave}>確認並更新 ELO</button></>;
 }
 
