@@ -13,7 +13,8 @@ type Match = {
   expectedA: number; beforeA: number; beforeB: number; afterA: number; afterB: number;
   deltaA: number; marginMultiplier?: number; status: "confirmed" | "void"; createdAt: string;
 };
-type Settings = { start: number; provisionalGames: number; kProvisional: number; kRated: number; conversion: number; cap: number };
+type Calibration = { rawEstimate:number; estimate:number; lower:number; upper:number; usableMatches:number; confidence:string; updatedAt:string };
+type Settings = { start: number; provisionalGames: number; kProvisional: number; kRated: number; conversion: number; cap: number; calibration?:Calibration };
 type AppState = { players: Player[]; matches: Match[]; settings: Settings; audits: { id: string; text: string; at: string }[] };
 
 const seed: AppState = {
@@ -25,15 +26,16 @@ const seed: AppState = {
 
 function games(p: Player) { return p.wins + p.losses + p.draws; }
 function suggestedHandicap(p: Player,data: AppState) {
-  if (p.handicap == null) return null;
   const meanRating=data.players.length?data.players.reduce((sum,x)=>sum+x.rating,0)/data.players.length:data.settings.start;
-  return p.handicap-(p.rating-meanRating)/data.settings.conversion;
+  const official=data.players.map(x=>x.handicap).filter((x):x is number=>x!=null);
+  const anchor=official.length?official.reduce((sum,x)=>sum+x,0)/official.length:0;
+  return anchor-(p.rating-meanRating)/data.settings.conversion;
 }
 function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings) {
   const official = a.handicap == null || b.handicap == null ? null : b.handicap - a.handicap;
   const actual = giver === a.id ? points : giver === b.id ? -points : 0;
   const extra = actual - (official ?? 0);
-  const adjustment = Math.max(-s.cap,Math.min(s.cap,s.conversion * extra));
+  const adjustment = Math.max(-s.cap,Math.min(s.cap,s.conversion * actual));
   const expectedA = 1/(1+10**(((b.rating+adjustment)-a.rating)/400));
   const result = scoreA === scoreB ? .5 : scoreA > scoreB ? 1 : 0;
   const k = games(a)<s.provisionalGames || games(b)<s.provisionalGames ? s.kProvisional : s.kRated;
@@ -41,6 +43,28 @@ function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,
   const marginMultiplier = scoreA === scoreB || totalFrames === 0 ? 1 : 1 + Math.abs(scoreA-scoreB)/totalFrames;
   const deltaA = k*(result-expectedA)*marginMultiplier;
   return { official,actual,extra,expectedA,deltaA,marginMultiplier };
+}
+
+function recalibrate(settings:Settings,matches:Match[]):Settings {
+  const usable=matches.filter(m=>m.status==="confirmed"&&m.actual!==0&&Number.isFinite(m.beforeA)&&Number.isFinite(m.beforeB));
+  const n=usable.length, prior=8;
+  if(n<10) return {...settings,calibration:{rawEstimate:prior,estimate:settings.conversion,lower:2,upper:14,usableMatches:n,confidence:"資料不足",updatedAt:new Date().toISOString()}};
+  let best=prior,bestLoss=Infinity;
+  for(let candidate=1;candidate<=20;candidate+=.25){
+    let loss=0;
+    for(const m of usable){
+      const adjustment=Math.max(-settings.cap,Math.min(settings.cap,candidate*m.actual));
+      const predicted=1/(1+10**(((m.beforeB+adjustment)-m.beforeA)/400));
+      const actual=m.scoreA===m.scoreB?.5:m.scoreA>m.scoreB?1:0;
+      loss+=(predicted-actual)**2;
+    }
+    if(loss<bestLoss){bestLoss=loss;best=candidate;}
+  }
+  const shrunk=(30*prior+n*best)/(30+n);
+  const estimate=Math.max(1,Math.min(20,settings.conversion+Math.max(-.25,Math.min(.25,shrunk-settings.conversion))));
+  const spread=Math.max(.75,4/Math.sqrt(n/30));
+  const confidence=n>=150?"高":n>=75?"中":n>=30?"低":"初步";
+  return {...settings,conversion:Number(estimate.toFixed(2)),calibration:{rawEstimate:Number(best.toFixed(2)),estimate:Number(estimate.toFixed(2)),lower:Number(Math.max(1,estimate-spread).toFixed(2)),upper:Number(Math.min(20,estimate+spread).toFixed(2)),usableMatches:n,confidence,updatedAt:new Date().toISOString()}};
 }
 
 const today = new Date().toISOString().slice(0,10);
@@ -128,7 +152,9 @@ export default function Home() {
         draws:p.draws+(result==="D"?1:0),framesWon:p.framesWon+(isA?+draft.scoreA:+draft.scoreB),
         framesLost:p.framesLost+(isA?+draft.scoreB:+draft.scoreA),form:[result,...p.form].slice(0,5)};
     });
-    const next={...data,players,matches:[match,...data.matches],audits:[{id:crypto.randomUUID(),text:`記錄賽果：${a.name} ${draft.scoreA}–${draft.scoreB} ${b.name}`,at:now},...data.audits]};
+    const matches=[match,...data.matches];
+    const settings=recalibrate(data.settings,matches);
+    const next={...data,settings,players,matches,audits:[{id:crypto.randomUUID(),text:`記錄賽果：${a.name} ${draft.scoreA}–${draft.scoreB} ${b.name}；持續校準 ${settings.conversion} ELO／分`,at:now},...data.audits]};
     localStorage.removeItem("scaa-draft"); setModal(null); persist(next,"賽果已儲存，雙方 ELO 已更新。");
   }
 
@@ -164,7 +190,9 @@ export default function Home() {
     if(m.status==="void"||!confirm("作廢後系統會重建受影響評分。確定繼續？"))return;
     // Full production replay is represented by returning this match's immutable event impact.
     const players=data.players.map(p=>p.id===m.a?{...p,rating:p.rating-m.deltaA}:p.id===m.b?{...p,rating:p.rating+m.deltaA}:p);
-    const next={...data,players,matches:data.matches.map(x=>x.id===m.id?{...x,status:"void" as const}:x),
+    const matches=data.matches.map(x=>x.id===m.id?{...x,status:"void" as const}:x);
+    const settings=recalibrate(data.settings,matches);
+    const next={...data,settings,players,matches,
       audits:[{id:crypto.randomUUID(),text:`作廢賽事：${m.id.slice(0,8)}；觸發評分重建`,at:new Date().toISOString()},...data.audits]};
     persist(next,"賽事已作廢，ELO 已重建。");
   }
@@ -228,15 +256,16 @@ function Players({data,onAdd,onEdit,onDelete,onOpen}:{data:AppState;onAdd:()=>vo
 }
 
 function SettingsView({data,onEdit,onReset}:{data:AppState;onEdit:()=>void;onReset:()=>void}) {
-  const s=data.settings; return <><section className="hero small"><div><p className="kicker">公開設定</p><h1>ELO 設定</h1><p>任何訪客均可修改；所有變更會寫入審計紀錄。</p></div><button className="primary" onClick={onEdit}>編輯設定</button></section>
-    <div className="settings-grid">{[["起始 ELO",s.start],["臨時門檻",`${s.provisionalGames} 場`],["臨時／正式 K",`${s.kProvisional} / ${s.kRated}`],["每點換算",`${s.conversion} ELO`],["調整上限",`±${s.cap} ELO`]].map(x=><div className="setting" key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></div>)}</div>
+  const s=data.settings,c=s.calibration; return <><section className="hero small"><div><p className="kicker">公開設定</p><h1>ELO 設定</h1><p>實際讓分直接影響 ELO；正式讓分只作參考。</p></div><button className="primary" onClick={onEdit}>編輯設定</button></section>
+    <div className="settings-grid">{[["起始 ELO",s.start],["臨時門檻",`${s.provisionalGames} 場`],["臨時／正式 K",`${s.kProvisional} / ${s.kRated}`],["持續校準換算率",`${s.conversion} ELO／分`],["調整上限",`±${s.cap} ELO`]].map(x=><div className="setting" key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></div>)}</div>
+    <section className="calibration-card"><div><p className="kicker">每場自動更新</p><h2>讓分換算持續學習</h2><p>目前每讓 1 分約等於 <b>{s.conversion} ELO</b>。系統只使用實際讓分與賽果估算，正式讓分不參與計算。</p></div><div className="calibration-stats"><span><small>可用賽事</small><b>{c?.usableMatches??0}</b></span><span><small>信心</small><b>{c?.confidence??"資料不足"}</b></span><span><small>估計範圍</small><b>{c?`${c.lower}–${c.upper}`:"—"}</b></span></div></section>
     <section className="audit"><h2>審計紀錄</h2>{data.audits.slice(0,12).map(a=><div key={a.id}><span>{a.text}</span><small>{new Date(a.at).toLocaleString("zh-HK")}</small></div>)}</section>
     <section className="danger-zone"><div><h2>清除並重設資料</h2><p>永久刪除共用資料庫內所有球員、比賽及審計紀錄，並恢復預設 ELO 設定。</p></div><button onClick={onReset}>清除所有資料</button></section></>;
 }
 
 function MatchForm({data,draft,setDraft,preview,a,b,onSave}:{data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;onSave:()=>void}) {
   const update=(k:string,v:any)=>setDraft((d:any)=>({...d,[k]:v}));
-  const fairActual=preview?(preview.official??0)+(a.rating-b.rating)/data.settings.conversion:null;
+  const fairActual=preview?(a.rating-b.rating)/data.settings.conversion:null;
   const applyFair=()=>{
     if(fairActual==null)return;
     setDraft((d:any)=>({...d,giver:fairActual>=0?a.id:b.id,points:Math.round(Math.abs(fairActual))}));
@@ -247,7 +276,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,onSave}:{data:AppState;draft
     <label>比賽日期<input type="date" value={draft.date} onChange={e=>update("date",e.target.value)}/></label>
     <div className="step-label"><b>2</b> 實際讓分</div>{fairActual!=null&&<div className="fair-tip"><div><small>ELO 建議公平讓分</small><b>{fairActual>=0?a.name:b.name} 讓 {Math.round(Math.abs(fairActual))} 分</b><span>套用後預測勝率接近 50／50</span></div><button type="button" onClick={applyFair}>套用建議</button></div>}<div className="two"><label>讓分提供者<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">沒有讓分</option><option value={a?.id}>{a?.name}</option><option value={b?.id}>{b?.name}</option></select></label><label>每局讓分<input type="number" min="0" step="1" value={draft.points} onChange={e=>update("points",+e.target.value)}/></label></div>
     <div className="step-label"><b>3</b> 最終比分</div><div className="score-input"><label>{a?.short}<input type="number" min="0" value={draft.scoreA} onChange={e=>update("scoreA",+e.target.value)}/></label><strong>–</strong><label>{b?.short}<input type="number" min="0" value={draft.scoreB} onChange={e=>update("scoreB",+e.target.value)}/></label></div>
-    {preview&&<div className="preview"><div><small>{a.name}</small><b>{Math.round(a.rating)} <em className={preview.deltaA>=0?"positive":"negative"}>{preview.deltaA>=0?"+":""}{Math.round(preview.deltaA)}</em></b></div><div><small>預測勝率</small><b>{Math.round(preview.expectedA*100)}% / {Math.round((1-preview.expectedA)*100)}%</b></div><div><small>{b.name}</small><b>{Math.round(b.rating)} <em className={preview.deltaA<=0?"positive":"negative"}>{-preview.deltaA>=0?"+":""}{Math.round(-preview.deltaA)}</em></b></div><p>正式讓分：{preview.official??"未提供（按 0 計）"} · 實際：{preview.actual} · 額外：{preview.extra} · 比分倍率 ×{preview.marginMultiplier.toFixed(2)}</p></div>}
+    {preview&&<div className="preview"><div><small>{a.name}</small><b>{Math.round(a.rating)} <em className={preview.deltaA>=0?"positive":"negative"}>{preview.deltaA>=0?"+":""}{Math.round(preview.deltaA)}</em></b></div><div><small>預測勝率</small><b>{Math.round(preview.expectedA*100)}% / {Math.round((1-preview.expectedA)*100)}%</b></div><div><small>{b.name}</small><b>{Math.round(b.rating)} <em className={preview.deltaA<=0?"positive":"negative"}>{-preview.deltaA>=0?"+":""}{Math.round(-preview.deltaA)}</em></b></div><p>正式讓分參考：{preview.official??"未提供"} · 實際讓分：{preview.actual} · 換算率：{data.settings.conversion} ELO／分 · 比分倍率 ×{preview.marginMultiplier.toFixed(2)}</p></div>}
     <button className="primary full" disabled={data.players.length<2} onClick={onSave}>確認並更新 ELO</button></>;
 }
 
