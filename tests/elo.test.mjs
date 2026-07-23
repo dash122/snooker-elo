@@ -17,3 +17,9 @@ test("draw at even odds changes neither rating",()=>assert.equal(calculate({ra:1
 test("rating change is zero sum",()=>{const r=calculate({ra:1510,rb:1490,official:2,actual:5});assert.equal(r.delta+r.other,0)});
 test("frame margin scales a 4-0 win to 2x",()=>assert.equal(calculate({ra:1500,rb:1500,official:0,actual:0}).multiplier,2));
 test("frame margin scales a 4-2 win to 1.33x",()=>assert.equal(calculate({ra:1500,rb:1500,official:0,actual:0,scoreA:4,scoreB:2}).multiplier,4/3));
+test("fair handicap inversion targets an even expectation",()=>{
+  const ratingA=1580,ratingB=1500,official=6,conversion=8;
+  const suggested=official+(ratingA-ratingB)/conversion;
+  assert.equal(suggested,16);
+  assert.equal(calculate({ra:ratingA,rb:ratingB,official,actual:suggested}).expected,.5);
+});

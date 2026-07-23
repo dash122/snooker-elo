@@ -24,6 +24,11 @@ const seed: AppState = {
 };
 
 function games(p: Player) { return p.wins + p.losses + p.draws; }
+function suggestedHandicap(p: Player,data: AppState) {
+  if (p.handicap == null) return null;
+  const meanRating=data.players.length?data.players.reduce((sum,x)=>sum+x.rating,0)/data.players.length:data.settings.start;
+  return p.handicap-(p.rating-meanRating)/data.settings.conversion;
+}
 function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings) {
   const official = a.handicap == null || b.handicap == null ? null : b.handicap - a.handicap;
   const actual = giver === a.id ? points : giver === b.id ? -points : 0;
@@ -57,6 +62,15 @@ export default function Home() {
     fetch("/api/state").then(r=>r.ok?r.json():null).then(v=>v?.players&&setData(v)).catch(()=>{});
   },[]);
   useEffect(()=>{ localStorage.setItem("scaa-draft",JSON.stringify(draft)); },[draft]);
+  useEffect(()=>{
+    if(data.players.length<2)return;
+    setDraft(d=>{
+      const validA=data.players.some(p=>p.id===d.a);
+      const validB=data.players.some(p=>p.id===d.b);
+      if(validA&&validB&&d.a!==d.b)return d;
+      return {...d,a:data.players[0].id,b:data.players[1].id,giver:""};
+    });
+  },[data.players]);
 
   async function persist(next:AppState,message:string) {
     setData(next); setSaving(true);
@@ -68,7 +82,7 @@ export default function Home() {
     finally { setSaving(false); setTimeout(()=>setToast(""),3200); }
   }
 
-  const ranked=useMemo(()=>[...data.players].filter(p=>p.active).sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name)),[data]);
+  const ranked=useMemo(()=>[...data.players].sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name)),[data]);
   const a=data.players.find(p=>p.id===draft.a)??data.players[0];
   const b=data.players.find(p=>p.id===draft.b)??data.players[1];
   const preview=a&&b&&a.id!==b.id?calc(a,b,+draft.scoreA,+draft.scoreB,draft.giver,+draft.points,data.settings):null;
@@ -115,18 +129,11 @@ export default function Home() {
   }
 
   function deletePlayer(p:Player){
-    if(data.matches.some(m=>m.a===p.id||m.b===p.id)){setToast("此球員已有比賽紀錄，請改用封存以保留評分歷史。");return;}
-    if(!confirm(`永久刪除 ${p.name}？此操作無法復原。`))return;
+    const hasHistory=data.matches.some(m=>m.a===p.id||m.b===p.id);
+    if(!confirm(`永久刪除 ${p.name}？${hasHistory?"歷史賽事會保留並顯示為「已刪除球員」。":""}此操作無法復原。`))return;
     const next={...data,players:data.players.filter(x=>x.id!==p.id),
       audits:[{id:crypto.randomUUID(),text:`永久刪除球員：${p.name}`,at:new Date().toISOString()},...data.audits]};
     persist(next,"球員已永久刪除。");
-  }
-
-  function archivePlayer(p:Player){
-    if(!confirm(`確定${p.active?"封存":"恢復"} ${p.name}？`))return;
-    const next={...data,players:data.players.map(x=>x.id===p.id?{...x,active:!x.active}:x),
-      audits:[{id:crypto.randomUUID(),text:`${p.active?"封存":"恢復"}球員：${p.name}`,at:new Date().toISOString()},...data.audits]};
-    persist(next,p.active?"球員已封存。":"球員已恢復。");
   }
 
   function voidMatch(m:Match){
@@ -149,7 +156,7 @@ export default function Home() {
       <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="status"><i/> 資料公開 · {saving?"儲存中…":"已同步"}</div></header>
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>setModal("match")} onPlayer={(p)=>{setDetail(p);setModal("detail")}}/>}
       {tab==="matches"&&<Matches data={data} onVoid={voidMatch}/>}
-      {tab==="players"&&<Players data={data} onAdd={()=>{setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:""});setModal("player")}} onArchive={archivePlayer} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}}/>}
+      {tab==="players"&&<Players data={data} onAdd={()=>{setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:""});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>setModal("settings")}/>}
     </main>
     <button className="fab" onClick={()=>setModal("match")}><span>＋</span>記錄</button>
@@ -171,11 +178,11 @@ function Leaderboard({ranked,data,onRecord,onPlayer}:{ranked:Player[];data:AppSt
   return <><section className="hero"><div><p className="kicker">SCAA 公開排名</p><h1>排行榜</h1><p>每一場，都清楚計算。</p></div><button className="primary" onClick={onRecord}>＋ 記錄新賽果</button></section>
     <section className="metrics"><div><small>目前第一</small><b>{leader?.name??"—"}</b><span>{Math.round(leader?.rating??0)} ELO</span></div><div><small>活躍球員</small><b>{ranked.length}</b><span>公開排名</span></div><div><small>本月比賽</small><b>{month}</b><span>已確認賽果</span></div></section>
     <section className="section-title"><div><p className="kicker">即時更新</p><h2>目前排名</h2></div><span className="pill">● 公開</span></section>
-    <div className="table-card">{ranked.length===0?<Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>:<><div className="table-head"><span>排名</span><span>球員</span><span>近況</span><span>場數／勝率</span><span>正式讓分</span><span>ELO</span></div>
+    <div className="table-card">{ranked.length===0?<Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>:<><div className="table-head"><span>排名</span><span>球員</span><span>近況</span><span>場數／勝率</span><span>正式／建議評分</span><span>ELO</span></div>
       {ranked.map((p,i)=><button className={`row ${i===0?"top":""}`} key={p.id} onClick={()=>onPlayer(p)}>
         <span className="rank">{i===0?"♛":i+1}</span><span className="person"><i>{p.short}</i><b>{p.name}<small>{games(p)<data.settings.provisionalGames?"臨時評分":"正式評分"}</small></b></span>
         <span className="form">{p.form.map((x,j)=><i className={x.toLowerCase()} key={j}>{x}</i>)}</span>
-        <span>{games(p)} 場<small>{games(p)?Math.round(p.wins/games(p)*100):0}% 勝率</small></span><span>{p.handicap==null?"未提供":p.handicap}</span>
+        <span>{games(p)} 場<small>{games(p)?Math.round(p.wins/games(p)*100):0}% 勝率</small></span><span className="dual-rating"><b>{p.handicap==null?"—":p.handicap}</b><small>建議 {suggestedHandicap(p,data)==null?"—":Math.round(suggestedHandicap(p,data)!)}</small></span>
         <span className="elo"><b>{Math.round(p.rating)}</b><small className={p.lastChange>=0?"positive":"negative"}>{p.lastChange>=0?"+":""}{Math.round(p.lastChange)}</small></span></button>)}</>}</div></>;
 }
 
@@ -191,9 +198,9 @@ function Matches({data,onVoid}:{data:AppState;onVoid:(m:Match)=>void}) {
         {m.status!=="void"&&<button className="danger-link" onClick={()=>onVoid(m)}>作廢賽事</button>}</article>)}</div></>;
 }
 
-function Players({data,onAdd,onArchive,onEdit,onDelete,onOpen}:{data:AppState;onAdd:()=>void;onArchive:(p:Player)=>void;onEdit:(p:Player)=>void;onDelete:(p:Player)=>void;onOpen:(p:Player)=>void}) {
-  return <><section className="hero small"><div><p className="kicker">球會名單</p><h1>球員</h1><p>管理顯示名稱、正式讓分及活躍狀態。</p></div><button className="primary" onClick={onAdd}>＋ 新增球員</button></section>
-    <div className="player-grid">{data.players.length===0?<Empty text="尚未有球員" sub="新增球員後便可開始記錄比賽。"/>:data.players.map(p=><article className="player-card" key={p.id}><button className="profile-hit" onClick={()=>onOpen(p)}><i>{p.short}</i><div><h3>{p.name}</h3><p>{Math.round(p.rating)} ELO · 讓分 {p.handicap??"未提供"}</p></div></button><span className={`pill ${p.active?"":"muted"}`}>{p.active?"活躍":"已封存"}</span><div className="player-actions"><button className="more" onClick={()=>onEdit(p)}>編輯</button><button className="more" onClick={()=>onArchive(p)}>{p.active?"封存":"恢復"}</button><button className="danger-link static" onClick={()=>onDelete(p)}>刪除</button></div></article>)}</div></>;
+function Players({data,onAdd,onEdit,onDelete,onOpen}:{data:AppState;onAdd:()=>void;onEdit:(p:Player)=>void;onDelete:(p:Player)=>void;onOpen:(p:Player)=>void}) {
+  return <><section className="hero small"><div><p className="kicker">球會名單</p><h1>球員</h1><p>管理職員提供的正式評分，並比較 ELO 建議評分。</p></div><button className="primary" onClick={onAdd}>＋ 新增球員</button></section>
+    <div className="player-grid">{data.players.length===0?<Empty text="尚未有球員" sub="新增球員後便可開始記錄比賽。"/>:data.players.map(p=><article className="player-card" key={p.id}><button className="profile-hit" onClick={()=>onOpen(p)}><i>{p.short}</i><div><h3>{p.name}</h3><p>{Math.round(p.rating)} ELO · 正式 {p.handicap??"未提供"} · 建議 {suggestedHandicap(p,data)==null?"未提供":Math.round(suggestedHandicap(p,data)!)}</p></div></button><div className="player-actions"><button className="more" onClick={()=>onEdit(p)}>編輯</button><button className="danger-link static" onClick={()=>onDelete(p)}>刪除</button></div></article>)}</div></>;
 }
 
 function SettingsView({data,onEdit}:{data:AppState;onEdit:()=>void}) {
@@ -204,11 +211,16 @@ function SettingsView({data,onEdit}:{data:AppState;onEdit:()=>void}) {
 
 function MatchForm({data,draft,setDraft,preview,a,b,onSave}:{data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;onSave:()=>void}) {
   const update=(k:string,v:any)=>setDraft((d:any)=>({...d,[k]:v}));
+  const fairActual=preview?(preview.official??0)+(a.rating-b.rating)/data.settings.conversion:null;
+  const applyFair=()=>{
+    if(fairActual==null)return;
+    setDraft((d:any)=>({...d,giver:fairActual>=0?a.id:b.id,points:Math.round(Math.abs(fairActual))}));
+  };
   return <><p className="kicker">快速記錄</p><h2>記錄比賽</h2><p className="sub">自由賽制，只需輸入最終局數；同分即為和局。</p>
     {data.players.length<2&&<p className="warning">請先新增至少兩位活躍球員。</p>}
     <div className="step-label"><b>1</b> 球員與日期</div><div className="two"><label>球員 A<select value={draft.a} onChange={e=>update("a",e.target.value)}>{data.players.filter(p=>p.active).map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label><label>球員 B<select value={draft.b} onChange={e=>update("b",e.target.value)}>{data.players.filter(p=>p.active).map(p=><option value={p.id} key={p.id}>{p.name}</option>)}</select></label></div>
     <label>比賽日期<input type="date" value={draft.date} onChange={e=>update("date",e.target.value)}/></label>
-    <div className="step-label"><b>2</b> 實際讓分</div><div className="two"><label>讓分提供者<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">沒有讓分</option><option value={a?.id}>{a?.name}</option><option value={b?.id}>{b?.name}</option></select></label><label>每局讓分<input type="number" min="0" step="1" value={draft.points} onChange={e=>update("points",+e.target.value)}/></label></div>
+    <div className="step-label"><b>2</b> 實際讓分</div>{fairActual!=null&&<div className="fair-tip"><div><small>ELO 建議公平讓分</small><b>{fairActual>=0?a.name:b.name} 讓 {Math.round(Math.abs(fairActual))} 分</b><span>套用後預測勝率接近 50／50</span></div><button type="button" onClick={applyFair}>套用建議</button></div>}<div className="two"><label>讓分提供者<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">沒有讓分</option><option value={a?.id}>{a?.name}</option><option value={b?.id}>{b?.name}</option></select></label><label>每局讓分<input type="number" min="0" step="1" value={draft.points} onChange={e=>update("points",+e.target.value)}/></label></div>
     <div className="step-label"><b>3</b> 最終比分</div><div className="score-input"><label>{a?.short}<input type="number" min="0" value={draft.scoreA} onChange={e=>update("scoreA",+e.target.value)}/></label><strong>–</strong><label>{b?.short}<input type="number" min="0" value={draft.scoreB} onChange={e=>update("scoreB",+e.target.value)}/></label></div>
     {preview&&<div className="preview"><div><small>{a.name}</small><b>{Math.round(a.rating)} <em className={preview.deltaA>=0?"positive":"negative"}>{preview.deltaA>=0?"+":""}{Math.round(preview.deltaA)}</em></b></div><div><small>預測勝率</small><b>{Math.round(preview.expectedA*100)}% / {Math.round((1-preview.expectedA)*100)}%</b></div><div><small>{b.name}</small><b>{Math.round(b.rating)} <em className={preview.deltaA<=0?"positive":"negative"}>{-preview.deltaA>=0?"+":""}{Math.round(-preview.deltaA)}</em></b></div><p>正式讓分：{preview.official??"未提供（按 0 計）"} · 實際：{preview.actual} · 額外：{preview.extra} · 比分倍率 ×{preview.marginMultiplier.toFixed(2)}</p></div>}
     <button className="primary full" disabled={data.players.length<2} onClick={onSave}>確認並更新 ELO</button></>;
@@ -216,5 +228,5 @@ function MatchForm({data,draft,setDraft,preview,a,b,onSave}:{data:AppState;draft
 
 function PlayerForm({form,setForm,editing,onSave}:{form:any;setForm:any;editing:boolean;onSave:()=>void}) { const u=(k:string,v:string)=>setForm((f:any)=>({...f,[k]:v}));return <><p className="kicker">公開管理</p><h2>{editing?"編輯球員":"新增球員"}</h2><p className="sub">{editing?"可更新名稱、縮寫及正式讓分；變更不會改寫舊賽事快照。":"起始 ELO 留空時使用群組預設值。"}</p><label>顯示名稱<input value={form.name} onChange={e=>u("name",e.target.value)}/></label><label>短名稱／縮寫<input maxLength={3} value={form.short} onChange={e=>u("short",e.target.value)}/></label><div className="two"><label>正式讓分<input type="number" step="2" value={form.handicap} onChange={e=>u("handicap",e.target.value)}/></label>{!editing&&<label>起始 ELO<input type="number" value={form.rating} onChange={e=>u("rating",e.target.value)}/></label>}</div><button className="primary full" onClick={onSave}>{editing?"儲存變更":"新增球員"}</button></>}
 function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) { const [s,setS]=useState(data.settings);const field=(k:keyof Settings,label:string)=><label>{label}<input type="number" value={s[k]} onChange={e=>setS({...s,[k]:+e.target.value})}/></label>;return <><p className="kicker">公開管理</p><h2>編輯 ELO 設定</h2><p className="warning">任何人都可修改。變更會影響其後賽事，歷史賽事保留原設定快照。</p><div className="two">{field("start","起始 ELO")}{field("provisionalGames","臨時門檻")}{field("kProvisional","臨時 K")}{field("kRated","正式 K")}{field("conversion","每點換算")}{field("cap","調整上限")}</div><button className="primary full" onClick={()=>confirm("確定更新公開 ELO 設定？")&&onSave(s)}>儲存設定</button></>}
-function PlayerDetail({player,rank,data}:{player:Player;rank:number;data:AppState}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id);return <><div className="profile-head"><i>{player.short}</i><div><p className="kicker">排名 #{rank||"—"}</p><h2>{player.name}</h2><p>{g<data.settings.provisionalGames?"臨時評分":"正式評分"} · 正式讓分 {player.handicap??"未提供"}</p></div></div><div className="profile-stats"><div><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div><div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div><div><small>勝率</small><b>{g?Math.round(player.wins/g*100):0}%</b></div><div><small>局數勝率</small><b>{player.framesWon+player.framesLost?Math.round(player.framesWon/(player.framesWon+player.framesLost)*100):0}%</b></div></div><h3>表現摘要</h3><p className="summary">{player.name} 目前為 {Math.round(player.rating)} ELO，最近五場錄得 {player.form.filter(x=>x==="W").length} 勝、{player.form.filter(x=>x==="L").length} 負、{player.form.filter(x=>x==="D").length} 和；共有 {related.length} 場可追溯賽事紀錄。</p></>}
+function PlayerDetail({player,rank,data}:{player:Player;rank:number;data:AppState}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data);return <><div className="profile-head"><i>{player.short}</i><div><p className="kicker">排名 #{rank||"—"}</p><h2>{player.name}</h2><p>{g<data.settings.provisionalGames?"臨時 ELO":"正式 ELO"}</p></div></div><div className="profile-stats"><div><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div><div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div><div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div><div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div></div><h3>表現摘要</h3><p className="summary">{player.name} 目前為 {Math.round(player.rating)} ELO，最近五場錄得 {player.form.filter(x=>x==="W").length} 勝、{player.form.filter(x=>x==="L").length} 負、{player.form.filter(x=>x==="D").length} 和；ELO 建議評分以現有正式評分為基準，再按相對 ELO 表現校正。共有 {related.length} 場可追溯賽事紀錄。</p></>}
 function Empty({text,sub}:{text:string;sub:string}){return <div className="empty"><b>○</b><h3>{text}</h3><p>{sub}</p></div>}
