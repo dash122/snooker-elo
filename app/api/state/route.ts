@@ -6,13 +6,11 @@ const initialState = () => ({
   settings: { start: 1500, provisionalGames: 10, kProvisional: 40, kRated: 24, conversion: 8, cap: 200 },
   audits: [{ id: crypto.randomUUID(), text: "清除並重設所有資料", at: new Date().toISOString() }],
 });
-const initial = JSON.stringify(initialState());
-
 async function ensure() {
   const db = env.DB;
   if (!db) throw new Error("DB unavailable");
   await db.prepare("CREATE TABLE IF NOT EXISTS app_state (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL, updated_at TEXT NOT NULL)").run();
-  await db.prepare("INSERT OR IGNORE INTO app_state (id, data, updated_at) VALUES (1, ?, ?)").bind(initial,new Date().toISOString()).run();
+  await db.prepare("INSERT OR IGNORE INTO app_state (id, data, updated_at) VALUES (1, ?, ?)").bind(JSON.stringify(initialState()),new Date().toISOString()).run();
   return db;
 }
 
