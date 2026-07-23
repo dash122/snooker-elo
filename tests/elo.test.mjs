@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-function calculate({ra,rb,official,actual,c=8,curve=1.25,softCap=800,k=24,bonus=.5,scoreA=4,scoreB=0}) {
+function calculate({ra,rb,official,actual,c=8,curve=1.25,softCap=800,k=24,bonus=.5,boost=.75,boostScale=200,scoreA=4,scoreB=0}) {
   const extra=actual-(official??0);
   const raw=actual===0?0:Math.sign(actual)*c*10*(Math.abs(actual)/10)**curve;
   const adjustment=softCap*Math.tanh(raw/softCap);
@@ -10,8 +10,14 @@ function calculate({ra,rb,official,actual,c=8,curve=1.25,softCap=800,k=24,bonus=
   const frameEvidence=Math.min(total,20);
   const performance=scoreA===scoreB?.5:scoreA>scoreB?(scoreA+bonus)/(total+bonus):scoreA/(total+bonus);
   const weight=Math.sqrt(frameEvidence/4);
-  const delta=k*weight*(performance-expected);
-  return {extra,adjustment,expected,performance,weight,delta,other:-delta,frameEvidence};
+  const baseDelta=k*weight*(performance-expected);
+  const ratingDifference=ra-rb;
+  const performerIsA=performance>.5||(performance===.5&&expected<.5);
+  const overHandicapElo=performerIsA?Math.max(0,adjustment-ratingDifference):Math.max(0,ratingDifference-adjustment);
+  const performanceMargin=performance===.5?.6:.6+.4*Math.min(1,Math.abs(performance-.5)/.5);
+  const multiplier=1+boost*(1-Math.exp(-overHandicapElo/boostScale))*performanceMargin;
+  const delta=baseDelta*multiplier;
+  return {extra,adjustment,expected,performance,weight,delta,other:-delta,frameEvidence,overHandicapElo,multiplier};
 }
 test("official handicap is reference-only",()=>assert.equal(calculate({ra:1500,rb:1500,official:8,actual:0}).expected,.5));
 test("missing official handicap is neutral",()=>assert.equal(calculate({ra:1500,rb:1500,official:null,actual:4}).extra,4));
@@ -46,4 +52,19 @@ test("larger handicap lowers expectation and increases reward for the same win",
   const twenty=calculate({ra:1500,rb:1500,official:0,actual:20,scoreA:3,scoreB:2});
   assert.ok(twenty.expected<ten.expected);
   assert.ok(twenty.delta>ten.delta);
+});
+test("winning while giving beyond the fair handicap earns an explicit multiplier",()=>{
+  const fair=calculate({ra:1500,rb:1500,official:0,actual:0,scoreA:3,scoreB:2});
+  const over=calculate({ra:1500,rb:1500,official:0,actual:20,scoreA:3,scoreB:2});
+  assert.equal(fair.multiplier,1);
+  assert.ok(over.overHandicapElo>0&&over.multiplier>1&&over.delta>fair.delta);
+});
+test("a favourite winning without excess handicap gets no multiplier",()=>{
+  const result=calculate({ra:1700,rb:1500,official:0,actual:0,scoreA:3,scoreB:2});
+  assert.equal(result.overHandicapElo,0);
+  assert.equal(result.multiplier,1);
+});
+test("drawing under excess handicap receives a positive boosted reward",()=>{
+  const result=calculate({ra:1500,rb:1500,official:0,actual:20,scoreA:3,scoreB:3});
+  assert.ok(result.delta>0&&result.multiplier>1);
 });
