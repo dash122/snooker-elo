@@ -17,6 +17,7 @@ export default async function AdminPage({searchParams}:{searchParams:Promise<{er
     {params.error && <p className="form-error">{params.error==="exists"?"此電郵已有帳戶。":"請檢查帳戶資料。"}</p>}
     <form className="auth-form admin-create" action="/api/admin/members" method="post">
       <label>顯示名稱<input name="displayName" required minLength={2}/></label>
+      <label>?????<input name="username" autoComplete="username" required minLength={2}/></label>
       <label>電郵<input name="email" type="email" required/></label>
       <label>初始密碼<input name="password" type="password" minLength={6} required/></label>
       <label>帳戶類型<select name="role"><option value="member">會員</option><option value="admin">管理員</option></select></label>

@@ -17,7 +17,7 @@ export default async function LoginPage({searchParams}:{searchParams:Promise<{er
         <p>使用球會發出的電郵及密碼登入。</p>
         {params.error && <p className="form-error" role="alert">電郵或密碼不正確。</p>}
         <form className="auth-form" action="/api/auth/login" method="post">
-          <label>電郵<input name="email" type="email" autoComplete="email" required /></label>
+          <label>電郵<input name="username" autoComplete="username" required /></label>
           <label>密碼<input name="password" type="password" autoComplete="current-password" minLength={6} required /></label>
           <button className="primary" type="submit">登入</button>
         </form>

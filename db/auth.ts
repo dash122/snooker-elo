@@ -1,3 +1,4 @@
+import { getState } from "./state";
 export type { MemberSession, MemberRow } from "./auth-types";
 
 // Vercel deployments (with the Supabase Postgres integration) set POSTGRES_URL;
@@ -15,17 +16,18 @@ export async function requireMember(role?: "admin") {
   return (await backend()).requireMember(role);
 }
 
-export async function verifyCredentials(email: string, password: string) {
-  return (await backend()).verifyCredentials(email, password);
+export async function verifyCredentials(username: string, password: string) {
+  return (await backend()).verifyCredentials(username, password);
 }
 
-export async function createMember(email: string, displayName: string, password: string, role: "admin" | "member") {
-  return (await backend()).createMember(email, displayName, password, role);
+export async function createMember(username: string, email: string, displayName: string, password: string, role: "admin" | "member") {
+  return (await backend()).createMember(username, email, displayName, password, role);
 }
 
 export async function hasMembers() {
   return (await backend()).hasMembers();
 }
+
 
 export async function createSession(email: string) {
   return (await backend()).createSession(email);
