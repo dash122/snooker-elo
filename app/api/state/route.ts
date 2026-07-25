@@ -1,3 +1,5 @@
+import { requireMember } from "../../../db/auth";
+
 const backend = process.env.STATE_BACKEND_URL ?? "https://scaa-snooker-elo.dchan98hk.chatgpt.site/api/state";
 
 async function forward(request: Request, method: "GET" | "PUT" | "DELETE") {
@@ -22,9 +24,13 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const user = await requireMember();
+  if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   return forward(request, "PUT");
 }
 
 export async function DELETE(request: Request) {
+  const user = await requireMember("admin");
+  if (!user) return Response.json({ error: "Admin access required" }, { status: 403 });
   return forward(request, "DELETE");
 }
