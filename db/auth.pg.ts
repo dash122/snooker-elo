@@ -28,6 +28,8 @@ function ensureAuthSchema() {
     await sql`
       CREATE TABLE IF NOT EXISTS members (
         email TEXT PRIMARY KEY NOT NULL,
+        username TEXT NOT NULL UNIQUE,
+        state_player_id TEXT UNIQUE,
         display_name TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'member',
         password_hash TEXT NOT NULL,
@@ -96,7 +98,7 @@ export async function getCurrentMember(): Promise<MemberSession | null> {
   const now = new Date().toISOString();
   const sql = getSql();
   const rows = await sql<MemberSession[]>`
-    SELECT m.email, m.display_name AS "displayName", m.role
+    SELECT m.email, m.username, m.state_player_id AS "statePlayerId", m.display_name AS "displayName", m.role
     FROM sessions s JOIN members m ON m.email = s.member_email
     WHERE s.token_hash = ${tokenHash} AND s.expires_at > ${now} AND m.active = true
   `;
@@ -109,28 +111,29 @@ export async function requireMember(role?: "admin") {
   return member;
 }
 
-export async function verifyCredentials(email: string, password: string) {
+export async function verifyCredentials(username: string, password: string) {
   await ensureAuthSchema();
   const sql = getSql();
   const rows = await sql<(MemberSession & { passwordHash: string; passwordSalt: string })[]>`
     SELECT email, display_name AS "displayName", role, password_hash AS "passwordHash", password_salt AS "passwordSalt"
-    FROM members WHERE email = ${email.toLowerCase()} AND active = true
+    FROM members WHERE username = ${username.trim().toLowerCase()} AND active = true
   `;
   const row = rows[0];
   if (!row || await passwordDigest(password, row.passwordSalt) !== row.passwordHash) return null;
   return row;
 }
 
-export async function createMember(email: string, displayName: string, password: string, role: "admin" | "member") {
+export async function createMember(username: string, email: string, displayName: string, password: string, role: "admin" | "member", statePlayerId?: string) {
   await ensureAuthSchema();
   const sql = getSql();
   const normalizedEmail = email.trim().toLowerCase();
+    const normalizedUsername = username.trim().toLowerCase();
   const salt = randomHex(16);
   const hash = await passwordDigest(password, salt);
   const now = new Date().toISOString();
   await sql`
-    INSERT INTO members (email, display_name, role, password_hash, password_salt, active, joined_at, last_seen_at)
-    VALUES (${normalizedEmail}, ${displayName.trim()}, ${role}, ${hash}, ${salt}, true, ${now}, ${now})
+    INSERT INTO members (email, username, state_player_id, display_name, role, password_hash, password_salt, active, joined_at, last_seen_at)
+    VALUES (${normalizedEmail}, ${normalizedUsername}, ${statePlayerId ?? null}, ${displayName.trim()}, ${role}, ${hash}, ${salt}, true, ${now}, ${now})
   `;
 }
 
@@ -141,6 +144,23 @@ export async function hasMembers() {
   return Number(rows[0]?.count ?? 0) > 0;
 }
 
+export async function updateMember(email: string, input: { username?: string; newEmail?: string; password?: string; currentPassword?: string }) {
+  await ensureAuthSchema();
+  const sql = getSql();
+  const rows = await sql<{ passwordHash: string; passwordSalt: string }[]>`SELECT password_hash AS "passwordHash", password_salt AS "passwordSalt" FROM members WHERE email = ${email.toLowerCase()}`;
+  const row = rows[0];
+  if (!row || !input.currentPassword || await passwordDigest(input.currentPassword, row.passwordSalt) !== row.passwordHash) return false;
+  const username = input.username?.trim().toLowerCase() || null;
+  const newEmail = input.newEmail?.trim().toLowerCase() || null;
+  if (input.password) {
+    const salt = randomHex(16);
+    const hash = await passwordDigest(input.password, salt);
+    await sql`UPDATE members SET username = COALESCE(${username}, username), email = COALESCE(${newEmail}, email), password_hash = ${hash}, password_salt = ${salt} WHERE email = ${email.toLowerCase()}`;
+  } else {
+    await sql`UPDATE members SET username = COALESCE(${username}, username), email = COALESCE(${newEmail}, email) WHERE email = ${email.toLowerCase()}`;
+  }
+  return true;
+}
 export async function createSession(email: string) {
   await ensureAuthSchema();
   const sql = getSql();
@@ -168,7 +188,7 @@ export async function listMembers(): Promise<MemberRow[]> {
   await ensureAuthSchema();
   const sql = getSql();
   return await sql<MemberRow[]>`
-    SELECT email, display_name AS "displayName", role, active, joined_at AS "joinedAt"
+    SELECT email, username, state_player_id AS "statePlayerId", display_name AS "displayName", role, active, joined_at AS "joinedAt"
     FROM members ORDER BY joined_at DESC
   `;
 }

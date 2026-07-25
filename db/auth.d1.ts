@@ -20,6 +20,8 @@ function ensureAuthSchema() {
       env.DB.prepare(`
         CREATE TABLE IF NOT EXISTS members (
           email TEXT PRIMARY KEY NOT NULL,
+          username TEXT NOT NULL UNIQUE,
+          state_player_id TEXT UNIQUE,
           display_name TEXT NOT NULL,
           role TEXT DEFAULT 'member' NOT NULL,
           password_hash TEXT NOT NULL,
@@ -96,7 +98,7 @@ export async function getCurrentMember(): Promise<MemberSession | null> {
   const now = new Date().toISOString();
   const env = await cfEnv();
   return await env.DB.prepare(`
-    SELECT m.email, m.display_name AS displayName, m.role
+    SELECT m.email, m.username, m.display_name AS displayName, m.role
     FROM sessions s JOIN members m ON m.email = s.member_email
     WHERE s.token_hash = ? AND s.expires_at > ? AND m.active = 1
   `).bind(tokenHash, now).first() as MemberSession | null;
@@ -108,28 +110,29 @@ export async function requireMember(role?: "admin") {
   return member;
 }
 
-export async function verifyCredentials(email: string, password: string) {
+export async function verifyCredentials(username: string, password: string) {
   await ensureAuthSchema();
   const env = await cfEnv();
   const row = await env.DB.prepare(`
     SELECT email, display_name AS displayName, role, password_hash AS passwordHash, password_salt AS passwordSalt
-    FROM members WHERE email = ? AND active = 1
-  `).bind(email.toLowerCase()).first() as (MemberSession & { passwordHash: string; passwordSalt: string }) | null;
+    FROM members WHERE username = ? AND active = 1
+  `).bind(username.trim().toLowerCase()).first() as (MemberSession & { passwordHash: string; passwordSalt: string }) | null;
   if (!row || await passwordDigest(password, row.passwordSalt) !== row.passwordHash) return null;
   return row;
 }
 
-export async function createMember(email: string, displayName: string, password: string, role: "admin" | "member") {
+export async function createMember(username: string, email: string, displayName: string, password: string, role: "admin" | "member", statePlayerId?: string) {
   await ensureAuthSchema();
   const env = await cfEnv();
   const normalizedEmail = email.trim().toLowerCase();
+  const normalizedUsername = username.trim().toLowerCase();
   const salt = randomHex(16);
   const hash = await passwordDigest(password, salt);
   const now = new Date().toISOString();
   await env.DB.prepare(`
-    INSERT INTO members (email, display_name, role, password_hash, password_salt, active, joined_at, last_seen_at)
-    VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-  `).bind(normalizedEmail, displayName.trim(), role, hash, salt, now, now).run();
+    INSERT INTO members (email, username, state_player_id, display_name, role, password_hash, password_salt, active, joined_at, last_seen_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+  `).bind(normalizedEmail, normalizedUsername, statePlayerId ?? null, displayName.trim(), role, hash, salt, now, now).run();
 }
 
 export async function hasMembers() {
@@ -139,6 +142,25 @@ export async function hasMembers() {
   return Number(row?.count ?? 0) > 0;
 }
 
+export async function updateMember(email: string, input: { username?: string; newEmail?: string; password?: string; currentPassword?: string }) {
+  await ensureAuthSchema();
+  const env = await cfEnv();
+  const row = await env.DB.prepare("SELECT password_hash AS passwordHash, password_salt AS passwordSalt FROM members WHERE email = ?")
+    .bind(email.toLowerCase()).first() as { passwordHash: string; passwordSalt: string } | null;
+  if (!row || !input.currentPassword || await passwordDigest(input.currentPassword, row.passwordSalt) !== row.passwordHash) return false;
+  const username = input.username?.trim().toLowerCase();
+  const newEmail = input.newEmail?.trim().toLowerCase();
+  if (input.password) {
+    const salt = randomHex(16);
+    const hash = await passwordDigest(input.password, salt);
+    await env.DB.prepare("UPDATE members SET username = COALESCE(?, username), email = COALESCE(?, email), password_hash = ?, password_salt = ? WHERE email = ?")
+      .bind(username || null, newEmail || null, hash, salt, email.toLowerCase()).run();
+  } else {
+    await env.DB.prepare("UPDATE members SET username = COALESCE(?, username), email = COALESCE(?, email) WHERE email = ?")
+      .bind(username || null, newEmail || null, email.toLowerCase()).run();
+  }
+  return true;
+}
 export async function createSession(email: string) {
   await ensureAuthSchema();
   const env = await cfEnv();
@@ -166,7 +188,7 @@ export async function listMembers(): Promise<MemberRow[]> {
   await ensureAuthSchema();
   const env = await cfEnv();
   const result = await env.DB.prepare(`
-    SELECT email, display_name AS displayName, role, active, joined_at AS joinedAt
+    SELECT email, username, display_name AS displayName, role, active, joined_at AS joinedAt
     FROM members ORDER BY joined_at DESC
   `).all() as { results: (Omit<MemberRow, "active"> & { active: number })[] };
   return result.results.map(row => ({ ...row, active: Boolean(row.active) }));

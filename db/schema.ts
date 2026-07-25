@@ -8,6 +8,8 @@ export const appState = sqliteTable("app_state", {
 
 export const members = sqliteTable("members", {
   email: text("email").primaryKey(),
+  username: text("username").notNull().unique(),
+  statePlayerId: text("state_player_id").unique(),
   displayName: text("display_name").notNull(),
   role: text("role").notNull().default("member"),
   passwordHash: text("password_hash").notNull(),
