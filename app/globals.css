@@ -139,7 +139,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .break-ranking li>b{display:block;min-width:0;overflow:hidden;white-space:normal;text-overflow:clip}
 .break-ranking li>b>span,.break-ranking li>b>small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .break-ranking li>b>small{margin-top:2px;color:var(--muted);font-size:10px;font-weight:500}
+.break-date-inline{display:none}
 @media(max-width:700px){.break-ranking li{min-height:54px}.break-ranking li>b>small{font-size:9px}}
+@media(max-width:480px){.break-date-inline{display:inline}}
 
 
 /* Delete confirmation sheet */
@@ -846,3 +848,4 @@ main>.match-view-toggle,main>.player-toolbar{margin-top:2rem}
 .break-tally{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.75rem}
 .break-tally>span{display:inline-flex;align-items:baseline;gap:.25rem;padding:.375rem .625rem;border-radius:1.25rem;background:white;border:1px solid var(--line);font-size:var(--fs-sm);font-weight:700;color:var(--ink)}
 .break-tally>span em{font-style:normal;color:var(--muted);font-weight:600;font-size:var(--fs-caption)}
+.break-tally-more{color:var(--muted)!important;background:transparent!important;border-style:dashed!important}
