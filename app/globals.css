@@ -1145,7 +1145,7 @@ main>.match-view-toggle,main>.player-toolbar{margin-top:2rem}
 .admin-panel-link{display:block;margin-top:1.25rem}
 .admin-page{place-items:start center}.admin-card{width:min(56rem,100%);text-align:left}.admin-card>.auth-brand{display:flex;width:max-content;margin-inline:auto}
 .admin-card>h1,.admin-card>.kicker{text-align:center}.admin-create{grid-template-columns:repeat(2,minmax(0,1fr))}
-.admin-create button{grid-column:1/-1}.member-list{margin-top:2rem;border-top:1px solid var(--line)}
+.admin-create button{grid-column:1/-1}.admin-edit-actions{grid-column:1/-1;display:flex;gap:.75rem;align-items:center}.admin-edit-actions .primary{flex:1}.member-list{margin-top:2rem;border-top:1px solid var(--line)}
 .member-list>div,.member-list>details{border-bottom:1px solid var(--line)}.member-list>details>summary{display:grid;grid-template-columns:2.5rem minmax(0,1fr) auto;align-items:center;gap:.8rem;padding:1rem .25rem;cursor:pointer;list-style:none}.member-list>details>summary::-webkit-details-marker{display:none}.member-list>details[open]>summary{padding-bottom:.5rem}
 .member-list-avatar{display:grid;place-items:center;width:2.5rem;height:2.5rem;border-radius:50%;background:var(--green);color:white;font-weight:800}
 .member-list b,.member-list small{display:block}.member-list small{color:var(--muted)}
