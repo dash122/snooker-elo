@@ -49,6 +49,11 @@
 .h2h-date-fields label{min-width:0;overflow:hidden}
 .h2h-date-fields input[type="date"]{display:block;width:100%;max-width:100%;min-width:0;height:44px;min-height:44px;margin-top:5px;padding:0 11px;font-size:12px;line-height:normal}
 .h2h-date-fields input[type="date"]::-webkit-date-and-time-value{display:flex;align-items:center;height:100%;min-height:100%;padding:0;text-align:left}
+@media(max-width:480px){
+  .h2h-controls .h2h-date-fields{grid-template-columns:minmax(0,1fr)}
+  .h2h-date-fields label{width:100%;overflow:visible}
+  .h2h-date-fields input[type="date"]{inline-size:100%;max-inline-size:100%;min-inline-size:0}
+}
 /* Combined ELO / suggested score chart */
 .bar-chart button{grid-template-columns:minmax(85px,130px) 1fr 84px}
 .bar-chart b{font-size:10px;white-space:nowrap;font-variant-numeric:tabular-nums}
