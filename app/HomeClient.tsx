@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Empty, LineChart, PlayerForm, SortArrow, SortControls, Sparkline, Term, sortLabels, type SortKey } from "./UiBits";
 
 type Player = {
   id: string; name: string; short: string; handicap: number | null; rating: number;
@@ -45,8 +46,6 @@ function suggestedHandicap(p: Player,data: AppState) {
   const anchor=official.length?official.reduce((sum,x)=>sum+x,0)/official.length:0;
   return anchor-eloToHandicap(p.rating-meanRating,data.settings);
 }
-type SortKey = "rank"|"name"|"rating"|"change"|"form"|"official"|"suggested"|"games"|"winRate"|"frameRate";
-const sortLabels:Record<SortKey,string>={rank:"排名",name:"球員",rating:"ELO",change:"最近變化",form:"近況",official:"正式評分",suggested:"建議評分",games:"場數",winRate:"勝率",frameRate:"局數勝率"};
 function winRate(p:Player){return games(p)?p.wins/games(p):0}
 function frameRate(p:Player){const total=p.framesWon+p.framesLost;return total?p.framesWon/total:0}
 function formScore(p:Player){return p.form.reduce((sum,x,i)=>sum+(x==="W"?1:x==="D"?.5:0)*(5-i),0)}
@@ -178,6 +177,7 @@ export default function Home() {
   const [modal,setModal] = useState<"match"|"player"|"settings"|"detail"|null>(null);
   const [detail,setDetail] = useState<Player|null>(null);
   const [editingPlayer,setEditingPlayer] = useState<Player|null>(null);
+  const [editingMatch,setEditingMatch] = useState<Match|null>(null);
   const [toast,setToast] = useState("");
   const [saving,setSaving] = useState(false);
   const [draft,setDraft] = useState({mode:"match" as "match"|"aggregate",a:"",b:"",scoreA:0,scoreB:0,date:today,giver:"",points:0});
@@ -241,11 +241,11 @@ export default function Home() {
   function saveMatch(){
     if(!a||!b||a.id===b.id||draft.scoreA<0||draft.scoreB<0||(+draft.scoreA+ +draft.scoreB)===0){setToast("請選擇兩位不同球員，比分總局數必須大於 0。");return;}
     if(!preview)return;
-    const now=new Date().toISOString(), id=crypto.randomUUID();
+    const now=new Date().toISOString(), id=editingMatch?.id??crypto.randomUUID();
     const match:Match={id,a:a.id,b:b.id,scoreA:+draft.scoreA,scoreB:+draft.scoreB,playedOn:draft.date||today,
       actual:preview.actual,giver:draft.giver||null,official:preview.official,extra:preview.extra,expectedA:preview.expectedA,
       beforeA:a.rating,beforeB:b.rating,afterA:a.rating+preview.deltaA,afterB:b.rating-preview.deltaA,deltaA:preview.deltaA,
-      entryMode:draft.mode??"match",frameEvidence:preview.frameEvidence,performanceScore:preview.performanceScore,evidenceWeight:preview.evidenceWeight,handicapAdjustment:preview.adjustment,overHandicapElo:preview.overHandicapElo,overHandicapMultiplier:preview.overHandicapMultiplier,status:"confirmed",createdAt:now};
+      entryMode:draft.mode??"match",frameEvidence:preview.frameEvidence,performanceScore:preview.performanceScore,evidenceWeight:preview.evidenceWeight,handicapAdjustment:preview.adjustment,overHandicapElo:preview.overHandicapElo,overHandicapMultiplier:preview.overHandicapMultiplier,status:"confirmed",createdAt:editingMatch?.createdAt??now};
     const resultA=draft.scoreA===draft.scoreB?"D":draft.scoreA>draft.scoreB?"W":"L";
     const resultB=resultA==="D"?"D":resultA==="W"?"L":"W";
     const players=data.players.map(p=>{
@@ -255,11 +255,32 @@ export default function Home() {
         draws:p.draws+(result==="D"?1:0),framesWon:p.framesWon+(isA?+draft.scoreA:+draft.scoreB),
         framesLost:p.framesLost+(isA?+draft.scoreB:+draft.scoreA),form:[result,...p.form].slice(0,5)};
     });
-    const matches=[match,...data.matches];
+    const matches=editingMatch
+      ? data.matches.map(existing=>existing.id===editingMatch.id?match:existing)
+      : [match,...data.matches];
     const settings=recalibrate(data.settings,matches);
     const rebuilt=replay(data.players,matches,settings);
-    const next={...data,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:`記錄賽果：${a.name} ${draft.scoreA}–${draft.scoreB} ${b.name}；持續校準 ${settings.conversion} ELO／分`,at:now},...data.audits]};
-    localStorage.removeItem("scaa-draft"); setModal(null); persist(next,"賽果已儲存，雙方 ELO 已更新。");
+    const action=editingMatch?"編輯":"記錄";
+    const next={...data,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:`${action}賽果：${a.name} ${draft.scoreA}–${draft.scoreB} ${b.name}；重播歷史 ELO`,at:now},...data.audits]};
+    localStorage.removeItem("scaa-draft"); setEditingMatch(null); setModal(null); persist(next,editingMatch?"賽事已更新，所有後續 ELO 已重建。":"賽果已儲存，雙方 ELO 已更新。");
+  }
+
+  function editMatch(m:Match){
+    setEditingMatch(m);
+    setDraft({
+      mode:m.entryMode??"match",a:m.a,b:m.b,scoreA:m.scoreA,scoreB:m.scoreB,
+      date:m.playedOn,giver:m.actual>0?m.a:m.actual<0?m.b:"",points:Math.abs(m.actual)
+    });
+    setModal("match");
+  }
+
+  function newMatch(){
+    setEditingMatch(null);
+    setDraft({
+      mode:"match",a:data.players[0]?.id??"",b:data.players[1]?.id??"",
+      scoreA:0,scoreB:0,date:today,giver:"",points:0
+    });
+    setModal("match");
   }
 
   function savePlayer(){
@@ -310,17 +331,17 @@ export default function Home() {
     </aside>
     <main>
       <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div></header>
-      {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>setModal("match")} onPlayer={(p)=>{setDetail(p);setModal("detail")}}/>}
-      {tab==="matches"&&<Matches data={data} onVoid={voidMatch}/>}
+      {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={newMatch} onPlayer={(p)=>{setDetail(p);setModal("detail")}}/>}
+      {tab==="matches"&&<Matches data={data} onEdit={editMatch} onVoid={voidMatch}/>}
       {tab==="players"&&<Players data={data} onAdd={()=>{setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:""});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>setModal("settings")} onReset={resetAll}/>}
     </main>
-    <button className="fab" onClick={()=>setModal("match")}><span>＋</span>記錄</button>
+    <button className="fab" onClick={newMatch}><span>＋</span>記錄</button>
     <nav className="bottom">{[["leaderboard","榜","◆"],["matches","比賽","◫"],["record","記錄","＋"],["players","球員","◎"],["settings","設定","⚙"]].map(([id,label,icon])=>
-      <button key={id} className={tab===id?"active":""} onClick={()=>id==="record"?setModal("match"):setTab(id)}><i>{icon}</i><small>{label}</small></button>)}</nav>
+      <button key={id} className={tab===id?"active":""} onClick={()=>id==="record"?newMatch():setTab(id)}><i>{icon}</i><small>{label}</small></button>)}</nav>
     {modal&&<div className="backdrop" onMouseDown={e=>e.target===e.currentTarget&&setModal(null)}>
       <section className="sheet" role="dialog" aria-modal="true"><button className="close" aria-label="關閉" onClick={()=>setModal(null)}>×</button>
-        {modal==="match"&&<MatchForm data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} onSave={saveMatch}/>}
+        {modal==="match"&&<MatchForm data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} onSave={saveMatch}/>}
         {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} onSave={savePlayer}/>}
         {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,modelVersion:3},rebuilt=replay(data.players,data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"更新 ELO 設定；完整重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已更新，歷史 ELO 已重播。")}}/>}
         {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data}/>}
@@ -351,7 +372,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer}:{ranked:Player[];data:AppSt
         <span className="elo"><b>{Math.round(p.rating)}</b><small className={p.lastChange>=0?"positive":"negative"}>{p.lastChange>=0?"+":""}{Math.round(p.lastChange)}</small></span></button>})}</>}</div></>;
 }
 
-function Matches({data,onVoid}:{data:AppState;onVoid:(m:Match)=>void}) {
+function Matches({data,onEdit,onVoid}:{data:AppState;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void}) {
   const name=(id:string)=>data.players.find(p=>p.id===id)?.name??"已刪除球員";
   return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽紀錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
     <div className="filters"><input placeholder="搜尋球員…" /><input type="date"/><select><option>所有賽事</option><option>已確認</option></select></div>
@@ -359,8 +380,12 @@ function Matches({data,onVoid}:{data:AppState;onVoid:(m:Match)=>void}) {
       <article className={`match ${m.status}`} key={m.id}><div><span><span className="pill">{m.status==="void"?"已作廢":"已確認"}</span> <span className="pill muted">{m.entryMode==="aggregate"?"歷史匯總":"單場"}</span></span><small>{m.playedOn}</small></div>
         <h3>{name(m.a)} <b>{m.scoreA}–{m.scoreB}</b> {name(m.b)}</h3>
         <p><Term label="實際讓分" tip="該筆比賽雙方真正採用的每局讓分；它會影響賽前預期及 ELO 變化。"/> {m.actual>0?`${name(m.a)} 讓 ${m.actual}`:m.actual<0?`${name(m.b)} 讓 ${Math.abs(m.actual)}`:"無"} · <Term label="額外讓分" tip="實際讓分與正式讓分參考之間的差距；正式讓分缺失時以 0 作比較基準。"/> {m.extra}</p>
-        <div className="delta"><span>{Math.round(m.beforeA)} → {Math.round(m.afterA)} <b>{m.deltaA>=0?"+":""}{Math.round(m.deltaA)}</b></span><span>預測 A 勝率 {Math.round(m.expectedA*100)}%</span></div>
-        <button className="danger-link" onClick={()=>onVoid(m)}>刪除賽事</button></article>)}</div></>;
+        <div className="elo-impact" aria-label="本場 ELO 影響">
+          <div><span>{name(m.a)}</span><b>{Math.round(m.beforeA)} <i>→</i> {Math.round(m.afterA)}</b><em className={m.deltaA>=0?"positive":"negative"}>{m.deltaA>=0?"+":""}{Math.round(m.deltaA)}</em></div>
+          <div><span>{name(m.b)}</span><b>{Math.round(m.beforeB)} <i>→</i> {Math.round(m.afterB)}</b><em className={-m.deltaA>=0?"positive":"negative"}>{-m.deltaA>=0?"+":""}{Math.round(-m.deltaA)}</em></div>
+          <small>賽前 → 賽後 · 預測 A 局數比例 {Math.round(m.expectedA*100)}%</small>
+        </div>
+        <div className="match-actions"><button className="more" onClick={()=>onEdit(m)}>編輯賽事</button><button className="danger-link static" onClick={()=>onVoid(m)}>刪除賽事</button></div></article>)}</div></>;
 }
 
 function Players({data,onAdd,onEdit,onDelete,onOpen}:{data:AppState;onAdd:()=>void;onEdit:(p:Player)=>void;onDelete:(p:Player)=>void;onOpen:(p:Player)=>void}) {
@@ -381,7 +406,7 @@ function SettingsView({data,onEdit,onReset}:{data:AppState;onEdit:()=>void;onRes
     <section className="danger-zone"><div><h2>清除並重設資料</h2><p>永久刪除共用資料庫內所有球員、比賽及審計紀錄，並恢復預設 ELO 設定。</p></div><button onClick={onReset}>清除所有資料</button></section></>;
 }
 
-function MatchForm({data,draft,setDraft,preview,a,b,onSave}:{data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;onSave:()=>void}) {
+function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;editing:boolean;onSave:()=>void}) {
   const update=(k:string,v:any)=>setDraft((d:any)=>({...d,[k]:v}));
   const fairActual=preview?eloToHandicap(a.rating-b.rating,data.settings):null;
   const probabilities=preview?matchProbabilities(preview.expectedA,+draft.scoreA+ +draft.scoreB):null;
@@ -389,7 +414,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,onSave}:{data:AppState;draft
     if(fairActual==null)return;
     setDraft((d:any)=>({...d,giver:fairActual>=0?a.id:b.id,points:Math.round(Math.abs(fairActual))}));
   };
-  return <><p className="kicker">快速記錄</p><h2>記錄比賽</h2><p className="sub">自由賽制，只需輸入最終局數；同分即為和局。</p>
+  return <><p className="kicker">{editing?"修正賽事":"快速記錄"}</p><h2>{editing?"編輯比賽":"記錄比賽"}</h2><p className="sub">{editing?"儲存後會按日期重播全部賽事，重建雙方及後續 ELO。":"自由賽制，只需輸入最終局數；同分即為和局。"}</p>
     {data.players.length<2&&<p className="warning">請先新增至少兩位活躍球員。</p>}
     <div className="entry-mode" role="group" aria-label="紀錄類型"><button type="button" className={(draft.mode??"match")==="match"?"active":""} onClick={()=>update("mode","match")}><b>單場比賽</b><small>一場比賽的最終局數</small></button><button type="button" className={draft.mode==="aggregate"?"active":""} onClick={()=>update("mode","aggregate")}><b>歷史匯總</b><small>同一對手多場局數合計</small></button></div>
     {draft.mode==="aggregate"&&<p className="aggregate-note">匯總會以同一個賽前 ELO 基準計算。例：70–70 為中性局數證據，不會因輸入次序造成偏差。</p>}
@@ -398,15 +423,8 @@ function MatchForm({data,draft,setDraft,preview,a,b,onSave}:{data:AppState;draft
     <div className="step-label"><b>2</b> <Term label="實際讓分" tip="雙方在這筆比賽真正採用的每局讓分，不需要跟正式讓分相同。"/></div>{fairActual!=null&&<div className="fair-tip"><div><small><Term label="ELO 建議公平讓分" tip="按目前 ELO 差及持續校準換算率反推，令雙方預測局數比例接近 50／50 的讓分。"/></small><b>{fairActual>=0?a.name:b.name} 讓 {Math.round(Math.abs(fairActual))} 分</b><span>套用後預測勝率接近 50／50</span></div><button type="button" onClick={applyFair}>套用建議</button></div>}<div className="two"><label>讓分提供者<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">沒有讓分</option><option value={a?.id}>{a?.name}</option><option value={b?.id}>{b?.name}</option></select></label><label>每局讓分<input type="number" min="0" step="1" value={draft.points} onChange={e=>update("points",+e.target.value)}/></label></div>
     <div className="step-label"><b>3</b> 最終比分</div><div className="score-input"><label>{a?.short}<input type="number" min="0" value={draft.scoreA} onChange={e=>update("scoreA",+e.target.value)}/></label><strong>–</strong><label>{b?.short}<input type="number" min="0" value={draft.scoreB} onChange={e=>update("scoreB",+e.target.value)}/></label></div>
     {preview&&<div className="preview"><div><small>{a.name}</small><b>{Math.round(a.rating)} <em className={preview.deltaA>=0?"positive":"negative"}>{preview.deltaA>=0?"+":""}{Math.round(preview.deltaA)}</em></b></div><div><small><Term label="預測局數比例" tip="非線性計入雙方賽前 ELO 與實際讓分後，預測球員 A／B 應取得的局數比例。"/></small><b>{Math.round(preview.expectedA*100)}% / {Math.round((1-preview.expectedA)*100)}%</b>{draft.mode!=="aggregate"&&probabilities&&<small>A 勝 {Math.round(probabilities.win*100)}% · 和 {Math.round(probabilities.draw*100)}%</small>}</div><div><small>{b.name}</small><b>{Math.round(b.rating)} <em className={preview.deltaA<=0?"positive":"negative"}>{-preview.deltaA>=0?"+":""}{Math.round(-preview.deltaA)}</em></b></div><p>{draft.mode==="aggregate"?"歷史匯總":"單場"} · 表現分 {Math.round(preview.performanceScore*100)}% · 證據權重 ×{preview.evidenceWeight.toFixed(2)} · 讓分等效 {preview.adjustment>=0?"+":""}{Math.round(preview.adjustment)} ELO{preview.overHandicapMultiplier>1.001?` · 超額難度 ${Math.round(preview.overHandicapElo)} ELO · 表現加乘 ×${preview.overHandicapMultiplier.toFixed(2)}`:""} · 曲線 {data.settings.curvature??1.25} · 換算率 {data.settings.conversion} ELO／分</p></div>}
-    <button className="primary full" disabled={data.players.length<2} onClick={onSave}>確認並更新 ELO</button></>;
+    <button className="primary full" disabled={data.players.length<2} onClick={onSave}>{editing?"儲存並重建 ELO":"確認並更新 ELO"}</button></>;
 }
 
-function PlayerForm({form,setForm,editing,onSave}:{form:any;setForm:any;editing:boolean;onSave:()=>void}) { const u=(k:string,v:string)=>setForm((f:any)=>({...f,[k]:v}));return <><p className="kicker">公開管理</p><h2>{editing?"編輯球員":"新增球員"}</h2><p className="sub">{editing?"修改起始 ELO 後，系統會按剩餘賽事完整重播評分及近況。":"起始 ELO 留空時使用群組預設值。"}</p><label>顯示名稱<input value={form.name} onChange={e=>u("name",e.target.value)}/></label><label>短名稱／縮寫<input maxLength={3} value={form.short} onChange={e=>u("short",e.target.value)}/></label><label className="initial-elo-field">球員起始 ELO（可編輯）<input data-testid="player-initial-elo" type="number" inputMode="numeric" placeholder="例如 1500" value={form.rating} onChange={e=>u("rating",e.target.value)}/><small>{editing?"儲存後會重算此球員及受影響賽事。":"留空則使用群組預設起始 ELO。"}</small></label><label>正式讓分<input type="number" step="2" value={form.handicap} onChange={e=>u("handicap",e.target.value)}/></label><button className="primary full" onClick={onSave}>{editing?"儲存並重播":"新增球員"}</button></>}
 function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) { const [s,setS]=useState(data.settings);const field=(k:"start"|"provisionalGames"|"kProvisional"|"kRated"|"conversion"|"curvature"|"handicapSoftCap"|"winnerBonus"|"overHandicapBoost"|"overHandicapScale",label:string,step=1)=><label>{label}<input type="number" step={step} value={s[k]??""} onChange={e=>setS({...s,[k]:+e.target.value})}/></label>;return <><p className="kicker">公開管理</p><h2>編輯 ELO 設定</h2><p className="warning">任何人都可修改。儲存後會以新規則重播全部歷史評分。</p><div className="two">{field("start","起始 ELO")}{field("provisionalGames","臨時門檻")}{field("kProvisional","臨時 K")}{field("kRated","正式 K")}{field("conversion","10 分附近每點換算",.25)}{field("curvature","非線性讓分曲線",.01)}{field("handicapSoftCap","讓分等效 ELO 軟上限")}{field("winnerBonus","勝者虛擬局數",.1)}{field("overHandicapBoost","超額讓分最高加乘",.05)}{field("overHandicapScale","超額讓分加乘尺度")}</div><button className="primary full" onClick={()=>confirm("確定更新並重播全部歷史 ELO？")&&onSave(s)}>儲存並重播</button></>}
 function PlayerDetail({player,rank,data}:{player:Player;rank:number;data:AppState}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data),series=playerSeries(player,data),high=Math.max(...series),low=Math.min(...series);return <><div className="profile-head"><i>{player.short}</i><div><p className="kicker">排名 #{rank||"—"}</p><h2>{player.name}</h2><p>{g<data.settings.provisionalGames?"臨時 ELO":"正式 ELO"}</p></div></div><div className="profile-stats"><div><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div><div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div><div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div><div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div></div><section className="detail-chart"><div className="chart-head"><div><p className="kicker">完整歷史</p><h3>ELO 走勢</h3></div><span>最高 {Math.round(high)} · 最低 {Math.round(low)}</span></div><LineChart values={series} label={`${player.name} 從起始評分至目前的 ELO 走勢`}/><div className="chart-axis"><span>起始 {Math.round(series[0])}</span><span>目前 {Math.round(player.rating)}</span></div></section><h3>表現摘要</h3><p className="summary">{player.name} 目前為 {Math.round(player.rating)} ELO，最近五場錄得 {player.form.filter(x=>x==="W").length} 勝、{player.form.filter(x=>x==="L").length} 負、{player.form.filter(x=>x==="D").length} 和；局數勝率為 {Math.round(frameRate(player)*100)}%。ELO 曾介乎 {Math.round(low)} 至 {Math.round(high)}，共有 {related.length} 筆可追溯賽事紀錄。</p></>}
-function SortControls({sort,dir,onSort}:{sort:SortKey;dir:"asc"|"desc";onSort:(key:SortKey)=>void}){return <div className="sort-controls"><label>排序<select value={sort} onChange={e=>onSort(e.target.value as SortKey)}>{(Object.keys(sortLabels) as SortKey[]).map(k=><option key={k} value={k}>{sortLabels[k]}</option>)}</select></label><button aria-label={dir==="asc"?"目前升序，切換為降序":"目前降序，切換為升序"} onClick={()=>onSort(sort)}>{dir==="asc"?"↑ 升序":"↓ 降序"}</button></div>}
-function SortArrow({active,dir}:{active:boolean;dir:"asc"|"desc"}){return <i className={`sort-arrow ${active?"active":""}`} aria-hidden="true">{active?(dir==="asc"?"↑":"↓"):"↕"}</i>}
-function Sparkline({values,label}:{values:number[];label:string}){const min=Math.min(...values),max=Math.max(...values),range=Math.max(1,max-min),points=values.map((v,i)=>`${values.length===1?50:i/(values.length-1)*100},${28-(v-min)/range*24}`).join(" ");return <svg className="sparkline" viewBox="0 0 100 32" role="img" aria-label={`${label}；由 ${Math.round(values[0])} 至 ${Math.round(values.at(-1)??values[0])}`}><polyline points={points}/><circle cx={values.length===1?50:100} cy={28-((values.at(-1)??min)-min)/range*24} r="2.5"/></svg>}
-function LineChart({values,label,lower,upper}:{values:number[];label:string;lower?:number;upper?:number}){const all=[...values,...(lower==null?[]:[lower]),...(upper==null?[]:[upper])],min=Math.min(...all),max=Math.max(...all),range=Math.max(1,max-min),x=(i:number)=>values.length===1?50:4+i/(values.length-1)*92,y=(v:number)=>56-(v-min)/range*48,points=values.map((v,i)=>`${x(i)},${y(v)}`).join(" ");return <svg className="line-chart" viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label={`${label}；最低 ${Math.round(min*100)/100}，最高 ${Math.round(max*100)/100}`}><line x1="4" y1="56" x2="96" y2="56" className="grid-line"/>{lower!=null&&upper!=null&&<rect x="4" y={y(upper)} width="92" height={Math.max(1,y(lower)-y(upper))} className="confidence-band"/>}<polyline points={points}/>{values.map((v,i)=><circle key={i} cx={x(i)} cy={y(v)} r="1.5"><title>{Math.round(v*100)/100}</title></circle>)}</svg>}
-function Empty({text,sub}:{text:string;sub:string}){return <div className="empty"><b>○</b><h3>{text}</h3><p>{sub}</p></div>}
-function Term({label,tip}:{label:string;tip:string}){return <span className="term" tabIndex={0} aria-label={`${label}：${tip}`}>{label}<i aria-hidden="true">ⓘ</i><span className="term-tip" role="tooltip">{tip}</span></span>}
