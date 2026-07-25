@@ -51,59 +51,6 @@ export function Scoreline({left,right,scoreLeft,scoreRight}:{left:string;right:s
   </div>;
 }
 
-export type PlayerEloSeries = { id:string; name:string; short:string; colour?:string; current:number; change:number; points:{t:number;elo:number}[] };
-
-/**
- * Every player's ELO against real dates. With a full club on one canvas the
- * risk is spaghetti, so lines rest at low contrast until one is picked out —
- * the legend is the control surface, and it doubles as a current-rating table.
- */
-export function AllPlayersEloChart({series}:{series:PlayerEloSeries[]}) {
-  const [locked,setLocked]=useState<string|null>(null);
-  const [hovered,setHovered]=useState<string|null>(null);
-  const active=hovered??locked;
-  const all=series.flatMap(entry=>entry.points);
-  const minT=Math.min(...all.map(point=>point.t)),maxT=Math.max(...all.map(point=>point.t));
-  const minE=Math.min(...all.map(point=>point.elo)),maxE=Math.max(...all.map(point=>point.elo));
-  const pad=Math.max(12,(maxE-minE)*.12),low=minE-pad,high=maxE+pad;
-  const x=(t:number)=>maxT===minT?50:6+(t-minT)/(maxT-minT)*90;
-  const y=(elo:number)=>54-(elo-low)/(high-low)*48;
-  const path=(entry:PlayerEloSeries)=>entry.points.map(point=>`${x(point.t)},${y(point.elo)}`).join(" ");
-  const ticks=[high,(high+low)/2,low];
-  const day=(t:number)=>{const d=new Date(t);return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`};
-  const focused=active?series.find(entry=>entry.id===active)??null:null;
-  return <section className="elo-board">
-    <div className="elo-board-head">
-      <div><p className="kicker">全員走勢</p><h3>ELO 趨勢</h3></div>
-      {focused
-        ?<span className="elo-board-focus"><i style={avatarStyle(focused.colour)}>{focused.short}</i><b>{focused.name}</b><strong>{Math.round(focused.current)}</strong><em className={focused.change>=0?"positive":"negative"}>{focused.change>=0?"+":""}{Math.round(focused.change)}</em></span>
-        :<span className="elo-board-hint">選擇球員以突顯其走勢</span>}
-    </div>
-    <div className="elo-board-plot">
-      <div className="elo-board-axis-y">{ticks.map(tick=><span key={tick}>{Math.round(tick)}</span>)}</div>
-      <div className="elo-board-canvas">
-        <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label={`${series.length} 位球員由 ${day(minT)} 至 ${day(maxT)} 的 ELO 走勢`}>
-          {ticks.map(tick=><line key={tick} x1="6" y1={y(tick)} x2="96" y2={y(tick)} className="elo-board-grid"/>)}
-          {series.map(entry=><polyline key={entry.id} points={path(entry)} stroke={avatarHex(entry.colour)}
-            className={`elo-board-line${active?(active===entry.id?" on":" off"):""}`}/>)}
-        </svg>
-      </div>
-      <div className="elo-board-axis-x"><span>{day(minT)}</span><span>{day(maxT)}</span></div>
-    </div>
-    <div className="elo-board-legend">
-      {series.map(entry=><button key={entry.id} type="button"
-        className={`elo-chip${locked===entry.id?" locked":""}${active&&active!==entry.id?" dim":""}`}
-        aria-pressed={locked===entry.id}
-        onPointerEnter={()=>setHovered(entry.id)} onPointerLeave={()=>setHovered(null)}
-        onFocus={()=>setHovered(entry.id)} onBlur={()=>setHovered(null)}
-        onClick={()=>setLocked(current=>current===entry.id?null:entry.id)}>
-        <i style={{background:avatarHex(entry.colour)}}/><span>{entry.name}</span><b>{Math.round(entry.current)}</b>
-      </button>)}
-    </div>
-    <p className="elo-board-help">點按球員可鎖定其走勢，再按一次取消。線條顏色即該球員的圖示顏色。</p>
-  </section>;
-}
-
 export function SortControls({sort,dir,onSort}:{sort:SortKey;dir:"asc"|"desc";onSort:(key:SortKey)=>void}) {
   return <div className="sort-controls"><label>排序<select value={sort} onChange={event=>onSort(event.target.value as SortKey)}>{(Object.keys(sortLabels) as SortKey[]).map(key=><option key={key} value={key}>{sortLabels[key]}</option>)}</select></label><button aria-label={dir==="asc"?"目前升序，切換為降序":"目前降序，切換為升序"} onClick={()=>onSort(sort)}>{dir==="asc"?"↑ 升序":"↓ 降序"}</button></div>;
 }
@@ -176,9 +123,9 @@ export function CalibrationTrend({history,lower,upper,conversion,confidence,exam
           style={{left:`${x(index)}%`,top:`${y(point.estimate)/60*100}%`}}
           onPointerEnter={()=>setActiveIndex(index)} onFocus={()=>setActiveIndex(index)} onBlur={()=>setActiveIndex(null)}
           onClick={()=>setActiveIndex(previous=>previous===index?null:index)}
-          aria-label={`第 ${index+1} 次校準，${point.at.slice(0,10)}，估算 ${point.estimate} ELO／分，依據 ${point.usableMatches} 筆紀錄`}/>)}
+          aria-label={`第 ${index+1} 次校準，${point.at.slice(0,10)}，估算 ${point.estimate} ELO／分，依據 ${point.usableMatches} 筆記錄`}/>)}
         {active&&<div className={`calibration-tip ${x(activeIndex!)>68?"align-right":x(activeIndex!)<32?"align-left":""}`} style={{left:`${x(activeIndex!)}%`,top:`${Math.max(2,y(active.estimate)/60*100-8)}%`}} role="status">
-          <small>{active.at.slice(0,10)}</small><b>{active.estimate} ELO／分</b><span>依據 {active.usableMatches} 筆可用紀錄</span>
+          <small>{active.at.slice(0,10)}</small><b>{active.estimate} ELO／分</b><span>依據 {active.usableMatches} 筆可用記錄</span>
         </div>}
       </div>
       <div className="calibration-axis-x"><span>{firstDay}</span><span>{history.length} 次校準</span><span>{firstDay===lastDay?"同日":lastDay}</span></div>
@@ -213,7 +160,7 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
   const periodChange=visible.at(-1)!.elo-visible[0].elo;
   const resultLabel=(result:EloTrendPoint["result"])=>result==="W"?"勝":result==="L"?"負":result==="D"?"和":"起始";
   return <div className="interactive-trend">
-    <div className="trend-overview"><div><small>{range==="recent"?"最近十場":"完整紀錄"}</small><b className={periodChange>=0?"positive":"negative"}>{periodChange>=0?"+":""}{Math.round(periodChange)} <em>ELO</em></b></div><div className="mini-toggle" aria-label="ELO 走勢範圍"><button className={range==="recent"?"active":""} onClick={()=>{setRange("recent");setActiveId(null)}}>最近十場</button><button className={range==="all"?"active":""} onClick={()=>{setRange("all");setActiveId(null)}}>全部</button></div></div>
+    <div className="trend-overview"><div><small>{range==="recent"?"最近十場":"完整記錄"}</small><b className={periodChange>=0?"positive":"negative"}>{periodChange>=0?"+":""}{Math.round(periodChange)} <em>ELO</em></b></div><div className="mini-toggle" aria-label="ELO 走勢範圍"><button className={range==="recent"?"active":""} onClick={()=>{setRange("recent");setActiveId(null)}}>最近十場</button><button className={range==="all"?"active":""} onClick={()=>{setRange("all");setActiveId(null)}}>全部</button></div></div>
     <div className="trend-plot" onPointerLeave={()=>setActiveId(null)}>
       <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label={label}>
         <defs><linearGradient id="elo-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#287e69" stopOpacity=".28"/><stop offset="100%" stopColor="#287e69" stopOpacity=".02"/></linearGradient></defs>
@@ -231,7 +178,7 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
 
 export function RecentMatches({points}:{points:EloTrendPoint[]}) {
   const matches=points.filter(point=>point.result!=="start").slice(-5).reverse();
-  return <section className="recent-form" aria-labelledby="recent-form-title"><div className="recent-form-head"><div><p className="kicker">近期狀態</p><h3 id="recent-form-title">最近五場</h3></div><span>最新在前</span></div>{matches.length===0?<p className="recent-form-empty">尚未有比賽紀錄</p>:<div className="recent-match-grid">{matches.map(point=><article className={`recent-result ${point.result.toLowerCase()}`} key={point.id}><div><b>{point.result==="W"?"勝":point.result==="L"?"負":"和"}</b><time>{point.date.slice(5).replace("-","/")}</time></div><strong>{point.score}</strong><span><i>{point.opponentShort}</i>{point.opponent}</span><small className={point.delta>=0?"positive":"negative"}>{point.delta>=0?"+":""}{Math.round(point.delta)} ELO</small></article>)}</div>}</section>;
+  return <section className="recent-form" aria-labelledby="recent-form-title"><div className="recent-form-head"><div><p className="kicker">近期狀態</p><h3 id="recent-form-title">最近五場</h3></div><span>最新在前</span></div>{matches.length===0?<p className="recent-form-empty">尚未有比賽記錄</p>:<div className="recent-match-grid">{matches.map(point=><article className={`recent-result ${point.result.toLowerCase()}`} key={point.id}><div><b>{point.result==="W"?"勝":point.result==="L"?"負":"和"}</b><time>{point.date.slice(5).replace("-","/")}</time></div><strong>{point.score}</strong><span><i>{point.opponentShort}</i>{point.opponent}</span><small className={point.delta>=0?"positive":"negative"}>{point.delta>=0?"+":""}{Math.round(point.delta)} ELO</small></article>)}</div>}</section>;
 }
 
 export function Empty({text,sub}:{text:string;sub:string}) {
