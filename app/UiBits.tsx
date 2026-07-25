@@ -10,6 +10,34 @@ export type EloTrendPoint = {
 export const sortLabels:Record<SortKey,string>={rank:"排名",name:"球員",rating:"ELO",change:"近五場淨變化",form:"近況",official:"正式評分",suggested:"建議評分",games:"場數",winRate:"勝率",frameRate:"局數勝率"};
 
 /**
+ * SF Symbols-style tab icon: one consistent stroke weight, filled variant on
+ * select. Kept to primitive shapes (rect/circle/path) so every icon in the
+ * set reads as the same family instead of mismatched glyph weights.
+ */
+export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"players"|"settings";active:boolean}) {
+  const common={fill:active?"currentColor":"none",stroke:"currentColor",strokeWidth:active?0:1.8,strokeLinecap:"round" as const,strokeLinejoin:"round" as const};
+  switch(id){
+    case "leaderboard":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
+      <rect x="4" y="13" width="4" height="7" rx="1" {...common}/>
+      <rect x="10" y="8" width="4" height="12" rx="1" {...common}/>
+      <rect x="16" y="4" width="4" height="16" rx="1" {...common}/>
+    </svg>;
+    case "matches":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
+      <circle cx="8" cy="8" r="3.4" {...common}/>
+      <circle cx="16" cy="16" r="3.4" {...common}/>
+    </svg>;
+    case "players":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.6" {...common}/>
+      <path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4" {...common}/>
+    </svg>;
+    case "settings":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.2" {...common}/>
+      {[0,60,120,180,240,300].map(deg=><rect key={deg} x="10.8" y="2.6" width="2.4" height="4.6" rx="1" transform={`rotate(${deg} 12 12)`} {...common}/>)}
+    </svg>;
+  }
+}
+
+/**
  * Avatar colours. Every entry is dark enough to carry white initials, so a
  * player can pick any of them without the badge becoming unreadable. The first
  * is the original club green and stays the default for existing players.
