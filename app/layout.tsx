@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SCAA Snooker ELO",
-  description: "公開、清晰、可追溯的 SCAA Snooker ELO 排名及賽果追蹤。",
+  title: "SCAA Snooker ELO｜讓每一局都推動進步",
+  description: "為球會而設的公開 ELO 排名、賽果追蹤與公平讓分建議，讓每場對賽更接近、更有競爭力。",
   icons: { icon: "/favicon.svg" },
 };
 
