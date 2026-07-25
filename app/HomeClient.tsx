@@ -522,7 +522,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer}:{ranked:Player[];data:AppSt
     <Overview top={ranked.slice(0,3)} data={data} onPlayer={onPlayer} players={ranked.length} month={month} total={total}/>
     {ranked.length>0&&<section className="visual-grid analytics-grid" aria-label="排行榜分析">
       <details className="analytics-card"><summary><span><small>實力分布</small><b>ELO／建議評分</b></span>{chevron}</summary><div className="analytics-content"><div className="chart-head"><span>ELO／建議評分<br/>柱長按 ELO 顯示</span></div><div className="bar-chart">{ranked.map((p,i)=>{const suggested=suggestedHandicap(p,data);return <button key={p.id} onClick={()=>onPlayer(p)} aria-label={`${p.name}，${Math.round(p.rating)} ELO，建議評分 ${Math.round(suggested)}`}><span><i>{i+1}</i>{p.name}</span><em><i style={{width:`${18+(p.rating-minRating)/range*82}%`}}/></em><b>{Math.round(p.rating)} / {Math.round(suggested)}</b></button>})}</div><p className="chart-summary">目前由 {leader.name} 領先；柱長按榜內 ELO 相對位置顯示，數字格式為 ELO／建議評分；建議評分越低代表球員越強。</p></div></details>
-      <details className="analytics-card break-leaderboard"><summary><span><small>龍虎榜</small><b>最高單桿記錄</b></span>{chevron}</summary><div className="analytics-content"><div className="mini-toggle break-toggle" aria-label="龍虎榜顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史最高</button></div><ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];return <li key={record?.key??`empty-${index}`} className={record?"":"empty-rank"}><span className="break-position">{index+1}</span>{record?<><i style={avatarStyle(record.player.colour)}>{record.player.short}</i><b><span>{record.player.name}</span><small>對 {record.opponent}</small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value}</strong></>:<b>N/A</b>}</li>})}</ol><p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。"}</p></div></details>
+      <details className="analytics-card break-leaderboard"><summary><span><small>龍虎榜</small><b>最高單桿記錄</b></span>{chevron}</summary><div className="analytics-content"><div className="mini-toggle break-toggle" aria-label="龍虎榜顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史最高</button></div><ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];return <li key={record?.key??`empty-${index}`} className={record?"":"empty-rank"}><span className="break-position">{index+1}</span>{record?<><i style={avatarStyle(record.player.colour)}>{record.player.short}</i><b><span>{record.player.name}</span><small>對 {record.opponent}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value}</strong></>:<b>N/A</b>}</li>})}</ol><p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。"}</p></div></details>
     </section>}
     <section className="section-title"><div><p className="kicker">即時競爭形勢</p><h2>目前排名</h2><p>每場結果都會即時反映在 ELO 與近期狀態。</p></div><span className="pill">● 已同步</span></section>
     <SortControls sort={sort} dir={dir} onSort={sortBy}/>
@@ -734,17 +734,21 @@ function RivalrySnapshot({player,data,onCompare}:{player:Player;data:AppState;on
   </section>;
 }
 
-/** Cumulative counting: a 78 break counts toward every band up to 70+. */
+const BREAK_LIST_LIMIT=8;
+/** Lists each distinct break value the player has recorded, highest first, merging repeats into a ×N count. */
 function BreakStats({player,data}:{player:Player;data:AppState}) {
   const breaks=data.matches.filter(m=>m.status==="confirmed").flatMap(m=>
     (m.highBreaks??[]).filter(item=>item.playerId===player.id&&item.value>0&&item.value<=147).map(item=>item.value));
   if(!breaks.length)return null;
   const highest=Math.max(...breaks);
-  const thresholds=[30,40,50,60,70,80,90,100];
-  const tally=thresholds.map(t=>({t,count:breaks.filter(v=>v>=t).length})).filter(x=>x.count>0);
+  const counts=new Map<number,number>();
+  [...breaks].sort((a,b)=>b-a).forEach(v=>counts.set(v,(counts.get(v)??0)+1));
+  const entries=Array.from(counts.entries());
+  const shown=entries.slice(0,BREAK_LIST_LIMIT),hidden=entries.length-shown.length;
   return <section className="break-stats">
     <div className="break-stats-head"><div><p className="kicker">單桿表現</p><h3>最高單桿</h3></div><b>{highest}</b></div>
-    <div className="break-tally">{tally.map(x=><span key={x.t}>{x.t}+<em>×{x.count}</em></span>)}</div>
+    <div className="break-tally">{shown.map(([value,count])=><span key={value}>{value}{count>1&&<em>×{count}</em>}</span>)}{hidden>0&&<span className="break-tally-more">+{hidden}</span>}</div>
+    <p className="chart-summary">共 {breaks.length} 桿記錄{entries.length>1?`，${entries.length} 個不同分數`:""}。</p>
   </section>;
 }
 
