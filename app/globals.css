@@ -45,8 +45,10 @@
 .h2h-filter-heading span,.h2h-filter-heading small{display:block}.h2h-filter-heading span{font-size:11px;font-weight:800;color:var(--deep)}.h2h-filter-heading small{margin-top:3px;font-size:9px;color:var(--muted)}
 .h2h-date-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.h2h-filter button{border:1px solid var(--line);border-radius:9px;background:white;padding:0 11px}.h2h-filter button:disabled{opacity:.45}.h2h-filter-error{grid-column:2/-1;margin:0;color:#b35d50;font-size:10px}
 @media(max-width:680px){.h2h-controls{grid-template-columns:1fr 1fr}.h2h-control-intro{grid-column:1/-1}.h2h-filter{grid-template-columns:1fr auto}.h2h-filter-heading,.h2h-date-fields,.h2h-filter-error{grid-column:1/-1}}
-.h2h-date-fields input[type="date"]{height:40px;min-height:40px;max-width:100%;padding:6px 8px;font-size:12px;line-height:1}
-@media(max-width:560px){.h2h-controls .h2h-date-fields{grid-template-columns:minmax(0,1fr)}}
+.h2h-date-fields{width:100%;min-width:0}
+.h2h-date-fields label{min-width:0;overflow:hidden}
+.h2h-date-fields input[type="date"]{display:block;width:100%;max-width:100%;min-width:0;height:44px;min-height:44px;margin-top:5px;padding:0 11px;font-size:12px;line-height:normal}
+.h2h-date-fields input[type="date"]::-webkit-date-and-time-value{display:flex;align-items:center;height:100%;min-height:100%;padding:0;text-align:left}
 /* Combined ELO / suggested score chart */
 .bar-chart button{grid-template-columns:minmax(85px,130px) 1fr 84px}
 .bar-chart b{font-size:10px;white-space:nowrap;font-variant-numeric:tabular-nums}
