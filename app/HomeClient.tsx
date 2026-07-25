@@ -192,7 +192,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const [tab,setTab] = useState("leaderboard");
   const [matchesView,setMatchesView] = useState<"history"|"calendar">("history");
   const [headToHead,setHeadToHead] = useState({a:"",b:""});
-  const [modal,setModal] = useState<"match"|"player"|"settings"|"detail"|"deleteMatch"|null>(null);
+  const [modal,setModal] = useState<"match"|"player"|"settings"|"detail"|"deleteMatch"|"signIn"|null>(null);
   const [detail,setDetail] = useState<Player|null>(null);
   const [editingPlayer,setEditingPlayer] = useState<Player|null>(null);
   const [editingMatch,setEditingMatch] = useState<Match|null>(null);
@@ -314,6 +314,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   }
 
   function newMatch(){
+    if(!user){setModal("signIn");return;}
     setEditingMatch(null);
     const sorted=[...data.players].filter(p=>p.active).sort((a,b)=>a.name.localeCompare(b.name,"zh-HK"));
     setDraft({
@@ -377,7 +378,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     persist({...snapshot,audits:[{id:crypto.randomUUID(),text:"復原已刪除的賽事；還原評分及近況",at:new Date().toISOString()},...snapshot.audits]},"已復原賽事，ELO 及統計已還原。");
   }
 
-  return <div className={`shell${user?"":" read-only"}`}>
+  return <><style>{`.read-only .card-tools,.read-only .hero.small > .primary{display:none}`}</style><div className={`shell${user?"":" read-only"}`}>
     <aside className="side">
       <div className="brand"><span>S</span><div><b>SCAA</b><small>Snooker ELO</small></div></div>
       <nav>{[["leaderboard","排行榜","◆"],["matches","比賽","◫"],["players","球員","◎"],["settings","設定","⚙"]].map(([id,label,icon])=>
@@ -385,7 +386,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       <div className="public-note"><b>{user?"會員模式":"公開瀏覽"}</b><span>{user?"已登入，可更新球會資料":"登入會員後即可記錄比賽"}</span></div>
     </aside>
     <main>
-      <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">會員登入</a>}</div></header>
+      <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={newMatch} onPlayer={(p)=>{setDetail(p);setModal("detail")}}/>}
       {tab==="matches"&&<Matches data={data} onEdit={editMatch} onVoid={requestDeleteMatch} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead}/>}
       {tab==="players"&&<Players data={data} onAdd={()=>{setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={openHeadToHead}/>}
@@ -402,10 +403,11 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
         {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} onSave={savePlayer}/>}
         {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,modelVersion:3},rebuilt=replay(data.players,data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"更新 ELO 設定；完整重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已更新，歷史 ELO 已重播。")}}/>}
         {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
+        {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
         {modal==="detail"&&detail&&<><PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}}/><button className="more profile-compare" onClick={()=>{setModal(null);openHeadToHead(detail)}}>查看所有對賽</button></>}
       </section></div>}
     {toast&&<div className="toast" role="status"><span>{toast}</span>{undoSnapshot&&<button type="button" onClick={undoDelete}>復原</button>}</div>}
-  </div>;
+  </div></>;
 }
 
 /** Editorial highlights: the things a club member actually gossips about. */

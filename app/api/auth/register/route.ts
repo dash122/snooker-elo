@@ -1,18 +1,22 @@
-import { createMember, createSession, hasMembers } from "../../../../db/auth";
+import { signUpMember } from "../../../../db/signup";
 
 export async function POST(request: Request) {
-  if (await hasMembers()) return Response.redirect(new URL("/login", request.url), 303);
   const form = await request.formData();
   const email = String(form.get("email") ?? "").trim();
   const username = String(form.get("username") ?? "").trim();
   const displayName = String(form.get("displayName") ?? "").trim();
   const password = String(form.get("password") ?? "");
-  if (!username || !email.includes("@") || displayName.length < 2 || password.length < 6) {
-    return Response.redirect(new URL("/register?error=invalid", request.url), 303);
+  if (username.length < 2 || !email.includes("@") || displayName.length < 2 || password.length < 6) {
+    return Response.redirect(new URL("/login?mode=signup&error=invalid", request.url), 303);
   }
-  await createMember(username, email, displayName, password, "admin");
-  return new Response(null, {
-    status: 303,
-    headers: { location: new URL("/account", request.url).toString(), "set-cookie": await createSession(email) },
-  });
+  try {
+    const result = await signUpMember({ username, email, displayName, password });
+    return new Response(null, {
+      status: 303,
+      headers: { location: new URL("/", request.url).toString(), "set-cookie": result.cookie },
+    });
+  } catch (error) {
+    console.error("registration error:", error);
+    return Response.redirect(new URL("/login?mode=signup&error=exists", request.url), 303);
+  }
 }

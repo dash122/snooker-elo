@@ -1,3 +1,5 @@
-import Link from "next/link"; import { redirect } from "next/navigation"; import { hasMembers } from "../../db/auth";
-export const dynamic="force-dynamic"; const zh={setup:"\u9996\u6b21\u8a2d\u5b9a",title:"\u5efa\u7acb\u7ba1\u7406\u54e1",desc:"\u9019\u662f\u552f\u4e00\u7684\u516c\u958b\u5efa\u7acb\u5e33\u6236\u6b65\u9a5f\u3002",name:"\u986f\u793a\u540d\u7a31",username:"\u4f7f\u7528\u8005\u540d\u7a31",email:"\u96fb\u90f5",password:"\u5bc6\u78bc",create:"\u5efa\u7acb\u7ba1\u7406\u54e1\u5e33\u6236",error:"\u8acb\u586b\u5beb\u6709\u6548\u8cc7\u6599\uff0c\u5bc6\u78bc\u6700\u5c116\u500b\u5b57\u5143\u3002"};
-export default async function RegisterPage({searchParams}:{searchParams:Promise<{error?:string}>}){if(await hasMembers())redirect("/login");const p=await searchParams;return <main className="auth-page"><section className="auth-card"><Link className="auth-brand" href="/">SCAA <span>Snooker ELO</span></Link><p className="kicker">{zh.setup}</p><h1>{zh.title}</h1><p>{zh.desc}</p>{p.error&&<p className="form-error">{zh.error}</p>}<form className="auth-form" action="/api/auth/register" method="post"><label>{zh.name}<input name="displayName" required minLength={2}/></label><label>{zh.username}<input name="username" autoComplete="username" required minLength={2}/></label><label>{zh.email}<input name="email" type="email" autoComplete="email" required/></label><label>{zh.password}<input name="password" type="password" autoComplete="new-password" minLength={6} required/></label><button className="primary" type="submit">{zh.create}</button></form></section></main>}
+import { redirect } from "next/navigation";
+
+export default function RegisterPage() {
+  redirect("/login?mode=signup");
+}
