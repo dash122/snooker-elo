@@ -16,7 +16,6 @@ export default async function AdminPage({searchParams}:{searchParams:Promise<{er
     {params.provisioned && <p className="form-success">Player accounts created: {params.provisioned}</p>}
     {params.created && <p className="form-success">帳戶已建立。</p>}
     {params.error && <p className="form-error">{params.error==="exists"?"此電郵已有帳戶。":"請檢查帳戶資料。"}</p>}
-    <form className="auth-form" action="/api/admin/provision-players" method="post"><button className="primary" type="submit">Create player accounts once</button></form>
     <form className="auth-form admin-create" action="/api/admin/members" method="post">
       <label>顯示名稱<input name="displayName" required minLength={2}/></label>
       <label>?????<input name="username" autoComplete="username" required minLength={2}/></label>
