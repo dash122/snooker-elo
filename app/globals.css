@@ -968,3 +968,55 @@ main>.match-view-toggle,main>.player-toolbar{margin-top:2rem}
   .break-inline{max-width:9rem}
   .match-save{bottom:calc(-28px - env(safe-area-inset-bottom));margin-inline:-20px;padding-inline:20px}
 }
+
+/* Calendar view */
+.calendar-view{margin-top:1.5rem}
+.calendar-nav{display:flex;align-items:center;justify-content:center;gap:1.25rem;margin-bottom:1rem}
+.calendar-nav b{min-width:9rem;text-align:center;font-family:var(--font-display);font-size:1.25rem;color:var(--deep)}
+.calendar-nav-btn{flex:none;width:2.25rem;height:2.25rem;border:1px solid var(--line);border-radius:50%;background:var(--paper);color:var(--green);font-size:1.1rem;line-height:1;box-shadow:var(--shadow)}
+.calendar-nav-btn:disabled{opacity:.35;box-shadow:none}
+.calendar-body{position:relative;width:100%}
+/* Grid items default to a min-width based on their content; on narrow
+   screens that content (badge + padding) can exceed the 1fr share and
+   silently push the grid wider than the viewport, desyncing it from the
+   weekday header row above. min-width:0 lets cells shrink with the track. */
+.calendar-weekdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:6px;width:100%;text-align:center;color:var(--muted);font-size:var(--fs-caption);font-weight:800;letter-spacing:.06em}
+.calendar-weekdays span{min-width:0}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;width:100%}
+.calendar-cell{position:relative;min-width:0;width:100%;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink);font-family:inherit;transition:transform .15s,box-shadow .15s}
+.calendar-cell-blank{min-width:0;width:100%;aspect-ratio:1}
+.calendar-cell:disabled{color:var(--muted);opacity:.55;cursor:default}
+.calendar-cell.has-matches{cursor:pointer;border-color:rgba(21,94,82,.25);background:color-mix(in srgb,var(--green) calc(8% + var(--tint,0)*8%),var(--paper))}
+.calendar-cell.tint-1{--tint:1}.calendar-cell.tint-2{--tint:2}.calendar-cell.tint-3{--tint:3}.calendar-cell.tint-4{--tint:4}.calendar-cell.tint-5{--tint:5}
+.calendar-cell.has-matches:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.calendar-cell.today{box-shadow:inset 0 0 0 2px var(--gold)}
+.calendar-cell.selected{background:var(--green);border-color:var(--green)}
+.calendar-cell.selected .calendar-date,.calendar-cell.selected .calendar-count{color:#fff}
+.calendar-date{font-size:var(--fs-sm);font-weight:700}
+.calendar-count{min-width:1.1rem;padding:0 .25rem;border-radius:999px;background:var(--green);color:#fff;font-size:9px;font-weight:800;line-height:1.35}
+.calendar-cell.selected .calendar-count{background:rgba(255,255,255,.25)}
+.calendar-century{position:absolute;top:3px;right:4px;font-size:9px;color:var(--gold)}
+.calendar-empty-overlay{position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;padding:1rem;background:color-mix(in srgb,var(--cream) 88%,transparent);backdrop-filter:blur(2px);border-radius:16px}
+.calendar-empty-overlay .empty{width:100%;padding:1.5rem 1rem;box-shadow:none}
+.calendar-day-detail{margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--line)}
+.calendar-day-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.75rem}
+.calendar-day-head h3{font-family:var(--font-display);font-size:1.1rem;color:var(--deep)}
+.calendar-day-head span{color:var(--muted);font-size:var(--fs-sm);font-weight:700}
+.calendar-day-list{display:grid;gap:.75rem}
+@media(max-width:700px){
+  .calendar-nav b{min-width:7rem;font-size:1.05rem}
+  .calendar-date{font-size:11px}
+  .calendar-count{font-size:8px}
+}
+@media(max-width:480px){
+  .calendar-weekdays,.calendar-grid{gap:4px}
+  .calendar-cell{border-radius:9px}
+  .calendar-date{font-size:10px}
+  .calendar-count{min-width:.9rem;padding:0 .15rem;font-size:7px}
+  .calendar-century{top:2px;right:3px;font-size:8px}
+}
+@media(max-width:360px){
+  .calendar-weekdays,.calendar-grid{gap:3px}
+  .calendar-nav{gap:.75rem}
+  .calendar-nav b{min-width:6rem;font-size:.95rem}
+}

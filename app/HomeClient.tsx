@@ -190,7 +190,7 @@ const chevron = <i aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M2.6 4.2
 export default function Home() {
   const [data,setData] = useState<AppState>(seed);
   const [tab,setTab] = useState("leaderboard");
-  const [matchesView,setMatchesView] = useState<"history"|"headToHead">("history");
+  const [matchesView,setMatchesView] = useState<"history"|"headToHead"|"calendar">("history");
   const [headToHead,setHeadToHead] = useState({a:"",b:""});
   const [modal,setModal] = useState<"match"|"player"|"settings"|"detail"|"deleteMatch"|null>(null);
   const [detail,setDetail] = useState<Player|null>(null);
@@ -519,7 +519,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer}:{ranked:Player[];data:AppSt
         <span className="elo"><b>{Math.round(p.rating)}</b><small className={swing>=0?"positive":"negative"}>{swing>=0?"+":""}{Math.round(swing)}</small><em className="elo-suggested">建議 {suggested}</em></span></button>})}</>}</div></>;
 }
 
-function Matches({data,onEdit,onVoid,view,setView,pair,setPair}:{data:AppState;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;view:"history"|"headToHead";setView:(view:"history"|"headToHead")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void}) {
+function Matches({data,onEdit,onVoid,view,setView,pair,setPair}:{data:AppState;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;view:"history"|"headToHead"|"calendar";setView:(view:"history"|"headToHead"|"calendar")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void}) {
   const [sortBy,setSortBy]=useState<"playedOn"|"createdAt">("playedOn");
   const [sortDirection,setSortDirection]=useState<"desc"|"asc">("desc");
   const [focusPlayer,setFocusPlayer]=useState("");
@@ -545,8 +545,8 @@ function Matches({data,onEdit,onVoid,view,setView,pair,setPair}:{data:AppState;o
     },{wins:0,losses:0,draws:0,net:0});
   },[matches,focusPlayer]);
   return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽記錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
-    <div className="match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="headToHead"} className={view==="headToHead"?"active":""} onClick={()=>setView("headToHead")}>對賽</button></div>
-    {view==="headToHead"?<HeadToHead data={data} pair={pair} setPair={setPair} onEdit={onEdit} onVoid={onVoid}/>:<><div className="filters match-sort"><label>排序依據<select value={sortBy} onChange={event=>setSortBy(event.target.value as "playedOn"|"createdAt")}><option value="playedOn">比賽日期</option><option value="createdAt">加入日期</option></select></label><label>次序<select value={sortDirection} onChange={event=>setSortDirection(event.target.value as "desc"|"asc")}><option value="desc">最新至最舊</option><option value="asc">最舊至最新</option></select></label><label>球員<select value={focusPlayer} onChange={event=>setFocusPlayer(event.target.value)}><option value="">全部球員</option>{roster.map(player=><option key={player.id} value={player.id}>{player.name}</option>)}</select></label></div>
+    <div className="match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="headToHead"} className={view==="headToHead"?"active":""} onClick={()=>setView("headToHead")}>對賽</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button></div>
+    {view==="headToHead"?<HeadToHead data={data} pair={pair} setPair={setPair} onEdit={onEdit} onVoid={onVoid}/>:view==="calendar"?<CalendarView data={data} onEdit={onEdit} onVoid={onVoid}/>:<><div className="filters match-sort"><label>排序依據<select value={sortBy} onChange={event=>setSortBy(event.target.value as "playedOn"|"createdAt")}><option value="playedOn">比賽日期</option><option value="createdAt">加入日期</option></select></label><label>次序<select value={sortDirection} onChange={event=>setSortDirection(event.target.value as "desc"|"asc")}><option value="desc">最新至最舊</option><option value="asc">最舊至最新</option></select></label><label>球員<select value={focusPlayer} onChange={event=>setFocusPlayer(event.target.value)}><option value="">全部球員</option>{roster.map(player=><option key={player.id} value={player.id}>{player.name}</option>)}</select></label></div>
     {focusPlayer&&focusSummary&&<div className="focus-summary"><div><i style={avatarStyle(data.players.find(p=>p.id===focusPlayer)?.colour)}>{data.players.find(p=>p.id===focusPlayer)?.short}</i><span><small>已篩選</small><b>{name(focusPlayer)}</b></span></div>
       <div className="focus-record"><span><small>場數</small><b>{matches.length}</b></span><span><small>勝／負／和</small><b>{focusSummary.wins}／{focusSummary.losses}／{focusSummary.draws}</b></span><span><small>ELO 淨變化</small><b className={focusSummary.net>=0?"positive":"negative"}>{focusSummary.net>=0?"+":""}{Math.round(focusSummary.net)}</b></span></div>
       <button type="button" className="focus-clear" onClick={()=>setFocusPlayer("")}>清除篩選</button></div>}
@@ -591,6 +591,97 @@ function HeadToHead({data,pair,setPair,onEdit,onVoid}:{data:AppState;pair:{a:str
       <div className="h2h-frames"><span><small>{a.name} 局數</small><b>{stats.framesA}</b><em>{totalFrames?Math.round(stats.framesA/totalFrames*100):0}%</em></span><span><small>合計局數</small><b>{totalFrames}</b><em>{matches.length?`共 ${matches.length} 場`:"尚未交手"}</em></span><span><small>{b.name} 局數</small><b>{stats.framesB}</b><em>{totalFrames?Math.round(stats.framesB/totalFrames*100):0}%</em></span></div></div>
       <div className="h2h-list-head"><h3>逐場賽果</h3><span>{matches.length} 場{filtered?" · 已篩選日期":""}</span></div>
       <div className="h2h-list">{matches.length===0?<Empty text="沒有符合的對賽記錄" sub="調整日期範圍，或在選定兩人後記錄第一場比賽。"/>:matches.map(match=>{const first=match.a===a.id,scoreA=first?match.scoreA:match.scoreB,scoreB=first?match.scoreB:match.scoreA,beforeA=first?match.beforeA:match.beforeB,afterA=first?match.afterA:match.afterB,beforeB=first?match.beforeB:match.beforeA,afterB=first?match.afterB:match.afterA,deltaA=afterA-beforeA,deltaB=afterB-beforeB;return <article key={match.id} className="h2h-match"><div className="match-board"><div className="match-top"><small>{match.playedOn}{match.entryMode==="aggregate"?" · 歷史匯總":""}</small><span className="card-tools"><button className="card-tool" aria-label={`編輯 ${match.playedOn} 的賽事`} onClick={()=>onEdit(match)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${match.playedOn} 的賽事`} onClick={()=>onVoid(match)}>✕</button></span></div><Scoreline left={a.name} right={b.name} scoreLeft={scoreA} scoreRight={scoreB}/></div><div className="match-body"><div className="h2h-elo-heading"><span>ELO 變化</span><small>本場比賽後</small></div><div className="h2h-elo-changes" aria-label="本場比賽 ELO 變化"><div className="h2h-elo-card" aria-label={`${a.name} ELO 變化`}><span className="h2h-elo-player"><i aria-hidden="true">{a.short}</i></span><div className="h2h-elo-values"><span>{Math.round(beforeA)}</span><em>→</em><strong>{Math.round(afterA)}</strong></div><b className={`h2h-elo-delta ${deltaA>=0?"positive":"negative"}`}>{deltaA>=0?"+":""}{Math.round(deltaA)}<small>ELO</small></b></div><div className="h2h-elo-card" aria-label={`${b.name} ELO 變化`}><span className="h2h-elo-player"><i aria-hidden="true">{b.short}</i></span><div className="h2h-elo-values"><span>{Math.round(beforeB)}</span><em>→</em><strong>{Math.round(afterB)}</strong></div><b className={`h2h-elo-delta ${deltaB>=0?"positive":"negative"}`}>{deltaB>=0?"+":""}{Math.round(deltaB)}<small>ELO</small></b></div></div></div></article>})}</div></>}</section>;
+}
+
+const weekdayLabels=["一","二","三","四","五","六","日"];
+function shiftMonth(month:string,delta:number){
+  const [y,m]=month.split("-").map(Number);
+  const d=new Date(y,m-1+delta,1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+}
+function monthGrid(month:string){
+  const [y,m]=month.split("-").map(Number);
+  const startOffset=(new Date(y,m-1,1).getDay()+6)%7;
+  const daysInMonth=new Date(y,m,0).getDate();
+  const cells:(string|null)[]=Array.from({length:startOffset},()=>null);
+  for(let d=1;d<=daysInMonth;d++)cells.push(`${month}-${String(d).padStart(2,"0")}`);
+  while(cells.length%7!==0)cells.push(null);
+  return cells;
+}
+function monthLabel(month:string){
+  const [y,m]=month.split("-").map(Number);
+  return `${y}年${m}月`;
+}
+
+function CalendarView({data,onEdit,onVoid}:{data:AppState;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void}) {
+  const name=(id:string)=>data.players.find(p=>p.id===id)?.name??"已刪除球員";
+  const confirmed=useMemo(()=>data.matches.filter(m=>m.status==="confirmed"),[data.matches]);
+  const currentMonth=today.slice(0,7);
+  const bounds=useMemo(()=>{
+    const months=new Set(confirmed.map(m=>m.playedOn.slice(0,7)));
+    months.add(currentMonth);
+    const sorted=[...months].sort();
+    return {min:sorted[0],max:sorted[sorted.length-1]};
+  },[confirmed,currentMonth]);
+  const [month,setMonth]=useState(currentMonth);
+  const [selectedDay,setSelectedDay]=useState<string|null>(null);
+  const dayMatches=useMemo(()=>{
+    const map=new Map<string,Match[]>();
+    for(const m of confirmed){
+      if(!m.playedOn.startsWith(month))continue;
+      const list=map.get(m.playedOn)??[];
+      list.push(m);
+      map.set(m.playedOn,list);
+    }
+    return map;
+  },[confirmed,month]);
+  const maxCount=Math.max(1,...[...dayMatches.values()].map(list=>list.length));
+  const grid=useMemo(()=>monthGrid(month),[month]);
+  const goToMonth=(next:string)=>{setMonth(next);setSelectedDay(null)};
+  const selectedMatches=selectedDay?dayMatches.get(selectedDay)??[]:[];
+  return <section className="calendar-view">
+    <div className="calendar-nav">
+      <button type="button" className="calendar-nav-btn" aria-label="上一個月" disabled={month<=bounds.min} onClick={()=>goToMonth(shiftMonth(month,-1))}>‹</button>
+      <b>{monthLabel(month)}</b>
+      <button type="button" className="calendar-nav-btn" aria-label="下一個月" disabled={month>=bounds.max} onClick={()=>goToMonth(shiftMonth(month,1))}>›</button>
+    </div>
+    <div className="calendar-body">
+      <div className="calendar-weekdays">{weekdayLabels.map(w=><span key={w}>{w}</span>)}</div>
+      <div className="calendar-grid">{grid.map((date,index)=>{
+        if(!date)return <span key={index} className="calendar-cell-blank" aria-hidden="true"/>;
+        const list=dayMatches.get(date)??[];
+        const count=list.length;
+        const hasCentury=list.some(m=>m.highBreaks?.some(b=>b.value>=100));
+        const tint=count?Math.max(1,Math.min(5,Math.ceil(count/maxCount*5))):0;
+        const isToday=date===today;
+        const isSelected=date===selectedDay;
+        return <button key={date} type="button" disabled={!count}
+          className={`calendar-cell${count?` has-matches tint-${tint}`:""}${isToday?" today":""}${isSelected?" selected":""}`}
+          aria-pressed={isSelected} aria-label={`${date}${count?`，${count} 場比賽`:"，沒有比賽"}`}
+          onClick={()=>setSelectedDay(isSelected?null:date)}>
+          <span className="calendar-date">{Number(date.slice(8))}</span>
+          {count>0&&<span className="calendar-count">{count}</span>}
+          {hasCentury&&<i className="calendar-century" aria-hidden="true" title="破百單桿">★</i>}
+        </button>;
+      })}</div>
+      {dayMatches.size===0&&<div className="calendar-empty-overlay"><Empty text="本月沒有比賽記錄" sub="使用上方箭嘴切換到有記錄的月份。"/></div>}
+    </div>
+    {selectedDay&&<div className="calendar-day-detail">
+      <div className="calendar-day-head"><h3><time dateTime={selectedDay}>{selectedDay}</time></h3><span>{selectedMatches.length} 場</span></div>
+      <div className="calendar-day-list">{selectedMatches.map(m=>
+        <article className={`match ${m.status}`} key={m.id}>
+          <div className="match-board"><div className="match-top"><span className="match-when">{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
+            <span className="card-tools"><button className="card-tool" aria-label={`編輯 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onEdit(m)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onVoid(m)}>✕</button></span></div>
+          <Scoreline left={name(m.a)} right={name(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}/>
+          </div><div className="match-body">
+          <div className="elo-impact" aria-label="本場 ELO 影響">
+            <div><span>{name(m.a)}</span><b>{Math.round(m.beforeA)} <i>→</i> {Math.round(m.afterA)}</b><em className={m.deltaA>=0?"positive":"negative"}>{m.deltaA>=0?"+":""}{Math.round(m.deltaA)}</em></div>
+            <div><span>{name(m.b)}</span><b>{Math.round(m.beforeB)} <i>→</i> {Math.round(m.afterB)}</b><em className={-m.deltaA>=0?"positive":"negative"}>{-m.deltaA>=0?"+":""}{Math.round(-m.deltaA)}</em></div>
+          </div>
+          {!!m.highBreaks?.length&&<div className="match-breaks"><span>單桿</span>{m.highBreaks.map((item,i)=><b key={`${item.playerId}-${i}`}>{name(item.playerId)} {item.value}</b>)}</div>}
+          </div></article>)}</div>
+    </div>}
+  </section>;
 }
 
 function ConfirmDeleteMatch({match,data,onCancel,onConfirm}:{match:Match;data:AppState;onCancel:()=>void;onConfirm:()=>void}) {
