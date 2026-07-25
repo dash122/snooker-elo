@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 export type SortKey = "rank"|"name"|"rating"|"change"|"form"|"official"|"suggested"|"games"|"winRate"|"frameRate";
 export type EloTrendPoint = {
@@ -36,18 +36,66 @@ export function avatarHex(colour?:string|null){return AVATAR_COLOURS.find(option
 export function avatarStyle(colour?:string|null){return {background:avatarHex(colour)}}
 
 /**
+ * Type-ahead player picker. A native <select> is fine for a handful of names
+ * but forces scrolling an alphabetical list as the roster grows; this filters
+ * by typed text instead, the way Contacts/Messages "To:" fields do. Pass
+ * `renderTrigger` to show a rich display (avatar, ELO) when closed and only
+ * swap to the search input once opened — used by the match-entry form.
+ */
+export function PlayerCombobox<P extends {id:string;name:string}>({players,value,onChange,placeholder,ariaLabel,allowClear,clearLabel,renderTrigger}:{
+  players:P[];value:string;onChange:(id:string)=>void;placeholder:string;ariaLabel:string;
+  allowClear?:boolean;clearLabel?:string;renderTrigger?:(selected:P|undefined,open:()=>void)=>ReactNode;
+}) {
+  const [query,setQuery]=useState("");
+  const [open,setOpen]=useState(false);
+  const inputRef=useRef<HTMLInputElement>(null);
+  const containerRef=useRef<HTMLDivElement>(null);
+  const selected=players.find(p=>p.id===value);
+  const filtered=useMemo(()=>{
+    const q=query.trim().toLowerCase();
+    return q?players.filter(p=>p.name.toLowerCase().includes(q)):players;
+  },[players,query]);
+  useEffect(()=>{
+    if(!open)return;
+    const handler=(event:MouseEvent)=>{if(containerRef.current&&!containerRef.current.contains(event.target as Node))setOpen(false)};
+    document.addEventListener("mousedown",handler);
+    return ()=>document.removeEventListener("mousedown",handler);
+  },[open]);
+  const startOpen=()=>{setQuery("");setOpen(true);requestAnimationFrame(()=>inputRef.current?.focus())};
+  const pick=(id:string)=>{onChange(id);setQuery("");setOpen(false)};
+  return <div className={`player-combobox${renderTrigger?" as-trigger":""}`} ref={containerRef}>
+    {renderTrigger&&!open?renderTrigger(selected,startOpen):
+      <input ref={inputRef} type="text" role="combobox" aria-expanded={open} aria-label={ariaLabel} placeholder={placeholder} autoComplete="off"
+        value={open?query:(selected?.name??"")}
+        onFocus={()=>{if(!open){setQuery("");setOpen(true)}}}
+        onChange={event=>{setQuery(event.target.value);setOpen(true)}}
+        onKeyDown={event=>{
+          if(event.key==="Escape")setOpen(false);
+          if(event.key==="Enter"&&filtered.length===1){pick(filtered[0].id);event.preventDefault()}
+        }}/>}
+    {open&&<ul className="player-combobox-list" role="listbox">
+      {allowClear&&<li role="option" aria-selected={!value}><button type="button" onMouseDown={event=>event.preventDefault()} onClick={()=>pick("")}>{clearLabel??placeholder}</button></li>}
+      {filtered.length===0?<li className="player-combobox-empty">沒有符合的球員</li>:filtered.map(p=><li key={p.id} role="option" aria-selected={p.id===value}><button type="button" onMouseDown={event=>event.preventDefault()} onClick={()=>pick(p.id)}>{p.name}</button></li>)}
+    </ul>}
+  </div>;
+}
+
+/**
  * The scoreline is the reason both the match list and head-to-head exist, so
  * both render it through here: same size, same winner treatment, no drift.
  */
-export function Scoreline({left,right,scoreLeft,scoreRight}:{left:string;right:string;scoreLeft:number;scoreRight:number}) {
+export function Scoreline({left,right,scoreLeft,scoreRight,eloLeft,eloRight,netChange}:{left:string;right:string;scoreLeft:number;scoreRight:number;eloLeft?:{before:number;after:number;delta:number};eloRight?:{before:number;after:number;delta:number};netChange?:number}) {
   const leftWins=scoreLeft>scoreRight,rightWins=scoreRight>scoreLeft,drawn=scoreLeft===scoreRight;
   const side=(wins:boolean)=>drawn?"drawn":wins?"winner":"loser";
-  return <div className="scoreline" role="group" aria-label={`${left} ${scoreLeft} 比 ${scoreRight} ${right}${drawn?"，和局":`，${leftWins?left:right} 勝`}`}>
+  return <div className={`scoreline${eloLeft||eloRight?" with-elo":""}`} role="group" aria-label={`${left} ${scoreLeft} 比 ${scoreRight} ${right}${drawn?"，和局":`，${leftWins?left:right} 勝`}`}>
     <span className={`scoreline-name ${side(leftWins)}`}>{left}</span>
     <b className={side(leftWins)}>{scoreLeft}</b>
     <em aria-hidden="true">–</em>
     <b className={side(rightWins)}>{scoreRight}</b>
     <span className={`scoreline-name right ${side(rightWins)}`}>{right}</span>
+    {eloLeft&&<small className={`scoreline-elo ${eloLeft.delta>=0?"positive":"negative"}`}>{Math.round(eloLeft.before)} <i aria-hidden="true">→</i> {Math.round(eloLeft.after)}</small>}
+    {netChange!=null&&<small className="scoreline-net">ELO 影響 {Math.round(Math.abs(netChange))}</small>}
+    {eloRight&&<small className={`scoreline-elo right ${eloRight.delta>=0?"positive":"negative"}`}>{Math.round(eloRight.before)} <i aria-hidden="true">→</i> {Math.round(eloRight.after)}</small>}
   </div>;
 }
 
