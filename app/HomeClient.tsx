@@ -403,39 +403,23 @@ export default function Home() {
   </div>;
 }
 
-/** Editorial highlights: the four things a club member actually gossips about. */
+/** Editorial highlights: the things a club member actually gossips about. */
 function monthHighlights(data:AppState) {
   const month=today.slice(0,7);
   const confirmed=data.matches.filter(m=>m.status==="confirmed");
   const inMonth=confirmed.filter(m=>m.playedOn.slice(0,7)===month);
   const byId=new Map(data.players.map(p=>[p.id,p]));
-  const swing=new Map<string,number>(),played=new Map<string,number>();
-  for(const m of inMonth) for(const [id,delta] of [[m.a,m.deltaA],[m.b,-m.deltaA]] as const){
-    if(!byId.has(id as string))continue;
-    swing.set(id as string,(swing.get(id as string)??0)+(delta as number));
-    played.set(id as string,(played.get(id as string)??0)+1);
+  const played=new Map<string,number>();
+  for(const m of inMonth) for(const id of [m.a,m.b]){
+    if(!byId.has(id))continue;
+    played.set(id,(played.get(id)??0)+1);
   }
-  const pick=(source:Map<string,number>,highest=true)=>[...source.entries()]
-    .sort((a,b)=>highest?b[1]-a[1]:a[1]-b[1])[0];
-  const riser=pick(swing),busiest=pick(played);
+  const pick=(source:Map<string,number>)=>[...source.entries()].sort((a,b)=>b[1]-a[1])[0];
+  const busiest=pick(played);
   const breaks=inMonth.flatMap(m=>(m.highBreaks??[]).filter(x=>byId.has(x.playerId)).map(x=>({...x,at:m.playedOn})))
     .sort((a,b)=>b.value-a.value)[0];
-  // Streak runs over all history, not just this month: a live run is a live run.
-  let streak:{player:Player;count:number}|null=null;
-  for(const player of data.players){
-    const own=confirmed.filter(m=>m.a===player.id||m.b===player.id)
-      .sort((a,b)=>(b.playedOn||b.createdAt).localeCompare(a.playedOn||a.createdAt));
-    let count=0;
-    for(const m of own){
-      const first=m.a===player.id,mine=first?m.scoreA:m.scoreB,theirs=first?m.scoreB:m.scoreA;
-      if(mine>theirs)count++;else break;
-    }
-    if(count>1&&(!streak||count>streak.count))streak={player,count};
-  }
   return {
-    riser:riser&&riser[1]>0?{player:byId.get(riser[0])!,value:Math.round(riser[1])}:null,
     best:breaks?{player:byId.get(breaks.playerId)!,value:breaks.value}:null,
-    streak,
     busiest:busiest?{player:byId.get(busiest[0])!,value:busiest[1]}:null
   };
 }
@@ -443,9 +427,7 @@ function monthHighlights(data:AppState) {
 function Highlights({data,onPlayer}:{data:AppState;onPlayer:(p:Player)=>void}) {
   const h=useMemo(()=>monthHighlights(data),[data]);
   const cards=[
-    h.riser&&{key:"riser",ball:"red",label:"本月最大升幅",player:h.riser.player,value:`+${h.riser.value}`,unit:"ELO"},
     h.best&&{key:"best",ball:"yellow",label:"本月最高單桿",player:h.best.player,value:String(h.best.value),unit:"分"},
-    h.streak&&{key:"streak",ball:"blue",label:"最長連勝",player:h.streak.player,value:String(h.streak.count),unit:"連勝"},
     h.busiest&&{key:"busiest",ball:"green",label:"本月最活躍",player:h.busiest.player,value:String(h.busiest.value),unit:"場"}
   ].filter(Boolean) as {key:string;ball:string;label:string;player:Player;value:string;unit:string}[];
   if(!cards.length)return null;
@@ -522,7 +504,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer}:{ranked:Player[];data:AppSt
     <Overview top={ranked.slice(0,3)} data={data} onPlayer={onPlayer} players={ranked.length} month={month} total={total}/>
     {ranked.length>0&&<section className="visual-grid analytics-grid" aria-label="排行榜分析">
       <details className="analytics-card"><summary><span><small>實力分布</small><b>ELO／建議評分</b></span>{chevron}</summary><div className="analytics-content"><div className="chart-head"><span>ELO／建議評分<br/>柱長按 ELO 顯示</span></div><div className="bar-chart">{ranked.map((p,i)=>{const suggested=suggestedHandicap(p,data);return <button key={p.id} onClick={()=>onPlayer(p)} aria-label={`${p.name}，${Math.round(p.rating)} ELO，建議評分 ${Math.round(suggested)}`}><span><i>{i+1}</i>{p.name}</span><em><i style={{width:`${18+(p.rating-minRating)/range*82}%`}}/></em><b>{Math.round(p.rating)} / {Math.round(suggested)}</b></button>})}</div><p className="chart-summary">目前由 {leader.name} 領先；柱長按榜內 ELO 相對位置顯示，數字格式為 ELO／建議評分；建議評分越低代表球員越強。</p></div></details>
-      <details className="analytics-card break-leaderboard"><summary><span><small>龍虎榜</small><b>最高單桿記錄</b></span>{chevron}</summary><div className="analytics-content"><div className="mini-toggle break-toggle" aria-label="龍虎榜顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史最高</button></div><ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];return <li key={record?.key??`empty-${index}`} className={record?"":"empty-rank"}><span className="break-position">{index+1}</span>{record?<><i style={avatarStyle(record.player.colour)}>{record.player.short}</i><b><span>{record.player.name}</span><small>對 {record.opponent}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value}</strong></>:<b>N/A</b>}</li>})}</ol><p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。"}</p></div></details>
+      <details className="analytics-card break-leaderboard"><summary><span><small>龍虎榜</small><b>最高單桿記錄</b></span>{chevron}</summary><div className="analytics-content"><div className="mini-toggle break-toggle" aria-label="龍虎榜顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史最高</button></div><ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><i style={avatarStyle(record.player.colour)}>{record.player.short}</i><b><span>{record.player.name}</span><small>對 {record.opponent}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title="破百單桿">破百</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol><p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。"}</p></div></details>
     </section>}
     <section className="section-title"><div><p className="kicker">即時競爭形勢</p><h2>目前排名</h2><p>每場結果都會即時反映在 ELO 與近期狀態。</p></div><span className="pill">● 已同步</span></section>
     <SortControls sort={sort} dir={dir} onSort={sortBy}/>
