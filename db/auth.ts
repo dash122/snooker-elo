@@ -9,6 +9,44 @@ export type MemberSession = {
 
 const SESSION_COOKIE = "scaa_session";
 const SESSION_DAYS = 30;
+let schemaReady: Promise<unknown> | null = null;
+
+function ensureAuthSchema() {
+  schemaReady ??= env.DB.batch([
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS members (
+        email TEXT PRIMARY KEY NOT NULL,
+        display_name TEXT NOT NULL,
+        role TEXT DEFAULT 'member' NOT NULL,
+        password_hash TEXT NOT NULL,
+        password_salt TEXT NOT NULL,
+        active INTEGER DEFAULT 1 NOT NULL,
+        joined_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL
+      )
+    `),
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        token_hash TEXT PRIMARY KEY NOT NULL,
+        member_email TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `),
+    env.DB.prepare(`
+      CREATE INDEX IF NOT EXISTS sessions_member_email_idx
+      ON sessions (member_email)
+    `),
+    env.DB.prepare(`
+      CREATE INDEX IF NOT EXISTS sessions_expires_at_idx
+      ON sessions (expires_at)
+    `),
+  ]).catch(error => {
+    schemaReady = null;
+    throw error;
+  });
+  return schemaReady;
+}
 
 function bytesToHex(bytes: Uint8Array) {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
@@ -45,6 +83,7 @@ function parseCookie(cookie: string | null, name: string) {
 }
 
 export async function getCurrentMember(): Promise<MemberSession | null> {
+  await ensureAuthSchema();
   const token = parseCookie((await headers()).get("cookie"), SESSION_COOKIE);
   if (!token) return null;
   const tokenHash = await sha256(token);
@@ -63,6 +102,7 @@ export async function requireMember(role?: "admin") {
 }
 
 export async function verifyCredentials(email: string, password: string) {
+  await ensureAuthSchema();
   const row = await env.DB.prepare(`
     SELECT email, display_name AS displayName, role, password_hash AS passwordHash, password_salt AS passwordSalt
     FROM members WHERE email = ? AND active = 1
@@ -72,6 +112,7 @@ export async function verifyCredentials(email: string, password: string) {
 }
 
 export async function createMember(email: string, displayName: string, password: string, role: "admin" | "member") {
+  await ensureAuthSchema();
   const normalizedEmail = email.trim().toLowerCase();
   const salt = randomHex(16);
   const hash = await passwordDigest(password, salt);
@@ -83,11 +124,13 @@ export async function createMember(email: string, displayName: string, password:
 }
 
 export async function hasMembers() {
+  await ensureAuthSchema();
   const row = await env.DB.prepare("SELECT COUNT(*) AS count FROM members").first() as { count: number } | null;
   return Number(row?.count ?? 0) > 0;
 }
 
 export async function createSession(email: string) {
+  await ensureAuthSchema();
   const token = randomHex();
   const tokenHash = await sha256(token);
   const createdAt = new Date();
@@ -101,6 +144,7 @@ export async function createSession(email: string) {
 }
 
 export async function deleteCurrentSession() {
+  await ensureAuthSchema();
   const token = parseCookie((await headers()).get("cookie"), SESSION_COOKIE);
   if (token) await env.DB.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha256(token)).run();
   return `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
