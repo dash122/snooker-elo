@@ -23,7 +23,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       <p>@{member.username}</p>
       {player && <section className="account-player-card">
         <p className="kicker">?????</p><h2>{player.name}</h2>
-        <div className="account-player-stats"><span><small>ELO</small><b>{Math.round(player.rating)}</b></span><span><small>?/?/?</small><b>{player.wins}/{player.losses}/{player.draws}</b></span><span><small>??</small><b>{player.handicap ?? "—"}</b></span></div>
+        <div className="account-player-stats"><span><small>ELO</small><b>{Math.round(player.rating)}</b></span><span><small>?/?/?</small><b>{player.wins}/{player.losses}/{player.draws}</b></span><span><small>??</small><b>{player.handicap ?? "ï¿½"}</b></span></div>
       </section>}
       {params.updated && <p className="form-success">????????</p>}
       {params.error && <p className="form-error">???????????</p>}
