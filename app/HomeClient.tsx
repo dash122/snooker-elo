@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { CalibrationTrend, DEFAULT_AVATAR, Empty, InteractiveEloChart, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Sparkline, Term, avatarHex, avatarStyle, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
+import { CalibrationTrend, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Sparkline, Term, avatarHex, avatarStyle, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 
 type Player = {
   id: string; name: string; short: string; handicap: number | null; rating: number; colour?: string;
@@ -389,8 +389,11 @@ export default function Home() {
       {tab==="players"&&<Players data={data} onAdd={()=>{setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={openHeadToHead}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>setModal("settings")} onReset={resetAll}/>}
     </main>
-    <nav className="bottom">{[["leaderboard","榜","◆"],["matches","比賽","◫"],["record","記錄","＋"],["players","球員","◎"],["settings","設定","⚙"]].map(([id,label,icon])=>
-      <button key={id} className={id==="record"?"bottom-record":tab===id?"active":""} onClick={()=>id==="record"?newMatch():setTab(id)}><i>{icon}</i><small>{label}</small></button>)}</nav>
+    <nav className="bottom">{[["leaderboard","排行榜"],["matches","比賽"],["record","記錄"],["players","球員"],["settings","設定"]].map(([id,label])=>
+      <button key={id} className={id==="record"?"bottom-record":tab===id?"active":""} onClick={()=>id==="record"?newMatch():setTab(id)}>
+        <i>{id==="record"?"＋":<NavIcon id={id as "leaderboard"|"matches"|"players"|"settings"} active={tab===id}/>}</i>
+        <small>{label}</small>
+      </button>)}</nav>
     {modal&&<div className="backdrop" onMouseDown={e=>e.target===e.currentTarget&&closeModal()}>
       <section className={`sheet${modal==="deleteMatch"?" confirm-sheet":""}`} role="dialog" aria-modal="true"><button className="close" aria-label="關閉" onClick={closeModal}>×</button>
         {modal==="match"&&<MatchForm data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} onSave={saveMatch}/>}
@@ -445,16 +448,11 @@ function Highlights({data,onPlayer}:{data:AppState;onPlayer:(p:Player)=>void}) {
  * above the podium; folded in here as an inline strip so the leaderboard
  * reaches its actual content (the standings) sooner.
  */
-function Overview({top,data,onPlayer,players,month,total}:{top:Player[];data:AppState;onPlayer:(p:Player)=>void;players:number;month:number;total:number}) {
+function Overview({top,data,onPlayer}:{top:Player[];data:AppState;onPlayer:(p:Player)=>void}) {
   // DOM order is always rank order (1, 2, 3) so mobile — a vertical stack —
   // reads top to bottom correctly. The classic "winner in the middle" podium
   // look is applied with CSS `order` on the desktop 3-column layout only.
   return <section className="podium-section" aria-label="總覽及排名前三">
-    <div className="podium-stats">
-      <span><b>{players}</b><small>活躍球員</small></span>
-      <span><b>{month}</b><small>本月比賽</small></span>
-      <span><b>{total}</b><small>歷來總場數</small></span>
-    </div>
     {top.length>=3&&<div className="podium">
       {top.map((player,index)=>{const place=index+1;return <button key={player.id} className={`podium-card place-${place}`} onClick={()=>onPlayer(player)}>
         <span className="podium-place">{place===1?"♛":place}</span>
@@ -499,9 +497,15 @@ function Leaderboard({ranked,data,onRecord,onPlayer}:{ranked:Player[];data:AppSt
   },[data.matches,data.players]);
   const displayedBreaks=breakRecords[breakView];
   const sortBy=(key:SortKey)=>{if(sort===key)setDir(x=>x==="asc"?"desc":"asc");else{setSort(key);setDir(key==="rank"||key==="name"?"asc":"desc")}};
-  return <><section className="hero"><div><p className="kicker">SCAA CLUB RANKING</p><h1>讓每一局，<br/><span>都推動進步。</span></h1><p>追蹤實力、看見成長，找到旗鼓相當的下一位對手。</p></div><button className="primary hero-action" onClick={onRecord}><span aria-hidden="true">＋</span><b>記錄新賽果</b><small>更新排名與近期狀態</small></button></section>
+  return <><section className="hero"><div><p className="kicker">SCAA CLUB RANKING</p><h1>讓每一局，<br/><span>都推動進步。</span></h1><p>追蹤實力、看見成長，找到旗鼓相當的下一位對手。</p>
+      <div className="podium-stats">
+        <span><b>{ranked.length}</b><small>活躍球員</small></span>
+        <span><b>{month}</b><small>本月比賽</small></span>
+        <span><b>{total}</b><small>歷來總場數</small></span>
+      </div>
+    </div><button className="primary hero-action" onClick={onRecord}><span aria-hidden="true">＋</span><b>記錄新賽果</b><small>更新排名與近期狀態</small></button></section>
     <Highlights data={data} onPlayer={onPlayer}/>
-    <Overview top={ranked.slice(0,3)} data={data} onPlayer={onPlayer} players={ranked.length} month={month} total={total}/>
+    <Overview top={ranked.slice(0,3)} data={data} onPlayer={onPlayer}/>
     {ranked.length>0&&<section className="visual-grid analytics-grid" aria-label="排行榜分析">
       <details className="analytics-card"><summary><span><small>實力分布</small><b>ELO／建議評分</b></span>{chevron}</summary><div className="analytics-content"><div className="chart-head"><span>ELO／建議評分<br/>柱長按 ELO 顯示</span></div><div className="bar-chart">{ranked.map((p,i)=>{const suggested=suggestedHandicap(p,data);return <button key={p.id} onClick={()=>onPlayer(p)} aria-label={`${p.name}，${Math.round(p.rating)} ELO，建議評分 ${Math.round(suggested)}`}><span><i>{i+1}</i>{p.name}</span><em><i style={{width:`${18+(p.rating-minRating)/range*82}%`}}/></em><b>{Math.round(p.rating)} / {Math.round(suggested)}</b></button>})}</div><p className="chart-summary">目前由 {leader.name} 領先；柱長按榜內 ELO 相對位置顯示，數字格式為 ELO／建議評分；建議評分越低代表球員越強。</p></div></details>
       <details className="analytics-card break-leaderboard"><summary><span><small>龍虎榜</small><b>最高單桿記錄</b></span>{chevron}</summary><div className="analytics-content"><div className="mini-toggle break-toggle" aria-label="龍虎榜顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史最高</button></div><ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><i style={avatarStyle(record.player.colour)}>{record.player.short}</i><b><span>{record.player.name}</span><small>對 {record.opponent}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title="破百單桿">破百</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol><p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。"}</p></div></details>
@@ -509,8 +513,8 @@ function Leaderboard({ranked,data,onRecord,onPlayer}:{ranked:Player[];data:AppSt
     <section className="section-title"><div><p className="kicker">即時競爭形勢</p><h2>目前排名</h2><p>每場結果都會即時反映在 ELO 與近期狀態。</p></div><span className="pill">● 已同步</span></section>
     <SortControls sort={sort} dir={dir} onSort={sortBy}/>
     <div className="table-card">{ranked.length===0?<Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>:<><div className="table-head sortable"><button title="箭嘴為較 30 天前的排名升跌" onClick={()=>sortBy("rank")}>排名<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>球員<SortArrow active={sort==="name"} dir={dir}/></button><button title="最近五筆比賽；較近期結果權重較高" onClick={()=>sortBy("form")}>近況<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>場數／勝率<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>建議／正式評分<SortArrow active={sort==="suggested"} dir={dir}/></button><button title="ELO 及近五場淨變化" onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
-      {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=recentDelta(p,data,5),played=games(p),rate=played?Math.round(p.wins/played*100):0;
-        return <button className={`row ${rank===1?"top":""}`} key={p.id} onClick={()=>onPlayer(p)} aria-label={`${p.name}，排名 ${rank}，ELO ${Math.round(p.rating)}，近五場淨變化 ${swing>=0?"+":""}${Math.round(swing)}，建議讓分 ${suggested}`}>
+      {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=recentDelta(p,data,5),played=games(p),rate=played?Math.round(p.wins/played*100):0,provisional=played<data.settings.provisionalGames;
+        return <button className={`row ${rank===1?"top":""} ${provisional?"provisional":""}`} key={p.id} onClick={()=>onPlayer(p)} aria-label={`${p.name}，排名 ${rank}，ELO ${Math.round(p.rating)}，近五場淨變化 ${swing>=0?"+":""}${Math.round(swing)}，建議讓分 ${suggested}${provisional?"，臨時評分":""}`}>
         <span className="rank">{rank===1?"♛":rank}{(()=>{if(!movement.active)return null;const move=movement.map.get(p.id)??0;
           return move===0?<em className="move flat" aria-label="30 天內排名不變">–</em>
           :<em className={`move ${move>0?"up":"down"}`} aria-label={`較 30 天前${move>0?"上升":"下跌"} ${Math.abs(move)} 位`}>{move>0?"▲":"▼"}{Math.abs(move)}</em>})()}</span><span className="person"><i style={avatarStyle(p.colour)}>{p.short}</i><b>{p.name}<small>{played<data.settings.provisionalGames?"臨時":"正式"}<span className="rating-kind-suffix">評分</span><em className="person-meta"> · {played} 場</em></small></b></span>
@@ -923,21 +927,28 @@ function RivalrySnapshot({player,data,onCompare}:{player:Player;data:AppState;on
   </section>;
 }
 
-const BREAK_LIST_LIMIT=8;
-/** Lists each distinct break value the player has recorded, highest first, merging repeats into a ×N count. */
+/** Buckets a break value into its ten-point band, e.g. 47→"40-49", 100+→"100+". */
+function breakBand(value:number){ return value>=100?"100+":`${Math.floor(value/10)*10}-${Math.floor(value/10)*10+9}`; }
+/** Groups the player's recorded breaks into ten-point bands (20-29 up to 100+) so the shape of their form shows at a glance, rather than a flat list of individual scores. */
 function BreakStats({player,data}:{player:Player;data:AppState}) {
   const breaks=data.matches.filter(m=>m.status==="confirmed").flatMap(m=>
     (m.highBreaks??[]).filter(item=>item.playerId===player.id&&item.value>0&&item.value<=147).map(item=>item.value));
   if(!breaks.length)return null;
   const highest=Math.max(...breaks);
-  const counts=new Map<number,number>();
-  [...breaks].sort((a,b)=>b-a).forEach(v=>counts.set(v,(counts.get(v)??0)+1));
-  const entries=Array.from(counts.entries());
-  const shown=entries.slice(0,BREAK_LIST_LIMIT),hidden=entries.length-shown.length;
+  const bands=["20-29","30-39","40-49","50-59","60-69","70-79","80-89","90-99","100+"];
+  const band=(v:number)=>v<20?"<20":breakBand(v);
+  const allBands=breaks.some(v=>v<20)?["<20",...bands]:bands;
+  const counts=new Map<string,number>();
+  for(const v of breaks) counts.set(band(v),(counts.get(band(v))??0)+1);
+  const maxCount=Math.max(1,...allBands.map(b=>counts.get(b)??0));
   return <section className="break-stats">
     <div className="break-stats-head"><div><p className="kicker">單桿表現</p><h3>最高單桿</h3></div><b>{highest}</b></div>
-    <div className="break-tally">{shown.map(([value,count])=><span key={value}>{value}{count>1&&<em>×{count}</em>}</span>)}{hidden>0&&<span className="break-tally-more">+{hidden}</span>}</div>
-    <p className="chart-summary">共 {breaks.length} 桿記錄{entries.length>1?`，${entries.length} 個不同分數`:""}。</p>
+    <div className="break-bar-chart">{allBands.map(band=>{const count=counts.get(band)??0;return <div className="break-bar-row" key={band}>
+      <span className="break-bar-label">{band}</span>
+      <span className="break-bar-track"><i style={{width:count?`${8+count/maxCount*92}%`:"0%"}}/></span>
+      <span className="break-bar-count">{count||""}</span>
+    </div>})}</div>
+    <p className="chart-summary">共 {breaks.length} 桿記錄。</p>
   </section>;
 }
 
