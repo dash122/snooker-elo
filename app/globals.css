@@ -114,6 +114,13 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .break-ranking strong{color:#9a6d1d;font-size:19px;text-align:right;font-variant-numeric:tabular-nums}
 .break-ranking .empty-rank{grid-template-columns:32px 1fr;color:var(--muted)}
 .break-ranking .empty-rank b{font-weight:600}
+.break-ranking li.medal{position:relative;border-radius:12px}
+.break-ranking li.medal-gold{background:linear-gradient(90deg,rgba(230,178,60,.16),rgba(230,178,60,.03))}
+.break-ranking li.medal-silver{background:linear-gradient(90deg,rgba(160,168,178,.16),rgba(160,168,178,.03))}
+.break-ranking li.medal-bronze{background:linear-gradient(90deg,rgba(180,120,70,.14),rgba(180,120,70,.03))}
+.medal-icon{font-style:normal;font-size:17px;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.15))}
+.century-badge{display:inline-block;margin-right:5px;padding:2px 6px;border-radius:8px;background:linear-gradient(135deg,#e6b23c,#c98a1f);color:white;font-style:normal;font-size:9px;font-weight:900;letter-spacing:.04em;vertical-align:middle}
+@media(max-width:700px){.medal-icon{font-size:15px}.century-badge{font-size:8px;padding:1px 5px}}
 @media(max-width:700px){
   .analytics-card summary{min-height:68px;padding:13px 16px}
   .analytics-content{padding:17px 14px}
