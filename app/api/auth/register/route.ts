@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   const email = String(form.get("email") ?? "").trim();
   const displayName = String(form.get("displayName") ?? "").trim();
   const password = String(form.get("password") ?? "");
-  if (!email.includes("@") || displayName.length < 2 || password.length < 10) {
+  if (!email.includes("@") || displayName.length < 2 || password.length < 6) {
     return Response.redirect(new URL("/register?error=invalid", request.url), 303);
   }
   await createMember(email, displayName, password, "admin");

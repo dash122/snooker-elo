@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const displayName = String(form.get("displayName") ?? "").trim();
   const password = String(form.get("password") ?? "");
   const role = form.get("role") === "admin" ? "admin" : "member";
-  if (!email.includes("@") || displayName.length < 2 || password.length < 10) {
+  if (!email.includes("@") || displayName.length < 2 || password.length < 6) {
     return Response.redirect(new URL("/admin?error=invalid", request.url), 303);
   }
   try {

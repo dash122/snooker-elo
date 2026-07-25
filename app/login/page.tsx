@@ -18,7 +18,7 @@ export default async function LoginPage({searchParams}:{searchParams:Promise<{er
         {params.error && <p className="form-error" role="alert">電郵或密碼不正確。</p>}
         <form className="auth-form" action="/api/auth/login" method="post">
           <label>電郵<input name="email" type="email" autoComplete="email" required /></label>
-          <label>密碼<input name="password" type="password" autoComplete="current-password" minLength={8} required /></label>
+          <label>密碼<input name="password" type="password" autoComplete="current-password" minLength={6} required /></label>
           <button className="primary" type="submit">登入</button>
         </form>
         {!initialized && <p className="bootstrap-note">尚未建立帳戶？<Link href="/register">建立首個管理員帳戶</Link></p>}
