@@ -5,7 +5,7 @@ import { getState } from "../../db/state";
 
 export const dynamic = "force-dynamic";
 type Player = { id: string; name: string };
-const zh = { kicker: "??????", title: "????", name: "????", username: "?????", email: "??", password: "???(????)", role: "????", member: "??", admin: "???", add: "????", created: "??????", updated: "??????", exists: "?????????????", invalid: "????????", player: "??????", none: "???", save: "????", back: "??????" };
+const zh = { kicker: "\u7ba1\u7406\u54e1\u63a7\u5236\u53f0", title: "\u6703\u54e1\u7ba1\u7406", name: "\u986f\u793a\u540d\u7a31", username: "\u4f7f\u7528\u8005\u540d\u7a31", email: "\u96fb\u90f5", password: "\u65b0\u5bc6\u78bc (\u5982\u9700\u66f4\u6539)", role: "\u5e33\u6236\u985e\u578b", member: "\u6703\u54e1", admin: "\u7ba1\u7406\u54e1", add: "\u65b0\u589e\u5e33\u6236", created: "\u5e33\u6236\u5df2\u5efa\u7acb\u3002", updated: "\u5e33\u6236\u5df2\u66f4\u65b0\u3002", exists: "\u6b64\u96fb\u90f5\u6216\u4f7f\u7528\u8005\u540d\u7a31\u5df2\u5b58\u5728\u3002", invalid: "\u8acb\u6aa2\u67e5\u5e33\u6236\u8cc7\u6599\u3002", player: "\u9023\u7d50\u7403\u54e1\u6a94\u6848", none: "\u672a\u9023\u7d50", save: "\u5132\u5b58\u8b8a\u66f4", back: "\u8fd4\u56de\u6211\u7684\u5e33\u6236" };
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ error?: string; created?: string; updated?: string }> }) {
   const user = await getCurrentMember();
