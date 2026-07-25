@@ -1,21 +1,15 @@
-import { env } from "cloudflare:workers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getCurrentMember } from "../../db/auth";
+import { getCurrentMember, listMembers } from "../../db/auth";
 
 export const dynamic = "force-dynamic";
-
-type MemberRow = { email:string; displayName:string; role:"admin"|"member"; active:number; joinedAt:string };
 
 export default async function AdminPage({searchParams}:{searchParams:Promise<{error?:string;created?:string}>}) {
   const user = await getCurrentMember();
   if (!user) redirect("/login");
   if (user.role !== "admin") redirect("/account");
   const params = await searchParams;
-  const result = await env.DB.prepare(`
-    SELECT email, display_name AS displayName, role, active, joined_at AS joinedAt
-    FROM members ORDER BY joined_at DESC
-  `).all() as { results: MemberRow[] };
+  const members = await listMembers();
   return <main className="auth-page admin-page"><section className="auth-card admin-card">
     <Link className="auth-brand" href="/">SCAA <span>Snooker ELO</span></Link>
     <p className="kicker">管理員控制台</p><h1>會員管理</h1>
@@ -28,7 +22,7 @@ export default async function AdminPage({searchParams}:{searchParams:Promise<{er
       <label>帳戶類型<select name="role"><option value="member">會員</option><option value="admin">管理員</option></select></label>
       <button className="primary" type="submit">新增帳戶</button>
     </form>
-    <div className="member-list">{result.results.map(member=><div key={member.email}>
+    <div className="member-list">{members.map(member=><div key={member.email}>
       <span className="member-list-avatar">{member.displayName.slice(0,1).toUpperCase()}</span>
       <span><b>{member.displayName}</b><small>{member.email}</small></span>
       <em className={`role-badge ${member.role}`}>{member.role==="admin"?"管理員":"會員"}</em>
