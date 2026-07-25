@@ -27,6 +27,10 @@ export async function updateMember(email: string, input: { username?: string; ne
   return (await backend()).updateMember(email, input);
 }
 
+export async function adminUpdateMember(email: string, input: { username: string; newEmail: string; displayName: string; password?: string; statePlayerId?: string | null }) {
+  return (await backend()).adminUpdateMember(email, input);
+}
+
 export async function hasMembers() {
   return (await backend()).hasMembers();
 }

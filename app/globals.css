@@ -438,11 +438,7 @@ h1,h2,h3{line-height:1.2;letter-spacing:-.02em}
   .row{grid-template-columns:2.375rem minmax(0,1fr) 5.25rem 4.25rem;gap:10px}
   .row>.form{display:flex;gap:3px;width:5.25rem}
   .person small{white-space:normal;line-height:1.25}
-<<<<<<< HEAD
   .person-meta{display:block;margin-left:0}
-=======
-  .person-meta{display:none}
->>>>>>> c885e56bebbccde414eb0ae2a2fc7956d1e37b68
   .row>.form i{flex:1 1 0;min-width:0;max-width:15px;width:auto;height:auto;aspect-ratio:1}
   .person b{overflow:visible;text-overflow:clip;white-space:normal;line-height:1.2;word-break:break-word}
   .elo{display:flex;flex-direction:column;align-items:flex-end;justify-content:center}
@@ -1151,7 +1147,7 @@ main>.match-view-toggle,main>.player-toolbar{margin-top:2rem}
 .admin-page{place-items:start center}.admin-card{width:min(56rem,100%);text-align:left}.admin-card>.auth-brand{display:flex;width:max-content;margin-inline:auto}
 .admin-card>h1,.admin-card>.kicker{text-align:center}.admin-create{grid-template-columns:repeat(2,minmax(0,1fr))}
 .admin-create button{grid-column:1/-1}.member-list{margin-top:2rem;border-top:1px solid var(--line)}
-.member-list>div{display:grid;grid-template-columns:2.5rem minmax(0,1fr) auto;align-items:center;gap:.8rem;padding:1rem .25rem;border-bottom:1px solid var(--line)}
+.member-list>div,.member-list>details{border-bottom:1px solid var(--line)}.member-list>details>summary{display:grid;grid-template-columns:2.5rem minmax(0,1fr) auto;align-items:center;gap:.8rem;padding:1rem .25rem;cursor:pointer;list-style:none}.member-list>details>summary::-webkit-details-marker{display:none}.member-list>details[open]>summary{padding-bottom:.5rem}
 .member-list-avatar{display:grid;place-items:center;width:2.5rem;height:2.5rem;border-radius:50%;background:var(--green);color:white;font-weight:800}
 .member-list b,.member-list small{display:block}.member-list small{color:var(--muted)}
 .role-badge{padding:.3rem .6rem;border-radius:999px;background:#edf1ec;color:var(--green);font-size:.7rem;font-style:normal;font-weight:800}

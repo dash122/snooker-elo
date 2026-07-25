@@ -137,13 +137,28 @@ export async function createMember(username: string, email: string, displayName:
   `;
 }
 
+export async function adminUpdateMember(email: string, input: { username: string; newEmail: string; displayName: string; password?: string; statePlayerId?: string | null }) {
+  await ensureAuthSchema();
+  const sql = getSql();
+  const oldEmail = email.trim().toLowerCase();
+  const newEmail = input.newEmail.trim().toLowerCase();
+  if (input.password) {
+    const salt = randomHex(16);
+    const hash = await passwordDigest(input.password, salt);
+    await sql`UPDATE members SET username = ${input.username.trim().toLowerCase()}, email = ${newEmail}, display_name = ${input.displayName.trim()}, state_player_id = ${input.statePlayerId || null}, password_hash = ${hash}, password_salt = ${salt} WHERE email = ${oldEmail}`;
+  } else {
+    await sql`UPDATE members SET username = ${input.username.trim().toLowerCase()}, email = ${newEmail}, display_name = ${input.displayName.trim()}, state_player_id = ${input.statePlayerId || null} WHERE email = ${oldEmail}`;
+  }
+  if (oldEmail !== newEmail) await sql`UPDATE sessions SET member_email = ${newEmail} WHERE member_email = ${oldEmail}`;
+  return true;
+}
+
 export async function hasMembers() {
   await ensureAuthSchema();
   const sql = getSql();
   const rows = await sql<{ count: number }[]>`SELECT COUNT(*)::int AS count FROM members`;
   return Number(rows[0]?.count ?? 0) > 0;
 }
-
 export async function updateMember(email: string, input: { username?: string; newEmail?: string; password?: string; currentPassword?: string }) {
   await ensureAuthSchema();
   const sql = getSql();

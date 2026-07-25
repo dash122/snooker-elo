@@ -135,6 +135,23 @@ export async function createMember(username: string, email: string, displayName:
   `).bind(normalizedEmail, normalizedUsername, statePlayerId ?? null, displayName.trim(), role, hash, salt, now, now).run();
 }
 
+export async function adminUpdateMember(email: string, input: { username: string; newEmail: string; displayName: string; password?: string; statePlayerId?: string | null }) {
+  await ensureAuthSchema();
+  const env = await cfEnv();
+  const oldEmail = email.trim().toLowerCase();
+  const newEmail = input.newEmail.trim().toLowerCase();
+  if (input.password) {
+    const salt = randomHex(16);
+    const hash = await passwordDigest(input.password, salt);
+    await env.DB.prepare("UPDATE members SET username = ?, email = ?, display_name = ?, state_player_id = ?, password_hash = ?, password_salt = ? WHERE email = ?")
+      .bind(input.username.trim().toLowerCase(), newEmail, input.displayName.trim(), input.statePlayerId || null, hash, salt, oldEmail).run();
+  } else {
+    await env.DB.prepare("UPDATE members SET username = ?, email = ?, display_name = ?, state_player_id = ? WHERE email = ?")
+      .bind(input.username.trim().toLowerCase(), newEmail, input.displayName.trim(), input.statePlayerId || null, oldEmail).run();
+  }
+  if (oldEmail !== newEmail) await env.DB.prepare("UPDATE sessions SET member_email = ? WHERE member_email = ?").bind(newEmail, oldEmail).run();
+  return true;
+}
 export async function hasMembers() {
   await ensureAuthSchema();
   const env = await cfEnv();
@@ -188,7 +205,7 @@ export async function listMembers(): Promise<MemberRow[]> {
   await ensureAuthSchema();
   const env = await cfEnv();
   const result = await env.DB.prepare(`
-    SELECT email, username, display_name AS displayName, role, active, joined_at AS joinedAt
+    SELECT email, username, state_player_id AS statePlayerId, display_name AS displayName, role, active, joined_at AS joinedAt
     FROM members ORDER BY joined_at DESC
   `).all() as { results: (Omit<MemberRow, "active"> & { active: number })[] };
   return result.results.map(row => ({ ...row, active: Boolean(row.active) }));
