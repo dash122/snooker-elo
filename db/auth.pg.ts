@@ -144,6 +144,23 @@ export async function hasMembers() {
   return Number(rows[0]?.count ?? 0) > 0;
 }
 
+export async function updateMember(email: string, input: { username?: string; newEmail?: string; password?: string; currentPassword?: string }) {
+  await ensureAuthSchema();
+  const sql = getSql();
+  const rows = await sql<{ passwordHash: string; passwordSalt: string }[]>`SELECT password_hash AS "passwordHash", password_salt AS "passwordSalt" FROM members WHERE email = ${email.toLowerCase()}`;
+  const row = rows[0];
+  if (!row || !input.currentPassword || await passwordDigest(input.currentPassword, row.passwordSalt) !== row.passwordHash) return false;
+  const username = input.username?.trim().toLowerCase() || null;
+  const newEmail = input.newEmail?.trim().toLowerCase() || null;
+  if (input.password) {
+    const salt = randomHex(16);
+    const hash = await passwordDigest(input.password, salt);
+    await sql`UPDATE members SET username = COALESCE(${username}, username), email = COALESCE(${newEmail}, email), password_hash = ${hash}, password_salt = ${salt} WHERE email = ${email.toLowerCase()}`;
+  } else {
+    await sql`UPDATE members SET username = COALESCE(${username}, username), email = COALESCE(${newEmail}, email) WHERE email = ${email.toLowerCase()}`;
+  }
+  return true;
+}
 export async function createSession(email: string) {
   await ensureAuthSchema();
   const sql = getSql();

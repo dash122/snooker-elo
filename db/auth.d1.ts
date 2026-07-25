@@ -142,6 +142,25 @@ export async function hasMembers() {
   return Number(row?.count ?? 0) > 0;
 }
 
+export async function updateMember(email: string, input: { username?: string; newEmail?: string; password?: string; currentPassword?: string }) {
+  await ensureAuthSchema();
+  const env = await cfEnv();
+  const row = await env.DB.prepare("SELECT password_hash AS passwordHash, password_salt AS passwordSalt FROM members WHERE email = ?")
+    .bind(email.toLowerCase()).first() as { passwordHash: string; passwordSalt: string } | null;
+  if (!row || !input.currentPassword || await passwordDigest(input.currentPassword, row.passwordSalt) !== row.passwordHash) return false;
+  const username = input.username?.trim().toLowerCase();
+  const newEmail = input.newEmail?.trim().toLowerCase();
+  if (input.password) {
+    const salt = randomHex(16);
+    const hash = await passwordDigest(input.password, salt);
+    await env.DB.prepare("UPDATE members SET username = COALESCE(?, username), email = COALESCE(?, email), password_hash = ?, password_salt = ? WHERE email = ?")
+      .bind(username || null, newEmail || null, hash, salt, email.toLowerCase()).run();
+  } else {
+    await env.DB.prepare("UPDATE members SET username = COALESCE(?, username), email = COALESCE(?, email) WHERE email = ?")
+      .bind(username || null, newEmail || null, email.toLowerCase()).run();
+  }
+  return true;
+}
 export async function createSession(email: string) {
   await ensureAuthSchema();
   const env = await cfEnv();

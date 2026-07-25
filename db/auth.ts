@@ -23,6 +23,10 @@ export async function createMember(username: string, email: string, displayName:
   return (await backend()).createMember(username, email, displayName, password, role, statePlayerId);
 }
 
+export async function updateMember(email: string, input: { username?: string; newEmail?: string; password?: string; currentPassword?: string }) {
+  return (await backend()).updateMember(email, input);
+}
+
 export async function hasMembers() {
   return (await backend()).hasMembers();
 }
