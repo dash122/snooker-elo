@@ -440,15 +440,17 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       <div className="public-note"><b>{user?"會員模式":"公開瀏覽"}</b><span>{user?"已登入，可更新球會資料":"登入會員後即可記錄比賽"}</span></div>
     </aside>
     <main>
-      <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
+      <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={newMatch} onPlayer={(p)=>{setDetail(p);setModal("detail")}}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch}/>}
       {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches}/>}
       {tab==="players"&&<Players data={data} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={openHeadToHead}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
     </main>
-    <nav className="bottom">{[["leaderboard","排行榜"],["matches","比賽"],["availability","配對"],["record","記錄"],["players","球員"],["settings","設定"]].map(([id,label])=>
-      <button key={id} className={id==="record"?"bottom-record":tab===id?"active":""} onClick={()=>id==="record"?newMatch():goTab(id)}>
+    {/* Record sits dead centre as the one thing this app exists to do; the four content tabs split
+        evenly around it. 設定 is not a peer of them — it lives with the account controls instead. */}
+    <nav className="bottom" aria-label="主導覽">{[["leaderboard","排行榜"],["matches","比賽"],["record","記錄"],["availability","配對"],["players","球員"]].map(([id,label])=>
+      <button key={id} className={id==="record"?"bottom-record":tab===id?"active":""} aria-current={tab===id?"page":undefined} onClick={()=>id==="record"?newMatch():goTab(id)}>
         <i>{id==="record"?"＋":<NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/>}</i>
         <small>{label}</small>
       </button>)}</nav>

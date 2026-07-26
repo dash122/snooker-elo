@@ -1,6 +1,6 @@
 import { requireMember } from "../../../db/auth";
-import { listAvailability, listOwnAvailability, publishAvailability } from "../../../db/availability";
-import { dayRangeHongKong, mergeIntervals, validateAvailabilityInterval } from "../../../lib/availability";
+import { listAvailability, listAvailabilityCounts, listOwnAvailability, publishAvailability } from "../../../db/availability";
+import { addDaysHongKong, dayRangeHongKong, mergeIntervals, validateAvailabilityInterval } from "../../../lib/availability";
 
 function slots(body:unknown){
   const raw=(body as {slots?:unknown})?.slots;
@@ -8,8 +8,12 @@ function slots(body:unknown){
   const parsed=raw.map(item=>{const value=item as {startAt?:unknown;endAt?:unknown};return validateAvailabilityInterval({startAt:String(value.startAt),endAt:String(value.endAt)});});
   return mergeIntervals(parsed);
 }
+/* Anchoring on Hong Kong midnight and reading the date back off the ISO string shifted the whole
+   window a day earlier, so the last day of the strip never received a count. */
+function weekDates(start:string,count:number){return Array.from({length:count},(_,i)=>addDaysHongKong(start,i));}
 export async function GET(request:Request){
   try{const url=new URL(request.url);if(url.searchParams.get("me")!==null){const member=await requireMember();if(!member)return Response.json({error:"Sign in required"},{status:401});if(!member.statePlayerId)return Response.json({error:"Link a player profile first"},{status:403});return Response.json({slots:await listOwnAvailability(member.statePlayerId)},{headers:{"cache-control":"no-store"}});}
+    const week=url.searchParams.get("week");if(week!==null){const count=Math.min(31,Math.max(1,Number(url.searchParams.get("days"))||7));const days=weekDates(week,count).map(date=>({date,...dayRangeHongKong(date)}));return Response.json({counts:await listAvailabilityCounts(days)},{headers:{"cache-control":"no-store"}});}
     const date=url.searchParams.get("date")??new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Hong_Kong"});const range=dayRangeHongKong(date);return Response.json({date,members:await listAvailability(range.startAt,range.endAt)},{headers:{"cache-control":"no-store"}});
   }catch(error){return Response.json({error:error instanceof Error?error.message:"Availability unavailable"},{status:400});}}
 export async function POST(request:Request){
