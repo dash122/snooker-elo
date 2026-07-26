@@ -2,70 +2,23 @@
 import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
-import {addDaysHongKong,availabilityDensity,availabilityPeak,composeAvailabilityInterval,dayRangeHongKong,intervalFromHours,intersectIntervals,mergeIntervals,nextAvailabilityStart,overlapMinutes,recommendationScore,validateAvailabilityInterval,type AvailabilitySlot,type Interval} from "../lib/availability";
-type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type MatchInfo={overlaps:Interval[];minutes:number;recent:number;difference:number;score:number;qualifies:boolean;chips:string[]};type View="find"|"manage"|"create";type Sort="fit"|"start";
-const hkDate=(d=new Date())=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Hong_Kong",year:"numeric",month:"2-digit",day:"2-digit"}).format(d),time=(iso:string)=>new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(iso)),range=(x:Interval)=>`${time(x.startAt)}–${time(x.endAt)}`,days=(start:string,count=7)=>Array.from({length:count},(_,i)=>{const d=new Date(`${start}T12:00:00+08:00`);d.setUTCDate(d.getUTCDate()+i);return hkDate(d)}),dayLabel=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"numeric",day:"numeric",weekday:"short"}).format(new Date(`${d}T00:00:00+08:00`)),fullDay=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"long",day:"numeric",weekday:"long"}).format(new Date(`${d}T00:00:00+08:00`));
-function hoursFromAnchor(iso:string,anchor:number){return (Date.parse(iso)-anchor)/3600000}
-function timelineRange(intervals:Interval[],date:string){const anchor=Date.parse(dayRangeHongKong(date).startAt),hs=intervals.flatMap(x=>[hoursFromAnchor(x.startAt,anchor),hoursFromAnchor(x.endAt,anchor)]);return {lo:hs.some(h=>h<12)?0:12,hi:hs.some(h=>h>24)?27:24}}
-function scaleLabels(lo:number,hi:number){const out:string[]=[];for(let x=lo;x<=hi;x+=3)out.push(`${String(((Math.round(x)%24)+24)%24).padStart(2,"0")}:00`);return out}
-function Timeline({slots,overlaps=[],date,lo=12,hi=24}:{slots:Interval[];overlaps?:Interval[];date:string;lo?:number;hi?:number}){
- const anchor=Date.parse(dayRangeHongKong(date).startAt),h=(iso:string)=>hoursFromAnchor(iso,anchor);
- const mark=(x:Interval,k:string)=>{const s=Math.max(lo,h(x.startAt)),e=Math.min(hi,h(x.endAt));if(e<=s)return null;const cls=`${k}${h(x.startAt)<0?" continues-before":""}${h(x.endAt)>24?" continues-after":""}`;return <i key={`${k}${x.startAt}`} className={cls} style={{left:`${(s-lo)/(hi-lo)*100}%`,width:`${Math.max(1,(e-s)/(hi-lo)*100)}%`}}/>};
- const before=slots.some(x=>h(x.startAt)<0),after=slots.some(x=>h(x.endAt)>24);
- return <div className={`availability-timeline${overlaps.length?" has-overlap":""}`} aria-label="可配對時間線">{before&&<small className="timeline-tag before">← 前日延續</small>}<div>{slots.map(x=>mark(x,"slot"))}{overlaps.map(x=>mark(x,"overlap"))}</div>{after&&<small className="timeline-tag after">次日凌晨延續 →</small>}</div>
-}
-const hourBand=(iso:string):Interval=>{const at=new Date(iso);at.setUTCMinutes(0,0,0);return {startAt:at.toISOString(),endAt:new Date(at.getTime()+3600000).toISOString()}};
-/* The histogram is the page's filter, not decoration: a bar is the club's count for that quarter
-   hour, and pressing one narrows every list below to the players free in that hour. */
-function DensityChart({buckets,best,lo,hi,focus,onFocus}:{buckets:{at:string;count:number}[];best:{startAt:string;endAt:string;count:number}|null;lo:number;hi:number;focus:Interval|null;onFocus:(x:Interval|null)=>void}){
- const max=Math.max(1,...buckets.map(b=>b.count)),from=focus?Date.parse(focus.startAt):0,to=focus?Date.parse(focus.endAt):0;
- const peakFrom=best?Date.parse(best.startAt):0,peakTo=best?Date.parse(best.endAt):0;
- return <section className="availability-card density-card">
-  <header><div><small>全會所人數分佈</small>{best?<b>{time(best.startAt)}–{time(best.endAt)} 最多人<span>{best.count} 位</span></b>:<b className="muted">今天未有人公開時段</b>}</div>
-   {focus?<button className="more" onClick={()=>onFocus(null)}>顯示全日</button>:best&&<button className="more" onClick={()=>onFocus({startAt:best.startAt,endAt:best.endAt})}>只看高峰時段</button>}</header>
-  <div className={`density-bars${focus?" is-filtered":""}`} role="group" aria-label="按時段篩選球員">
-   {buckets.map(b=>{const at=Date.parse(b.at),on=Boolean(focus)&&at>=from&&at<to,peak=!focus&&Boolean(best)&&at>=peakFrom&&at<peakTo;
-    return <button type="button" key={b.at} className={on?"on":peak?"peak":""} aria-pressed={on} aria-label={`${time(b.at)}，${b.count} 位球員有空${on?"，已篩選":""}`}
-     onClick={()=>onFocus(on?null:hourBand(b.at))}><i style={{height:`${b.count?Math.max(8,b.count/max*100):2}%`}}/></button>})}
-  </div>
-  <div className="density-axis" aria-hidden="true">{scaleLabels(lo,hi).map(l=><span key={l}>{l}</span>)}</div>
-  <p className="density-note">{focus?`已篩選 ${time(focus.startAt)}–${time(focus.endAt)}，下方只顯示這段時間有空的球員。`:"按一下柱狀圖，只看該小時有空的球員。"}</p>
- </section>
-}
-const HALF_HOURS=Array.from({length:48},(_,i)=>`${String(Math.floor(i/2)).padStart(2,"0")}:${i%2?"30":"00"}`);
-const durationLabel=(minutes:number)=>minutes%60?`${Math.floor(minutes/60)?`${Math.floor(minutes/60)} 小時 `:""}${minutes%60} 分鐘`:`${minutes/60} 小時`;
-const PRESETS=[{label:"下午",start:"14:00",end:"17:00"},{label:"傍晚",start:"18:00",end:"21:00"},{label:"晚上",start:"19:30",end:"22:30"},{label:"深夜",start:"22:00",end:"01:00"}];
-const DURATIONS=[60,120,180];
-/* Every option the composer can reach makes a slot the server already accepts: starts that have
-   passed are dropped, and the end list is generated from the chosen start at 30 minutes to 12 hours.
-   Slots crossing midnight say so on the option itself rather than in a footnote nobody reads. */
-function SlotComposer({dates,initialDate,slot,onSave,onCancel}:{dates:string[];initialDate:string;slot?:AvailabilitySlot;onSave:(x:Interval)=>void;onCancel?:()=>void}){
- const soonest=useMemo(()=>nextAvailabilityStart(),[]);
- const days=useMemo(()=>dates.filter(v=>v>=soonest.date),[dates,soonest]);
- const[d,setD]=useState(()=>{const from=slot?hkDate(new Date(slot.startAt)):initialDate;return from<soonest.date?soonest.date:from});
- const startOptions=useMemo(()=>HALF_HOURS.filter(v=>d>soonest.date||v>=soonest.time),[d,soonest]);
- const[s,setS]=useState(slot?time(slot.startAt):"");
- const start=s&&startOptions.includes(s)?s:startOptions[0]??"";
- const endOptions=useMemo(()=>{const from=HALF_HOURS.indexOf(start);return from<0?[]:Array.from({length:24},(_,i)=>({value:HALF_HOURS[(from+i+1)%48],minutes:(i+1)*30,overnight:from+i+1>=48}))},[start]);
- const[e,setE]=useState(slot?time(slot.endAt):"");
- const end=endOptions.find(o=>o.value===e)??endOptions[3]??endOptions.at(-1);
- const interval=useMemo(()=>{if(!start||!end)return null;try{return validateAvailabilityInterval(composeAvailabilityInterval(d,start,end.value))}catch{return null}},[d,start,end]);
- /* A preset whose start has already gone by today means the member meant the next such evening,
-    so the rail moves with it instead of silently snapping the time to "now". */
- const preset=(p:typeof PRESETS[number])=>{const day=d===soonest.date&&p.start<soonest.time?days[days.indexOf(d)+1]??d:d;setD(day);setS(p.start);setE(p.end)};
- return <form className="slot-composer" onSubmit={ev=>{ev.preventDefault();if(!interval||!end)return;if(end.overnight)trackAvailabilityEvent("availability_overnight_created");onSave(interval);if(!slot)setS("")}}>
-  <div className="date-strip-scroll"><div className="date-strip compact" role="group" aria-label="選擇日期">{days.map(v=><button type="button" key={v} className={v===d?"active":""} aria-pressed={v===d} onClick={()=>setD(v)}><small>{v===soonest.date?"最快":v===addDaysHongKong(soonest.date,1)?"明天":new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",weekday:"short"}).format(new Date(`${v}T00:00:00+08:00`))}</small><em>{v.slice(5,7)}/{v.slice(8,10)}</em></button>)}</div></div>
-  {!slot&&<div className="composer-presets" role="group" aria-label="常用時段">{PRESETS.map(p=><button type="button" key={p.label} className={start===p.start&&end?.value===p.end?"active":""} onClick={()=>preset(p)}>{p.label}<small>{p.start}–{p.end}</small></button>)}</div>}
-  <div className="composer-times">
-   <label>由<select value={start} onChange={x=>setS(x.target.value)} aria-label="開始時間">{startOptions.map(v=><option key={v} value={v}>{v}</option>)}</select></label>
-   <span aria-hidden="true">→</span>
-   <label>至<select value={end?.value??""} onChange={x=>setE(x.target.value)} aria-label="結束時間">{endOptions.map(o=><option key={o.value} value={o.value}>{o.overnight?`次日 ${o.value}`:o.value} · {durationLabel(o.minutes)}</option>)}</select></label>
-   <div className="composer-durations" role="group" aria-label="快速長度">{DURATIONS.map(m=><button type="button" key={m} className={end?.minutes===m?"active":""} aria-pressed={end?.minutes===m} disabled={!endOptions[m/30-1]} onClick={()=>setE(endOptions[m/30-1].value)}>{m/60} 小時</button>)}</div>
-  </div>
-  <div className="composer-foot">
-   <p aria-live="polite">{interval&&end?<><b>{dayLabel(d)}</b> {start} → {end.overnight&&<i>次日</i>}{end.value}<span>{durationLabel(end.minutes)}</span></>:<span className="composer-blocked">這天已沒有可選的開始時間，請選擇之後的日期。</span>}</p>
-   <div>{onCancel&&<button type="button" className="secondary" onClick={onCancel}>取消</button>}<button className="primary" disabled={!interval}>{slot?"儲存變更":"＋ 加入"}</button></div>
-  </div>
+import {clipToDay,intersectIntervals,mergeIntervals,overlapMinutes,recommendationScore,validateAvailabilityInterval,type AvailabilitySlot,type Interval} from "../lib/availability";
+type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type Rec={member:Member;overlaps:Interval[];minutes:number;recent:number;score:number;difference:number};type View="find"|"recommendations"|"manage"|"create";
+const hkDate=(d=new Date())=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Hong_Kong",year:"numeric",month:"2-digit",day:"2-digit"}).format(d),time=(iso:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(iso)),range=(x:Interval)=>`${time(x.startAt)}–${time(x.endAt)}`,utc=(d:string,t:string)=>new Date(`${d}T${t}:00+08:00`).toISOString(),days=(start:string)=>Array.from({length:7},(_,i)=>{const d=new Date(`${start}T00:00:00+08:00`);d.setUTCDate(d.getUTCDate()+i);return d.toISOString().slice(0,10)}),dayLabel=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"numeric",day:"numeric",weekday:"short"}).format(new Date(`${d}T00:00:00+08:00`)),fullDay=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"long",day:"numeric",weekday:"long"}).format(new Date(`${d}T00:00:00+08:00`));
+function hour(iso:string){const p=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(new Date(iso));return +(p.find(x=>x.type==="hour")?.value??0)+ +(p.find(x=>x.type==="minute")?.value??0)/60}
+function Timeline({slots,overlaps=[]}:{slots:Interval[];overlaps?:Interval[]}){const mark=(x:Interval,k:string)=>{const s=Math.max(12,hour(x.startAt)),e=Math.min(24,hour(x.endAt)||24);return e<=s||e<=12||s>=24?null:<i key={`${k}${x.startAt}`} className={k} style={{left:`${(s-12)/12*100}%`,width:`${Math.max(1,(e-s)/12*100)}%`}}/>};return <div className="availability-timeline" aria-label="可配對時間線"><div>{slots.map(x=>mark(x,"slot"))}{overlaps.map(x=>mark(x,"overlap"))}</div></div>}
+function peak(members:Member[]){const e=members.flatMap(m=>m.slots.flatMap(s=>[{at:Date.parse(s.startAt),n:1},{at:Date.parse(s.endAt),n:-1}])).sort((a,b)=>a.at-b.at);let n=0,i=0,b:{s:number;e:number;n:number}|null=null;while(i<e.length){const at=e[i].at;while(i<e.length&&e[i].at===at)n+=e[i++].n;const next=e[i]?.at;if(next&&n>0&&(!b||n>b.n||(n===b.n&&next-at>b.e-b.s)))b={s:at,e:next,n}}return b?{label:`${time(new Date(b.s).toISOString())}–${time(new Date(b.e).toISOString())}`,count:b.n}:null}
+function SlotForm({initialDate,slot,onSave,onCancel}:{initialDate:string;slot?:AvailabilitySlot;onSave:(x:Interval)=>void;onCancel?:()=>void}){
+ const[d,setD]=useState(slot?hkDate(new Date(slot.startAt)):initialDate),[s,setS]=useState(slot?time(slot.startAt):"19:00"),[e,setE]=useState(slot?time(slot.endAt):"21:00"),[error,setError]=useState("");
+ const times=Array.from({length:48},(_,i)=>`${String(Math.floor(i/2)).padStart(2,"0")}:${i%2?"30":"00"}`);
+ const next=e<=s, endDate=new Date(`${d}T00:00:00+08:00`); if(next) endDate.setUTCDate(endDate.getUTCDate()+1);
+ const preview=()=>{try{return validateAvailabilityInterval({startAt:new Date(`${d}T${s}:00+08:00`).toISOString(),endAt:new Date(endDate.toISOString().slice(0,10)+`T${e}:00+08:00`).toISOString()})}catch{return null}};
+ return <form className="availability-slot-form" onSubmit={ev=>{ev.preventDefault();const x=preview();if(!x)return setError("請選擇未來、至少 30 分鐘且不超過 12 小時的時段。");setError("");onSave(x)}}>
+  <label>日期<input type="date" min={hkDate()} value={d} onChange={x=>setD(x.target.value)} required/></label>
+  <label>開始時間<select value={s} onChange={x=>setS(x.target.value)}>{times.map(v=><option key={v}>{v}</option>)}</select></label>
+  <label>結束時間<select value={e} onChange={x=>setE(x.target.value)}>{times.map(v=><option key={v}>{v}{v<=s?" · 次日":""}</option>)}</select></label>
+  <p className="availability-form-preview" aria-live="polite">{preview()?`${dayLabel(d)}，${time(preview()!.startAt)} → ${dayLabel(hkDate(new Date(preview()!.endAt)))} ${time(preview()!.endAt)} · ${Math.round((Date.parse(preview()!.endAt)-Date.parse(preview()!.startAt))/3600000*10)/10} 小時${next?" · 次日結束":""}`:"請完成日期及時間選擇"}</p>
+  <small>如果結束時間早於開始時間，時段會在翌日結束。</small><button className="primary">{slot?"儲存變更":"加入時段"}</button>{onCancel&&<button type="button" className="more" onClick={onCancel}>取消</button>}{error&&<p className="availability-form-error" role="alert">{error}</p>}
  </form>
 }
 /* One candidate, one line, ranked. The bar carries when, the figure carries how much, and exactly
