@@ -895,6 +895,12 @@ h1,h2,h3{line-height:1.2;letter-spacing:-.02em}
 .match-board .scoreline-net{color:white}
 .match-board .scoreline>em{color:#6d8981}
 .match.void{opacity:.6}
+/* The card the user just saved. The ring is the persistent marker; the pulse
+   only draws the eye on arrival, then settles so the list stays calm. */
+.match.just-saved{box-shadow:0 0 0 2px var(--gold),var(--shadow);animation:just-saved-pulse 1.4s ease-out 1}
+.match.just-saved .just-saved-pill{background:var(--gold);color:var(--baize-deep)}
+@keyframes just-saved-pulse{0%{box-shadow:0 0 0 2px var(--gold),0 0 0 0 rgba(228,180,82,.55)}100%{box-shadow:0 0 0 2px var(--gold),0 0 0 14px rgba(228,180,82,0)}}
+@media(prefers-reduced-motion:reduce){.match.just-saved{animation:none}}
 .match-added{margin-top:.75rem;padding-top:.75rem}
 
 @media(max-width:900px){.highlights{grid-template-columns:repeat(2,minmax(0,1fr))}}

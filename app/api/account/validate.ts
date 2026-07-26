@@ -43,3 +43,16 @@ export function deriveInitials(name: string) {
   const letters = name.trim().split(/[\s-]+/).filter(Boolean).map(part => part[0]).join("").toUpperCase();
   return letters.slice(0, 3) || "?";
 }
+
+// A member and their linked player are the same person, so the player's name
+// is the canonical display name once a link exists — the member row only
+// carries its own displayName for accounts that aren't linked yet. Every
+// place that shows a name or falls back to derived initials should call
+// through here rather than picking one field or the other ad hoc.
+export function resolveDisplayName(member: { displayName: string }, player?: { name: string } | null) {
+  return player?.name ?? member.displayName;
+}
+
+export function resolveInitials(member: { initials?: string | null; displayName: string }, player?: { name: string } | null) {
+  return member.initials || deriveInitials(resolveDisplayName(member, player));
+}

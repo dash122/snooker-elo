@@ -63,9 +63,13 @@ export function PlayerBadge({player,className}:{player:{short?:string|null;colou
  * `renderTrigger` to show a rich display (avatar, ELO) when closed and only
  * swap to the search input once opened — used by the match-entry form.
  */
-export function PlayerCombobox<P extends {id:string;name:string}>({players,value,onChange,placeholder,ariaLabel,allowClear,clearLabel,renderTrigger}:{
+export function PlayerCombobox<P extends {id:string;name:string}>({players,value,onChange,placeholder,ariaLabel,allowClear,clearLabel,renderTrigger,autoOpenSignal}:{
   players:P[];value:string;onChange:(id:string)=>void;placeholder:string;ariaLabel:string;
   allowClear?:boolean;clearLabel?:string;renderTrigger?:(selected:P|undefined,open:()=>void)=>ReactNode;
+  // Bump this (e.g. a counter) to force the picker open imperatively — used to
+  // advance focus to "opponent" the instant "player" is chosen, so a two-step
+  // pick reads as one continuous motion instead of two separate taps.
+  autoOpenSignal?:number;
 }) {
   const [query,setQuery]=useState("");
   const [open,setOpen]=useState(false);
@@ -83,6 +87,10 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
     return ()=>document.removeEventListener("mousedown",handler);
   },[open]);
   const startOpen=()=>{setQuery("");setOpen(true);requestAnimationFrame(()=>inputRef.current?.focus())};
+  useEffect(()=>{
+    if(autoOpenSignal)startOpen();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[autoOpenSignal]);
   const pick=(id:string)=>{onChange(id);setQuery("");setOpen(false)};
   return <div className={`player-combobox${renderTrigger?" as-trigger":""}`} ref={containerRef}>
     {renderTrigger&&!open?renderTrigger(selected,startOpen):
