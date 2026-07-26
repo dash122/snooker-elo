@@ -48,6 +48,11 @@ export async function listOwnAvailability(playerId:string){
   return rows.map(slot);
 }
 
+async function ownActiveSlots(tx:any,playerId:string){
+  const rows=await tx<any[]>`SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt" FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() ORDER BY start_at`;
+  return rows.map(slot);
+}
+
 export async function publishAvailability(playerId:string,items:{startAt:string;endAt:string}[]){
   await ensureSchema(); const sql=getSql();
   return sql.begin(async tx=>{
@@ -55,15 +60,37 @@ export async function publishAvailability(playerId:string,items:{startAt:string;
     const candidates=existing.filter(row=>items.some(item=>Date.parse(row.startAt)<=Date.parse(item.endAt)&&Date.parse(row.endAt)>=Date.parse(item.startAt)));
     const merged=mergeIntervals([...items,...candidates.map(row=>({startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString()}))]);
     if(candidates.length)await tx`UPDATE availability_slots SET cancelled_at=now(),updated_at=now() WHERE id IN ${tx(candidates.map(row=>row.id))}`;
-    const saved:AvailabilitySlot[]=[];
-    for(const item of merged){const id=crypto.randomUUID();const rows=await tx<any[]>`INSERT INTO availability_slots (id,player_id,start_at,end_at) VALUES (${id},${playerId},${item.startAt},${item.endAt}) RETURNING id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt"`;saved.push(slot(rows[0]));}
-    return saved;
+    for(const item of merged){const id=crypto.randomUUID();await tx`INSERT INTO availability_slots (id,player_id,start_at,end_at) VALUES (${id},${playerId},${item.startAt},${item.endAt})`;}
+    return ownActiveSlots(tx,playerId);
   });
 }
 export async function updateAvailability(id:string,playerId:string,item:{startAt:string;endAt:string}){
-  await ensureSchema();const sql=getSql();
-  const rows=await sql<any[]>`UPDATE availability_slots SET start_at=${item.startAt},end_at=${item.endAt},updated_at=now() WHERE id=${id} AND player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() RETURNING id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt"`;
-  return rows[0]?slot(rows[0]):null;
+  await ensureSchema(); const sql=getSql();
+  return sql.begin(async tx=>{
+    const current=await tx<any[]>`SELECT id FROM availability_slots WHERE id=${id} AND player_id=${playerId} AND cancelled_at IS NULL AND end_at > now()`;
+    if(!current[0])return null;
+    const existing=await tx<any[]>`SELECT id,start_at AS "startAt",end_at AS "endAt" FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() AND id != ${id}`;
+    const candidates=existing.filter(row=>Date.parse(row.startAt)<=Date.parse(item.endAt)&&Date.parse(row.endAt)>=Date.parse(item.startAt));
+    const merged=mergeIntervals([item,...candidates.map(row=>({startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString()}))]);
+    await tx`UPDATE availability_slots SET cancelled_at=now(),updated_at=now() WHERE id=${id} OR id IN ${tx(candidates.length?candidates.map(row=>row.id):[id])}`;
+    for(const entry of merged){const newId=crypto.randomUUID();await tx`INSERT INTO availability_slots (id,player_id,start_at,end_at) VALUES (${newId},${playerId},${entry.startAt},${entry.endAt})`;}
+    return ownActiveSlots(tx,playerId);
+  });
+}
+
+export async function listAvailabilityCounts(days:{date:string;startAt:string;endAt:string}[]){
+  await ensureSchema(); const sql=getSql();
+  if(!days.length)return {};
+  const rangeStart=days[0].startAt,rangeEnd=days[days.length-1].endAt;
+  const rows=await sql<any[]>`SELECT DISTINCT player_id AS "playerId",start_at AS "startAt",end_at AS "endAt" FROM availability_slots
+    WHERE cancelled_at IS NULL AND end_at > now() AND start_at < ${rangeEnd} AND end_at > ${rangeStart}`;
+  const counts:Record<string,number>={};
+  for(const day of days){
+    const players=new Set<string>();
+    for(const row of rows) if(Date.parse(row.startAt)<Date.parse(day.endAt)&&Date.parse(row.endAt)>Date.parse(day.startAt)) players.add(row.playerId);
+    counts[day.date]=players.size;
+  }
+  return counts;
 }
 
 export async function cancelAvailability(id:string,playerId:string){
