@@ -19,11 +19,11 @@ async function backfillPlayerLinks() {
   if (!missing.length) return 0;
   const start = Number(state.settings?.start ?? 1500), createdAt = new Date().toISOString();
   const players = missing.map(member => playerFor(member.displayName, start));
+  await putState(JSON.stringify({ ...state, players: [...(state.players ?? []), ...players], matches: state.matches ?? [], audits: [{ id: crypto.randomUUID(), text: `Linked ${players.length} existing member account(s) to player profiles`, at: createdAt }, ...(state.audits ?? [])] }));
   for (let index = 0; index < missing.length; index++) {
     const member = missing[index], player = players[index];
     await adminUpdateMember(member.email, { username: member.username, newEmail: member.email, displayName: member.displayName, statePlayerId: player.id });
   }
-  await putState(JSON.stringify({ ...state, players: [...(state.players ?? []), ...players], matches: state.matches ?? [], audits: [{ id: crypto.randomUUID(), text: `Linked ${players.length} existing member account(s) to player profiles`, at: createdAt }, ...(state.audits ?? [])] }));
   return players.length;
 }
 
@@ -35,6 +35,16 @@ export async function POST(request: Request) {
     return Response.redirect(new URL("/admin?linked=1", request.url), 303);
   }
   const email = String(form.get("email") ?? "").trim();
+  if (form.get("action") === "link") {
+    const originalEmail = String(form.get("originalEmail") ?? "").trim();
+    const statePlayerId = String(form.get("statePlayerId") ?? "").trim();
+    if (!originalEmail || !statePlayerId) return Response.redirect(new URL("/admin?error=invalid", request.url), 303);
+    const members = await listMembers();
+    const member = members.find(m => m.email === originalEmail);
+    if (!member) return Response.redirect(new URL("/admin?error=invalid", request.url), 303);
+    try { await adminUpdateMember(originalEmail, { username: member.username, newEmail: member.email, displayName: member.displayName, statePlayerId }); } catch { return Response.redirect(new URL("/admin?error=exists", request.url), 303); }
+    return Response.redirect(new URL(`/admin?linked=1&who=${encodeURIComponent(member.displayName)}`, request.url), 303);
+  }
   if (form.get("action") === "update") {
     const password = String(form.get("password") ?? "");
     const statePlayerId = String(form.get("statePlayerId") ?? "");
@@ -42,20 +52,26 @@ export async function POST(request: Request) {
     const username = String(form.get("username") ?? "").trim();
     if (!username || !email.includes("@") || displayName.length < 2 || (password && password.length < 6)) return Response.redirect(new URL("/admin?error=invalid", request.url), 303);
     try { await adminUpdateMember(String(form.get("originalEmail") ?? email), { username, newEmail: email, displayName, password: password || undefined, statePlayerId: statePlayerId || null }); } catch { return Response.redirect(new URL("/admin?error=exists", request.url), 303); }
-    return Response.redirect(new URL("/admin?updated=1", request.url), 303);
+    return Response.redirect(new URL(`/admin?updated=1&who=${encodeURIComponent(displayName)}`, request.url), 303);
   }
   const username = String(form.get("username") ?? "").trim();
   const displayName = String(form.get("displayName") ?? "").trim();
   const password = String(form.get("password") ?? "");
   const role = form.get("role") === "admin" ? "admin" : "member";
+  const existingPlayerId = String(form.get("statePlayerId") ?? "").trim();
   if (!username || !email.includes("@") || displayName.length < 2 || password.length < 6) return Response.redirect(new URL("/admin?error=invalid", request.url), 303);
   try {
     const state = await loadState();
-    const player = playerFor(displayName, Number(state.settings?.start ?? 1500));
-    await createMember(username, email, displayName, password, role, player.id);
-    await putState(JSON.stringify({ ...state, players: [...(state.players ?? []), player], matches: state.matches ?? [], audits: [{ id: crypto.randomUUID(), text: `Created member account and player profile: ${player.name}`, at: new Date().toISOString() }, ...(state.audits ?? [])] }));
+    if (existingPlayerId) {
+      if (!(state.players ?? []).some(player => player.id === existingPlayerId)) return Response.redirect(new URL("/admin?error=invalid", request.url), 303);
+      await createMember(username, email, displayName, password, role, existingPlayerId);
+    } else {
+      const player = playerFor(displayName, Number(state.settings?.start ?? 1500));
+      await putState(JSON.stringify({ ...state, players: [...(state.players ?? []), player], matches: state.matches ?? [], audits: [{ id: crypto.randomUUID(), text: `Created member account and player profile: ${player.name}`, at: new Date().toISOString() }, ...(state.audits ?? [])] }));
+      await createMember(username, email, displayName, password, role, player.id);
+    }
   } catch {
     return Response.redirect(new URL("/admin?error=exists", request.url), 303);
   }
-  return Response.redirect(new URL("/admin?created=1", request.url), 303);
+  return Response.redirect(new URL(`/admin?created=1&who=${encodeURIComponent(displayName)}`, request.url), 303);
 }
