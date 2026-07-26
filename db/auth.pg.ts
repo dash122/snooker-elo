@@ -51,6 +51,7 @@ function ensureAuthSchema() {
     await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS avatar TEXT`;
     await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS deactivated_at TEXT`;
     await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS initials TEXT`;
+    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS icon_colour TEXT`;
     await sql`CREATE INDEX IF NOT EXISTS sessions_member_email_idx ON sessions (member_email)`;
     await sql`CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions (expires_at)`;
   })().catch(error => {
@@ -102,7 +103,7 @@ export async function getCurrentMember(): Promise<MemberSession | null> {
   const now = new Date().toISOString();
   const sql = getSql();
   const rows = await sql<MemberSession[]>`
-    SELECT m.email, m.username, m.state_player_id AS "statePlayerId", m.display_name AS "displayName", m.avatar, m.initials, m.role
+    SELECT m.email, m.username, m.state_player_id AS "statePlayerId", m.display_name AS "displayName", m.avatar, m.initials, m.icon_colour AS "iconColour", m.role
     FROM sessions s JOIN members m ON m.email = s.member_email
     WHERE s.token_hash = ${tokenHash} AND s.expires_at > ${now} AND m.active = true
   `;
@@ -182,7 +183,7 @@ export async function updateMember(email: string, input: { username?: string; ne
 }
 export type ProfileResult = "ok" | "username-taken" | "email-taken";
 
-export async function updateProfile(email: string, input: { username: string; newEmail: string; displayName: string; avatar?: string | null; initials?: string | null }): Promise<ProfileResult> {
+export async function updateProfile(email: string, input: { username: string; newEmail: string; displayName: string; avatar?: string | null; initials?: string | null; iconColour?: string | null }): Promise<ProfileResult> {
   await ensureAuthSchema();
   const sql = getSql();
   const oldEmail = email.toLowerCase();
@@ -193,20 +194,26 @@ export async function updateProfile(email: string, input: { username: string; ne
   `;
   if (taken.some(row => row.username === username)) return "username-taken";
   if (taken.length) return "email-taken";
-  // avatar/initials undefined means "leave as stored"; null explicitly clears it.
-  const setAvatar = input.avatar !== undefined;
-  const setInitials = input.initials !== undefined;
-  if (setAvatar && setInitials) {
-    await sql`UPDATE members SET username = ${username}, email = ${newEmail}, display_name = ${input.displayName.trim()}, avatar = ${input.avatar!}, initials = ${input.initials!} WHERE email = ${oldEmail}`;
-  } else if (setAvatar) {
-    await sql`UPDATE members SET username = ${username}, email = ${newEmail}, display_name = ${input.displayName.trim()}, avatar = ${input.avatar!} WHERE email = ${oldEmail}`;
-  } else if (setInitials) {
-    await sql`UPDATE members SET username = ${username}, email = ${newEmail}, display_name = ${input.displayName.trim()}, initials = ${input.initials!} WHERE email = ${oldEmail}`;
-  } else {
-    await sql`UPDATE members SET username = ${username}, email = ${newEmail}, display_name = ${input.displayName.trim()} WHERE email = ${oldEmail}`;
-  }
+  // avatar/initials/iconColour undefined means "leave as stored"; null clears it.
+  // Built as a field map rather than a branch per combination — three optional
+  // columns would otherwise need eight near-identical UPDATE statements.
+  const fields: Record<string, string | null> = { username, email: newEmail, display_name: input.displayName.trim() };
+  if (input.avatar !== undefined) fields.avatar = input.avatar;
+  if (input.initials !== undefined) fields.initials = input.initials;
+  if (input.iconColour !== undefined) fields.icon_colour = input.iconColour;
+  await sql`UPDATE members SET ${sql(fields)} WHERE email = ${oldEmail}`;
   if (oldEmail !== newEmail) await sql`UPDATE sessions SET member_email = ${newEmail} WHERE member_email = ${oldEmail}`;
+  // The matching write into the linked state player happens in the account
+  // profile route, so it runs the same way on both storage backends.
   return "ok";
+}
+
+export async function syncMemberPlayerProfiles(players: { id: string; short: string; colour?: string | null }[]) {
+  await ensureAuthSchema();
+  const sql = getSql();
+  await sql.begin(async tx => {
+    for (const player of players) await tx`UPDATE members SET initials = ${player.short}, icon_colour = ${player.colour ?? null} WHERE state_player_id = ${player.id}`;
+  });
 }
 
 // Deactivation is reversible by an admin (active = true) but immediately ends
@@ -250,7 +257,7 @@ export async function listMembers(): Promise<MemberRow[]> {
   await ensureAuthSchema();
   const sql = getSql();
   return await sql<MemberRow[]>`
-    SELECT email, username, state_player_id AS "statePlayerId", display_name AS "displayName", avatar, initials, role, active, joined_at AS "joinedAt"
+    SELECT email, username, state_player_id AS "statePlayerId", display_name AS "displayName", avatar, initials, icon_colour AS "iconColour", role, active, joined_at AS "joinedAt"
     FROM members ORDER BY joined_at DESC
   `;
 }

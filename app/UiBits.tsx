@@ -37,31 +37,24 @@ export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"players"|"setti
   }
 }
 
+import { AVATAR_COLOURS, DEFAULT_AVATAR, avatarHex, avatarStyle } from "./avatar-colours";
+export { AVATAR_COLOURS, DEFAULT_AVATAR, avatarHex, avatarStyle };
+
 /**
- * Avatar colours. Every entry is dark enough to carry white initials, so a
- * player can pick any of them without the badge becoming unreadable. The first
- * is the original club green and stays the default for existing players.
+ * The one place a player's identity badge is drawn. Every list, card, chart and
+ * head-to-head goes through here, so an uploaded photo or a new colour picked
+ * on the account page shows up identically across the app. The element stays an
+ * `<i>` because the surrounding CSS (.person>i, .profile-head>i, …) is what
+ * sizes it for each context.
  */
-export const AVATAR_COLOURS:{id:string;name:string;hex:string}[]=[
-  {id:"green",name:"墨綠",hex:"#155e52"},
-  {id:"forest",name:"森綠",hex:"#2c6b3f"},
-  {id:"teal",name:"青碧",hex:"#12706b"},
-  {id:"olive",name:"橄欖",hex:"#5f6b1f"},
-  {id:"ocean",name:"海藍",hex:"#17628f"},
-  {id:"navy",name:"深藍",hex:"#1e4f7a"},
-  {id:"indigo",name:"靛藍",hex:"#3b4b9a"},
-  {id:"violet",name:"紫羅蘭",hex:"#6a3d8f"},
-  {id:"magenta",name:"洋紅",hex:"#97306b"},
-  {id:"wine",name:"酒紅",hex:"#9c2f3f"},
-  {id:"brick",name:"磚紅",hex:"#b04a2f"},
-  {id:"amber",name:"琥珀",hex:"#a35a12"},
-  {id:"bronze",name:"古銅",hex:"#8a6a12"},
-  {id:"slate",name:"石板",hex:"#4a5a63"},
-  {id:"ink",name:"墨黑",hex:"#333f46"}
-];
-export const DEFAULT_AVATAR=AVATAR_COLOURS[0].id;
-export function avatarHex(colour?:string|null){return AVATAR_COLOURS.find(option=>option.id===colour)?.hex??AVATAR_COLOURS[0].hex}
-export function avatarStyle(colour?:string|null){return {background:avatarHex(colour)}}
+export function PlayerBadge({player,className}:{player:{short?:string|null;colour?:string|null;avatar?:string|null};className?:string}) {
+  const initials=(player.short??"").toUpperCase()||"?";
+  if(player.avatar) return <i className={`player-badge has-photo${className?` ${className}`:""}`}>
+    {/* eslint-disable-next-line @next/next/no-img-element -- data URI, no loader needed */}
+    <img src={player.avatar} alt="" />
+  </i>;
+  return <i className={`player-badge${className?` ${className}`:""}`} style={avatarStyle(player.colour)}>{initials}</i>;
+}
 
 /**
  * Type-ahead player picker. A native <select> is fine for a handful of names

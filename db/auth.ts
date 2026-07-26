@@ -29,7 +29,7 @@ export async function updateMember(email: string, input: { username?: string; ne
 
 export type ProfileResult = "ok" | "username-taken" | "email-taken";
 
-export async function updateProfile(email: string, input: { username: string; newEmail: string; displayName: string; avatar?: string | null; initials?: string | null }): Promise<ProfileResult> {
+export async function updateProfile(email: string, input: { username: string; newEmail: string; displayName: string; avatar?: string | null; initials?: string | null; iconColour?: string | null }): Promise<ProfileResult> {
   return (await backend()).updateProfile(email, input);
 }
 
@@ -54,4 +54,8 @@ export async function deleteCurrentSession() {
 
 export async function listMembers() {
   return (await backend()).listMembers();
+}
+
+export async function syncMemberPlayerProfiles(players: { id: string; short: string; colour?: string | null }[]) {
+  return (await backend()).syncMemberPlayerProfiles(players);
 }

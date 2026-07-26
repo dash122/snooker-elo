@@ -50,7 +50,7 @@ function ensureAuthSchema() {
     ]);
     // Added after the first release. SQLite has no ADD COLUMN IF NOT EXISTS, so
     // a "duplicate column name" error just means the migration already ran.
-    for (const column of ["avatar TEXT", "deactivated_at TEXT", "initials TEXT"]) {
+    for (const column of ["avatar TEXT", "deactivated_at TEXT", "initials TEXT", "icon_colour TEXT"]) {
       await env.DB.prepare(`ALTER TABLE members ADD COLUMN ${column}`).run().catch(() => {});
     }
   })().catch(error => {
@@ -103,7 +103,7 @@ export async function getCurrentMember(): Promise<MemberSession | null> {
   const now = new Date().toISOString();
   const env = await cfEnv();
   return await env.DB.prepare(`
-    SELECT m.email, m.username, m.state_player_id AS statePlayerId, m.display_name AS displayName, m.avatar, m.initials, m.role
+    SELECT m.email, m.username, m.state_player_id AS statePlayerId, m.display_name AS displayName, m.avatar, m.initials, m.icon_colour AS iconColour, m.role
     FROM sessions s JOIN members m ON m.email = s.member_email
     WHERE s.token_hash = ? AND s.expires_at > ? AND m.active = 1
   `).bind(tokenHash, now).first() as MemberSession | null;
@@ -185,7 +185,7 @@ export async function updateMember(email: string, input: { username?: string; ne
 }
 export type ProfileResult = "ok" | "username-taken" | "email-taken";
 
-export async function updateProfile(email: string, input: { username: string; newEmail: string; displayName: string; avatar?: string | null; initials?: string | null }): Promise<ProfileResult> {
+export async function updateProfile(email: string, input: { username: string; newEmail: string; displayName: string; avatar?: string | null; initials?: string | null; iconColour?: string | null }): Promise<ProfileResult> {
   await ensureAuthSchema();
   const env = await cfEnv();
   const oldEmail = email.toLowerCase();
@@ -195,24 +195,27 @@ export async function updateProfile(email: string, input: { username: string; ne
     .bind(username, newEmail, oldEmail).all() as { results: { email: string; username: string }[] };
   if (taken.results.some(row => row.username === username)) return "username-taken";
   if (taken.results.length) return "email-taken";
-  // avatar/initials undefined means "leave as stored"; null explicitly clears it.
-  const setAvatar = input.avatar !== undefined;
-  const setInitials = input.initials !== undefined;
-  if (setAvatar && setInitials) {
-    await env.DB.prepare("UPDATE members SET username = ?, email = ?, display_name = ?, avatar = ?, initials = ? WHERE email = ?")
-      .bind(username, newEmail, input.displayName.trim(), input.avatar, input.initials, oldEmail).run();
-  } else if (setAvatar) {
-    await env.DB.prepare("UPDATE members SET username = ?, email = ?, display_name = ?, avatar = ? WHERE email = ?")
-      .bind(username, newEmail, input.displayName.trim(), input.avatar, oldEmail).run();
-  } else if (setInitials) {
-    await env.DB.prepare("UPDATE members SET username = ?, email = ?, display_name = ?, initials = ? WHERE email = ?")
-      .bind(username, newEmail, input.displayName.trim(), input.initials, oldEmail).run();
-  } else {
-    await env.DB.prepare("UPDATE members SET username = ?, email = ?, display_name = ? WHERE email = ?")
-      .bind(username, newEmail, input.displayName.trim(), oldEmail).run();
-  }
+  // avatar/initials/iconColour undefined means "leave as stored"; null clears it.
+  // Built as a field map rather than a branch per combination — three optional
+  // columns would otherwise need eight near-identical UPDATE statements. The
+  // column names are internal constants, never caller-supplied.
+  const fields: Record<string, string | null> = { username, email: newEmail, display_name: input.displayName.trim() };
+  if (input.avatar !== undefined) fields.avatar = input.avatar;
+  if (input.initials !== undefined) fields.initials = input.initials;
+  if (input.iconColour !== undefined) fields.icon_colour = input.iconColour;
+  const columns = Object.keys(fields);
+  await env.DB.prepare(`UPDATE members SET ${columns.map(column => `${column} = ?`).join(", ")} WHERE email = ?`)
+    .bind(...columns.map(column => fields[column]), oldEmail).run();
   if (oldEmail !== newEmail) await env.DB.prepare("UPDATE sessions SET member_email = ? WHERE member_email = ?").bind(newEmail, oldEmail).run();
+  // The matching write into the linked state player happens in the account
+  // profile route, so it runs the same way on both storage backends.
   return "ok";
+}
+
+export async function syncMemberPlayerProfiles(players: { id: string; short: string; colour?: string | null }[]) {
+  await ensureAuthSchema();
+  const env = await cfEnv();
+  await env.DB.batch(players.map(player => env.DB.prepare("UPDATE members SET initials = ?, icon_colour = ? WHERE state_player_id = ?").bind(player.short, player.colour ?? null, player.id)));
 }
 
 // Deactivation is reversible by an admin (active = 1) but immediately ends
@@ -256,7 +259,7 @@ export async function listMembers(): Promise<MemberRow[]> {
   await ensureAuthSchema();
   const env = await cfEnv();
   const result = await env.DB.prepare(`
-    SELECT email, username, state_player_id AS statePlayerId, display_name AS displayName, avatar, initials, role, active, joined_at AS joinedAt
+    SELECT email, username, state_player_id AS statePlayerId, display_name AS displayName, avatar, initials, icon_colour AS iconColour, role, active, joined_at AS joinedAt
     FROM members ORDER BY joined_at DESC
   `).all() as { results: (Omit<MemberRow, "active"> & { active: number })[] };
   return result.results.map(row => ({ ...row, active: Boolean(row.active) }));

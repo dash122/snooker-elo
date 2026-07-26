@@ -21,8 +21,8 @@ export default function AuthExperience({
           <h1>你已登入</h1>
           <p>{user.displayName}，你的{user.role === "admin" ? "管理員" : "會員"}帳戶已可使用。</p>
           <div className="auth-buttons">
-            <Link className="primary" href="/account">進入帳戶</Link>
-            <Link className="more" href="/">返回排行榜</Link>
+            <Link className="primary" href="/">前往排行榜</Link>
+            <Link className="more" href="/account">我的帳戶</Link>
           </div>
         </section>
       </main>

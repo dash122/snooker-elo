@@ -1,10 +1,11 @@
 import { adminUpdateMember, createMember, listMembers, requireMember } from "../../../../db/auth";
 import { getState, putState } from "../../../../db/state";
+import { DEFAULT_AVATAR } from "../../../avatar-colours";
 
 type State = { players?: any[]; matches?: any[]; settings?: { start?: number }; audits?: any[]; [key: string]: unknown };
 
 function playerFor(displayName: string, start: number) {
-  return { id: crypto.randomUUID(), name: displayName, short: Array.from(displayName).slice(0, 3).join("").toUpperCase(), colour: "#52796f", handicap: null, rating: start, initialRating: start, active: true, wins: 0, losses: 0, draws: 0, framesWon: 0, framesLost: 0, lastChange: 0, form: [] };
+  return { id: crypto.randomUUID(), name: displayName, short: Array.from(displayName).slice(0, 3).join("").toUpperCase(), colour: DEFAULT_AVATAR, handicap: null, rating: start, initialRating: start, active: true, wins: 0, losses: 0, draws: 0, framesWon: 0, framesLost: 0, lastChange: 0, form: [] };
 }
 
 async function loadState(): Promise<State> {
