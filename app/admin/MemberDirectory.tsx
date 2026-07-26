@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { deriveInitials } from "../api/account/validate";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
 
-export type Player = { id: string; name: string };
+export type Player = { id: string; name: string; active?: boolean };
 export type Member = {
   email: string; username: string; displayName: string; statePlayerId?: string;
   avatar?: string | null; initials?: string | null; role: "admin" | "member"; active: boolean;

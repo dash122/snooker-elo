@@ -1149,7 +1149,7 @@ main>.match-view-toggle,main>.player-toolbar{margin-top:2rem}
 .admin-back{display:inline-flex;margin-top:1.5rem;text-decoration:none}
 
 /* Roster health: the three numbers an admin wants before doing anything else. */
-.admin-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin:1.5rem 0}
+.admin-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin:1.5rem 0}
 .admin-stats>div{padding:.85rem .9rem;border:1px solid var(--line);border-radius:var(--radius-md);background:#f7f8f5}
 .admin-stats small,.admin-stats b{display:block}
 .admin-stats small{font-size:var(--fs-label);color:var(--muted);font-weight:700}
@@ -1165,6 +1165,17 @@ main>.match-view-toggle,main>.player-toolbar{margin-top:2rem}
 .admin-attention .member-list{margin-top:.9rem;border-top:0}
 .admin-attention .member-list>div{border-bottom:1px solid #eddfc4}
 .admin-attention .member-list>div:last-child{border-bottom:0}
+/* The mirror problem — a player with no login — is informational rather than a
+   data fault, so it reads in the calmer club green instead of the amber alert. */
+.admin-attention.players{border-color:#c2d8cb;background:#f4faf6}
+.admin-attention.players h2{color:var(--green)}
+.admin-attention.players h2 em{background:var(--green)}
+.admin-player-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(15rem,1fr));gap:.4rem;margin:.9rem 0 0;padding:0;list-style:none}
+.admin-player-list li{display:grid;grid-template-columns:2rem minmax(0,1fr) auto;align-items:center;gap:.6rem;padding:.5rem .6rem;border:1px solid #dbe8e0;border-radius:var(--radius-sm);background:white}
+.admin-player-list .admin-avatar{width:2rem;height:2rem;font-size:var(--fs-label)}
+.admin-player-list b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-player-list .more{color:var(--green);text-decoration:none;white-space:nowrap;font-size:var(--fs-sm)}
+.admin-player-list .more:hover{text-decoration:underline}
 
 .admin-section,.admin-section-open{margin-top:1.5rem;border-top:1px solid var(--line);padding-top:1.25rem}
 .admin-section>summary{font-family:var(--font-display);font-size:var(--fs-h3);font-weight:600;color:var(--deep);cursor:pointer;list-style:none;display:flex;align-items:center;gap:.5rem}

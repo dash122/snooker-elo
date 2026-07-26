@@ -13,15 +13,19 @@ const zh = {
   exists: "此電郵或使用者名稱已存在，或該球員檔案已被其他帳戶連結。",
   invalid: "請檢查帳戶資料。",
   statAccounts: "帳戶總數", statAdmins: "管理員", statUnlinked: "待連結球員檔案", statAllLinked: "全部已連結",
+  statNoAccount: "球員待開帳戶", statAllHaveAccounts: "球員全部已開帳戶",
   attentionTitle: "需要處理", attentionSub: "以下帳戶未連結球員檔案，成績不會計入排行榜。選擇對應的球員即可連結。",
   link: "連結", pick: "選擇球員",
+  noAccountTitle: "球員未有帳戶", noAccountSub: "以下球員已在排行榜上，但仍未有登入帳戶，無法自行查看成績或更新資料。",
+  createAccount: "建立帳戶", noAccountEmpty: "所有球員都已有對應帳戶。",
+  prefillNote: (name: string) => `正在為球員「${name}」建立帳戶，該球員檔案會自動連結。`,
   addSection: "新增使用者", addSub: "預設會為新帳戶建立全新球員檔案；如該人已在排行榜上，請改為選擇其現有檔案。",
   name: "顯示名稱", username: "使用者名稱", email: "電郵", password: "密碼", role: "帳戶類型",
   member: "會員", admin: "管理員", player: "球員檔案", createNew: "建立新球員檔案",
   add: "新增帳戶", directorySection: "成員目錄", back: "返回我的帳戶",
 };
 
-type Search = { error?: string; created?: string; updated?: string; linked?: string; who?: string };
+type Search = { error?: string; created?: string; updated?: string; linked?: string; who?: string; player?: string };
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<Search> }) {
   const user = await getCurrentMember();
@@ -37,6 +41,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   // offering the full roster would just surface choices that fail the unique index.
   const claimed = new Set(members.map(member => member.statePlayerId).filter(Boolean) as string[]);
   const freePlayers = players.filter(player => !claimed.has(player.id));
+  // The mirror of an unlinked account: a player who competes but has no login.
+  // Retired players are excluded — nobody needs an account created for them.
+  const needAccount = freePlayers.filter(player => player.active !== false);
+  // Clicking "create account" on such a player prefills the form below, so the
+  // admin doesn't have to retype the name and re-find the profile in the picker.
+  const prefill = p.player ? freePlayers.find(player => player.id === p.player) : undefined;
   const note = (text: string) => p.who ? `${text.replace(/。$/, "")}：${p.who}` : text;
 
   return <main className="auth-page admin-page">
@@ -56,6 +66,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <div className={unlinked.length ? "warn" : ""}>
           <small>{unlinked.length ? zh.statUnlinked : zh.statAllLinked}</small>
           <b>{unlinked.length || "✓"}</b>
+        </div>
+        <div className={needAccount.length ? "warn" : ""}>
+          <small>{needAccount.length ? zh.statNoAccount : zh.statAllHaveAccounts}</small>
+          <b>{needAccount.length || "✓"}</b>
         </div>
       </div>
 
@@ -77,17 +91,29 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         </div>
       </section>}
 
-      <details className="admin-section">
+      {needAccount.length > 0 && <section className="admin-attention players">
+        <h2>{zh.noAccountTitle}<em>{needAccount.length}</em></h2>
+        <p>{zh.noAccountSub}</p>
+        <ul className="admin-player-list">{needAccount.map(player =>
+          <li key={player.id}>
+            <span className="admin-avatar" aria-hidden="true">{player.name.slice(0, 2).toUpperCase()}</span>
+            <b>{player.name}</b>
+            <Link className="more" href={`/admin?player=${encodeURIComponent(player.id)}#create`}>{zh.createAccount}</Link>
+          </li>)}
+        </ul>
+      </section>}
+
+      <details className="admin-section" id="create" open={!!prefill}>
         <summary>{zh.addSection}</summary>
-        <p className="admin-section-sub">{zh.addSub}</p>
+        <p className="admin-section-sub">{prefill ? zh.prefillNote(prefill.name) : zh.addSub}</p>
         <form className="auth-form admin-create" data-player-link-form="create" action="/api/admin/members" method="post">
-          <label>{zh.name}<input name="displayName" required minLength={2} /></label>
+          <label>{zh.name}<input name="displayName" defaultValue={prefill?.name ?? ""} required minLength={2} /></label>
           <label>{zh.username}<input name="username" autoComplete="username" required minLength={2} /></label>
           <label>{zh.email}<input name="email" type="email" required /></label>
           <label>{zh.password}<input name="password" type="password" minLength={6} autoComplete="new-password" required /></label>
           <label>{zh.role}<select name="role"><option value="member">{zh.member}</option><option value="admin">{zh.admin}</option></select></label>
           <label>{zh.player}
-            <PlayerLinkCombobox players={freePlayers} initialValue="" name="statePlayerId"
+            <PlayerLinkCombobox players={freePlayers} initialValue={prefill?.id ?? ""} name="statePlayerId"
               formId="create" placeholder={zh.createNew} clearLabel={zh.createNew} />
           </label>
           <button className="primary" type="submit">{zh.add}</button>
