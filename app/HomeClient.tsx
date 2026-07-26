@@ -192,6 +192,11 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const [tab,setTab] = useState("leaderboard");
   const [matchesView,setMatchesView] = useState<"history"|"calendar">("history");
   const [headToHead,setHeadToHead] = useState({a:"",b:""});
+  const [highlightMatch,setHighlightMatch] = useState<string|null>(null);
+  // localStorage can't be read during render without a hydration mismatch, so
+  // the restore lands in an effect — which means the writer must skip its own
+  // first run or it would persist the pre-restore default over the real value.
+  const focusRestored = useRef(false);
   const [modal,setModal] = useState<"match"|"player"|"settings"|"detail"|"deleteMatch"|"signIn"|null>(null);
   const [detail,setDetail] = useState<Player|null>(null);
   const [editingPlayer,setEditingPlayer] = useState<Player|null>(null);
@@ -220,6 +225,38 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     return ()=>clearInterval(timer);
   },[saving]);
   useEffect(()=>{ localStorage.setItem("scaa-draft",JSON.stringify(draft)); },[draft]);
+  // The match tab is egocentric in practice — a member opens it to check their
+  // own last result, not the club archive. Restore whatever they were last
+  // looking at; failing that, start a signed-in member on their own record.
+  useEffect(()=>{
+    const stored=localStorage.getItem("scaa-match-focus");
+    if(stored){
+      try{
+        const value=JSON.parse(stored);
+        if(typeof value?.a==="string"&&typeof value?.b==="string"){setHeadToHead({a:value.a,b:value.b});return;}
+      }catch{}
+    }
+    if(ownPlayerId)setHeadToHead({a:ownPlayerId,b:""});
+  },[ownPlayerId]);
+  useEffect(()=>{
+    if(!focusRestored.current){focusRestored.current=true;return;}
+    localStorage.setItem("scaa-match-focus",JSON.stringify(headToHead));
+  },[headToHead]);
+  // A restored id can outlive the player it points at; drop it once the roster
+  // arrives so the filter never names someone who is no longer in the club.
+  useEffect(()=>{
+    if(!data.players.length)return;
+    setHeadToHead(pair=>{
+      const known=(id:string)=>!id||data.players.some(p=>p.id===id);
+      if(known(pair.a)&&known(pair.b))return pair;
+      return known(pair.a)?{a:pair.a,b:""}:{a:"",b:""};
+    });
+  },[data.players]);
+  // Navigating away retires the highlight, so returning later doesn't re-flash
+  // a result the user has already seen. Cleared on the click rather than in an
+  // effect keyed on `tab` — saveMatch sets both in one batch, and an effect
+  // would race that.
+  const goTab=(next:string)=>{setHighlightMatch(null);setTab(next)};
   useEffect(()=>{
     if(data.players.length<2)return;
     setDraft(d=>{
@@ -276,7 +313,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     const opponent=selectedOpponent??data.players.find(candidate=>candidate.id!==player.id&&candidate.active)??data.players.find(candidate=>candidate.id!==player.id);
     setHeadToHead({a:player.id,b:opponent?.id??""});
     setMatchesView("history");
-    setTab("matches");
+    goTab("matches");
   };
 
   function saveMatch(){
@@ -305,7 +342,15 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     const rebuilt=replay(data.players,matches,settings);
     const action=editingMatch?"編輯":"記錄";
     const next={...data,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:`${action}賽果：${a.name} ${draft.scoreA}–${draft.scoreB} ${b.name}；重播歷史 ELO`,at:now},...data.audits]};
-    localStorage.removeItem("scaa-draft"); setEditingMatch(null); setModal(null); persist(next,editingMatch?"賽事已更新，所有後續 ELO 已重建。":"賽果已儲存，雙方 ELO 已更新。");
+    localStorage.removeItem("scaa-draft"); setEditingMatch(null); setModal(null);
+    // Land on the saved card rather than a toast that vanishes: focus the list
+    // on the recorder (or clear it, for an admin logging someone else's game)
+    // so the new row is guaranteed to be in the filtered set, and drop the
+    // comparison — the date range only applies while comparing, and a stale
+    // range could otherwise hide the very match we just navigated to.
+    setHeadToHead({a:ownPlayerId&&(match.a===ownPlayerId||match.b===ownPlayerId)?ownPlayerId:"",b:""});
+    setHighlightMatch(id); setMatchesView("history"); setTab("matches");
+    persist(next,editingMatch?"賽事已更新，所有後續 ELO 已重建。":"賽果已儲存，雙方 ELO 已更新。");
   }
 
   function editMatch(m:Match){
@@ -390,18 +435,18 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     <aside className="side">
       <div className="brand"><span>S</span><div><b>SCAA</b><small>Snooker ELO</small></div></div>
       <nav>{[["leaderboard","排行榜","◆"],["matches","比賽","◫"],["players","球員","◎"],["settings","設定","⚙"]].map(([id,label,icon])=>
-        <button key={id} className={tab===id?"active":""} onClick={()=>setTab(id)}><i>{icon}</i>{label}</button>)}</nav>
+        <button key={id} className={tab===id?"active":""} onClick={()=>goTab(id)}><i>{icon}</i>{label}</button>)}</nav>
       <div className="public-note"><b>{user?"會員模式":"公開瀏覽"}</b><span>{user?"已登入，可更新球會資料":"登入會員後即可記錄比賽"}</span></div>
     </aside>
     <main>
       <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={newMatch} onPlayer={(p)=>{setDetail(p);setModal("detail")}}/>}
-      {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead}/>}
+      {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch}/>}
       {tab==="players"&&<Players data={data} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={openHeadToHead}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
     </main>
     <nav className="bottom">{[["leaderboard","排行榜"],["matches","比賽"],["record","記錄"],["players","球員"],["settings","設定"]].map(([id,label])=>
-      <button key={id} className={id==="record"?"bottom-record":tab===id?"active":""} onClick={()=>id==="record"?newMatch():setTab(id)}>
+      <button key={id} className={id==="record"?"bottom-record":tab===id?"active":""} onClick={()=>id==="record"?newMatch():goTab(id)}>
         <i>{id==="record"?"＋":<NavIcon id={id as "leaderboard"|"matches"|"players"|"settings"} active={tab===id}/>}</i>
         <small>{label}</small>
       </button>)}</nav>
@@ -550,11 +595,31 @@ const monthGroupLabel=(month:string)=>{
   return `${y}年${m}月`;
 };
 
-function Matches({data,canManageMatch,onEdit,onVoid,view,setView,pair,setPair}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;view:"history"|"calendar";setView:(view:"history"|"calendar")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void}) {
+function Matches({data,canManageMatch,onEdit,onVoid,view,setView,pair,setPair,highlight}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;view:"history"|"calendar";setView:(view:"history"|"calendar")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void;highlight:string|null}) {
   const [sortBy,setSortBy]=useState<"playedOn"|"createdAt">("playedOn");
   const [sortDirection,setSortDirection]=useState<"desc"|"asc">("desc");
   const [from,setFrom]=useState(""),[to,setTo]=useState("");
   const [filterOpen,setFilterOpen]=useState(false);
+  // This component unmounts on every trip to another tab, so without a round
+  // trip through storage a scouting session loses its sort and date range the
+  // moment the user glances at 排行榜. Same restore-then-write shape as the
+  // focus above, including the skipped first write.
+  const prefsRestored=useRef(false);
+  useEffect(()=>{
+    const stored=localStorage.getItem("scaa-match-prefs");
+    if(!stored)return;
+    try{
+      const value=JSON.parse(stored);
+      if(value?.sortBy==="playedOn"||value?.sortBy==="createdAt")setSortBy(value.sortBy);
+      if(value?.sortDirection==="asc"||value?.sortDirection==="desc")setSortDirection(value.sortDirection);
+      if(typeof value?.from==="string")setFrom(value.from);
+      if(typeof value?.to==="string")setTo(value.to);
+    }catch{}
+  },[]);
+  useEffect(()=>{
+    if(!prefsRestored.current){prefsRestored.current=true;return;}
+    localStorage.setItem("scaa-match-prefs",JSON.stringify({sortBy,sortDirection,from,to}));
+  },[sortBy,sortDirection,from,to]);
   const name=(id:string)=>data.players.find(p=>p.id===id)?.name??"已刪除球員";
   const roster=[...data.players].sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
   const focusPlayer=pair.a;
@@ -665,15 +730,22 @@ function Matches({data,canManageMatch,onEdit,onVoid,view,setView,pair,setPair}:{
     </div>}
     <div className="match-list">{groups.length===0?<Empty text={comparing?"沒有符合的對賽記錄":focusPlayer?"沒有符合的比賽記錄":"尚未有比賽記錄"} sub={comparing?"調整日期範圍，或記錄兩人的第一場比賽。":focusPlayer?"這位球員暫時沒有已記錄的賽事。":"記錄第一場比賽後，詳情會顯示在這裡。"}/>:groups.map(group=><Fragment key={group.key}>
       {!comparing&&<h3 className="match-month-header">{monthGroupLabel(group.key)}</h3>}
-      {group.matches.map(m=><MatchCard key={m.id} match={m} canManage={canManageMatch(m)} name={name} onEdit={onEdit} onVoid={onVoid}/>)}
+      {group.matches.map(m=><MatchCard key={m.id} match={m} canManage={canManageMatch(m)} name={name} onEdit={onEdit} onVoid={onVoid} highlighted={m.id===highlight}/>)}
     </Fragment>)}</div></>}</>;
 }
 
 // Collapsed by default: who played, the score, and each player's own ELO
 // swing — the facts a user scans for. Edit/delete controls and the deeper
 // math (before→after, predicted ratio, handicap detail) stay one tap away.
-function MatchCard({match:m,canManage,name,onEdit,onVoid}:{match:Match;canManage:boolean;name:(id:string)=>string;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void}) {
+function MatchCard({match:m,canManage,name,onEdit,onVoid,highlighted=false}:{match:Match;canManage:boolean;name:(id:string)=>string;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;highlighted?:boolean}) {
   const [open,setOpen]=useState(false);
+  // Scrolling to the card beats trusting it to be at the top: a backdated
+  // result, or an ascending sort, can drop it anywhere in the month groups.
+  const card=useRef<HTMLElement|null>(null);
+  useEffect(()=>{
+    if(!highlighted)return;
+    card.current?.scrollIntoView({behavior:"smooth",block:"center"});
+  },[highlighted]);
   // Only the highest break per player is worth a glance — a player who ran
   // three centuries in one match still shows once, at their best number.
   const topBreaks=[m.a,m.b]
@@ -682,8 +754,8 @@ function MatchCard({match:m,canManage,name,onEdit,onVoid}:{match:Match;canManage
       return best>0?{playerId:id,value:best}:null;
     })
     .filter((entry):entry is {playerId:string;value:number}=>entry!=null);
-  return <article className={`match ${m.status}`}>
-    <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time>{m.status==="void"&&<span className="pill">已作廢</span>}{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
+  return <article ref={card} className={`match ${m.status}${highlighted?" just-saved":""}`}>
+    <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time>{highlighted&&<span className="pill just-saved-pill">剛剛記錄</span>}{m.status==="void"&&<span className="pill">已作廢</span>}{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
       {canManage&&<span className="card-tools"><button className="card-tool" aria-label={`編輯 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onEdit(m)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onVoid(m)}>✕</button></span>}</div>
     <Scoreline left={name(m.a)} right={name(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}
       eloLeft={{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={{before:m.beforeB,after:m.afterB,delta:-m.deltaA}} netChange={m.deltaA}/>
@@ -825,6 +897,17 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
   const [customHandicap,setCustomHandicap]=useState(editing||Boolean(draft.giver));
   const update=(k:string,v:any)=>setDraft((d:any)=>({...d,[k]:v}));
   const players=[...data.players].filter(p=>p.active).sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
+  // The job here is "log the match I just played" — once one side is picked,
+  // the very next thing the person needs is the opponent, so each slot hides
+  // whoever is already chosen on the other side (no accidental self-match)
+  // and picking one side jumps straight into the other, so two taps read as
+  // one motion instead of "pick, look up, tap again".
+  const playersForA=players.filter(p=>p.id!==draft.b);
+  const playersForB=players.filter(p=>p.id!==draft.a);
+  const [openASignal,setOpenASignal]=useState(0);
+  const [openBSignal,setOpenBSignal]=useState(0);
+  const pickA=(id:string)=>{update("a",id);if(id&&!draft.b)setOpenBSignal(s=>s+1)};
+  const pickB=(id:string)=>{update("b",id);if(id&&!draft.a)setOpenASignal(s=>s+1)};
   const addBreak=(playerId:string)=>{
     const value=Number(breakInput[playerId]);
     if(!Number.isInteger(value)||value<1||value>147)return;
@@ -854,10 +937,10 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
     {editing&&<p className="sub">儲存後會按日期重播全部賽事，重建雙方及後續 ELO。</p>}
     {data.players.length<2&&<p className="warning">請先新增至少兩位活躍球員。</p>}
     <section className="match-players" aria-labelledby="match-players-title"><h3 id="match-players-title" className="visually-hidden">選擇球員</h3><div className="matchup-card">
-      <div className="matchup-slot"><PlayerCombobox players={players} value={draft.a} onChange={id=>update("a",id)} placeholder="選擇球員" ariaLabel="球員 A"
+      <div className="matchup-slot"><PlayerCombobox players={playersForA} value={draft.a} onChange={pickA} placeholder="選擇球員" ariaLabel="球員 A" autoOpenSignal={openASignal}
         renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span className="matchup-avatar" aria-hidden="true">{selected?.short??"?"}</span><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO`:"—"}</small></button>}/></div>
       <span className="matchup-vs" aria-hidden="true">對</span>
-      <div className="matchup-slot"><PlayerCombobox players={players} value={draft.b} onChange={id=>update("b",id)} placeholder="選擇球員" ariaLabel="球員 B"
+      <div className="matchup-slot"><PlayerCombobox players={playersForB} value={draft.b} onChange={pickB} placeholder="選擇球員" ariaLabel="球員 B" autoOpenSignal={openBSignal}
         renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span className="matchup-avatar" aria-hidden="true">{selected?.short??"?"}</span><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO`:"—"}</small></button>}/></div>
     </div></section>
     <section className="quick-handicap" aria-labelledby="handicap-title"><h3 id="handicap-title">讓分 <small>{handicapLabel}</small></h3><div className="handicap-segment"><button type="button" className={!draft.giver&&!customHandicap?"active":""} onClick={setNoHandicap}>沒有讓分</button><button type="button" disabled={fairActual==null} className={draft.giver&&+draft.points===fairPoints&&!customHandicap?"active":""} onClick={fairPoints===0?setNoHandicap:applyFair}>ELO 建議</button><button type="button" className={customHandicap?"active":""} onClick={()=>setCustomHandicap(value=>!value)}>自訂</button></div>
