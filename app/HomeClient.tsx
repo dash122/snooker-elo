@@ -187,7 +187,7 @@ const thirtyDaysAgo = new Date(Date.now()-30*864e5).toISOString().slice(0,10);
 // glyph stays centred in its circle both closed and rotated 180° when open.
 const chevron = <i aria-hidden="true"><svg viewBox="0 0 12 12"><path d="M2.6 4.25 6 7.75 9.4 4.25"/></svg></i>;
 
-export default function Home({user}:{user:{displayName:string;email:string;role:"admin"|"member"}|null}) {
+export default function Home({user}:{user:{displayName:string;email:string;role:"admin"|"member";statePlayerId?:string}|null}) {
   const [data,setData] = useState<AppState>(seed);
   const [tab,setTab] = useState("leaderboard");
   const [matchesView,setMatchesView] = useState<"history"|"calendar">("history");
@@ -203,6 +203,9 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const [saving,setSaving] = useState(false);
   const [draft,setDraft] = useState({a:"",b:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[] as {playerId:string;value:number}[]});
   const [playerForm,setPlayerForm] = useState({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});
+  const ownPlayerId=user?.statePlayerId;
+  const isAdmin=user?.role==="admin";
+  const canManageMatch=(match:Match)=>Boolean(isAdmin||ownPlayerId&&(match.a===ownPlayerId||match.b===ownPlayerId));
 
   useEffect(()=>{
     const local = localStorage.getItem("scaa-draft");
@@ -277,6 +280,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   };
 
   function saveMatch(){
+    if(!isAdmin&&(!ownPlayerId||(a?.id!==ownPlayerId&&b?.id!==ownPlayerId))){setToast("你只能記錄或修改自己參與的比賽。");return;}
     if(!a||!b||a.id===b.id||draft.scoreA<0||draft.scoreB<0||(+draft.scoreA+ +draft.scoreB)===0){setToast("請選擇兩位不同球員，比分總局數必須大於 0。");return;}
     if(!preview)return;
     const now=new Date().toISOString(), id=editingMatch?.id??crypto.randomUUID();
@@ -305,6 +309,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   }
 
   function editMatch(m:Match){
+    if(!canManageMatch(m)){setToast("你只能修改自己參與的比賽。");return;}
     setEditingMatch(m);
     setDraft({
       a:m.a,b:m.b,scoreA:m.scoreA,scoreB:m.scoreB,
@@ -318,13 +323,14 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     setEditingMatch(null);
     const sorted=[...data.players].filter(p=>p.active).sort((a,b)=>a.name.localeCompare(b.name,"zh-HK"));
     setDraft({
-      a:sorted[0]?.id??"",b:sorted[1]?.id??"",
+      a:ownPlayerId&&sorted.some(player=>player.id===ownPlayerId)?ownPlayerId:sorted[0]?.id??"",b:(ownPlayerId&&sorted.some(player=>player.id===ownPlayerId)?sorted.find(player=>player.id!==ownPlayerId):sorted[1])?.id??"",
       scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[]
     });
     setModal("match");
   }
 
   function savePlayer(){
+    if(!isAdmin&&(!editingPlayer||editingPlayer.id!==ownPlayerId)){setToast("你只能修改自己的球員資料。");return;}
     if(!playerForm.name.trim()||!playerForm.short.trim()){setToast("請輸入顯示名稱及縮寫。");return;}
     const rating=playerForm.rating?+playerForm.rating:data.settings.start;
     const p:Player=editingPlayer
@@ -340,12 +346,14 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   }
 
   function editPlayer(p:Player){
+    if(!isAdmin&&p.id!==ownPlayerId){setToast("你只能修改自己的球員資料。");return;}
     setEditingPlayer(p);
     setPlayerForm({name:p.name,short:p.short,handicap:p.handicap==null?"":String(p.handicap),rating:String(Math.round(p.initialRating)),colour:p.colour||DEFAULT_AVATAR});
     setModal("player");
   }
 
   function deletePlayer(p:Player){
+    if(!isAdmin){setToast("只有管理員可以刪除球員。");return;}
     const hasHistory=data.matches.some(m=>m.a===p.id||m.b===p.id);
     if(!confirm(`永久刪除 ${p.name}？${hasHistory?"歷史賽事會保留並顯示為「已刪除球員」。":""}此操作無法復原。`))return;
     const next={...data,players:data.players.filter(x=>x.id!==p.id),
@@ -388,9 +396,9 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     <main>
       <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={newMatch} onPlayer={(p)=>{setDetail(p);setModal("detail")}}/>}
-      {tab==="matches"&&<Matches data={data} onEdit={editMatch} onVoid={requestDeleteMatch} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead}/>}
-      {tab==="players"&&<Players data={data} onAdd={()=>{setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={openHeadToHead}/>}
-      {tab==="settings"&&<SettingsView data={data} onEdit={()=>setModal("settings")} onReset={resetAll} canReset={user?.role==="admin"}/>}
+      {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead}/>}
+      {tab==="players"&&<Players data={data} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={openHeadToHead}/>}
+      {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
     </main>
     <nav className="bottom">{[["leaderboard","排行榜"],["matches","比賽"],["record","記錄"],["players","球員"],["settings","設定"]].map(([id,label])=>
       <button key={id} className={id==="record"?"bottom-record":tab===id?"active":""} onClick={()=>id==="record"?newMatch():setTab(id)}>
@@ -542,7 +550,7 @@ const monthGroupLabel=(month:string)=>{
   return `${y}年${m}月`;
 };
 
-function Matches({data,onEdit,onVoid,view,setView,pair,setPair}:{data:AppState;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;view:"history"|"calendar";setView:(view:"history"|"calendar")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void}) {
+function Matches({data,canManageMatch,onEdit,onVoid,view,setView,pair,setPair}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;view:"history"|"calendar";setView:(view:"history"|"calendar")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void}) {
   const [sortBy,setSortBy]=useState<"playedOn"|"createdAt">("playedOn");
   const [sortDirection,setSortDirection]=useState<"desc"|"asc">("desc");
   const [from,setFrom]=useState(""),[to,setTo]=useState("");
@@ -615,7 +623,7 @@ function Matches({data,onEdit,onVoid,view,setView,pair,setPair}:{data:AppState;o
   },[matches,comparing]);
   return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽記錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
     <div className="match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button></div>
-    {view==="calendar"?<CalendarView data={data} onEdit={onEdit} onVoid={onVoid}/>:<>
+    {view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onEdit={onEdit} onVoid={onVoid}/>:<>
     <div className="match-filter-bar">
       <button type="button" className={`match-filter-pill${focusPlayer?" active":""}`} aria-haspopup="dialog" aria-expanded={filterOpen} onClick={()=>setFilterOpen(value=>!value)}>
         <i aria-hidden="true">⇅</i>{filterLabel}<i aria-hidden="true">{filterOpen?"︿":"﹀"}</i>
@@ -657,14 +665,14 @@ function Matches({data,onEdit,onVoid,view,setView,pair,setPair}:{data:AppState;o
     </div>}
     <div className="match-list">{groups.length===0?<Empty text={comparing?"沒有符合的對賽記錄":focusPlayer?"沒有符合的比賽記錄":"尚未有比賽記錄"} sub={comparing?"調整日期範圍，或記錄兩人的第一場比賽。":focusPlayer?"這位球員暫時沒有已記錄的賽事。":"記錄第一場比賽後，詳情會顯示在這裡。"}/>:groups.map(group=><Fragment key={group.key}>
       {!comparing&&<h3 className="match-month-header">{monthGroupLabel(group.key)}</h3>}
-      {group.matches.map(m=><MatchCard key={m.id} match={m} name={name} onEdit={onEdit} onVoid={onVoid}/>)}
+      {group.matches.map(m=><MatchCard key={m.id} match={m} canManage={canManageMatch(m)} name={name} onEdit={onEdit} onVoid={onVoid}/>)}
     </Fragment>)}</div></>}</>;
 }
 
 // Collapsed by default: who played, the score, and each player's own ELO
 // swing — the facts a user scans for. Edit/delete controls and the deeper
 // math (before→after, predicted ratio, handicap detail) stay one tap away.
-function MatchCard({match:m,name,onEdit,onVoid}:{match:Match;name:(id:string)=>string;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void}) {
+function MatchCard({match:m,canManage,name,onEdit,onVoid}:{match:Match;canManage:boolean;name:(id:string)=>string;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void}) {
   const [open,setOpen]=useState(false);
   // Only the highest break per player is worth a glance — a player who ran
   // three centuries in one match still shows once, at their best number.
@@ -676,7 +684,7 @@ function MatchCard({match:m,name,onEdit,onVoid}:{match:Match;name:(id:string)=>s
     .filter((entry):entry is {playerId:string;value:number}=>entry!=null);
   return <article className={`match ${m.status}`}>
     <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time>{m.status==="void"&&<span className="pill">已作廢</span>}{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
-      <span className="card-tools"><button className="card-tool" aria-label={`編輯 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onEdit(m)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onVoid(m)}>✕</button></span></div>
+      {canManage&&<span className="card-tools"><button className="card-tool" aria-label={`編輯 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onEdit(m)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onVoid(m)}>✕</button></span>}</div>
     <Scoreline left={name(m.a)} right={name(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}
       eloLeft={{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={{before:m.beforeB,after:m.afterB,delta:-m.deltaA}} netChange={m.deltaA}/>
     <button type="button" className="match-summary-row" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
@@ -714,7 +722,7 @@ function monthLabel(month:string){
   return `${y}年${m}月`;
 }
 
-function CalendarView({data,onEdit,onVoid}:{data:AppState;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void}) {
+function CalendarView({data,canManageMatch,onEdit,onVoid}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void}) {
   const name=(id:string)=>data.players.find(p=>p.id===id)?.name??"已刪除球員";
   const confirmed=useMemo(()=>data.matches.filter(m=>m.status==="confirmed"),[data.matches]);
   const currentMonth=today.slice(0,7);
@@ -770,7 +778,7 @@ function CalendarView({data,onEdit,onVoid}:{data:AppState;onEdit:(m:Match)=>void
     {selectedDay&&<div className="calendar-day-detail">
       <div className="calendar-day-head"><h3><time dateTime={selectedDay}>{selectedDay}</time></h3><span>{selectedMatches.length} 場</span></div>
       <div className="calendar-day-list">{selectedMatches.map(m=>
-        <MatchCard key={m.id} match={m} name={name} onEdit={onEdit} onVoid={onVoid}/>)}</div>
+        <MatchCard key={m.id} match={m} canManage={canManageMatch(m)} name={name} onEdit={onEdit} onVoid={onVoid}/>)}</div>
     </div>}
   </section>;
 }
@@ -792,14 +800,14 @@ function ConfirmDeleteMatch({match,data,onCancel,onConfirm}:{match:Match;data:Ap
 }
 
 
-function Players({data,onAdd,onEdit,onDelete,onOpen,onCompare}:{data:AppState;onAdd:()=>void;onEdit:(p:Player)=>void;onDelete:(p:Player)=>void;onOpen:(p:Player)=>void;onCompare:(p:Player)=>void}) {
+function Players({data,canAdd,canManagePlayer,onAdd,onEdit,onDelete,onOpen,onCompare}:{data:AppState;canAdd:boolean;canManagePlayer:(player:Player)=>boolean;onAdd:()=>void;onEdit:(p:Player)=>void;onDelete:(p:Player)=>void;onOpen:(p:Player)=>void;onCompare:(p:Player)=>void}) {
   const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[view,setView]=useState<"cards"|"list">("cards"),[query,setQuery]=useState("");
   const ranked=[...data.players].sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name)),sorted=sortPlayers(data.players,data,sort,dir),rankOf=new Map(ranked.map((p,i)=>[p.id,i+1]));
   const q=query.trim().toLowerCase(),shown=q?sorted.filter(p=>p.name.toLowerCase().includes(q)||p.short.toLowerCase().includes(q)):sorted;
   const sortBy=(key:SortKey)=>{if(sort===key)setDir(x=>x==="asc"?"desc":"asc");else{setSort(key);setDir(key==="rank"||key==="name"?"asc":"desc")}};
-  return <><section className="hero small"><div><p className="kicker">球會名單</p><h1>球員</h1><p>管理職員提供的正式評分，並比較 ELO 建議評分。</p></div><button className="primary" onClick={onAdd}>＋ 新增球員</button></section>
+  return <><section className="hero small"><div><p className="kicker">球會名單</p><h1>球員</h1><p>管理職員提供的正式評分，並比較 ELO 建議評分。</p></div>{canAdd&&<button className="primary" onClick={onAdd}>＋ 新增球員</button>}</section>
     <div className="player-toolbar"><SortControls sort={sort} dir={dir} onSort={sortBy}/><div className="player-combobox toolbar-search"><input type="text" value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜尋球員…" aria-label="搜尋球員"/></div><div className="view-toggle" aria-label="顯示模式"><button className={view==="cards"?"active":""} onClick={()=>setView("cards")}>卡片</button><button className={view==="list"?"active":""} onClick={()=>setView("list")}>列表</button></div></div>
-    <div className={`player-grid ${view==="list"?"list-view":""}`}>{data.players.length===0?<Empty text="尚未有球員" sub="新增球員後便可開始記錄比賽。"/>:shown.length===0?<Empty text="找不到符合的球員" sub="試試其他名稱或縮寫。"/>:shown.map(p=>{const suggested=suggestedHandicap(p,data),difference=p.handicap==null?null:suggested-p.handicap;return <article className="player-card rich" key={p.id}><button className="profile-hit" onClick={()=>onOpen(p)}><i style={avatarStyle(p.colour)}>{p.short}</i><div className="player-main"><div><small>排名 #{rankOf.get(p.id)}</small><h3>{p.name}</h3><p><b>{Math.round(p.rating)}</b> ELO · {games(p)} 場 · {Math.round(winRate(p)*100)}% 勝率</p></div><Sparkline values={playerSeries(p,data)} label={`${p.name} ELO 趨勢`}/></div></button><div className="rating-compare"><span><small>正式評分</small><b>{p.handicap??"—"}</b></span><span><small>建議評分</small><b>{suggested==null?"—":Math.round(suggested)}</b></span><span><small>差異</small><b className={difference!=null&&difference>0?"positive":difference!=null&&difference<0?"negative":""}>{difference==null?"—":`${difference>0?"+":""}${Math.round(difference)}`}</b></span><span><small>局數勝率</small><b>{Math.round(frameRate(p)*100)}%</b></span></div><div className="player-card-foot"><span className="form">{p.form.map((x,j)=><i className={x.toLowerCase()} key={j}>{x}</i>)}</span><span className="card-tools player-actions"><button className="card-tool" aria-label={`編輯 ${p.name}`} onClick={()=>onEdit(p)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${p.name}`} onClick={()=>onDelete(p)}>✕</button></span></div></article>})}</div></>;
+    <div className={`player-grid ${view==="list"?"list-view":""}`}>{data.players.length===0?<Empty text="尚未有球員" sub="新增球員後便可開始記錄比賽。"/>:shown.length===0?<Empty text="找不到符合的球員" sub="試試其他名稱或縮寫。"/>:shown.map(p=>{const suggested=suggestedHandicap(p,data),difference=p.handicap==null?null:suggested-p.handicap;return <article className="player-card rich" key={p.id}><button className="profile-hit" onClick={()=>onOpen(p)}><i style={avatarStyle(p.colour)}>{p.short}</i><div className="player-main"><div><small>排名 #{rankOf.get(p.id)}</small><h3>{p.name}</h3><p><b>{Math.round(p.rating)}</b> ELO · {games(p)} 場 · {Math.round(winRate(p)*100)}% 勝率</p></div><Sparkline values={playerSeries(p,data)} label={`${p.name} ELO 趨勢`}/></div></button><div className="rating-compare"><span><small>正式評分</small><b>{p.handicap??"—"}</b></span><span><small>建議評分</small><b>{suggested==null?"—":Math.round(suggested)}</b></span><span><small>差異</small><b className={difference!=null&&difference>0?"positive":difference!=null&&difference<0?"negative":""}>{difference==null?"—":`${difference>0?"+":""}${Math.round(difference)}`}</b></span><span><small>局數勝率</small><b>{Math.round(frameRate(p)*100)}%</b></span></div><div className="player-card-foot"><span className="form">{p.form.map((x,j)=><i className={x.toLowerCase()} key={j}>{x}</i>)}</span>{canManagePlayer(p)&&<span className="card-tools player-actions"><button className="card-tool" aria-label={`編輯 ${p.name}`} onClick={()=>onEdit(p)}>✎</button>{canAdd&&<button className="card-tool danger" aria-label={`刪除 ${p.name}`} onClick={()=>onDelete(p)}>✕</button>}</span>}</div></article>})}</div></>;
 }
 
 function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>void;onReset:()=>void;canReset:boolean}) {

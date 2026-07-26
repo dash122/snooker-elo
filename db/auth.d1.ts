@@ -48,6 +48,11 @@ function ensureAuthSchema() {
         ON sessions (expires_at)
       `),
     ]);
+    // Added after the first release. SQLite has no ADD COLUMN IF NOT EXISTS, so
+    // a "duplicate column name" error just means the migration already ran.
+    for (const column of ["avatar TEXT", "deactivated_at TEXT", "initials TEXT"]) {
+      await env.DB.prepare(`ALTER TABLE members ADD COLUMN ${column}`).run().catch(() => {});
+    }
   })().catch(error => {
     schemaReady = null;
     throw error;
@@ -98,7 +103,7 @@ export async function getCurrentMember(): Promise<MemberSession | null> {
   const now = new Date().toISOString();
   const env = await cfEnv();
   return await env.DB.prepare(`
-    SELECT m.email, m.username, m.display_name AS displayName, m.role
+    SELECT m.email, m.username, m.state_player_id AS statePlayerId, m.display_name AS displayName, m.avatar, m.initials, m.role
     FROM sessions s JOIN members m ON m.email = s.member_email
     WHERE s.token_hash = ? AND s.expires_at > ? AND m.active = 1
   `).bind(tokenHash, now).first() as MemberSession | null;
@@ -178,6 +183,52 @@ export async function updateMember(email: string, input: { username?: string; ne
   }
   return true;
 }
+export type ProfileResult = "ok" | "username-taken" | "email-taken";
+
+export async function updateProfile(email: string, input: { username: string; newEmail: string; displayName: string; avatar?: string | null; initials?: string | null }): Promise<ProfileResult> {
+  await ensureAuthSchema();
+  const env = await cfEnv();
+  const oldEmail = email.toLowerCase();
+  const newEmail = input.newEmail.trim().toLowerCase();
+  const username = input.username.trim().toLowerCase();
+  const taken = await env.DB.prepare("SELECT email, username FROM members WHERE (username = ? OR email = ?) AND email <> ?")
+    .bind(username, newEmail, oldEmail).all() as { results: { email: string; username: string }[] };
+  if (taken.results.some(row => row.username === username)) return "username-taken";
+  if (taken.results.length) return "email-taken";
+  // avatar/initials undefined means "leave as stored"; null explicitly clears it.
+  const setAvatar = input.avatar !== undefined;
+  const setInitials = input.initials !== undefined;
+  if (setAvatar && setInitials) {
+    await env.DB.prepare("UPDATE members SET username = ?, email = ?, display_name = ?, avatar = ?, initials = ? WHERE email = ?")
+      .bind(username, newEmail, input.displayName.trim(), input.avatar, input.initials, oldEmail).run();
+  } else if (setAvatar) {
+    await env.DB.prepare("UPDATE members SET username = ?, email = ?, display_name = ?, avatar = ? WHERE email = ?")
+      .bind(username, newEmail, input.displayName.trim(), input.avatar, oldEmail).run();
+  } else if (setInitials) {
+    await env.DB.prepare("UPDATE members SET username = ?, email = ?, display_name = ?, initials = ? WHERE email = ?")
+      .bind(username, newEmail, input.displayName.trim(), input.initials, oldEmail).run();
+  } else {
+    await env.DB.prepare("UPDATE members SET username = ?, email = ?, display_name = ? WHERE email = ?")
+      .bind(username, newEmail, input.displayName.trim(), oldEmail).run();
+  }
+  if (oldEmail !== newEmail) await env.DB.prepare("UPDATE sessions SET member_email = ? WHERE member_email = ?").bind(newEmail, oldEmail).run();
+  return "ok";
+}
+
+// Deactivation is reversible by an admin (active = 1) but immediately ends
+// every session the member has open.
+export async function deactivateMember(email: string, currentPassword: string) {
+  await ensureAuthSchema();
+  const env = await cfEnv();
+  const normalized = email.toLowerCase();
+  const row = await env.DB.prepare("SELECT password_hash AS passwordHash, password_salt AS passwordSalt FROM members WHERE email = ?")
+    .bind(normalized).first() as { passwordHash: string; passwordSalt: string } | null;
+  if (!row || await passwordDigest(currentPassword, row.passwordSalt) !== row.passwordHash) return false;
+  await env.DB.prepare("UPDATE members SET active = 0, deactivated_at = ? WHERE email = ?").bind(new Date().toISOString(), normalized).run();
+  await env.DB.prepare("DELETE FROM sessions WHERE member_email = ?").bind(normalized).run();
+  return true;
+}
+
 export async function createSession(email: string) {
   await ensureAuthSchema();
   const env = await cfEnv();
@@ -205,7 +256,7 @@ export async function listMembers(): Promise<MemberRow[]> {
   await ensureAuthSchema();
   const env = await cfEnv();
   const result = await env.DB.prepare(`
-    SELECT email, username, state_player_id AS statePlayerId, display_name AS displayName, role, active, joined_at AS joinedAt
+    SELECT email, username, state_player_id AS statePlayerId, display_name AS displayName, avatar, initials, role, active, joined_at AS joinedAt
     FROM members ORDER BY joined_at DESC
   `).all() as { results: (Omit<MemberRow, "active"> & { active: number })[] };
   return result.results.map(row => ({ ...row, active: Boolean(row.active) }));
