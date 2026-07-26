@@ -31,7 +31,7 @@ function CandidateRow({member,info,date,lo,hi,rank}:{member:Member;info:MatchInf
   {rank&&<b className="candidate-rank" aria-hidden="true">{rank}</b>}
   <PlayerBadge player={member}/>
   <div className="candidate-who" aria-hidden="true"><b>{member.name}</b><small>{Math.round(member.rating)} ELO</small></div>
-  <div className="candidate-track" aria-hidden="true"><span className="track-time">{first?time(first.startAt):""}</span><Timeline slots={member.slots} overlaps={info.overlaps} date={date} lo={lo} hi={hi}/><span className="track-time">{last?time(last.endAt):""}</span></div>
+  <div className="candidate-track" aria-hidden="true"><span className="track-time">{first?time(first.startAt):""}</span><Timeline slots={member.slots} overlaps={info.overlaps}/><span className="track-time">{last?time(last.endAt):""}</span></div>
   <div className="candidate-fit" aria-hidden="true">{info.minutes?<><b>{durationLabel(info.minutes)}</b><small>{info.overlaps.map(range).join("、")}</small></>:<small className="candidate-none">無重疊</small>}</div>
   {info.chips[0]&&<span className="candidate-reason" aria-hidden="true">{info.chips[0]}</span>}
  </article>
@@ -49,7 +49,7 @@ function MatchHero({top,mine,date,lo,hi,userPlayerId,members,focus,onManage}:{to
    <div className="match-hero-who"><h2>{top.member.name}</h2><small>{Math.round(top.member.rating)} ELO</small></div>
    <div className="match-hero-window"><b>{top.overlaps.map(range).join("、")}</b><small>可一起打 {durationLabel(top.minutes)}</small></div>
   </div>
-  <div className="match-hero-track" aria-hidden="true"><Timeline slots={top.member.slots} overlaps={top.overlaps} date={date} lo={lo} hi={hi}/></div>
+  <div className="match-hero-track" aria-hidden="true"><Timeline slots={top.member.slots} overlaps={top.overlaps}/></div>
   {top.chips.length>0&&<div className="track-chips">{top.chips.map(c=><span key={c}>{c}</span>)}</div>}
   <div className="match-hero-foot">
    <dl><div><dt>ELO 相差</dt><dd>{Math.round(top.difference)}</dd></div><div><dt>近 30 日交手</dt><dd>{top.recent} 場</dd></div><div><dt>你的時間</dt><dd>{mine.map(range).join("、")}</dd></div></dl>
@@ -180,7 +180,7 @@ export default function Availability({userPlayerId,matches}:{userPlayerId?:strin
    <small>{focus?`只顯示 ${time(focus.startAt)}–${time(focus.endAt)} 有空的人`:mine.length?"按與你的重疊時間、ELO 差距及近期交手排序":"公開你的時段後，這裡會按配對度排序"}</small></div>
    {userPlayerId&&mine.length>0&&shortlist.length>1&&<div className="sort-toggle" role="radiogroup" aria-label="排序方式"><button role="radio" aria-checked={sort==="fit"} className={sort==="fit"?"active":""} onClick={()=>setSort("fit")}>最佳配對</button><button role="radio" aria-checked={sort==="start"} className={sort==="start"?"active":""} onClick={()=>setSort("start")}>最早開始</button></div>}</header>
   <div className="timeline-scale" aria-hidden="true"><span/><div className="timeline-scale-track">{scaleLabels(rosterRange.lo,rosterRange.hi).map(l=><span key={l}>{l}</span>)}</div></div>
-  {mine.length>0&&<article className="candidate is-me" aria-label={`你的基準時段 ${mine.map(range).join("、")}`}><b className="candidate-rank" aria-hidden="true">你</b><div className="candidate-who" aria-hidden="true"><b>你的時間</b><small>基準</small></div><div className="candidate-track" aria-hidden="true"><span className="track-time">{mine[0]?time(mine[0].startAt):""}</span><Timeline slots={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi}/><span className="track-time">{mine.at(-1)?time(mine.at(-1)!.endAt):""}</span></div><div className="candidate-fit" aria-hidden="true"><b>{durationLabel(overlapMinutes(mine))}</b><small>已公開</small></div></article>}
+  {mine.length>0&&<article className="candidate is-me" aria-label={`你的基準時段 ${mine.map(range).join("、")}`}><b className="candidate-rank" aria-hidden="true">你</b><div className="candidate-who" aria-hidden="true"><b>你的時間</b><small>基準</small></div><div className="candidate-track" aria-hidden="true"><span className="track-time">{mine[0]?time(mine[0].startAt):""}</span><Timeline slots={mine}/><span className="track-time">{mine.at(-1)?time(mine.at(-1)!.endAt):""}</span></div><div className="candidate-fit" aria-hidden="true"><b>{durationLabel(overlapMinutes(mine))}</b><small>已公開</small></div></article>}
   <div className="candidate-list">
    {shown.map((c,i)=><CandidateRow key={c.member.id} member={c.member} info={c} date={date} lo={rosterRange.lo} hi={rosterRange.hi} rank={sort==="fit"&&mine.length?i+1:undefined}/>)}
    {!mine.length&&candidates.map(c=><CandidateRow key={c.member.id} member={c.member} info={c} date={date} lo={rosterRange.lo} hi={rosterRange.hi}/>)}

@@ -2,9 +2,6 @@
   "name": "scaa-snooker-elo",
   "version": "1.0.0",
   "private": true,
-  "engines": {
-    "node": "22.x"
-  },
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
