@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { AVATAR_COLOURS, DEFAULT_AVATAR, avatarHex } from "../avatar-colours";
 import { checkAvatar, checkDisplayName, checkEmail, checkInitials, checkPassword, checkUsername, deriveInitials, MAX_AVATAR_CHARS } from "../api/account/validate";
 
 const zh = {
@@ -8,6 +9,8 @@ const zh = {
   editProfile: "編輯資料", profileHint: "更改使用者名稱或電郵需輸入目前密碼。",
   avatar: "頭像", upload: "上傳圖片", remove: "移除",
   initials: "頭像縮寫", initialsHint: "留空則使用球員姓名自動產生。",
+  colour: "圖示顏色", badgePreview: "球員圖示預覽",
+  badgeHint: "縮寫與顏色會即時套用到排行榜、球員卡及對戰紀錄；上傳圖片後，圖片會取代縮寫顯示。",
   displayName: "顯示名稱", username: "使用者名稱",
   current: "目前密碼", save: "儲存變更", saving: "儲存中…", saved: "已儲存。", cancel: "取消",
   changePassword: "變更密碼", newPassword: "新密碼", confirmPassword: "確認新密碼", updatePassword: "更新密碼",
@@ -30,6 +33,7 @@ const errors: Record<string, string> = {
   "avatar-large": "圖片過大，請選擇較小的圖片。",
   "avatar-format": "僅支援 PNG、JPEG 或 WebP 圖片。",
   "initials-format": "縮寫需為 1-3 個英文字母。",
+  "colour-unknown": "請從色板中選擇顏色。",
   "confirm-mismatch": "輸入的使用者名稱不符。",
   "last-admin": "您是唯一的管理員，無法停用帳戶。",
   unknown: "操作失敗，請稍後再試。",
@@ -74,7 +78,7 @@ function readAvatar(file: File) {
   });
 }
 
-type Member = { username: string; email: string; displayName: string; avatar?: string | null; initials?: string | null; playerName?: string };
+type Member = { username: string; email: string; displayName: string; avatar?: string | null; initials?: string | null; iconColour?: string | null; playerName?: string };
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return <label className={error ? "field-invalid" : undefined}>
@@ -110,6 +114,7 @@ function ProfileForm({ member, onDone }: { member: Member; onDone: () => void })
   const [displayName, setDisplayName] = useState(member.displayName);
   const [avatar, setAvatar] = useState<string | null>(member.avatar ?? null);
   const [initials, setInitials] = useState(member.initials ?? "");
+  const [iconColour, setIconColour] = useState(member.iconColour || DEFAULT_AVATAR);
   const [currentPassword, setCurrentPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -145,7 +150,7 @@ function ProfileForm({ member, onDone }: { member: Member; onDone: () => void })
 
     setStatus("saving");
     const failure = await post("/api/account/profile", {
-      username, email, displayName, avatar, initials: trimmedInitials || null, currentPassword: currentPassword || undefined,
+      username, email, displayName, avatar, initials: trimmedInitials || autoInitials, iconColour, currentPassword: currentPassword || undefined,
     });
     if (failure) {
       setStatus("idle");
@@ -167,7 +172,7 @@ function ProfileForm({ member, onDone }: { member: Member; onDone: () => void })
       {avatar
         // eslint-disable-next-line @next/next/no-img-element -- data URI, no loader needed
         ? <img className="member-avatar" src={avatar} alt="" />
-        : <div className="member-avatar">{shownInitials}</div>}
+        : <div className="member-avatar" style={{ background: avatarHex(iconColour) }}>{shownInitials}</div>}
       <div className="avatar-picker-actions">
         <button type="button" className="more" onClick={() => fileInput.current?.click()}>{zh.upload}</button>
         {avatar && <button type="button" className="more" onClick={() => setAvatar(null)}>{zh.remove}</button>}
@@ -177,10 +182,31 @@ function ProfileForm({ member, onDone }: { member: Member; onDone: () => void })
       {fieldErrors.avatar && <small className="field-error">{message(fieldErrors.avatar)}</small>}
     </div>
 
+    {/* The badge the rest of the app draws, shown at the size it appears in a
+        leaderboard row so the choice is judged at its real scale. */}
+    <div className="badge-preview" aria-label={zh.badgePreview}>
+      {avatar
+        // eslint-disable-next-line @next/next/no-img-element -- data URI, no loader needed
+        ? <i className="player-badge has-photo"><img src={avatar} alt="" /></i>
+        : <i className="player-badge" style={{ background: avatarHex(iconColour) }}>{shownInitials}</i>}
+      <p>{zh.badgeHint}</p>
+    </div>
+
     <Field label={zh.initials} error={fieldErrors.initials}>
       <input value={initials} maxLength={3} placeholder={autoInitials} onChange={event => setInitials(event.target.value.toUpperCase())} />
       <small className="field-hint">{zh.initialsHint}</small>
     </Field>
+
+    <div className="colour-field" role="group" aria-labelledby="icon-colour-label">
+      <span className="colour-field-label" id="icon-colour-label">{zh.colour}</span>
+      <div className="colour-grid" role="radiogroup" aria-label={zh.colour}>
+        {AVATAR_COLOURS.map(option => <button key={option.id} type="button" role="radio"
+          aria-checked={iconColour === option.id} aria-label={option.name} title={option.name}
+          className={`colour-swatch${iconColour === option.id ? " active" : ""}`}
+          style={{ background: option.hex }} onClick={() => setIconColour(option.id)} />)}
+      </div>
+      {fieldErrors.iconColour && <small className="field-error">{message(fieldErrors.iconColour)}</small>}
+    </div>
 
     <Field label={zh.displayName} error={fieldErrors.displayName}>
       <input value={displayName} maxLength={40} onChange={event => setDisplayName(event.target.value)} />

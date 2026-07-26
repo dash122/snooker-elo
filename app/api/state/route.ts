@@ -1,4 +1,4 @@
-import { requireMember } from "../../../db/auth";
+import { requireMember, syncMemberPlayerProfiles } from "../../../db/auth";
 import { getState, putState, deleteState } from "../../../db/state";
 
 const defaultState = {
@@ -13,7 +13,7 @@ function memberCanWrite(current: any, next: any, playerId?: string) {
   const currentPlayers = new Map((current.players ?? []).map((player: any) => [player.id, player]));
   const nextPlayers = new Map((next.players ?? []).map((player: any) => [player.id, player]));
   if (currentPlayers.size !== nextPlayers.size || !currentPlayers.has(playerId) || !nextPlayers.has(playerId)) return false;
-  const profile = (player: any) => JSON.stringify({ id: player.id, name: player.name, short: player.short, handicap: player.handicap, initialRating: player.initialRating, colour: player.colour, active: player.active });
+  const profile = (player: any) => JSON.stringify({ id: player.id, name: player.name, short: player.short, handicap: player.handicap, initialRating: player.initialRating, colour: player.colour, avatar: player.avatar, active: player.active });
   for (const [id, player] of currentPlayers) if (!nextPlayers.has(id) || (id !== playerId && profile(player) !== profile(nextPlayers.get(id)))) return false;
   const matches = (items: any[]) => new Map(items.map(match => [match.id, match]));
   const before = matches(current.matches ?? []), after = matches(next.matches ?? []);
@@ -48,6 +48,8 @@ export async function PUT(request: Request) {
       if (!memberCanWrite(current ? JSON.parse(current) : null, next, user.statePlayerId)) return Response.json({ error: "You may only change your player profile or matches involving you" }, { status: 403 });
     }
     await putState(data);
+    const next = JSON.parse(data) as { players?: { id: string; short: string; colour?: string | null }[] };
+    await syncMemberPlayerProfiles(next.players ?? []);
     return Response.json({ ok: true });
   } catch (error) {
     return storageError(error);

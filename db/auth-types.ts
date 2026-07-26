@@ -5,6 +5,7 @@ export type MemberSession = {
   displayName: string;
   avatar?: string | null;
   initials?: string | null;
+  iconColour?: string | null;
   role: "admin" | "member";
 };
 
@@ -15,6 +16,7 @@ export type MemberRow = {
   displayName: string;
   avatar?: string | null;
   initials?: string | null;
+  iconColour?: string | null;
   role: "admin" | "member";
   active: boolean;
   joinedAt: string;

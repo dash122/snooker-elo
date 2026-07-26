@@ -8,6 +8,8 @@ export async function POST(request: Request) {
   if (!member) return Response.redirect(new URL("/login?error=invalid", request.url), 303);
   return new Response(null, {
     status: 303,
-    headers: { location: new URL("/account", request.url).toString(), "set-cookie": await createSession(member.email) },
+    // Land on the leaderboard: signing in is a step towards looking at the
+    // club table or logging a match, not an errand about the account itself.
+    headers: { location: new URL("/", request.url).toString(), "set-cookie": await createSession(member.email) },
   });
 }
