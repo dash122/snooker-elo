@@ -4382,3 +4382,124 @@ Failed to load url /db/state.d1.ts (resolved id: C:/Users/dash/Documents/GitHub/
       at async fetchModule (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:23123:15)
       at async handleInvoke (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26561:21)
       at async EventEmitter.listenerForInvokeHandler (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26616:13)
+[2m3:26:51 PM[22m [31m[1m[vite][22m[39m [31m[2m(rsc)[22m[39m Internal Server Error
+[postcss] C:/Users/dash/Documents/GitHub/snooker-elo/app/globals.css:1413:119: Unknown word left
+    at Input.error (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\input.js:135:16)
+    at Parser.unknownWord (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parser.js:595:22)
+    at Parser.decl (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parser.js:236:16)
+    at Parser.other (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parser.js:401:18)
+    at Parser.parse (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parser.js:472:16)
+    at parse (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parse.js:11:12)
+    at new LazyResult (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\lazy-result.js:165:16)
+    at Processor.process (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\processor.js:53:14)
+    at runPostCSS (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:21054:66)
+    at async compilePostCSS (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:21038:6)
+[2m3:26:51 PM[22m [31m[1m[vite][22m[39m [31mInternal server error: [postcss] C:/Users/dash/Documents/GitHub/snooker-elo/app/globals.css:1413:119: Unknown word left[39m
+  Plugin: [35mvite:css[39m
+  File: [36mC:/Users/dash/Documents/GitHub/snooker-elo/app/globals.css[39m:1413:118
+[33m  1411 |  .account-form .colour-swatch{width:100%;aspect-ratio:1;border:2px solid transparent;border-radius:.6rem;box-shadow:in...
+  1412 |  .account-form .colour-swatch.active{border-color:var(--ink);box-shadow:0 0 0 2px var(--paper) inset}
+  1413 |  ...ge on phones. */`n@media(max-width:820px){`n  .bottom{`n    left:8px;`n    right:8px;`n    bottom:8px;`n    border...
+       |                                                                 ^[39m
+      at Input.error (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\input.js:135:16)
+      at Parser.unknownWord (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parser.js:595:22)
+      at Parser.decl (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parser.js:236:16)
+      at Parser.other (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parser.js:401:18)
+      at Parser.parse (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parser.js:472:16)
+      at parse (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parse.js:11:12)
+      at new LazyResult (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\lazy-result.js:165:16)
+      at Processor.process (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\processor.js:53:14)
+      at runPostCSS (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:21054:66)
+      at async compilePostCSS (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:21038:6)
+[2m3:26:51 PM[22m [31m[1m[vite][22m[39m [31mInternal server error: [postcss] C:/Users/dash/Documents/GitHub/snooker-elo/app/globals.css:1413:119: Unknown word left[39m
+  Plugin: [35mvite:css[39m
+  File: [36mC:/Users/dash/Documents/GitHub/snooker-elo/app/globals.css[39m:1413:118
+[33m  1411 |  .account-form .colour-swatch{width:100%;aspect-ratio:1;border:2px solid transparent;border-radius:.6rem;box-shadow:in...
+  1412 |  .account-form .colour-swatch.active{border-color:var(--ink);box-shadow:0 0 0 2px var(--paper) inset}
+  1413 |  ...ge on phones. */`n@media(max-width:820px){`n  .bottom{`n    left:8px;`n    right:8px;`n    bottom:8px;`n    border...
+       |                                                                 ^[39m
+      at Input.error (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\input.js:135:16)
+      at Parser.unknownWord (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parser.js:595:22)
+      at Parser.decl (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parser.js:236:16)
+      at Parser.other (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parser.js:401:18)
+      at Parser.parse (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parser.js:472:16)
+      at parse (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\parse.js:11:12)
+      at new LazyResult (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\lazy-result.js:165:16)
+      at Processor.process (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postcss\lib\processor.js:53:14)
+      at runPostCSS (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:21054:66)
+      at async compilePostCSS (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:21038:6)
+[2m3:30:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(rsc)[22m[39m Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected a semicolon or an implicit semicolon after a statement, but found none
+     [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m app/HomeClient.tsx:895:75 [38;5;246m][0m
+     [38;5;246m│[0m
+ [38;5;246m895 │[0m [38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m[[0m[38;5;249mb[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249mk[0m[38;5;249mI[0m[38;5;249mn[0m[38;5;249mp[0m[38;5;249mu[0m[38;5;249mt[0m[38;5;249m,[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249mB[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249mk[0m[38;5;249mI[0m[38;5;249mn[0m[38;5;249mp[0m[38;5;249mu[0m[38;5;249mt[0m[38;5;249m][0m[38;5;249m=[0m[38;5;249mu[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mS[0m[38;5;249mt[0m[38;5;249ma[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m<[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249md[0m[38;5;249m<[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m,[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m>[0m[38;5;249m>[0m[38;5;249m([0m[38;5;249m{[0m[38;5;249m}[0m[38;5;249m)[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249me[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mP[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249me[0m[38;5;249mw[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249m=[0m[38;5;249mu[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249m<[0m[38;5;249mH[0m[38;5;249mT[0m[38;5;249mM[0m[38;5;249mL[0m[38;5;249mE[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249m|[0m[38;5;249mn[0m[38;5;249mu[0m[38;5;249ml[0m[38;5;249ml[0m[38;5;249m>[0m[38;5;249m([0m[38;5;249mn[0m[38;5;249mu[0m[38;5;249ml[0m[38;5;249ml[0m[38;5;249m)[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249mh[0m[38;5;249ma[0m[38;5;249md[0m[38;5;249mE[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mP[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249me[0m[38;5;249mw[0m[38;5;249m=[0m[38;5;249mu[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249m([0m[38;5;249mf[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249m)[0m[38;5;249m;[0m
+ [38;5;240m    │[0m                                                                           │ 
+ [38;5;240m    │[0m                                                                           ╰─ 
+ [38;5;240m    │[0m 
+ [38;5;240m    │[0m [38;5;115mHelp[0m: Try inserting a semicolon here
+[38;5;246m─────╯[0m
+
+[2m3:30:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(rsc)[22m[39m Failed to reload  virtual:vinext-rsc-entry. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[2m3:30:11 PM[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected a semicolon or an implicit semicolon after a statement, but found none
+     [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m app/HomeClient.tsx:895:75 [38;5;246m][0m
+     [38;5;246m│[0m
+ [38;5;246m895 │[0m [38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m[[0m[38;5;249mb[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249mk[0m[38;5;249mI[0m[38;5;249mn[0m[38;5;249mp[0m[38;5;249mu[0m[38;5;249mt[0m[38;5;249m,[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249mB[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249mk[0m[38;5;249mI[0m[38;5;249mn[0m[38;5;249mp[0m[38;5;249mu[0m[38;5;249mt[0m[38;5;249m][0m[38;5;249m=[0m[38;5;249mu[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mS[0m[38;5;249mt[0m[38;5;249ma[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m<[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249md[0m[38;5;249m<[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m,[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m>[0m[38;5;249m>[0m[38;5;249m([0m[38;5;249m{[0m[38;5;249m}[0m[38;5;249m)[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249me[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mP[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249me[0m[38;5;249mw[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249m=[0m[38;5;249mu[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249m<[0m[38;5;249mH[0m[38;5;249mT[0m[38;5;249mM[0m[38;5;249mL[0m[38;5;249mE[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249m|[0m[38;5;249mn[0m[38;5;249mu[0m[38;5;249ml[0m[38;5;249ml[0m[38;5;249m>[0m[38;5;249m([0m[38;5;249mn[0m[38;5;249mu[0m[38;5;249ml[0m[38;5;249ml[0m[38;5;249m)[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249mh[0m[38;5;249ma[0m[38;5;249md[0m[38;5;249mE[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mP[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249me[0m[38;5;249mw[0m[38;5;249m=[0m[38;5;249mu[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249m([0m[38;5;249mf[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249m)[0m[38;5;249m;[0m
+ [38;5;240m    │[0m                                                                           │ 
+ [38;5;240m    │[0m                                                                           ╰─ 
+ [38;5;240m    │[0m 
+ [38;5;240m    │[0m [38;5;115mHelp[0m: Try inserting a semicolon here
+[38;5;246m─────╯[0m
+[39m
+  Plugin: [35mvite:oxc[39m
+  File: [36mC:/Users/dash/Documents/GitHub/snooker-elo/app/HomeClient.tsx[39m
+      at transformWithOxc (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:3339:19)
+      at TransformPluginContext.transform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:3410:26)
+      at EnvironmentPluginContainer.transform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:30271:51)
+      at async loadAndTransform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:24532:26)
+      at async viteTransformMiddleware (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:24326:20)
+[2m3:30:11 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22m[vite] Failed to reload /app/HomeClient.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)
+[2m3:30:15 PM[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected a semicolon or an implicit semicolon after a statement, but found none
+     [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m app/HomeClient.tsx:895:75 [38;5;246m][0m
+     [38;5;246m│[0m
+ [38;5;246m895 │[0m [38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m[[0m[38;5;249mb[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249mk[0m[38;5;249mI[0m[38;5;249mn[0m[38;5;249mp[0m[38;5;249mu[0m[38;5;249mt[0m[38;5;249m,[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249mB[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249mk[0m[38;5;249mI[0m[38;5;249mn[0m[38;5;249mp[0m[38;5;249mu[0m[38;5;249mt[0m[38;5;249m][0m[38;5;249m=[0m[38;5;249mu[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mS[0m[38;5;249mt[0m[38;5;249ma[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m<[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249md[0m[38;5;249m<[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m,[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m>[0m[38;5;249m>[0m[38;5;249m([0m[38;5;249m{[0m[38;5;249m}[0m[38;5;249m)[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249me[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mP[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249me[0m[38;5;249mw[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249m=[0m[38;5;249mu[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249m<[0m[38;5;249mH[0m[38;5;249mT[0m[38;5;249mM[0m[38;5;249mL[0m[38;5;249mE[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249m|[0m[38;5;249mn[0m[38;5;249mu[0m[38;5;249ml[0m[38;5;249ml[0m[38;5;249m>[0m[38;5;249m([0m[38;5;249mn[0m[38;5;249mu[0m[38;5;249ml[0m[38;5;249ml[0m[38;5;249m)[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249mh[0m[38;5;249ma[0m[38;5;249md[0m[38;5;249mE[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mP[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249me[0m[38;5;249mw[0m[38;5;249m=[0m[38;5;249mu[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249m([0m[38;5;249mf[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249m)[0m[38;5;249m;[0m
+ [38;5;240m    │[0m                                                                           │ 
+ [38;5;240m    │[0m                                                                           ╰─ 
+ [38;5;240m    │[0m 
+ [38;5;240m    │[0m [38;5;115mHelp[0m: Try inserting a semicolon here
+[38;5;246m─────╯[0m
+[39m
+  Plugin: [35mvite:oxc[39m
+  File: [36mC:/Users/dash/Documents/GitHub/snooker-elo/app/HomeClient.tsx[39m
+      at transformWithOxc (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:3339:19)
+      at TransformPluginContext.transform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:3410:26)
+      at EnvironmentPluginContainer.transform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:30271:51)
+      at async loadAndTransform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:24532:26)
+      at async fetchModule (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:23123:15)
+      at async handleInvoke (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26561:21)
+      at async EventEmitter.listenerForInvokeHandler (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26616:13)
+[2m3:30:30 PM[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected a semicolon or an implicit semicolon after a statement, but found none
+     [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m app/HomeClient.tsx:895:75 [38;5;246m][0m
+     [38;5;246m│[0m
+ [38;5;246m895 │[0m [38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m[[0m[38;5;249mb[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249mk[0m[38;5;249mI[0m[38;5;249mn[0m[38;5;249mp[0m[38;5;249mu[0m[38;5;249mt[0m[38;5;249m,[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249mB[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249ma[0m[38;5;249mk[0m[38;5;249mI[0m[38;5;249mn[0m[38;5;249mp[0m[38;5;249mu[0m[38;5;249mt[0m[38;5;249m][0m[38;5;249m=[0m[38;5;249mu[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mS[0m[38;5;249mt[0m[38;5;249ma[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m<[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249md[0m[38;5;249m<[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m,[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249m>[0m[38;5;249m>[0m[38;5;249m([0m[38;5;249m{[0m[38;5;249m}[0m[38;5;249m)[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249me[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mP[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249me[0m[38;5;249mw[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249m=[0m[38;5;249mu[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249m<[0m[38;5;249mH[0m[38;5;249mT[0m[38;5;249mM[0m[38;5;249mL[0m[38;5;249mE[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249m|[0m[38;5;249mn[0m[38;5;249mu[0m[38;5;249ml[0m[38;5;249ml[0m[38;5;249m>[0m[38;5;249m([0m[38;5;249mn[0m[38;5;249mu[0m[38;5;249ml[0m[38;5;249ml[0m[38;5;249m)[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249mh[0m[38;5;249ma[0m[38;5;249md[0m[38;5;249mE[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249mP[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249me[0m[38;5;249mw[0m[38;5;249m=[0m[38;5;249mu[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mR[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249m([0m[38;5;249mf[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249m)[0m[38;5;249m;[0m
+ [38;5;240m    │[0m                                                                           │ 
+ [38;5;240m    │[0m                                                                           ╰─ 
+ [38;5;240m    │[0m 
+ [38;5;240m    │[0m [38;5;115mHelp[0m: Try inserting a semicolon here
+[38;5;246m─────╯[0m
+[39m
+  Plugin: [35mvite:oxc[39m
+  File: [36mC:/Users/dash/Documents/GitHub/snooker-elo/app/HomeClient.tsx[39m
+      at transformWithOxc (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:3339:19)
+      at TransformPluginContext.transform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:3410:26)
+      at EnvironmentPluginContainer.transform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:30271:51)
+      at async loadAndTransform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:24532:26)
+      at async fetchModule (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:23123:15)
+      at async handleInvoke (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26561:21)
+      at async EventEmitter.listenerForInvokeHandler (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26616:13)

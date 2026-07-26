@@ -893,6 +893,8 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
 
 function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;editing:boolean;onSave:()=>void}) {
   const [breakInput,setBreakInput]=useState<Record<string,string>>({});
+  const eloPreviewRef=useRef<HTMLElement|null>(null);
+  const hadEloPreview=useRef(false);
   const [breakOpen,setBreakOpen]=useState<Record<string,boolean>>({});
   const [customHandicap,setCustomHandicap]=useState(editing||Boolean(draft.giver));
   const update=(k:string,v:any)=>setDraft((d:any)=>({...d,[k]:v}));
@@ -928,6 +930,13 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
   };
   const changeScore=(key:"scoreA"|"scoreB",amount:number)=>setDraft((d:any)=>({...d,[key]:Math.max(0,+d[key]+amount)}));
   const totalFrames=+draft.scoreA + +draft.scoreB;
+  const hasEloPreview=Boolean(preview&&totalFrames>0);
+  useEffect(()=>{
+    if(hasEloPreview&&!hadEloPreview.current){
+      requestAnimationFrame(()=>eloPreviewRef.current?.scrollIntoView({behavior:"smooth",block:"center"}));
+    }
+    hadEloPreview.current=hasEloPreview;
+  },[hasEloPreview]);
   const valid=Boolean(a&&b&&a.id!==b.id&&totalFrames>0);
   const resultLabel=!valid?"輸入最終比分":draft.scoreA===draft.scoreB?`${draft.scoreA}–${draft.scoreB} 和局`:draft.scoreA>draft.scoreB?`${a.name} 勝 ${draft.scoreA}–${draft.scoreB}`:`${b.name} 勝 ${draft.scoreB}–${draft.scoreA}`;
   const handicapLabel=draft.giver&&+draft.points>0?`${draft.giver===a?.id?a?.name:b?.name} 每局讓 ${draft.points} 分`:"沒有讓分";
@@ -938,10 +947,10 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
     {data.players.length<2&&<p className="warning">請先新增至少兩位活躍球員。</p>}
     <section className="match-players" aria-labelledby="match-players-title"><h3 id="match-players-title" className="visually-hidden">選擇球員</h3><div className="matchup-card">
       <div className="matchup-slot"><PlayerCombobox players={playersForA} value={draft.a} onChange={pickA} placeholder="選擇球員" ariaLabel="球員 A" autoOpenSignal={openASignal}
-        renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span className="matchup-avatar" aria-hidden="true">{selected?.short??"?"}</span><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO`:"—"}</small></button>}/></div>
+        renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true"> <PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO`:"—"}</small></button>}/></div>
       <span className="matchup-vs" aria-hidden="true">對</span>
       <div className="matchup-slot"><PlayerCombobox players={playersForB} value={draft.b} onChange={pickB} placeholder="選擇球員" ariaLabel="球員 B" autoOpenSignal={openBSignal}
-        renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span className="matchup-avatar" aria-hidden="true">{selected?.short??"?"}</span><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO`:"—"}</small></button>}/></div>
+        renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true"> <PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO`:"—"}</small></button>}/></div>
     </div></section>
     <section className="quick-handicap" aria-labelledby="handicap-title"><h3 id="handicap-title">讓分 <small>{handicapLabel}</small></h3><div className="handicap-segment"><button type="button" className={!draft.giver&&!customHandicap?"active":""} onClick={setNoHandicap}>沒有讓分</button><button type="button" disabled={fairActual==null} className={draft.giver&&+draft.points===fairPoints&&!customHandicap?"active":""} onClick={fairPoints===0?setNoHandicap:applyFair}>ELO 建議</button><button type="button" className={customHandicap?"active":""} onClick={()=>setCustomHandicap(value=>!value)}>自訂</button></div>
       {customHandicap&&<div className="custom-handicap"><label>讓分球員<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">沒有讓分</option><option value={a?.id}>{a?.name}</option><option value={b?.id}>{b?.name}</option></select></label><label>每局分數<input type="number" inputMode="numeric" min="0" step="1" value={draft.points} onChange={e=>update("points",Math.max(0,+e.target.value))}/></label></div>}
@@ -959,7 +968,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
         </div>}
       </div>
     </div></section>
-    {preview&&totalFrames>0&&<section className="elo-preview"><div><span><small>{a.name}</small><b className={preview.deltaA>=0?"positive":"negative"}>{preview.deltaA>=0?"+":""}{Math.round(preview.deltaA)} ELO</b></span><i aria-hidden="true">↔</i><span className="right"><small>{b.name}</small><b className={preview.deltaA<=0?"positive":"negative"}>{-preview.deltaA>=0?"+":""}{Math.round(-preview.deltaA)} ELO</b></span></div><details><summary>查看計算詳情</summary><p>{probabilities?`A 勝 ${Math.round(probabilities.win*100)}% · 和 ${Math.round(probabilities.draw*100)}% · `:""}表現分 {Math.round(preview.performanceScore*100)}% · 證據權重 ×{preview.evidenceWeight.toFixed(2)} · 讓分等效 {preview.adjustment>=0?"+":""}{Math.round(preview.adjustment)} ELO</p></details></section>}
+    {preview&&totalFrames>0&&<section ref={eloPreviewRef} className="elo-preview"><div><span><small>{a.name}</small><b className={preview.deltaA>=0?"positive":"negative"}>{preview.deltaA>=0?"+":""}{Math.round(preview.deltaA)} ELO</b></span><i aria-hidden="true">↔</i><span className="right"><small>{b.name}</small><b className={preview.deltaA<=0?"positive":"negative"}>{-preview.deltaA>=0?"+":""}{Math.round(-preview.deltaA)} ELO</b></span></div><details><summary>查看計算詳情</summary><p>{probabilities?`A 勝 ${Math.round(probabilities.win*100)}% · 和 ${Math.round(probabilities.draw*100)}% · `:""}表現分 {Math.round(preview.performanceScore*100)}% · 證據權重 ×{preview.evidenceWeight.toFixed(2)} · 讓分等效 {preview.adjustment>=0?"+":""}{Math.round(preview.adjustment)} ELO</p></details></section>}
     <div className="match-save"><button className="primary full" disabled={!valid||data.players.length<2} onClick={onSave}>{editing?"儲存變更":"儲存賽果"}<small>{resultLabel}</small></button></div>
   </div>;
 }
