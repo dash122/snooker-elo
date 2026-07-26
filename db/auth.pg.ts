@@ -47,6 +47,10 @@ function ensureAuthSchema() {
         created_at TEXT NOT NULL
       )
     `;
+    // Added after the first release — existing deployments get them here.
+    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS avatar TEXT`;
+    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS deactivated_at TEXT`;
+    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS initials TEXT`;
     await sql`CREATE INDEX IF NOT EXISTS sessions_member_email_idx ON sessions (member_email)`;
     await sql`CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions (expires_at)`;
   })().catch(error => {
@@ -98,7 +102,7 @@ export async function getCurrentMember(): Promise<MemberSession | null> {
   const now = new Date().toISOString();
   const sql = getSql();
   const rows = await sql<MemberSession[]>`
-    SELECT m.email, m.username, m.state_player_id AS "statePlayerId", m.display_name AS "displayName", m.role
+    SELECT m.email, m.username, m.state_player_id AS "statePlayerId", m.display_name AS "displayName", m.avatar, m.initials, m.role
     FROM sessions s JOIN members m ON m.email = s.member_email
     WHERE s.token_hash = ${tokenHash} AND s.expires_at > ${now} AND m.active = true
   `;
@@ -176,6 +180,49 @@ export async function updateMember(email: string, input: { username?: string; ne
   }
   return true;
 }
+export type ProfileResult = "ok" | "username-taken" | "email-taken";
+
+export async function updateProfile(email: string, input: { username: string; newEmail: string; displayName: string; avatar?: string | null; initials?: string | null }): Promise<ProfileResult> {
+  await ensureAuthSchema();
+  const sql = getSql();
+  const oldEmail = email.toLowerCase();
+  const newEmail = input.newEmail.trim().toLowerCase();
+  const username = input.username.trim().toLowerCase();
+  const taken = await sql<{ email: string; username: string }[]>`
+    SELECT email, username FROM members WHERE (username = ${username} OR email = ${newEmail}) AND email <> ${oldEmail}
+  `;
+  if (taken.some(row => row.username === username)) return "username-taken";
+  if (taken.length) return "email-taken";
+  // avatar/initials undefined means "leave as stored"; null explicitly clears it.
+  const setAvatar = input.avatar !== undefined;
+  const setInitials = input.initials !== undefined;
+  if (setAvatar && setInitials) {
+    await sql`UPDATE members SET username = ${username}, email = ${newEmail}, display_name = ${input.displayName.trim()}, avatar = ${input.avatar!}, initials = ${input.initials!} WHERE email = ${oldEmail}`;
+  } else if (setAvatar) {
+    await sql`UPDATE members SET username = ${username}, email = ${newEmail}, display_name = ${input.displayName.trim()}, avatar = ${input.avatar!} WHERE email = ${oldEmail}`;
+  } else if (setInitials) {
+    await sql`UPDATE members SET username = ${username}, email = ${newEmail}, display_name = ${input.displayName.trim()}, initials = ${input.initials!} WHERE email = ${oldEmail}`;
+  } else {
+    await sql`UPDATE members SET username = ${username}, email = ${newEmail}, display_name = ${input.displayName.trim()} WHERE email = ${oldEmail}`;
+  }
+  if (oldEmail !== newEmail) await sql`UPDATE sessions SET member_email = ${newEmail} WHERE member_email = ${oldEmail}`;
+  return "ok";
+}
+
+// Deactivation is reversible by an admin (active = true) but immediately ends
+// every session the member has open.
+export async function deactivateMember(email: string, currentPassword: string) {
+  await ensureAuthSchema();
+  const sql = getSql();
+  const normalized = email.toLowerCase();
+  const rows = await sql<{ passwordHash: string; passwordSalt: string }[]>`SELECT password_hash AS "passwordHash", password_salt AS "passwordSalt" FROM members WHERE email = ${normalized}`;
+  const row = rows[0];
+  if (!row || await passwordDigest(currentPassword, row.passwordSalt) !== row.passwordHash) return false;
+  await sql`UPDATE members SET active = false, deactivated_at = ${new Date().toISOString()} WHERE email = ${normalized}`;
+  await sql`DELETE FROM sessions WHERE member_email = ${normalized}`;
+  return true;
+}
+
 export async function createSession(email: string) {
   await ensureAuthSchema();
   const sql = getSql();
@@ -203,7 +250,7 @@ export async function listMembers(): Promise<MemberRow[]> {
   await ensureAuthSchema();
   const sql = getSql();
   return await sql<MemberRow[]>`
-    SELECT email, username, state_player_id AS "statePlayerId", display_name AS "displayName", role, active, joined_at AS "joinedAt"
+    SELECT email, username, state_player_id AS "statePlayerId", display_name AS "displayName", avatar, initials, role, active, joined_at AS "joinedAt"
     FROM members ORDER BY joined_at DESC
   `;
 }

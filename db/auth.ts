@@ -27,6 +27,16 @@ export async function updateMember(email: string, input: { username?: string; ne
   return (await backend()).updateMember(email, input);
 }
 
+export type ProfileResult = "ok" | "username-taken" | "email-taken";
+
+export async function updateProfile(email: string, input: { username: string; newEmail: string; displayName: string; avatar?: string | null; initials?: string | null }): Promise<ProfileResult> {
+  return (await backend()).updateProfile(email, input);
+}
+
+export async function deactivateMember(email: string, currentPassword: string) {
+  return (await backend()).deactivateMember(email, currentPassword);
+}
+
 export async function adminUpdateMember(email: string, input: { username: string; newEmail: string; displayName: string; password?: string; statePlayerId?: string | null }) {
   return (await backend()).adminUpdateMember(email, input);
 }
