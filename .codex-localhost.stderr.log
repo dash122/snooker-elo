@@ -3716,3 +3716,669 @@ state storage error: PostgresError: column "avatar" does not exist
   line: '3716',
   routine: 'errorMissingColumn'
 }
+[2m2:31:00 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: p.form.map is not a function
+    at http://localhost:3000/app/HomeClient.tsx?t=1785046908879:2142:25
+    at Array.map (<anonymous>)
+    at Leaderboard (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:2063:20)
+    at Object.react_stack_bottom_frame (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:12867:12)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:4212:19)
+    at updateFunctionComponent (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:5568:16)
+    at beginWork (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:6139:20)
+    at runWithFiberInDEV (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:850:66)
+    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:8428:92)
+    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:8324:37)
+[2m2:31:00 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at Leaderboard (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1426:24)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at Home (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:381:32)
+    at Page [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+[2m2:31:01 PM[22m [31m[1m[vite][22m[39m [31mInternal server error: (match.highBreaks ?? []).filter is not a function[39m
+      at eval (C:\Users\dash\Documents\GitHub\snooker-elo\app\account\page.tsx:64:45)
+      at matchRecords (C:\Users\dash\Documents\GitHub\snooker-elo\app\account\page.tsx:58:18)
+      at AccountPage (C:\Users\dash\Documents\GitHub\snooker-elo\app\account\page.tsx:106:28)
+      at resolveErrorDev (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\.vite\deps_ssr\react-server-dom-webpack_client__edge.js:3174:143)
+      at processFullBinaryRow (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\.vite\deps_ssr\react-server-dom-webpack_client__edge.js:3634:22)
+      at progress (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\.vite\deps_ssr\react-server-dom-webpack_client__edge.js:3805:93)
+[2m2:31:14 PM[22m [31m[1m[vite][22m[39m [31mInternal server error: (match.highBreaks ?? []).filter is not a function[39m
+      at eval (C:\Users\dash\Documents\GitHub\snooker-elo\app\account\page.tsx:64:45)
+      at matchRecords (C:\Users\dash\Documents\GitHub\snooker-elo\app\account\page.tsx:58:18)
+      at AccountPage (C:\Users\dash\Documents\GitHub\snooker-elo\app\account\page.tsx:106:28)
+      at resolveErrorDev (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\.vite\deps_ssr\react-server-dom-webpack_client__edge.js:3174:143)
+      at processFullBinaryRow (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\.vite\deps_ssr\react-server-dom-webpack_client__edge.js:3634:22)
+      at progress (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\.vite\deps_ssr\react-server-dom-webpack_client__edge.js:3805:93)
+[2m2:31:19 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: (match.highBreaks ?? []).filter is not a function
+    at http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1462:107
+    at Array.flatMap (<anonymous>)
+    at http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1462:32
+    at updateMemo (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:4947:16)
+    at Object.useMemo (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:13275:13)
+    at exports.useMemo (http://localhost:3000/node_modules/.vite/deps/react-BejDdLFV.js?v=027bc3b0:758:31)
+    at Leaderboard (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1460:23)
+    at Object.react_stack_bottom_frame (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:12867:12)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:4212:19)
+    at updateFunctionComponent (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:5568:16)
+[2m2:31:19 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at Leaderboard (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1426:24)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at Home (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:381:32)
+    at Page [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+state storage error: PostgresError: null value in column "rating" of relation "state_players" violates not-null constraint
+    at ErrorResponse (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\connection.js:788:26)
+    at handle (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\connection.js:474:6)
+    at TLSSocket.data (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\connection.js:315:9)
+    at TLSSocket.emit (node:events:509:28)
+    at TLSSocket.emit (node:domain:489:12)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+    at Readable.push (node:internal/streams/readable:394:5)
+    at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23)
+    at cachedError (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\query.js:170:23)
+    at new Query (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\query.js:36:24)
+    at sql (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\index.js:112:11)
+    at eval (C:\Users\dash\Documents\GitHub\snooker-elo\db\state.pg.ts:55:44) {
+  severity_local: 'ERROR',
+  severity: 'ERROR',
+  code: '23502',
+  detail: 'Failing row contains (a67cf027-8e2c-4985-b9fe-87b9f4b009a4, Ainod Chan, null, t, 2026-07-26 06:31:21.137554+00, AI, 56, green, 1050, 1, 3, 3, 11, 12, null, "[\\"L\\",\\"D\\",\\"W\\",\\"L\\",\\"L\\"]", null).',
+  schema_name: 'public',
+  table_name: 'state_players',
+  column_name: 'rating',
+  file: 'execMain.c',
+  line: '1981',
+  routine: 'ExecConstraints'
+}
+[2m2:32:09 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: (match.highBreaks ?? []).filter is not a function
+    at http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1462:107
+    at Array.flatMap (<anonymous>)
+    at http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1462:32
+    at updateMemo (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:4947:16)
+    at Object.useMemo (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:13275:13)
+    at exports.useMemo (http://localhost:3000/node_modules/.vite/deps/react-BejDdLFV.js?v=027bc3b0:758:31)
+    at Leaderboard (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1460:23)
+    at Object.react_stack_bottom_frame (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:12867:12)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:4212:19)
+    at updateFunctionComponent (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:5568:16)
+[2m2:32:09 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at Leaderboard (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1426:24)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at Home (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:381:32)
+    at Page [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+state storage error: PostgresError: null value in column "rating" of relation "state_players" violates not-null constraint
+    at ErrorResponse (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\connection.js:788:26)
+    at handle (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\connection.js:474:6)
+    at TLSSocket.data (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\connection.js:315:9)
+    at TLSSocket.emit (node:events:509:28)
+    at TLSSocket.emit (node:domain:489:12)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+    at Readable.push (node:internal/streams/readable:394:5)
+    at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23)
+    at cachedError (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\query.js:170:23)
+    at new Query (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\query.js:36:24)
+    at sql (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\index.js:112:11)
+    at eval (C:\Users\dash\Documents\GitHub\snooker-elo\db\state.pg.ts:55:44) {
+  severity_local: 'ERROR',
+  severity: 'ERROR',
+  code: '23502',
+  detail: 'Failing row contains (a67cf027-8e2c-4985-b9fe-87b9f4b009a4, Ainod Chan, null, t, 2026-07-26 06:32:11.102915+00, AI, 56, green, 1050, 1, 3, 3, 11, 12, null, "[\\"L\\",\\"D\\",\\"W\\",\\"L\\",\\"L\\"]", null).',
+  schema_name: 'public',
+  table_name: 'state_players',
+  column_name: 'rating',
+  file: 'execMain.c',
+  line: '1981',
+  routine: 'ExecConstraints'
+}
+[2m2:34:10 PM[22m [31m[1m[vite][22m[39m [31mInternal server error: (match.highBreaks ?? []).filter is not a function[39m
+      at eval (C:\Users\dash\Documents\GitHub\snooker-elo\app\account\page.tsx:64:45)
+      at matchRecords (C:\Users\dash\Documents\GitHub\snooker-elo\app\account\page.tsx:58:18)
+      at AccountPage (C:\Users\dash\Documents\GitHub\snooker-elo\app\account\page.tsx:106:28)
+      at resolveErrorDev (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\.vite\deps_ssr\react-server-dom-webpack_client__edge.js:3174:143)
+      at processFullBinaryRow (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\.vite\deps_ssr\react-server-dom-webpack_client__edge.js:3634:22)
+      at progress (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\.vite\deps_ssr\react-server-dom-webpack_client__edge.js:3805:93)
+[2m2:34:12 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: (match.highBreaks ?? []).filter is not a function
+    at eval (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?230:94:43)
+    at matchRecords (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?231:88:17)
+    at AccountPage (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?232:140:27)
+    at resolveErrorDev (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:1738:143)
+    at processFullStringRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2201:18)
+    at processFullBinaryRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2161:4)
+    at processBinaryChunk (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2268:87)
+    at progress (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2437:5)
+[2m2:34:12 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at AccountPage [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+[2m2:34:51 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: (match.highBreaks ?? []).filter is not a function
+    at eval (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?230:94:43)
+    at matchRecords (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?231:88:17)
+    at AccountPage (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?232:140:27)
+    at resolveErrorDev (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:1738:143)
+    at processFullStringRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2201:18)
+    at processFullBinaryRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2161:4)
+    at processBinaryChunk (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2268:87)
+    at progress (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2437:5)
+[2m2:34:51 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at AccountPage [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+[2m2:34:51 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: (match.highBreaks ?? []).filter is not a function
+    at http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1462:107
+    at Array.flatMap (<anonymous>)
+    at http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1462:32
+    at updateMemo (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:4947:16)
+    at Object.useMemo (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:13275:13)
+    at exports.useMemo (http://localhost:3000/node_modules/.vite/deps/react-BejDdLFV.js?v=027bc3b0:758:31)
+    at Leaderboard (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1460:23)
+    at Object.react_stack_bottom_frame (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:12867:12)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:4212:19)
+    at updateFunctionComponent (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:5568:16)
+[2m2:34:51 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at Leaderboard (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1426:24)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at Home (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:381:32)
+    at Page [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+state storage error: PostgresError: null value in column "rating" of relation "state_players" violates not-null constraint
+    at ErrorResponse (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\connection.js:788:26)
+    at handle (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\connection.js:474:6)
+    at TLSSocket.data (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\connection.js:315:9)
+    at TLSSocket.emit (node:events:509:28)
+    at TLSSocket.emit (node:domain:489:12)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+    at Readable.push (node:internal/streams/readable:394:5)
+    at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23)
+    at cachedError (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\query.js:170:23)
+    at new Query (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\query.js:36:24)
+    at sql (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\index.js:112:11)
+    at eval (C:\Users\dash\Documents\GitHub\snooker-elo\db\state.pg.ts:55:44) {
+  severity_local: 'ERROR',
+  severity: 'ERROR',
+  code: '23502',
+  detail: 'Failing row contains (a67cf027-8e2c-4985-b9fe-87b9f4b009a4, Ainod Chan, null, t, 2026-07-26 06:34:52.950205+00, AI, 56, green, 1050, 1, 3, 3, 11, 12, null, ["L", "D", "W", "L", "L"], null).',
+  schema_name: 'public',
+  table_name: 'state_players',
+  column_name: 'rating',
+  file: 'execMain.c',
+  line: '1981',
+  routine: 'ExecConstraints'
+}
+[2m2:39:53 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: (match.highBreaks ?? []).filter is not a function
+    at eval (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?94:94:43)
+    at matchRecords (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?95:88:17)
+    at AccountPage (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?96:140:27)
+    at resolveErrorDev (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:1738:143)
+    at processFullStringRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2201:18)
+    at processFullBinaryRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2161:4)
+    at processBinaryChunk (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2268:87)
+    at progress (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2437:5)
+[2m2:39:53 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at AccountPage [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+[2m2:39:53 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: (match.highBreaks ?? []).filter is not a function
+    at eval (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?230:94:43)
+    at matchRecords (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?231:88:17)
+    at AccountPage (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?232:140:27)
+    at resolveErrorDev (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:1738:143)
+    at processFullStringRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2201:18)
+    at processFullBinaryRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2161:4)
+    at processBinaryChunk (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2268:87)
+    at progress (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2437:5)
+[2m2:39:53 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at AccountPage [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+[2m2:40:08 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: (match.highBreaks ?? []).filter is not a function
+    at eval (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?230:94:43)
+    at matchRecords (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?231:88:17)
+    at AccountPage (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?232:140:27)
+    at resolveErrorDev (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:1738:143)
+    at processFullStringRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2201:18)
+    at processFullBinaryRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2161:4)
+    at processBinaryChunk (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2268:87)
+    at progress (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2437:5)
+[2m2:40:08 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at AccountPage [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+[2m2:40:33 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: (match.highBreaks ?? []).filter is not a function
+    at eval (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?94:94:43)
+    at matchRecords (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?95:88:17)
+    at AccountPage (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?96:140:27)
+    at resolveErrorDev (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:1738:143)
+    at processFullStringRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2201:18)
+    at processFullBinaryRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2161:4)
+    at processBinaryChunk (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2268:87)
+    at progress (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2437:5)
+[2m2:40:33 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at AccountPage [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+[2m2:40:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: (match.highBreaks ?? []).filter is not a function
+    at eval (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?230:94:43)
+    at matchRecords (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?231:88:17)
+    at AccountPage (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?232:140:27)
+    at resolveErrorDev (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:1738:143)
+    at processFullStringRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2201:18)
+    at processFullBinaryRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2161:4)
+    at processBinaryChunk (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2268:87)
+    at progress (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2437:5)
+[2m2:40:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at AccountPage [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+[2m2:42:19 PM[22m [31m[1m[vite][22m[39m [31mInternal server error: (match.highBreaks ?? []).filter is not a function[39m
+      at eval (C:\Users\dash\Documents\GitHub\snooker-elo\app\account\page.tsx:64:45)
+      at matchRecords (C:\Users\dash\Documents\GitHub\snooker-elo\app\account\page.tsx:58:18)
+      at AccountPage (C:\Users\dash\Documents\GitHub\snooker-elo\app\account\page.tsx:106:28)
+      at resolveErrorDev (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\.vite\deps_ssr\react-server-dom-webpack_client__edge.js:3174:143)
+      at processFullBinaryRow (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\.vite\deps_ssr\react-server-dom-webpack_client__edge.js:3634:22)
+      at progress (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\.vite\deps_ssr\react-server-dom-webpack_client__edge.js:3805:93)
+[2m2:42:23 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: (match.highBreaks ?? []).filter is not a function
+    at http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1462:107
+    at Array.flatMap (<anonymous>)
+    at http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1462:32
+    at updateMemo (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:4947:16)
+    at Object.useMemo (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:13275:13)
+    at exports.useMemo (http://localhost:3000/node_modules/.vite/deps/react-BejDdLFV.js?v=027bc3b0:758:31)
+    at Leaderboard (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1460:23)
+    at Object.react_stack_bottom_frame (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:12867:12)
+    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:4212:19)
+    at updateFunctionComponent (http://localhost:3000/node_modules/.vite/deps/react-dom_client.js?v=027bc3b0:5568:16)
+[2m2:42:23 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at Leaderboard (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:1426:24)
+    at main (<anonymous>)
+    at div (<anonymous>)
+    at Home (http://localhost:3000/app/HomeClient.tsx?t=1785046908879:381:32)
+    at Page [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+state storage error: PostgresError: null value in column "rating" of relation "state_players" violates not-null constraint
+    at ErrorResponse (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\connection.js:788:26)
+    at handle (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\connection.js:474:6)
+    at TLSSocket.data (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\connection.js:315:9)
+    at TLSSocket.emit (node:events:509:28)
+    at TLSSocket.emit (node:domain:489:12)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+    at Readable.push (node:internal/streams/readable:394:5)
+    at TLSWrap.onStreamRead (node:internal/stream_base_commons:189:23)
+    at cachedError (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\query.js:170:23)
+    at new Query (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\query.js:36:24)
+    at sql (C:\Users\dash\Documents\GitHub\snooker-elo\node_modules\postgres\src\index.js:112:11)
+    at eval (C:\Users\dash\Documents\GitHub\snooker-elo\db\state.pg.ts:55:44) {
+  severity_local: 'ERROR',
+  severity: 'ERROR',
+  code: '23502',
+  detail: 'Failing row contains (a67cf027-8e2c-4985-b9fe-87b9f4b009a4, Ainod Chan, null, t, 2026-07-26 06:42:24.903843+00, AI, 56, green, 1050, 1, 3, 3, 11, 12, null, ["L", "D", "W", "L", "L"], null).',
+  schema_name: 'public',
+  table_name: 'state_players',
+  column_name: 'rating',
+  file: 'execMain.c',
+  line: '1981',
+  routine: 'ExecConstraints'
+}
+[2m2:51:19 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mTypeError: (match.highBreaks ?? []).filter is not a function
+    at eval (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?230:94:43)
+    at matchRecords (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?231:88:17)
+    at AccountPage (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/account/page.tsx?232:140:27)
+    at resolveErrorDev (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:1738:143)
+    at processFullStringRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2201:18)
+    at processFullBinaryRow (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2161:4)
+    at processBinaryChunk (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2268:87)
+    at progress (http://localhost:3000/node_modules/.vite/deps/react-server-dom-webpack_client__browser.js?v=027bc3b0:2437:5)
+[2m2:51:19 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [2m[console.error] [22mThe above error occurred in a React component:
+
+    at AccountPage [Server] (<anonymous>)
+    at AwaitAppRenderDependencies [Server] (<anonymous>)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at Children (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:64:17)
+    at body (<anonymous>)
+    at html (<anonymous>)
+    at RootLayout [Server] (<anonymous>)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at default (about://React/Server/C:/Users/dash/Documents/GitHub/snooker-elo/app/layout.tsx?0:42:26)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at LayoutSegmentProvider (http://localhost:3000/node_modules/vinext/dist/shims/layout-segment-context.js?v=027bc3b0:32:34)
+    at Slot (http://localhost:3000/node_modules/vinext/dist/shims/slot.js?v=027bc3b0:42:17)
+    at NavigationCommitSignal (http://localhost:3000/node_modules/vinext/dist/server/app-browser-navigation-controller.js?v=027bc3b0:184:36)
+    at RedirectErrorBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:56:3)
+    at RedirectBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:86:29)
+    at DevRecoveryBoundary (http://localhost:3000/node_modules/vinext/dist/shims/error-boundary.js?v=027bc3b0:268:3)
+    at BrowserRoot (http://localhost:3000/node_modules/vinext/dist/server/app-browser-entry.js?v=027bc3b0:209:24)
+[31mfailed to load config from C:\Users\dash\Documents\GitHub\snooker-elo\vite.config.ts[39m
+[2m3:20:50 PM[22m [31m[1m[vite][22m[39m Build failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected a semicolon or an implicit semicolon after a statement, but found none
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m vite.config.ts:1:348 [38;5;246m][0m
+   [38;5;246m│[0m
+ [38;5;246m1 │[0m [38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m_[0m[38;5;249m_[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m_[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mj[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249md[0m[38;5;249m_[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249m_[0m[38;5;249md[0m[38;5;249mi[0m[38;5;249mr[0m[38;5;249mn[0m[38;5;249ma[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249mC[0m[38;5;249m:[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mU[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249ms[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249md[0m[38;5;249ma[0m[38;5;249ms[0m[38;5;249mh[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mD[0m[38;5;249mo[0m[38;5;249mc[0m[38;5;249mu[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249ms[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mG[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249mH[0m[38;5;249mu[0m[38;5;249mb[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249ms[0m[38;5;249mn[0m[38;5;249mo[0m[38;5;249mo[0m[38;5;249mk[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249m-[0m[38;5;249me[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m_[0m[38;5;249m_[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m_[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mj[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249md[0m[38;5;249m_[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249m_[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249ma[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249mC[0m[38;5;249m:[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mU[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249ms[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249md[0m[38;5;249ma[0m[38;5;249ms[0m[38;5;249mh[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mD[0m[38;5;249mo[0m[38;5;249mc[0m[38;5;249mu[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249ms[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mG[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249mH[0m[38;5;249mu[0m[38;5;249mb[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249ms[0m[38;5;249mn[0m[38;5;249mo[0m[38;5;249mo[0m[38;5;249mk[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249m-[0m[38;5;249me[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m.[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249m.[0m[38;5;249mt[0m[38;5;249ms[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m_[0m[38;5;249m_[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m_[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mj[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249md[0m[38;5;249m_[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249m_[0m[38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m_[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249ma[0m[38;5;249m_[0m[38;5;249mu[0m[38;5;249mr[0m[38;5;249ml[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249m:[0m[38;5;249m/[0m[38;5;249m/[0m[38;5;249m/[0m[38;5;249mC[0m[38;5;249m:[0m[38;5;249m/[0m[38;5;249mU[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249ms[0m[38;5;249m/[0m[38;5;249md[0m[38;5;249ma[0m[38;5;249ms[0m[38;5;249mh[0m[38;5;249m/[0m[38;5;249mD[0m[38;5;249mo[0m[38;5;249mc[0m[38;5;249mu[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249ms[0m[38;5;249m/[0m[38;5;249mG[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249mH[0m[38;5;249mu[0m[38;5;249mb[0m[38;5;249m/[0m[38;5;249ms[0m[38;5;249mn[0m[38;5;249mo[0m[38;5;249mo[0m[38;5;249mk[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249m-[0m[38;5;249me[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249m/[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m.[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249m.[0m[38;5;249mt[0m[38;5;249ms[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mt[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m{[0m[38;5;249m [0m[38;5;249md[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mC[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m{[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249ms[0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249m.[0m[38;5;249m/[0m[38;5;249mb[0m[38;5;249mu[0m[38;5;249mi[0m[38;5;249ml[0m[38;5;249md[0m[38;5;249m/[0m[38;5;249ms[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249ms[0m[38;5;249m-[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m-[0m[38;5;249mp[0m[38;5;249ml[0m[38;5;249mu[0m[38;5;249mg[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249md[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249ma[0m[38;5;249mu[0m[38;5;249ml[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249md[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mC[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249m([0m[38;5;249m{[0m[38;5;249m [0m[38;5;249mp[0m[38;5;249ml[0m[38;5;249mu[0m[38;5;249mg[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249m:[0m[38;5;249m [0m[38;5;249m[[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mt[0m[38;5;249m([0m[38;5;249m)[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249ms[0m[38;5;249m([0m[38;5;249m)[0m[38;5;249m][0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m)[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m
+ [38;5;240m  │[0m                                                                                                                                                                                                                                                                                                                                                            │ 
+ [38;5;240m  │[0m                                                                                                                                                                                                                                                                                                                                                            ╰─ 
+ [38;5;240m  │[0m 
+ [38;5;240m  │[0m [38;5;115mHelp[0m: Try inserting a semicolon here
+[38;5;246m───╯[0m
+
+[2m3:20:50 PM[22m [31m[1m[vite][22m[39m server restart failed
+[2m3:20:50 PM[22m [31m[1m[vite][22m[39m [31m[2m(rsc)[22m[39m Internal Server Error
+Transform failed with 1 error:
+
+[PARSE_ERROR] Expected a semicolon or an implicit semicolon after a statement, but found none
+   ╭─[ db/auth.ts:3:41 ]
+   │
+ 3 │ import * as backend from "./auth.pg";`r`n`r`nexport async function getCurrentMember() {
+   │                                         │ 
+   │                                         ╰─ 
+   │ 
+   │ Help: Try inserting a semicolon here
+───╯
+
+    at transformWithOxc (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:3339:19)
+    at TransformPluginContext.transform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:3410:26)
+    at EnvironmentPluginContainer.transform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:30271:51)
+    at async loadAndTransform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:24532:26)
+    at async MinimalPluginContext.hotUpdate (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/@vitejs/plugin-rsc/dist/plugin-BhzHKRFo.js:850:8)
+    at async handleHMRUpdate (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26768:29)
+    at async onHMRUpdate (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26273:35)
+    at async onFileChange (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26298:3)
+[2m3:20:50 PM[22m [31m[1m[vite][22m[39m [31m[2m(rsc)[22m[39m Internal Server Error
+Transform failed with 1 error:
+
+[PARSE_ERROR] Expected a semicolon or an implicit semicolon after a statement, but found none
+   ╭─[ db/state.ts:1:42 ]
+   │
+ 1 │ import * as backend from "./state.pg";`r`n`r`nexport async function getState() {
+   │                                          │ 
+   │                                          ╰─ 
+   │ 
+   │ Help: Try inserting a semicolon here
+───╯
+
+    at transformWithOxc (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:3339:19)
+    at TransformPluginContext.transform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:3410:26)
+    at EnvironmentPluginContainer.transform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:30271:51)
+    at async loadAndTransform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:24532:26)
+    at async MinimalPluginContext.hotUpdate (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/@vitejs/plugin-rsc/dist/plugin-BhzHKRFo.js:850:8)
+    at async handleHMRUpdate (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26768:29)
+    at async onHMRUpdate (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26273:35)
+    at async onFileChange (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26298:3)
+[2m3:20:50 PM[22m [31m[1m[vite][22m[39m [31m[2m(rsc)[22m[39m Internal Server Error
+Failed to load url /db/auth.d1.ts (resolved id: C:/Users/dash/Documents/GitHub/snooker-elo/db/auth.d1.ts) in C:/Users/dash/Documents/GitHub/snooker-elo/db/auth.ts. Does the file exist?
+    at loadAndTransform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:24521:31)
+    at async MinimalPluginContext.hotUpdate (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/@vitejs/plugin-rsc/dist/plugin-BhzHKRFo.js:850:8)
+    at async handleHMRUpdate (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26768:29)
+    at async onHMRUpdate (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26273:35)
+    at async onFileAddUnlink (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26291:3)
+[2m3:20:50 PM[22m [31m[1m[vite][22m[39m [31m[2m(rsc)[22m[39m Internal Server Error
+Failed to load url /db/state.d1.ts (resolved id: C:/Users/dash/Documents/GitHub/snooker-elo/db/state.d1.ts) in C:/Users/dash/Documents/GitHub/snooker-elo/db/state.ts. Does the file exist?
+    at loadAndTransform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:24521:31)
+    at async MinimalPluginContext.hotUpdate (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/@vitejs/plugin-rsc/dist/plugin-BhzHKRFo.js:850:8)
+    at async handleHMRUpdate (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26768:29)
+    at async onHMRUpdate (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26273:35)
+    at async onFileAddUnlink (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26291:3)
+[31mfailed to load config from C:\Users\dash\Documents\GitHub\snooker-elo\vite.config.ts[39m
+[2m3:20:50 PM[22m [31m[1m[vite][22m[39m Build failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected a semicolon or an implicit semicolon after a statement, but found none
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m vite.config.ts:1:348 [38;5;246m][0m
+   [38;5;246m│[0m
+ [38;5;246m1 │[0m [38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m_[0m[38;5;249m_[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m_[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mj[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249md[0m[38;5;249m_[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249m_[0m[38;5;249md[0m[38;5;249mi[0m[38;5;249mr[0m[38;5;249mn[0m[38;5;249ma[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249mC[0m[38;5;249m:[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mU[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249ms[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249md[0m[38;5;249ma[0m[38;5;249ms[0m[38;5;249mh[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mD[0m[38;5;249mo[0m[38;5;249mc[0m[38;5;249mu[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249ms[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mG[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249mH[0m[38;5;249mu[0m[38;5;249mb[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249ms[0m[38;5;249mn[0m[38;5;249mo[0m[38;5;249mo[0m[38;5;249mk[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249m-[0m[38;5;249me[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m_[0m[38;5;249m_[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m_[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mj[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249md[0m[38;5;249m_[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249m_[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249ma[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249mC[0m[38;5;249m:[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mU[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249ms[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249md[0m[38;5;249ma[0m[38;5;249ms[0m[38;5;249mh[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mD[0m[38;5;249mo[0m[38;5;249mc[0m[38;5;249mu[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249ms[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mG[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249mH[0m[38;5;249mu[0m[38;5;249mb[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249ms[0m[38;5;249mn[0m[38;5;249mo[0m[38;5;249mo[0m[38;5;249mk[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249m-[0m[38;5;249me[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249m\[0m[38;5;249m\[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m.[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249m.[0m[38;5;249mt[0m[38;5;249ms[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m_[0m[38;5;249m_[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m_[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mj[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249md[0m[38;5;249m_[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249m_[0m[38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m_[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249ma[0m[38;5;249m_[0m[38;5;249mu[0m[38;5;249mr[0m[38;5;249ml[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249ml[0m[38;5;249me[0m[38;5;249m:[0m[38;5;249m/[0m[38;5;249m/[0m[38;5;249m/[0m[38;5;249mC[0m[38;5;249m:[0m[38;5;249m/[0m[38;5;249mU[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249ms[0m[38;5;249m/[0m[38;5;249md[0m[38;5;249ma[0m[38;5;249ms[0m[38;5;249mh[0m[38;5;249m/[0m[38;5;249mD[0m[38;5;249mo[0m[38;5;249mc[0m[38;5;249mu[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249ms[0m[38;5;249m/[0m[38;5;249mG[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249mH[0m[38;5;249mu[0m[38;5;249mb[0m[38;5;249m/[0m[38;5;249ms[0m[38;5;249mn[0m[38;5;249mo[0m[38;5;249mo[0m[38;5;249mk[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249m-[0m[38;5;249me[0m[38;5;249ml[0m[38;5;249mo[0m[38;5;249m/[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m.[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249m.[0m[38;5;249mt[0m[38;5;249ms[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mt[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m{[0m[38;5;249m [0m[38;5;249md[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mC[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m{[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249ms[0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249m.[0m[38;5;249m/[0m[38;5;249mb[0m[38;5;249mu[0m[38;5;249mi[0m[38;5;249ml[0m[38;5;249md[0m[38;5;249m/[0m[38;5;249ms[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249ms[0m[38;5;249m-[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249m-[0m[38;5;249mp[0m[38;5;249ml[0m[38;5;249mu[0m[38;5;249mg[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249md[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249ma[0m[38;5;249mu[0m[38;5;249ml[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249md[0m[38;5;249me[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mC[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mg[0m[38;5;249m([0m[38;5;249m{[0m[38;5;249m [0m[38;5;249mp[0m[38;5;249ml[0m[38;5;249mu[0m[38;5;249mg[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249ms[0m[38;5;249m:[0m[38;5;249m [0m[38;5;249m[[0m[38;5;249mv[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mt[0m[38;5;249m([0m[38;5;249m)[0m[38;5;249m,[0m[38;5;249m [0m[38;5;249ms[0m[38;5;249mi[0m[38;5;249mt[0m[38;5;249me[0m[38;5;249ms[0m[38;5;249m([0m[38;5;249m)[0m[38;5;249m][0m[38;5;249m [0m[38;5;249m}[0m[38;5;249m)[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m
+ [38;5;240m  │[0m                                                                                                                                                                                                                                                                                                                                                            │ 
+ [38;5;240m  │[0m                                                                                                                                                                                                                                                                                                                                                            ╰─ 
+ [38;5;240m  │[0m 
+ [38;5;240m  │[0m [38;5;115mHelp[0m: Try inserting a semicolon here
+[38;5;246m───╯[0m
+
+[2m3:20:50 PM[22m [31m[1m[vite][22m[39m server restart failed
+[2m3:21:09 PM[22m [31m[1m[vite][22m[39m [31mInternal server error: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected a semicolon or an implicit semicolon after a statement, but found none
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m db/auth.ts:3:41 [38;5;246m][0m
+   [38;5;246m│[0m
+ [38;5;246m3 │[0m [38;5;249mi[0m[38;5;249mm[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249m*[0m[38;5;249m [0m[38;5;249ma[0m[38;5;249ms[0m[38;5;249m [0m[38;5;249mb[0m[38;5;249ma[0m[38;5;249mc[0m[38;5;249mk[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249md[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mr[0m[38;5;249mo[0m[38;5;249mm[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249m.[0m[38;5;249m/[0m[38;5;249ma[0m[38;5;249mu[0m[38;5;249mt[0m[38;5;249mh[0m[38;5;249m.[0m[38;5;249mp[0m[38;5;249mg[0m[38;5;249m"[0m[38;5;249m;[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249m`[0m[38;5;249mr[0m[38;5;249m`[0m[38;5;249mn[0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mp[0m[38;5;249mo[0m[38;5;249mr[0m[38;5;249mt[0m[38;5;249m [0m[38;5;249ma[0m[38;5;249ms[0m[38;5;249my[0m[38;5;249mn[0m[38;5;249mc[0m[38;5;249m [0m[38;5;249mf[0m[38;5;249mu[0m[38;5;249mn[0m[38;5;249mc[0m[38;5;249mt[0m[38;5;249mi[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249mg[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249mC[0m[38;5;249mu[0m[38;5;249mr[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mt[0m[38;5;249mM[0m[38;5;249me[0m[38;5;249mm[0m[38;5;249mb[0m[38;5;249me[0m[38;5;249mr[0m[38;5;249m([0m[38;5;249m)[0m[38;5;249m [0m[38;5;249m{[0m
+ [38;5;240m  │[0m                                         │ 
+ [38;5;240m  │[0m                                         ╰─ 
+ [38;5;240m  │[0m 
+ [38;5;240m  │[0m [38;5;115mHelp[0m: Try inserting a semicolon here
+[38;5;246m───╯[0m
+[39m
+  Plugin: [35mvite:oxc[39m
+  File: [36mC:/Users/dash/Documents/GitHub/snooker-elo/db/auth.ts[39m
+      at transformWithOxc (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:3339:19)
+      at TransformPluginContext.transform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:3410:26)
+      at EnvironmentPluginContainer.transform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:30271:51)
+      at async loadAndTransform (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:24532:26)
+      at async fetchModule (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:23123:15)
+      at async handleInvoke (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26561:21)
+      at async EventEmitter.listenerForInvokeHandler (file:///C:/Users/dash/Documents/GitHub/snooker-elo/node_modules/vite/dist/node/chunks/node.js:26616:13)

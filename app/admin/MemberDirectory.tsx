@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { deriveInitials } from "../api/account/validate";
+import { resolveInitials } from "../api/account/validate";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
 
 export type Player = { id: string; name: string; active?: boolean };
@@ -23,8 +23,8 @@ const zh = {
   save: "儲存變更", cancel: "還原",
 };
 
-export function Avatar({ member }: { member: Member }) {
-  const initials = member.initials || deriveInitials(member.displayName);
+export function Avatar({ member, playerName }: { member: Member; playerName?: string | null }) {
+  const initials = resolveInitials(member, playerName ? { name: playerName } : null);
   return member.avatar
     // eslint-disable-next-line @next/next/no-img-element -- data URI, no loader needed
     ? <img className="admin-avatar" src={member.avatar} alt="" />
@@ -78,7 +78,7 @@ export default function MemberDirectory({ members, players }: { members: Member[
         const link = linkOf(member);
         return <details key={member.email} className={member.active ? "" : "is-inactive"}>
           <summary>
-            <Avatar member={member} />
+            <Avatar member={member} playerName={link} />
             <span className="admin-row-id"><b>{member.displayName}</b><small>@{member.username} · {member.email}</small></span>
             <span className="admin-row-tags">
               {!member.active && <em className="admin-tag inactive">{zh.inactive}</em>}

@@ -208,11 +208,11 @@ export async function updateProfile(email: string, input: { username: string; ne
   return "ok";
 }
 
-export async function syncMemberPlayerProfiles(players: { id: string; short: string; colour?: string | null }[]) {
+export async function syncMemberPlayerProfiles(players: { id: string; name: string; short: string; colour?: string | null }[]) {
   await ensureAuthSchema();
   const sql = getSql();
   await sql.begin(async tx => {
-    for (const player of players) await tx`UPDATE members SET initials = ${player.short}, icon_colour = ${player.colour ?? null} WHERE state_player_id = ${player.id}`;
+    for (const player of players) await tx`UPDATE members SET display_name = ${player.name}, initials = ${player.short}, icon_colour = ${player.colour ?? null} WHERE state_player_id = ${player.id}`;
   });
 }
 

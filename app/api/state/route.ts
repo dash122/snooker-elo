@@ -48,7 +48,7 @@ export async function PUT(request: Request) {
       if (!memberCanWrite(current ? JSON.parse(current) : null, next, user.statePlayerId)) return Response.json({ error: "You may only change your player profile or matches involving you" }, { status: 403 });
     }
     await putState(data);
-    const next = JSON.parse(data) as { players?: { id: string; short: string; colour?: string | null }[] };
+    const next = JSON.parse(data) as { players?: { id: string; name: string; short: string; colour?: string | null }[] };
     await syncMemberPlayerProfiles(next.players ?? []);
     return Response.json({ ok: true });
   } catch (error) {

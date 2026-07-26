@@ -11,12 +11,13 @@ type Body = { username?: string; email?: string; displayName?: string; avatar?: 
  * Those views read the public state payload and nothing else, so the state row
  * — not the member row — is what makes the change visible everywhere.
  */
-async function syncPlayerBadge(playerId: string, badge: { short?: string; colour?: string | null; avatar?: string | null }) {
+async function syncPlayerBadge(playerId: string, badge: { name?: string; short?: string; colour?: string | null; avatar?: string | null }) {
   const raw = await getState();
   if (!raw) return;
   const state = JSON.parse(raw) as { players?: Record<string, unknown>[] };
   const player = state.players?.find(item => item.id === playerId);
   if (!player) return;
+  if (badge.name !== undefined) player.name = badge.name;
   if (badge.short !== undefined) player.short = badge.short;
   if (badge.colour !== undefined) player.colour = badge.colour;
   if (badge.avatar !== undefined) player.avatar = badge.avatar;
@@ -65,8 +66,12 @@ export async function POST(request: Request) {
 
   if (member.statePlayerId) {
     // A cleared initials box means "go back to the derived initials" rather
-    // than an empty badge, so the leaderboard never shows a blank chip.
+    // than an empty badge, so the leaderboard never shows a blank chip. The
+    // display name always propagates too — the member and their linked
+    // player are the same person, so the leaderboard name must never drift
+    // from the account name.
     await syncPlayerBadge(member.statePlayerId, {
+      name: displayName,
       ...(initials !== undefined ? { short: initials || deriveInitials(displayName) } : {}),
       ...(iconColour !== undefined ? { colour: iconColour } : {}),
       ...(avatar !== undefined ? { avatar } : {}),

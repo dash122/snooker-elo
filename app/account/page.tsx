@@ -6,7 +6,7 @@ import { InteractiveEloChart, type EloTrendPoint } from "../UiBits";
 import { avatarHex } from "../avatar-colours";
 import AccountForms from "./AccountForms";
 import MatchHistory, { type MatchRecord } from "./MatchHistory";
-import { deriveInitials } from "../api/account/validate";
+import { resolveInitials } from "../api/account/validate";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +94,7 @@ export default async function AccountPage() {
   // Custom initials win; otherwise derive from the linked player's name so the
   // avatar matches how they're known on the leaderboard, falling back to the
   // account's display name for members with no linked player yet.
-  const initials = member.initials || deriveInitials(player?.name ?? member.displayName);
+  const initials = resolveInitials(member, player);
 
   const confirmed = (state.matches ?? []).filter(match => match.status !== "void");
   const mine = player
