@@ -9,7 +9,15 @@ test("keeps a same-day slot on the day the member picked",()=>{
   assert.deepEqual(interval,{startAt:"2026-08-01T11:00:00.000Z",endAt:"2026-08-01T13:00:00.000Z"});
   assert.deepEqual(validateAvailabilityInterval(interval,Date.parse("2026-07-31T00:00:00Z")),interval);
 });
-test("rolls a slot ending at or before its start into the next day",()=>{
+test("limits slots to the 10:00–02:00 Hong Kong playing window",()=>{
+  const now=Date.parse("2026-07-31T00:00:00Z");
+  assert.doesNotThrow(()=>validateAvailabilityInterval(composeAvailabilityInterval("2026-08-01","10:00","22:00"),now));
+  assert.doesNotThrow(()=>validateAvailabilityInterval(composeAvailabilityInterval("2026-08-01","14:00","02:00"),now));
+  assert.doesNotThrow(()=>validateAvailabilityInterval(composeAvailabilityInterval("2026-08-02","00:30","02:00"),now));
+  assert.throws(()=>validateAvailabilityInterval(composeAvailabilityInterval("2026-08-01","09:30","12:00"),now),/between 10:00 and 02:00/);
+  assert.throws(()=>validateAvailabilityInterval(composeAvailabilityInterval("2026-08-01","23:00","02:30"),now),/between 10:00 and 02:00/);
+  assert.throws(()=>validateAvailabilityInterval(composeAvailabilityInterval("2026-08-01","23:00","10:00"),now),/between 10:00 and 02:00/);
+});test("rolls a slot ending at or before its start into the next day",()=>{
   assert.deepEqual(composeAvailabilityInterval("2026-08-01","22:00","01:00"),{startAt:"2026-08-01T14:00:00.000Z",endAt:"2026-08-01T17:00:00.000Z"});
   assert.equal(composeAvailabilityInterval("2026-08-01","22:00","22:00").endAt,"2026-08-02T14:00:00.000Z");
 });
@@ -18,6 +26,9 @@ test("places a slot painted past midnight on the following morning",()=>{
   assert.deepEqual(intervalFromHours("2026-08-31",22.5,26),{startAt:"2026-08-31T14:30:00.000Z",endAt:"2026-08-31T18:00:00.000Z"});
   assert.equal(intervalFromHours("2026-08-31",22.5,26).endAt,new Date("2026-09-01T02:00:00+08:00").toISOString());
   assert.throws(()=>intervalFromHours("2026-08-01",21,21));
+  assert.throws(()=>intervalFromHours("2026-08-01",23,26.5),/between 10:00 and 02:00/);
+  assert.deepEqual(intervalFromHours("2026-08-01",24.5,26),{startAt:"2026-08-01T16:30:00.000Z",endAt:"2026-08-01T18:00:00.000Z"});
+  assert.throws(()=>intervalFromHours("2026-08-01",26,26.5),/between 10:00 and 02:00/);
 });
 test("advances Hong Kong dates across month and year ends",()=>{
   assert.equal(addDaysHongKong("2026-08-31",1),"2026-09-01");

@@ -1414,7 +1414,8 @@ img.member-avatar{object-fit:cover}
 
 @media(max-width:820px){.bottom button{padding-bottom:6px}.bottom small{margin-top:-4px}}
 
-.availability-page{max-width:980px}
+.availability-page{width:100%;max-width:980px;min-width:0}
+.availability-page>*{min-width:0}
 .availability-tabs{display:flex;gap:7px;margin:14px 0 18px;overflow:auto}
 .availability-tabs button,.date-strip button{border:1px solid var(--line);background:var(--paper);color:var(--muted);border-radius:12px;min-height:44px;padding:0 14px;font-weight:700;white-space:nowrap}
 .availability-tabs .active,.date-strip .active{background:var(--green);border-color:var(--green);color:white}
@@ -1434,13 +1435,16 @@ img.member-avatar{object-fit:cover}
 .availability-card{background:var(--paper);border:1px solid #e3e2da;box-shadow:var(--shadow);border-radius:17px;padding:17px;margin-top:13px}
 .availability-card .section-title{margin:0 0 13px}
 .availability-card .section-title h2{font-size:19px}
-.availability-notice{padding:12px 15px;border-radius:12px;font-size:13px;margin:12px 0;background:#e3f1e6;color:#23704d}
+.availability-notice{padding:12px 15px;border-radius:12px;font-size:13px;margin:12px 0;background:#e3f1e6;color:#23704d;animation:availability-notice-life 4s ease both}
+@keyframes availability-notice-life{0%{opacity:0;transform:translateY(-5px)}10%,82%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-5px)}}
+@media (prefers-reduced-motion:reduce){.availability-notice{animation:none}}
 .availability-skeleton{height:300px;border-radius:18px;background:#edf0ec;margin-top:13px}
 
 .find-stack{display:grid;gap:13px}
 .find-stack>.availability-card{margin-top:0}
 
-.availability-day-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:16px 0 8px}
+.availability-day-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;height:auto;min-height:0;margin:16px 0 8px}
+.availability-day-head>div{min-width:0;flex:1 1 0}
 .availability-day-head p{font-size:12px;color:var(--muted);margin:0 0 3px;letter-spacing:.03em;font-weight:700}
 .availability-day-head h2{margin:0;font-size:23px}
 .availability-day-head .more{min-height:36px;color:var(--green);font-variant-numeric:tabular-nums}
@@ -1487,7 +1491,7 @@ img.member-avatar{object-fit:cover}
 .availability-page .match-hero.is-prompt button.secondary{background:var(--paper);border:1px solid var(--line);color:var(--green)}
 
 /* Histogram: the page's time filter. Bars are buttons, so the club's shape is also its control. */
-.density-card>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.density-card>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;height:auto;min-height:0}
 .density-card small{display:block;font-size:10.5px;font-weight:800;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
 .density-card header b{display:flex;align-items:baseline;gap:8px;margin-top:6px;font-size:17px;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .density-card header b.muted{color:var(--muted);font-size:15px}
@@ -1516,7 +1520,7 @@ img.member-avatar{object-fit:cover}
 .candidate>.player-badge>img{width:100%;height:100%;object-fit:cover;display:block}
 .candidate-rank{font-size:11.5px;font-weight:800;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
 .candidate-list>.candidate:first-child .candidate-rank{color:#a97828}
-.candidate.no-overlap{opacity:.55}
+.candidate.no-overlap{opacity:.72}
 .candidate.is-me{background:#eef5f0;border-radius:12px;border-bottom-color:transparent;grid-template-columns:18px minmax(0,142px) minmax(0,1fr) 78px}
 .candidate.is-me .candidate-rank{color:var(--green)}
 .candidate-who{min-width:0}
@@ -1540,6 +1544,7 @@ img.member-avatar{object-fit:cover}
    matches .track-time's width + gap, so the axis sits exactly over the bars. */
 .timeline-scale{display:grid;grid-template-columns:182px minmax(0,1fr);gap:10px;font-size:10.5px;color:var(--muted);padding:0 4px 8px;font-weight:700}
 .timeline-scale-track{display:flex;justify-content:space-between;min-width:0;padding:0 43px;font-variant-numeric:tabular-nums}
+.timeline-scale-mobile{display:none}
 .timeline-legend{display:flex;gap:18px;margin-top:14px;font-size:12px;color:var(--muted)}
 .timeline-legend span{display:flex;align-items:center;gap:6px}
 .timeline-legend i{width:14px;height:11px;border-radius:6px;display:inline-block}
@@ -1619,13 +1624,21 @@ img.member-avatar{object-fit:cover}
 .slot-nudge button{width:34px;height:34px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--green);font-size:16px;font-weight:800;line-height:1}
 .slot-nudge button:hover{background:#eef1ec;border-color:#b9cdc4}
 .slot-detail .card-tools{margin-left:auto}
+.slot-detail.has-adjustment .card-tools{margin-left:0}
+.slot-confirm-actions{display:flex;gap:8px;margin-left:auto}
+.availability-page .slot-confirm-actions button{min-height:38px;padding:0 13px;border-radius:10px;font-size:11px}
 
 .draft-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:12px;padding:13px 16px;border-radius:15px;
  background:#fff6e3;border:1px solid #ecd39a}
 .draft-bar b{display:block;font-size:13px;color:#7a5410}
-.draft-bar span{font-size:11px;color:#96702c;font-variant-numeric:tabular-nums}
+.draft-bar>div:first-child>span{font-size:11px;color:#96702c;font-variant-numeric:tabular-nums}
 .draft-bar>div:last-child{display:flex;gap:8px}
 .availability-page .draft-bar .secondary,.draft-bar .primary{min-height:42px;border-radius:11px}
+.publish-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:88px}
+.publish-button:disabled,.draft-bar .secondary:disabled{cursor:not-allowed;opacity:.68}
+.button-spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:button-spin .7s linear infinite}
+@keyframes button-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.button-spinner{animation-duration:1.5s}}
 
 .board-precise{margin-top:16px;background:var(--paper);border:1px solid #e3e2da;border-radius:15px;box-shadow:var(--shadow);overflow:hidden}
 .board-precise>summary{padding:14px 17px;font-size:12px;font-weight:800;color:var(--green);cursor:pointer;list-style:none}
@@ -1653,7 +1666,24 @@ img.member-avatar{object-fit:cover}
 .composer-times>span{flex:0 0 auto;padding-bottom:12px;color:var(--muted);font-weight:800}
 .composer-times>label{flex:1 1 140px;min-width:0}
 .slot-composer label{display:block;font-size:10px;color:var(--muted);font-weight:800;letter-spacing:.04em}
-.slot-composer select{display:block;width:100%;max-width:100%;min-width:0;min-height:46px;border:1px solid var(--line);border-radius:12px;padding:0 10px;margin-top:5px;background:white;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+.slot-composer input,.slot-composer select{display:block;width:100%;max-width:100%;min-width:0;min-height:46px;border:1px solid var(--line);border-radius:12px;padding:0 10px;margin-top:5px;background:white;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+.availability-slot-form{gap:14px}
+.availability-slot-form .composer-times{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:10px;align-items:end}
+.availability-slot-form label{position:relative;min-width:0}
+.availability-slot-form label>span{display:block;margin-bottom:6px;font-size:10px;font-weight:850;letter-spacing:.06em;color:var(--muted)}
+.availability-slot-form input,.availability-slot-form select{appearance:none;-webkit-appearance:none;margin:0;height:48px;padding:0 38px 0 13px;border:1px solid #d8ddd7;border-radius:12px;background-color:#fbfcf9;color:var(--ink);box-shadow:inset 0 1px 0 rgba(255,255,255,.75);transition:border-color .15s,box-shadow .15s,background .15s}
+.availability-slot-form input[type=date]{appearance:auto;-webkit-appearance:auto;padding-right:10px}
+.availability-slot-form select{background-image:linear-gradient(45deg,transparent 50%,#668078 50%),linear-gradient(135deg,#668078 50%,transparent 50%);background-position:calc(100% - 17px) 20px,calc(100% - 12px) 20px;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.availability-slot-form input:hover,.availability-slot-form select:hover{border-color:#aebfb7;background-color:#fff}
+.availability-slot-form input:focus,.availability-slot-form select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(28,109,96,.12)}
+.availability-form-preview{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 12px;margin:0;padding:13px 15px;border:1px solid #d9e8df;border-radius:13px;background:linear-gradient(135deg,#f0f7f2,#e7f1eb);font-variant-numeric:tabular-nums}
+.availability-form-preview>span{grid-column:1/-1;font-size:9px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:#4f796b}
+.availability-form-preview>b{min-width:0;font-size:14px;overflow-wrap:anywhere}
+.availability-form-preview>small{font-size:10.5px;font-weight:750;color:#a36f1e;white-space:nowrap}
+.availability-form-hint{margin:-5px 0 0;font-size:10.5px;line-height:1.5;color:var(--muted)}
+.availability-form-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:1px}
+.availability-form-actions .primary,.availability-form-actions .secondary{min-width:112px}
+.availability-form-error{margin:0;padding:10px 12px;border-radius:10px;background:#fae9e6;color:#a94237;font-size:11.5px;font-weight:750}
 .composer-durations{display:flex;flex-wrap:wrap;gap:3px;padding:3px;margin-left:auto;background:#e9ece7;border-radius:12px}
 .composer-durations button{flex:1 1 auto;border:0;background:transparent;border-radius:9px;min-height:40px;padding:0 12px;font-size:11px;font-weight:800;color:var(--muted);white-space:nowrap}
 .composer-durations button.active{background:white;color:var(--green);box-shadow:0 2px 8px rgba(0,0,0,.08)}
@@ -1678,6 +1708,8 @@ img.member-avatar{object-fit:cover}
 .availability-page button.secondary:disabled{color:var(--muted);cursor:not-allowed}
 .availability-page button.secondary small{display:block;font-size:9px;font-weight:600;color:var(--muted)}
 .availability-page button.danger{background:#c0392b;border-color:#c0392b;color:white;border-radius:11px;min-height:44px;padding:0 16px;font-weight:700;border:0}
+.availability-page .cancel-button{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.availability-page .cancel-button .button-spinner{flex:0 0 15px}
 
 .availability-dialog-backdrop{position:fixed;inset:0;background:rgba(12,26,22,.5);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;animation:availability-fade .16s ease-out}
 .availability-dialog{background:var(--paper);border-radius:20px;padding:24px;max-width:392px;width:100%;box-shadow:0 24px 60px rgba(5,28,25,.28);animation:availability-rise .18s ease-out}
@@ -1696,8 +1728,28 @@ img.member-avatar{object-fit:cover}
 @media(max-width:820px){
 .availability-tabs button{padding:0 11px}
 .composer-times{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.availability-slot-form .composer-times{grid-template-columns:1fr 1fr}
+.availability-slot-form .composer-times>label:first-child{grid-column:1/-1}
+.availability-form-actions{width:100%}.availability-form-actions>button{flex:1}
 .composer-times>span{display:none}
 .slot-composer select{min-width:0;width:100%}
+.availability-slot-form{gap:14px}
+.availability-slot-form .composer-times{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:10px;align-items:end}
+.availability-slot-form label{position:relative;min-width:0}
+.availability-slot-form label>span{display:block;margin-bottom:6px;font-size:10px;font-weight:850;letter-spacing:.06em;color:var(--muted)}
+.availability-slot-form input,.availability-slot-form select{appearance:none;-webkit-appearance:none;margin:0;height:48px;padding:0 38px 0 13px;border:1px solid #d8ddd7;border-radius:12px;background-color:#fbfcf9;color:var(--ink);box-shadow:inset 0 1px 0 rgba(255,255,255,.75);transition:border-color .15s,box-shadow .15s,background .15s}
+.availability-slot-form input[type=date]{appearance:auto;-webkit-appearance:auto;padding-right:10px}
+.availability-slot-form select{background-image:linear-gradient(45deg,transparent 50%,#668078 50%),linear-gradient(135deg,#668078 50%,transparent 50%);background-position:calc(100% - 17px) 20px,calc(100% - 12px) 20px;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.availability-slot-form input:hover,.availability-slot-form select:hover{border-color:#aebfb7;background-color:#fff}
+.availability-slot-form input:focus,.availability-slot-form select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(28,109,96,.12)}
+.availability-form-preview{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 12px;margin:0;padding:13px 15px;border:1px solid #d9e8df;border-radius:13px;background:linear-gradient(135deg,#f0f7f2,#e7f1eb);font-variant-numeric:tabular-nums}
+.availability-form-preview>span{grid-column:1/-1;font-size:9px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:#4f796b}
+.availability-form-preview>b{min-width:0;font-size:14px;overflow-wrap:anywhere}
+.availability-form-preview>small{font-size:10.5px;font-weight:750;color:#a36f1e;white-space:nowrap}
+.availability-form-hint{margin:-5px 0 0;font-size:10.5px;line-height:1.5;color:var(--muted)}
+.availability-form-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:1px}
+.availability-form-actions .primary,.availability-form-actions .secondary{min-width:112px}
+.availability-form-error{margin:0;padding:10px 12px;border-radius:10px;background:#fae9e6;color:#a94237;font-size:11.5px;font-weight:750}
 .composer-durations{grid-column:1/-1;margin-left:0}
 .composer-durations button{flex:1}
 .composer-foot>div{width:100%}
@@ -1717,6 +1769,11 @@ img.member-avatar{object-fit:cover}
 .draft-bar>div:last-child{width:100%}
 .draft-bar>div:last-child button{flex:1}
 .availability-day-head{align-items:flex-start}
+.availability-day-head>div{flex-basis:100%}
+.availability-day-head .slot-tally{margin-left:0}
+.availability-editor>.availability-day-head{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-bottom:16px;position:static}
+.availability-editor>.availability-day-head>div{grid-column:1;flex:none;width:100%}
+.availability-editor>.availability-day-head .slot-tally{grid-column:1;justify-self:start;position:static;max-width:100%;margin:0;white-space:nowrap}
 .candidate-head{gap:8px}
 .sort-toggle{flex:1}
 .sort-toggle button{flex:1;min-height:28px;height:28px;padding:0 8px}
@@ -1724,9 +1781,11 @@ img.member-avatar{object-fit:cover}
    shared axis moves with it: the scale spans the whole card instead of only the track column. */
 .timeline-scale{grid-template-columns:minmax(0,1fr);gap:0;padding:0 0 8px}
 .timeline-scale>span{display:none}
-.timeline-scale-track{padding:0 34px}
+.timeline-scale-desktop{display:none}
+.timeline-scale-mobile{display:flex;padding:0 34px}
 .candidate{grid-template-columns:16px 30px minmax(0,1fr) 70px;grid-template-areas:"rank badge who fit" "track track track track" "reason reason reason reason";gap:4px 8px;padding:10px 2px}
 .candidate.is-me{grid-template-areas:"rank who who fit" "track track track track"}
+.candidate.is-me .candidate-who{align-self:center}
 .candidate-rank{grid-area:rank}
 .candidate>.player-badge{grid-area:badge;width:30px;height:30px;border-radius:9px;font-size:10px}
 .candidate-who{grid-area:who}

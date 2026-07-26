@@ -13,6 +13,11 @@ export function validateAvailabilityInterval(input:Interval, now=Date.now()) {
   const duration=(endAt-startAt)/minute;
   if(duration<30) throw new Error("Availability must be at least 30 minutes");
   if(duration>720) throw new Error("Availability cannot be longer than 12 hours");
+  const date=hongKongDay.format(startAt),calendarDayStart=Date.parse(`${date}T00:00:00+08:00`);
+  const calendarStartMinutes=(startAt-calendarDayStart)/minute;
+  const playingDayStart=calendarDayStart-(calendarStartMinutes<120?24*60*minute:0);
+  const startMinutes=(startAt-playingDayStart)/minute,endMinutes=(endAt-playingDayStart)/minute;
+  if(startMinutes<600||startMinutes>=1560||endMinutes>1560) throw new Error("Availability must be between 10:00 and 02:00 the next day");
   return {startAt:new Date(startAt).toISOString(),endAt:new Date(endAt).toISOString()};
 }
 
@@ -47,6 +52,7 @@ export function composeAvailabilityInterval(date:string,start:string,end:string)
 export function intervalFromHours(date:string,from:number,to:number):Interval {
   const clock=(hours:number)=>`${String(Math.floor(hours)%24).padStart(2,"0")}:${hours%1?"30":"00"}`;
   if(!(to>from))throw new Error("End time must be after start time");
+  if(from<10||from>=26||to>26)throw new Error("Availability must be between 10:00 and 02:00 the next day");
   return {startAt:hongKongInstant(addDaysHongKong(date,Math.floor(from/24)),clock(from)),endAt:hongKongInstant(addDaysHongKong(date,Math.floor(to/24)),clock(to))};
 }
 
