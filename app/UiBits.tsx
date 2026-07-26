@@ -14,7 +14,7 @@ export const sortLabels:Record<SortKey,string>={rank:"排名",name:"球員",rati
  * select. Kept to primitive shapes (rect/circle/path) so every icon in the
  * set reads as the same family instead of mismatched glyph weights.
  */
-export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"players"|"settings";active:boolean}) {
+export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"availability"|"players"|"settings";active:boolean}) {
   const common={fill:active?"currentColor":"none",stroke:"currentColor",strokeWidth:active?0:1.8,strokeLinecap:"round" as const,strokeLinejoin:"round" as const};
   switch(id){
     case "leaderboard":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
@@ -26,6 +26,7 @@ export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"players"|"setti
       <circle cx="8" cy="8" r="3.4" {...common}/>
       <circle cx="16" cy="16" r="3.4" {...common}/>
     </svg>;
+    case "availability":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M5 9h14M7 3v4M17 3v4M7 13h5M7 17h9"/></svg>;
     case "players":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
       <circle cx="12" cy="8" r="3.6" {...common}/>
       <path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4" {...common}/>

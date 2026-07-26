@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { CalibrationTrend, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Sparkline, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
+import Availability from "./Availability";
 
 type Player = {
   id: string; name: string; short: string; handicap: number | null; rating: number; colour?: string; avatar?: string | null;
@@ -434,7 +435,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   return <><style>{`.read-only .card-tools,.read-only .hero.small > .primary{display:none}`}</style><div className={`shell${user?"":" read-only"}`}>
     <aside className="side">
       <div className="brand"><span>S</span><div><b>SCAA</b><small>Snooker ELO</small></div></div>
-      <nav>{[["leaderboard","排行榜","◆"],["matches","比賽","◫"],["players","球員","◎"],["settings","設定","⚙"]].map(([id,label,icon])=>
+      <nav>{[["leaderboard","排行榜","◆"],["matches","比賽","◫"],["availability","可配對","+"],["players","球員","◎"],["settings","設定","⚙"]].map(([id,label,icon])=>
         <button key={id} className={tab===id?"active":""} onClick={()=>goTab(id)}><i>{icon}</i>{label}</button>)}</nav>
       <div className="public-note"><b>{user?"會員模式":"公開瀏覽"}</b><span>{user?"已登入，可更新球會資料":"登入會員後即可記錄比賽"}</span></div>
     </aside>
@@ -442,12 +443,13 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={newMatch} onPlayer={(p)=>{setDetail(p);setModal("detail")}}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch}/>}
+      {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches}/>}
       {tab==="players"&&<Players data={data} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={openHeadToHead}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
     </main>
-    <nav className="bottom">{[["leaderboard","排行榜"],["matches","比賽"],["record","記錄"],["players","球員"],["settings","設定"]].map(([id,label])=>
+    <nav className="bottom">{[["leaderboard","排行榜"],["matches","比賽"],["availability","配對"],["record","記錄"],["players","球員"],["settings","設定"]].map(([id,label])=>
       <button key={id} className={id==="record"?"bottom-record":tab===id?"active":""} onClick={()=>id==="record"?newMatch():goTab(id)}>
-        <i>{id==="record"?"＋":<NavIcon id={id as "leaderboard"|"matches"|"players"|"settings"} active={tab===id}/>}</i>
+        <i>{id==="record"?"＋":<NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/>}</i>
         <small>{label}</small>
       </button>)}</nav>
     {modal&&<div className="backdrop" onMouseDown={e=>e.target===e.currentTarget&&closeModal()}>
