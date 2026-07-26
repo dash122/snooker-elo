@@ -1,12 +1,11 @@
 import { requireMember } from "../../../db/auth";
 import { listAvailability, listOwnAvailability, publishAvailability } from "../../../db/availability";
-import { dayRangeHongKong, mergeIntervals } from "../../../lib/availability";
+import { dayRangeHongKong, mergeIntervals, validateAvailabilityInterval } from "../../../lib/availability";
 
 function slots(body:unknown){
   const raw=(body as {slots?:unknown})?.slots;
   if(!Array.isArray(raw)||!raw.length||raw.length>24)throw new Error("Provide 1 to 24 slots");
-  const now=Date.now();
-  const parsed=raw.map(item=>{const value=item as {startAt?:unknown;endAt?:unknown};const startAt=new Date(String(value.startAt));const endAt=new Date(String(value.endAt));if(!Number.isFinite(startAt.getTime())||!Number.isFinite(endAt.getTime())||endAt<=startAt||endAt.getTime()<=now)throw new Error("Slots must have a future end time");return {startAt:startAt.toISOString(),endAt:endAt.toISOString()};});
+  const parsed=raw.map(item=>{const value=item as {startAt?:unknown;endAt?:unknown};return validateAvailabilityInterval({startAt:String(value.startAt),endAt:String(value.endAt)});});
   return mergeIntervals(parsed);
 }
 export async function GET(request:Request){

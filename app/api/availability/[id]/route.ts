@@ -1,7 +1,8 @@
 import { requireMember } from "../../../../db/auth";
 import { cancelAvailability, updateAvailability } from "../../../../db/availability";
+import { validateAvailabilityInterval } from "../../../../lib/availability";
 
 async function member(){const current=await requireMember();return current?.statePlayerId?current:null;}
-function valid(body:unknown){const value=body as {startAt?:unknown;endAt?:unknown};const startAt=new Date(String(value.startAt)),endAt=new Date(String(value.endAt));if(!Number.isFinite(startAt.getTime())||!Number.isFinite(endAt.getTime())||endAt<=startAt||endAt.getTime()<=Date.now())throw new Error("Slot must have a future end time");return {startAt:startAt.toISOString(),endAt:endAt.toISOString()};}
+function valid(body:unknown){const value=body as {startAt?:unknown;endAt?:unknown};return validateAvailabilityInterval({startAt:String(value.startAt),endAt:String(value.endAt)});}
 export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){const current=await member();if(!current)return Response.json({error:"A linked member account is required"},{status:403});try{const slot=await updateAvailability((await params).id,current.statePlayerId!,valid(await request.json()));return slot?Response.json({slot}):Response.json({error:"Slot not found"},{status:404});}catch(error){return Response.json({error:error instanceof Error?error.message:"Invalid slot"},{status:400});}}
 export async function DELETE(_:Request,{params}:{params:Promise<{id:string}>}){const current=await member();if(!current)return Response.json({error:"A linked member account is required"},{status:403});return await cancelAvailability((await params).id,current.statePlayerId!)?Response.json({ok:true}):Response.json({error:"Slot not found"},{status:404});}

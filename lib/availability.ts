@@ -4,6 +4,18 @@ export type Interval = { startAt:string; endAt:string };
 
 const minute = 60_000;
 
+export function validateAvailabilityInterval(input:Interval, now=Date.now()) {
+  const startAt=Date.parse(input.startAt), endAt=Date.parse(input.endAt);
+  if(!Number.isFinite(startAt)||!Number.isFinite(endAt)) throw new Error("Invalid availability time");
+  if(startAt<=now) throw new Error("Availability must start in the future");
+  if(endAt<=startAt) throw new Error("End time must be after start time");
+  if(startAt%(30*minute)!==0 || endAt%(30*minute)!==0) throw new Error("Times must use 30-minute intervals");
+  const duration=(endAt-startAt)/minute;
+  if(duration<30) throw new Error("Availability must be at least 30 minutes");
+  if(duration>720) throw new Error("Availability cannot be longer than 12 hours");
+  return {startAt:new Date(startAt).toISOString(),endAt:new Date(endAt).toISOString()};
+}
+
 export function mergeIntervals<T extends Interval>(items:T[]):Interval[] {
   const sorted=items
     .filter(item=>Date.parse(item.endAt)>Date.parse(item.startAt))
