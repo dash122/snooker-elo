@@ -46,8 +46,8 @@ export async function putState(data: string) {
   const state = JSON.parse(data) as State;
   const sql = getSql();
   await sql.begin(async tx => {
-    await tx`INSERT INTO app_state_snapshots (state) VALUES (${tx.json(state)})`;
-    await tx`INSERT INTO state_settings (id, data, updated_at) VALUES (true, ${tx.json(state.settings)}, now()) ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`;
+    await tx`INSERT INTO app_state_snapshots (state) VALUES (${tx.json(state as any)})`;
+    await tx`INSERT INTO state_settings (id, data, updated_at) VALUES (true, ${tx.json(state.settings as any)}, now()) ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`;
     const playerIds = new Set(state.players.map(p => p.id));
     const matchIds = new Set(state.matches.map(m => m.id));
     for (const { id } of await tx<{id:string}[]>`SELECT id FROM state_matches`) if (!matchIds.has(id)) await tx`DELETE FROM state_matches WHERE id = ${id}`;
