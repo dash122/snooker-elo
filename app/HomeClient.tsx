@@ -536,7 +536,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
     const records=data.matches.flatMap(match=>match.status==="confirmed"?(match.highBreaks??[])
       .filter(item=>Number.isFinite(item.value)&&item.value>0&&item.value<=147&&playerById.has(item.playerId))
       .map((item,index)=>({player:playerById.get(item.playerId)!,opponent:playerById.get(match.a===item.playerId?match.b:match.a)?.name??"已移除球員",value:item.value,date:match.playedOn,createdAt:match.createdAt,key:`${match.id}-${index}`})):[])
-      .sort((a,b)=>b.value-a.value||b.date.localeCompare(a.date)||b.createdAt.localeCompare(a.createdAt));
+      .sort((a,b)=>b.value-a.value||(b.date||b.createdAt).localeCompare(a.date||a.createdAt)||b.createdAt.localeCompare(a.createdAt));
     const seen=new Set<string>();
     return {overall:records.slice(0,10),players:records.filter(record=>seen.has(record.player.id)?false:(seen.add(record.player.id),true)).slice(0,10)};
   },[data.matches,data.players]);
@@ -604,11 +604,11 @@ function ThirtyDayStats({data,onPlayer,onMatch,onRivalry}:{data:AppState;onPlaye
     const busiest=pick((a,b)=>b[1].matches-a[1].matches||b[1].frames-a[1].frames);
     const mover=pick((a,b)=>b[1].delta-a[1].delta||b[1].matches-a[1].matches);
     const qualified=entries.filter(([,value])=>value.matches>=3).sort((a,b)=>b[1].wins/b[1].matches-a[1].wins/a[1].matches||b[1].matches-a[1].matches)[0];
-    const topBreak=matches.flatMap(match=>(match.highBreaks??[]).map(item=>({player:playerById.get(item.playerId),value:item.value,date:match.playedOn}))).filter(item=>item.player&&item.value>0&&item.value<=147).sort((a,b)=>b.value-a.value||b.date.localeCompare(a.date))[0];
+    const topBreak=matches.flatMap(match=>(match.highBreaks??[]).map(item=>({player:playerById.get(item.playerId),value:item.value,date:match.playedOn}))).filter(item=>item.player&&item.value>0&&item.value<=147).sort((a,b)=>b.value-a.value||(b.date||"").localeCompare(a.date||""))[0];
     const pairCounts=new Map<string,{a:string;b:string;matches:number;framesA:number;framesB:number}>();
     for(const match of matches){const first=match.a<match.b,key=first?`${match.a}|${match.b}`:`${match.b}|${match.a}`,record=pairCounts.get(key)??{a:first?match.a:match.b,b:first?match.b:match.a,matches:0,framesA:0,framesB:0};record.matches++;record.framesA+=first?match.scoreA:match.scoreB;record.framesB+=first?match.scoreB:match.scoreA;pairCounts.set(key,record)}
     const rivalry=[...pairCounts.values()].filter(pair=>playerById.has(pair.a)&&playerById.has(pair.b)).sort((a,b)=>b.matches-a.matches||(b.framesA+b.framesB)-(a.framesA+a.framesB))[0];
-    const closest=matches.slice().sort((a,b)=>Math.abs(a.scoreA-a.scoreB)-Math.abs(b.scoreA-b.scoreB)||(b.scoreA+b.scoreB)-(a.scoreA+a.scoreB)||b.playedOn.localeCompare(a.playedOn))[0];
+    const closest=matches.slice().sort((a,b)=>Math.abs(a.scoreA-a.scoreB)-Math.abs(b.scoreA-b.scoreB)||(b.scoreA+b.scoreB)-(a.scoreA+a.scoreB)||(b.playedOn||b.createdAt).localeCompare(a.playedOn||a.createdAt))[0];
     const totalFrames=matches.reduce((sum,match)=>sum+match.scoreA+match.scoreB,0);
     const weekCounts=[0,0,0,0];
     for(const match of matches){const age=Math.max(0,Math.floor((Date.parse(`${today}T00:00:00+08:00`)-Date.parse(`${match.playedOn}T00:00:00+08:00`))/864e5)),bucket=Math.min(3,Math.floor(age/7));weekCounts[3-bucket]++}
