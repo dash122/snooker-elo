@@ -16,9 +16,9 @@ type Player = {
   handicap?: number | null; active?: boolean; form?: string[];
 };
 type Match = {
-  id: string; a: string; b: string; scoreA: number; scoreB: number; playedOn: string; createdAt: string;
+  id: string; a: string; b: string; a2?: string; b2?: string; mode?: string; scoreA: number; scoreB: number; playedOn: string; createdAt: string;
   status?: "confirmed" | "void"; actual?: number; expectedA?: number;
-  beforeA: number; beforeB: number; afterA: number; afterB: number; deltaA: number;
+  beforeA: number; beforeB: number; beforeA2?: number; beforeB2?: number; afterA: number; afterB: number; afterA2?: number; afterB2?: number; deltaA: number;
   highBreaks?: { playerId: string; value: number }[];
 };
 
@@ -35,19 +35,41 @@ const zh = {
   unlinkedBody: "你的會員帳戶還沒有對應的球員檔案，所以暫時看不到 ELO 與賽事紀錄。請聯絡管理員為你連結，之後這一頁就會顯示你的完整成績。",
 };
 
+function playerMatchBefore(match: Match, playerId: string) {
+  if (match.a === playerId) return match.beforeA;
+  if (match.a2 === playerId) return match.beforeA2 ?? match.beforeA;
+  if (match.b === playerId) return match.beforeB;
+  if (match.b2 === playerId) return match.beforeB2 ?? match.beforeB;
+  return 0;
+}
+
+function playerMatchAfter(match: Match, playerId: string) {
+  if (match.a === playerId) return match.afterA;
+  if (match.a2 === playerId) return match.afterA2 ?? match.afterA;
+  if (match.b === playerId) return match.afterB;
+  if (match.b2 === playerId) return match.afterB2 ?? match.afterB;
+  return 0;
+}
+
+function teamLabel(match: Match, players: Player[], side: "A" | "B") {
+  const ids = side === "A" ? [match.a, match.a2] : [match.b, match.b2];
+  const names = ids.filter(Boolean).map(id => players.find(p => p.id === id)?.name ?? "已移除球員");
+  return names.length > 1 ? names.join(" / ") : names[0] ?? "已移除球員";
+}
+
 function trendPoints(player: Player, matches: Match[], players: Player[]): EloTrendPoint[] {
   const start: EloTrendPoint = {
     id: `${player.id}-start`, elo: player.initialRating ?? player.rating, before: player.initialRating ?? player.rating,
     delta: 0, date: "", opponent: "", opponentShort: "", score: "", result: "start",
   };
   return [start, ...matches.map(match => {
-    const isA = match.a === player.id;
-    const opponent = players.find(item => item.id === (isA ? match.b : match.a));
+    const isA = match.a === player.id || match.a2 === player.id;
+    const opponent = isA ? teamLabel(match, players, "B") : teamLabel(match, players, "A");
     const ownScore = isA ? match.scoreA : match.scoreB, opponentScore = isA ? match.scoreB : match.scoreA;
-    const before = isA ? match.beforeA : match.beforeB, elo = isA ? match.afterA : match.afterB;
+    const before = playerMatchBefore(match, player.id), elo = playerMatchAfter(match, player.id);
     return {
       id: match.id, elo, before, delta: elo - before, date: match.playedOn,
-      opponent: opponent?.name ?? "已移除球員", opponentShort: opponent?.short ?? "—",
+      opponent, opponentShort: opponent,
       score: `${ownScore}–${opponentScore}`,
       result: ownScore === opponentScore ? "D" : ownScore > opponentScore ? "W" : "L",
     } satisfies EloTrendPoint;
@@ -56,18 +78,22 @@ function trendPoints(player: Player, matches: Match[], players: Player[]): EloTr
 
 function matchRecords(player: Player, matches: Match[], players: Player[]): MatchRecord[] {
   return matches.map(match => {
-    const isA = match.a === player.id;
-    const opponent = players.find(item => item.id === (isA ? match.b : match.a));
+    const isA = match.a === player.id || match.a2 === player.id;
+    const opponentIds = isA ? [match.b, match.b2] : [match.a, match.a2];
+    const opponentName = isA ? teamLabel(match, players, "B") : teamLabel(match, players, "A");
+    const opponentPlayer = players.find(item => opponentIds.some(id => id === item.id));
     const ownScore = isA ? match.scoreA : match.scoreB, opponentScore = isA ? match.scoreB : match.scoreA;
-    const before = isA ? match.beforeA : match.beforeB, after = isA ? match.afterA : match.afterB;
+    const before = playerMatchBefore(match, player.id), after = playerMatchAfter(match, player.id);
     const expectedA = match.expectedA ?? 0.5;
     const breaks = (match.highBreaks ?? []).filter(entry => entry.playerId === player.id).map(entry => entry.value);
+    const opponentRatings = opponentIds.map(id => players.find(item => item.id === id)?.rating).filter((rating): rating is number => typeof rating === "number");
     return {
       id: match.id, date: match.playedOn || match.createdAt.slice(0, 10),
       result: ownScore === opponentScore ? "D" : ownScore > opponentScore ? "W" : "L",
       score: `${ownScore}–${opponentScore}`, ownScore, opponentScore,
-      opponent: opponent?.name ?? "已移除球員", opponentShort: (opponent?.short ?? "—").toUpperCase(),
-      opponentColour: opponent?.colour ?? null, opponentAvatar: opponent?.avatar ?? null, opponentRating: opponent?.rating,
+      opponent: opponentName, opponentShort: opponentName,
+      opponentColour: opponentPlayer?.colour ?? null, opponentAvatar: opponentPlayer?.avatar ?? null,
+      opponentRating: opponentRatings.length ? opponentRatings.reduce((sum, value) => sum + value, 0) / opponentRatings.length : undefined,
       before, after, delta: after - before,
       // `actual` is signed from A's point of view; flip it for the B side so
       // "你讓 N" always reads from the member's own seat.
@@ -99,7 +125,7 @@ export default async function AccountPage() {
   const confirmed = (state.matches ?? []).filter(match => match.status !== "void");
   const mine = player
     ? confirmed
-      .filter(match => match.a === player.id || match.b === player.id)
+      .filter(match => match.a === player.id || match.b === player.id || match.a2 === player.id || match.b2 === player.id)
       .sort((x, y) => (x.playedOn || x.createdAt).localeCompare(y.playedOn || y.createdAt) || x.createdAt.localeCompare(y.createdAt))
     : [];
   const points = player ? trendPoints(player, mine, players) : [];
