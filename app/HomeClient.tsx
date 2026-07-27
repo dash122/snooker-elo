@@ -742,7 +742,7 @@ function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,s
   },[matches,comparing]);
   return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽記錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
     <div className="match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button></div>
-    {view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onEdit={onEdit} onVoid={onVoid}/>:<>
+    {view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid}/>:<>
     <div className="match-filter-bar">
       <button type="button" className={`match-filter-pill${focusPlayer?" active":""}`} aria-haspopup="dialog" aria-expanded={filterOpen} onClick={()=>setFilterOpen(value=>!value)}>
         <i aria-hidden="true">⇅</i>{filterLabel}<i aria-hidden="true">{filterOpen?"︿":"﹀"}</i>
@@ -848,7 +848,7 @@ function monthLabel(month:string){
   return `${y}年${m}月`;
 }
 
-function CalendarView({data,canManageMatch,onEdit,onVoid}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void}) {
+function CalendarView({data,canManageMatch,onPlayer,onEdit,onVoid}:{data:AppState;canManageMatch:(match:Match)=>boolean;onPlayer:(player:Player)=>void;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void}) {
   const name=(id:string)=>data.players.find(p=>p.id===id)?.name??"已刪除球員";
   const confirmed=useMemo(()=>data.matches.filter(m=>m.status==="confirmed"),[data.matches]);
   const currentMonth=today.slice(0,7);
@@ -904,7 +904,7 @@ function CalendarView({data,canManageMatch,onEdit,onVoid}:{data:AppState;canMana
     {selectedDay&&<div className="calendar-day-detail">
       <div className="calendar-day-head"><h3><time dateTime={selectedDay}>{selectedDay}</time></h3><span>{selectedMatches.length} 場</span></div>
       <div className="calendar-day-list">{selectedMatches.map(m=>
-        <MatchCard key={m.id} match={m} canManage={canManageMatch(m)} name={name} onEdit={onEdit} onVoid={onVoid}/>)}</div>
+        <MatchCard key={m.id} match={m} canManage={canManageMatch(m)} name={name} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player)onPlayer(player)}} onEdit={onEdit} onVoid={onVoid}/>)}</div>
     </div>}
   </section>;
 }
