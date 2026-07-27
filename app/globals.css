@@ -2448,3 +2448,15 @@ button.availability-grid-player:hover b{text-decoration:underline}
     padding-bottom:max(2rem,env(safe-area-inset-bottom));
   }
 }
+
+/* Resting bars stay compact; only the docked state absorbs the iOS inset. */
+@media(max-width:820px){
+  .availability-tabs,.home-view-nav,main>.match-view-toggle{min-height:58px;padding-top:0!important}
+  .shell.nav-docked .availability-tabs,
+  .shell.nav-docked .home-view-nav,
+  .shell.nav-docked main>.match-view-toggle{
+    min-height:calc(58px + env(safe-area-inset-top));
+    padding-top:env(safe-area-inset-top)!important;
+    background:rgba(251,250,246,.98)!important;
+  }
+}

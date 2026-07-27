@@ -195,6 +195,7 @@ function isInPastTenDays(playedOn:string){
 export default function Home({user}:{user:{displayName:string;email:string;role:"admin"|"member";statePlayerId?:string}|null}) {
   const [data,setData] = useState<AppState>(seed);
   const [tab,setTab] = useState("leaderboard");
+  const [navDocked,setNavDocked] = useState(false);
   const [availabilityDirty,setAvailabilityDirty] = useState(false);
   const [leavingAvailability,setLeavingAvailability] = useState<string|null>(null);
   const [jumpToAvailability,setJumpToAvailability] = useState<{playerId:string;date:string}|null>(null);
@@ -220,6 +221,20 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const isAdmin=user?.role==="admin";
   const canManageMatch=(match:Match)=>Boolean(isAdmin||ownPlayerId&&(match.a===ownPlayerId||match.b===ownPlayerId));
 
+  useEffect(()=>{
+    setNavDocked(false);
+    let dockCleanup=()=>{};
+    const frame=requestAnimationFrame(()=>{
+      const nav=document.querySelector<HTMLElement>(".availability-tabs, .home-view-nav, main>.match-view-toggle");
+      if(!nav)return;
+      const dockAt=nav.getBoundingClientRect().top+window.scrollY;
+      const update=()=>setNavDocked(window.scrollY>=dockAt);
+      update();
+      window.addEventListener("scroll",update,{passive:true});
+      dockCleanup=()=>window.removeEventListener("scroll",update);
+    });
+    return ()=>{cancelAnimationFrame(frame);dockCleanup()};
+  },[tab]);
   useEffect(()=>{
     const local = localStorage.getItem("scaa-draft");
     if(local) try { setDraft(JSON.parse(local)); } catch {}
@@ -446,7 +461,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     persist({...snapshot,audits:[{id:crypto.randomUUID(),text:"復原已刪除的賽事；還原評分及近況",at:new Date().toISOString()},...snapshot.audits]},"已復原賽事，ELO 及統計已還原。");
   }
 
-  return <><style>{`.read-only .card-tools,.read-only .hero.small > .primary{display:none}`}</style><div className={`shell${user?"":" read-only"}`}>
+  return <><style>{`.read-only .card-tools,.read-only .hero.small > .primary{display:none}`}</style><div className={`shell${user?"":" read-only"}${navDocked?" nav-docked":""}`}>
     <aside className="side">
       <div className="brand"><span>S</span><div><b>SCAA</b><small>Snooker ELO</small></div></div>
       <nav>{[["leaderboard","排行榜"],["matches","比賽"],["availability","約戰"],["players","球員"],["settings","設定"]].map(([id,label])=>
