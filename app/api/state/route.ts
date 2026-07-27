@@ -1,5 +1,6 @@
 import { requireMember, syncMemberPlayerProfiles } from "../../../db/auth";
 import { getState, putState, deleteState } from "../../../db/state";
+import { entertainmentOnlyWritePreservesOfficialState } from "../../../lib/entertainment-state";
 
 const defaultState = {
   players: [],
@@ -17,7 +18,7 @@ function memberCanWrite(current: any, next: any, playerId?: string) {
   for (const [id, player] of currentPlayers) if (!nextPlayers.has(id) || (id !== playerId && profile(player) !== profile(nextPlayers.get(id)))) return false;
   const matches = (items: any[]) => new Map(items.map(match => [match.id, match]));
   const before = matches(current.matches ?? []), after = matches(next.matches ?? []);
-  const matchShape = (match: any) => JSON.stringify({ a: match.a, b: match.b, a2: match.a2, b2: match.b2, mode: match.mode, scoreA: match.scoreA, scoreB: match.scoreB, playedOn: match.playedOn, actual: match.actual, giver: match.giver, highBreaks: match.highBreaks, status: match.status, entryMode: match.entryMode });
+  const matchShape = (match: any) => JSON.stringify({ a: match.a, b: match.b, a2: match.a2, b2: match.b2, mode: match.mode, teamAName: match.teamAName, teamBName: match.teamBName, scoreA: match.scoreA, scoreB: match.scoreB, playedOn: match.playedOn, actual: match.actual, giver: match.giver, highBreaks: match.highBreaks, status: match.status, entryMode: match.entryMode });
   const isParticipant = (match: any, id: string | undefined) => !!id && (match.a === id || match.b === id || match.a2 === id || match.b2 === id);
   for (const id of new Set([...before.keys(), ...after.keys()])) {
     const was = before.get(id), is = after.get(id);
@@ -48,13 +49,14 @@ export async function PUT(request: Request) {
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   try {
     const data = await request.text();
+    const currentRaw = await getState();
+    let parsedNext: any; try { parsedNext = JSON.parse(data); } catch { return Response.json({ error: "Invalid state" }, { status: 400 }); }
+    if (currentRaw && !entertainmentOnlyWritePreservesOfficialState(JSON.parse(currentRaw), parsedNext)) return Response.json({ error: "Entertainment matches cannot change official ratings or statistics" }, { status: 400 });
     if (user.role !== "admin") {
-      const current = await getState();
-      let next: unknown; try { next = JSON.parse(data); } catch { return Response.json({ error: "Invalid state" }, { status: 400 }); }
-      if (!memberCanWrite(current ? JSON.parse(current) : null, next, user.statePlayerId)) return Response.json({ error: "You may only change your player profile or matches involving you" }, { status: 403 });
+      if (!memberCanWrite(currentRaw ? JSON.parse(currentRaw) : null, parsedNext, user.statePlayerId)) return Response.json({ error: "You may only change your player profile or matches involving you" }, { status: 403 });
     }
     await putState(data);
-    const next = JSON.parse(data) as { players?: { id: string; name: string; short: string; colour?: string | null }[] };
+    const next = parsedNext as { players?: { id: string; name: string; short: string; colour?: string | null }[] };
     await syncMemberPlayerProfiles(next.players ?? []);
     return Response.json({ ok: true });
   } catch (error) {

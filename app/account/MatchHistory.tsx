@@ -5,6 +5,7 @@ import { PlayerBadge } from "../UiBits";
 
 export type MatchRecord = {
   id: string;
+  mode?: "1v1" | "2v2";
   date: string;
   result: "W" | "L" | "D";
   score: string;
@@ -91,15 +92,15 @@ export default function MatchHistory({ records }: { records: MatchRecord[] }) {
                 <button type="button" className="match-row-main" aria-expanded={open}
                   onClick={() => setOpenId(current => current === record.id ? null : record.id)}>
                   <span className="match-row-date"><b>{stamp.day}</b><small>{stamp.year}</small></span>
-                  <span className="match-row-badge">{resultLabel[record.result]}</span>
+                  <span className="match-row-badge">{resultLabel[record.result]}</span>{record.mode==="2v2"&&<span className="match-row-entertainment">潮拍 2v2</span>}
                   <span className="match-row-opponent">
                     <PlayerBadge player={{ short: record.opponentShort, colour: record.opponentColour, avatar: record.opponentAvatar }}/>
                     <span><b>{record.opponent}</b><small>{record.opponentRating != null ? `ELO ${Math.round(record.opponentRating)}` : "已移除球員"}</small></span>
                   </span>
                   <span className="match-row-score"><b>{record.ownScore}</b><em>–</em><b>{record.opponentScore}</b></span>
-                  <span className={`match-row-delta ${record.delta >= 0 ? "positive" : "negative"}`}>
-                    <b>{record.delta >= 0 ? "+" : ""}{Math.round(record.delta)}</b>
-                    <small>{Math.round(record.before)} → {Math.round(record.after)}</small>
+                  <span className={`match-row-delta ${record.mode==="2v2" ? "neutral" : record.delta >= 0 ? "positive" : "negative"}`}>
+                    <b>{record.mode==="2v2"?"不計 ELO":`${record.delta >= 0 ? "+" : ""}${Math.round(record.delta)}`}</b>
+                    <small>{record.mode==="2v2"?"娛樂模式":`${Math.round(record.before)} → ${Math.round(record.after)}`}</small>
                   </span>
                   {record.highBreak != null && <span className="match-row-break">單桿 {record.highBreak}</span>}
                 </button>

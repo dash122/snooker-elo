@@ -16,7 +16,7 @@ type Player = {
   handicap?: number | null; active?: boolean; form?: string[];
 };
 type Match = {
-  id: string; a: string; b: string; a2?: string; b2?: string; mode?: string; scoreA: number; scoreB: number; playedOn: string; createdAt: string;
+  id: string; a: string; b: string; a2?: string; b2?: string; mode?: string; teamAName?: string; teamBName?: string; scoreA: number; scoreB: number; playedOn: string; createdAt: string;
   status?: "confirmed" | "void"; actual?: number; expectedA?: number;
   beforeA: number; beforeB: number; beforeA2?: number; beforeB2?: number; afterA: number; afterB: number; afterA2?: number; afterB2?: number; deltaA: number;
   highBreaks?: { playerId: string; value: number }[];
@@ -52,9 +52,9 @@ function playerMatchAfter(match: Match, playerId: string) {
 }
 
 function teamLabel(match: Match, players: Player[], side: "A" | "B") {
-  const ids = side === "A" ? [match.a, match.a2] : [match.b, match.b2];
-  const names = ids.filter(Boolean).map(id => players.find(p => p.id === id)?.name ?? "已移除球員");
-  return names.length > 1 ? names.join(" / ") : names[0] ?? "已移除球員";
+  if (match.mode === "2v2") return (side === "A" ? match.teamAName : match.teamBName)?.trim() || `Team ${side}`;
+  const id = side === "A" ? match.a : match.b;
+  return players.find(player => player.id === id)?.name ?? "已移除球員";
 }
 
 function trendPoints(player: Player, matches: Match[], players: Player[]): EloTrendPoint[] {
@@ -88,7 +88,7 @@ function matchRecords(player: Player, matches: Match[], players: Player[]): Matc
     const breaks = (match.highBreaks ?? []).filter(entry => entry.playerId === player.id).map(entry => entry.value);
     const opponentRatings = opponentIds.map(id => players.find(item => item.id === id)?.rating).filter((rating): rating is number => typeof rating === "number");
     return {
-      id: match.id, date: match.playedOn || match.createdAt.slice(0, 10),
+      id: match.id, mode: match.mode === "2v2" ? "2v2" : "1v1", date: match.playedOn || match.createdAt.slice(0, 10),
       result: ownScore === opponentScore ? "D" : ownScore > opponentScore ? "W" : "L",
       score: `${ownScore}–${opponentScore}`, ownScore, opponentScore,
       opponent: opponentName, opponentShort: opponentName,
@@ -128,8 +128,10 @@ export default async function AccountPage() {
       .filter(match => match.a === player.id || match.b === player.id || match.a2 === player.id || match.b2 === player.id)
       .sort((x, y) => (x.playedOn || x.createdAt).localeCompare(y.playedOn || y.createdAt) || x.createdAt.localeCompare(y.createdAt))
     : [];
-  const points = player ? trendPoints(player, mine, players) : [];
+  const ratedMine=mine.filter(match=>match.mode!=="2v2");
+  const points = player ? trendPoints(player, ratedMine, players) : [];
   const records = player ? matchRecords(player, mine, players) : [];
+  const ratedRecords=records.filter(record=>record.mode!=="2v2");
 
   const games = player ? player.wins + player.losses + player.draws : 0;
   const winRate = games ? Math.round((player!.wins / games) * 100) : 0;
@@ -138,12 +140,12 @@ export default async function AccountPage() {
   // Rank against the active roster — that is the number shown on the leaderboard.
   const ranked = players.filter(item => item.active !== false).sort((x, y) => y.rating - x.rating);
   const rank = player ? ranked.findIndex(item => item.id === player.id) + 1 : 0;
-  const recentDelta = records.slice(0, 5).reduce((sum, record) => sum + record.delta, 0);
+  const recentDelta = ratedRecords.slice(0, 5).reduce((sum, record) => sum + record.delta, 0);
   const peak = points.length ? Math.max(...points.map(point => point.elo)) : 0;
-  const form = records.slice(0, 5).map(record => record.result).reverse();
+  const form = ratedRecords.slice(0, 5).map(record => record.result).reverse();
   const bestBreak = records.reduce<number | null>((best, record) => record.highBreak != null && (best == null || record.highBreak > best) ? record.highBreak : best, null);
-  const streak = longestStreak(records.map(record => record.result).reverse());
-  const bestGain = records.reduce((best, record) => Math.max(best, record.delta), 0);
+  const streak = longestStreak(ratedRecords.map(record => record.result).reverse());
+  const bestGain = ratedRecords.reduce((best, record) => Math.max(best, record.delta), 0);
 
   return <main className="account-page">
     <header className="account-topbar">
