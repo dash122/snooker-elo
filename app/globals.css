@@ -892,6 +892,7 @@ h1,h2,h3{line-height:1.2;letter-spacing:-.02em}
 .match-board .card-tool.danger:hover{background:rgba(214,110,98,.28);color:#ffd9d3}
 .match-board .pill{background:rgba(255,255,255,.14);color:#dceae6}
 .match-board .scoreline{margin:.5rem 0 0}
+.match-board .scoreline-name{font-size:1.15rem}
 .match-board .scoreline-name.winner{color:white}
 .match-board .scoreline-name.loser,.match-board .scoreline-name.drawn{color:#8fa9a2}
 .match-board .scoreline>b.winner{background:var(--ball-yellow);color:var(--baize-deep)}
