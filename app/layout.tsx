@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,6 +9,14 @@ export const metadata: Metadata = {
     title: "Snooker ELO",
     statusBarStyle: "black-translucent",
   },
+};
+
+export const viewport: Viewport = {
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f1f0e9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b2d29" },
+  ],
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}) {
