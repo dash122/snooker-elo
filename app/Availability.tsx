@@ -3,7 +3,6 @@ import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent
 import {PlayerBadge} from "./UiBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
 import {addDaysHongKong,availabilityDensity,availabilityPeak,composeAvailabilityInterval,dayRangeHongKong,intervalFromHours,intersectIntervals,mergeIntervals,nextAvailabilityStart,overlapMinutes,recommendationScore,validateAvailabilityInterval,type AvailabilitySlot,type Interval} from "../lib/availability";
-type Sort="fit"|"start";
 type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type MatchInfo={overlaps:Interval[];minutes:number;recent:number;score:number;difference:number;qualifies:boolean;chips:string[]};type View="find"|"recommendations"|"manage"|"create";
 const hkDate=(d=new Date())=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Hong_Kong",year:"numeric",month:"2-digit",day:"2-digit"}).format(d),time=(iso:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(iso)),range=(x:Interval)=>`${time(x.startAt)}–${time(x.endAt)}`,utc=(d:string,t:string)=>new Date(`${d}T${t}:00+08:00`).toISOString(),days=(start:string,horizon=7)=>Array.from({length:horizon},(_,i)=>addDaysHongKong(start,i)),dayLabel=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"numeric",day:"numeric",weekday:"short"}).format(new Date(`${d}T00:00:00+08:00`)),fullDay=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"long",day:"numeric",weekday:"long"}).format(new Date(`${d}T00:00:00+08:00`));
 const durationLabel=(minutes:number)=>{const hours=Math.floor(minutes/60),rest=Math.round(minutes%60);return hours?`${hours} 小時${rest?` ${rest} 分鐘`:""}`:`${rest} 分鐘`};
@@ -36,28 +35,50 @@ const scaleLabels=(lo:number,hi:number)=>Array.from({length:Math.floor((hi-lo)/2
 const mobileScaleLabels=(lo:number,hi:number)=>Array.from({length:Math.floor((hi-lo)/4)+1},(_,i)=>`${String((lo+i*4)%24).padStart(2,"0")}:00`);
 function DensityChart({buckets,best,lo,hi,focus,onFocus}:{buckets:{at:string;count:number}[];best:{startAt:string;endAt:string;count:number}|null;lo:number;hi:number;focus:Interval|null;onFocus:(x:Interval|null)=>void}){
  const max=Math.max(1,...buckets.map(x=>x.count));
+ const[hovered,setHovered]=useState<{at:string;count:number}|null>(null);
+ const preview=hovered??(focus?buckets.find(x=>x.at===focus.startAt)??null:null);
  return <section className="availability-card density-card" aria-label="可配對密度圖">
-  <header><div><small>球員空閒分佈</small><b className={best?"":"muted"}>{best?`${time(best.startAt)}–${time(best.endAt)}`:"未有高峰"}{best&&<span>{best.count} 位</span>}</b></div>{focus&&<button type="button" className="more" onClick={()=>onFocus(null)}>清除篩選</button>}</header>
-  <div className={`density-bars${focus?" is-filtered":""}`}>{buckets.map(x=>{const active=focus?.startAt===x.at,isPeak=best?.startAt===x.at;return <button type="button" key={x.at} aria-label={`${time(x.at)} ${x.count} 位球員`} className={`${active?"on ":""}${isPeak?"peak":""}`.trim()} onClick={()=>onFocus(active?null:{startAt:x.at,endAt:new Date(Date.parse(x.at)+3600000).toISOString()})}><i style={{height:`${Math.max(8,x.count/max*100)}%`}}/></button>})}</div>
+  <header><div><small>{hovered?"游標所在時段":"球員空閒分佈"}</small><b className={(preview??best)?"":"muted"}>{preview?`${time(preview.at)}–${time(new Date(Date.parse(preview.at)+30*60000).toISOString())}`:best?`${time(best.startAt)}–${time(best.endAt)}`:"未有高峰"}{preview?<span>{preview.count} 位</span>:best&&<span>{best.count} 位</span>}</b></div>{focus&&<button type="button" className="more" onClick={()=>onFocus(null)}>清除篩選</button>}</header>
+  <div className={`density-bars${focus?" is-filtered":""}`}>{buckets.map(x=>{const active=focus?.startAt===x.at,isPeak=best?.startAt===x.at,isHovered=hovered?.at===x.at;return <button type="button" key={x.at} aria-label={`${time(x.at)} 至 ${time(new Date(Date.parse(x.at)+30*60000).toISOString())}，${x.count} 位球員；按下篩選這 30 分鐘`} className={`${active?"on ":""}${isPeak?"peak ":""}${isHovered?"hovered":""}`.trim()} onPointerEnter={()=>setHovered(x)} onPointerLeave={()=>setHovered(null)} onFocus={()=>setHovered(x)} onBlur={()=>setHovered(null)} onClick={()=>onFocus(active?null:{startAt:x.at,endAt:new Date(Date.parse(x.at)+30*60000).toISOString()})}><i style={{height:`${Math.max(8,x.count/max*100)}%`}}/></button>})}</div>
   <div className="density-axis" aria-hidden="true"><span>{clockAt(lo)}</span><span>{clockAt((lo+hi)/2)}</span><span>{clockAt(hi)}</span></div>
-  <p className="density-note">{focus?`${time(focus.startAt)}–${time(focus.endAt)} 的球員已篩選。`:"點按柱形，查看該時段有空的球員。"}</p>
+  <p className="density-note">{hovered?`${time(hovered.at)}–${time(new Date(Date.parse(hovered.at)+30*60000).toISOString())} 有 ${hovered.count} 位球員有空；按下可篩選這 30 分鐘。`:focus?`${time(focus.startAt)}–${time(focus.endAt)} 的球員已篩選。`:"每條柱代表 30 分鐘；游標停留可預覽，點按可篩選該 30 分鐘。"}</p>
  </section>
-}function SlotComposer({dates,initialDate,onSave}:{dates:string[];initialDate:string;onSave:(x:Interval)=>void}){return <SlotForm initialDate={initialDate} onSave={onSave}/>}/* One candidate, one line, ranked. The bar carries when, the figure carries how much, and exactly
-   one reason carries why they are this high — more than one reason is noise at a glance. */
-function CandidateRow({member,info,date,lo,hi,rank,compare}:{member:Member;info:MatchInfo;date:string;lo:number;hi:number;rank?:number;compare:boolean}){
- const first=member.slots[0],last=member.slots[member.slots.length-1];
- const availableMinutes=overlapMinutes(member.slots);
- const spoken=`${rank?`第 ${rank} 位，`:""}${member.name}，${Math.round(member.rating)} ELO${first&&last?`，有空 ${time(first.startAt)} 至 ${time(last.endAt)}`:""}${compare?(info.minutes?`，與你重疊 ${durationLabel(info.minutes)}，${info.overlaps.map(range).join("、")}`:"，與你沒有重疊"):`，共 ${durationLabel(availableMinutes)}`}${compare&&info.chips[0]?`，${info.chips[0]}`:""}`;
- return <article className={`candidate${compare&&!info.minutes?" no-overlap":""}`} aria-label={spoken}>
-  {rank&&<b className="candidate-rank" aria-hidden="true">{rank}</b>}
-  <PlayerBadge player={member}/>
-  <div className="candidate-who" aria-hidden="true"><b>{member.name}</b><small>{Math.round(member.rating)} ELO</small></div>
-  <div className="candidate-track" aria-hidden="true"><span className="track-time">{first?time(first.startAt):""}</span><Timeline slots={member.slots} overlaps={compare?info.overlaps:[]} date={date} lo={lo} hi={hi}/><span className="track-time">{last?time(last.endAt):""}</span></div>
-  <div className="candidate-fit" aria-hidden="true">{compare?(info.minutes?<><b>{shortDurationLabel(info.minutes)}</b><small>{info.overlaps.map(range).join("、")}</small></>:<small className="candidate-none">無重疊</small>):<b>{shortDurationLabel(availableMinutes)}</b>}</div>
-  {compare&&info.chips[0]&&<span className="candidate-reason" aria-hidden="true">{info.chips[0]}</span>}
- </article>
 }
-/* The one question the page exists to answer, answered before anything else on screen. Which card
+function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:string;counts:Record<string,number>;onSelect:(date:string)=>void}){
+ const scrollRef=useRef<HTMLDivElement>(null);
+ const move=(direction:-1|1)=>scrollRef.current?.scrollBy({left:direction*Math.max(220,scrollRef.current.clientWidth*.72),behavior:"smooth"});
+ useEffect(()=>{scrollRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"})},[selected]);
+ return <section className="availability-date-selector" aria-label="未來 14 日">
+  <div className="availability-date-selector-head"><b>選擇日期</b><span aria-hidden="true">左右滑動查看未來 14 日 <i>↔</i></span></div>
+  <div className="availability-date-strip-wrap">
+   <button type="button" className="availability-date-scroll-button previous" aria-label="向前捲動日期" onClick={()=>move(-1)}>‹</button>
+   <div className="availability-date-strip" role="tablist" aria-label="選擇日期，左右滑動查看更多" ref={scrollRef}>
+    {dates.map((value,index)=>{const active=value===selected,count=counts[value]??0,weekday=new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",weekday:"short"}).format(new Date(`${value}T00:00:00+08:00`));return <button type="button" key={value} role="tab" aria-label={`${index===0?"今天":index===1?"明天":weekday}，${Number(value.slice(5,7))}月${Number(value.slice(8,10))}日，${count} 位球員有空`} aria-selected={active} aria-current={active?"date":undefined} className={active?"active":""} onClick={()=>onSelect(value)}><small>{index===0?"今天":index===1?"明天":weekday}</small><span>{Number(value.slice(5,7))}/{Number(value.slice(8,10))}</span><strong>{count} 位</strong></button>})}
+   </div>
+   <button type="button" className="availability-date-scroll-button next" aria-label="向後捲動日期" onClick={()=>move(1)}>›</button>
+  </div>
+ </section>
+}function AvailabilityGrid({members,mine,date,lo,hi,userPlayerId,focus,onFocus}:{members:Member[];mine:Interval[];date:string;lo:number;hi:number;userPlayerId?:string;focus:Interval|null;onFocus:(x:Interval|null)=>void}){
+ const span=hi-lo,ticks=Array.from({length:hi-lo+1},(_,i)=>lo+i),scrollRef=useRef<HTMLDivElement>(null);
+ const now=hoursOf(date,new Date().toISOString()),showNow=date===hkDate()&&now>=lo&&now<=hi;
+ useEffect(()=>{const el=scrollRef.current;if(!el)return;const playerWidth=window.innerWidth<=620?132:150,trackWidth=el.scrollWidth-playerWidth,visibleTrack=el.clientWidth-playerWidth,target=focus?hoursOf(date,focus.startAt):showNow?Math.max(now,18):18;el.scrollTo({left:Math.max(0,(target-lo)/span*trackWidth-visibleTrack*.3),behavior:"smooth"})},[date,focus,hi,lo,now,showNow,span]);
+ const me=members.find(x=>x.id===userPlayerId),rows=[...(userPlayerId?[{id:"__me",name:"你",short:"你",rating:me?.rating??0,colour:"#176b55",slots:mine as AvailabilitySlot[]}]:[]),...members.filter(x=>x.id!==userPlayerId)];
+ const position=(iso:string)=>`${(hoursOf(date,iso)-lo)/span*100}%`,slotWidth=(slot:Interval)=>`${(hoursOf(date,slot.endAt)-hoursOf(date,slot.startAt))/span*100}%`;
+ return <section className="availability-card availability-grid-card" aria-labelledby="availability-grid-title">
+  <header className="availability-grid-head"><div><h3 id="availability-grid-title">球員空檔</h3><small>左右滑動查看時間，點按空檔即可篩選</small></div><span>{rows.length} 位</span></header>
+  <div className="availability-grid-scroll" ref={scrollRef}><div className="availability-grid">
+   <div className="availability-grid-corner">球員</div><div className="availability-grid-axis" aria-hidden="true">{ticks.map(h=><b key={h} style={{left:`${(h-lo)/span*100}%`}}>{clockAt(h)}</b>)}</div>
+   {rows.map(member=>{const isMe=member.id==="__me";return <div className={`availability-grid-row${isMe?" is-me":""}`} key={member.id}>
+    <div className="availability-grid-player">{isMe?<span className="availability-grid-you">你</span>:<PlayerBadge player={member}/>}<span><b>{member.name}</b>{!isMe&&<small>{Math.round(member.rating)} ELO</small>}</span></div>
+    <div className="availability-grid-track">{ticks.slice(1).map(h=><i className="availability-grid-line" key={h} style={{left:`${(h-lo)/span*100}%`}}/>)}
+     {member.slots.map(slot=>{const active=Boolean(focus&&intersectIntervals([slot],[focus]).length);return <button type="button" key={`${member.id}-${slot.startAt}`} className={`availability-grid-slot${active?" is-active":""}`} style={{left:position(slot.startAt),width:slotWidth(slot)}} aria-label={`${member.name} ${range(slot)}`} onClick={()=>onFocus(active?null:{startAt:slot.startAt,endAt:slot.endAt})}><span>{range(slot)}</span></button>})}
+     {focus&&<i className="availability-grid-focus" style={{left:position(focus.startAt),width:slotWidth(focus)}}/>}{showNow&&<i className="availability-grid-now" style={{left:`${(now-lo)/span*100}%`}}/>}
+    </div></div>})}
+  </div></div>
+  <div className="availability-grid-legend"><span><i/>該時段有空</span>{focus&&<button type="button" className="more" onClick={()=>onFocus(null)}>清除 {range(focus)}</button>}</div>
+ </section>
+}
+function SlotComposer({initialDate,onSave}:{initialDate:string;onSave:(x:Interval)=>void}){return <SlotForm initialDate={initialDate} onSave={onSave}/>}/* The one question the page exists to answer, answered before anything else on screen. Which card
    shows up depends on what is actually blocking the member from playing tonight. */
 function MatchHero({top,mine,date,lo,hi,userPlayerId,members,focus,onManage}:{top:{member:Member}&MatchInfo|null;mine:Interval[];date:string;lo:number;hi:number;userPlayerId?:string;members:number;focus:Interval|null;onManage:(v:"manage"|"create")=>void}){
  if(!userPlayerId)return <section className="availability-card match-hero is-prompt"><p className="match-hero-kicker">找對手</p><h2>登入後即可看到最合適的對手</h2><p>連結球員帳戶，我們會按你公開的時間、ELO 及近期交手紀錄排出建議。</p></section>;
@@ -137,20 +158,16 @@ function SlotBoard({dates,items,lo,hi,soonest,selected,onSelect,onCreate,onResiz
    </div>})}
  </div>;
 }
-const HORIZON=14,ROSTER_LIMIT=8;
+const HORIZON=14;
 export default function Availability({userPlayerId,matches}:{userPlayerId?:string;matches:Match[]}){
- const week=useMemo(()=>days(hkDate(),HORIZON),[]),[expanded,setExpanded]=useState(false),[date,setDate]=useState(hkDate()),[members,setMembers]=useState<Member[]>([]),[counts,setCounts]=useState<Record<string,number>>({}),[own,setOwn]=useState<AvailabilitySlot[]>([]),[view,setView]=useState<View>("find"),[sort,setSort]=useState<Sort>("fit"),[draft,setDraft]=useState<Interval[]>([]),[selected,setSelected]=useState<string|null>(null),[adjustment,setAdjustment]=useState<Interval|null>(null),[focus,setFocus]=useState<Interval|null>(null),[boardWide,setBoardWide]=useState(false),[pending,setPending]=useState<AvailabilitySlot|null>(null),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[cancelling,setCancelling]=useState(false),[confirmingChange,setConfirmingChange]=useState(false),[message,setMessage]=useState("");
+ const week=useMemo(()=>days(hkDate(),HORIZON),[]),[date,setDate]=useState(hkDate()),[members,setMembers]=useState<Member[]>([]),[counts,setCounts]=useState<Record<string,number>>({}),[own,setOwn]=useState<AvailabilitySlot[]>([]),[view,setView]=useState<View>("find"),[draft,setDraft]=useState<Interval[]>([]),[selected,setSelected]=useState<string|null>(null),[adjustment,setAdjustment]=useState<Interval|null>(null),[focus,setFocus]=useState<Interval|null>(null),[boardWide,setBoardWide]=useState(false),[pending,setPending]=useState<AvailabilitySlot|null>(null),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[cancelling,setCancelling]=useState(false),[confirmingChange,setConfirmingChange]=useState(false),[message,setMessage]=useState(""),[recommendationNow]=useState(()=>Date.now());
  const dialogRef=useRef<HTMLElement|null>(null),firstLoad=useRef(true),savingRef=useRef(false),cancellingRef=useRef(false),confirmingChangeRef=useRef(false);
- useEffect(()=>{const c=new AbortController();async function load(){setLoading(true);try{const[selected,week2,mine]=await Promise.all([fetch(`/api/availability?date=${date}`,{signal:c.signal}).then(r=>r.json()),fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`,{signal:c.signal}).then(r=>r.json()),userPlayerId?fetch("/api/availability?me",{signal:c.signal}).then(r=>r.json()):Promise.resolve({slots:[]})]);if(selected.error)throw Error(selected.error);setMembers(selected.members);setOwn(mine.slots??[]);setCounts(week2.counts??{});setMessage("")}catch(e){if(e instanceof Error&&e.name!=="AbortError")setMessage(e.message)}finally{if(!c.signal.aborted)setLoading(false)}}if(firstLoad.current)firstLoad.current=false;else trackAvailabilityEvent("availability_date_select");void load();return()=>c.abort()},[date,userPlayerId,week]);
+ useEffect(()=>{const c=new AbortController();async function load(){setLoading(true);try{const[selected,summary,mine]=await Promise.all([fetch(`/api/availability?date=${date}`,{signal:c.signal}).then(r=>r.json()),fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`,{signal:c.signal}).then(r=>r.json()),userPlayerId?fetch("/api/availability?me",{signal:c.signal}).then(r=>r.json()):Promise.resolve({slots:[]})]);if(selected.error)throw Error(selected.error);setMembers(selected.members);setCounts(summary.counts??{});setOwn(mine.slots??[]);setMessage("")}catch(e){if(e instanceof Error&&e.name!=="AbortError")setMessage(e.message)}finally{if(!c.signal.aborted)setLoading(false)}}if(firstLoad.current)firstLoad.current=false;else trackAvailabilityEvent("availability_date_select");void load();return()=>c.abort()},[date,userPlayerId,week]);
  useEffect(()=>trackAvailabilityEvent("availability_view"),[]);
  useEffect(()=>{if(!message)return;const timer=window.setTimeout(()=>setMessage(""),4000);return()=>window.clearTimeout(timer)},[message]);
  const refreshFind=async()=>{
-  try{const[selectedDate,week2]=await Promise.all([
-   fetch(`/api/availability?date=${date}`).then(r=>r.json()),
-   fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`).then(r=>r.json())
-  ]);
-  if(!selectedDate.error)setMembers(selectedDate.members??[]);
-  if(!week2.error)setCounts(week2.counts??{});
+  try{const[selectedDate,summary]=await Promise.all([fetch(`/api/availability?date=${date}`).then(r=>r.json()),fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`).then(r=>r.json())]);
+  if(!selectedDate.error)setMembers(selectedDate.members??[]);if(!summary.error)setCounts(summary.counts??{});
   }catch{/* The mutation succeeded; retain the updated own slots if discovery refresh is temporarily unavailable. */}
  };
  const mine=useMemo(()=>{const r=dayRangeHongKong(date);return own.filter(s=>Date.parse(s.startAt)<Date.parse(r.endAt)&&Date.parse(s.endAt)>Date.parse(r.startAt))},[own,date]);
@@ -168,23 +185,18 @@ export default function Availability({userPlayerId,matches}:{userPlayerId?:strin
  const perMember=useMemo(()=>members.map(m=>m.slots as Interval[]),[members]);
  const busiest=useMemo(()=>availabilityPeak(perMember),[perMember]);
  const density=useMemo(()=>availabilityDensity(perMember,date,rosterRange.lo,rosterRange.hi),[perMember,date,rosterRange]);
- const matchInfo=useMemo(()=>{const map=new Map<string,MatchInfo>();if(!userPlayerId)return map;const me=members.find(x=>x.id===userPlayerId),cut=Date.now()-30*864e5;for(const member of members){if(member.id===userPlayerId)continue;const overlaps=intersectIntervals(mine,member.slots),minutes=overlapMinutes(overlaps),recent=matches.filter(m=>m.status==="confirmed"&&Date.parse(`${m.playedOn}T00:00:00+08:00`)>=cut&&((m.a===userPlayerId&&m.b===member.id)||(m.b===userPlayerId&&m.a===member.id))).slice(0,5).length,difference=Math.abs((me?.rating??0)-member.rating),scored=recommendationScore({minutes,eloDifference:(me?.rating??0)-member.rating,recentMatches:recent});map.set(member.id,{overlaps,minutes,recent,difference,score:scored?.score??-1,qualifies:Boolean(scored),chips:[]})}
+ const matchInfo=useMemo(()=>{const map=new Map<string,MatchInfo>();if(!userPlayerId)return map;const me=members.find(x=>x.id===userPlayerId),cut=recommendationNow-30*864e5;for(const member of members){if(member.id===userPlayerId)continue;const overlaps=intersectIntervals(mine,member.slots),minutes=overlapMinutes(overlaps),recent=matches.filter(m=>m.status==="confirmed"&&Date.parse(`${m.playedOn}T00:00:00+08:00`)>=cut&&((m.a===userPlayerId&&m.b===member.id)||(m.b===userPlayerId&&m.a===member.id))).slice(0,5).length,difference=Math.abs((me?.rating??0)-member.rating),scored=recommendationScore({minutes,eloDifference:(me?.rating??0)-member.rating,recentMatches:recent});map.set(member.id,{overlaps,minutes,recent,difference,score:scored?.score??-1,qualifies:Boolean(scored),chips:[]})}
   /* One reason per candidate, strongest first, so the list explains its own order without a legend. */
   const longest=Math.max(0,...[...map.values()].map(x=>x.minutes));
   for(const info of map.values()){if(!info.minutes)continue;if(longest>0&&info.minutes===longest)info.chips.push("時間重疊最長");if(info.difference<50)info.chips.push("ELO 相近");if(info.recent===0)info.chips.push("近期未交手")}
-  return map},[members,matches,mine,userPlayerId]);
+  return map},[members,matches,mine,userPlayerId,recommendationNow]);
  /* Focus is the histogram's output: a one-hour band that every list below is measured against, so
     "who is around at nine" is one press rather than a re-read of the whole roster. */
  const inFocus=useMemo(()=>(x:Interval[])=>!focus||intersectIntervals(x,[focus]).length>0,[focus]);
  const candidates=useMemo(()=>members.filter(m=>m.id!==userPlayerId&&inFocus(m.slots)).map(member=>({member,...(matchInfo.get(member.id)??{overlaps:[],minutes:0,recent:0,difference:0,score:-1,qualifies:false,chips:[]})})),[members,matchInfo,userPlayerId,inFocus]);
- const byStart=(a:{member:Member},b:{member:Member})=>(Date.parse(a.member.slots[0]?.startAt??"")||Infinity)-(Date.parse(b.member.slots[0]?.startAt??"")||Infinity);
- const shortlist=useMemo(()=>candidates.filter(c=>c.minutes>0).sort((a,b)=>sort==="start"?byStart(a,b):b.score-a.score||b.minutes-a.minutes||a.difference-b.difference),[candidates,sort]);
- /* Kept, not hidden: someone free tonight with no overlap is still a person you might message, but
-    they do not belong above the players you can actually meet. */
- const others=useMemo(()=>candidates.filter(c=>c.minutes===0).sort(byStart),[candidates]);
+ const shortlist=useMemo(()=>candidates.filter(c=>c.minutes>0).sort((a,b)=>b.score-a.score||b.minutes-a.minutes||a.difference-b.difference),[candidates]);
  const top=shortlist[0]??null;
- const shown=expanded?shortlist:shortlist.slice(0,ROSTER_LIMIT);
- useEffect(()=>{setExpanded(false);setFocus(null)},[date]);
+ const changeDate=(next:string)=>{setFocus(null);setDate(next)};
  const editor=view==="manage"||view==="create";
  const nav=(v:View)=>{if(v==="create"){trackAvailabilityEvent("availability_composer_open");setSelected(null)}setView(v)};
  const save=async()=>{
@@ -235,29 +247,16 @@ export default function Availability({userPlayerId,matches}:{userPlayerId?:strin
  useEffect(()=>{if(!pending)return;const previous=document.activeElement as HTMLElement|null,dialog=dialogRef.current,focusable=dialog?Array.from(dialog.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')):[];focusable[0]?.focus();function onKey(ev:KeyboardEvent){if(ev.key==="Escape")return setPending(null);if(ev.key==="Tab"&&focusable.length){const first=focusable[0],last=focusable[focusable.length-1];if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus()}else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus()}}}document.addEventListener("keydown",onKey);return()=>{document.removeEventListener("keydown",onKey);previous?.focus()}},[pending]);
  return <section className="availability-page">
 <section className="hero small availability-hero"><div><p className="kicker">MATCHMAKING</p><h1>找對手，約一局</h1><p>公開你的空閒時間，快速找到最合適的球友。</p></div>{userPlayerId&&<button className="primary" onClick={()=>nav("create")}>＋ 新增時段</button>}</section>
-<nav className="availability-tabs" aria-label="配對功能" role="tablist"><button role="tab" aria-selected={view==="find"} className={view==="find"?"active":""} onClick={()=>nav("find")}>找對手</button>{userPlayerId&&<button role="tab" aria-selected={view==="manage"||view==="create"} className={view==="manage"||view==="create"?"active":""} onClick={()=>nav("manage")}>我的時段{own.length>0&&<span>{own.length}</span>}</button>}</nav>
-{view==="find"&&<div className="date-strip-scroll"><div className="date-strip" role="tablist" aria-label="選擇日期">{week.map((d,i)=>{const isToday=i===0,isTomorrow=i===1,narrow=new Intl.DateTimeFormat("zh-HK",{weekday:"narrow",timeZone:"Asia/Hong_Kong"}).format(new Date(`${d}T00:00:00+08:00`)),full=new Intl.DateTimeFormat("zh-HK",{weekday:"short",timeZone:"Asia/Hong_Kong"}).format(new Date(`${d}T00:00:00+08:00`)),n=counts[d];return <button key={d} role="tab" aria-selected={d===date} aria-current={d===date?"date":undefined} className={d===date?"active":""} onClick={()=>setDate(d)}><small>{isToday?"今天":isTomorrow?"明天":full}</small><em>{d.slice(5,7)}/{d.slice(8,10)}（{narrow}）</em><strong>{n??"–"} 位</strong></button>})}</div></div>}
+<nav className="availability-tabs" aria-label="配對功能" role="tablist"><button role="tab" aria-selected={view==="find"} className={view==="find"?"active":""} onClick={()=>nav("find")}><span className="availability-tab-label">尋找對手</span></button>{userPlayerId&&<button role="tab" aria-selected={view==="manage"||view==="create"} className={view==="manage"||view==="create"?"active":""} onClick={()=>nav("manage")}><span className="availability-tab-label">我的時段</span>{own.length>0&&<span className="availability-tab-count">{own.length}</span>}</button>}</nav>
+{view==="find"&&<DateScroller dates={week} selected={date} counts={counts} onSelect={changeDate}/>}
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
 {view==="find"&&<>
 <header className="availability-day-head"><div><p>{fullDay(date)}</p><h2>{members.length?`${members.length} 位球員有空`:"暫時未有人有空"}</h2></div>
  {userPlayerId&&<button className="more" onClick={()=>nav("manage")}>{mine.length?`我的時段 ${mine.map(range).join("、")}`:"未設定我的時段"}</button>}</header>
 {loading?<div className="availability-skeleton" aria-hidden="true"/>:<div className="find-stack">
- <MatchHero top={top} mine={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi} userPlayerId={userPlayerId} members={members.length} focus={focus} onManage={nav}/>
  {members.length>0&&<DensityChart buckets={density} best={busiest} lo={rosterRange.lo} hi={rosterRange.hi} focus={focus} onFocus={setFocus}/>}
- {members.length>0&&<section className="availability-card candidate-card">
-  <header className="candidate-head"><div><h3>{mine.length?"可以一起打的球員":"這天有空的球員"}<span>{mine.length?shortlist.length:candidates.length}</span></h3>
-   <small>{focus?`只顯示 ${time(focus.startAt)}–${time(focus.endAt)} 有空的人`:mine.length?"按重疊時間排序":"按開始時間排序"}</small></div>
-   {userPlayerId&&mine.length>0&&shortlist.length>1&&<div className="sort-toggle" role="radiogroup" aria-label="排序方式"><button role="radio" aria-checked={sort==="fit"} className={sort==="fit"?"active":""} onClick={()=>setSort("fit")}>最佳配對</button><button role="radio" aria-checked={sort==="start"} className={sort==="start"?"active":""} onClick={()=>setSort("start")}>最早開始</button></div>}</header>
-  <div className="timeline-scale" aria-hidden="true"><span/><div className="timeline-scale-track timeline-scale-desktop">{scaleLabels(rosterRange.lo,rosterRange.hi).map(l=><span key={l}>{l}</span>)}</div><div className="timeline-scale-track timeline-scale-mobile">{mobileScaleLabels(rosterRange.lo,rosterRange.hi).map(l=><span key={l}>{l}</span>)}</div></div>
-  {mine.length>0&&<article className="candidate is-me" aria-label={`我的時段 ${mine.map(range).join("、")}`}><b className="candidate-rank" aria-hidden="true">你</b><div className="candidate-who" aria-hidden="true"><b>我的時段</b></div><div className="candidate-track" aria-hidden="true"><span className="track-time">{mine[0]?time(mine[0].startAt):""}</span><Timeline slots={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi}/><span className="track-time">{mine.at(-1)?time(mine.at(-1)!.endAt):""}</span></div><div className="candidate-fit" aria-hidden="true"><b>{shortDurationLabel(overlapMinutes(mine))}</b></div></article>}
-  <div className="candidate-list">
-   {shown.map((c,i)=><CandidateRow key={c.member.id} member={c.member} info={c} date={date} lo={rosterRange.lo} hi={rosterRange.hi} compare rank={sort==="fit"&&mine.length?i+1:undefined}/>)}
-   {!mine.length&&candidates.map(c=><CandidateRow key={c.member.id} member={c.member} info={c} date={date} lo={rosterRange.lo} hi={rosterRange.hi} compare={false}/>)}
-   {mine.length>0&&!shortlist.length&&<p className="candidate-empty">{focus?"這個時段沒有人與你重疊。":"這天沒有人與你的時間重疊。"}</p>}
-   {shortlist.length>ROSTER_LIMIT&&<button className="candidate-more" onClick={()=>setExpanded(v=>!v)}>{expanded?"收起":`顯示其餘 ${shortlist.length-ROSTER_LIMIT} 位可配對球員`}</button>}
-  </div>
-  {mine.length>0&&others.length>0&&<details className="candidate-others"><summary>其他 {others.length} 位有空但與你無重疊的球員</summary><div className="candidate-list">{others.map(c=><CandidateRow key={c.member.id} member={c.member} info={c} date={date} lo={rosterRange.lo} hi={rosterRange.hi} compare/>)}</div></details>}
-  <div className="timeline-legend">{mine.length>0&&<span><i className="legend-overlap"/>共同有空</span>}<span><i className="legend-slot"/>{mine.length?"對方有空":"有空時段"}</span></div></section>}
+ {members.length>0&&<AvailabilityGrid members={members} mine={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi} userPlayerId={userPlayerId} focus={focus} onFocus={setFocus}/>}
+ <MatchHero top={top} mine={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi} userPlayerId={userPlayerId} members={members.length} focus={focus} onManage={nav}/>
 </div>}</>}
 {/* One screen, one gesture: the board is the list, the editor and the composer at once. Nothing here
     navigates away, so a member can paint three evenings and publish them in a single pass. */}
@@ -280,7 +279,7 @@ export default function Availability({userPlayerId,matches}:{userPlayerId?:strin
  </section>}
  {draft.length>0&&<div className="draft-bar" role="status"><div><b>{draft.length} 個未發佈時段</b><span>{draft.map(x=>`${dayLabel(hkDate(new Date(x.startAt)))} ${range(x)}`).join("、")}</span></div>
   <div><button className="secondary" disabled={saving} onClick={()=>{setDraft([]);setSelected(null)}}>清除</button><button className="primary publish-button" disabled={saving} aria-busy={saving} onClick={()=>void save()}>{saving&&<i className="button-spinner" aria-hidden="true"/>}<span>{saving?"發佈中…":"發佈"}</span></button></div></div>}
- <details className="board-precise"><summary>用選單精確加入時段</summary><SlotComposer dates={week} initialDate={date} onSave={x=>{setDraft(a=>mergeIntervals([...a,x]));setMessage("");trackAvailabilityEvent("availability_slot_draft_add")}}/></details>
+ <details className="board-precise"><summary>用選單精確加入時段</summary><SlotComposer initialDate={date} onSave={x=>{setDraft(a=>mergeIntervals([...a,x]));setMessage("");trackAvailabilityEvent("availability_slot_draft_add")}}/></details>
 </section>}
 {pending&&<div className="availability-dialog-backdrop" onMouseDown={()=>setPending(null)}><section className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby="cancel-title" ref={dialogRef as never} onMouseDown={e=>e.stopPropagation()}><small>取消可配對時段</small><h2 id="cancel-title">{dayLabel(hkDate(new Date(pending.startAt)))} {range(pending)}</h2><p>取消後，這段時間不會再出現在其他球員的配對結果中。</p><div><button className="secondary" disabled={cancelling} onClick={()=>setPending(null)}>保留時段</button><button className="danger cancel-button" disabled={cancelling} aria-busy={cancelling} onClick={()=>void cancel()}>{cancelling&&<i className="button-spinner" aria-hidden="true"/>}<span>{cancelling?"取消中…":"確認取消"}</span></button></div></section></div>}
 </section>}
