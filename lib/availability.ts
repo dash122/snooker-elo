@@ -120,7 +120,7 @@ export function availabilityPeak(perMember:Interval[][]) {
 }
 
 /** Member counts per fixed-width bucket between `lo` and `hi` hours from the start of `date`. */
-export function availabilityDensity(perMember:Interval[][],date:string,lo:number,hi:number,stepMinutes=15) {
+export function availabilityDensity(perMember:Interval[][],date:string,lo:number,hi:number,stepMinutes=30) {
   const anchor=Date.parse(dayRangeHongKong(date).startAt),step=stepMinutes*minute;
   const merged=perMember.map(slots=>mergeIntervals(slots));
   const buckets:{at:string;count:number}[]=[];
