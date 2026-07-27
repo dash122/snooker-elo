@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     title: "Snooker ELO",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
   },
 };
 
