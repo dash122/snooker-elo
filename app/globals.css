@@ -1908,6 +1908,13 @@ img.member-avatar{object-fit:cover}
     backdrop-filter:blur(28px) saturate(190%);
     box-shadow:0 -2px 12px rgba(5,35,31,.06);
     overflow:visible;
+    /* iOS home-screen web apps (manifest display:standalone) render fixed
+       elements on a different compositing path than a normal Safari tab;
+       without their own layer, position:fixed can detach mid inertial-scroll
+       and appear to "stick" wherever the scroll happened to be. Forcing a
+       no-op 3D transform pins it to its own layer so it stays fixed. */
+    transform:translateZ(0);
+    -webkit-transform:translateZ(0);
   }
   /* Safari and Firefox without backdrop-filter would render near-transparent
      chrome over scrolling content, so those fall back to a solid bar. */
