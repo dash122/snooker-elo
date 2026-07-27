@@ -9,6 +9,9 @@ function getSql() {
   if (!sqlClient) {
     const url = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
     if (!url) throw new Error("No Postgres connection string found. Set POSTGRES_URL.");
+    // Session-level GUCs (statement_timeout etc.) don't survive Supabase's
+    // transaction-mode pooler, so those are set per-transaction with SET LOCAL
+    // instead — see ensureStateSchema, putState, deleteState.
     sqlClient = postgres(url, { ssl: "require", prepare: false });
   }
   return sqlClient;
@@ -18,12 +21,18 @@ let schemaReady: Promise<unknown> | null = null;
 function ensureStateSchema() {
   schemaReady ??= (async () => {
     const sql = getSql();
-    await sql`CREATE TABLE IF NOT EXISTS app_state_snapshots (id bigserial PRIMARY KEY, state jsonb NOT NULL, saved_at timestamptz NOT NULL DEFAULT now())`;
-    await sql`CREATE TABLE IF NOT EXISTS state_settings (id boolean PRIMARY KEY DEFAULT true CHECK (id), data jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())`;
-    await sql`CREATE TABLE IF NOT EXISTS state_audits (id text PRIMARY KEY, text text NOT NULL, occurred_at timestamptz NOT NULL)`;
-    // Added after the first release — existing deployments get it here rather
-    // than depending on a migration having been run by hand.
-    await sql`ALTER TABLE state_players ADD COLUMN IF NOT EXISTS avatar text`;
+    // Run as one transaction with a short lock_timeout: if another session is
+    // holding a lock on these tables, fail fast and retry later (schemaReady
+    // resets on error below) instead of queueing behind it for a minute-plus.
+    await sql.begin(async tx => {
+      await tx`SET LOCAL lock_timeout = '5s'`;
+      await tx`CREATE TABLE IF NOT EXISTS app_state_snapshots (id bigserial PRIMARY KEY, state jsonb NOT NULL, saved_at timestamptz NOT NULL DEFAULT now())`;
+      await tx`CREATE TABLE IF NOT EXISTS state_settings (id boolean PRIMARY KEY DEFAULT true CHECK (id), data jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())`;
+      await tx`CREATE TABLE IF NOT EXISTS state_audits (id text PRIMARY KEY, text text NOT NULL, occurred_at timestamptz NOT NULL)`;
+      // Added after the first release — existing deployments get it here rather
+      // than depending on a migration having been run by hand.
+      await tx`ALTER TABLE state_players ADD COLUMN IF NOT EXISTS avatar text`;
+    });
   })().catch(error => { schemaReady = null; throw error; });
   return schemaReady;
 }
@@ -46,6 +55,10 @@ export async function putState(data: string) {
   const state = JSON.parse(data) as State;
   const sql = getSql();
   await sql.begin(async tx => {
+    // If the client connection drops mid-transaction, this bounds how long the
+    // orphaned session sits idle holding locks before Postgres kills it itself
+    // — previously it could sit for 10+ minutes, queueing up every other write.
+    await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
     await tx`INSERT INTO app_state_snapshots (state) VALUES (${tx.json(state as any)})`;
     await tx`INSERT INTO state_settings (id, data, updated_at) VALUES (true, ${tx.json(state.settings as any)}, now()) ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`;
     const playerIds = new Set(state.players.map(p => p.id));
@@ -64,5 +77,8 @@ export async function putState(data: string) {
 
 export async function deleteState() {
   await ensureStateSchema(); const sql = getSql();
-  await sql.begin(async tx => { await tx`DELETE FROM state_audits`; await tx`DELETE FROM state_matches`; await tx`DELETE FROM state_players`; await tx`DELETE FROM state_settings`; });
+  await sql.begin(async tx => {
+    await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
+    await tx`DELETE FROM state_audits`; await tx`DELETE FROM state_matches`; await tx`DELETE FROM state_players`; await tx`DELETE FROM state_settings`;
+  });
 }

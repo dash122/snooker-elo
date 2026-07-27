@@ -65,9 +65,11 @@ export default function AuthExperience({
             <p className="form-error" role="alert">
               {error === "exists"
                 ? "此電郵或使用者名稱已被使用。"
-                : signup
-                  ? "請檢查資料；密碼需至少 6 個字元。"
-                  : "使用者名稱或密碼不正確。"}
+                : error === "error"
+                  ? "系統發生錯誤，請稍後再試。"
+                  : signup
+                    ? "請檢查資料；密碼需至少 6 個字元。"
+                    : "使用者名稱或密碼不正確。"}
             </p>
           )}
           <form

@@ -45,28 +45,32 @@ export async function signUpMember(input: {
   };
 
   const firstAccount = !(await hasMembers());
-  await createMember(
-    input.username,
-    input.email,
-    input.displayName,
-    input.password,
-    firstAccount ? "admin" : "member",
-    playerId,
-  );
+
+  // The player row must exist before the member row, since members.state_player_id
+  // has a foreign-key constraint against the players table.
+  await putState(JSON.stringify({
+    ...state,
+    players: [...(state.players ?? []), player],
+    matches: state.matches ?? [],
+    audits: [
+      { id: crypto.randomUUID(), text: `會員註冊並建立球員：${player.name}`, at: now },
+      ...(state.audits ?? []),
+    ],
+  }));
 
   try {
-    await putState(JSON.stringify({
-      ...state,
-      players: [...(state.players ?? []), player],
-      matches: state.matches ?? [],
-      audits: [
-        { id: crypto.randomUUID(), text: `會員註冊並建立球員：${player.name}`, at: now },
-        ...(state.audits ?? []),
-      ],
-    }));
+    await createMember(
+      input.username,
+      input.email,
+      input.displayName,
+      input.password,
+      firstAccount ? "admin" : "member",
+      playerId,
+    );
   } catch (error) {
-    // Account creation succeeded but shared-state persistence failed. Surface the
-    // failure rather than issuing a session for a profile that is not yet usable.
+    // Member creation failed (e.g. duplicate username/email) after the player
+    // row was already written — remove it so signup can be retried cleanly.
+    await putState(JSON.stringify({ ...state, players: state.players ?? [], matches: state.matches ?? [] })).catch(() => {});
     throw error;
   }
 

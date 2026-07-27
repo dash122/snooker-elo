@@ -17,6 +17,8 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("registration error:", error);
-    return Response.redirect(new URL("/login?mode=signup&error=exists", request.url), 303);
+    const code = (error as { code?: string } | null)?.code;
+    const reason = code === "23505" ? "exists" : "error";
+    return Response.redirect(new URL(`/login?mode=signup&error=${reason}`, request.url), 303);
   }
 }

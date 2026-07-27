@@ -15,7 +15,9 @@ function getSql() {
       );
     }
     // Supabase's pooled connection runs pgbouncer in transaction mode, which
-    // doesn't support named prepared statements — disable them.
+    // doesn't support named prepared statements — disable them. Session-level
+    // GUCs (statement_timeout etc.) also don't survive this pooler, so those
+    // are set per-transaction with SET LOCAL instead — see ensureAuthSchema.
     sqlClient = postgres(url, { ssl: "require", prepare: false });
   }
   return sqlClient;
@@ -25,35 +27,41 @@ let schemaReady: Promise<unknown> | null = null;
 function ensureAuthSchema() {
   schemaReady ??= (async () => {
     const sql = getSql();
-    await sql`
-      CREATE TABLE IF NOT EXISTS members (
-        email TEXT PRIMARY KEY NOT NULL,
-        username TEXT NOT NULL UNIQUE,
-        state_player_id TEXT UNIQUE,
-        display_name TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'member',
-        password_hash TEXT NOT NULL,
-        password_salt TEXT NOT NULL,
-        active BOOLEAN NOT NULL DEFAULT true,
-        joined_at TEXT NOT NULL,
-        last_seen_at TEXT NOT NULL
-      )
-    `;
-    await sql`
-      CREATE TABLE IF NOT EXISTS sessions (
-        token_hash TEXT PRIMARY KEY NOT NULL,
-        member_email TEXT NOT NULL,
-        expires_at TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      )
-    `;
-    // Added after the first release — existing deployments get them here.
-    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS avatar TEXT`;
-    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS deactivated_at TEXT`;
-    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS initials TEXT`;
-    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS icon_colour TEXT`;
-    await sql`CREATE INDEX IF NOT EXISTS sessions_member_email_idx ON sessions (member_email)`;
-    await sql`CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions (expires_at)`;
+    // Run as one transaction with a short lock_timeout: if another session is
+    // holding a lock on these tables, fail fast and retry later (schemaReady
+    // resets on error below) instead of queueing behind it for a minute-plus.
+    await sql.begin(async tx => {
+      await tx`SET LOCAL lock_timeout = '5s'`;
+      await tx`
+        CREATE TABLE IF NOT EXISTS members (
+          email TEXT PRIMARY KEY NOT NULL,
+          username TEXT NOT NULL UNIQUE,
+          state_player_id TEXT UNIQUE,
+          display_name TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'member',
+          password_hash TEXT NOT NULL,
+          password_salt TEXT NOT NULL,
+          active BOOLEAN NOT NULL DEFAULT true,
+          joined_at TEXT NOT NULL,
+          last_seen_at TEXT NOT NULL
+        )
+      `;
+      await tx`
+        CREATE TABLE IF NOT EXISTS sessions (
+          token_hash TEXT PRIMARY KEY NOT NULL,
+          member_email TEXT NOT NULL,
+          expires_at TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      `;
+      // Added after the first release — existing deployments get them here.
+      await tx`ALTER TABLE members ADD COLUMN IF NOT EXISTS avatar TEXT`;
+      await tx`ALTER TABLE members ADD COLUMN IF NOT EXISTS deactivated_at TEXT`;
+      await tx`ALTER TABLE members ADD COLUMN IF NOT EXISTS initials TEXT`;
+      await tx`ALTER TABLE members ADD COLUMN IF NOT EXISTS icon_colour TEXT`;
+      await tx`CREATE INDEX IF NOT EXISTS sessions_member_email_idx ON sessions (member_email)`;
+      await tx`CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions (expires_at)`;
+    });
   })().catch(error => {
     schemaReady = null;
     throw error;
@@ -212,6 +220,7 @@ export async function syncMemberPlayerProfiles(players: { id: string; name: stri
   await ensureAuthSchema();
   const sql = getSql();
   await sql.begin(async tx => {
+    await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
     for (const player of players) await tx`UPDATE members SET display_name = ${player.name}, initials = ${player.short}, icon_colour = ${player.colour ?? null} WHERE state_player_id = ${player.id}`;
   });
 }
