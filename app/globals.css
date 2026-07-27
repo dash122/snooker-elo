@@ -80,7 +80,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}
 
 /* Player-detail performance story */
-.recent-match-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.recent-result{min-width:0;padding:11px;border:1px solid var(--line);border-radius:13px;background:#fafbf8;color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.recent-result:hover{transform:translateY(-2px);border-color:#a9c4b5;box-shadow:0 7px 16px rgba(18,61,55,.09)}.recent-result:active{transform:translateY(0)}.recent-result.w{background:#f0f7f2;border-color:#cfe3d5}.recent-result.l{background:#fff5f3;border-color:#eed5d1}.recent-result.d{background:#f5f4ef}.recent-result>div{display:flex;align-items:center;justify-content:space-between}.recent-result>div b{display:grid;place-items:center;width:25px;height:25px;border-radius:8px;background:#dceee4;color:#1f7353;font-size:11px}.recent-result.l>div b{background:#f3ded9;color:#a44a43}.recent-result.d>div b{background:#e6e4dc;color:#626b67}.recent-result time{font-size:9px;color:var(--muted)}.recent-result>strong{display:block;margin:10px 0 8px;font-size:19px;line-height:1;font-variant-numeric:tabular-nums}.recent-result>span{display:flex;align-items:center;min-width:0;gap:5px;font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.recent-result>span i{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#e5ece7;color:var(--green);font-size:8px;font-style:normal}.recent-result>small{display:block;margin-top:6px;font-size:9px;font-weight:800}.recent-form-empty{padding:18px;border:1px dashed var(--line);border-radius:13px;color:var(--muted);font-size:12px;text-align:center}
+.recent-match-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.recent-result{min-width:0;padding:11px;border:1px solid var(--line);border-radius:13px;background:#fafbf8;color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.recent-result:active{transform:translateY(0)}.recent-result.w{background:#f0f7f2;border-color:#cfe3d5}.recent-result.l{background:#fff5f3;border-color:#eed5d1}.recent-result.d{background:#f5f4ef}.recent-result>div{display:flex;align-items:center;justify-content:space-between}.recent-result>div b{display:grid;place-items:center;width:25px;height:25px;border-radius:8px;background:#dceee4;color:#1f7353;font-size:11px}.recent-result.l>div b{background:#f3ded9;color:#a44a43}.recent-result.d>div b{background:#e6e4dc;color:#626b67}.recent-result time{font-size:9px;color:var(--muted)}.recent-result>strong{display:block;margin:10px 0 8px;font-size:19px;line-height:1;font-variant-numeric:tabular-nums}.recent-result>span{display:flex;align-items:center;min-width:0;gap:5px;font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.recent-result>span i{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#e5ece7;color:var(--green);font-size:8px;font-style:normal}.recent-result>small{display:block;margin-top:6px;font-size:9px;font-weight:800}.recent-form-empty{padding:18px;border:1px dashed var(--line);border-radius:13px;color:var(--muted);font-size:12px;text-align:center}
 .recent-form-action{display:flex;align-items:center;justify-content:flex-end;gap:.55rem;width:max-content;min-height:44px;margin:.65rem 0 0 auto;padding:.4rem .15rem .4rem .65rem;border:0;border-radius:10px;background:transparent;color:var(--green);font-size:var(--fs-sm);font-weight:800;transition:color .18s ease,background .18s ease}.recent-form-action i{display:grid;flex:none;width:26px;height:26px;place-items:center;border-radius:50%;background:#e3eee7;color:var(--green);font-size:14px;font-style:normal;line-height:1;transition:transform .18s ease,background .18s ease,color .18s ease}.recent-form-action:hover{background:#f0f5f1;color:var(--deep)}.recent-form-action:hover i{transform:translateX(2px);background:var(--green);color:white}.recent-form-action:active{background:#e7efe9}
 .trend-overview{display:flex;align-items:end;justify-content:space-between;margin-top:17px}.trend-overview small,.trend-overview b{display:block}.trend-overview small{font-size:10px;color:var(--muted)}.trend-overview b{font-size:20px;line-height:1.2}.trend-overview b em{font-size:9px;font-style:normal;color:var(--muted)}.trend-plot{position:relative;height:230px;margin-top:8px}.trend-plot>svg{display:block;width:100%;height:100%;overflow:visible}.trend-grid{stroke:#d8dfda;stroke-width:.55;stroke-dasharray:2 2;vector-effect:non-scaling-stroke}.trend-area{fill:url(#elo-area)}.trend-line{fill:none;stroke:#1d6a5e;stroke-width:2.5;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}.trend-guide{stroke:#a8b5af;stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}.trend-point{position:absolute;z-index:2;width:13px;height:13px;padding:0;border:3px solid white;border-radius:50%;background:var(--gold);box-shadow:0 1px 5px rgba(0,0,0,.22);transform:translate(-50%,-50%);transition:width .15s,height .15s,box-shadow .15s}.trend-point.w{background:#2d8a68}.trend-point.l{background:#c8665d}.trend-point.d,.trend-point.start{background:#9a9f99}.trend-point:hover,.trend-point:focus-visible,.trend-point.active{width:18px;height:18px;outline:0;box-shadow:0 0 0 4px rgba(213,169,77,.25),0 3px 9px rgba(0,0,0,.25)}.trend-tooltip{position:absolute;z-index:5;min-width:172px;padding:10px 12px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:#092f2a;color:white;box-shadow:0 13px 30px rgba(8,44,39,.25);pointer-events:none;transform:translate(-50%,-100%) translateY(-13px)}.trend-tooltip.align-left{transform:translate(0,-100%) translateY(-13px)}.trend-tooltip.align-right{transform:translate(-100%,-100%) translateY(-13px)}.trend-tooltip small,.trend-tooltip b,.trend-tooltip span{display:block}.trend-tooltip small{font-size:9px;color:#a9c5bd}.trend-tooltip b{margin:2px 0;font-size:12px}.trend-tooltip span{font-size:11px;color:#dceae6}.trend-tooltip strong{margin-left:5px}.trend-scale{display:none}.trend-help{margin:7px 0 0;font-size:10px;color:var(--muted);text-align:center}
 @media(max-width:680px){.recent-match-grid{display:flex;overflow-x:auto;margin-inline:-20px;padding:0 20px 5px;scroll-snap-type:x proximity;scrollbar-width:none}.recent-match-grid::-webkit-scrollbar{display:none}.recent-result{flex:0 0 118px;scroll-snap-align:start}.trend-plot{height:190px}.trend-tooltip{min-width:155px}.trend-overview{align-items:center}.trend-overview .mini-toggle button{padding-inline:8px}}
@@ -2253,7 +2253,7 @@ button.availability-grid-player:hover b{text-decoration:underline}
 .profile-head>i,.profile-head>.player-badge{width:3.75rem;height:3.75rem;border-radius:1.125rem;font-size:var(--fs-body);
   box-shadow:0 0 0 1px rgba(255,255,255,.22),0 6px 16px rgba(0,0,0,.25)}
 .profile-identity{min-width:0}
-.profile-head h2{margin:0;color:#fff;font-size:var(--fs-h2);letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis}
+.profile-head h2{margin:0;color:#fff;font-size:1.75rem;line-height:1.15;font-weight:800;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .profile-chips{display:flex;flex-wrap:wrap;gap:.375rem;margin-top:.5rem}
 .profile-chip{padding:.25rem .5rem;border-radius:999px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.16);
   color:#cfe3dc;font-size:var(--fs-label);font-weight:800;white-space:nowrap}
@@ -2283,6 +2283,10 @@ button.availability-grid-player:hover b{text-decoration:underline}
   color:var(--gold);font-variant-numeric:tabular-nums}
 
 /* --- Stat blocks: hairline cells, tinted primary ------------------------ */
+/* Three cells, not four: the ELO cell that used to lead this row now lives in the hero above, so
+   `.profile-stats` no longer shares the grid tile's four-column count — it stays three-wide even on
+   the narrowest phones instead of wrapping to a 2+1 layout. */
+.profile-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 .profile-stats,.rating-compare{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin:0;
   border:1px solid var(--line);border-radius:var(--radius-md);background:var(--line);overflow:hidden}
 .profile-stats>div,.rating-compare>span{min-width:0;padding:.75rem .875rem;background:#fff}
@@ -2309,26 +2313,22 @@ button.availability-grid-player:hover b{text-decoration:underline}
 /* Slot labels sit in chips beside the track rather than inside the bar: a
    one-hour slot is only a few pixels wide, and the old in-bar label spilled
    over its neighbours at every width. */
-.profile-slots{--slot-label:4.5rem;--slot-gap:.625rem}
 .profile-slots-count{color:var(--muted);font-size:var(--fs-caption);font-weight:700;white-space:nowrap}
 .profile-slots-empty{margin:0;color:var(--muted);font-size:var(--fs-caption)}
-.slot-viz-axis{position:relative;height:.875rem;margin-left:calc(var(--slot-label) + var(--slot-gap));
-  color:var(--muted);font-size:var(--fs-label);font-weight:700}
-.slot-viz-axis span{position:absolute;transform:translateX(-50%);white-space:nowrap}
-.slot-viz-axis span:first-child{transform:none}
-.slot-viz-axis span:last-child{transform:translateX(-100%)}
 .slot-viz-list{display:grid;gap:.5rem;margin:.375rem 0 0;padding:0;list-style:none}
-.slot-day{display:grid;grid-template-columns:var(--slot-label) minmax(0,1fr);align-items:start;gap:var(--slot-gap);
-  padding:.5rem .625rem;border:1px solid #e6ece7;border-radius:var(--radius-sm);background:#fff}
-.slot-day-name{min-width:0}
-.slot-day-name>b{display:block;color:#1c6b52;font-size:var(--fs-sm);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.slot-day-name>small{display:block;margin-top:.0625rem;color:var(--muted);font-size:var(--fs-label);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.slot-day-body{min-width:0}
-.slot-viz-track{position:relative;height:1.5rem;border-radius:.5rem;background:#eef4f0;box-shadow:inset 0 0 0 1px rgba(23,121,90,.06);overflow:hidden}
-.slot-viz-bar{position:absolute;inset-block:.1875rem;min-width:.375rem;border-radius:.375rem;
-  background:linear-gradient(180deg,#5fb894,#2f8c6b);box-shadow:inset 0 0 0 1px rgba(12,74,56,.16)}
-.slot-chips{display:flex;flex-wrap:wrap;gap:.3125rem;margin-top:.375rem}
-.slot-chips>span{padding:.1875rem .4375rem;border-radius:.5rem;background:#e6f2ea;color:#1c6b52;
+/* A flat mint row with white-filled chips put two low-saturation surfaces so close in tone that the
+   chips barely registered as separate objects. The row now stays a quiet, barely-tinted neutral —
+   just enough to separate it from the section's own background — and the chips carry the colour
+   instead, so there's one clear step from row to chip to the solid-green today/tomorrow pill,
+   rather than three surfaces competing at the same intensity. */
+.slot-day{display:grid;grid-template-columns:5.25rem minmax(0,1fr);align-items:center;gap:.625rem;
+  padding:.5rem .625rem;border:1px solid #e3e8e3;border-radius:var(--radius-sm);background:#f5f8f6}
+.slot-day-name{display:flex;flex-direction:column;gap:.125rem;min-width:0}
+.slot-day-badge{display:inline-block;width:fit-content;max-width:100%;padding:.1875rem .5rem;border-radius:.5rem;
+  background:var(--green);color:#fff;font-size:var(--fs-label);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot-day-name>small{display:block;color:var(--muted);font-size:var(--fs-label);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot-chips{display:flex;flex-wrap:wrap;gap:.3125rem;min-width:0}
+.slot-chips>span{padding:.1875rem .4375rem;border:1px solid #c3ddca;border-radius:.5rem;background:#dcefe3;color:#175a41;
   font-size:var(--fs-label);font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
 .slot-more{display:block;width:100%;min-height:var(--control-md);margin-top:.625rem;padding:0 .75rem;
   border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;color:var(--green);
@@ -2356,25 +2356,58 @@ button.availability-grid-player:hover b{text-decoration:underline}
 
 /* --- Narrow screens ----------------------------------------------------- */
 /* Everything below exists to keep the sheet from scrolling sideways: the
-   bleed on the recent-match scroller must match the section padding exactly,
-   and the hero's ELO needs its own row rather than a third column. */
+   bleed on the recent-match scroller must match the section padding exactly.
+   The hero stays on its one row here too — avatar, name, ELO — just at
+   smaller sizes, rather than dropping the ELO to a second row and costing
+   the card extra height. */
 @media(max-width:680px){
-  .profile-head{grid-template-columns:auto minmax(0,1fr);gap:.75rem;padding:1.125rem}
-  .profile-head>i,.profile-head>.player-badge{width:3rem;height:3rem;border-radius:.875rem}
-  .profile-head h2{font-size:1.3125rem}
-  .profile-hero-elo{grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;gap:.75rem;
-    text-align:left;margin-top:.25rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,.16)}
-  .profile-hero-elo>b{margin-top:0;font-size:2.25rem}
+  .profile-head{gap:.625rem;padding:1rem}
+  .profile-head>i,.profile-head>.player-badge{width:2.75rem;height:2.75rem;border-radius:.75rem}
+  .profile-head h2{font-size:1.5rem}
+  .profile-hero-elo>small{font-size:.625rem}
+  .profile-hero-elo>b{font-size:1.875rem}
   .profile-section{padding:1rem}
   .profile-section-head{margin-bottom:.875rem}
   .profile-stats,.rating-compare{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .profile-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important}
   .break-stats .profile-section-head>b{font-size:1.75rem}
   .recent-match-grid{margin-inline:-1rem;padding-inline:1rem;scroll-padding-left:1rem}
   .interactive-detail{margin-inline:0;padding:1rem}
-  /* Day name above the track: 4.5rem of label plus a track is too tight here. */
-  .slot-viz-axis{margin-left:0}
-  .slot-viz-axis span:nth-child(2),.slot-viz-axis span:nth-child(4){display:none}
+}
+
+/* --- Follow-ups --------------------------------------------------------- */
+/* The recent-match scroller clips on the y axis (overflow-x:auto implies it),
+   so hover states here change colour and shadow only — never position. */
+.recent-match-grid{padding-block:.25rem}
+/* Narrow phones: the 5.25rem day label plus wrapping chips is tighter than the
+   row can hold, so the times drop under the day. */
+@media(max-width:400px){
   .slot-day{grid-template-columns:minmax(0,1fr);gap:.375rem}
   .slot-day-name{display:flex;align-items:baseline;gap:.375rem}
   .slot-day-name>small{margin-top:0}
 }
+
+/* --- Sheet close button -------------------------------------------------- */
+/* `position:absolute` pinned the button to the sheet's own top edge, which is
+   fine until the sheet scrolls — `.sheet` is the scroll container, so an
+   absolutely-positioned child scrolls away with everything else instead of
+   staying reachable. `position:sticky` keeps it docked to the top of the
+   viewport-visible area of that same scroll box for the whole scroll, while
+   `margin-left:auto` on a block-level box right-aligns it without floats (so
+   it doesn't disturb the hero's text flow). It sits in normal flow ahead of
+   the hero, reserving its own row, rather than overlapping the baize panel.
+
+   Width/height are `!important` because a same-specificity `.close{}` rule
+   earlier in the cascade was winning the height half the time (44px tall,
+   36px wide — an oval, not a circle); forcing both here removes any ordering
+   dependency on where this block sits in the file. */
+.close{position:sticky;top:1rem;z-index:5;display:grid;place-items:center;
+  width:2.25rem!important;height:2.25rem!important;min-height:0!important;
+  margin:0 0 .75rem auto;border:1px solid var(--line);border-radius:50%;
+  background:var(--paper);color:var(--muted);font-size:1.375rem;line-height:1;
+  box-shadow:0 2px 8px rgba(18,61,55,.14);
+  transition:background .18s ease,color .18s ease,transform .18s ease}
+.close:after{content:"";position:absolute;inset:-.25rem} /* 44px tap target, 36px circle */
+.close:hover{background:#fff;color:var(--ink)}
+.close:active{transform:scale(.94)}
+@media(max-width:680px){.close{top:.75rem;margin-bottom:.5rem}}
