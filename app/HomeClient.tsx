@@ -759,10 +759,12 @@ function MatchCard({match:m,canManage,name,onEdit,onVoid,highlighted=false}:{mat
     })
     .filter((entry):entry is {playerId:string;value:number}=>entry!=null);
   return <article ref={card} className={`match ${m.status}${highlighted?" just-saved":""}`}>
-    <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time>{highlighted&&<span className="pill just-saved-pill">剛剛記錄</span>}{m.status==="void"&&<span className="pill">已作廢</span>}{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
+    <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time>
+      <small className="match-net-elo" aria-label={`本場 ELO 影響 ${Math.round(Math.abs(m.deltaA))}`}>ELO {Math.round(Math.abs(m.deltaA))}</small>
+      {highlighted&&<span className="pill just-saved-pill">剛剛記錄</span>}{m.status==="void"&&<span className="pill">已作廢</span>}{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
       {canManage&&<span className="card-tools"><button className="card-tool" aria-label={`編輯 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onEdit(m)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onVoid(m)}>✕</button></span>}</div>
     <Scoreline left={name(m.a)} right={name(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}
-      eloLeft={{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={{before:m.beforeB,after:m.afterB,delta:-m.deltaA}} netChange={m.deltaA}/>
+      eloLeft={{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={{before:m.beforeB,after:m.afterB,delta:-m.deltaA}}/>
     <button type="button" className="match-summary-row" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
       {!!topBreaks.length&&<span className="match-net-breaks">★ {topBreaks.map((item,index)=><Fragment key={item.playerId}>{index>0&&"、"}{name(item.playerId)} 單桿 {item.value}</Fragment>)}</span>}
       <span className="match-expand-toggle">{open?"收起":"詳情"} <i aria-hidden="true">{open?"︿":"﹀"}</i></span>

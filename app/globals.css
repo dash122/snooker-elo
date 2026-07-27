@@ -465,7 +465,7 @@ h1,h2,h3{line-height:1.2;letter-spacing:-.02em}
    by weight and colour together (never colour alone) with the loser receding.
    =========================================================================== */
 .scoreline{display:grid;grid-template-columns:minmax(0,1fr) auto .75rem auto minmax(0,1fr);align-items:center;gap:.625rem;margin:.75rem 0}
-.scoreline-name{min-width:0;overflow:hidden;font-size:var(--fs-lead);text-overflow:ellipsis;white-space:nowrap}
+.scoreline-name{min-width:0;overflow:hidden;font-size:var(--fs-stat);text-overflow:ellipsis;white-space:nowrap}
 .scoreline-name.right{text-align:right}
 .scoreline-name.winner{color:var(--ink);font-weight:800}
 .scoreline-name.loser,.scoreline-name.drawn{color:var(--muted);font-weight:600}
@@ -474,15 +474,14 @@ h1,h2,h3{line-height:1.2;letter-spacing:-.02em}
 .scoreline>b.loser{color:#9aa7a2}
 .scoreline>b.drawn{color:var(--muted)}
 .scoreline>em{color:#b3bdb8;font-size:var(--fs-lead);font-style:normal;text-align:center}
-.scoreline.with-elo{row-gap:.375rem}
-.scoreline-elo{grid-row:2;grid-column:1;min-width:0;overflow:hidden;margin-top:-1rem;font-size:var(--fs-caption);font-weight:700;text-overflow:ellipsis;white-space:nowrap}
-.scoreline-elo.right{grid-column:5;text-align:right}
-.scoreline-elo.positive{color:var(--green)}
-.scoreline-elo.negative{color:#b35d50}
-/* Net change is nobody's home or away number, so it stays neutral (white on
-   the scoreboard). It sits in the same row as each player's before→after,
-   spanning the middle columns so it has room to center between them. */
-.scoreline-net{grid-row:2;grid-column:2/5;text-align:center;color:var(--ink);font-size:var(--fs-body);font-weight:800;white-space:nowrap}
+.scoreline.with-delta{row-gap:.25rem}
+/* Each player's own before→after sits directly under their name —
+   colour-coded so the direction reads at a glance, but a size step down
+   from the name so it stays a footnote to "who played", not a headline. */
+.scoreline-delta{grid-row:2;grid-column:1;min-width:0;overflow:hidden;font-size:var(--fs-caption);font-weight:700;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
+.scoreline-delta.right{grid-column:5;text-align:right}
+.scoreline-delta.positive{color:var(--green)}
+.scoreline-delta.negative{color:#b35d50}
 
 /* ===========================================================================
    賽事紀錄 and 對賽 are two views of the same thing, so they share a width,
@@ -506,6 +505,11 @@ h1,h2,h3{line-height:1.2;letter-spacing:-.02em}
 .match-top{display:flex;align-items:center;justify-content:space-between;gap:.75rem;min-height:2.25rem}
 .match-when{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;color:var(--muted);font-size:var(--fs-caption);font-weight:700}
 .match-when time{font-variant-numeric:tabular-nums}
+/* De-emphasised: ELO impact is a footnote next to the date, not a headline
+   next to the score — the scoreline above already carries the story. It's
+   the size of the swing, not who gained, so it stays neutral rather than
+   colour-coded (the per-player deltas under each name carry that signal). */
+.match-net-elo{padding:.0625rem .5rem;border-radius:1rem;background:rgba(255,255,255,.14);color:#a9c5bd;font-weight:700;font-variant-numeric:tabular-nums}
 .card-tools{display:flex;flex:none;gap:.25rem}
 .card-tool{display:grid;place-items:center;width:2rem;height:2rem;padding:0;border:0;border-radius:50%;background:transparent;color:#9aa7a2;font-size:var(--fs-sm);line-height:1;transition:background .18s,color .18s}
 .card-tool:hover{background:#eef1ec;color:var(--green)}
@@ -516,9 +520,14 @@ h1,h2,h3{line-height:1.2;letter-spacing:-.02em}
 
 /* The swing is why the card exists — give it the weight the buttons had. */
 .match h3{margin:.5rem 0 .75rem}
-.match .elo-impact{margin-top:0;background:#eef2ec}
+.match .elo-impact{margin-top:0;background:#eef2ec;display:flex;flex-direction:column;gap:.375rem}
 .match .elo-impact b{font-size:var(--fs-sm)}
 .match .elo-impact em{font-size:var(--fs-lead)}
+.match .elo-impact>small{grid-column:auto;border-top:0;padding-top:0;font-size:var(--fs-caption);font-weight:700;color:var(--muted)}
+.match .elo-impact>small.positive{color:var(--green)}
+.match .elo-impact>small.negative{color:#b35d50}
+.match .elo-impact>small i{font-style:normal;color:var(--muted);font-weight:500}
+.match .elo-impact>small:last-child{color:var(--muted);font-weight:500}
 .match>p{margin:.75rem 0 0}
 .match-added{display:block;margin-top:.625rem;padding-top:.625rem;border-top:1px solid var(--line);color:#9aa7a2;font-size:var(--fs-label)}
 /* Collapsed-by-default match card: one row summarising the swing, tappable
@@ -890,9 +899,8 @@ h1,h2,h3{line-height:1.2;letter-spacing:-.02em}
 .match-board .scoreline>b.winner{background:var(--ball-yellow);color:var(--baize-deep)}
 .match-board .scoreline>b.loser{color:#7e968f;background:transparent}
 .match-board .scoreline>b.drawn{color:#c3d8d2}
-.match-board .scoreline-elo.positive{color:#bfe6a6}
-.match-board .scoreline-elo.negative{color:#f0b7ac}
-.match-board .scoreline-net{color:white}
+.match-board .scoreline-delta.positive{color:#bfe6a6}
+.match-board .scoreline-delta.negative{color:#f0b7ac}
 .match-board .scoreline>em{color:#6d8981}
 .match.void{opacity:.6}
 /* The card the user just saved. The ring is the persistent marker; the pulse
