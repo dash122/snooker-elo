@@ -1,59 +1,50 @@
-import postgres from "postgres";
 import { headers } from "next/headers";
 import type { MemberSession, MemberRow } from "./auth-types";
+import { getSql } from "./sql";
+import { ensureStateSchema } from "./state.pg";
 
 const SESSION_COOKIE = "scaa_session";
 const SESSION_DAYS = 30;
-
-let sqlClient: ReturnType<typeof postgres> | null = null;
-function getSql() {
-  if (!sqlClient) {
-    const url = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
-    if (!url) {
-      throw new Error(
-        "No Postgres connection string found. Set POSTGRES_URL (Vercel's Supabase integration sets this automatically)."
-      );
-    }
-    // Supabase's pooled connection runs pgbouncer in transaction mode, which
-    // doesn't support named prepared statements — disable them.
-    sqlClient = postgres(url, { ssl: "require", prepare: false });
-  }
-  return sqlClient;
-}
 
 let schemaReady: Promise<unknown> | null = null;
 function ensureAuthSchema() {
   schemaReady ??= (async () => {
     const sql = getSql();
-    await sql`
-      CREATE TABLE IF NOT EXISTS members (
-        email TEXT PRIMARY KEY NOT NULL,
-        username TEXT NOT NULL UNIQUE,
-        state_player_id TEXT UNIQUE,
-        display_name TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'member',
-        password_hash TEXT NOT NULL,
-        password_salt TEXT NOT NULL,
-        active BOOLEAN NOT NULL DEFAULT true,
-        joined_at TEXT NOT NULL,
-        last_seen_at TEXT NOT NULL
-      )
-    `;
-    await sql`
-      CREATE TABLE IF NOT EXISTS sessions (
-        token_hash TEXT PRIMARY KEY NOT NULL,
-        member_email TEXT NOT NULL,
-        expires_at TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      )
-    `;
-    // Added after the first release — existing deployments get them here.
-    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS avatar TEXT`;
-    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS deactivated_at TEXT`;
-    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS initials TEXT`;
-    await sql`ALTER TABLE members ADD COLUMN IF NOT EXISTS icon_colour TEXT`;
-    await sql`CREATE INDEX IF NOT EXISTS sessions_member_email_idx ON sessions (member_email)`;
-    await sql`CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions (expires_at)`;
+    // Run as one transaction with a short lock_timeout: if another session is
+    // holding a lock on these tables, fail fast and retry later (schemaReady
+    // resets on error below) instead of queueing behind it for a minute-plus.
+    await sql.begin(async tx => {
+      await tx`SET LOCAL lock_timeout = '5s'`;
+      await tx`
+        CREATE TABLE IF NOT EXISTS members (
+          email TEXT PRIMARY KEY NOT NULL,
+          username TEXT NOT NULL UNIQUE,
+          state_player_id TEXT UNIQUE,
+          display_name TEXT NOT NULL,
+          role TEXT NOT NULL DEFAULT 'member',
+          password_hash TEXT NOT NULL,
+          password_salt TEXT NOT NULL,
+          active BOOLEAN NOT NULL DEFAULT true,
+          joined_at TEXT NOT NULL,
+          last_seen_at TEXT NOT NULL
+        )
+      `;
+      await tx`
+        CREATE TABLE IF NOT EXISTS sessions (
+          token_hash TEXT PRIMARY KEY NOT NULL,
+          member_email TEXT NOT NULL,
+          expires_at TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      `;
+      // Added after the first release — existing deployments get them here.
+      await tx`ALTER TABLE members ADD COLUMN IF NOT EXISTS avatar TEXT`;
+      await tx`ALTER TABLE members ADD COLUMN IF NOT EXISTS deactivated_at TEXT`;
+      await tx`ALTER TABLE members ADD COLUMN IF NOT EXISTS initials TEXT`;
+      await tx`ALTER TABLE members ADD COLUMN IF NOT EXISTS icon_colour TEXT`;
+      await tx`CREATE INDEX IF NOT EXISTS sessions_member_email_idx ON sessions (member_email)`;
+      await tx`CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions (expires_at)`;
+    });
   })().catch(error => {
     schemaReady = null;
     throw error;
@@ -142,6 +133,58 @@ export async function createMember(username: string, email: string, displayName:
   `;
 }
 
+export async function checkSignupAvailability(username: string | null, email: string | null) {
+  await ensureAuthSchema();
+  const sql = getSql();
+  const normalizedUsername = username?.trim().toLowerCase() || null;
+  const normalizedEmail = email?.trim().toLowerCase() || null;
+  const rows = await sql<{ username: string; email: string }[]>`
+    SELECT username, email FROM members
+    WHERE (${normalizedUsername}::text IS NOT NULL AND username = ${normalizedUsername})
+       OR (${normalizedEmail}::text IS NOT NULL AND email = ${normalizedEmail})
+  `;
+  return {
+    usernameTaken: normalizedUsername !== null && rows.some(row => row.username === normalizedUsername),
+    emailTaken: normalizedEmail !== null && rows.some(row => row.email === normalizedEmail),
+  };
+}
+
+export type NewSignupPlayer = {
+  id: string; name: string; short: string; colour: string; rating: number; initialRating: number;
+};
+
+// Player row and member row must exist together or not at all — a single
+// transaction across both tables replaces the old "write player, then write
+// member, best-effort delete player on failure" approach, which could leave
+// an orphaned player if the process crashed between the two writes.
+export async function createMemberWithPlayer(input: {
+  username: string; email: string; displayName: string; password: string;
+  role: "admin" | "member"; player: NewSignupPlayer; auditText: string;
+}) {
+  await Promise.all([ensureAuthSchema(), ensureStateSchema()]);
+  const sql = getSql();
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const normalizedUsername = input.username.trim().toLowerCase();
+  const salt = randomHex(16);
+  const hash = await passwordDigest(input.password, salt);
+  const now = new Date().toISOString();
+  const p = input.player;
+  await sql.begin(async tx => {
+    await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
+    await tx`
+      INSERT INTO state_players (id, name, short, handicap, rating, colour, initial_rating, active, wins, losses, draws, frames_won, frames_lost, last_change, form, updated_at)
+      VALUES (${p.id}, ${p.name}, ${p.short}, NULL, ${p.rating}, ${p.colour}, ${p.initialRating}, true, 0, 0, 0, 0, 0, 0, ${tx.json([])}, now())
+    `;
+    await tx`
+      INSERT INTO state_audits (id, text, occurred_at) VALUES (${crypto.randomUUID()}, ${input.auditText}, ${now})
+    `;
+    await tx`
+      INSERT INTO members (email, username, state_player_id, display_name, role, password_hash, password_salt, active, joined_at, last_seen_at)
+      VALUES (${normalizedEmail}, ${normalizedUsername}, ${p.id}, ${input.displayName.trim()}, ${input.role}, ${hash}, ${salt}, true, ${now}, ${now})
+    `;
+  });
+}
+
 export async function adminUpdateMember(email: string, input: { username: string; newEmail: string; displayName: string; password?: string; statePlayerId?: string | null }) {
   await ensureAuthSchema();
   const sql = getSql();
@@ -212,6 +255,7 @@ export async function syncMemberPlayerProfiles(players: { id: string; name: stri
   await ensureAuthSchema();
   const sql = getSql();
   await sql.begin(async tx => {
+    await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
     for (const player of players) await tx`UPDATE members SET display_name = ${player.name}, initials = ${player.short}, icon_colour = ${player.colour ?? null} WHERE state_player_id = ${player.id}`;
   });
 }

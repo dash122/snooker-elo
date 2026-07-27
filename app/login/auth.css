@@ -28,7 +28,15 @@
 .auth-password-field input{padding-right:72px}
 .auth-password-field button{position:absolute;right:8px;top:15px;min-height:36px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:#2c6757;font-size:11px;font-weight:800}
 .auth-password-field button:hover{background:#edf2ef}
+.password-strength{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px}
+.password-strength i{display:block;height:4px;border-radius:2px;background:#e2e6e2;font-style:normal}
+.password-strength-1 i.filled{background:#c0533f}
+.password-strength-2 i.filled{background:#c68a2e}
+.password-strength-3 i.filled{background:#7a9a3c}
+.password-strength-4 i.filled{background:#2c6757}
+.field-error{display:block;margin-top:6px;color:#c0533f;font-size:10px;font-weight:700}
 .auth-submit{min-height:54px;margin-top:6px;border-radius:12px;font-size:14px}
+.auth-submit:disabled{opacity:.5;cursor:not-allowed}
 .auth-switch{display:flex;justify-content:center;gap:7px;margin:24px 0 0;color:#6f7a75;font-size:12px}
 .auth-switch a,.auth-back{color:#1e5b4b;font-weight:800}
 .auth-back{display:block;margin-top:34px;text-align:center;font-size:11px;text-decoration:none}

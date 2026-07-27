@@ -18,6 +18,16 @@ export async function createMember(username: string, email: string, displayName:
   return backend.createMember(username, email, displayName, password, role, statePlayerId);
 }
 
+export async function checkSignupAvailability(username: string | null, email: string | null) {
+  return backend.checkSignupAvailability(username, email);
+}
+
+export type { NewSignupPlayer } from "./auth.pg";
+
+export async function createMemberWithPlayer(input: Parameters<typeof backend.createMemberWithPlayer>[0]) {
+  return backend.createMemberWithPlayer(input);
+}
+
 export async function updateMember(email: string, input: { username?: string; newEmail?: string; password?: string; currentPassword?: string }) {
   return backend.updateMember(email, input);
 }

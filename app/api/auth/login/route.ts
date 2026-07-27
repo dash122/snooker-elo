@@ -1,6 +1,12 @@
 import { createSession, verifyCredentials } from "../../../../db/auth";
+import { checkAttempt } from "../../../../lib/rate-limit";
 
 export async function POST(request: Request) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkAttempt(`login:${ip}`, 10, 5 * 60_000)) {
+    return Response.redirect(new URL("/login?error=rate-limited", request.url), 303);
+  }
+
   const form = await request.formData();
   const username = String(form.get("username") ?? "");
   const password = String(form.get("password") ?? "");
