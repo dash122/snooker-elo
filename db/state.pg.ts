@@ -1,7 +1,7 @@
 import { getSql } from "./sql";
 
 type Player = { id:string; name:string; short:string; handicap:number|null; rating:number; colour?:string; avatar?:string|null; initialRating:number; active:boolean; wins:number; losses:number; draws:number; framesWon:number; framesLost:number; lastChange:number; form:string[] };
-type Match = { id:string; a:string; b:string; scoreA:number; scoreB:number; playedOn:string; entryMode?:"match"|"aggregate"; frameEvidence?:number; performanceScore?:number; evidenceWeight?:number; handicapAdjustment?:number; overHandicapElo?:number; overHandicapMultiplier?:number; highBreaks?:{playerId:string;value:number}[]; actual:number; giver:string|null; official:number|null; extra:number; expectedA:number; beforeA:number; beforeB:number; afterA:number; afterB:number; deltaA:number; marginMultiplier?:number; status:"confirmed"|"void"; createdAt:string };
+type Match = { id:string; a:string; b:string; a2?:string; b2?:string; mode?:string; scoreA:number; scoreB:number; playedOn:string; entryMode?:"match"|"aggregate"; frameEvidence?:number; performanceScore?:number; evidenceWeight?:number; handicapAdjustment?:number; overHandicapElo?:number; overHandicapMultiplier?:number; highBreaks?:{playerId:string;value:number}[]; actual:number; giver:string|null; official:number|null; extra:number; expectedA:number; beforeA:number; beforeB:number; beforeA2?:number; beforeB2?:number; afterA:number; afterB:number; afterA2?:number; afterB2?:number; deltaA:number; marginMultiplier?:number; status:"confirmed"|"void"; createdAt:string };
 type State = { players:Player[]; matches:Match[]; settings:Record<string, unknown>; audits:{id:string;text:string;at:string}[] };
 
 let schemaReady: Promise<unknown> | null = null;
@@ -22,6 +22,13 @@ export function ensureStateSchema() {
       // Added after the first release — existing deployments get it here rather
       // than depending on a migration having been run by hand.
       await tx`ALTER TABLE state_players ADD COLUMN IF NOT EXISTS avatar text`;
+      await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS player_a2 text`;
+      await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS player_b2 text`;
+      await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS mode text`;
+      await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS before_a2 numeric`;
+      await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS before_b2 numeric`;
+      await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS after_a2 numeric`;
+      await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS after_b2 numeric`;
     });
   })().catch(error => { schemaReady = null; throw error; });
   return schemaReady;
@@ -32,7 +39,7 @@ export async function getState(): Promise<string | null> {
   const sql = getSql();
   const [players, matches, settings, audits] = await Promise.all([
     sql<Player[]>`SELECT id, name, short, handicap::float8 AS handicap, rating::float8 AS rating, colour, avatar, initial_rating::float8 AS "initialRating", active, wins, losses, draws, frames_won AS "framesWon", frames_lost AS "framesLost", last_change::float8 AS "lastChange", form FROM state_players ORDER BY name`,
-    sql<Match[]>`SELECT id, player_a AS a, player_b AS b, score_a AS "scoreA", score_b AS "scoreB", to_char(played_on, 'YYYY-MM-DD') AS "playedOn", entry_mode AS "entryMode", frame_evidence::float8 AS "frameEvidence", performance_score::float8 AS "performanceScore", evidence_weight::float8 AS "evidenceWeight", handicap_adjustment::float8 AS "handicapAdjustment", over_handicap_elo::float8 AS "overHandicapElo", over_handicap_multiplier::float8 AS "overHandicapMultiplier", high_breaks AS "highBreaks", actual::float8 AS actual, giver, official::float8 AS official, extra::float8 AS extra, expected_a::float8 AS "expectedA", before_a::float8 AS "beforeA", before_b::float8 AS "beforeB", after_a::float8 AS "afterA", after_b::float8 AS "afterB", delta_a::float8 AS "deltaA", margin_multiplier::float8 AS "marginMultiplier", status, created_at AS "createdAt" FROM state_matches ORDER BY played_on, created_at, id`,
+    sql<Match[]>`SELECT id, player_a AS a, player_b AS b, player_a2 AS a2, player_b2 AS b2, mode, score_a AS "scoreA", score_b AS "scoreB", to_char(played_on, 'YYYY-MM-DD') AS "playedOn", entry_mode AS "entryMode", frame_evidence::float8 AS "frameEvidence", performance_score::float8 AS "performanceScore", evidence_weight::float8 AS "evidenceWeight", handicap_adjustment::float8 AS "handicapAdjustment", over_handicap_elo::float8 AS "overHandicapElo", over_handicap_multiplier::float8 AS "overHandicapMultiplier", high_breaks AS "highBreaks", actual::float8 AS actual, giver, official::float8 AS official, extra::float8 AS extra, expected_a::float8 AS "expectedA", before_a::float8 AS "beforeA", before_b::float8 AS "beforeB", before_a2::float8 AS "beforeA2", before_b2::float8 AS "beforeB2", after_a::float8 AS "afterA", after_b::float8 AS "afterB", after_a2::float8 AS "afterA2", after_b2::float8 AS "afterB2", delta_a::float8 AS "deltaA", margin_multiplier::float8 AS "marginMultiplier", status, created_at AS "createdAt" FROM state_matches ORDER BY played_on, created_at, id`,
     sql<{data:Record<string, unknown>}[]>`SELECT data FROM state_settings WHERE id = true`,
     sql<{id:string;text:string;at:string}[]>`SELECT id, text, occurred_at AS at FROM state_audits ORDER BY occurred_at DESC, id DESC`,
   ]);
@@ -81,17 +88,20 @@ export async function putState(data: string) {
 
     if (state.matches.length) {
       const rows = state.matches.map(m => ({
-        id: m.id, player_a: m.a, player_b: m.b, score_a: m.scoreA, score_b: m.scoreB,
+        id: m.id, player_a: m.a, player_b: m.b, player_a2: m.a2 ?? null, player_b2: m.b2 ?? null,
+        mode: m.mode ?? null, score_a: m.scoreA, score_b: m.scoreB,
         played_on: m.playedOn, entry_mode: m.entryMode ?? null, frame_evidence: m.frameEvidence ?? null,
         performance_score: m.performanceScore ?? null, evidence_weight: m.evidenceWeight ?? null,
         handicap_adjustment: m.handicapAdjustment ?? null, over_handicap_elo: m.overHandicapElo ?? null,
         over_handicap_multiplier: m.overHandicapMultiplier ?? null, high_breaks: tx.json(m.highBreaks ?? []),
         actual: m.actual, giver: m.giver, official: m.official, extra: m.extra, expected_a: m.expectedA,
-        before_a: m.beforeA, before_b: m.beforeB, after_a: m.afterA, after_b: m.afterB, delta_a: m.deltaA,
+        before_a: m.beforeA, before_b: m.beforeB, before_a2: m.beforeA2 ?? null, before_b2: m.beforeB2 ?? null,
+        after_a: m.afterA, after_b: m.afterB, after_a2: m.afterA2 ?? null, after_b2: m.afterB2 ?? null,
+        delta_a: m.deltaA,
         margin_multiplier: m.marginMultiplier ?? null, status: m.status, created_at: m.createdAt, updated_at: new Date(),
       }));
       await tx`INSERT INTO state_matches ${tx(rows)}
-        ON CONFLICT (id) DO UPDATE SET player_a=excluded.player_a,player_b=excluded.player_b,score_a=excluded.score_a,score_b=excluded.score_b,played_on=excluded.played_on,entry_mode=excluded.entry_mode,frame_evidence=excluded.frame_evidence,performance_score=excluded.performance_score,evidence_weight=excluded.evidence_weight,handicap_adjustment=excluded.handicap_adjustment,over_handicap_elo=excluded.over_handicap_elo,over_handicap_multiplier=excluded.over_handicap_multiplier,high_breaks=excluded.high_breaks,actual=excluded.actual,giver=excluded.giver,official=excluded.official,extra=excluded.extra,expected_a=excluded.expected_a,before_a=excluded.before_a,before_b=excluded.before_b,after_a=excluded.after_a,after_b=excluded.after_b,delta_a=excluded.delta_a,margin_multiplier=excluded.margin_multiplier,status=excluded.status,created_at=excluded.created_at,updated_at=excluded.updated_at`;
+        ON CONFLICT (id) DO UPDATE SET player_a=excluded.player_a,player_b=excluded.player_b,player_a2=excluded.player_a2,player_b2=excluded.player_b2,mode=excluded.mode,score_a=excluded.score_a,score_b=excluded.score_b,played_on=excluded.played_on,entry_mode=excluded.entry_mode,frame_evidence=excluded.frame_evidence,performance_score=excluded.performance_score,evidence_weight=excluded.evidence_weight,handicap_adjustment=excluded.handicap_adjustment,over_handicap_elo=excluded.over_handicap_elo,over_handicap_multiplier=excluded.over_handicap_multiplier,high_breaks=excluded.high_breaks,actual=excluded.actual,giver=excluded.giver,official=excluded.official,extra=excluded.extra,expected_a=excluded.expected_a,before_a=excluded.before_a,before_b=excluded.before_b,before_a2=excluded.before_a2,before_b2=excluded.before_b2,after_a=excluded.after_a,after_b=excluded.after_b,after_a2=excluded.after_a2,after_b2=excluded.after_b2,delta_a=excluded.delta_a,margin_multiplier=excluded.margin_multiplier,status=excluded.status,created_at=excluded.created_at,updated_at=excluded.updated_at`;
     }
 
     if (state.audits.length) {

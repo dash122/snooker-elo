@@ -17,8 +17,14 @@ function memberCanWrite(current: any, next: any, playerId?: string) {
   for (const [id, player] of currentPlayers) if (!nextPlayers.has(id) || (id !== playerId && profile(player) !== profile(nextPlayers.get(id)))) return false;
   const matches = (items: any[]) => new Map(items.map(match => [match.id, match]));
   const before = matches(current.matches ?? []), after = matches(next.matches ?? []);
-  const matchShape = (match: any) => JSON.stringify({ a: match.a, b: match.b, scoreA: match.scoreA, scoreB: match.scoreB, playedOn: match.playedOn, actual: match.actual, giver: match.giver, highBreaks: match.highBreaks, status: match.status, entryMode: match.entryMode });
-  for (const id of new Set([...before.keys(), ...after.keys()])) { const was = before.get(id), is = after.get(id); if (matchShape(was ?? {}) !== matchShape(is ?? {}) && ((was && was.a !== playerId && was.b !== playerId) || (is && is.a !== playerId && is.b !== playerId))) return false; }
+  const matchShape = (match: any) => JSON.stringify({ a: match.a, b: match.b, a2: match.a2, b2: match.b2, mode: match.mode, scoreA: match.scoreA, scoreB: match.scoreB, playedOn: match.playedOn, actual: match.actual, giver: match.giver, highBreaks: match.highBreaks, status: match.status, entryMode: match.entryMode });
+  const isParticipant = (match: any, id: string | undefined) => !!id && (match.a === id || match.b === id || match.a2 === id || match.b2 === id);
+  for (const id of new Set([...before.keys(), ...after.keys()])) {
+    const was = before.get(id), is = after.get(id);
+    const changed = matchShape(was ?? {}) !== matchShape(is ?? {});
+    const participant = (m: any) => m && isParticipant(m, playerId);
+    if (changed && !participant(was) && !participant(is)) return false;
+  }
   return true;
 }
 

@@ -10,13 +10,42 @@ type Player = {
   initialRating: number; active: boolean; wins: number; losses: number; draws: number;
   framesWon: number; framesLost: number; lastChange: number; form: string[];
 };
+type MatchMode = "1v1" | "2v2";
 type Match = {
-  id: string; a: string; b: string; scoreA: number; scoreB: number; playedOn: string;
-  entryMode?: "match" | "aggregate"; frameEvidence?: number; performanceScore?:number; evidenceWeight?:number; handicapAdjustment?:number; overHandicapElo?:number; overHandicapMultiplier?:number;
+  id: string;
+  a: string;
+  b: string;
+  a2?: string;
+  b2?: string;
+  mode?: MatchMode;
+  scoreA: number;
+  scoreB: number;
+  playedOn: string;
+  entryMode?: "match" | "aggregate";
+  frameEvidence?: number;
+  performanceScore?: number;
+  evidenceWeight?: number;
+  handicapAdjustment?: number;
+  overHandicapElo?: number;
+  overHandicapMultiplier?: number;
   highBreaks?: { playerId: string; value: number }[];
-  actual: number; giver: string | null; official: number | null; extra: number;
-  expectedA: number; beforeA: number; beforeB: number; afterA: number; afterB: number;
-  deltaA: number; marginMultiplier?: number; status: "confirmed" | "void"; createdAt: string;
+  actual: number;
+  giver: string | null;
+  official: number | null;
+  extra: number;
+  expectedA: number;
+  beforeA: number;
+  beforeB: number;
+  afterA: number;
+  afterB: number;
+  beforeA2?: number;
+  afterA2?: number;
+  beforeB2?: number;
+  afterB2?: number;
+  deltaA: number;
+  marginMultiplier?: number;
+  status: "confirmed" | "void";
+  createdAt: string;
 };
 type CalibrationPoint = { estimate:number; usableMatches:number; at:string };
 type Calibration = { rawEstimate:number; estimate:number; lower:number; upper:number; curvatureEstimate?:number; curvatureLower?:number; curvatureUpper?:number; usableMatches:number; handicapLevels:number; confidence:string; updatedAt:string; history?:CalibrationPoint[] };
@@ -63,26 +92,78 @@ function sortPlayers(players:Player[],data:AppState,key:SortKey,dir:"asc"|"desc"
     return (dir==="asc"?cmp:-cmp)||a.name.localeCompare(b.name);
   });
 }
+function matchMode(match: Match): MatchMode { return match.mode ?? "1v1"; }
+function matchParticipants(match: Match){
+  const result=[match.a,match.b];
+  if(match.a2)result.push(match.a2);
+  if(match.b2)result.push(match.b2);
+  return result;
+}
+function isParticipant(match: Match,id:string){
+  return match.a===id||match.b===id||match.a2===id||match.b2===id;
+}
+function playerSide(match: Match,id:string):"A"|"B"|null{
+  if(match.a===id||match.a2===id) return "A";
+  if(match.b===id||match.b2===id) return "B";
+  return null;
+}
+function teamMemberIds(match: Match, side:"A"|"B"){ return side==="A"?[match.a,match.a2].filter(Boolean) as string[]:[match.b,match.b2].filter(Boolean) as string[]; }
+function teamLabel(match: Match,data:AppState,side:"A"|"B"){
+  const ids=teamMemberIds(match,side).map(id=>data.players.find(p=>p.id===id)?.short||"?");
+  return ids.length>1?ids.join("/"):ids[0]??"?";
+}
+function teamRating(match: Match,data:AppState,side:"A"|"B"){
+  const ids=teamMemberIds(match,side);
+  const ratings=ids.map(id=>data.players.find(p=>p.id===id)?.rating).filter((value):value is number=>typeof value==="number");
+  return ratings.length?ratings.reduce((sum,value)=>sum+value,0)/ratings.length:0;
+}
+function teamHandicap(match: Match,data:AppState,side:"A"|"B"){
+  const ids=teamMemberIds(match,side);
+  const handicaps=ids.map(id=>data.players.find(p=>p.id===id)?.handicap).filter((value):value is number=>typeof value==="number");
+  return handicaps.length===ids.length?handicaps.reduce((sum,value)=>sum+value,0)/handicaps.length:null;
+}
+function playerMatchBefore(match:Match,playerId:string){
+  if(match.a===playerId) return match.beforeA;
+  if(match.b===playerId) return match.beforeB;
+  if(match.a2===playerId) return match.beforeA2 ?? match.beforeA;
+  if(match.b2===playerId) return match.beforeB2 ?? match.beforeB;
+  return 0;
+}
+function playerMatchAfter(match:Match,playerId:string){
+  if(match.a===playerId) return match.afterA;
+  if(match.b===playerId) return match.afterB;
+  if(match.a2===playerId) return match.afterA2 ?? match.afterA;
+  if(match.b2===playerId) return match.afterB2 ?? match.afterB;
+  return 0;
+}
 function playerSeries(p:Player,data:AppState){
-  const related=[...data.matches].filter(m=>m.a===p.id||m.b===p.id).sort((a,b)=>(a.playedOn||a.createdAt).localeCompare(b.playedOn||b.createdAt)||a.createdAt.localeCompare(b.createdAt));
-  return [p.initialRating,...related.map(m=>m.a===p.id?m.afterA:m.afterB)];
+  const related=[...data.matches].filter(m=>isParticipant(m,p.id)).sort((a,b)=>(a.playedOn||a.createdAt).localeCompare(b.playedOn||b.createdAt)||a.createdAt.localeCompare(b.createdAt));
+  return [p.initialRating,...related.map(m=>playerMatchAfter(m,p.id))];
 }
 function playerTrendPoints(p:Player,data:AppState):EloTrendPoint[]{
-  const related=[...data.matches].filter(m=>m.status==="confirmed"&&(m.a===p.id||m.b===p.id)).sort((a,b)=>(a.playedOn||a.createdAt).localeCompare(b.playedOn||b.createdAt)||a.createdAt.localeCompare(b.createdAt));
+  const related=[...data.matches].filter(m=>m.status==="confirmed"&&isParticipant(m,p.id)).sort((a,b)=>(a.playedOn||a.createdAt).localeCompare(b.playedOn||b.createdAt)||a.createdAt.localeCompare(b.createdAt));
   const start:EloTrendPoint={id:`${p.id}-start`,elo:p.initialRating,before:p.initialRating,delta:0,date:"",opponent:"",opponentShort:"",score:"",result:"start"};
   return [start,...related.map(match=>{
-    const isA=match.a===p.id,opponent=data.players.find(player=>player.id===(isA?match.b:match.a));
-    const ownScore=isA?match.scoreA:match.scoreB,opponentScore=isA?match.scoreB:match.scoreA;
-    const before=isA?match.beforeA:match.beforeB,elo=isA?match.afterA:match.afterB,delta=elo-before;
-    return {id:match.id,elo,before,delta,date:match.playedOn,opponent:opponent?.name??"已移除球員",opponentShort:opponent?.short??"—",score:`${ownScore}–${opponentScore}`,result:ownScore===opponentScore?"D":ownScore>opponentScore?"W":"L"} satisfies EloTrendPoint;
+    const side=playerSide(match,p.id);
+    const opponentSide=side==="A"?"B":"A";
+    const opponentNames=teamLabel(match,data,opponentSide);
+    const opponentShort=teamLabel(match,data,opponentSide);
+    const ownScore=side==="A"?match.scoreA:match.scoreB;
+    const opponentScore=side==="A"?match.scoreB:match.scoreA;
+    const before=playerMatchBefore(match,p.id),elo=playerMatchAfter(match,p.id),delta=elo-before;
+    return {id:match.id,elo,before,delta,date:match.playedOn,opponent:opponentNames,opponentShort,score:`${ownScore}–${opponentScore}`,result:ownScore===opponentScore?"D":ownScore>opponentScore?"W":"L"} satisfies EloTrendPoint;
   })];
 }
 function recentDelta(p:Player,data:AppState,count:number){
-  return [...data.matches].filter(m=>m.a===p.id||m.b===p.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,count).reduce((sum,m)=>sum+(m.a===p.id?m.deltaA:-m.deltaA),0);
+  return [...data.matches].filter(m=>isParticipant(m,p.id)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,count).reduce((sum,m)=>{
+    const side=playerSide(m,p.id);
+    return sum + (side==="A"?m.deltaA:-m.deltaA);
+  },0);
 }
-function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings) {
+function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings,giverSide?:"A"|"B"|null) {
+  const actual = giverSide === "A" ? points : giverSide === "B" ? -points
+    : giver === a.id ? points : giver === b.id ? -points : 0;
   const official = a.handicap == null || b.handicap == null ? null : b.handicap - a.handicap;
-  const actual = giver === a.id ? points : giver === b.id ? -points : 0;
   const extra = actual - (official ?? 0);
   const adjustment = handicapAdjustment(actual,s);
   const expectedA = 1/(1+10**(((b.rating+adjustment)-a.rating)/400));
@@ -151,24 +232,46 @@ function recalibrate(settings:Settings,matches:Match[]):Settings {
 function replay(players:Player[],matches:Match[],settings:Settings) {
   const rebuilt=players.map(p=>({...p,rating:p.initialRating,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[] as string[]}));
   const byId=new Map(rebuilt.map(p=>[p.id,p]));
-  const ordered=[...matches].filter(m=>m.status==="confirmed").sort((x,y)=>
-    (x.playedOn||x.createdAt).localeCompare(y.playedOn||y.createdAt)||x.createdAt.localeCompare(y.createdAt));
+  const ordered=[...matches].filter(m=>m.status==="confirmed").sort((x,y)=>(x.playedOn||x.createdAt).localeCompare(y.playedOn||y.createdAt)||x.createdAt.localeCompare(y.createdAt));
   const updated=new Map<string,Match>();
   for(const m of ordered){
     const a=byId.get(m.a),b=byId.get(m.b);
     if(!a||!b)continue;
-    const giver=m.actual>0?a.id:m.actual<0?b.id:null;
-    const result=calc(a,b,m.scoreA,m.scoreB,giver,Math.abs(m.actual),settings);
+    const a2=m.a2?byId.get(m.a2):null;
+    const b2=m.b2?byId.get(m.b2):null;
+    const teamA=a2?[a,a2]:[a];
+    const teamB=b2?[b,b2]:[b];
+    const state = {players:rebuilt} as AppState;
+    const teamAEntity = a2 ? {id:"teamA",name:teamLabel(m,state,"A"),short:teamLabel(m,state,"A"),handicap:teamHandicap(m,state,"A"),rating:teamRating(m,state,"A"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]} as Player : a;
+    const teamBEntity = b2 ? {id:"teamB",name:teamLabel(m,state,"B"),short:teamLabel(m,state,"B"),handicap:teamHandicap(m,state,"B"),rating:teamRating(m,state,"B"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]} as Player : b;
+    const giverSide = m.giver && teamA.some(p=>p.id===m.giver) ? "A" : m.giver && teamB.some(p=>p.id===m.giver) ? "B" : undefined;
+    const result=calc(teamAEntity,teamBEntity,m.scoreA,m.scoreB,m.giver,Math.abs(m.actual),settings,giverSide);
     const resultA=m.scoreA===m.scoreB?"D":m.scoreA>m.scoreB?"W":"L";
     const resultB=resultA==="D"?"D":resultA==="W"?"L":"W";
-    const beforeA=a.rating,beforeB=b.rating;
-    a.rating+=result.deltaA;b.rating-=result.deltaA;
-    a.lastChange=result.deltaA;b.lastChange=-result.deltaA;
-    for(const [p,r,fw,fl] of [[a,resultA,m.scoreA,m.scoreB],[b,resultB,m.scoreB,m.scoreA]] as const){
-      p.wins+=r==="W"?1:0;p.losses+=r==="L"?1:0;p.draws+=r==="D"?1:0;
-      p.framesWon+=fw;p.framesLost+=fl;p.form=[r,...p.form].slice(0,5);
-    }
-    updated.set(m.id,{...m,expectedA:result.expectedA,beforeA,beforeB,afterA:a.rating,afterB:b.rating,deltaA:result.deltaA,frameEvidence:result.frameEvidence,performanceScore:result.performanceScore,evidenceWeight:result.evidenceWeight,handicapAdjustment:result.adjustment,overHandicapElo:result.overHandicapElo,overHandicapMultiplier:result.overHandicapMultiplier});
+    const beforeA=teamAEntity.rating,beforeB=teamBEntity.rating;
+    const beforeA2=a2?.rating,beforeB2=b2?.rating;
+    for(const player of teamA){ player.rating += result.deltaA; player.lastChange = result.deltaA; player.wins += resultA==="W"?1:0; player.losses += resultA==="L"?1:0; player.draws += resultA==="D"?1:0; player.framesWon += m.scoreA; player.framesLost += m.scoreB; player.form=[resultA,...player.form].slice(0,5); }
+    for(const player of teamB){ player.rating -= result.deltaA; player.lastChange = -result.deltaA; player.wins += resultB==="W"?1:0; player.losses += resultB==="L"?1:0; player.draws += resultB==="D"?1:0; player.framesWon += m.scoreB; player.framesLost += m.scoreA; player.form=[resultB,...player.form].slice(0,5); }
+    const updatedMatch: Match = {
+      ...m,
+      expectedA: result.expectedA,
+      beforeA,
+      beforeB,
+      afterA: beforeA + result.deltaA,
+      afterB: beforeB - result.deltaA,
+      deltaA: result.deltaA,
+      frameEvidence: result.frameEvidence,
+      performanceScore: result.performanceScore,
+      evidenceWeight: result.evidenceWeight,
+      handicapAdjustment: result.adjustment,
+      overHandicapElo: result.overHandicapElo,
+      overHandicapMultiplier: result.overHandicapMultiplier,
+      status: m.status,
+      createdAt: m.createdAt,
+    } as Match;
+    if(a2){ updatedMatch.beforeA2 = beforeA2; updatedMatch.afterA2 = beforeA2! + result.deltaA; }
+    if(b2){ updatedMatch.beforeB2 = beforeB2; updatedMatch.afterB2 = beforeB2! - result.deltaA; }
+    updated.set(m.id,updatedMatch);
   }
   return {players:rebuilt,matches:matches.filter(m=>m.status==="confirmed").map(m=>updated.get(m.id)??m)};
 }
@@ -215,11 +318,11 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const [undoSnapshot,setUndoSnapshot] = useState<AppState|null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>|null>(null);
   const [saving,setSaving] = useState(false);
-  const [draft,setDraft] = useState({a:"",b:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[] as {playerId:string;value:number}[]});
+  const [draft,setDraft] = useState({mode:"1v1" as MatchMode,a:"",b:"",a2:"",b2:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[] as {playerId:string;value:number}[]});
   const [playerForm,setPlayerForm] = useState({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});
   const ownPlayerId=user?.statePlayerId;
   const isAdmin=user?.role==="admin";
-  const canManageMatch=(match:Match)=>Boolean(isAdmin||ownPlayerId&&(match.a===ownPlayerId||match.b===ownPlayerId));
+  const canManageMatch=(match:Match)=>Boolean(isAdmin||ownPlayerId&&isParticipant(match,ownPlayerId));
 
   useEffect(()=>{
     setNavDocked(false);
@@ -287,9 +390,12 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     setDraft(d=>{
       const validA=data.players.some(p=>p.id===d.a);
       const validB=data.players.some(p=>p.id===d.b);
-      if(validA&&validB&&d.a!==d.b)return d;
+      const validA2=data.players.some(p=>p.id===d.a2);
+      const validB2=data.players.some(p=>p.id===d.b2);
+      if(validA&&validB&&d.a!==d.b&&(d.mode!=="2v2"||(
+        validA2&&validB2&&d.a!==d.a2&&d.b!==d.b2&&d.a!==d.b&&d.a2!==d.b2)))return d;
       const sorted=[...data.players].filter(p=>p.active).sort((a,b)=>a.name.localeCompare(b.name,"zh-HK"));
-      return {...d,a:sorted[0]?.id??"",b:sorted[1]?.id??"",giver:""};
+      return {...d,mode:d.mode||"1v1",a:sorted[0]?.id??"",b:sorted[1]?.id??"",a2:"",b2:"",giver:""};
     });
   },[data.players]);
 
@@ -333,7 +439,20 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const ranked=useMemo(()=>[...data.players].sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name)),[data]);
   const a=data.players.find(p=>p.id===draft.a)??data.players[0];
   const b=data.players.find(p=>p.id===draft.b)??data.players[1];
-  const preview=a&&b&&a.id!==b.id?calc(a,b,+draft.scoreA,+draft.scoreB,draft.giver,+draft.points,data.settings):null;
+  const a2=data.players.find(p=>p.id===draft.a2);
+  const b2=data.players.find(p=>p.id===draft.b2);
+  const valid2v2 = draft.mode==="2v2" && a && b && a2 && b2 && new Set([a.id,b.id,a2.id,b2.id]).size===4;
+  const teamMatch = {a:a?.id??"",b:b?.id??"",a2:a2?.id,b2:b2?.id,mode:draft.mode} as Match;
+  const aEntity = draft.mode==="2v2" && valid2v2 ? {
+    id:"teamA",name:teamLabel(teamMatch,data,"A"),short:teamLabel(teamMatch,data,"A"),handicap:teamHandicap(teamMatch,data,"A"),rating:teamRating(teamMatch,data,"A"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]
+  } as Player : a;
+  const bEntity = draft.mode==="2v2" && valid2v2 ? {
+    id:"teamB",name:teamLabel(teamMatch,data,"B"),short:teamLabel(teamMatch,data,"B"),handicap:teamHandicap(teamMatch,data,"B"),rating:teamRating(teamMatch,data,"B"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]
+  } as Player : b;
+  const preview=a&&b&&(!draft.mode||draft.mode==="1v1"||valid2v2)
+    ? calc(aEntity,bEntity,+draft.scoreA,+draft.scoreB,draft.giver,+draft.points,data.settings,
+        draft.mode==="2v2"?([a.id,a2?.id].includes(draft.giver) ? "A" : [b.id,b2?.id].includes(draft.giver) ? "B" : undefined):undefined)
+    : null;
   const openHeadToHead=(player:Player,selectedOpponent?:Player)=>{
     const opponent=selectedOpponent??data.players.find(candidate=>candidate.id!==player.id&&candidate.active)??data.players.find(candidate=>candidate.id!==player.id);
     setHeadToHead({a:player.id,b:opponent?.id??""});
@@ -347,20 +466,32 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   };
 
   function saveMatch(){
-    if(!isAdmin&&(!ownPlayerId||(a?.id!==ownPlayerId&&b?.id!==ownPlayerId))){setToast("你只能記錄或修改自己參與的比賽。");return;}
-    if(!a||!b||a.id===b.id||draft.scoreA<0||draft.scoreB<0||(+draft.scoreA+ +draft.scoreB)===0){setToast("請選擇兩位不同球員，比分總局數必須大於 0。");return;}
+    if(!isAdmin&&(!ownPlayerId||(a?.id!==ownPlayerId&&b?.id!==ownPlayerId&&a2?.id!==ownPlayerId&&b2?.id!==ownPlayerId))){setToast("你只能記錄或修改自己參與的比賽。");return;}
+    const valid1v1 = draft.mode==="1v1";
+    const valid2v2 = draft.mode==="2v2" && a && b && a2 && b2 && new Set([a.id,b.id,a2.id,b2.id]).size===4;
+    if(!valid1v1 && !valid2v2){setToast("請選擇有效的 1v1 或 2v2 隊伍配置。");return;}
+    if(draft.scoreA<0||draft.scoreB<0||(+draft.scoreA+ +draft.scoreB)===0){setToast("比分總局數必須大於 0。");return;}
     if(!preview)return;
     const now=new Date().toISOString(), id=editingMatch?.id??crypto.randomUUID();
-    const match:Match={id,a:a.id,b:b.id,scoreA:+draft.scoreA,scoreB:+draft.scoreB,playedOn:draft.date||today,
+    const beforeA = draft.mode==="2v2" && valid2v2 ? teamRating(teamMatch,data,"A") : a.rating;
+    const beforeB = draft.mode==="2v2" && valid2v2 ? teamRating(teamMatch,data,"B") : b.rating;
+    const match:Match={id,a:a.id,b:b.id,mode:draft.mode,scoreA:+draft.scoreA,scoreB:+draft.scoreB,playedOn:draft.date||today,
+      a2:valid2v2?String(draft.a2):undefined,b2:valid2v2?String(draft.b2):undefined,
       actual:preview.actual,giver:draft.giver||null,official:preview.official,extra:preview.extra,expectedA:preview.expectedA,
-      beforeA:a.rating,beforeB:b.rating,afterA:a.rating+preview.deltaA,afterB:b.rating-preview.deltaA,deltaA:preview.deltaA,
-      entryMode:"match",highBreaks:(draft.highBreaks??[]).filter((item:{playerId:string;value:number})=>(item.playerId===a.id||item.playerId===b.id)&&item.value>0&&item.value<=147),
+      beforeA,beforeB,afterA:beforeA+preview.deltaA,afterB:beforeB-preview.deltaA,deltaA:preview.deltaA,
+      entryMode:"match",highBreaks:(draft.highBreaks??[]).filter((item:{playerId:string;value:number})=>(item.playerId===a.id||item.playerId===b.id||item.playerId===draft.a2||item.playerId===draft.b2)&&item.value>0&&item.value<=147),
       frameEvidence:preview.frameEvidence,performanceScore:preview.performanceScore,evidenceWeight:preview.evidenceWeight,handicapAdjustment:preview.adjustment,overHandicapElo:preview.overHandicapElo,overHandicapMultiplier:preview.overHandicapMultiplier,status:"confirmed",createdAt:editingMatch?.createdAt??now};
+    if(valid2v2){
+      match.beforeA2=a2!.rating;match.beforeB2=b2!.rating;
+      match.afterA2=a2!.rating+preview.deltaA;match.afterB2=b2!.rating-preview.deltaA;
+    }
     const resultA=draft.scoreA===draft.scoreB?"D":draft.scoreA>draft.scoreB?"W":"L";
     const resultB=resultA==="D"?"D":resultA==="W"?"L":"W";
     const players=data.players.map(p=>{
-      if(p.id!==a.id&&p.id!==b.id)return p;
-      const isA=p.id===a.id,result=isA?resultA:resultB,delta=isA?preview.deltaA:-preview.deltaA;
+      if(![a.id,b.id,draft.a2,draft.b2].includes(p.id))return p;
+      const isA=[a.id,draft.a2].includes(p.id);
+      const result=isA?resultA:resultB;
+      const delta=isA?preview.deltaA:-preview.deltaA;
       return {...p,rating:p.rating+delta,lastChange:delta,wins:p.wins+(result==="W"?1:0),losses:p.losses+(result==="L"?1:0),
         draws:p.draws+(result==="D"?1:0),framesWon:p.framesWon+(isA?+draft.scoreA:+draft.scoreB),
         framesLost:p.framesLost+(isA?+draft.scoreB:+draft.scoreA),form:[result,...p.form].slice(0,5)};
@@ -387,7 +518,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     if(!canManageMatch(m)){setToast("你只能修改自己參與的比賽。");return;}
     setEditingMatch(m);
     setDraft({
-      a:m.a,b:m.b,scoreA:m.scoreA,scoreB:m.scoreB,
+      mode:m.mode??"1v1",a:m.a,b:m.b,a2:m.a2??"",b2:m.b2??"",scoreA:m.scoreA,scoreB:m.scoreB,
       date:m.playedOn,giver:m.actual>0?m.a:m.actual<0?m.b:"",points:Math.abs(m.actual),highBreaks:m.highBreaks??[]
     });
     setModal("match");
@@ -398,8 +529,9 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     setEditingMatch(null);
     const sorted=[...data.players].filter(p=>p.active).sort((a,b)=>a.name.localeCompare(b.name,"zh-HK"));
     setDraft({
-      a:ownPlayerId&&sorted.some(player=>player.id===ownPlayerId)?ownPlayerId:sorted[0]?.id??"",b:(ownPlayerId&&sorted.some(player=>player.id===ownPlayerId)?sorted.find(player=>player.id!==ownPlayerId):sorted[1])?.id??"",
-      scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[]
+      mode:"1v1",a:ownPlayerId&&sorted.some(player=>player.id===ownPlayerId)?ownPlayerId:sorted[0]?.id??"",
+      b:(ownPlayerId&&sorted.some(player=>player.id===ownPlayerId)?sorted.find(player=>player.id!==ownPlayerId):sorted[1])?.id??"",
+      a2:"",b2:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[]
     });
     setModal("match");
   }
@@ -842,16 +974,18 @@ function MatchCard({match:m,canManage,name,onPlayer,onEdit,onVoid,highlighted=fa
   },[highlighted]);
   // Only the highest break per player is worth a glance — a player who ran
   // three centuries in one match still shows once, at their best number.
-  const topBreaks=[m.a,m.b]
+  const topBreaks=[m.a,m.a2,m.b,m.b2].filter(Boolean as unknown as string[])
     .map(id=>{
       const best=m.highBreaks?.filter(b=>b.playerId===id).reduce((max,item)=>Math.max(max,item.value),0)??0;
       return best>0?{playerId:id,value:best}:null;
     })
     .filter((entry):entry is {playerId:string;value:number}=>entry!=null);
+  const leftLabel = teamLabel(m,data,"A");
+  const rightLabel = teamLabel(m,data,"B");
   return <article ref={card} className={`match ${m.status}${highlighted?" just-saved":""}`}>
     <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time><small className="match-net-elo" aria-label={`ELO ${Math.round(Math.abs(m.deltaA))}`}>ELO {Math.round(Math.abs(m.deltaA))}</small>{highlighted&&<span className="pill just-saved-pill">剛剛記錄</span>}{m.status==="void"&&<span className="pill">已作廢</span>}{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
-      {canManage&&<span className="card-tools"><button className="card-tool" aria-label={`編輯 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onEdit(m)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onVoid(m)}>✕</button></span>}</div>
-    <Scoreline left={name(m.a)} right={name(m.b)} onLeftClick={()=>onPlayer(m.a)} onRightClick={()=>onPlayer(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}
+      {canManage&&<span className="card-tools"><button className="card-tool" aria-label={`編輯 ${leftLabel} 對 ${rightLabel} 的賽事`} onClick={()=>onEdit(m)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${leftLabel} 對 ${rightLabel} 的賽事`} onClick={()=>onVoid(m)}>✕</button></span>}</div>
+    <Scoreline left={leftLabel} right={rightLabel} onLeftClick={()=>onPlayer(m.a)} onRightClick={()=>onPlayer(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}
       eloLeft={{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={{before:m.beforeB,after:m.afterB,delta:-m.deltaA}}/>
     <button type="button" className="match-summary-row" aria-expanded={open} aria-label={open?"收起比賽詳情":"展開比賽詳情"} onClick={()=>setOpen(value=>!value)}>
       {!!topBreaks.length&&<span className="match-net-breaks">★ {topBreaks.map((item,index)=><Fragment key={item.playerId}>{index>0&&"、"}{name(item.playerId)} 單桿 {item.value}</Fragment>)}</span>}
@@ -863,7 +997,7 @@ function MatchCard({match:m,canManage,name,onPlayer,onEdit,onVoid,highlighted=fa
       <small>預測 {name(m.a)} 局數比例 {Math.round(m.expectedA*100)}%</small>
     </div>
     {!!topBreaks.length&&<div className="match-breaks"><span>單桿</span>{topBreaks.map(item=><b key={item.playerId}>{name(item.playerId)} {item.value}</b>)}</div>}
-    <p><Term label="實際讓分" tip="該筆比賽雙方真正採用的每局讓分；它會影響賽前預期及 ELO 變化。"/> {m.actual>0?`${name(m.a)} 讓 ${m.actual}`:m.actual<0?`${name(m.b)} 讓 ${Math.abs(m.actual)}`:"無"} · <Term label="額外讓分" tip="實際讓分與正式讓分參考之間的差距；正式讓分缺失時以 0 作比較基準。"/> {m.extra}</p>
+    <p><Term label="實際讓分" tip="該筆比賽雙方真正採用的每局讓分；它會影響賽前預期及 ELO 變化。"/> {m.actual>0?`${leftLabel} 讓 ${m.actual}`:m.actual<0?`${rightLabel} 讓 ${Math.abs(m.actual)}`:"無"} · <Term label="額外讓分" tip="實際讓分與正式讓分參考之間的差距；正式讓分缺失時以 0 作比較基準。"/> {m.extra}</p>
     <small className="match-added">加入於 {new Date(m.createdAt).toLocaleString("zh-HK")}</small></div>}
   </article>;
 }
@@ -993,17 +1127,24 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
   const [customHandicap,setCustomHandicap]=useState(editing||Boolean(draft.giver));
   const update=(k:string,v:any)=>setDraft((d:any)=>({...d,[k]:v}));
   const players=[...data.players].filter(p=>p.active).sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
-  // The job here is "log the match I just played" — once one side is picked,
-  // the very next thing the person needs is the opponent, so each slot hides
-  // whoever is already chosen on the other side (no accidental self-match)
-  // and picking one side jumps straight into the other, so two taps read as
-  // one motion instead of "pick, look up, tap again".
-  const playersForA=players.filter(p=>p.id!==draft.b);
-  const playersForB=players.filter(p=>p.id!==draft.a);
+  const playersForA=players.filter(p=>p.id!==draft.b&&p.id!==draft.b2&&p.id!==draft.a2);
+  const playersForB=players.filter(p=>p.id!==draft.a&&p.id!==draft.a2&&p.id!==draft.b2);
+  const playersForA2=players.filter(p=>p.id!==draft.a&&p.id!==draft.b&&p.id!==draft.b2&&p.id!==draft.a2);
+  const playersForB2=players.filter(p=>p.id!==draft.b&&p.id!==draft.a&&p.id!==draft.a2&&p.id!==draft.b2);
   const [openASignal,setOpenASignal]=useState(0);
   const [openBSignal,setOpenBSignal]=useState(0);
-  const pickA=(id:string)=>{update("a",id);if(id&&!draft.b)setOpenBSignal(s=>s+1)};
-  const pickB=(id:string)=>{update("b",id);if(id&&!draft.a)setOpenASignal(s=>s+1)};
+  const [openA2Signal,setOpenA2Signal]=useState(0);
+  const [openB2Signal,setOpenB2Signal]=useState(0);
+  const pickA=(id:string)=>{update("a",id);if(id&&!draft.b)setOpenBSignal(s=>s+1);if(id&&!draft.a2&&draft.mode==="2v2")setOpenA2Signal(s=>s+1)};
+  const pickB=(id:string)=>{update("b",id);if(id&&!draft.a)setOpenASignal(s=>s+1);if(id&&!draft.b2&&draft.mode==="2v2")setOpenB2Signal(s=>s+1)};
+  const pickA2=(id:string)=>{update("a2",id);if(id&&!draft.b2)setOpenB2Signal(s=>s+1)};
+  const pickB2=(id:string)=>{update("b2",id);if(id&&!draft.a2)setOpenA2Signal(s=>s+1)};
+  const setMode=(mode:MatchMode)=>setDraft((d:any)=>{
+    if(mode===d.mode) return d;
+    if(mode==="1v1") return {...d,mode,"a2":"","b2":""};
+    const available=players.filter(p=>p.id!==d.a&&p.id!==d.b);
+    return {...d,mode,"a2":d.a2&&available.some(player=>player.id===d.a2)?d.a2:available[0]?.id??"","b2":d.b2&&available.some(player=>player.id===d.b2)?d.b2:available[1]?.id??""};
+  });
   const addBreak=(playerId:string)=>{
     const value=Number(breakInput[playerId]);
     if(!Number.isInteger(value)||value<1||value>147)return;
@@ -1031,21 +1172,31 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
     }
     hadEloPreview.current=hasEloPreview;
   },[hasEloPreview]);
-  const valid=Boolean(a&&b&&a.id!==b.id&&totalFrames>0);
-  const resultLabel=!valid?"輸入最終比分":draft.scoreA===draft.scoreB?`${draft.scoreA}–${draft.scoreB} 和局`:draft.scoreA>draft.scoreB?`${a.name} 勝 ${draft.scoreA}–${draft.scoreB}`:`${b.name} 勝 ${draft.scoreB}–${draft.scoreA}`;
-  const handicapLabel=draft.giver&&+draft.points>0?`${draft.giver===a?.id?a?.name:b?.name} 每局讓 ${draft.points} 分`:"沒有讓分";
+  const valid=Boolean(a&&b&&a.id!==b.id&&totalFrames>0&& (draft.mode!=="2v2" || (a2&&b2&&new Set([a.id,b.id,a2.id,b2.id]).size===4)));
+  const resultLabel=!valid?"輸入最終比分":draft.scoreA===draft.scoreB?`${draft.scoreA}–${draft.scoreB} 和局`:draft.scoreA>draft.scoreB?`${teamLabel({a:draft.a,b:draft.b,a2:draft.a2,b2:draft.b2,mode:draft.mode} as Match, {players:[a,b,a2,b2].filter(Boolean) as Player[]},"A")} 勝 ${draft.scoreA}–${draft.scoreB}`:`${teamLabel({a:draft.a,b:draft.b,a2:draft.a2,b2:draft.b2,mode:draft.mode} as Match, {players:[a,b,a2,b2].filter(Boolean) as Player[]},"B")} 勝 ${draft.scoreB}–${draft.scoreA}`;
+  const handicapLabel=draft.giver&&+draft.points>0?`${draft.giver===a?.id?a?.name:draft.giver===a2?.id?a2?.name:b?.name} 每局讓 ${draft.points} 分`:"沒有讓分";
   const dateLabel=draft.date===today?"今天":draft.date;
   const fairPoints=Math.round(Math.abs(fairActual??0));
   return <div className="match-form"><div className="match-form-head"><div className="match-title-row"><h2 className="accent">{editing?"編輯比賽":"記錄比賽"}</h2><div className="match-date-chip"><span aria-hidden="true">{dateLabel}<i aria-hidden="true">›</i></span><input aria-label={`比賽日期，目前為${dateLabel}`} type="date" value={draft.date} onChange={e=>update("date",e.target.value)} onClick={e=>{const input=e.currentTarget;if(typeof input.showPicker==="function")input.showPicker()}}/></div></div></div>
     {editing&&<p className="sub">儲存後會按日期重播全部賽事，重建雙方及後續 ELO。</p>}
     {data.players.length<2&&<p className="warning">請先新增至少兩位活躍球員。</p>}
-    <section className="match-players" aria-labelledby="match-players-title"><h3 id="match-players-title" className="visually-hidden">選擇球員</h3><div className="matchup-card">
-      <div className="matchup-slot"><PlayerCombobox players={playersForA} value={draft.a} onChange={pickA} placeholder="選擇球員" ariaLabel="球員 A" autoOpenSignal={openASignal}
-        renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true"> <PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO`:"—"}</small></span></button>}/></div>
-      <span className="matchup-vs" aria-hidden="true">對</span>
-      <div className="matchup-slot"><PlayerCombobox players={playersForB} value={draft.b} onChange={pickB} placeholder="選擇球員" ariaLabel="球員 B" autoOpenSignal={openBSignal}
-        renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true"> <PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO`:"—"}</small></span></button>}/></div>
-    </div></section>
+    <section className="match-players" aria-labelledby="match-players-title"><h3 id="match-players-title" className="visually-hidden">選擇球員</h3>
+      <div className="match-mode-toggle"><label><input type="radio" name="matchMode" value="1v1" checked={draft.mode==="1v1"} onChange={()=>setMode("1v1")}/> 1v1</label><label><input type="radio" name="matchMode" value="2v2" checked={draft.mode==="2v2"} onChange={()=>setMode("2v2")}/> 潮拍 2v2</label></div>
+      <div className="matchup-card">
+        <div className="matchup-slot"><PlayerCombobox players={playersForA} value={draft.a} onChange={pickA} placeholder="選擇球員" ariaLabel="球員 A" autoOpenSignal={openASignal}
+          renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true"> <PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO`:"—"}</small></span></button>}/></div>
+        <span className="matchup-vs" aria-hidden="true">對</span>
+        <div className="matchup-slot"><PlayerCombobox players={playersForB} value={draft.b} onChange={pickB} placeholder="選擇球員" ariaLabel="球員 B" autoOpenSignal={openBSignal}
+          renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true"> <PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO`:"—"}</small></span></button>}/></div>
+      </div>
+      {draft.mode==="2v2"&&<div className="matchup-card team-2v2">
+        <div className="matchup-slot"><PlayerCombobox players={playersForA2} value={draft.a2} onChange={pickA2} placeholder="選擇隊友" ariaLabel="球員 A2" autoOpenSignal={openA2Signal}
+          renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true"> <PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??"選擇隊友"}</b><small>{selected?`${Math.round(selected.rating)} ELO`:"—"}</small></span></button>}/></div>
+        <span className="matchup-vs" aria-hidden="true">|</span>
+        <div className="matchup-slot"><PlayerCombobox players={playersForB2} value={draft.b2} onChange={pickB2} placeholder="選擇隊友" ariaLabel="球員 B2" autoOpenSignal={openB2Signal}
+          renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true"> <PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??"選擇隊友"}</b><small>{selected?`${Math.round(selected.rating)} ELO`:"—"}</small></span></button>}/></div>
+      </div>}
+    </section>
     <section className="quick-handicap" aria-labelledby="handicap-title"><h3 id="handicap-title">讓分 <small>{handicapLabel}</small></h3><div className="handicap-segment"><button type="button" className={!draft.giver&&!customHandicap?"active":""} onClick={setNoHandicap}>沒有讓分</button><button type="button" disabled={fairActual==null} className={draft.giver&&+draft.points===fairPoints&&!customHandicap?"active":""} onClick={fairPoints===0?setNoHandicap:applyFair}>ELO 建議</button><button type="button" className={customHandicap?"active":""} onClick={()=>setCustomHandicap(value=>!value)}>自訂</button></div>
       {customHandicap&&<div className="custom-handicap"><label>讓分球員<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">沒有讓分</option><option value={a?.id}>{a?.name}</option><option value={b?.id}>{b?.name}</option></select></label><label>每局分數<input type="number" inputMode="numeric" min="0" step="1" value={draft.points} onChange={e=>update("points",Math.max(0,+e.target.value))}/></label></div>}
     </section>
