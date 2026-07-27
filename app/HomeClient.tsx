@@ -449,7 +449,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   return <><style>{`.read-only .card-tools,.read-only .hero.small > .primary{display:none}`}</style><div className={`shell${user?"":" read-only"}`}>
     <aside className="side">
       <div className="brand"><span>S</span><div><b>SCAA</b><small>Snooker ELO</small></div></div>
-      <nav>{[["leaderboard","排行榜"],["matches","比賽"],["availability","可配對"],["players","球員"],["settings","設定"]].map(([id,label])=>
+      <nav>{[["leaderboard","排行榜"],["matches","比賽"],["availability","約戰"],["players","球員"],["settings","設定"]].map(([id,label])=>
         <button key={id} className={tab===id?"active":""} onClick={()=>goTab(id)}><i><NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/></i>{label}</button>)}</nav>
       <div className="public-note"><b>{user?"會員模式":"公開瀏覽"}</b><span>{user?"已登入，可更新球會資料":"登入會員後即可記錄比賽"}</span></div>
     </aside>
@@ -463,7 +463,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     </main>
     {/* Record sits dead centre as the one thing this app exists to do; the four content tabs split
         evenly around it. 設定 is not a peer of them — it lives with the account controls instead. */}
-    <nav className="bottom" aria-label="主導覽">{[["leaderboard","排行榜"],["matches","比賽"],["record","記錄"],["availability","配對"],["players","球員"]].map(([id,label])=>
+    <nav className="bottom" aria-label="主導覽">{[["leaderboard","排行榜"],["matches","比賽"],["record","記錄"],["availability","約戰"],["players","球員"]].map(([id,label])=>
       <button key={id} className={id==="record"?"bottom-record":tab===id?"active":""} aria-current={tab===id?"page":undefined} onClick={()=>id==="record"?newMatch():goTab(id)}>
         <i>{id==="record"?"＋":<NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/>}</i>
         <small>{label}</small>
@@ -1091,7 +1091,7 @@ function rivalSnapshots(player:Player,data:AppState):RivalSnapshot[] {
 
 function RivalrySnapshot({player,data,onCompare}:{player:Player;data:AppState;onCompare:(opponent:Player)=>void}) {
   const rivals=rivalSnapshots(player,data);
-  return <section className="rivalry-snapshot"><div className="rivalry-heading"><div><p className="kicker">對賽概覽</p><h3>主要對手</h3></div><span>最多顯示 5 位</span></div>
+  return <section className="profile-section rivalry-snapshot"><div className="profile-section-head"><div><p className="kicker">對賽概覽</p><h3>主要對手</h3></div><span>最多顯示 5 位</span></div>
     {rivals.length===0?<div className="rivalry-empty"><b>尚未有對賽記錄</b><span>記錄第一場比賽後，主要對手會顯示在這裡。</span></div>:<div className="rivalry-list">{rivals.map(rival=>{
       const percent=Math.round((rival.matches?rival.winRate:rival.frameRate)*100);
       const confidence=Math.min(1,.28+Math.max(rival.matches,(rival.framesWon+rival.framesLost)/12)*.18);
@@ -1117,8 +1117,8 @@ function BreakStats({player,data}:{player:Player;data:AppState}) {
   const counts=new Map<string,number>();
   for(const v of breaks) counts.set(band(v),(counts.get(band(v))??0)+1);
   const maxCount=Math.max(1,...allBands.map(b=>counts.get(b)??0));
-  return <section className="break-stats">
-    <div className="break-stats-head"><div><p className="kicker">單桿表現</p><h3>最高單桿</h3></div><b>{highest}</b></div>
+  return <section className="profile-section break-stats">
+    <div className="profile-section-head"><div><p className="kicker">單桿表現</p><h3>最高單桿</h3></div><b>{highest}</b></div>
     <div className="break-bar-chart">{allBands.map(band=>{const count=counts.get(band)??0;return <div className="break-bar-row" key={band}>
       <span className="break-bar-label">{band}</span>
       <span className="break-bar-track"><i style={{width:count?`${8+count/maxCount*92}%`:"0%"}}/></span>
@@ -1132,14 +1132,17 @@ function BreakStats({player,data}:{player:Player;data:AppState}) {
     game, without leaving their profile. Fetched per player id rather than folded into `data`, since
     most profile views never open this section and the rest of `AppState` has no concept of slots. */
 const SLOT_VIZ_LO=10,SLOT_VIZ_HI=26; // the 10:00–02:00 playing window, in hours from HK midnight
+const SLOT_PREVIEW_DAYS=3; // days shown before the section needs expanding
 const hoursFromDayStart=(day:string,iso:string)=>(Date.parse(iso)-Date.parse(dayRangeHongKong(day).startAt))/3600000;
 function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOpponent:(playerId:string,date:string)=>void}) {
   /* Keyed by player id rather than reset in the effect: the fetch resolving is what flips this out of
      its loading state, so a stale response for a previously-viewed player can never paint. */
   const [loaded,setLoaded] = useState<{playerId:string;slots:AvailabilitySlot[]}|null>(null);
+  const [expanded,setExpanded] = useState(false);
   const [now] = useState(()=>Date.now());
   useEffect(() => {
     let cancelled = false;
+    setExpanded(false); // a previous player's "show all" must not carry into this one
     const settle=(slots:AvailabilitySlot[])=>{if(!cancelled)setLoaded({playerId:player.id,slots})};
     fetch(`/api/availability?player=${player.id}`).then(r=>r.json()).then(b=>settle(b.slots??[])).catch(()=>settle([]));
     return () => { cancelled = true; };
@@ -1159,30 +1162,68 @@ function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOppone
     return [...byDay.entries()].sort(([a],[b])=>a.localeCompare(b));
   }, [slots]);
   const today = hkDate(new Date(now)), tomorrow = hkDate(new Date(now+86400000));
-  const dayLabel = (day:string) => day===today ? "今天" : day===tomorrow ? "明天" : hkDayLabel(day);
+  const relativeLabel = (day:string) => day===today ? "今天" : day===tomorrow ? "明天" : null;
   const span=SLOT_VIZ_HI-SLOT_VIZ_LO;
   const pct=(h:number)=>`${(Math.min(SLOT_VIZ_HI,Math.max(SLOT_VIZ_LO,h))-SLOT_VIZ_LO)/span*100}%`;
   const barWidth=(from:number,to:number)=>`${(Math.min(SLOT_VIZ_HI,to)-Math.max(SLOT_VIZ_LO,from))/span*100}%`;
   const total=slots?.length??0;
-  return <details className="detail-chart profile-slots">
-    <summary>
-      <div><p className="kicker">配對時間</p><h3>即將可約的時段</h3></div>
+  /* Open by default and capped at three days: the section is the reason most people open a profile,
+     but a fortnight of published slots would push the ELO history off the screen. */
+  const shown=groups&&(expanded?groups:groups.slice(0,SLOT_PREVIEW_DAYS));
+  return <section className="profile-section profile-slots">
+    <div className="profile-section-head">
+      <div><p className="kicker">約戰時間</p><h3>即將可約的時段</h3></div>
       <span className="profile-slots-count">{slots===null?"載入中…":total?`${groups!.length} 天 · ${total} 個時段`:"未有時段"}</span>
-    </summary>
+    </div>
     <div className="profile-slots-body">
       {slots===null
         ? <p className="profile-slots-empty">載入時段中…</p>
-        : groups && groups.length>0
+        : shown && shown.length>0
           ? <>
               <div className="slot-viz-axis" aria-hidden="true">{[10,14,18,22,26].map(h=><span key={h} style={{left:pct(h)}}>{String(h%24).padStart(2,"0")}:00</span>)}</div>
-              <ul className="slot-viz-list">{groups.map(([day,bars])=><li key={day}>
-                <b>{dayLabel(day)}</b>
-                <div className="slot-viz-track">{bars.map(bar=><i key={bar.label} className="slot-viz-bar" style={{left:pct(bar.from),width:barWidth(bar.from,bar.to)}}><span>{bar.label}</span></i>)}</div>
-              </li>)}</ul>
-              <button type="button" className="more profile-slots-cta" onClick={()=>onFindOpponent(player.id,groups[0][0])}>在可配對查看</button>
+              <ul className="slot-viz-list">{shown.map(([day,bars])=>{const relative=relativeLabel(day);return <li className="slot-day" key={day}>
+                <div className="slot-day-name"><b>{relative??hkDayLabel(day)}</b>{relative&&<small>{hkDayLabel(day)}</small>}</div>
+                {/* The times live in chips beside the track, never inside the bars: an hour-long slot
+                    is only a few pixels wide, and an in-bar label spilled over its neighbours. */}
+                <div className="slot-day-body">
+                  <div className="slot-viz-track">{bars.map(bar=><i key={bar.label} className="slot-viz-bar" style={{left:pct(bar.from),width:barWidth(bar.from,bar.to)}}/>)}</div>
+                  <div className="slot-chips">{bars.map(bar=><span key={bar.label}>{bar.label}</span>)}</div>
+                </div>
+              </li>})}</ul>
+              {groups!.length>SLOT_PREVIEW_DAYS&&<button type="button" className={`slot-more${expanded?" expanded":""}`} aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded?"只顯示最近 3 天":`顯示全部 ${groups!.length} 天`}<i aria-hidden="true">▾</i></button>}
+              <button type="button" className="more profile-slots-cta" onClick={()=>onFindOpponent(player.id,groups![0][0])}>在約戰查看</button>
             </>
           : <p className="profile-slots-empty">目前未有公開的可配對時段</p>}
     </div>
-  </details>;
+  </section>;
 }
-function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFindOpponent}:{player:Player;rank:number;data:AppState;onCompare:(opponent:Player)=>void;onViewAllMatches:()=>void;onMatch:(matchId:string)=>void;onFindOpponent:(playerId:string,date:string)=>void}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data),series=playerSeries(player,data),trendPoints=playerTrendPoints(player,data),high=Math.max(...series),low=Math.min(...series);return <><div className="profile-head"><PlayerBadge player={player}/><div><p className="kicker">排名 #{rank||"—"}</p><h2>{player.name}</h2><p>{g<data.settings.provisionalGames?"臨時 ELO":"正式 ELO"}</p></div></div><div className="profile-stats"><div><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div><div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div><div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div><div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div></div><PlayerUpcomingSlots player={player} onFindOpponent={onFindOpponent}/><BreakStats player={player} data={data}/><RecentMatches points={trendPoints} onViewAll={onViewAllMatches} onMatch={onMatch}/><section className="detail-chart interactive-detail"><div className="chart-head"><div><p className="kicker">評分軌跡</p><h3>ELO 走勢</h3></div><span>最高 {Math.round(high)} · 最低 {Math.round(low)}</span></div><InteractiveEloChart points={trendPoints} label={`${player.name} 從起始評分至目前的互動 ELO 走勢`}/><div className="chart-axis"><span>起始 {Math.round(series[0])}</span><span>目前 {Math.round(player.rating)}</span></div></section><RivalrySnapshot player={player} data={data} onCompare={onCompare}/><h3>表現摘要</h3><p className="summary">{player.name} 目前為 {Math.round(player.rating)} ELO，最近五場錄得 {player.form.filter(x=>x==="W").length} 勝、{player.form.filter(x=>x==="L").length} 負、{player.form.filter(x=>x==="D").length} 和；局數勝率為 {Math.round(frameRate(player)*100)}%。ELO 曾介乎 {Math.round(low)} 至 {Math.round(high)}，共有 {related.length} 筆可追溯賽事記錄。</p></>}
+function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFindOpponent}:{player:Player;rank:number;data:AppState;onCompare:(opponent:Player)=>void;onViewAllMatches:()=>void;onMatch:(matchId:string)=>void;onFindOpponent:(playerId:string,date:string)=>void}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data),series=playerSeries(player,data),trendPoints=playerTrendPoints(player,data),high=Math.max(...series),low=Math.min(...series);const provisional=g<data.settings.provisionalGames;
+  /* One hero, then a single `.profile-body` grid: every section below is a `.profile-section`, so the
+     gaps, surfaces and heads come from one place rather than from each section's own margins. */
+  return <><header className="profile-head">
+    <PlayerBadge player={player}/>
+    <div className="profile-identity">
+      <h2>{player.name}</h2>
+      <div className="profile-chips"><span className="profile-chip">排名 #{rank||"—"}</span><span className={`profile-chip${provisional?" provisional":""}`}>{provisional?"臨時 ELO":"正式 ELO"}</span><span className="profile-chip">{g} 場</span></div>
+    </div>
+    <div className="profile-hero-elo"><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div>
+  </header>
+  <div className="profile-body">
+    <section className="profile-section">
+      <div className="profile-section-head"><div><p className="kicker">評分概要</p><h3>讓分與戰績</h3></div></div>
+      <div className="profile-stats"><div><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div><div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div><div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div><div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div></div>
+    </section>
+    <PlayerUpcomingSlots player={player} onFindOpponent={onFindOpponent}/>
+    <BreakStats player={player} data={data}/>
+    <RecentMatches points={trendPoints} onViewAll={onViewAllMatches} onMatch={onMatch}/>
+    <section className="profile-section interactive-detail">
+      <div className="profile-section-head"><div><p className="kicker">評分軌跡</p><h3>ELO 走勢</h3></div><span>最高 {Math.round(high)} · 最低 {Math.round(low)}</span></div>
+      <InteractiveEloChart points={trendPoints} label={`${player.name} 從起始評分至目前的互動 ELO 走勢`}/>
+      <div className="chart-axis"><span>起始 {Math.round(series[0])}</span><span>目前 {Math.round(player.rating)}</span></div>
+    </section>
+    <RivalrySnapshot player={player} data={data} onCompare={onCompare}/>
+    <section className="profile-section">
+      <div className="profile-section-head"><div><p className="kicker">綜合分析</p><h3>表現摘要</h3></div></div>
+      <p className="summary">{player.name} 目前為 {Math.round(player.rating)} ELO，最近五場錄得 {player.form.filter(x=>x==="W").length} 勝、{player.form.filter(x=>x==="L").length} 負、{player.form.filter(x=>x==="D").length} 和；局數勝率為 {Math.round(frameRate(player)*100)}%。ELO 曾介乎 {Math.round(low)} 至 {Math.round(high)}，共有 {related.length} 筆可追溯賽事記錄。</p>
+    </section>
+  </div></>}
