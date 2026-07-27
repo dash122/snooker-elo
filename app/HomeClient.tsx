@@ -469,14 +469,22 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
         <small>{label}</small>
       </button>)}</nav>
     {modal&&<div className="backdrop" onMouseDown={e=>e.target===e.currentTarget&&closeModal()}>
-      <section className={`sheet${modal==="deleteMatch"?" confirm-sheet":""}`} role="dialog" aria-modal="true"><button className="close" aria-label="關閉" onClick={closeModal}>×</button>
-        {modal==="match"&&<MatchForm data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} onSave={saveMatch}/>}
-        {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} onSave={savePlayer}/>}
-        {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,modelVersion:3},rebuilt=replay(data.players,data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"更新 ELO 設定；完整重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已更新，歷史 ELO 已重播。")}}/>}
-        {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
-        {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
-        {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={(playerId,date)=>{setModal(null);setJumpToAvailability({playerId,date});goTab("availability")}}/>}
-      </section></div>}
+      {/* `.close` is a sibling of `.sheet`, not a child: `.sheet` is the scrolling box, and a
+          descendant can never sit outside it or straddle its edge without being clipped by that
+          same overflow. As a sibling inside `.sheet-shell` it floats above the corner, stays put
+          while the sheet content scrolls underneath it, and can cross the sheet's edge freely. */}
+      <div className="sheet-shell">
+        <button className="close" aria-label="關閉" onClick={closeModal}>×</button>
+        <section className={`sheet${modal==="deleteMatch"?" confirm-sheet":""}`} role="dialog" aria-modal="true">
+          {modal==="match"&&<MatchForm data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} onSave={saveMatch}/>}
+          {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} onSave={savePlayer}/>}
+          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,modelVersion:3},rebuilt=replay(data.players,data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"更新 ELO 設定；完整重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已更新，歷史 ELO 已重播。")}}/>}
+          {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
+          {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
+          {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={(playerId,date)=>{setModal(null);setJumpToAvailability({playerId,date});goTab("availability")}}/>}
+        </section>
+      </div>
+    </div>}
     {leavingAvailability&&<div className="availability-dialog-backdrop" onMouseDown={()=>setLeavingAvailability(null)}><section className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby="leave-availability-title" onMouseDown={e=>e.stopPropagation()}><small>未儲存的變更</small><h2 id="leave-availability-title">離開後變更會消失</h2><p>你在「可配對」的時段變更尚未儲存，離開這一頁後不會保留。</p><div><button className="secondary" onClick={()=>setLeavingAvailability(null)}>留在此頁</button><button className="danger" onClick={()=>{const next=leavingAvailability;setLeavingAvailability(null);setAvailabilityDirty(false);setHighlightMatch(null);setTab(next)}}>捨棄變更離開</button></div></section></div>}
     {toast&&<div className="toast" role="status"><span>{toast}</span>{undoSnapshot&&<button type="button" onClick={undoDelete}>復原</button>}</div>}
   </div></>;
@@ -1131,7 +1139,6 @@ function BreakStats({player,data}:{player:Player;data:AppState}) {
 /** A player's public, upcoming availability — one glance at whether they're worth approaching for a
     game, without leaving their profile. Fetched per player id rather than folded into `data`, since
     most profile views never open this section and the rest of `AppState` has no concept of slots. */
-const SLOT_VIZ_LO=10,SLOT_VIZ_HI=26; // the 10:00–02:00 playing window, in hours from HK midnight
 const SLOT_PREVIEW_DAYS=3; // days shown before the section needs expanding
 const hoursFromDayStart=(day:string,iso:string)=>(Date.parse(iso)-Date.parse(dayRangeHongKong(day).startAt))/3600000;
 function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOpponent:(playerId:string,date:string)=>void}) {
@@ -1149,23 +1156,21 @@ function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOppone
   }, [player.id]);
   const slots = loaded?.playerId===player.id ? loaded.slots : null;
   /* Grouped by *playing* day, not calendar day: a slot running past midnight belongs to the evening
-     it started, which is why the axis runs to 26:00 rather than wrapping onto the next row. */
+     it started, e.g. a 00:30 slot is that day's, not the next calendar day's. */
   const groups = useMemo(() => {
     if(!slots) return null;
-    const byDay = new Map<string,{from:number;to:number;label:string}[]>();
+    const byDay = new Map<string,{from:number;label:string}[]>();
     for(const slot of slots){
       const calendarDate=hkDate(new Date(slot.startAt));
       const day=hoursFromDayStart(calendarDate,slot.startAt)<2?addDaysHongKong(calendarDate,-1):calendarDate;
-      const bar={from:hoursFromDayStart(day,slot.startAt),to:hoursFromDayStart(day,slot.endAt),label:`${hkClock(slot.startAt)}–${hkClock(slot.endAt)}`};
+      const bar={from:hoursFromDayStart(day,slot.startAt),label:`${hkClock(slot.startAt)}–${hkClock(slot.endAt)}`};
       byDay.set(day,[...(byDay.get(day)??[]),bar]);
     }
+    for(const bars of byDay.values()) bars.sort((a,b)=>a.from-b.from); // read left-to-right by start time
     return [...byDay.entries()].sort(([a],[b])=>a.localeCompare(b));
   }, [slots]);
   const today = hkDate(new Date(now)), tomorrow = hkDate(new Date(now+86400000));
   const relativeLabel = (day:string) => day===today ? "今天" : day===tomorrow ? "明天" : null;
-  const span=SLOT_VIZ_HI-SLOT_VIZ_LO;
-  const pct=(h:number)=>`${(Math.min(SLOT_VIZ_HI,Math.max(SLOT_VIZ_LO,h))-SLOT_VIZ_LO)/span*100}%`;
-  const barWidth=(from:number,to:number)=>`${(Math.min(SLOT_VIZ_HI,to)-Math.max(SLOT_VIZ_LO,from))/span*100}%`;
   const total=slots?.length??0;
   /* Open by default and capped at three days: the section is the reason most people open a profile,
      but a fortnight of published slots would push the ELO history off the screen. */
@@ -1180,15 +1185,15 @@ function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOppone
         ? <p className="profile-slots-empty">載入時段中…</p>
         : shown && shown.length>0
           ? <>
-              <div className="slot-viz-axis" aria-hidden="true">{[10,14,18,22,26].map(h=><span key={h} style={{left:pct(h)}}>{String(h%24).padStart(2,"0")}:00</span>)}</div>
+              {/* Day, then the times. No timeline track and no 10:00–02:00 axis: the visualisation
+                  cost three rows per day and asked the reader to decode a scale, when the only
+                  questions here are "which day" and "what times". */}
+              {/* Every row shares one date treatment — small grey weekday/date text — with today and
+                  tomorrow additionally called out by a pill above it, rather than getting their own
+                  larger bold line that the rest of the week didn't have. */}
               <ul className="slot-viz-list">{shown.map(([day,bars])=>{const relative=relativeLabel(day);return <li className="slot-day" key={day}>
-                <div className="slot-day-name"><b>{relative??hkDayLabel(day)}</b>{relative&&<small>{hkDayLabel(day)}</small>}</div>
-                {/* The times live in chips beside the track, never inside the bars: an hour-long slot
-                    is only a few pixels wide, and an in-bar label spilled over its neighbours. */}
-                <div className="slot-day-body">
-                  <div className="slot-viz-track">{bars.map(bar=><i key={bar.label} className="slot-viz-bar" style={{left:pct(bar.from),width:barWidth(bar.from,bar.to)}}/>)}</div>
-                  <div className="slot-chips">{bars.map(bar=><span key={bar.label}>{bar.label}</span>)}</div>
-                </div>
+                <div className="slot-day-name">{relative&&<b className="slot-day-badge">{relative}</b>}<small>{hkDayLabel(day)}</small></div>
+                <div className="slot-chips">{bars.map(bar=><span key={bar.label}>{bar.label}</span>)}</div>
               </li>})}</ul>
               {groups!.length>SLOT_PREVIEW_DAYS&&<button type="button" className={`slot-more${expanded?" expanded":""}`} aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded?"只顯示最近 3 天":`顯示全部 ${groups!.length} 天`}<i aria-hidden="true">▾</i></button>}
               <button type="button" className="more profile-slots-cta" onClick={()=>onFindOpponent(player.id,groups![0][0])}>在約戰查看</button>
@@ -1200,18 +1205,21 @@ function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOppone
 function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFindOpponent}:{player:Player;rank:number;data:AppState;onCompare:(opponent:Player)=>void;onViewAllMatches:()=>void;onMatch:(matchId:string)=>void;onFindOpponent:(playerId:string,date:string)=>void}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data),series=playerSeries(player,data),trendPoints=playerTrendPoints(player,data),high=Math.max(...series),low=Math.min(...series);const provisional=g<data.settings.provisionalGames;
   /* One hero, then a single `.profile-body` grid: every section below is a `.profile-section`, so the
      gaps, surfaces and heads come from one place rather than from each section's own margins. */
-  return <><header className="profile-head">
+  /* A plain div, not a <header>: the global `header{height:62px}` page rule would clamp this and
+     clip the chip row. */
+  return <><div className="profile-head">
     <PlayerBadge player={player}/>
     <div className="profile-identity">
       <h2>{player.name}</h2>
       <div className="profile-chips"><span className="profile-chip">排名 #{rank||"—"}</span><span className={`profile-chip${provisional?" provisional":""}`}>{provisional?"臨時 ELO":"正式 ELO"}</span><span className="profile-chip">{g} 場</span></div>
     </div>
     <div className="profile-hero-elo"><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div>
-  </header>
+  </div>
   <div className="profile-body">
     <section className="profile-section">
       <div className="profile-section-head"><div><p className="kicker">評分概要</p><h3>讓分與戰績</h3></div></div>
-      <div className="profile-stats"><div><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div><div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div><div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div><div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div></div>
+      {/* Current ELO already leads the hero above, so it isn't repeated here. */}
+      <div className="profile-stats"><div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div><div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div><div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div></div>
     </section>
     <PlayerUpcomingSlots player={player} onFindOpponent={onFindOpponent}/>
     <BreakStats player={player} data={data}/>
