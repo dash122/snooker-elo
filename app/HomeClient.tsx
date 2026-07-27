@@ -473,7 +473,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
           descendant can never sit outside it or straddle its edge without being clipped by that
           same overflow. As a sibling inside `.sheet-shell` it floats above the corner, stays put
           while the sheet content scrolls underneath it, and can cross the sheet's edge freely. */}
-      <div className="sheet-shell">
+      <div className={`sheet-shell${modal==="detail"?" player-detail-sheet":""}`}>
         <button className="close" aria-label="關閉" onClick={closeModal}>×</button>
         <section className={`sheet${modal==="deleteMatch"?" confirm-sheet":""}`} role="dialog" aria-modal="true">
           {modal==="match"&&<MatchForm data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} onSave={saveMatch}/>}

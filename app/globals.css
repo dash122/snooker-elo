@@ -2420,3 +2420,11 @@ button.availability-grid-player:hover b{text-decoration:underline}
 .close:hover{background:#fff;color:var(--ink)}
 .close:active{transform:scale(.94)}
 @media(max-width:680px){.close{top:.75rem;margin-bottom:.5rem}}
+
+/* Keep mobile PWA content and sticky navigation below the iOS status area. */
+@media(max-width:820px){
+  body{padding-top:env(safe-area-inset-top)}
+  body::before{content:"";position:fixed;z-index:100;top:0;right:0;left:0;height:env(safe-area-inset-top);background:var(--deep)}
+  .availability-tabs,.home-view-nav,main>.match-view-toggle{top:env(safe-area-inset-top)}
+  .sheet-shell.player-detail-sheet{max-height:80dvh}
+}
