@@ -13,6 +13,9 @@ function slots(body:unknown){
 function weekDates(start:string,count:number){return Array.from({length:count},(_,i)=>addDaysHongKong(start,i));}
 export async function GET(request:Request){
   try{const url=new URL(request.url);if(url.searchParams.get("me")!==null){const member=await requireMember();if(!member)return Response.json({error:"Sign in required"},{status:401});if(!member.statePlayerId)return Response.json({error:"Link a player profile first"},{status:403});return Response.json({slots:await listOwnAvailability(member.statePlayerId)},{headers:{"cache-control":"no-store"}});}
+    /* Any player's upcoming slots are already public information — visible to anyone browsing the
+       matchmaking grid for a given day — so this needs no auth, just an id to filter by. */
+    const player=url.searchParams.get("player");if(player!==null)return Response.json({slots:await listOwnAvailability(player)},{headers:{"cache-control":"no-store"}});
     const week=url.searchParams.get("week");if(week!==null){const count=Math.min(31,Math.max(1,Number(url.searchParams.get("days"))||7));const days=weekDates(week,count).map(date=>({date,...dayRangeHongKong(date)}));return Response.json({counts:await listAvailabilityCounts(days)},{headers:{"cache-control":"no-store"}});}
     const date=url.searchParams.get("date")??new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Hong_Kong"});const range=dayRangeHongKong(date);return Response.json({date,members:await listAvailability(range.startAt,range.endAt)},{headers:{"cache-control":"no-store"}});
   }catch(error){return Response.json({error:error instanceof Error?error.message:"Availability unavailable"},{status:400});}}

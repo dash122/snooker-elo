@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { CalibrationTrend, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Sparkline, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import Availability from "./Availability";
+import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
 
 type Player = {
   id: string; name: string; short: string; handicap: number | null; rating: number; colour?: string; avatar?: string | null;
@@ -194,6 +195,9 @@ function isInPastTenDays(playedOn:string){
 export default function Home({user}:{user:{displayName:string;email:string;role:"admin"|"member";statePlayerId?:string}|null}) {
   const [data,setData] = useState<AppState>(seed);
   const [tab,setTab] = useState("leaderboard");
+  const [availabilityDirty,setAvailabilityDirty] = useState(false);
+  const [leavingAvailability,setLeavingAvailability] = useState<string|null>(null);
+  const [jumpToAvailability,setJumpToAvailability] = useState<{playerId:string;date:string}|null>(null);
   const [matchesView,setMatchesView] = useState<"history"|"calendar">("history");
   const [headToHead,setHeadToHead] = useState({a:"",b:""});
   const [highlightMatch,setHighlightMatch] = useState<string|null>(null);
@@ -260,7 +264,9 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   // a result the user has already seen. Cleared on the click rather than in an
   // effect keyed on `tab` — saveMatch sets both in one batch, and an effect
   // would race that.
-  const goTab=(next:string)=>{setHighlightMatch(null);setTab(next)};
+  /* Leaving the availability tab unmounts its editor, taking any unsaved slot work with it, so a
+     dirty editor gets to intercept the move first. */
+  const goTab=(next:string)=>{if(availabilityDirty&&tab==="availability"&&next!==tab)return setLeavingAvailability(next);setHighlightMatch(null);if(next!=="availability")setJumpToAvailability(null);setTab(next)};
   useEffect(()=>{
     if(data.players.length<2)return;
     setDraft(d=>{
@@ -451,7 +457,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={newMatch} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch}/>}
-      {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches}/>}
+      {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}}/>}
       {tab==="players"&&<Players data={data} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={openHeadToHead}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
     </main>
@@ -469,8 +475,9 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
         {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,modelVersion:3},rebuilt=replay(data.players,data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"更新 ELO 設定；完整重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已更新，歷史 ELO 已重播。")}}/>}
         {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
         {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
-        {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}}/>}
+        {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={(playerId,date)=>{setModal(null);setJumpToAvailability({playerId,date});goTab("availability")}}/>}
       </section></div>}
+    {leavingAvailability&&<div className="availability-dialog-backdrop" onMouseDown={()=>setLeavingAvailability(null)}><section className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby="leave-availability-title" onMouseDown={e=>e.stopPropagation()}><small>未儲存的變更</small><h2 id="leave-availability-title">離開後變更會消失</h2><p>你在「可配對」的時段變更尚未儲存，離開這一頁後不會保留。</p><div><button className="secondary" onClick={()=>setLeavingAvailability(null)}>留在此頁</button><button className="danger" onClick={()=>{const next=leavingAvailability;setLeavingAvailability(null);setAvailabilityDirty(false);setHighlightMatch(null);setTab(next)}}>捨棄變更離開</button></div></section></div>}
     {toast&&<div className="toast" role="status"><span>{toast}</span>{undoSnapshot&&<button type="button" onClick={undoDelete}>復原</button>}</div>}
   </div></>;
 }
@@ -1121,4 +1128,61 @@ function BreakStats({player,data}:{player:Player;data:AppState}) {
   </section>;
 }
 
-function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch}:{player:Player;rank:number;data:AppState;onCompare:(opponent:Player)=>void;onViewAllMatches:()=>void;onMatch:(matchId:string)=>void}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data),series=playerSeries(player,data),trendPoints=playerTrendPoints(player,data),high=Math.max(...series),low=Math.min(...series);return <><div className="profile-head"><PlayerBadge player={player}/><div><p className="kicker">排名 #{rank||"—"}</p><h2>{player.name}</h2><p>{g<data.settings.provisionalGames?"臨時 ELO":"正式 ELO"}</p></div></div><div className="profile-stats"><div><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div><div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div><div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div><div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div></div><BreakStats player={player} data={data}/><RecentMatches points={trendPoints} onViewAll={onViewAllMatches} onMatch={onMatch}/><section className="detail-chart interactive-detail"><div className="chart-head"><div><p className="kicker">評分軌跡</p><h3>ELO 走勢</h3></div><span>最高 {Math.round(high)} · 最低 {Math.round(low)}</span></div><InteractiveEloChart points={trendPoints} label={`${player.name} 從起始評分至目前的互動 ELO 走勢`}/><div className="chart-axis"><span>起始 {Math.round(series[0])}</span><span>目前 {Math.round(player.rating)}</span></div></section><RivalrySnapshot player={player} data={data} onCompare={onCompare}/><h3>表現摘要</h3><p className="summary">{player.name} 目前為 {Math.round(player.rating)} ELO，最近五場錄得 {player.form.filter(x=>x==="W").length} 勝、{player.form.filter(x=>x==="L").length} 負、{player.form.filter(x=>x==="D").length} 和；局數勝率為 {Math.round(frameRate(player)*100)}%。ELO 曾介乎 {Math.round(low)} 至 {Math.round(high)}，共有 {related.length} 筆可追溯賽事記錄。</p></>}
+/** A player's public, upcoming availability — one glance at whether they're worth approaching for a
+    game, without leaving their profile. Fetched per player id rather than folded into `data`, since
+    most profile views never open this section and the rest of `AppState` has no concept of slots. */
+const SLOT_VIZ_LO=10,SLOT_VIZ_HI=26; // the 10:00–02:00 playing window, in hours from HK midnight
+const hoursFromDayStart=(day:string,iso:string)=>(Date.parse(iso)-Date.parse(dayRangeHongKong(day).startAt))/3600000;
+function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOpponent:(playerId:string,date:string)=>void}) {
+  /* Keyed by player id rather than reset in the effect: the fetch resolving is what flips this out of
+     its loading state, so a stale response for a previously-viewed player can never paint. */
+  const [loaded,setLoaded] = useState<{playerId:string;slots:AvailabilitySlot[]}|null>(null);
+  const [now] = useState(()=>Date.now());
+  useEffect(() => {
+    let cancelled = false;
+    const settle=(slots:AvailabilitySlot[])=>{if(!cancelled)setLoaded({playerId:player.id,slots})};
+    fetch(`/api/availability?player=${player.id}`).then(r=>r.json()).then(b=>settle(b.slots??[])).catch(()=>settle([]));
+    return () => { cancelled = true; };
+  }, [player.id]);
+  const slots = loaded?.playerId===player.id ? loaded.slots : null;
+  /* Grouped by *playing* day, not calendar day: a slot running past midnight belongs to the evening
+     it started, which is why the axis runs to 26:00 rather than wrapping onto the next row. */
+  const groups = useMemo(() => {
+    if(!slots) return null;
+    const byDay = new Map<string,{from:number;to:number;label:string}[]>();
+    for(const slot of slots){
+      const calendarDate=hkDate(new Date(slot.startAt));
+      const day=hoursFromDayStart(calendarDate,slot.startAt)<2?addDaysHongKong(calendarDate,-1):calendarDate;
+      const bar={from:hoursFromDayStart(day,slot.startAt),to:hoursFromDayStart(day,slot.endAt),label:`${hkClock(slot.startAt)}–${hkClock(slot.endAt)}`};
+      byDay.set(day,[...(byDay.get(day)??[]),bar]);
+    }
+    return [...byDay.entries()].sort(([a],[b])=>a.localeCompare(b));
+  }, [slots]);
+  const today = hkDate(new Date(now)), tomorrow = hkDate(new Date(now+86400000));
+  const dayLabel = (day:string) => day===today ? "今天" : day===tomorrow ? "明天" : hkDayLabel(day);
+  const span=SLOT_VIZ_HI-SLOT_VIZ_LO;
+  const pct=(h:number)=>`${(Math.min(SLOT_VIZ_HI,Math.max(SLOT_VIZ_LO,h))-SLOT_VIZ_LO)/span*100}%`;
+  const barWidth=(from:number,to:number)=>`${(Math.min(SLOT_VIZ_HI,to)-Math.max(SLOT_VIZ_LO,from))/span*100}%`;
+  const total=slots?.length??0;
+  return <details className="detail-chart profile-slots">
+    <summary>
+      <div><p className="kicker">配對時間</p><h3>即將可約的時段</h3></div>
+      <span className="profile-slots-count">{slots===null?"載入中…":total?`${groups!.length} 天 · ${total} 個時段`:"未有時段"}</span>
+    </summary>
+    <div className="profile-slots-body">
+      {slots===null
+        ? <p className="profile-slots-empty">載入時段中…</p>
+        : groups && groups.length>0
+          ? <>
+              <div className="slot-viz-axis" aria-hidden="true">{[10,14,18,22,26].map(h=><span key={h} style={{left:pct(h)}}>{String(h%24).padStart(2,"0")}:00</span>)}</div>
+              <ul className="slot-viz-list">{groups.map(([day,bars])=><li key={day}>
+                <b>{dayLabel(day)}</b>
+                <div className="slot-viz-track">{bars.map(bar=><i key={bar.label} className="slot-viz-bar" style={{left:pct(bar.from),width:barWidth(bar.from,bar.to)}}><span>{bar.label}</span></i>)}</div>
+              </li>)}</ul>
+              <button type="button" className="more profile-slots-cta" onClick={()=>onFindOpponent(player.id,groups[0][0])}>在可配對查看</button>
+            </>
+          : <p className="profile-slots-empty">目前未有公開的可配對時段</p>}
+    </div>
+  </details>;
+}
+function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFindOpponent}:{player:Player;rank:number;data:AppState;onCompare:(opponent:Player)=>void;onViewAllMatches:()=>void;onMatch:(matchId:string)=>void;onFindOpponent:(playerId:string,date:string)=>void}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data),series=playerSeries(player,data),trendPoints=playerTrendPoints(player,data),high=Math.max(...series),low=Math.min(...series);return <><div className="profile-head"><PlayerBadge player={player}/><div><p className="kicker">排名 #{rank||"—"}</p><h2>{player.name}</h2><p>{g<data.settings.provisionalGames?"臨時 ELO":"正式 ELO"}</p></div></div><div className="profile-stats"><div><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div><div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div><div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div><div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div></div><PlayerUpcomingSlots player={player} onFindOpponent={onFindOpponent}/><BreakStats player={player} data={data}/><RecentMatches points={trendPoints} onViewAll={onViewAllMatches} onMatch={onMatch}/><section className="detail-chart interactive-detail"><div className="chart-head"><div><p className="kicker">評分軌跡</p><h3>ELO 走勢</h3></div><span>最高 {Math.round(high)} · 最低 {Math.round(low)}</span></div><InteractiveEloChart points={trendPoints} label={`${player.name} 從起始評分至目前的互動 ELO 走勢`}/><div className="chart-axis"><span>起始 {Math.round(series[0])}</span><span>目前 {Math.round(player.rating)}</span></div></section><RivalrySnapshot player={player} data={data} onCompare={onCompare}/><h3>表現摘要</h3><p className="summary">{player.name} 目前為 {Math.round(player.rating)} ELO，最近五場錄得 {player.form.filter(x=>x==="W").length} 勝、{player.form.filter(x=>x==="L").length} 負、{player.form.filter(x=>x==="D").length} 和；局數勝率為 {Math.round(frameRate(player)*100)}%。ELO 曾介乎 {Math.round(low)} 至 {Math.round(high)}，共有 {related.length} 筆可追溯賽事記錄。</p></>}

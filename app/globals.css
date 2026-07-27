@@ -1512,6 +1512,9 @@ img.member-avatar{object-fit:cover}
 .match-hero-main>.player-badge>img{width:100%;height:100%;object-fit:cover;display:block}
 .match-hero-who{min-width:0;flex:1 1 130px}
 .match-hero-who h2{margin:0;font-size:24px;line-height:1.15;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Inherits the h2's type so the card looks unchanged; only the pointer and underline say it opens. */
+.match-hero-name{max-width:100%;padding:0;border:0;background:transparent;font:inherit;color:inherit;letter-spacing:inherit;text-align:left;cursor:pointer}
+.match-hero-name:hover{text-decoration:underline}
 .match-hero-who small{display:block;margin-top:3px;font-size:12px;font-weight:600;color:#a9c8bf;font-variant-numeric:tabular-nums}
 .match-hero-window{flex:0 0 auto;text-align:right;min-width:0}
 .match-hero-window b{display:block;font-size:21px;font-weight:800;color:#ffd98f;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
@@ -1539,6 +1542,12 @@ img.member-avatar{object-fit:cover}
 .match-hero.is-prompt p{margin:0;font-size:13px;color:var(--muted);line-height:1.65}
 .availability-page .match-hero.is-prompt .primary,.availability-page .match-hero.is-prompt button.secondary{margin-top:16px;min-height:46px;border-radius:12px}
 .availability-page .match-hero.is-prompt button.secondary{background:var(--paper);border:1px solid var(--line);color:var(--green)}
+
+/* Every overlapping opponent gets the same full card, so the stack reads as one ranked answer. */
+.match-stack{display:flex;flex-direction:column;gap:12px}
+.match-stack-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 2px}
+.match-stack-head h3{margin:0;font-size:14px;font-weight:800;letter-spacing:-.01em}
+.match-stack-head small{font-size:11.5px;color:var(--muted);font-weight:600}
 
 /* Histogram: the page's time filter. Bars are buttons, so the club's shape is also its control. */
 .density-card>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;height:auto;min-height:0}
@@ -1625,7 +1634,13 @@ img.member-avatar{object-fit:cover}
 
 .availability-editor{margin-top:16px}
 .slot-tally{display:flex;align-items:baseline;gap:5px;background:#e8f2ec;color:#27704e;border-radius:20px;padding:7px 14px;font-size:11px;font-weight:800}
+.slot-tally-group{display:flex;align-items:center;gap:10px;flex-wrap:nowrap}
 .slot-tally b{font-size:16px;font-variant-numeric:tabular-nums}
+/* Its own class rather than the shared `.more`, which `.availability-day-head` restyles per-viewport
+   for an unrelated button (full-width on mobile, green) — borrowing it made this destructive action
+   balloon into a disconnected full-width row next to the small count pill. */
+.clear-all-link{flex:0 0 auto;border:0;background:transparent;color:var(--red);font-size:11px;font-weight:700;padding:7px 2px;white-space:nowrap}
+.clear-all-link:hover{text-decoration:underline}
 
 /* The board: rows are days, the x-axis is the clock. Same visual grammar as the roster timeline on
    the find tab, so a member reads both charts the same way. */
@@ -1768,8 +1783,16 @@ img.member-avatar{object-fit:cover}
 .availability-dialog small{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;font-weight:800}
 .availability-dialog h2{font-size:19px;margin:7px 0 10px;font-variant-numeric:tabular-nums}
 .availability-dialog p{font-size:13px;color:var(--muted);margin:0 0 18px;line-height:1.55}
-.availability-dialog>div{display:flex;gap:9px}
-.availability-dialog>div>button{flex:1}
+.availability-dialog>div{display:flex;gap:9px;flex-wrap:wrap}
+/* Buttons carry their own styles here: the leave guard renders this dialog from the app shell, i.e.
+   outside `.availability-page`, where the page-scoped button rules do not reach. Wrapping keeps a
+   three-action dialog usable once the labels stop fitting on one row. */
+.availability-dialog>div>button{flex:1 1 116px}
+.availability-dialog button.secondary{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:11px;min-height:44px;padding:0 14px;font-weight:700}
+.availability-dialog button.secondary:disabled{color:var(--muted);cursor:not-allowed}
+.availability-dialog button.danger{border:0;background:#c0392b;color:#fff;border-radius:11px;min-height:44px;padding:0 16px;font-weight:700}
+.availability-dialog button.danger:disabled{opacity:.68;cursor:not-allowed}
+.availability-dialog button.primary{min-height:44px;border-radius:11px;padding:0 16px}
 
 .availability-page button:focus-visible,.availability-page input:focus-visible,.availability-page select:focus-visible{outline:3px solid #e4b452;outline-offset:2px}
 
@@ -1824,6 +1847,7 @@ img.member-avatar{object-fit:cover}
 .availability-editor>.availability-day-head{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-bottom:16px;position:static}
 .availability-editor>.availability-day-head>div{grid-column:1;flex:none;width:100%}
 .availability-editor>.availability-day-head .slot-tally{grid-column:1;justify-self:start;position:static;max-width:100%;margin:0;white-space:nowrap}
+.availability-editor>.availability-day-head .slot-tally-group{grid-column:1;justify-self:start;max-width:100%}
 .candidate-head{gap:8px}
 .sort-toggle{flex:1}
 .sort-toggle button{flex:1;min-height:28px;height:28px;padding:0 8px}
@@ -2043,6 +2067,16 @@ img.member-avatar{object-fit:cover}
 .availability-grid-row{display:contents}
 .availability-grid-player{position:sticky;left:0;z-index:5;display:flex;align-items:center;gap:9px;min-height:58px;padding:8px 11px;background:var(--paper);border-right:1px solid var(--line);border-bottom:1px solid #f0eee6}
 .availability-grid-row.is-me .availability-grid-player,.availability-grid-row.is-me .availability-grid-track{background:#f0f7f2}
+/* The name cell doubles as the way into a player's card, so it becomes a real button — which means
+   undoing the UA button styling the shared class was never written to fight. */
+button.availability-grid-player{width:100%;border:0;border-right:1px solid var(--line);border-bottom:1px solid #f0eee6;font:inherit;color:inherit;text-align:left;cursor:pointer}
+button.availability-grid-player:hover b{text-decoration:underline}
+/* `.availability-grid-row` is `display:contents`, so it paints nothing itself — the ring goes on the
+   two real boxes underneath instead. Steady while a jump-in highlight is active, one pulse on arrival. */
+.availability-grid-row.is-highlighted .availability-grid-player{box-shadow:inset 3px 0 0 var(--gold)}
+.availability-grid-row.is-highlighted .availability-grid-track{box-shadow:inset 0 0 0 2px var(--gold);animation:availability-highlight-pulse 1.6s ease-out 1}
+@keyframes availability-highlight-pulse{0%{box-shadow:inset 0 0 0 2px var(--gold),0 0 0 0 rgba(228,180,82,.5)}100%{box-shadow:inset 0 0 0 2px var(--gold),0 0 0 10px rgba(228,180,82,0)}}
+@media(prefers-reduced-motion:reduce){.availability-grid-row.is-highlighted .availability-grid-track{animation:none}}
 .availability-grid-player>.player-badge,.availability-grid-you{flex:0 0 auto;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;overflow:hidden;background:var(--green);color:#fff;font-size:10px;font-weight:800;font-style:normal}
 .availability-grid-player>.player-badge img{width:100%;height:100%;object-fit:cover}
 .availability-grid-player>span:last-child{min-width:0}
@@ -2072,7 +2106,7 @@ img.member-avatar{object-fit:cover}
  .availability-grid-corner{padding-left:10px}.availability-grid-player{padding:7px 8px;gap:7px}
  .availability-grid-player>.player-badge,.availability-grid-you{width:29px;height:29px}
  .availability-grid-player b{font-size:11.5px}.availability-grid-player small{font-size:9px}
- .match-hero{order:3}
+ .match-stack,.find-stack>.match-hero{order:3}
 }
 /* Shared mobile gutters keep the pinned availability bar aligned with the
    rest of the application, including compact phones. */
@@ -2177,4 +2211,39 @@ img.member-avatar{object-fit:cover}
   .trend-overview b{font-size:1.05rem;white-space:nowrap}
   .trend-overview .mini-toggle{flex:0 0 auto;width:auto;padding:2px}
   .trend-overview .mini-toggle button{min-height:36px;padding-inline:.45rem;font-size:.625rem;white-space:nowrap}
+}
+
+/* A player's upcoming availability on their profile card. `.detail-chart`/`.chart-head` are the
+   existing card+header pair from the ELO chart section, reused so this section matches the rest of
+   the sheet without new container rules. `.chart-head .more` needs its own colour here: the base
+   `.more` rule is red (styled for destructive "clear" actions elsewhere), but this one navigates to
+   the Availability tab, so it takes the green used for every other in-card navigation link. */
+.chart-head .more{color:var(--green)}
+/* Collapsed by default: the profile sheet is long, and a player with a fortnight of published slots
+   would otherwise push the ELO history off the screen. */
+.profile-slots>summary{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;cursor:pointer;list-style:none}
+.profile-slots>summary::-webkit-details-marker{display:none}
+.profile-slots>summary h3{margin:0;font-size:18px}
+.profile-slots-count{display:inline-flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap}
+.profile-slots-count::after{content:"▾";font-size:10px;transition:transform .18s ease}
+.profile-slots[open] .profile-slots-count::after{transform:rotate(180deg)}
+.profile-slots-body{margin-top:16px}
+.profile-slots-empty{margin:0;font-size:12px;color:var(--muted)}
+.profile-slots-cta{margin-top:12px;padding:0}
+/* Same language as the matchmaking grid: a green bar sitting on the 10:00–02:00 track, so a slot
+   reads as "when", not as a sentence to parse. */
+.slot-viz-axis{position:relative;height:14px;margin-left:52px;color:var(--muted);font-size:9px;font-weight:700}
+.slot-viz-axis span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.slot-viz-axis span:first-child{transform:none}
+.slot-viz-axis span:last-child{transform:translateX(-100%)}
+.slot-viz-list{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.slot-viz-list li{display:grid;grid-template-columns:52px minmax(0,1fr);align-items:center;gap:8px}
+.slot-viz-list b{font-size:11px;font-weight:800;color:#27704e;white-space:nowrap}
+.slot-viz-track{position:relative;height:30px;border-radius:8px;background:#eff6f1;overflow:hidden}
+.slot-viz-bar{position:absolute;inset-block:4px;min-width:3px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:#9fd2b3;box-shadow:inset 0 0 0 1px rgba(23,121,90,.12);overflow:hidden}
+.slot-viz-bar span{padding:0 5px;color:#164a3c;font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:820px){
+  .slot-viz-axis{margin-left:44px}
+  .slot-viz-list li{grid-template-columns:44px minmax(0,1fr);gap:6px}
+  .slot-viz-bar span{font-size:9px}
 }

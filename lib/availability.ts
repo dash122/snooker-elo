@@ -7,7 +7,7 @@ const minute = 60_000;
 export function validateAvailabilityInterval(input:Interval, now=Date.now()) {
   const startAt=Date.parse(input.startAt), endAt=Date.parse(input.endAt);
   if(!Number.isFinite(startAt)||!Number.isFinite(endAt)) throw new Error("Invalid availability time");
-  if(startAt<=now) throw new Error("Availability must start in the future");
+  if(startAt<now-30*minute) throw new Error("Availability must start in the future");
   if(endAt<=startAt) throw new Error("End time must be after start time");
   if(startAt%(30*minute)!==0 || endAt%(30*minute)!==0) throw new Error("Times must use 30-minute intervals");
   const duration=(endAt-startAt)/minute;
@@ -23,6 +23,13 @@ export function validateAvailabilityInterval(input:Interval, now=Date.now()) {
 
 const hongKongDay=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Hong_Kong",year:"numeric",month:"2-digit",day:"2-digit"});
 const hongKongClock=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit",hourCycle:"h23"});
+
+/* Shared with any surface that lists availability slots (the Availability tab, a player's profile
+   card, …), so "今天"/weekday labels and clock times never drift into two spellings. */
+export const hkDate=(d=new Date())=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Hong_Kong",year:"numeric",month:"2-digit",day:"2-digit"}).format(d);
+export const hkClock=(iso:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(iso));
+export const hkDayLabel=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"numeric",day:"numeric",weekday:"short"}).format(new Date(`${d}T00:00:00+08:00`));
+export const hkRange=(x:Interval)=>`${hkClock(x.startAt)}–${hkClock(x.endAt)}`;
 
 /** Calendar arithmetic on a `YYYY-MM-DD` Hong Kong date. Anchored at UTC noon so the shift never
     lands on the previous day the way a midnight-in-UTC+8 anchor does. */
@@ -56,9 +63,11 @@ export function intervalFromHours(date:string,from:number,to:number):Interval {
   return {startAt:hongKongInstant(addDaysHongKong(date,Math.floor(from/24)),clock(from)),endAt:hongKongInstant(addDaysHongKong(date,Math.floor(to/24)),clock(to))};
 }
 
-/** The soonest start a member can still pick: the next 30-minute boundary, in Hong Kong terms. */
+/** The soonest start a member can still pick: the 30-minute boundary at or after 30 minutes ago, in
+    Hong Kong terms, mirroring the grace window in `validateAvailabilityInterval`. A slot that just
+    started remains pickable for a little while instead of vanishing from the menu the instant it begins. */
 export function nextAvailabilityStart(now=Date.now()) {
-  const at=Math.ceil((now+1)/(30*minute))*(30*minute);
+  const at=Math.ceil((now-30*minute+1)/(30*minute))*(30*minute);
   return {date:hongKongDay.format(at),time:hongKongClock.format(at),at};
 }
 
@@ -137,4 +146,21 @@ export function recommendationScore(input:{minutes:number;eloDifference:number;r
   const elo=Math.max(1-Math.abs(input.eloDifference)/400,0)*30;
   const variety=(1-Math.min(input.recentMatches,5)/5)*10;
   return {score:Math.round((overlap+elo+variety)*10)/10,overlap,elo,variety};
+}
+
+export type OpponentSlots={id:string;rating:number;slots:Interval[]};
+export type RankedOpponent={id:string;overlaps:Interval[];minutes:number;recent:number;difference:number;score:number;qualifies:boolean};
+
+/** Everyone whose free time touches mine, best first — the whole shortlist, not just the top pick.
+    `window` narrows both sides to one band, so a focused hour ranks on the hour actually asked about
+    rather than on a whole-day overlap that happens elsewhere. */
+export function rankOpponents(input:{mine:Interval[];rating:number;opponents:OpponentSlots[];recentMatches?:(id:string)=>number;window?:Interval|null}):RankedOpponent[] {
+  const mine=input.window?intersectIntervals(input.mine,[input.window]):mergeIntervals(input.mine);
+  return input.opponents.flatMap(opponent=>{
+    const overlaps=intersectIntervals(mine,opponent.slots),minutes=overlapMinutes(overlaps);
+    if(minutes<=0)return [];
+    const recent=input.recentMatches?.(opponent.id)??0,eloDifference=input.rating-opponent.rating;
+    const scored=recommendationScore({minutes,eloDifference,recentMatches:recent});
+    return [{id:opponent.id,overlaps,minutes,recent,difference:Math.abs(eloDifference),score:scored?.score??-1,qualifies:Boolean(scored)}];
+  }).sort((a,b)=>b.score-a.score||b.minutes-a.minutes||a.difference-b.difference);
 }
