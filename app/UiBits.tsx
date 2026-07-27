@@ -23,10 +23,13 @@ export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"availability"|"
       <rect x="16" y="4" width="4" height="16" rx="1" {...common}/>
     </svg>;
     case "matches":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
-      <circle cx="8" cy="8" r="3.4" {...common}/>
-      <circle cx="16" cy="16" r="3.4" {...common}/>
+      <rect x="3.5" y="5" width="17" height="14" rx="2.5" {...common}/>
+      <path d="M5.5 9h13M12 9v10M7.5 13h2M14.5 13h2M7.5 16h2M14.5 16h2" {...common}/>
     </svg>;
-    case "availability":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M5 9h14M7 3v4M17 3v4M7 13h5M7 17h9"/></svg>;
+    case "availability":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
+      <circle cx="7.5" cy="7" r="2.5" {...common}/><circle cx="16.5" cy="7" r="2.5" {...common}/>
+      <path d="M3.8 18c.3-3 1.6-5 3.7-5s3.4 2 3.7 5M12.8 18c.3-3 1.6-5 3.7-5s3.4 2 3.7 5M10 8.5h4M13 6.5l2 2-2 2" {...common}/>
+    </svg>;
     case "players":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
       <circle cx="12" cy="8" r="3.6" {...common}/>
       <path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4" {...common}/>
@@ -114,17 +117,17 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
  * The scoreline is the reason both the match list and head-to-head exist, so
  * both render it through here: same size, same winner treatment, no drift.
  */
-export function Scoreline({left,right,scoreLeft,scoreRight,eloLeft,eloRight}:{left:string;right:string;scoreLeft:number;scoreRight:number;eloLeft?:{before:number;after:number;delta:number};eloRight?:{before:number;after:number;delta:number}}) {
+export function Scoreline({left,right,scoreLeft,scoreRight,eloLeft,eloRight,onLeftClick,onRightClick}:{left:string;right:string;scoreLeft:number;scoreRight:number;eloLeft?:{before:number;after:number;delta:number};eloRight?:{before:number;after:number;delta:number};onLeftClick?:()=>void;onRightClick?:()=>void}) {
   const leftWins=scoreLeft>scoreRight,rightWins=scoreRight>scoreLeft,drawn=scoreLeft===scoreRight;
   const side=(wins:boolean)=>drawn?"drawn":wins?"winner":"loser";
-  return <div className={`scoreline${eloLeft||eloRight?" with-delta":""}`} role="group" aria-label={`${left} ${scoreLeft} 比 ${scoreRight} ${right}${drawn?"，和局":`，${leftWins?left:right} 勝`}`}>
-    <span className={`scoreline-name ${side(leftWins)}`}>{left}</span>
+  return <div className={`scoreline${eloLeft||eloRight?" with-elo":""}`} role="group" aria-label={`${left} ${scoreLeft} 比 ${scoreRight} ${right}${drawn?"，和局":`，${leftWins?left:right} 勝`}`}>
+    {onLeftClick?<button type="button" className={`scoreline-name ${side(leftWins)}`} onClick={onLeftClick}>{left}</button>:<span className={`scoreline-name ${side(leftWins)}`}>{left}</span>}
     <b className={side(leftWins)}>{scoreLeft}</b>
     <em aria-hidden="true">–</em>
     <b className={side(rightWins)}>{scoreRight}</b>
-    <span className={`scoreline-name right ${side(rightWins)}`}>{right}</span>
-    {eloLeft&&<small className={`scoreline-delta ${eloLeft.delta>=0?"positive":"negative"}`}>{Math.round(eloLeft.before)} <i aria-hidden="true">→</i> {Math.round(eloLeft.after)}</small>}
-    {eloRight&&<small className={`scoreline-delta right ${eloRight.delta>=0?"positive":"negative"}`}>{Math.round(eloRight.before)} <i aria-hidden="true">→</i> {Math.round(eloRight.after)}</small>}
+    {onRightClick?<button type="button" className={`scoreline-name right ${side(rightWins)}`} onClick={onRightClick}>{right}</button>:<span className={`scoreline-name right ${side(rightWins)}`}>{right}</span>}
+    {eloLeft&&<small className={`scoreline-elo ${eloLeft.delta>=0?"positive":"negative"}`}>{Math.round(eloLeft.before)} <i aria-hidden="true">→</i> {Math.round(eloLeft.after)}</small>}
+    {eloRight&&<small className={`scoreline-elo right ${eloRight.delta>=0?"positive":"negative"}`}>{Math.round(eloRight.before)} <i aria-hidden="true">→</i> {Math.round(eloRight.after)}</small>}
   </div>;
 }
 
@@ -224,7 +227,13 @@ export function CalibrationTrend({history,lower,upper,conversion,confidence,exam
 export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label:string}) {
   const [range,setRange]=useState<"recent"|"all">("recent");
   const [activeId,setActiveId]=useState<string|null>(null);
-  const visible=range==="recent"&&points.length>11?[points[0],...points.slice(-10)]:points;
+  const recentMatches=points.filter(point=>point.result!=="start").slice(-10);
+  const recentStart=recentMatches[0]
+    ? {...recentMatches[0],id:`${recentMatches[0].id}-recent-start`,elo:recentMatches[0].before,before:recentMatches[0].before,delta:0,result:"start" as const}
+    : points[0];
+  const visible=range==="recent"&&recentMatches.length
+    ? [recentStart,...recentMatches]
+    : points;
   const values=visible.map(point=>point.elo),rawMin=Math.min(...values),rawMax=Math.max(...values);
   const observed=Math.max(1,rawMax-rawMin),visualRange=Math.max(24,observed*1.32);
   const middle=(rawMin+rawMax)/2,min=middle-visualRange/2,max=middle+visualRange/2;
@@ -253,9 +262,9 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
   </div>;
 }
 
-export function RecentMatches({points}:{points:EloTrendPoint[]}) {
+export function RecentMatches({points,onViewAll,onMatch}:{points:EloTrendPoint[];onViewAll?:()=>void;onMatch:(matchId:string)=>void}) {
   const matches=points.filter(point=>point.result!=="start").slice(-5).reverse();
-  return <section className="recent-form" aria-labelledby="recent-form-title"><div className="recent-form-head"><div><p className="kicker">近期狀態</p><h3 id="recent-form-title">最近五場</h3></div><span>最新在前</span></div>{matches.length===0?<p className="recent-form-empty">尚未有比賽記錄</p>:<div className="recent-match-grid">{matches.map(point=><article className={`recent-result ${point.result.toLowerCase()}`} key={point.id}><div><b>{point.result==="W"?"勝":point.result==="L"?"負":"和"}</b><time>{point.date.slice(5).replace("-","/")}</time></div><strong>{point.score}</strong><span><i>{point.opponentShort}</i>{point.opponent}</span><small className={point.delta>=0?"positive":"negative"}>{point.delta>=0?"+":""}{Math.round(point.delta)} ELO</small></article>)}</div>}</section>;
+  return <section className="recent-form" aria-labelledby="recent-form-title"><div className="recent-form-head"><div><p className="kicker">近期狀態</p><h3 id="recent-form-title">最近五場</h3></div><span>最新在前</span></div>{matches.length===0?<p className="recent-form-empty">尚未有比賽記錄</p>:<div className="recent-match-grid">{matches.map(point=><button type="button" className={`recent-result ${point.result.toLowerCase()}`} key={point.id} onClick={()=>onMatch(point.id)} aria-label={`查看對 ${point.opponent} 的賽事：${point.score}`}><div><b>{point.result==="W"?"勝":point.result==="L"?"負":"和"}</b><time>{point.date.slice(5).replace("-","/")}</time></div><strong>{point.score}</strong><span><i>{point.opponentShort}</i>{point.opponent}</span><small className={point.delta>=0?"positive":"negative"}>{point.delta>=0?"+":""}{Math.round(point.delta)} ELO</small></button>)}</div>}{onViewAll&&<button type="button" className="recent-form-action" onClick={onViewAll}><span>查看所有賽事</span><i aria-hidden="true">→</i></button>}</section>;
 }
 
 export function Empty({text,sub}:{text:string;sub:string}) {
