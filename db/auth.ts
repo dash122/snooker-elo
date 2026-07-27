@@ -42,6 +42,10 @@ export async function deactivateMember(email: string, currentPassword: string) {
   return backend.deactivateMember(email, currentPassword);
 }
 
+export async function deleteMember(email: string) {
+  return backend.deleteMember(email);
+}
+
 export async function adminUpdateMember(email: string, input: { username: string; newEmail: string; displayName: string; password?: string; statePlayerId?: string | null }) {
   return backend.adminUpdateMember(email, input);
 }

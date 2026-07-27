@@ -274,6 +274,28 @@ export async function deactivateMember(email: string, currentPassword: string) {
   return true;
 }
 
+export async function deleteMember(email: string) {
+  await Promise.all([ensureAuthSchema(), ensureStateSchema()]);
+  const sql = getSql();
+  const normalized = email.trim().toLowerCase();
+  await sql.begin(async tx => {
+    await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
+    const rows = await tx<{ statePlayerId: string | null }[]>`SELECT state_player_id AS "statePlayerId" FROM members WHERE email = ${normalized}`;
+    if (!rows[0]) throw new Error("not-found");
+    await tx`DELETE FROM sessions WHERE member_email = ${normalized}`;
+    await tx`DELETE FROM members WHERE email = ${normalized}`;
+    const playerId = rows[0].statePlayerId;
+    if (playerId) {
+      try {
+        await tx`DELETE FROM state_players WHERE id = ${playerId}`;
+      } catch (error) {
+        if ((error as { code?: string }).code === "23503") throw new Error("has-matches");
+        throw error;
+      }
+    }
+  });
+}
+
 export async function createSession(email: string) {
   await ensureAuthSchema();
   const sql = getSql();
