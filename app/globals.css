@@ -702,6 +702,7 @@ h1,h2,h3{line-height:1.2;letter-spacing:-.02em}
   .scoreline,.h2h-match>.scoreline{gap:.5rem}
   .scoreline>b,.h2h-match>.scoreline>b{font-size:1.75rem;min-width:1.875rem;padding:.125rem .375rem}
   .scoreline-name,.h2h-match>.scoreline .scoreline-name{font-size:var(--fs-caption)}
+  .match-board .scoreline-elo{margin-top:-.5rem}
 }
 
 /* Stragglers that predate the type scale and still fell under the 11px floor.
