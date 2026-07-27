@@ -10,11 +10,14 @@ let schemaReady: Promise<unknown> | null = null;
 function ensureAuthSchema() {
   schemaReady ??= (async () => {
     const sql = getSql();
-    // Run as one transaction with a short lock_timeout: if another session is
-    // holding a lock on these tables, fail fast and retry later (schemaReady
-    // resets on error below) instead of queueing behind it for a minute-plus.
+    // Serialize concurrent cold starts on a session advisory lock instead of
+    // racing for the table locks DDL takes: with a short lock_timeout, the
+    // loser of that race got killed outright (55P03) and surfaced as a 500 to
+    // whatever request triggered it. Waiting on the advisory lock instead
+    // means every instance just blocks until the first one finishes, then
+    // finds the tables/columns already exist and returns immediately.
     await sql.begin(async tx => {
-      await tx`SET LOCAL lock_timeout = '5s'`;
+      await tx`SELECT pg_advisory_xact_lock(72591001)`;
       await tx`
         CREATE TABLE IF NOT EXISTS members (
           email TEXT PRIMARY KEY NOT NULL,
