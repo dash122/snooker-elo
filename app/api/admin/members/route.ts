@@ -1,4 +1,4 @@
-import { adminUpdateMember, createMember, listMembers, requireMember } from "../../../../db/auth";
+import { adminUpdateMember, createMember, deleteMember, listMembers, requireMember } from "../../../../db/auth";
 import { getState, putState } from "../../../../db/state";
 import { DEFAULT_AVATAR } from "../../../avatar-colours";
 
@@ -40,8 +40,26 @@ async function backfillPlayerLinks() {
 }
 
 export async function POST(request: Request) {
-  if (!await requireMember("admin")) return Response.json({ error: "Admin access required" }, { status: 403 });
+  const admin = await requireMember("admin");
+  if (!admin) return Response.json({ error: "Admin access required" }, { status: 403 });
   const form = await request.formData();
+  if (form.get("action") === "delete") {
+    const originalEmail = String(form.get("originalEmail") ?? "").trim().toLowerCase();
+    if (!originalEmail) return Response.redirect(new URL("/admin?error=invalid", request.url), 303);
+    if (originalEmail === admin.email.toLowerCase()) return Response.redirect(new URL("/admin?error=self-delete", request.url), 303);
+    const members = await listMembers();
+    const target = members.find(m => m.email.toLowerCase() === originalEmail);
+    if (!target) return Response.redirect(new URL("/admin?error=invalid", request.url), 303);
+    if (target.role === "admin" && members.filter(m => m.role === "admin" && m.active).length <= 1) {
+      return Response.redirect(new URL("/admin?error=last-admin", request.url), 303);
+    }
+    try { await deleteMember(originalEmail); }
+    catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      return Response.redirect(new URL(`/admin?error=${message === "has-matches" ? "has-matches" : "invalid"}`, request.url), 303);
+    }
+    return Response.redirect(new URL(`/admin?deleted=1&who=${encodeURIComponent(target.displayName)}`, request.url), 303);
+  }
   if (form.get("action") === "backfill") {
     try { await backfillPlayerLinks(); } catch { return Response.redirect(new URL("/admin?error=invalid", request.url), 303); }
     return Response.redirect(new URL("/admin?linked=1", request.url), 303);

@@ -21,6 +21,8 @@ const zh = {
   player: "連結球員檔案", none: "未連結", linked: "已連結",
   member: "會員", admin: "管理員",
   save: "儲存變更", cancel: "還原",
+  deleteAccount: "刪除帳戶", deleteConfirm: (name: string) =>
+    `確定要刪除「${name}」的帳戶及其球員檔案嗎？此動作無法復原，若該球員已有比賽紀錄則無法刪除。`,
 };
 
 export function Avatar({ member, playerName }: { member: Member; playerName?: string | null }) {
@@ -37,7 +39,7 @@ export function Avatar({ member, playerName }: { member: Member; playerName?: st
  * answers the questions an admin would otherwise have to expand to see: which
  * player profile is linked, and whether the account is an admin or deactivated.
  */
-export default function MemberDirectory({ members, players }: { members: Member[]; players: Player[] }) {
+export default function MemberDirectory({ members, players, currentEmail }: { members: Member[]; players: Player[]; currentEmail: string }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "admins" | "unlinked">("all");
   const playerName = useMemo(() => new Map(players.map(player => [player.id, player.name])), [players]);
@@ -108,6 +110,12 @@ export default function MemberDirectory({ members, players }: { members: Member[
               <button className="more" type="reset">{zh.cancel}</button>
             </div>
           </form>
+          {member.email !== currentEmail && <form className="admin-delete" action="/api/admin/members" method="post"
+            onSubmit={event => { if (!confirm(zh.deleteConfirm(member.displayName))) event.preventDefault(); }}>
+            <input type="hidden" name="action" value="delete" />
+            <input type="hidden" name="originalEmail" value={member.email} />
+            <button className="danger" type="submit">{zh.deleteAccount}</button>
+          </form>}
         </details>;
       })}</div>}
   </div>;

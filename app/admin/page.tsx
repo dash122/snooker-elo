@@ -10,8 +10,12 @@ export const dynamic = "force-dynamic";
 const zh = {
   kicker: "管理員控制台", title: "會員管理",
   created: "帳戶已建立。", updated: "帳戶已更新。", linkedOne: "球員檔案已連結。",
+  deleted: "帳戶及球員檔案已刪除。",
   exists: "此電郵或使用者名稱已存在，或該球員檔案已被其他帳戶連結。",
   invalid: "請檢查帳戶資料。",
+  selfDelete: "無法刪除您目前登入的帳戶。",
+  lastAdmin: "至少需要保留一位管理員帳戶。",
+  hasMatches: "此球員已有比賽紀錄，無法刪除檔案。請先停用帳戶，或移除相關賽事後再試。",
   statAccounts: "帳戶總數", statAdmins: "管理員", statUnlinked: "待連結球員檔案", statAllLinked: "全部已連結",
   statNoAccount: "球員待開帳戶", statAllHaveAccounts: "球員全部已開帳戶",
   attentionTitle: "需要處理", attentionSub: "以下帳戶未連結球員檔案，成績不會計入排行榜。選擇對應的球員即可連結。",
@@ -25,7 +29,7 @@ const zh = {
   add: "新增帳戶", directorySection: "成員目錄", back: "返回我的帳戶",
 };
 
-type Search = { error?: string; created?: string; updated?: string; linked?: string; who?: string; player?: string };
+type Search = { error?: string; created?: string; updated?: string; linked?: string; deleted?: string; who?: string; player?: string };
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<Search> }) {
   const user = await getCurrentMember();
@@ -58,7 +62,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       {p.created && <p className="form-success">{note(zh.created)}</p>}
       {p.updated && <p className="form-success">{note(zh.updated)}</p>}
       {p.linked && <p className="form-success">{note(zh.linkedOne)}</p>}
-      {p.error && <p className="form-error">{p.error === "exists" ? zh.exists : zh.invalid}</p>}
+      {p.deleted && <p className="form-success">{note(zh.deleted)}</p>}
+      {p.error && <p className="form-error">
+        {p.error === "exists" ? zh.exists
+          : p.error === "self-delete" ? zh.selfDelete
+          : p.error === "last-admin" ? zh.lastAdmin
+          : p.error === "has-matches" ? zh.hasMatches
+          : zh.invalid}
+      </p>}
 
       <div className="admin-stats">
         <div><small>{zh.statAccounts}</small><b>{members.length}</b></div>
@@ -122,7 +133,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
       <section className="admin-section-open">
         <h2>{zh.directorySection}</h2>
-        <MemberDirectory members={members} players={players} />
+        <MemberDirectory members={members} players={players} currentEmail={user.email} />
       </section>
 
       <Link className="more admin-back" href="/account">{zh.back}</Link>

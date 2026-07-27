@@ -1163,6 +1163,8 @@ main>.match-view-toggle,main>.player-toolbar{margin-top:2rem}
 .admin-card>h1,.admin-card>.kicker{text-align:center}.admin-create{grid-template-columns:repeat(2,minmax(0,1fr))}
 .admin-create button{grid-column:1/-1}.admin-edit-actions{grid-column:1/-1;display:flex;gap:.75rem;align-items:center}.admin-edit-actions .primary{flex:1}
 .admin-back{display:inline-flex;margin-top:1.5rem;text-decoration:none}
+.admin-delete{margin-top:.75rem}.admin-delete button.danger{width:100%;min-height:2.75rem;padding:0 1rem;border:1px solid #c9695f;border-radius:.75rem;background:#fff0ed;color:#9d3f37;font-weight:800;cursor:pointer}
+.admin-delete button.danger:hover{background:#9d3f37;border-color:#9d3f37;color:white}
 
 /* Roster health: the three numbers an admin wants before doing anything else. */
 .admin-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin:1.5rem 0}
