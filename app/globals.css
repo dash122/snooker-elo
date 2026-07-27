@@ -749,8 +749,6 @@ h1,h2,h3{line-height:1.2;letter-spacing:-.02em}
 /* On phones the hero CTA was hidden entirely while a floating button and the
    bottom-nav 記錄 both duplicated it. Show the real button, drop the FAB. */
 @media(max-width:820px){
-  .hero .hero-action{display:grid;width:100%;margin-top:1.25rem;justify-content:start}
-  .hero-action b{font-size:var(--fs-lead)}
   .fab{display:none!important}
 }
 
