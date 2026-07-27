@@ -117,7 +117,7 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
  * The scoreline is the reason both the match list and head-to-head exist, so
  * both render it through here: same size, same winner treatment, no drift.
  */
-export function Scoreline({left,right,scoreLeft,scoreRight,eloLeft,eloRight,netChange,onLeftClick,onRightClick}:{left:string;right:string;scoreLeft:number;scoreRight:number;eloLeft?:{before:number;after:number;delta:number};eloRight?:{before:number;after:number;delta:number};netChange?:number;onLeftClick?:()=>void;onRightClick?:()=>void}) {
+export function Scoreline({left,right,scoreLeft,scoreRight,eloLeft,eloRight,onLeftClick,onRightClick}:{left:string;right:string;scoreLeft:number;scoreRight:number;eloLeft?:{before:number;after:number;delta:number};eloRight?:{before:number;after:number;delta:number};onLeftClick?:()=>void;onRightClick?:()=>void}) {
   const leftWins=scoreLeft>scoreRight,rightWins=scoreRight>scoreLeft,drawn=scoreLeft===scoreRight;
   const side=(wins:boolean)=>drawn?"drawn":wins?"winner":"loser";
   return <div className={`scoreline${eloLeft||eloRight?" with-elo":""}`} role="group" aria-label={`${left} ${scoreLeft} 比 ${scoreRight} ${right}${drawn?"，和局":`，${leftWins?left:right} 勝`}`}>
@@ -127,7 +127,6 @@ export function Scoreline({left,right,scoreLeft,scoreRight,eloLeft,eloRight,netC
     <b className={side(rightWins)}>{scoreRight}</b>
     {onRightClick?<button type="button" className={`scoreline-name right ${side(rightWins)}`} onClick={onRightClick}>{right}</button>:<span className={`scoreline-name right ${side(rightWins)}`}>{right}</span>}
     {eloLeft&&<small className={`scoreline-elo ${eloLeft.delta>=0?"positive":"negative"}`}>{Math.round(eloLeft.before)} <i aria-hidden="true">→</i> {Math.round(eloLeft.after)}</small>}
-    {netChange!=null&&<small className="scoreline-net">ELO 影響 {Math.round(Math.abs(netChange))}</small>}
     {eloRight&&<small className={`scoreline-elo right ${eloRight.delta>=0?"positive":"negative"}`}>{Math.round(eloRight.before)} <i aria-hidden="true">→</i> {Math.round(eloRight.after)}</small>}
   </div>;
 }

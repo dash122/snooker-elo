@@ -651,6 +651,7 @@ const monthGroupLabel=(month:string)=>{
 
 function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,setPair,highlight}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onPlayer:(player:Player)=>void;view:"history"|"calendar";setView:(view:"history"|"calendar")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void;highlight:string|null}) {
   const [sortBy,setSortBy]=useState<"playedOn"|"createdAt">("playedOn");
+  const [monthOpen,setMonthOpen]=useState<Record<string,boolean>>({});
   const [sortDirection,setSortDirection]=useState<"desc"|"asc">("desc");
   const [from,setFrom]=useState(""),[to,setTo]=useState("");
   const [filterOpen,setFilterOpen]=useState(false);
@@ -740,6 +741,7 @@ function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,s
     }
     return order.map(key=>({key,matches:map.get(key)!}));
   },[matches,comparing]);
+  const newestMonth=groups.reduce((latest,group)=>group.key>latest?group.key:latest,"");
   return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽記錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
     <div className="match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button></div>
     {view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid}/>:<>
@@ -782,10 +784,18 @@ function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,s
         <div><small>最近交手</small><b>{matches[0]?.playedOn??"—"}</b></div>
       </div>
     </div>}
-    <div className="match-list">{groups.length===0?<Empty text={comparing?"沒有符合的對賽記錄":focusPlayer?"沒有符合的比賽記錄":"尚未有比賽記錄"} sub={comparing?"調整日期範圍，或記錄兩人的第一場比賽。":focusPlayer?"這位球員暫時沒有已記錄的賽事。":"記錄第一場比賽後，詳情會顯示在這裡。"}/>:groups.map(group=><Fragment key={group.key}>
-      {!comparing&&<h3 className="match-month-header">{monthGroupLabel(group.key)}</h3>}
-      {group.matches.map(m=><MatchCard key={m.id} match={m} canManage={canManageMatch(m)} name={name} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player)onPlayer(player)}} onEdit={onEdit} onVoid={onVoid} highlighted={m.id===highlight}/>)}
-    </Fragment>)}</div></>}</>;
+    <div className="match-list">{groups.length===0?<Empty text={comparing?"沒有符合的對賽記錄":focusPlayer?"沒有符合的比賽記錄":"尚未有比賽記錄"} sub={comparing?"調整日期範圍，或記錄兩人的第一場比賽。":focusPlayer?"這位球員暫時沒有已記錄的賽事。":"記錄第一場比賽後，詳情會顯示在這裡。"}/>:groups.map(group=>{
+      const cards=group.matches.map(m=><MatchCard key={m.id} match={m} canManage={canManageMatch(m)} name={name} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player)onPlayer(player)}} onEdit={onEdit} onVoid={onVoid} highlighted={m.id===highlight}/>);
+      if(comparing)return <Fragment key={group.key}>{cards}</Fragment>;
+      const open=monthOpen[group.key]??(group.key===newestMonth||group.matches.some(m=>m.id===highlight));
+      const panelId=`match-month-${group.key}`;
+      return <section className="match-month-group" key={group.key}>
+        <button type="button" className="match-month-header" aria-expanded={open} aria-controls={panelId} onClick={()=>setMonthOpen(value=>({...value,[group.key]:!open}))}>
+          <span>{monthGroupLabel(group.key)}</span><small>{group.matches.length} 場</small><i aria-hidden="true"/>
+        </button>
+        {open&&<div className="match-month-cards" id={panelId}>{cards}</div>}
+      </section>;
+    })}</div></>}</>;
 }
 
 // Collapsed by default: who played, the score, and each player's own ELO
@@ -809,13 +819,13 @@ function MatchCard({match:m,canManage,name,onPlayer,onEdit,onVoid,highlighted=fa
     })
     .filter((entry):entry is {playerId:string;value:number}=>entry!=null);
   return <article ref={card} className={`match ${m.status}${highlighted?" just-saved":""}`}>
-    <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time>{highlighted&&<span className="pill just-saved-pill">剛剛記錄</span>}{m.status==="void"&&<span className="pill">已作廢</span>}{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
+    <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time><small className="match-net-elo" aria-label={`ELO ${Math.round(Math.abs(m.deltaA))}`}>ELO {Math.round(Math.abs(m.deltaA))}</small>{highlighted&&<span className="pill just-saved-pill">剛剛記錄</span>}{m.status==="void"&&<span className="pill">已作廢</span>}{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
       {canManage&&<span className="card-tools"><button className="card-tool" aria-label={`編輯 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onEdit(m)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${name(m.a)} 對 ${name(m.b)} 的賽事`} onClick={()=>onVoid(m)}>✕</button></span>}</div>
     <Scoreline left={name(m.a)} right={name(m.b)} onLeftClick={()=>onPlayer(m.a)} onRightClick={()=>onPlayer(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}
-      eloLeft={{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={{before:m.beforeB,after:m.afterB,delta:-m.deltaA}} netChange={m.deltaA}/>
-    <button type="button" className="match-summary-row" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
+      eloLeft={{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={{before:m.beforeB,after:m.afterB,delta:-m.deltaA}}/>
+    <button type="button" className="match-summary-row" aria-expanded={open} aria-label={open?"收起比賽詳情":"展開比賽詳情"} onClick={()=>setOpen(value=>!value)}>
       {!!topBreaks.length&&<span className="match-net-breaks">★ {topBreaks.map((item,index)=><Fragment key={item.playerId}>{index>0&&"、"}{name(item.playerId)} 單桿 {item.value}</Fragment>)}</span>}
-      <span className="match-expand-toggle">{open?"收起":"詳情"} <i aria-hidden="true">{open?"︿":"﹀"}</i></span>
+      <span className="match-expand-toggle" aria-hidden="true"><i/></span>
     </button>
     </div>
     {open&&<div className="match-body">
