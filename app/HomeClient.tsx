@@ -281,7 +281,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   // would race that.
   /* Leaving the availability tab unmounts its editor, taking any unsaved slot work with it, so a
      dirty editor gets to intercept the move first. */
-  const goTab=(next:string)=>{if(availabilityDirty&&tab==="availability"&&next!==tab)return setLeavingAvailability(next);setHighlightMatch(null);if(next!=="availability")setJumpToAvailability(null);setTab(next)};
+  const goTab=(next:string)=>{if(availabilityDirty&&tab==="availability"&&next!==tab)return setLeavingAvailability(next);setHighlightMatch(null);if(next!=="availability")setJumpToAvailability(null);setNavDocked(false);window.scrollTo(0,0);setTab(next)};
   useEffect(()=>{
     if(data.players.length<2)return;
     setDraft(d=>{
