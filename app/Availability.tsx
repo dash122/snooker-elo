@@ -38,7 +38,7 @@ function DensityChart({buckets,best,lo,hi,focus,onFocus}:{buckets:{at:string;cou
  const[hovered,setHovered]=useState<{at:string;count:number}|null>(null);
  const preview=hovered??(focus?buckets.find(x=>x.at===focus.startAt)??null:null);
  return <section className="availability-card density-card" aria-label="可配對密度圖">
-  <header><div><small>{hovered?"游標所在時段":"球員空閒分佈"}</small><b className={(preview??best)?"":"muted"}>{preview?`${time(preview.at)}–${time(new Date(Date.parse(preview.at)+30*60000).toISOString())}`:best?`${time(best.startAt)}–${time(best.endAt)}`:"未有高峰"}{preview?<span>{preview.count} 位</span>:best&&<span>{best.count} 位</span>}</b></div>{focus&&<button type="button" className="more" onClick={()=>onFocus(null)}>清除篩選</button>}</header>
+  <header><div><small>{hovered?"游標所在時段":"球手時間分佈"}</small><b className={(preview??best)?"":"muted"}>{preview?`${time(preview.at)}–${time(new Date(Date.parse(preview.at)+30*60000).toISOString())}`:best?`${time(best.startAt)}–${time(best.endAt)}`:"未有高峰"}{preview?<span>{preview.count} 位</span>:best&&<span>{best.count} 位</span>}</b></div>{focus&&<button type="button" className="more" onClick={()=>onFocus(null)}>清除篩選</button>}</header>
   <div className={`density-bars${focus?" is-filtered":""}`}>{buckets.map(x=>{const active=focus?.startAt===x.at,isPeak=best?.startAt===x.at,isHovered=hovered?.at===x.at;return <button type="button" key={x.at} aria-label={`${time(x.at)} 至 ${time(new Date(Date.parse(x.at)+30*60000).toISOString())}，${x.count} 位球員；按下篩選這 30 分鐘`} className={`${active?"on ":""}${isPeak?"peak ":""}${isHovered?"hovered":""}`.trim()} onPointerEnter={()=>setHovered(x)} onPointerLeave={()=>setHovered(null)} onFocus={()=>setHovered(x)} onBlur={()=>setHovered(null)} onClick={()=>onFocus(active?null:{startAt:x.at,endAt:new Date(Date.parse(x.at)+30*60000).toISOString()})}><i style={{height:`${Math.max(8,x.count/max*100)}%`}}/></button>})}</div>
   <div className="density-axis" aria-hidden="true"><span>{clockAt(lo)}</span><span>{clockAt((lo+hi)/2)}</span><span>{clockAt(hi)}</span></div>
   <p className="density-note">{hovered?`${time(hovered.at)}–${time(new Date(Date.parse(hovered.at)+30*60000).toISOString())} 有 ${hovered.count} 位球員有空；按下可篩選這 30 分鐘。`:focus?`${time(focus.startAt)}–${time(focus.endAt)} 的球員已篩選。`:"每條柱代表 30 分鐘；游標停留可預覽，點按可篩選該 30 分鐘。"}</p>
@@ -93,19 +93,19 @@ function MatchPrompt({hasMine,userPlayerId,members,focus,onManage}:{hasMine:bool
 }
 /** One card per overlapping opponent, all in the same full-size treatment. There is no single "best
     tonight" card any more: every name you could actually play gets the same room to make its case. */
-function OpponentCard({opponent,rank,date,lo,hi,onPlayer}:{opponent:MatchInfo&{member:Member};rank:number;date:string;lo:number;hi:number;onPlayer?:(playerId:string)=>void}){
- return <section className="availability-card match-hero">
-  <p className="match-hero-kicker">推薦 {rank}</p>
+function OpponentCard({opponent,rank,onPlayer}:{opponent:MatchInfo&{member:Member};rank:number;onPlayer?:(playerId:string)=>void}){
+ const open=()=>onPlayer?.(opponent.member.id);
+ return <section className={`match-hero match-hero-compact${onPlayer?" is-clickable":""}`} role={onPlayer?"button":undefined} tabIndex={onPlayer?0:undefined} onClick={onPlayer?open:undefined} onKeyDown={onPlayer?(e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open()}}):undefined}>
   <div className="match-hero-main">
+   <span className="match-hero-rank">{rank}</span>
    <PlayerBadge player={opponent.member}/>
-   <div className="match-hero-who"><h2>{onPlayer?<button type="button" className="match-hero-name" onClick={()=>onPlayer(opponent.member.id)}>{opponent.member.name}</button>:opponent.member.name}</h2><small>{Math.round(opponent.member.rating)} ELO</small></div>
-   <div className="match-hero-window"><b>{opponent.overlaps.map(range).join("、")}</b><small>可一起打 {durationLabel(opponent.minutes)}</small></div>
+   <div className="match-hero-who"><h2>{opponent.member.name}</h2><small>{Math.round(opponent.member.rating)} ELO · 相差 {Math.round(opponent.difference)}</small></div>
   </div>
-  <div className="match-hero-track" aria-hidden="true"><Timeline slots={opponent.member.slots} overlaps={opponent.overlaps} date={date} lo={lo} hi={hi}/></div>
+  <div className="match-hero-windows">{opponent.overlaps.map(o=><span key={o.startAt} className="match-hero-window-chip">{range(o)}</span>)}<small>共 {durationLabel(opponent.minutes)}重疊</small></div>
   {opponent.chips.length>0&&<div className="track-chips">{opponent.chips.map(c=><span key={c}>{c}</span>)}</div>}
   <div className="match-hero-foot">
-   <dl><div><dt>ELO 相差</dt><dd>{Math.round(opponent.difference)}</dd></div><div><dt>近 30 日交手</dt><dd>{opponent.recent} 場</dd></div></dl>
-   <button className="secondary" disabled>邀請對局<small>即將推出</small></button>
+   <small>近 30 日交手 {opponent.recent} 場</small>
+   <button className="secondary" disabled onClick={e=>e.stopPropagation()}>邀請對局<small>即將推出</small></button>
   </div>
  </section>
 }
@@ -330,22 +330,21 @@ export default function Availability({userPlayerId,matches,onDirtyChange,jumpTo,
 {view==="find"&&<DateScroller dates={week} selected={date} counts={counts} onSelect={changeDate}/>}
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
 {view==="find"&&<>
-<header className="availability-day-head"><div><p>{fullDay(date)}</p><h2>{members.length?`${members.length} 位球員有空`:"暫時未有人有空"}</h2></div>
- {userPlayerId&&<button className="more" onClick={()=>nav("manage")}>{mine.length?`我的時段 ${mine.map(range).join("、")}`:"未設定我的時段"}</button>}</header>
+{userPlayerId&&mine.length>0&&<header className="availability-day-head"><span/><button className="more" onClick={()=>nav("manage")}>{`我的時段 ${mine.map(range).join("、")}`}</button></header>}
 {loading?<div className="availability-skeleton" aria-hidden="true"/>:<div className="find-stack">
  {members.length>0&&<DensityChart buckets={density} best={busiest} lo={rosterRange.lo} hi={rosterRange.hi} focus={focus} onFocus={setFocus}/>}
  {members.length>0&&<AvailabilityGrid members={members} mine={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi} userPlayerId={userPlayerId} focus={focus} onFocus={setFocus} highlightId={jumpTo?.playerId} onPlayer={onPlayer}/>}
  {shortlist.length
-  ?<div className="match-stack">
-    <header className="match-stack-head"><h3>{focus?`${time(focus.startAt)}–${time(focus.endAt)} 可約的對手`:"時間重疊的對手"}</h3><small>{shortlist.length} 位</small></header>
-    {shortlist.map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} date={date} lo={rosterRange.lo} hi={rosterRange.hi} onPlayer={onPlayer}/>)}
-   </div>
+  ?<section className="availability-card match-stack">
+    <header className="availability-grid-head match-stack-head"><div><h3>{focus?`${time(focus.startAt)}–${time(focus.endAt)} 可約的對手`:"和你都有空的對手"}</h3><small>按 ELO 相近及近期較少交手排序，點按卡片查看球員資料</small></div><span>{shortlist.length} 位</span></header>
+    <div className="match-stack-list">{shortlist.map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} onPlayer={onPlayer}/>)}</div>
+   </section>
   :<MatchPrompt hasMine={mine.length>0} userPlayerId={userPlayerId} members={members.length} focus={focus} onManage={nav}/>}
 </div>}</>}
 {/* One screen, one gesture: the board is the list, the editor and the composer at once. Nothing here
     navigates away, so a member can paint three evenings and publish them in a single pass. */}
 {editor&&userPlayerId&&<section className="availability-editor">
- <header className="availability-day-head"><div><p>我的時段</p><h2>公開你的空閒時間</h2><small>在日子的時間列上拖曳即可加入，點按已公開的時段可調整或刪除。</small></div>
+ <header className="availability-day-head"><div><h2>公開你的空閒時間</h2><small>拖曳加入時段，點按可調整或刪除。</small></div>
   <span className="slot-tally-group"><span className="slot-tally"><b>{own.length}</b>個已公開</span>{own.length>0&&<button type="button" className="clear-all-link" onClick={()=>setConfirmClear(true)}>全部刪除</button>}</span></header>
  <section className={`availability-card slot-board-card${draft.length||pendingKeys.length?" has-draft":""}`}>
   <SlotBoard dates={boardDates} items={displayedBoardItems} lo={boardRange.lo} hi={boardRange.hi} soonest={soonest} selected={selected}

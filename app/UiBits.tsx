@@ -132,7 +132,7 @@ export function Scoreline({left,right,scoreLeft,scoreRight,eloLeft,eloRight,onLe
 }
 
 export function SortControls({sort,dir,onSort}:{sort:SortKey;dir:"asc"|"desc";onSort:(key:SortKey)=>void}) {
-  return <div className="sort-controls"><label>排序<select value={sort} onChange={event=>onSort(event.target.value as SortKey)}>{(Object.keys(sortLabels) as SortKey[]).map(key=><option key={key} value={key}>{sortLabels[key]}</option>)}</select></label><button aria-label={dir==="asc"?"目前升序，切換為降序":"目前降序，切換為升序"} onClick={()=>onSort(sort)}>{dir==="asc"?"↑ 升序":"↓ 降序"}</button></div>;
+  return <div className="sort-controls"><label><span className="sort-controls-label">排序</span><select value={sort} onChange={event=>onSort(event.target.value as SortKey)}>{(Object.keys(sortLabels) as SortKey[]).map(key=><option key={key} value={key}>{sortLabels[key]}</option>)}</select></label><button aria-label={dir==="asc"?"目前升序，切換為降序":"目前降序，切換為升序"} onClick={()=>onSort(sort)}>{dir==="asc"?"↑":"↓"}<span className="sort-controls-dir-label">{dir==="asc"?" 升序":" 降序"}</span></button></div>;
 }
 
 export function SortArrow({active,dir}:{active:boolean;dir:"asc"|"desc"}) {
