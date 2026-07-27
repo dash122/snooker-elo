@@ -1,27 +1,10 @@
-import postgres from "postgres";
 import { headers } from "next/headers";
 import type { MemberSession, MemberRow } from "./auth-types";
+import { getSql } from "./sql";
+import { ensureStateSchema } from "./state.pg";
 
 const SESSION_COOKIE = "scaa_session";
 const SESSION_DAYS = 30;
-
-let sqlClient: ReturnType<typeof postgres> | null = null;
-function getSql() {
-  if (!sqlClient) {
-    const url = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
-    if (!url) {
-      throw new Error(
-        "No Postgres connection string found. Set POSTGRES_URL (Vercel's Supabase integration sets this automatically)."
-      );
-    }
-    // Supabase's pooled connection runs pgbouncer in transaction mode, which
-    // doesn't support named prepared statements — disable them. Session-level
-    // GUCs (statement_timeout etc.) also don't survive this pooler, so those
-    // are set per-transaction with SET LOCAL instead — see ensureAuthSchema.
-    sqlClient = postgres(url, { ssl: "require", prepare: false });
-  }
-  return sqlClient;
-}
 
 let schemaReady: Promise<unknown> | null = null;
 function ensureAuthSchema() {
@@ -148,6 +131,58 @@ export async function createMember(username: string, email: string, displayName:
     INSERT INTO members (email, username, state_player_id, display_name, role, password_hash, password_salt, active, joined_at, last_seen_at)
     VALUES (${normalizedEmail}, ${normalizedUsername}, ${statePlayerId ?? null}, ${displayName.trim()}, ${role}, ${hash}, ${salt}, true, ${now}, ${now})
   `;
+}
+
+export async function checkSignupAvailability(username: string | null, email: string | null) {
+  await ensureAuthSchema();
+  const sql = getSql();
+  const normalizedUsername = username?.trim().toLowerCase() || null;
+  const normalizedEmail = email?.trim().toLowerCase() || null;
+  const rows = await sql<{ username: string; email: string }[]>`
+    SELECT username, email FROM members
+    WHERE (${normalizedUsername}::text IS NOT NULL AND username = ${normalizedUsername})
+       OR (${normalizedEmail}::text IS NOT NULL AND email = ${normalizedEmail})
+  `;
+  return {
+    usernameTaken: normalizedUsername !== null && rows.some(row => row.username === normalizedUsername),
+    emailTaken: normalizedEmail !== null && rows.some(row => row.email === normalizedEmail),
+  };
+}
+
+export type NewSignupPlayer = {
+  id: string; name: string; short: string; colour: string; rating: number; initialRating: number;
+};
+
+// Player row and member row must exist together or not at all — a single
+// transaction across both tables replaces the old "write player, then write
+// member, best-effort delete player on failure" approach, which could leave
+// an orphaned player if the process crashed between the two writes.
+export async function createMemberWithPlayer(input: {
+  username: string; email: string; displayName: string; password: string;
+  role: "admin" | "member"; player: NewSignupPlayer; auditText: string;
+}) {
+  await Promise.all([ensureAuthSchema(), ensureStateSchema()]);
+  const sql = getSql();
+  const normalizedEmail = input.email.trim().toLowerCase();
+  const normalizedUsername = input.username.trim().toLowerCase();
+  const salt = randomHex(16);
+  const hash = await passwordDigest(input.password, salt);
+  const now = new Date().toISOString();
+  const p = input.player;
+  await sql.begin(async tx => {
+    await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
+    await tx`
+      INSERT INTO state_players (id, name, short, handicap, rating, colour, initial_rating, active, wins, losses, draws, frames_won, frames_lost, last_change, form, updated_at)
+      VALUES (${p.id}, ${p.name}, ${p.short}, NULL, ${p.rating}, ${p.colour}, ${p.initialRating}, true, 0, 0, 0, 0, 0, 0, ${tx.json([])}, now())
+    `;
+    await tx`
+      INSERT INTO state_audits (id, text, occurred_at) VALUES (${crypto.randomUUID()}, ${input.auditText}, ${now})
+    `;
+    await tx`
+      INSERT INTO members (email, username, state_player_id, display_name, role, password_hash, password_salt, active, joined_at, last_seen_at)
+      VALUES (${normalizedEmail}, ${normalizedUsername}, ${p.id}, ${input.displayName.trim()}, ${input.role}, ${hash}, ${salt}, true, ${now}, ${now})
+    `;
+  });
 }
 
 export async function adminUpdateMember(email: string, input: { username: string; newEmail: string; displayName: string; password?: string; statePlayerId?: string | null }) {

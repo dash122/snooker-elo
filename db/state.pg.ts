@@ -1,24 +1,11 @@
-import postgres from "postgres";
+import { getSql } from "./sql";
 
 type Player = { id:string; name:string; short:string; handicap:number|null; rating:number; colour?:string; avatar?:string|null; initialRating:number; active:boolean; wins:number; losses:number; draws:number; framesWon:number; framesLost:number; lastChange:number; form:string[] };
 type Match = { id:string; a:string; b:string; scoreA:number; scoreB:number; playedOn:string; entryMode?:"match"|"aggregate"; frameEvidence?:number; performanceScore?:number; evidenceWeight?:number; handicapAdjustment?:number; overHandicapElo?:number; overHandicapMultiplier?:number; highBreaks?:{playerId:string;value:number}[]; actual:number; giver:string|null; official:number|null; extra:number; expectedA:number; beforeA:number; beforeB:number; afterA:number; afterB:number; deltaA:number; marginMultiplier?:number; status:"confirmed"|"void"; createdAt:string };
 type State = { players:Player[]; matches:Match[]; settings:Record<string, unknown>; audits:{id:string;text:string;at:string}[] };
 
-let sqlClient: ReturnType<typeof postgres> | null = null;
-function getSql() {
-  if (!sqlClient) {
-    const url = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
-    if (!url) throw new Error("No Postgres connection string found. Set POSTGRES_URL.");
-    // Session-level GUCs (statement_timeout etc.) don't survive Supabase's
-    // transaction-mode pooler, so those are set per-transaction with SET LOCAL
-    // instead — see ensureStateSchema, putState, deleteState.
-    sqlClient = postgres(url, { ssl: "require", prepare: false });
-  }
-  return sqlClient;
-}
-
 let schemaReady: Promise<unknown> | null = null;
-function ensureStateSchema() {
+export function ensureStateSchema() {
   schemaReady ??= (async () => {
     const sql = getSql();
     // Run as one transaction with a short lock_timeout: if another session is
@@ -61,17 +48,55 @@ export async function putState(data: string) {
     await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
     await tx`INSERT INTO app_state_snapshots (state) VALUES (${tx.json(state as any)})`;
     await tx`INSERT INTO state_settings (id, data, updated_at) VALUES (true, ${tx.json(state.settings as any)}, now()) ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`;
-    const playerIds = new Set(state.players.map(p => p.id));
-    const matchIds = new Set(state.matches.map(m => m.id));
-    for (const { id } of await tx<{id:string}[]>`SELECT id FROM state_matches`) if (!matchIds.has(id)) await tx`DELETE FROM state_matches WHERE id = ${id}`;
 
-    for (const p of state.players) await tx`INSERT INTO state_players (id,name,short,handicap,rating,colour,avatar,initial_rating,active,wins,losses,draws,frames_won,frames_lost,last_change,form,updated_at) VALUES (${p.id},${p.name},${p.short},${p.handicap},${p.rating},${p.colour ?? null},${p.avatar ?? null},${p.initialRating},${p.active},${p.wins},${p.losses},${p.draws},${p.framesWon},${p.framesLost},${p.lastChange},${tx.json(p.form)},now()) ON CONFLICT (id) DO UPDATE SET name=excluded.name,short=excluded.short,handicap=excluded.handicap,rating=excluded.rating,colour=excluded.colour,avatar=excluded.avatar,initial_rating=excluded.initial_rating,active=excluded.active,wins=excluded.wins,losses=excluded.losses,draws=excluded.draws,frames_won=excluded.frames_won,frames_lost=excluded.frames_lost,last_change=excluded.last_change,form=excluded.form,updated_at=excluded.updated_at`;
-    for (const { id } of await tx<{id:string}[]>`SELECT id FROM state_players`) if (!playerIds.has(id)) await tx`DELETE FROM state_players WHERE id = ${id}`;
+    // Each table below does at most one bulk upsert plus one bulk stale-row
+    // delete, instead of a round trip per row — a save with dozens of players
+    // and matches previously meant dozens of sequential statements, each one
+    // more exposure for a dropped connection to leave the transaction stuck
+    // open mid-save, holding locks for everyone else.
+    const playerIds = state.players.map(p => p.id);
+    const matchIds = state.matches.map(m => m.id);
+    const auditIds = state.audits.map(a => a.id);
 
-    for (const m of state.matches) await tx`INSERT INTO state_matches (id,player_a,player_b,score_a,score_b,played_on,entry_mode,frame_evidence,performance_score,evidence_weight,handicap_adjustment,over_handicap_elo,over_handicap_multiplier,high_breaks,actual,giver,official,extra,expected_a,before_a,before_b,after_a,after_b,delta_a,margin_multiplier,status,created_at,updated_at) VALUES (${m.id},${m.a},${m.b},${m.scoreA},${m.scoreB},${m.playedOn},${m.entryMode ?? null},${m.frameEvidence ?? null},${m.performanceScore ?? null},${m.evidenceWeight ?? null},${m.handicapAdjustment ?? null},${m.overHandicapElo ?? null},${m.overHandicapMultiplier ?? null},${tx.json(m.highBreaks ?? [])},${m.actual},${m.giver},${m.official},${m.extra},${m.expectedA},${m.beforeA},${m.beforeB},${m.afterA},${m.afterB},${m.deltaA},${m.marginMultiplier ?? null},${m.status},${m.createdAt},now()) ON CONFLICT (id) DO UPDATE SET player_a=excluded.player_a,player_b=excluded.player_b,score_a=excluded.score_a,score_b=excluded.score_b,played_on=excluded.played_on,entry_mode=excluded.entry_mode,frame_evidence=excluded.frame_evidence,performance_score=excluded.performance_score,evidence_weight=excluded.evidence_weight,handicap_adjustment=excluded.handicap_adjustment,over_handicap_elo=excluded.over_handicap_elo,over_handicap_multiplier=excluded.over_handicap_multiplier,high_breaks=excluded.high_breaks,actual=excluded.actual,giver=excluded.giver,official=excluded.official,extra=excluded.extra,expected_a=excluded.expected_a,before_a=excluded.before_a,before_b=excluded.before_b,after_a=excluded.after_a,after_b=excluded.after_b,delta_a=excluded.delta_a,margin_multiplier=excluded.margin_multiplier,status=excluded.status,created_at=excluded.created_at,updated_at=excluded.updated_at`;
-    const auditIds = new Set(state.audits.map(a => a.id));
-    for (const { id } of await tx<{id:string}[]>`SELECT id FROM state_audits`) if (!auditIds.has(id)) await tx`DELETE FROM state_audits WHERE id = ${id}`;
-    for (const a of state.audits) await tx`INSERT INTO state_audits (id,text,occurred_at) VALUES (${a.id},${a.text},${a.at}) ON CONFLICT (id) DO UPDATE SET text=excluded.text,occurred_at=excluded.occurred_at`;
+    // Matches are deleted before players are touched: state_matches has an
+    // ON DELETE RESTRICT FK to state_players, so a stale match referencing a
+    // stale player would block that player's delete if it were still around.
+    await tx`DELETE FROM state_matches WHERE NOT (id = ANY(${matchIds}::text[]))`;
+
+    if (state.players.length) {
+      const rows = state.players.map(p => ({
+        id: p.id, name: p.name, short: p.short, handicap: p.handicap, rating: p.rating,
+        colour: p.colour ?? null, avatar: p.avatar ?? null, initial_rating: p.initialRating,
+        active: p.active, wins: p.wins, losses: p.losses, draws: p.draws,
+        frames_won: p.framesWon, frames_lost: p.framesLost, last_change: p.lastChange,
+        form: tx.json(p.form), updated_at: new Date(),
+      }));
+      await tx`INSERT INTO state_players ${tx(rows)}
+        ON CONFLICT (id) DO UPDATE SET name=excluded.name,short=excluded.short,handicap=excluded.handicap,rating=excluded.rating,colour=excluded.colour,avatar=excluded.avatar,initial_rating=excluded.initial_rating,active=excluded.active,wins=excluded.wins,losses=excluded.losses,draws=excluded.draws,frames_won=excluded.frames_won,frames_lost=excluded.frames_lost,last_change=excluded.last_change,form=excluded.form,updated_at=excluded.updated_at`;
+    }
+    await tx`DELETE FROM state_players WHERE NOT (id = ANY(${playerIds}::text[]))`;
+
+    if (state.matches.length) {
+      const rows = state.matches.map(m => ({
+        id: m.id, player_a: m.a, player_b: m.b, score_a: m.scoreA, score_b: m.scoreB,
+        played_on: m.playedOn, entry_mode: m.entryMode ?? null, frame_evidence: m.frameEvidence ?? null,
+        performance_score: m.performanceScore ?? null, evidence_weight: m.evidenceWeight ?? null,
+        handicap_adjustment: m.handicapAdjustment ?? null, over_handicap_elo: m.overHandicapElo ?? null,
+        over_handicap_multiplier: m.overHandicapMultiplier ?? null, high_breaks: tx.json(m.highBreaks ?? []),
+        actual: m.actual, giver: m.giver, official: m.official, extra: m.extra, expected_a: m.expectedA,
+        before_a: m.beforeA, before_b: m.beforeB, after_a: m.afterA, after_b: m.afterB, delta_a: m.deltaA,
+        margin_multiplier: m.marginMultiplier ?? null, status: m.status, created_at: m.createdAt, updated_at: new Date(),
+      }));
+      await tx`INSERT INTO state_matches ${tx(rows)}
+        ON CONFLICT (id) DO UPDATE SET player_a=excluded.player_a,player_b=excluded.player_b,score_a=excluded.score_a,score_b=excluded.score_b,played_on=excluded.played_on,entry_mode=excluded.entry_mode,frame_evidence=excluded.frame_evidence,performance_score=excluded.performance_score,evidence_weight=excluded.evidence_weight,handicap_adjustment=excluded.handicap_adjustment,over_handicap_elo=excluded.over_handicap_elo,over_handicap_multiplier=excluded.over_handicap_multiplier,high_breaks=excluded.high_breaks,actual=excluded.actual,giver=excluded.giver,official=excluded.official,extra=excluded.extra,expected_a=excluded.expected_a,before_a=excluded.before_a,before_b=excluded.before_b,after_a=excluded.after_a,after_b=excluded.after_b,delta_a=excluded.delta_a,margin_multiplier=excluded.margin_multiplier,status=excluded.status,created_at=excluded.created_at,updated_at=excluded.updated_at`;
+    }
+
+    if (state.audits.length) {
+      const rows = state.audits.map(a => ({ id: a.id, text: a.text, occurred_at: a.at }));
+      await tx`INSERT INTO state_audits ${tx(rows)}
+        ON CONFLICT (id) DO UPDATE SET text=excluded.text,occurred_at=excluded.occurred_at`;
+    }
+    await tx`DELETE FROM state_audits WHERE NOT (id = ANY(${auditIds}::text[]))`;
   });
 }
 

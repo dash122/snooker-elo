@@ -2,7 +2,7 @@
 // what counts as valid. Each returns an error code, or null when the value is
 // acceptable; the client maps the codes to Chinese messages.
 export const USERNAME_PATTERN = /^[a-z0-9._-]{3,24}$/i;
-export const MIN_PASSWORD = 6;
+export const MIN_PASSWORD = 8;
 export const MAX_AVATAR_CHARS = 200_000; // ~150 KB of base64
 const AVATAR_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
 
@@ -22,6 +22,24 @@ export function checkDisplayName(value: string) {
 
 export function checkPassword(value: string) {
   return value.length >= MIN_PASSWORD ? null : "password-short";
+}
+
+// Rough strength estimate for the signup meter: length plus character-class
+// variety, not a full entropy calculation — good enough to nudge people away
+// from "password1" without pulling in a scoring library.
+export function passwordStrength(value: string): 0 | 1 | 2 | 3 | 4 {
+  if (!value) return 0;
+  let variety = 0;
+  if (/[a-z]/.test(value)) variety++;
+  if (/[A-Z]/.test(value)) variety++;
+  if (/[0-9]/.test(value)) variety++;
+  if (/[^A-Za-z0-9]/.test(value)) variety++;
+  let score = 0;
+  if (value.length >= MIN_PASSWORD) score++;
+  if (value.length >= 12) score++;
+  if (variety >= 2) score++;
+  if (variety >= 3 && value.length >= 10) score++;
+  return Math.min(score, 4) as 0 | 1 | 2 | 3 | 4;
 }
 
 export function checkAvatar(value: string | null) {

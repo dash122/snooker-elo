@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PasswordField from "./PasswordField";
+import SignupForm from "./SignupForm";
 
 type User = { displayName: string; role: "admin" | "member" };
 
@@ -7,19 +8,31 @@ export default function AuthExperience({
   user,
   mode,
   error,
+  welcome,
 }: {
   user: User | null;
   mode: "login" | "signup";
   error?: string;
+  welcome?: boolean;
 }) {
   if (user) {
     return (
       <main className="auth-experience">
         <section className="auth-welcome-card">
           <Link className="auth-brand" href="/">SCAA <span>Snooker ELO</span></Link>
-          <p className="kicker">歡迎回來</p>
-          <h1>你已登入</h1>
-          <p>{user.displayName}，你的{user.role === "admin" ? "管理員" : "會員"}帳戶已可使用。</p>
+          {welcome ? (
+            <>
+              <p className="kicker">歡迎加入</p>
+              <h1>帳戶建立成功！</h1>
+              <p>{user.displayName}，你的會員帳戶及球員檔案已經建立好了，馬上開始記錄你的比賽吧。</p>
+            </>
+          ) : (
+            <>
+              <p className="kicker">歡迎回來</p>
+              <h1>你已登入</h1>
+              <p>{user.displayName}，你的{user.role === "admin" ? "管理員" : "會員"}帳戶已可使用。</p>
+            </>
+          )}
           <div className="auth-buttons">
             <Link className="primary" href="/">前往排行榜</Link>
             <Link className="more" href="/account">我的帳戶</Link>
@@ -65,40 +78,27 @@ export default function AuthExperience({
             <p className="form-error" role="alert">
               {error === "exists"
                 ? "此電郵或使用者名稱已被使用。"
-                : error === "error"
-                  ? "系統發生錯誤，請稍後再試。"
-                  : signup
-                    ? "請檢查資料；密碼需至少 6 個字元。"
-                    : "使用者名稱或密碼不正確。"}
+                : error === "rate-limited"
+                  ? "嘗試次數過多，請稍後再試。"
+                  : error === "error"
+                    ? "系統發生錯誤，請稍後再試。"
+                    : signup
+                      ? "請檢查資料；密碼需至少 8 個字元。"
+                      : "使用者名稱或密碼不正確。"}
             </p>
           )}
-          <form
-            className="auth-form auth-main-form"
-            action={signup ? "/api/auth/register" : "/api/auth/login"}
-            method="post"
-          >
-            {signup && (
-              <label htmlFor="display-name">
-                球員顯示名稱
-                <input id="display-name" name="displayName" autoComplete="name" required minLength={2}/>
-                <small>這個名稱會顯示在排行榜及賽事紀錄。</small>
+          {signup ? (
+            <SignupForm/>
+          ) : (
+            <form className="auth-form auth-main-form" action="/api/auth/login" method="post">
+              <label htmlFor="username">
+                使用者名稱
+                <input id="username" name="username" autoComplete="username" required minLength={2}/>
               </label>
-            )}
-            <label htmlFor="username">
-              使用者名稱
-              <input id="username" name="username" autoComplete="username" required minLength={2}/>
-            </label>
-            {signup && (
-              <label htmlFor="email">
-                電郵
-                <input id="email" name="email" type="email" autoComplete="email" required/>
-              </label>
-            )}
-            <PasswordField mode={signup ? "signup" : "login"}/>
-            <button className="primary auth-submit" type="submit">
-              {signup ? "建立帳戶及球員檔案" : "登入"}
-            </button>
-          </form>
+              <PasswordField mode="login"/>
+              <button className="primary auth-submit" type="submit">登入</button>
+            </form>
+          )}
           <p className="auth-switch">
             {signup ? "已有帳戶？" : "未有帳戶？"}
             <Link href={signup ? "/login" : "/login?mode=signup"}>
