@@ -178,6 +178,13 @@ function recentDelta(p:Player,data:AppState,count:number){
     return sum + (side==="A"?m.deltaA:-m.deltaA);
   },0);
 }
+function recentDeltaDays(p:Player,data:AppState,days:number){
+  const cutoff=Date.now()-days*24*60*60*1000;
+  return data.matches.filter(m=>!isEntertainmentMode(m.mode)&&isParticipant(m,p.id)&&new Date(m.createdAt).getTime()>=cutoff).reduce((sum,m)=>{
+    const side=playerSide(m,p.id);
+    return sum + (side==="A"?m.deltaA:-m.deltaA);
+  },0);
+}
 function highestBreak(p:Player,data:AppState){
   const values=data.matches.filter(m=>m.status==="confirmed").flatMap(m=>(m.highBreaks??[]).filter(b=>b.playerId===p.id&&b.value>0&&b.value<=147).map(b=>b.value));
   return values.length?Math.max(...values):null;
@@ -1229,7 +1236,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
     near:p=>Boolean(me)&&Math.abs(p.rating-me!.rating)<=80,
     free:isFreeToday,
     soon:p=>Boolean(freeToday[p.id]),
-    hot:p=>recentDelta(p,data,5)>0,
+    hot:p=>recentDeltaDays(p,data,30)>0,
   };
   const counts:Record<PlayersChip,number>={
     all:data.players.length,
@@ -1244,7 +1251,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
   const cycleSort=()=>setSort(current=>PLAYERS_SORT_CYCLE[(PLAYERS_SORT_CYCLE.indexOf(current)+1)%PLAYERS_SORT_CYCLE.length]);
   const q=query.trim().toLowerCase();
   const filtered=(activeChip==="hot"
-    ? [...data.players].sort((a,b)=>recentDelta(b,data,5)-recentDelta(a,data,5))
+    ? [...data.players].sort((a,b)=>recentDeltaDays(b,data,30)-recentDeltaDays(a,data,30))
     : sortPlayers(data.players,data,sort,playersSortDir(sort))
   ).filter(p=>{
     if(q&&!(p.name.toLowerCase().includes(q)||p.short.toLowerCase().includes(q)))return false;
@@ -1277,7 +1284,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
     <div className="players-list-head">
       <span>{filtered.length} 位球員</span>
       {canAdd&&<button type="button" className="players-add-btn" onClick={onAdd}>＋ 新增球員</button>}
-      <span className="players-list-hint">{activeChip==="hot"?"ELO · 狀態":"ELO · 建議讓分"}</span>
+      <span className="players-list-hint">{activeChip==="hot"?"ELO · 近30日ELO變化":"ELO · 建議讓分"}</span>
     </div>
     {data.players.length===0
       ? <Empty text="尚未有球員" sub="新增球員後便可開始記錄比賽。"/>
@@ -1286,7 +1293,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
         : <div className="players-rows">{filtered.map(p=>{
             const isSelf=Boolean(me)&&me!.id===p.id;
             const open=openId===p.id;
-            const delta=recentDelta(p,data,5);
+            const delta=recentDeltaDays(p,data,30);
             const rank=rankOf.get(p.id)??0;
             const provisional=games(p)<data.settings.provisionalGames;
             const free=freeToday[p.id];
