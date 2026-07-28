@@ -2371,6 +2371,8 @@ button.availability-grid-player:hover b{text-decoration:underline}
 .profile-section-head .kicker{margin:0 0 .125rem;color:#a97828}
 .profile-section-head h3{margin:0;color:var(--deep);font-size:var(--fs-lead);letter-spacing:-.02em}
 .profile-section-head>span{flex:none;color:var(--muted);font-size:var(--fs-caption);font-weight:700;text-align:right}
+.recent-form .profile-section-head{align-items:center}
+.recent-form-action.in-head{margin:0;min-height:0}
 /* The break section's headline number is that section's own hero. */
 .break-stats .profile-section-head>b{flex:none;font-family:var(--font-display);font-size:2.125rem;line-height:1;
   color:var(--gold);font-variant-numeric:tabular-nums}
