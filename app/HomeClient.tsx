@@ -91,7 +91,7 @@ function formScore(p:Player){return p.form.reduce((sum,x,i)=>sum+(x==="W"?1:x===
 const DEFAULT_TRAILING_KEYS:SortKey[]=["rank","name","rating","form"];
 function trailingStat(key:SortKey,p:Player,data:AppState,suggested:number){
   const eloText=`ELO ${Math.round(p.rating)}`;
-  if(key==="change"){const swing=recentDelta(p,data,5);return {big:`${swing>=0?"+":""}${Math.round(swing)}`,cls:swing>=0?"positive":"negative",sub:eloText}}
+  if(key==="change"){const swing=recentDeltaDays(p,data,10);return {big:`${swing>=0?"+":""}${Math.round(swing)}`,cls:swing>=0?"positive":"negative",sub:eloText}}
   if(key==="official")return {big:p.handicap==null?"—":p.handicap,sub:eloText};
   if(key==="suggested")return {big:suggested,sub:eloText};
   if(key==="games")return {big:games(p),sub:`${Math.round(winRate(p)*100)}% 勝率`};
@@ -105,7 +105,7 @@ function MobileSortHead({sort}:{sort:SortKey}){
 }
 function sortPlayers(players:Player[],data:AppState,key:SortKey,dir:"asc"|"desc"){
   const ranks=new Map([...players].sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name)).map((p,i)=>[p.id,i+1]));
-  const value=(p:Player):number|string|null=>key==="rank"?ranks.get(p.id)??999:key==="name"?p.name:key==="rating"?p.rating:key==="change"?recentDelta(p,data,5):key==="form"?formScore(p):key==="official"?p.handicap:key==="suggested"?suggestedHandicap(p,data):key==="games"?games(p):key==="winRate"?winRate(p):frameRate(p);
+  const value=(p:Player):number|string|null=>key==="rank"?ranks.get(p.id)??999:key==="name"?p.name:key==="rating"?p.rating:key==="change"?recentDeltaDays(p,data,10):key==="form"?formScore(p):key==="official"?p.handicap:key==="suggested"?suggestedHandicap(p,data):key==="games"?games(p):key==="winRate"?winRate(p):frameRate(p);
   return [...players].sort((a,b)=>{
     const av=value(a),bv=value(b);
     if(av==null&&bv==null)return a.name.localeCompare(b.name);
@@ -772,10 +772,10 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
     <section className="home-view-panel ranking-panel" aria-labelledby="ranking-title">
       <div className="home-panel-head"><div><p className="kicker">即時競爭形勢</p><h2 id="ranking-title">目前排名</h2><p>每場結果都會即時反映在 ELO 與近期狀態。</p></div></div>
     <SortControls sort={sort} dir={dir} onSort={sortBy}/>
-    <div className="table-card">{ranked.length===0?<Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>:<><div className="table-head sortable"><button title="箭嘴為過去 10 天的排名升跌" onClick={()=>sortBy("rank")}>排名<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>球員<SortArrow active={sort==="name"} dir={dir}/></button><button title="最近五筆比賽；較近期結果權重較高" onClick={()=>sortBy("form")}>近況<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>場數／勝率<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>建議／正式評分<SortArrow active={sort==="suggested"} dir={dir}/></button><button title="ELO 及近5場ELO變化" onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
+    <div className="table-card">{ranked.length===0?<Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>:<><div className="table-head sortable"><button title="箭嘴為過去 10 天的排名升跌" onClick={()=>sortBy("rank")}>排名<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>球員<SortArrow active={sort==="name"} dir={dir}/></button><button title="最近五筆比賽；較近期結果權重較高" onClick={()=>sortBy("form")}>近況<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>場數／勝率<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>建議／正式評分<SortArrow active={sort==="suggested"} dir={dir}/></button><button title="ELO 及近10天ELO變化" onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
       <MobileSortHead sort={sort}/>
-      {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=recentDelta(p,data,5),played=games(p),rate=played?Math.round(p.wins/played*100):0,provisional=played<data.settings.provisionalGames,trailing=trailingStat(sort,p,data,suggested);
-        return <button className={`row ${rank===1?"top":""} ${provisional?"provisional":""}`} key={p.id} onClick={()=>onPlayer(p)} aria-label={`${p.name}，排名 ${rank}，ELO ${Math.round(p.rating)}，近5場ELO變化 ${swing>=0?"+":""}${Math.round(swing)}，建議讓分 ${suggested}${provisional?"，臨時評分":""}`}>
+      {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=recentDeltaDays(p,data,10),played=games(p),rate=played?Math.round(p.wins/played*100):0,provisional=played<data.settings.provisionalGames,trailing=trailingStat(sort,p,data,suggested);
+        return <button className={`row ${rank===1?"top":""} ${provisional?"provisional":""}`} key={p.id} onClick={()=>onPlayer(p)} aria-label={`${p.name}，排名 ${rank}，ELO ${Math.round(p.rating)}，近10天ELO變化 ${swing>=0?"+":""}${Math.round(swing)}，建議讓分 ${suggested}${provisional?"，臨時評分":""}`}>
         <span className="rank">{rank===1?"♛":rank}{(()=>{if(!movement.active)return null;const move=movement.map.get(p.id)??0;
           return move===0?<em className="move flat" aria-label="10 天內排名不變">–</em>
           :<em className={`move ${move>0?"up":"down"}`} aria-label={`較 10 天前${move>0?"上升":"下跌"} ${Math.abs(move)} 位`}>{move>0?"▲":"▼"}{Math.abs(move)}</em>})()}</span><span className="person"><PlayerBadge player={p}/><b>{p.name}<small>{played<data.settings.provisionalGames?"臨時":<span className="official-only">正式</span>}<span className="rating-kind-suffix">評分</span><em className="person-meta"> · {played} 場</em></small></b></span>
