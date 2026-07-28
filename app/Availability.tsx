@@ -424,7 +424,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    const r=await fetch(`/api/invites/${id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({action:"cancel"})});
    const b=await r.json();
    if(!r.ok){setMessage(b.error??"操作失敗，請再試一次。");return;}
-   await refreshInvites();setMessage("已收回邀請。");
+   await refreshInvites();setMessage("已取消對局。");
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setCancellingInviteId(null)}
  };
@@ -548,6 +548,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
     <div className="invite-inbox-actions">
      <span className="invite-status-accepted">✓ 已確認</span>
      {onRecordMatch&&<button type="button" className="secondary" onClick={()=>onRecordMatch(opponent.id,hkDate(new Date(invite.startAt)))}>記錄比分</button>}
+     <button type="button" className="secondary" disabled={cancellingInviteId===invite.id} onClick={()=>cancelInviteAction(invite.id)}>取消</button>
     </div>
    </div>})}
   </div>
