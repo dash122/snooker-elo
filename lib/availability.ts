@@ -148,6 +148,19 @@ export function recommendationScore(input:{minutes:number;eloDifference:number;r
   return {score:Math.round((overlap+elo+variety)*10)/10,overlap,elo,variety};
 }
 
+/** Every confirmed match ever played between two players, regardless of side. Shared by the
+    matchmaking shortlist (「從沒交手」 is a lifetime check) and anywhere else "have these two played"
+    needs an answer that outlives the 30-day recent-form window. */
+export function matchesBetween<T extends {a:string;b:string;status:"confirmed"|"void"}>(matches:T[],x:string,y:string) {
+  return matches.filter(m=>m.status==="confirmed"&&((m.a===x&&m.b===y)||(m.a===y&&m.b===x)));
+}
+
+/** Lifetime confirmed-match count for one player, singles only — mirrors the `a`/`b` participant
+    check the rest of matchmaking already uses (team modes aren't part of this reckoning). */
+export function gamesPlayed<T extends {a:string;b:string;status:"confirmed"|"void"}>(matches:T[],id:string) {
+  return matches.filter(m=>m.status==="confirmed"&&(m.a===id||m.b===id)).length;
+}
+
 export type OpponentSlots={id:string;rating:number;slots:Interval[]};
 export type RankedOpponent={id:string;overlaps:Interval[];minutes:number;recent:number;difference:number;score:number;qualifies:boolean};
 
