@@ -1190,7 +1190,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
   // per-row free time both key off whoever has a published slot for tonight (Hong Kong time).
   useEffect(()=>{
     let cancelled=false;
-    fetch("/api/availability").then(r=>r.ok?r.json():null).then(v=>{
+    fetch("/api/availability?upcoming=1").then(r=>r.ok?r.json():null).then(v=>{
       if(cancelled||!Array.isArray(v?.members))return;
       const map:Record<string,string>={};
       for(const member of v.members as {id:string;slots:{startAt:string}[]}[]){

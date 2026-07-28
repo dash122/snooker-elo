@@ -17,6 +17,9 @@ export async function GET(request:Request){
        matchmaking grid for a given day — so this needs no auth, just an id to filter by. */
     const player=url.searchParams.get("player");if(player!==null)return Response.json({slots:await listOwnAvailability(player)},{headers:{"cache-control":"no-store"}});
     const week=url.searchParams.get("week");if(week!==null){const count=Math.min(31,Math.max(1,Number(url.searchParams.get("days"))||7));const days=weekDates(week,count).map(date=>({date,...dayRangeHongKong(date)}));return Response.json({counts:await listAvailabilityCounts(days)},{headers:{"cache-control":"no-store"}});}
+    /* The roster's free-tonight indicator needs each member's next upcoming slot, not just
+       today's — a same-day-only window silently drops anyone whose earliest slot is a future day. */
+    if(url.searchParams.get("upcoming")!==null){const now=new Date().toISOString(),horizon=new Date(Date.now()+30*24*60*60*1000).toISOString();return Response.json({members:await listAvailability(now,horizon)},{headers:{"cache-control":"no-store"}});}
     const date=url.searchParams.get("date")??new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Hong_Kong"});const range=dayRangeHongKong(date);return Response.json({date,members:await listAvailability(range.startAt,range.endAt)},{headers:{"cache-control":"no-store"}});
   }catch(error){return Response.json({error:error instanceof Error?error.message:"Availability unavailable"},{status:400});}}
 export async function POST(request:Request){
