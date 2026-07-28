@@ -2731,3 +2731,22 @@ button.availability-grid-player:hover b{text-decoration:underline}
 .players-expand-manage{display:flex;justify-content:flex-end;gap:.25rem;margin-top:.375rem}
 @media(max-width:380px){.players-sort-btn{padding:0 .625rem}.players-expand-actions{flex-wrap:wrap}.players-expand-actions button:not(.players-row-open){flex:1 1 40%}}
 @media(max-width:560px){.team-name-grid{gap:.45rem}.team-name-grid>b{font-size:.65rem}.team-name-grid input{font-size:.8rem}}
+/* --- Ranking table, phones: authoritative override -----------------------
+   Several earlier breakpoints (≤820, ≤700, and an unscoped "desktop" tier
+   that unintentionally applies everywhere) redefine .row's grid separately
+   and drift out of sync, squeezing the name column and misaligning the
+   mobile header labels. This block is deliberately last in the file so it
+   wins the cascade outright and is the single source of truth on phones. */
+@media(max-width:700px){
+  .ranking-panel{padding-inline:.625rem}
+  .ranking-panel .table-card{padding:.3125rem .5rem}
+  .row-head-mobile,.row{grid-template-columns:2.25rem minmax(0,1fr) 4.75rem 3.75rem!important;column-gap:.5rem!important}
+  .row{padding:.625rem!important;min-height:4.375rem}
+  .row-head-mobile{padding:0 .3125rem .375rem}
+  .row-head-mobile>span:first-child,.rank{text-align:center}
+  .row-head-mobile>span:nth-child(3){text-align:center}
+  .row-head-mobile>span:last-child{text-align:right}
+  .person{min-width:0}
+  .person b{display:block;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal}
+  .row>.form{width:auto!important;justify-content:flex-start}
+}
