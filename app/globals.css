@@ -2642,7 +2642,7 @@ button.availability-grid-player:hover b{text-decoration:underline}
 .players-row-name-line b{font-size:var(--fs-lead);font-weight:800;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .players-tag{flex:none;font-style:normal;font-size:var(--fs-label);font-weight:800;color:var(--muted);background:#eef1ec;padding:.0625rem .3125rem;border-radius:.3125rem}
 .players-tag.provisional{color:#8a6a12;background:rgba(213,169,77,.22)}
-.players-row-meta{display:flex;align-items:center;gap:.375rem;margin-top:.1875rem;font-size:var(--fs-caption);color:var(--muted);font-weight:500}
+.players-row-meta{display:flex;align-items:center;gap:.375rem;margin-top:.1875rem;font-size:var(--fs-caption);color:var(--muted);font-weight:400}
 .players-row-form{display:flex;flex:none;gap:.125rem}
 .players-row-form i{width:.375rem;height:.375rem;border-radius:.125rem;display:block}
 .players-row-form i.w{background:#237a67}

@@ -1202,6 +1202,12 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
     return ()=>{cancelled=true};
   },[]);
 
+  const freeLabel=(free:string)=>{
+    const freeDate=hkDate(new Date(free));
+    if(freeDate===hkDate())return `今日 ${hkClock(free)} 有空`;
+    const[,m,d]=freeDate.split("-");
+    return `最早${Number(d)}/${Number(m)} ${hkClock(free)} 有空`;
+  };
   const ranked=[...data.players].sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name));
   const rankOf=new Map(ranked.map((p,i)=>[p.id,i+1]));
   const myRank=me?rankOf.get(me.id):undefined;
@@ -1222,7 +1228,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
     hot:data.players.filter(tests.hot).length,
   };
   const activeChip:PlayersChip=chip==="near"&&!me?"all":chip;
-  const chipDefs:[PlayersChip,string][]=[["near","我的水平"],["free","今晚有空"],["hot","狀態上升"],["all","全部"]];
+  const chipDefs:[PlayersChip,string][]=[["near","我的水平"],["free","今日有空"],["hot","狀態上升"],["all","全部"]];
 
   const cycleSort=()=>setSort(current=>PLAYERS_SORT_CYCLE[(PLAYERS_SORT_CYCLE.indexOf(current)+1)%PLAYERS_SORT_CYCLE.length]);
   const q=query.trim().toLowerCase();
@@ -1234,7 +1240,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
 
   return <div className="players-view">
     <div className={`players-self-panel${me?"":" is-guest"}`}>
-      <div className="players-self-top"><span>球員 · {data.players.length} 位</span><span>今晚 {freeCount} 位有空</span></div>
+      <div className="players-self-top"><span>球員 · {data.players.length} 位</span><span>今日 {freeCount} 位有空</span></div>
       {me&&<div className="players-self-main">
         <b className="players-self-rank">#{myRank}</b>
         <div className="players-self-id">
@@ -1278,7 +1284,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
                   <span className="players-row-name-line"><b>{p.name}</b><em className={`players-tag${provisional?" provisional":""}`}>{provisional?"臨時":`#${rank}`}</em></span>
                   <span className="players-row-meta">
                     <span className="players-row-form">{p.form.map((x,i)=><i className={x.toLowerCase()} key={i}/>)}</span>
-                    #{rank} · {games(p)} 場 · {free?`今晚 ${hkClock(free)} 有空`:"未公開時段"}
+                    #{rank} · {games(p)} 場{free?` · ${freeLabel(free)}`:""}
                   </span>
                 </span>
                 <span className="players-row-elo"><b>{Math.round(p.rating)}</b><em className={delta>=0?"positive":"negative"}>{delta>=0?"+":"−"}{Math.abs(Math.round(delta))}</em></span>
@@ -1291,7 +1297,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
                 <div className="players-expand-stats">
                   <span>勝率／局率 <b>{Math.round(winRate(p)*100)}／{Math.round(frameRate(p)*100)}%</b></span>
                   <span>最高單桿 <b>{high??"—"}</b></span>
-                  <span className="players-expand-free">{free?`今晚 ${hkClock(free)} 有空`:"未公開時段"}</span>
+                  {free&&<span className="players-expand-free">{freeLabel(free)}</span>}
                 </div>
                 <div className="players-expand-actions">
                   {isSelf
