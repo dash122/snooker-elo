@@ -1057,7 +1057,7 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,highlight
   const rightLabel = isEntertainmentMode(m.mode) ? teamLabel(m,data,"B") : name(m.b);
   const preMatchLeftElo=m.beforeA2==null?m.beforeA:(m.beforeA+m.beforeA2)/2;
   const preMatchRightElo=m.beforeB2==null?m.beforeB:(m.beforeB+m.beforeB2)/2;
-  const recommendedActual=Math.round(eloToHandicap(preMatchLeftElo-preMatchRightElo,data.settings));
+  const recommendedActual=roundToEven(eloToHandicap(preMatchLeftElo-preMatchRightElo,data.settings));
   const handicapText=(actual:number)=>
     actual>0?`${leftLabel} 每局讓 ${rightLabel} ${actual} 分`
     :actual<0?`${rightLabel} 每局讓 ${leftLabel} ${Math.abs(actual)} 分`
@@ -1387,11 +1387,11 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
   const teamEloDifference=draft.mode==="2v2"&&a2&&b2?roundedTeamEloDifference([a,a2],[b,b2]):a.rating-b.rating;
   const teamAHandicap=isTeamMode&&a2?roundToEven((suggestedHandicap(a,data)+suggestedHandicap(a2,data))/2):null;
   const teamBHandicap=isTeamMode&&b2?roundToEven((suggestedHandicap(b,data)+suggestedHandicap(b2,data))/2):null;
-  const fairActual=preview?(isTeamMode&&teamAHandicap!=null&&teamBHandicap!=null?teamBHandicap-teamAHandicap:eloToHandicap(teamEloDifference,data.settings)):null;
+  const fairActual=preview?roundToEven(eloToHandicap(teamEloDifference,data.settings)):null;
   const probabilities=preview?matchProbabilities(preview.expectedA,+draft.scoreA+ +draft.scoreB):null;
   const applyFair=()=>{
     if(fairActual==null)return;
-    setDraft((d:any)=>({...d,giver:fairActual>=0?a.id:b.id,points:Math.round(Math.abs(fairActual))}));
+    setDraft((d:any)=>({...d,giver:fairActual>=0?a.id:b.id,points:roundToEven(Math.abs(fairActual))}));
     setCustomHandicap(false);
   };
   const setNoHandicap=()=>{
@@ -1413,7 +1413,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
   const resultLabel=!valid?"輸入最終比分":draft.scoreA===draft.scoreB?`${draft.scoreA}–${draft.scoreB} 和局`:draft.scoreA>draft.scoreB?`${isTeamMode?teamAName:a.name} 勝 ${draft.scoreA}–${draft.scoreB}`:`${isTeamMode?teamBName:b.name} 勝 ${draft.scoreB}–${draft.scoreA}`;
   const handicapLabel=draft.giver&&+draft.points>0?`${draft.mode==="2v2"?([a.id,a2?.id].includes(draft.giver)?teamAName:teamBName):draft.giver===a?.id?a?.name:b?.name} 每局讓 ${draft.points} 分`:"沒有讓分";
   const dateLabel=draft.date===today?"今天":draft.date;
-  const fairPoints=Math.round(Math.abs(fairActual??0));
+  const fairPoints=roundToEven(Math.abs(fairActual??0));
   return <div className="match-form"><div className="match-form-head"><div className="match-title-row"><h2 className="accent">{editing?"編輯比賽":"記錄比賽"}</h2><div className="match-date-chip"><span aria-hidden="true">{dateLabel}<i aria-hidden="true">›</i></span><input aria-label={`比賽日期，目前為${dateLabel}`} type="date" value={draft.date} onChange={e=>update("date",e.target.value)} onClick={e=>{const input=e.currentTarget;if(typeof input.showPicker==="function")input.showPicker()}}/></div></div></div>
     {editing&&<p className="sub">{draft.mode==="2v2"?"潮拍娛樂賽只會更新這筆歷史記錄，不會重播或改變 ELO。":"儲存後會按日期重播全部賽事，重建雙方及後續 ELO。"}</p>}
     {data.players.length<2&&<p className="warning">請先新增至少兩位活躍球員。</p>}
