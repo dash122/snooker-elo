@@ -238,7 +238,7 @@ function SlotBoard({dates,items,lo,hi,soonest,selected,onSelect,onCreate,onResiz
  </div>;
 }
 const HORIZON=14;
-export default function Availability({userPlayerId,matches,provisionalGames=10,onDirtyChange,jumpTo,onPlayer}:{userPlayerId?:string;matches:Match[];provisionalGames?:number;onDirtyChange?:(dirty:boolean)=>void;jumpTo?:{playerId:string;date:string}|null;onPlayer?:(playerId:string)=>void}){
+export default function Availability({userPlayerId,matches,provisionalGames=10,onDirtyChange,jumpTo,onPlayer,onRecordMatch}:{userPlayerId?:string;matches:Match[];provisionalGames?:number;onDirtyChange?:(dirty:boolean)=>void;jumpTo?:{playerId:string;date:string}|null;onPlayer?:(playerId:string)=>void;onRecordMatch?:(opponentId:string,playedOn:string)=>void}){
  const week=useMemo(()=>days(hkDate(),HORIZON),[]),[date,setDate]=useState(jumpTo?.date??hkDate()),[appliedJump,setAppliedJump]=useState(jumpTo??null),[members,setMembers]=useState<Member[]>([]),[counts,setCounts]=useState<Record<string,number>>({}),[own,setOwn]=useState<AvailabilitySlot[]>([]),[view,setView]=useState<View>("find"),[draft,setDraft]=useState<Interval[]>([]),[selected,setSelected]=useState<string|null>(null),[adjustments,setAdjustments]=useState<Record<string,Interval>>({}),[focus,setFocus]=useState<Interval|null>(null),[boardWide,setBoardWide]=useState(false),[pending,setPending]=useState<AvailabilitySlot|null>(null),[leaveTo,setLeaveTo]=useState<View|null>(null),[confirmClear,setConfirmClear]=useState(false),[clearing,setClearing]=useState(false),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[cancelling,setCancelling]=useState(false),[confirmingChange,setConfirmingChange]=useState(false),[message,setMessage]=useState(""),[recommendationNow]=useState(()=>Date.now());
  const[filter,setFilter]=useState<ListFilter>("all"),[prioritizeNew,setPrioritizeNew]=useState(false),[ownBannerDismissed,setOwnBannerDismissed]=useState(false),
   [invites,setInvites]=useState<{sent:MatchInvite[];received:MatchInvite[]}>({sent:[],received:[]}),
@@ -545,7 +545,10 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    {confirmedMatches.map(invite=>{const opponent=invite.fromPlayer.id===userPlayerId?invite.toPlayer:invite.fromPlayer;return <div className="invite-inbox-item" key={invite.id}>
     <PlayerBadge player={opponent}/>
     <div className="invite-inbox-who"><b>{opponent.name}</b><small>{dayLabel(hkDate(new Date(invite.startAt)))} {range(invite)}</small></div>
-    <span className="invite-status-accepted">✓ 已確認</span>
+    <div className="invite-inbox-actions">
+     <span className="invite-status-accepted">✓ 已確認</span>
+     {onRecordMatch&&<button type="button" className="secondary" onClick={()=>onRecordMatch(opponent.id,hkDate(new Date(invite.startAt)))}>記錄比分</button>}
+    </div>
    </div>})}
   </div>
  </section>}
