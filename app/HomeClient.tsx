@@ -643,7 +643,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch}/>}
       {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}}/>}
-      {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={openHeadToHead} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
+      {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
     </main>
     {/* Record sits dead centre as the one thing this app exists to do; the four content tabs split
@@ -878,6 +878,13 @@ function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,s
     if(!prefsRestored.current){prefsRestored.current=true;return;}
     localStorage.setItem("scaa-match-prefs",JSON.stringify({sortBy,sortDirection,modeFilter}));
   },[sortBy,sortDirection,modeFilter]);
+  // A stale "2v2" mode filter from a previous session would otherwise hide the
+  // dedicated head-to-head view whenever a fresh pair is picked to compare.
+  const pairMounted=useRef(false);
+  useEffect(()=>{
+    if(!pairMounted.current){pairMounted.current=true;return;}
+    setModeFilter(current=>current==="2v2"?"all":current);
+  },[pair.a,pair.b]);
   const name=(id:string)=>data.players.find(p=>p.id===id)?.name??"已刪除球員";
   const roster=[...data.players].sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
   const focusPlayer=pair.a;
@@ -1304,7 +1311,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
                     ? <button type="button" className="primary players-expand-open-self" onClick={()=>onOpen(p)}>查看完整球員頁 ›</button>
                     : <>
                         <button type="button" className="primary" onClick={()=>onRecordAgainst(p)}>記錄對局</button>
-                        <button type="button" onClick={()=>onCompare(p)}>比較</button>
+                        <button type="button" onClick={()=>onCompare(p)}>對戰紀錄</button>
                         <button type="button" onClick={()=>onFindOpponent(p.id,today)}>約戰</button>
                         <button type="button" className="players-row-open" aria-label={`開啟 ${p.name} 的球員卡`} onClick={()=>onOpen(p)}>›</button>
                       </>}
