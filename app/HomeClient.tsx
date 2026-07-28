@@ -1239,11 +1239,14 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
     hot:data.players.filter(tests.hot).length,
   };
   const activeChip:PlayersChip=chip==="near"&&!me?"all":chip;
-  const chipDefs:[PlayersChip,string][]=[["near","我的水平"],["free","今日有空"],["soon","近期有空"],["hot","狀態上升"],["all","全部"]];
+  const chipDefs:[PlayersChip,string][]=[["near","我的水平"],["free","今日有空"],["soon","近期有空"],["hot","狀態 🔥"],["all","全部"]];
 
   const cycleSort=()=>setSort(current=>PLAYERS_SORT_CYCLE[(PLAYERS_SORT_CYCLE.indexOf(current)+1)%PLAYERS_SORT_CYCLE.length]);
   const q=query.trim().toLowerCase();
-  const filtered=sortPlayers(data.players,data,sort,playersSortDir(sort)).filter(p=>{
+  const filtered=(activeChip==="hot"
+    ? [...data.players].sort((a,b)=>recentDelta(b,data,5)-recentDelta(a,data,5))
+    : sortPlayers(data.players,data,sort,playersSortDir(sort))
+  ).filter(p=>{
     if(q&&!(p.name.toLowerCase().includes(q)||p.short.toLowerCase().includes(q)))return false;
     return tests[activeChip](p);
   });
@@ -1274,7 +1277,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
     <div className="players-list-head">
       <span>{filtered.length} 位球員</span>
       {canAdd&&<button type="button" className="players-add-btn" onClick={onAdd}>＋ 新增球員</button>}
-      <span className="players-list-hint">ELO · 近況 · 讓分</span>
+      <span className="players-list-hint">{activeChip==="hot"?"ELO · 狀態":"ELO · 建議讓分"}</span>
     </div>
     {data.players.length===0
       ? <Empty text="尚未有球員" sub="新增球員後便可開始記錄比賽。"/>
@@ -1288,6 +1291,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
             const provisional=games(p)<data.settings.provisionalGames;
             const free=freeToday[p.id];
             const high=highestBreak(p,data);
+            const suggested=suggestedHandicap(p,data);
             return <div className={`players-row${open?" open":""}`} key={p.id}>
               <button type="button" className="players-row-hit" aria-expanded={open} onClick={()=>setOpenId(current=>current===p.id?"":p.id)}>
                 <span className="players-row-badge"><PlayerBadge player={p}/><i className="players-row-free-dot" style={{background:free?"#4ade80":"#d7dbd4"}}/></span>
@@ -1298,7 +1302,9 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
                     #{rank} · {games(p)} 場{free?` · ${freeLabel(free)}`:""}
                   </span>
                 </span>
-                <span className="players-row-elo"><b>{Math.round(p.rating)}</b><em className={delta>=0?"positive":"negative"}>{delta>=0?"+":"−"}{Math.abs(Math.round(delta))}</em></span>
+                <span className="players-row-elo"><b>{Math.round(p.rating)}</b>{activeChip==="hot"
+                  ? <em className={delta>=0?"positive":"negative"}>{delta>=0?"+":"−"}{Math.abs(Math.round(delta))}</em>
+                  : <em className="neutral">{suggested}</em>}</span>
               </button>
               {open&&<div className="players-row-expand">
                 {me&&!isSelf&&<div className="players-verdict">
