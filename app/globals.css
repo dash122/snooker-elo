@@ -378,6 +378,10 @@ h1,h2,h3{line-height:1.2;letter-spacing:-.02em}
 .sort-controls>button,.h2h-range-body .h2h-clear,.break-add button,.fair-tip button,
 .danger-zone button{min-height:var(--control-md);border-radius:var(--radius-sm);font-size:var(--fs-sm)}
 .sort-controls select,.player-toolbar .toolbar-search input{min-height:var(--control-md);font-size:var(--fs-sm)}
+/* Native <select> can render taller than its min-height depending on the
+   browser's UA styling for the dropdown chrome; pin an explicit height so
+   it always matches the direction button beside it exactly. */
+.sort-controls select,.sort-controls>button{height:var(--control-md);box-sizing:border-box}
 .mini-toggle button,.view-toggle button,.match-view-toggle button{min-height:var(--control-sm);padding:0 .875rem}
 .confirm-actions button{min-height:var(--control-lg);font-size:var(--fs-body)}
 .side nav button{min-height:var(--control-lg)}
@@ -443,7 +447,11 @@ h1,h2,h3{line-height:1.2;letter-spacing:-.02em}
   /* Below this width the dual-rating column is hidden, so 建議 rides with ELO. */
   .elo-suggested{display:block;margin-top:.125rem;color:var(--muted);font-size:var(--fs-label);font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
 }
+.row-head-mobile{display:none}
 @media(max-width:700px){
+  .row-head-mobile{display:grid;grid-template-columns:2.375rem minmax(0,1fr) 5.25rem 4.25rem;gap:10px;padding:0 4px 6px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .row-head-mobile span:nth-child(3){text-align:center}
+  .row-head-mobile span:last-child{text-align:right}
   .person-meta{display:none}
   /* Phone rows carry two numbers only: current ELO and the suggested handicap.
      The recent swing and the "評分" suffix are noise at this width. */

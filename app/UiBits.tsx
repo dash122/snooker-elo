@@ -7,7 +7,7 @@ export type EloTrendPoint = {
   id:string; elo:number; before:number; delta:number; date:string;
   opponent:string; opponentShort:string; score:string; result:"W"|"L"|"D"|"start";
 };
-export const sortLabels:Record<SortKey,string>={rank:"排名",name:"球員",rating:"ELO",change:"近五場淨變化",form:"近況",official:"正式評分",suggested:"建議評分",games:"場數",winRate:"勝率",frameRate:"局數勝率"};
+export const sortLabels:Record<SortKey,string>={rank:"排名",name:"球員",rating:"ELO",change:"近10天ELO變化",form:"近況",official:"正式評分",suggested:"建議評分",games:"場數",winRate:"勝率",frameRate:"局數勝率"};
 
 /**
  * SF Symbols-style tab icon: one consistent stroke weight, filled variant on
