@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { CalibrationTrend, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Sparkline, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
+import { CalibrationTrend, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import Availability from "./Availability";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
@@ -177,6 +177,17 @@ function recentDelta(p:Player,data:AppState,count:number){
     const side=playerSide(m,p.id);
     return sum + (side==="A"?m.deltaA:-m.deltaA);
   },0);
+}
+function highestBreak(p:Player,data:AppState){
+  const values=data.matches.filter(m=>m.status==="confirmed").flatMap(m=>(m.highBreaks??[]).filter(b=>b.playerId===p.id&&b.value>0&&b.value<=147).map(b=>b.value));
+  return values.length?Math.max(...values):null;
+}
+/** "我讓他 X 分" / "他讓我 X 分" — the same fair-handicap conversion the match form uses, read as a verdict about `me` vs. `p` rather than as a giver/points pair to apply. */
+function handicapVerdict(me:Player,p:Player,s:Settings){
+  const eloDifference=me.rating-p.rating;
+  const points=roundToEven(eloToHandicap(eloDifference,s));
+  const base=points===0?"平手":points>0?`我讓他 ${points} 分`:`他讓我 ${Math.abs(points)} 分`;
+  return points!==0&&Math.abs(eloDifference)<30?`${base} · 勢均力敵`:base;
 }
 function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings,giverSide?:"A"|"B"|null) {
   const actual = giverSide === "A" ? points : giverSide === "B" ? -points
@@ -488,6 +499,11 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     setMatchesView("history");
     goTab("matches");
   };
+  const jumpToPlayerAvailability=(playerId:string,date:string)=>{
+    setModal(null);
+    setJumpToAvailability({playerId,date});
+    goTab("availability");
+  };
 
   function saveMatch(){
     if(!isAdmin&&(!ownPlayerId||(a?.id!==ownPlayerId&&b?.id!==ownPlayerId&&a2?.id!==ownPlayerId&&b2?.id!==ownPlayerId))){setToast("你只能記錄或修改自己參與的比賽。");return;}
@@ -539,16 +555,18 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     setModal("match");
   }
 
-  function newMatch(mode:MatchMode="1v1"){
+  function newMatch(mode:MatchMode="1v1",opponentId?:string){
     setRecordMenuOpen(false);
     if(!user){setModal("signIn");return;}
     setEditingMatch(null);
     const sorted=[...data.players].filter(p=>p.active).sort((a,b)=>a.name.localeCompare(b.name,"zh-HK"));
     const first=ownPlayerId&&sorted.some(player=>player.id===ownPlayerId)?ownPlayerId:sorted[0]?.id??"";
     const remaining=sorted.filter(player=>player.id!==first);
+    const second=opponentId&&opponentId!==first&&remaining.some(player=>player.id===opponentId)?opponentId:remaining[0]?.id??"";
+    const rest=remaining.filter(player=>player.id!==second);
     setDraft({
-      mode,teamAName:"Team A",teamBName:"Team B",a:first,b:remaining[0]?.id??"",
-      a2:mode==="2v2"?remaining[1]?.id??"":"",b2:mode==="2v2"?remaining[2]?.id??"":"",
+      mode,teamAName:"Team A",teamBName:"Team B",a:first,b:second,
+      a2:mode==="2v2"?rest[0]?.id??"":"",b2:mode==="2v2"?rest[1]?.id??"":"",
       scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[]
     });
     setModal("match");
@@ -625,7 +643,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch}/>}
       {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}}/>}
-      {tab==="players"&&<Players data={data} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={openHeadToHead}/>}
+      {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={openHeadToHead} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
     </main>
     {/* Record sits dead centre as the one thing this app exists to do; the four content tabs split
@@ -653,7 +671,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
           {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,modelVersion:3},rebuilt=replay(data.players,data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"更新 ELO 設定；完整重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已更新，歷史 ELO 已重播。")}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
-          {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={(playerId,date)=>{setModal(null);setJumpToAvailability({playerId,date});goTab("availability")}}/>}
+          {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={jumpToPlayerAvailability}/>}
         </section>
       </div>
     </div>}
@@ -1152,14 +1170,147 @@ function ConfirmDeleteMatch({match,data,onCancel,onConfirm}:{match:Match;data:Ap
 }
 
 
-function Players({data,canAdd,canManagePlayer,onAdd,onEdit,onDelete,onOpen,onCompare}:{data:AppState;canAdd:boolean;canManagePlayer:(player:Player)=>boolean;onAdd:()=>void;onEdit:(p:Player)=>void;onDelete:(p:Player)=>void;onOpen:(p:Player)=>void;onCompare:(p:Player)=>void}) {
-  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[view,setView]=useState<"cards"|"list">("cards"),[query,setQuery]=useState("");
-  const ranked=[...data.players].sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name)),sorted=sortPlayers(data.players,data,sort,dir),rankOf=new Map(ranked.map((p,i)=>[p.id,i+1]));
-  const q=query.trim().toLowerCase(),shown=q?sorted.filter(p=>p.name.toLowerCase().includes(q)||p.short.toLowerCase().includes(q)):sorted;
-  const sortBy=(key:SortKey)=>{if(sort===key)setDir(x=>x==="asc"?"desc":"asc");else{setSort(key);setDir(key==="rank"||key==="name"?"asc":"desc")}};
-  return <><nav className="home-view-nav players-dock" aria-label="球員" role="tablist"><button role="tab" aria-selected="true" className="active"><span>球員總覽</span><span className="availability-tab-count">{data.players.length}</span></button></nav>
-    <div className="player-toolbar"><SortControls sort={sort} dir={dir} onSort={sortBy}/><div className="player-combobox toolbar-search"><input type="text" value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜尋球員…" aria-label="搜尋球員"/></div><div className="view-toggle" aria-label="顯示模式"><button className={view==="cards"?"active":""} onClick={()=>setView("cards")}>卡片</button><button className={view==="list"?"active":""} onClick={()=>setView("list")}>列表</button></div></div>
-    <div className={`player-grid ${view==="list"?"list-view":""}`}>{data.players.length===0?<Empty text="尚未有球員" sub="新增球員後便可開始記錄比賽。"/>:shown.length===0?<Empty text="找不到符合的球員" sub="試試其他名稱或縮寫。"/>:shown.map(p=>{const suggested=suggestedHandicap(p,data),difference=p.handicap==null?null:suggested-p.handicap;return <article className="player-card rich" key={p.id}><button className="profile-hit" onClick={()=>onOpen(p)}><PlayerBadge player={p}/><div className="player-main"><div><small>排名 #{rankOf.get(p.id)}</small><h3>{p.name}</h3><p><span className="stat-chunk"><b>{Math.round(p.rating)}</b> ELO</span> · <span className="stat-chunk">{games(p)} 場</span></p><p><span className="stat-chunk">{Math.round(winRate(p)*100)}% 勝率</span></p></div><Sparkline values={playerSeries(p,data)} label={`${p.name} ELO 趨勢`}/></div></button><div className="rating-compare"><span><small>建議評分</small><b>{suggested==null?"—":Math.round(suggested)}</b></span><span><small>正式評分</small><b>{p.handicap??"—"}</b></span><span><small>差異</small><b className={difference!=null&&difference>0?"positive":difference!=null&&difference<0?"negative":""}>{difference==null?"—":`${difference>0?"+":""}${Math.round(difference)}`}</b></span><span><small>局數勝率</small><b>{Math.round(frameRate(p)*100)}%</b></span></div><div className="player-card-foot"><span className="form">{p.form.map((x,j)=><i className={x.toLowerCase()} key={j}>{x}</i>)}</span>{canManagePlayer(p)&&<span className="card-tools player-actions"><button className="card-tool" aria-label={`編輯 ${p.name}`} onClick={()=>onEdit(p)}>✎</button>{canAdd&&<button className="card-tool danger" aria-label={`刪除 ${p.name}`} onClick={()=>onDelete(p)}>✕</button>}</span>}</div></article>})}</div></>;
+type PlayersChip = "near"|"free"|"hot"|"all";
+const PLAYERS_SORT_CYCLE:SortKey[]=["rank","rating","form","suggested"];
+const playersSortDir=(key:SortKey):"asc"|"desc"=>key==="rank"||key==="name"?"asc":"desc";
+
+function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,onOpen,onCompare,onRecordAgainst,onFindOpponent}:{
+  data:AppState;ownPlayerId?:string;canAdd:boolean;canManagePlayer:(player:Player)=>boolean;
+  onAdd:()=>void;onEdit:(p:Player)=>void;onDelete:(p:Player)=>void;onOpen:(p:Player)=>void;
+  onCompare:(p:Player)=>void;onRecordAgainst:(p:Player)=>void;onFindOpponent:(playerId:string,date:string)=>void;
+}) {
+  const me=data.players.find(p=>p.id===ownPlayerId);
+  const [query,setQuery]=useState("");
+  const [chip,setChip]=useState<PlayersChip>(me?"near":"all");
+  const [openId,setOpenId]=useState("");
+  const [sort,setSort]=useState<SortKey>("rank");
+  const [freeToday,setFreeToday]=useState<Record<string,string>>({});
+
+  // Availability is fetched separately (not part of `data`) — the roster's "今晚有空" chip and
+  // per-row free time both key off whoever has a published slot for tonight (Hong Kong time).
+  useEffect(()=>{
+    let cancelled=false;
+    fetch("/api/availability").then(r=>r.ok?r.json():null).then(v=>{
+      if(cancelled||!Array.isArray(v?.members))return;
+      const map:Record<string,string>={};
+      for(const member of v.members as {id:string;slots:{startAt:string}[]}[]){
+        const earliest=[...member.slots].sort((a,b)=>a.startAt.localeCompare(b.startAt))[0];
+        if(earliest)map[member.id]=earliest.startAt;
+      }
+      setFreeToday(map);
+    }).catch(()=>{});
+    return ()=>{cancelled=true};
+  },[]);
+
+  const ranked=[...data.players].sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name));
+  const rankOf=new Map(ranked.map((p,i)=>[p.id,i+1]));
+  const myRank=me?rankOf.get(me.id):undefined;
+  const myDelta=me?recentDelta(me,data,5):0;
+  const superior=myRank&&myRank>1?ranked[myRank-2]:null;
+  const freeCount=data.players.filter(p=>Boolean(freeToday[p.id])).length;
+
+  const tests:Record<PlayersChip,(p:Player)=>boolean>={
+    all:()=>true,
+    near:p=>Boolean(me)&&Math.abs(p.rating-me!.rating)<=80,
+    free:p=>Boolean(freeToday[p.id]),
+    hot:p=>recentDelta(p,data,5)>0,
+  };
+  const counts:Record<PlayersChip,number>={
+    all:data.players.length,
+    near:me?data.players.filter(tests.near).length:0,
+    free:freeCount,
+    hot:data.players.filter(tests.hot).length,
+  };
+  const activeChip:PlayersChip=chip==="near"&&!me?"all":chip;
+  const chipDefs:[PlayersChip,string][]=[["near","我的水平"],["free","今晚有空"],["hot","狀態上升"],["all","全部"]];
+
+  const cycleSort=()=>setSort(current=>PLAYERS_SORT_CYCLE[(PLAYERS_SORT_CYCLE.indexOf(current)+1)%PLAYERS_SORT_CYCLE.length]);
+  const q=query.trim().toLowerCase();
+  const filtered=sortPlayers(data.players,data,sort,playersSortDir(sort)).filter(p=>{
+    if(q&&!(p.name.toLowerCase().includes(q)||p.short.toLowerCase().includes(q)))return false;
+    return tests[activeChip](p);
+  });
+  const empty=filtered.length===0;
+
+  return <div className="players-view">
+    <div className={`players-self-panel${me?"":" is-guest"}`}>
+      <div className="players-self-top"><span>球員 · {data.players.length} 位</span><span>今晚 {freeCount} 位有空</span></div>
+      {me&&<div className="players-self-main">
+        <b className="players-self-rank">#{myRank}</b>
+        <div className="players-self-id">
+          <div className="players-self-name">我 · {Math.round(me.rating)} ELO{myDelta!==0&&<span className={myDelta>0?"positive":"negative"}>{myDelta>0?"+":""}{Math.round(myDelta)}</span>}</div>
+          <div className="players-self-gap">{superior?`距離 #${myRank!-1} 只差 ${Math.max(0,Math.ceil(superior.rating-me.rating))} 分`:"暫列榜首"}</div>
+        </div>
+        <span className="players-self-form">{me.form.map((x,i)=><i className={x.toLowerCase()} key={i}>{x}</i>)}</span>
+      </div>}
+    </div>
+    <div className="players-toolbar">
+      <div className="players-search"><input type="text" value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜尋姓名或縮寫" aria-label="搜尋球員"/></div>
+      <button type="button" className="players-sort-btn" onClick={cycleSort}>排序 · {sortLabels[sort]}</button>
+    </div>
+    <div className="players-chips" role="tablist" aria-label="球員篩選">
+      {chipDefs.map(([id,label])=>{
+        const n=counts[id],isEmpty=n===0&&id!=="all",isActive=activeChip===id&&!isEmpty;
+        return <button key={id} type="button" role="tab" aria-selected={isActive} disabled={isEmpty} className={`players-chip${isActive?" active":""}${isEmpty?" empty":""}`} onClick={()=>setChip(id)}>{label} {n}</button>;
+      })}
+    </div>
+    <div className="players-list-head">
+      <span>{filtered.length} 位球員</span>
+      {canAdd&&<button type="button" className="players-add-btn" onClick={onAdd}>＋ 新增球員</button>}
+      <span className="players-list-hint">ELO · 近況 · 讓分</span>
+    </div>
+    {data.players.length===0
+      ? <Empty text="尚未有球員" sub="新增球員後便可開始記錄比賽。"/>
+      : empty
+        ? <div className="players-empty"><b>{q?`找不到「${query}」`:"這個篩選暫時沒有人"}</b><span>試試其他篩選，或按「全部」查看整個名單。</span></div>
+        : <div className="players-rows">{filtered.map(p=>{
+            const isSelf=Boolean(me)&&me!.id===p.id;
+            const open=openId===p.id;
+            const delta=recentDelta(p,data,5);
+            const rank=rankOf.get(p.id)??0;
+            const provisional=games(p)<data.settings.provisionalGames;
+            const free=freeToday[p.id];
+            const high=highestBreak(p,data);
+            return <div className={`players-row${open?" open":""}`} key={p.id}>
+              <button type="button" className="players-row-hit" aria-expanded={open} onClick={()=>setOpenId(current=>current===p.id?"":p.id)}>
+                <span className="players-row-badge"><PlayerBadge player={p}/><i className="players-row-free-dot" style={{background:free?"var(--gold)":"#d7dbd4"}}/></span>
+                <span className="players-row-id">
+                  <span className="players-row-name-line"><b>{p.name}</b><em className={`players-tag${provisional?" provisional":""}`}>{provisional?"臨時":`#${rank}`}</em></span>
+                  <span className="players-row-meta">
+                    <span className="players-row-form">{p.form.map((x,i)=><i className={x.toLowerCase()} key={i}/>)}</span>
+                    #{rank} · {games(p)} 場 · {free?`今晚 ${hkClock(free)} 有空`:"未公開時段"}
+                  </span>
+                </span>
+                <span className="players-row-elo"><b>{Math.round(p.rating)}</b><em className={delta>=0?"positive":"negative"}>{delta>=0?"+":"−"}{Math.abs(Math.round(delta))}</em></span>
+              </button>
+              {open&&<div className="players-row-expand">
+                {me&&!isSelf&&<div className="players-verdict">
+                  <div className="players-verdict-main">{handicapVerdict(me,p,data.settings)}</div>
+                  <div className="players-verdict-sub">正式讓分 {p.handicap==null?"未提供":`${p.handicap} 分`} · 相差 {Math.abs(Math.round(me.rating-p.rating))} ELO</div>
+                </div>}
+                <div className="players-expand-stats">
+                  <span>勝率／局率 <b>{Math.round(winRate(p)*100)}／{Math.round(frameRate(p)*100)}%</b></span>
+                  <span>最高單桿 <b>{high??"—"}</b></span>
+                  <span className="players-expand-free">{free?`今晚 ${hkClock(free)} 有空`:"未公開時段"}</span>
+                </div>
+                <div className="players-expand-actions">
+                  {isSelf
+                    ? <button type="button" className="primary players-expand-open-self" onClick={()=>onOpen(p)}>查看完整球員頁 ›</button>
+                    : <>
+                        <button type="button" className="primary" onClick={()=>onRecordAgainst(p)}>記錄對局</button>
+                        <button type="button" onClick={()=>onCompare(p)}>比較</button>
+                        <button type="button" onClick={()=>onFindOpponent(p.id,today)}>約戰</button>
+                        <button type="button" className="players-row-open" aria-label={`開啟 ${p.name} 的球員卡`} onClick={()=>onOpen(p)}>›</button>
+                      </>}
+                </div>
+                {(canManagePlayer(p)||canAdd)&&<div className="players-expand-manage">
+                  {canManagePlayer(p)&&<button type="button" className="card-tool" aria-label={`編輯 ${p.name}`} onClick={()=>onEdit(p)}>✎</button>}
+                  {canAdd&&<button type="button" className="card-tool danger" aria-label={`刪除 ${p.name}`} onClick={()=>onDelete(p)}>✕</button>}
+                </div>}
+              </div>}
+            </div>;
+          })}</div>}
+  </div>;
 }
 
 function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>void;onReset:()=>void;canReset:boolean}) {
