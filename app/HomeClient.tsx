@@ -1221,7 +1221,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
     const freeDate=hkDate(new Date(free));
     if(freeDate===hkDate())return `今日 ${hkClock(free)} 有空`;
     const[,m,d]=freeDate.split("-");
-    return `最早${Number(d)}/${Number(m)} ${hkClock(free)} 有空`;
+    return `${Number(d)}/${Number(m)} ${hkClock(free)} 有空`;
   };
   const ranked=[...data.players].sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name));
   const rankOf=new Map(ranked.map((p,i)=>[p.id,i+1]));
@@ -1300,14 +1300,14 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
             const free=freeToday[p.id];
             const high=highestBreak(p,data);
             const suggested=suggestedHandicap(p,data);
-            return <div className={`players-row${open?" open":""}`} key={p.id}>
+            return <div className={`players-row${open?" open":""}${provisional?" provisional":""}`} key={p.id}>
               <button type="button" className="players-row-hit" aria-expanded={open} onClick={()=>setOpenId(current=>current===p.id?"":p.id)}>
                 <span className="players-row-badge"><PlayerBadge player={p}/><i className="players-row-free-dot" style={{background:free?"#4ade80":"#d7dbd4"}}/></span>
                 <span className="players-row-id">
                   <span className="players-row-name-line"><b>{p.name}</b><em className={`players-tag${provisional?" provisional":""}`}>{provisional?"臨時":`#${rank}`}</em></span>
                   <span className="players-row-meta">
                     <span className="players-row-form">{p.form.map((x,i)=><i className={x.toLowerCase()} key={i}/>)}</span>
-                    #{rank} · {games(p)} 場{free?` · ${freeLabel(free)}`:""}
+                    {games(p)} 場{free?` · ${freeLabel(free)}`:""}
                   </span>
                 </span>
                 <span className="players-row-elo"><b>{Math.round(p.rating)}</b>{activeChip==="hot"
