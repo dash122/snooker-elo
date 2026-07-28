@@ -1510,7 +1510,7 @@ function rivalSnapshots(player:Player,data:AppState):RivalSnapshot[] {
 
 function RivalrySnapshot({player,data,onCompare}:{player:Player;data:AppState;onCompare:(opponent:Player)=>void}) {
   const rivals=rivalSnapshots(player,data);
-  return <section className="profile-section rivalry-snapshot"><div className="profile-section-head"><div><p className="kicker">對賽概覽</p><h3>主要對手</h3></div><span>最多顯示 5 位</span></div>
+  return <section className="profile-section rivalry-snapshot"><div className="profile-section-head"><div><p className="kicker">對賽概覽</p><h3>主要對手</h3></div></div>
     {rivals.length===0?<div className="rivalry-empty"><b>尚未有對賽記錄</b><span>記錄第一場比賽後，主要對手會顯示在這裡。</span></div>:<div className="rivalry-list">{rivals.map(rival=>{
       const percent=Math.round((rival.matches?rival.winRate:rival.frameRate)*100);
       const confidence=Math.min(1,.28+Math.max(rival.matches,(rival.framesWon+rival.framesLost)/12)*.18);
@@ -1607,7 +1607,6 @@ function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOppone
                 <div className="slot-chips">{bars.map(bar=><span key={bar.label}>{bar.label}</span>)}</div>
               </li>})}</ul>
               {groups!.length>SLOT_PREVIEW_DAYS&&<button type="button" className={`slot-more${expanded?" expanded":""}`} aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded?"只顯示最近 3 天":`顯示全部 ${groups!.length} 天`}<i aria-hidden="true">▾</i></button>}
-              <button type="button" className="more profile-slots-cta" onClick={()=>onFindOpponent(player.id,groups![0][0])}>在約戰查看</button>
             </>
           : <p className="profile-slots-empty">目前未有公開的可配對時段</p>}
     </div>
