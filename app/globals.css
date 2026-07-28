@@ -2651,6 +2651,7 @@ button.availability-grid-player:hover b{text-decoration:underline}
 .players-row-elo{text-align:right}
 .players-row-elo b{display:block;font-family:var(--font-display);font-size:var(--fs-lead);font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
 .players-row-elo em{display:block;font-style:normal;font-size:var(--fs-caption);font-weight:800;font-variant-numeric:tabular-nums}
+.players-row-elo em.neutral{color:var(--muted)}
 .players-row-expand{padding:0 .75rem .75rem}
 .players-verdict{padding:.625rem .75rem;border-radius:var(--radius-sm);background:linear-gradient(135deg,var(--baize) 0%,var(--baize-deep) 100%);color:#fff}
 .players-verdict-main{font-size:var(--fs-lead);font-weight:800;letter-spacing:-.01em}
