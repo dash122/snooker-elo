@@ -186,7 +186,7 @@ function highestBreak(p:Player,data:AppState){
 function handicapVerdict(me:Player,p:Player,s:Settings){
   const eloDifference=me.rating-p.rating;
   const points=roundToEven(eloToHandicap(eloDifference,s));
-  const base=points===0?"平手":points>0?`我讓他 ${points} 分`:`他讓我 ${Math.abs(points)} 分`;
+  const base=points===0?"平手":points>0?`建議我讓 ${points} 分`:`建議他讓 ${Math.abs(points)} 分`;
   return points!==0&&Math.abs(eloDifference)<30?`${base} · 勢均力敵`:base;
 }
 function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings,giverSide?:"A"|"B"|null) {
@@ -1256,7 +1256,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
         <b className="players-self-rank">#{myRank}</b>
         <div className="players-self-id">
           <div className="players-self-name">我 · {Math.round(me.rating)} ELO{myDelta!==0&&<span className={myDelta>0?"positive":"negative"}>{myDelta>0?"+":""}{Math.round(myDelta)}</span>}</div>
-          <div className="players-self-gap">{superior?`距離 #${myRank!-1} 只差 ${Math.max(0,Math.ceil(superior.rating-me.rating))} 分`:"暫列榜首"}</div>
+          <div className="players-self-gap">{superior?`距離 #${myRank!-1} 只差 ${Math.max(0,Math.ceil(superior.rating-me.rating))} 分`:"暫列榜首"} · 建議讓分 {suggestedHandicap(me,data)} 分</div>
         </div>
         <span className="players-self-form">{me.form.map((x,i)=><i className={x.toLowerCase()} key={i}>{x}</i>)}</span>
       </div>}
@@ -1303,7 +1303,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
               {open&&<div className="players-row-expand">
                 {me&&!isSelf&&<div className="players-verdict">
                   <div className="players-verdict-main">{handicapVerdict(me,p,data.settings)}</div>
-                  <div className="players-verdict-sub">正式讓分 {p.handicap==null?"未提供":`${p.handicap} 分`} · 相差 {Math.abs(Math.round(me.rating-p.rating))} ELO</div>
+                  <div className="players-verdict-sub">建議讓分 {suggestedHandicap(p,data)} 分 · 相差 {Math.abs(Math.round(me.rating-p.rating))} ELO</div>
                 </div>}
                 <div className="players-expand-stats">
                   <span>勝率／局率 <b>{Math.round(winRate(p)*100)}／{Math.round(frameRate(p)*100)}%</b></span>
