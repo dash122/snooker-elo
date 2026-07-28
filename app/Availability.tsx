@@ -352,6 +352,21 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   return members.filter(m=>m.id!==userPlayerId&&gamesPlayed(matches,m.id)<provisionalGames&&!met.has(m.id)).length;
  },[members,matches,provisionalGames,userPlayerId,invites]);
  const activeOpponent=useMemo(()=>inviteFor?[...shortlist,...browseList].find(o=>o.member.id===inviteFor)??null:null,[inviteFor,shortlist,browseList]);
+ /* Acceptance is otherwise silent for the person who sent the invite — no websocket exists, so this is
+    the one durable trace of "they said yes" that survives longer than the 4s toast and doesn't depend
+    on which tab happens to be open. Seen state lives in localStorage, keyed per member, so dismissing
+    one device doesn't hide it from another. */
+ const seenKey=userPlayerId?`invite-accept-seen:${userPlayerId}`:null;
+ const[seenAcceptedIds,setSeenAcceptedIds]=useState<Set<string>>(()=>{
+  if(typeof window==="undefined"||!seenKey)return new Set();
+  try{return new Set(JSON.parse(window.localStorage.getItem(seenKey)??"[]"))}catch{return new Set()}
+ });
+ const markAcceptedSeen=(id:string)=>{
+  if(!seenKey)return;
+  setSeenAcceptedIds(prev=>{const next=new Set(prev);next.add(id);try{window.localStorage.setItem(seenKey,JSON.stringify([...next]))}catch{/* best effort */}return next});
+ };
+ const confirmedMatches=useMemo(()=>[...invites.sent,...invites.received].filter(i=>i.status==="accepted").sort((a,b)=>a.startAt.localeCompare(b.startAt)),[invites]);
+ const newlyAccepted=useMemo(()=>confirmedMatches.filter(i=>i.fromPlayer.id===userPlayerId&&!seenAcceptedIds.has(i.id)),[confirmedMatches,userPlayerId,seenAcceptedIds]);
  const refreshInvites=async()=>{
   if(!userPlayerId)return;
   try{const r=await fetch("/api/invites");const b=await r.json();if(r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}catch{/* keep the previous invites in view if a background refresh fails */}
@@ -359,8 +374,11 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
 /* Mirrors the mount-time `load()` above: an effect that sets state declares its own inline fetch
     rather than calling out to a function defined elsewhere, so an incoming invite still shows up
     without a manual refresh while the find tab stays open. */
+ /* Runs regardless of which tab (find/manage/create) is open — an accepted invite is otherwise
+    invisible to the sender the moment they leave "find", since nothing else in the app pushes it to
+    them. */
  useEffect(()=>{
-  if(!userPlayerId||view!=="find")return;
+  if(!userPlayerId)return;
   let cancelled=false;
   async function poll(){
    try{const r=await fetch("/api/invites");const b=await r.json();if(!cancelled&&r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}catch{/* keep the previous invites in view if a background poll fails */}
@@ -368,7 +386,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   void poll();
   const id=window.setInterval(()=>{if(document.visibilityState==="visible")void poll()},30000);
   return()=>{cancelled=true;window.clearInterval(id)};
- },[userPlayerId,view]);
+ },[userPlayerId]);
  const openInviteSheet=(playerId:string)=>{
   const opponent=[...shortlist,...browseList].find(o=>o.member.id===playerId);
   setInviteFor(playerId);setInviteMode("simple");setSelectedWindow(opponent?.windows[0]??null);setInviteMessage("");setProposeStart("19:00");setProposeEnd("21:00");
@@ -516,6 +534,21 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
 <nav className="availability-tabs" aria-label="配對功能" role="tablist"><button role="tab" aria-selected={view==="find"} className={view==="find"?"active":""} onClick={()=>nav("find")}><span className="availability-tab-label">尋找對手</span></button>{userPlayerId&&<button role="tab" aria-selected={view==="manage"||view==="create"} className={view==="manage"||view==="create"?"active":""} onClick={()=>nav("manage")}><span className="availability-tab-label">我的時段</span>{own.length>0&&<span className="availability-tab-count">{own.length}</span>}</button>}</nav>
 {view==="find"&&<DateScroller dates={week} selected={date} counts={counts} onSelect={changeDate}/>}
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
+{userPlayerId&&newlyAccepted.map(invite=><div className="nudge-banner nudge-banner-gold" key={invite.id} role="status">
+  <span className="nudge-banner-icon" aria-hidden="true">✓</span>
+  <span className="nudge-banner-body"><b>{invite.toPlayer.name} 已接受你嘅邀請</b><small>已確認 · {dayLabel(hkDate(new Date(invite.startAt)))} {range(invite)}</small></span>
+  <button type="button" className="secondary" onClick={()=>markAcceptedSeen(invite.id)}>知道了</button>
+ </div>)}
+{userPlayerId&&confirmedMatches.length>0&&<section className="availability-card confirmed-matches" aria-label="已確認對局">
+  <header className="availability-grid-head"><div><h3>已確認對局</h3><small>雙方都已確認嘅時段</small></div><span>{confirmedMatches.length} 場</span></header>
+  <div className="invite-inbox-list">
+   {confirmedMatches.map(invite=>{const opponent=invite.fromPlayer.id===userPlayerId?invite.toPlayer:invite.fromPlayer;return <div className="invite-inbox-item" key={invite.id}>
+    <PlayerBadge player={opponent}/>
+    <div className="invite-inbox-who"><b>{opponent.name}</b><small>{dayLabel(hkDate(new Date(invite.startAt)))} {range(invite)}</small></div>
+    <span className="invite-status-accepted">✓ 已確認</span>
+   </div>})}
+  </div>
+ </section>}
 {view==="find"&&<>
 {userPlayerId&&newcomerCount>0&&<button type="button" className="nudge-banner nudge-banner-gold" onClick={()=>setFilter("new")}>
   <span className="nudge-banner-icon" aria-hidden="true">★</span>
