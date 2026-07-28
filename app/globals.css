@@ -2743,10 +2743,9 @@ button.availability-grid-player:hover b{text-decoration:underline}
   .row-head-mobile,.row{grid-template-columns:2.25rem minmax(0,1fr) 4.75rem 3.75rem!important;column-gap:.5rem!important}
   .row{padding:.625rem!important;min-height:4.375rem}
   .row-head-mobile{padding:0 .3125rem .375rem}
-  .row-head-mobile>span:first-child,.rank{text-align:center}
-  .row-head-mobile>span:nth-child(3){text-align:center}
-  .row-head-mobile>span:last-child{text-align:right}
+  .row-head-mobile>span{text-align:center}
+  .rank{text-align:center}
   .person{min-width:0}
-  .person b{display:block;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal}
-  .row>.form{width:auto!important;justify-content:flex-start}
+  .person b{display:block;min-width:0;max-width:100%;white-space:normal;overflow-wrap:break-word;word-break:normal;line-height:1.2}
+  .row>.form{width:auto!important;justify-content:flex-end}
 }
