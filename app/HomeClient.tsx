@@ -1247,7 +1247,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
     hot:data.players.filter(tests.hot).length,
   };
   const activeChip:PlayersChip=chip==="near"&&!me?"all":chip;
-  const chipDefs:[PlayersChip,string][]=[["near","我的水平"],["free","今日有空"],["soon","近期有空"],["hot","狀態 🔥"],["all","全部"]];
+  const chipDefs:[PlayersChip,string][]=[["all","全部"],["near","我的水平"],["free","今日有空"],["soon","近期有空"],["hot","狀態 🔥"]];
 
   const cycleSort=()=>setSort(current=>PLAYERS_SORT_CYCLE[(PLAYERS_SORT_CYCLE.indexOf(current)+1)%PLAYERS_SORT_CYCLE.length]);
   const q=query.trim().toLowerCase();
@@ -1285,7 +1285,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
     <div className="players-list-head">
       <span>{filtered.length} 位球員</span>
       {canAdd&&<button type="button" className="players-add-btn" onClick={onAdd}>＋ 新增球員</button>}
-      <span className="players-list-hint">{activeChip==="hot"?"ELO · 近30日ELO變化":"ELO · 建議讓分"}</span>
+      <span className="players-list-hint">{activeChip==="hot"?"ELO · 近30日ELO變化":"ELO · 建議評分"}</span>
     </div>
     {data.players.length===0
       ? <Empty text="尚未有球員" sub="新增球員後便可開始記錄比賽。"/>
@@ -1317,7 +1317,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
               {open&&<div className="players-row-expand">
                 {me&&!isSelf&&<div className="players-verdict">
                   <div className="players-verdict-main">{handicapVerdict(me,p,data.settings)}</div>
-                  <div className="players-verdict-sub">建議讓分 {suggestedHandicap(p,data)} 分 · 相差 {Math.abs(Math.round(me.rating-p.rating))} ELO</div>
+                  <div className="players-verdict-sub">建議評分 {suggestedHandicap(p,data)} 分 · 相差 {Math.abs(Math.round(me.rating-p.rating))} ELO</div>
                 </div>}
                 <div className="players-expand-stats">
                   <span>勝率／局率 <b>{Math.round(winRate(p)*100)}／{Math.round(frameRate(p)*100)}%</b></span>
