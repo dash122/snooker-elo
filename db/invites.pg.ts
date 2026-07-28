@@ -98,9 +98,13 @@ export async function respondInvite(id:string,playerId:string,action:"accept"|"d
   return rows[0]?getInviteById(id):null;
 }
 
-/** Sender-only: withdraw a still-pending invite. */
+/** Withdraw an invite: sender may cancel while it's still pending; either participant may cancel
+    once it's accepted (confirmed), before a score gets recorded. */
 export async function cancelInvite(id:string,playerId:string) {
   await ensureSchema(); const sql=getSql();
-  const rows=await sql<any[]>`UPDATE match_invites SET status='cancelled',responded_at=now() WHERE id=${id} AND from_player_id=${playerId} AND status='pending' RETURNING id`;
+  const rows=await sql<any[]>`UPDATE match_invites SET status='cancelled',responded_at=now()
+    WHERE id=${id}
+    AND ((status='pending' AND from_player_id=${playerId}) OR (status='accepted' AND (from_player_id=${playerId} OR to_player_id=${playerId})))
+    RETURNING id`;
   return Boolean(rows[0]);
 }
