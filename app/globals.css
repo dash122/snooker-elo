@@ -2660,7 +2660,7 @@ button.availability-grid-player:hover b{text-decoration:underline}
 .players-expand-free{margin-left:auto;color:#a97828;font-weight:800}
 .players-expand-actions{display:flex;gap:.375rem}
 .players-expand-actions button{flex:1;height:2.5rem;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;color:var(--green);font-size:var(--fs-caption);font-weight:800;font-family:inherit}
-.players-expand-actions button.primary{border:0;background:var(--green);color:#fff}
+.players-expand-actions button.primary{border:0;background:var(--green);color:#fff;min-height:2.5rem;padding:0}
 .players-expand-actions .players-row-open{flex:none;width:2.5rem;color:var(--muted)}
 .players-expand-manage{display:flex;justify-content:flex-end;gap:.25rem;margin-top:.375rem}
 @media(max-width:380px){.players-sort-btn{padding:0 .625rem}.players-expand-actions{flex-wrap:wrap}.players-expand-actions button:not(.players-row-open){flex:1 1 40%}}
