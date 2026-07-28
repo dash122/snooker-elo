@@ -1177,7 +1177,7 @@ function ConfirmDeleteMatch({match,data,onCancel,onConfirm}:{match:Match;data:Ap
 }
 
 
-type PlayersChip = "near"|"free"|"hot"|"all";
+type PlayersChip = "near"|"free"|"soon"|"hot"|"all";
 const PLAYERS_SORT_CYCLE:SortKey[]=["rank","rating","form","suggested"];
 const playersSortDir=(key:SortKey):"asc"|"desc"=>key==="rank"||key==="name"?"asc":"desc";
 
@@ -1220,22 +1220,26 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
   const myRank=me?rankOf.get(me.id):undefined;
   const myDelta=me?recentDelta(me,data,5):0;
   const superior=myRank&&myRank>1?ranked[myRank-2]:null;
-  const freeCount=data.players.filter(p=>Boolean(freeToday[p.id])).length;
+  const isFreeToday=(p:Player)=>{const free=freeToday[p.id];return Boolean(free)&&hkDate(new Date(free))===hkDate()};
+  const freeCount=data.players.filter(isFreeToday).length;
+  const soonCount=data.players.filter(p=>Boolean(freeToday[p.id])).length;
 
   const tests:Record<PlayersChip,(p:Player)=>boolean>={
     all:()=>true,
     near:p=>Boolean(me)&&Math.abs(p.rating-me!.rating)<=80,
-    free:p=>Boolean(freeToday[p.id]),
+    free:isFreeToday,
+    soon:p=>Boolean(freeToday[p.id]),
     hot:p=>recentDelta(p,data,5)>0,
   };
   const counts:Record<PlayersChip,number>={
     all:data.players.length,
     near:me?data.players.filter(tests.near).length:0,
     free:freeCount,
+    soon:soonCount,
     hot:data.players.filter(tests.hot).length,
   };
   const activeChip:PlayersChip=chip==="near"&&!me?"all":chip;
-  const chipDefs:[PlayersChip,string][]=[["near","我的水平"],["free","今日有空"],["hot","狀態上升"],["all","全部"]];
+  const chipDefs:[PlayersChip,string][]=[["near","我的水平"],["free","今日有空"],["soon","近期有空"],["hot","狀態上升"],["all","全部"]];
 
   const cycleSort=()=>setSort(current=>PLAYERS_SORT_CYCLE[(PLAYERS_SORT_CYCLE.indexOf(current)+1)%PLAYERS_SORT_CYCLE.length]);
   const q=query.trim().toLowerCase();
