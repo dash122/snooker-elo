@@ -132,7 +132,7 @@ function OpponentCard({opponent,rank,onPlayer,cardStatus,onInvite,onCancelInvite
    </span>
    <div className="match-hero-who"><h2>{opponent.member.name}</h2><small>{Math.round(opponent.member.rating)} ELO · 相差 {Math.round(opponent.difference)}</small></div>
   </div>
-  <div className="match-hero-windows">{opponent.windows.map(w=><span key={w.startAt} className="match-hero-window-chip">{range(w)}</span>)}<small>{opponent.windowsCaption}</small></div>
+  <div className="match-hero-windows">{opponent.windows.map(w=><span key={w.startAt} className="match-hero-window-chip">{dayLabel(hkDate(new Date(w.startAt)))} {range(w)}</span>)}<small>{opponent.windowsCaption}</small></div>
   {opponent.chips.length>0&&<div className="track-chips">{opponent.chips.map(c=><span key={c} className={c.startsWith("新加入")?"chip-new":undefined}>{c}</span>)}</div>}
   <div className="match-hero-foot" onClick={e=>e.stopPropagation()}>
    {cardStatus.status==="none"&&<button type="button" className="secondary" onClick={()=>onInvite(opponent.member.id)}>邀請對局</button>}
@@ -163,7 +163,7 @@ function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,p
    {mode==="simple"
     ?<div className="invite-window-list">
       <p className="sub">{opponent.windows.length?"佢公開嘅得閒時段，揀一個一鍵送出：":"對方今日未公開時段 — 可以改用「提議時段」直接建議時間。"}</p>
-      {opponent.windows.map(w=><button type="button" key={w.startAt} className={`invite-window-option${selectedWindow?.startAt===w.startAt?" active":""}`} onClick={()=>onSelectWindow(w)}><span>{range(w)}</span>{selectedWindow?.startAt===w.startAt&&<span aria-hidden="true">✓</span>}</button>)}
+      {opponent.windows.map(w=><button type="button" key={w.startAt} className={`invite-window-option${selectedWindow?.startAt===w.startAt?" active":""}`} onClick={()=>onSelectWindow(w)}><span>{dayLabel(hkDate(new Date(w.startAt)))} {range(w)}</span>{selectedWindow?.startAt===w.startAt&&<span aria-hidden="true">✓</span>}</button>)}
      </div>
     :<div className="invite-propose">
       <p className="sub">提議 {dateLabel} 一個具體時段，對方直接確認或改期。</p>
@@ -286,7 +286,9 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
  const density=useMemo(()=>availabilityDensity(perMember,date,rosterRange.lo,rosterRange.hi),[perMember,date,rosterRange]);
  /* Every overlapping opponent, ranked — the page recommends the whole list, not one name. Ranking
     lives in lib so it stays testable and so the focused band narrows the overlap it ranks on. */
- const shortlist=useMemo(()=>{
+ /* Unfiltered pools, so the filter chips can tell — before the member taps them — whether tapping
+    would actually leave anyone on screen, instead of toggling into a dead end. */
+ const rankedPool=useMemo(()=>{
   if(!userPlayerId)return [];
   const me=members.find(x=>x.id===userPlayerId),cut=recommendationNow-30*864e5,byId=new Map(members.map(m=>[m.id,m]));
   const ranked=rankOpponents({
@@ -295,32 +297,44 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    recentMatches:id=>matches.filter(m=>m.status==="confirmed"&&Date.parse(`${m.playedOn}T00:00:00+08:00`)>=cut&&((m.a===userPlayerId&&m.b===id)||(m.b===userPlayerId&&m.a===id))).length,
   });
   const longest=Math.max(0,...ranked.map(x=>x.minutes));
-  const mapped=ranked.map(x=>{
+  return ranked.map(x=>{
    const games=gamesPlayed(matches,x.id),isNew=games<provisionalGames,neverEver=matchesBetween(matches,userPlayerId,x.id).length===0;
    const chips=[...(longest>0&&x.minutes===longest?["時間重疊最長"]:[]),...buildOpponentChips({isNew,games,difference:x.difference,neverEver,recentZero:x.recent===0})];
    return {member:byId.get(x.id)!,difference:x.difference,windows:x.overlaps,windowsCaption:`共 ${durationLabel(x.minutes)}重疊`,isNew,games,neverEver,chips};
-  }).filter(o=>passesListFilter(filter,o));
-  return byPriority(mapped,prioritizeNew);
- },[members,matches,mine,userPlayerId,recommendationNow,focus,filter,prioritizeNew,provisionalGames]);
+  });
+ },[members,matches,mine,userPlayerId,recommendationNow,focus,provisionalGames]);
+ const shortlist=useMemo(()=>byPriority(rankedPool.filter(o=>passesListFilter(filter,o)),prioritizeNew),[rankedPool,filter,prioritizeNew]);
  /* Requirement: a member can invite anyone even before publishing (or overlapping) their own
     availability. When the overlap-ranked shortlist above comes up empty — no slots of their own yet,
     or simply nobody free at the same time today — fall back to everyone with a slot that day, ranked
     by ELO closeness instead of overlap, so the invite flow never dead-ends into an empty screen. */
- const browseList=useMemo(()=>{
-  if(!userPlayerId||shortlist.length)return [];
+ const browsePool=useMemo(()=>{
+  if(!userPlayerId||rankedPool.length)return [];
   const me=members.find(x=>x.id===userPlayerId),myRating=me?.rating??0,cut=recommendationNow-30*864e5;
   let candidates=members.filter(m=>m.id!==userPlayerId);
   if(focus)candidates=candidates.filter(m=>m.slots.some(s=>intersectIntervals([s],[focus]).length>0));
-  const mapped=candidates.map(m=>{
+  return candidates.map(m=>{
    const games=gamesPlayed(matches,m.id),isNew=games<provisionalGames,neverEver=matchesBetween(matches,userPlayerId,m.id).length===0;
    const recentZero=matches.filter(x=>x.status==="confirmed"&&Date.parse(`${x.playedOn}T00:00:00+08:00`)>=cut&&((x.a===userPlayerId&&x.b===m.id)||(x.b===userPlayerId&&x.a===m.id))).length===0;
    const difference=Math.abs(myRating-m.rating);
    return {member:m,difference,windows:m.slots as Interval[],windowsCaption:`${m.slots.length} 個公開時段`,isNew,games,neverEver,chips:buildOpponentChips({isNew,games,difference,neverEver,recentZero})};
-  }).filter(o=>passesListFilter(filter,o)).sort((a,b)=>a.difference-b.difference);
-  return byPriority(mapped,prioritizeNew);
- },[userPlayerId,shortlist.length,members,matches,focus,recommendationNow,filter,prioritizeNew,provisionalGames]);
+  }).sort((a,b)=>a.difference-b.difference);
+ },[userPlayerId,rankedPool.length,members,matches,focus,recommendationNow,provisionalGames]);
+ const browseList=useMemo(()=>byPriority(browsePool.filter(o=>passesListFilter(filter,o)),prioritizeNew),[browsePool,filter,prioritizeNew]);
  const activeList=shortlist.length?shortlist:browseList;
  const isBrowseTier=!shortlist.length&&browseList.length>0;
+ /* Whichever tier is actually live right now — same rule the display uses — is what the filter chips
+    and the priority toggle should judge "would this leave anyone on screen?" against. */
+ const candidatePool=rankedPool.length?rankedPool:browsePool;
+ const filterHasResults=useMemo(()=>({
+  all:candidatePool.length>0,
+  new:candidatePool.some(o=>o.isNew),
+  never:candidatePool.some(o=>o.neverEver),
+  close:candidatePool.some(o=>o.difference<50),
+ }),[candidatePool]);
+ const canPrioritizeNew=candidatePool.some(o=>o.isNew);
+ useEffect(()=>{if(filter!=="all"&&!filterHasResults[filter])setFilter("all")},[filter,filterHasResults]);
+ useEffect(()=>{if(!canPrioritizeNew&&prioritizeNew)setPrioritizeNew(false)},[canPrioritizeNew,prioritizeNew]);
  const inviteStatusById=useMemo(()=>{
   const map=new Map<string,{status:CardStatus;invite:MatchInvite|null}>();
   const combined=[...invites.sent,...invites.received].filter(i=>i.status==="pending"||i.status==="accepted").sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
@@ -522,11 +536,11 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   </div>
  </section>}
 {userPlayerId&&<div className="availability-filter-row" role="tablist" aria-label="篩選對手">
-  {([["all","全部"],["new","新球友"],["never","從沒交手"],["close","實力相近"]] as [ListFilter,string][]).map(([key,label])=><button key={key} type="button" role="tab" aria-selected={filter===key} className={`availability-filter-chip${filter===key?" active":""}`} onClick={()=>setFilter(key)}>{label}</button>)}
+  {([["all","全部"],["new","新球友"],["never","從沒交手"],["close","實力相近"]] as [ListFilter,string][]).map(([key,label])=>{const disabled=key!=="all"&&!filterHasResults[key];return <button key={key} type="button" role="tab" aria-selected={filter===key} aria-disabled={disabled} disabled={disabled} title={disabled?"暫時沒有符合的球友":undefined} className={`availability-filter-chip${filter===key?" active":""}`} onClick={()=>setFilter(key)}>{label}</button>})}
  </div>}
-{userPlayerId&&<button type="button" className="priority-toggle-row" aria-pressed={prioritizeNew} onClick={()=>setPrioritizeNew(v=>!v)}>
+{userPlayerId&&<button type="button" className="priority-toggle-row" aria-pressed={prioritizeNew} aria-disabled={!canPrioritizeNew} disabled={!canPrioritizeNew} title={!canPrioritizeNew?"暫時沒有新球友可優先顯示":undefined} onClick={()=>setPrioritizeNew(v=>!v)}>
   <span>優先顯示新球友配對</span>
-  <span className={`toggle-switch${prioritizeNew?" on":""}`} aria-hidden="true"><i/></span>
+  <span className={`toggle-switch${prioritizeNew&&canPrioritizeNew?" on":""}`} aria-hidden="true"><i/></span>
  </button>}
 {userPlayerId&&!own.length&&!ownBannerDismissed&&<div className="nudge-banner nudge-banner-neutral">
   <b>你仲未公開自己嘅得閒時間</b>

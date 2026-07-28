@@ -1440,7 +1440,11 @@ img.member-avatar{object-fit:cover}
 
 /* Player badge. One element, two faces: initials on a chosen colour, or the
    uploaded photo. Size and radius stay with the surrounding context's rules
-   (.person>i, .profile-head>i, .rivalry-row>i, â€¦) so nothing else shifts. */
+   (.person>i, .profile-head>i, .rivalry-row>i, â€¦) so nothing else shifts.
+   This base rule is the global guideline every context inherits from: it's
+   what keeps a badge from reading as italic/regular-weight text whenever a
+   surrounding context forgets to redeclare the typography itself. */
+.player-badge{display:grid;place-items:center;flex:0 0 auto;overflow:hidden;box-sizing:border-box;width:2rem;height:2rem;border-radius:50%;font-style:normal;font-weight:800;line-height:1;font-size:.7rem;color:#fff;background:var(--green);}
 .player-badge.has-photo{background:#e4ece7;overflow:hidden;padding:0}
 .player-badge.has-photo>img{width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block}
 .rivalry-row>.player-badge:not(.has-photo){color:#fff}
@@ -1700,7 +1704,9 @@ button.nudge-banner{border:0;cursor:pointer}
 .availability-filter-row{display:flex;gap:7px;margin-top:14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .availability-filter-chip{flex:none;min-height:34px;padding:0 13px;border-radius:20px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:12px;font-weight:700}
 .availability-filter-chip.active{border-color:var(--green);background:var(--green);color:#fff}
-.priority-toggle-row{display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:8px;padding:10px 12px;background:var(--paper);border:1px solid var(--line);border-radius:12px;font-size:11.5px;color:var(--ink);font-weight:600;box-sizing:border-box}
+.availability-filter-chip:disabled{opacity:.4;cursor:not-allowed}
+.priority-toggle-row{display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:14px;padding:14px 16px;background:var(--paper);border:1px solid var(--line);border-radius:12px;font-size:11.5px;color:var(--ink);font-weight:600;box-sizing:border-box}
+.priority-toggle-row:disabled{opacity:.4;cursor:not-allowed}
 .toggle-switch{width:42px;height:24px;border-radius:14px;background:var(--line);position:relative;flex:none;transition:background .18s}
 .toggle-switch.on{background:var(--green)}
 .toggle-switch i{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3);transition:left .18s;font-style:normal}
@@ -1710,6 +1716,7 @@ button.nudge-banner{border:0;cursor:pointer}
 .invite-status-incoming{font-size:10.5px;color:var(--muted);font-weight:600}
 .invite-status-accepted{display:flex;align-items:center;gap:6px;background:#e6f1e9;color:var(--green);padding:8px 12px;border-radius:10px;font-size:11px;font-weight:800}
 .invite-inbox-list{display:flex;flex-direction:column;gap:10px}
+.invite-inbox-item>.player-badge{width:34px;height:34px;border-radius:11px;font-size:11px}
 .invite-inbox-item{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px;background:#fafaf7;border:1px solid var(--line);border-radius:14px}
 .invite-inbox-who b,.invite-inbox-who small{display:block}
 .invite-inbox-who small{color:var(--muted);font-size:10.5px;margin-top:1px}
