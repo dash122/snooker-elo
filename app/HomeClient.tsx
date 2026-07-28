@@ -179,8 +179,9 @@ function recentDelta(p:Player,data:AppState,count:number){
   },0);
 }
 function recentDeltaDays(p:Player,data:AppState,days:number){
-  const cutoff=Date.now()-days*24*60*60*1000;
-  return data.matches.filter(m=>!isEntertainmentMode(m.mode)&&isParticipant(m,p.id)&&new Date(m.createdAt).getTime()>=cutoff).reduce((sum,m)=>{
+  const cutoff=new Date(Date.now()-days*864e5).toISOString().slice(0,10);
+  const today=new Date().toISOString().slice(0,10);
+  return data.matches.filter(m=>m.status==="confirmed"&&!isEntertainmentMode(m.mode)&&isParticipant(m,p.id)&&(m.playedOn||m.createdAt.slice(0,10))>=cutoff&&(m.playedOn||m.createdAt.slice(0,10))<=today).reduce((sum,m)=>{
     const side=playerSide(m,p.id);
     return sum + (side==="A"?m.deltaA:-m.deltaA);
   },0);
