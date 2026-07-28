@@ -563,7 +563,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     setModal("match");
   }
 
-  function newMatch(mode:MatchMode="1v1",opponentId?:string){
+  function newMatch(mode:MatchMode="1v1",opponentId?:string,playedOn?:string){
     setRecordMenuOpen(false);
     if(!user){setModal("signIn");return;}
     setEditingMatch(null);
@@ -575,7 +575,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     setDraft({
       mode,teamAName:"Team A",teamBName:"Team B",a:first,b:second,
       a2:mode==="2v2"?rest[0]?.id??"":"",b2:mode==="2v2"?rest[1]?.id??"":"",
-      scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[]
+      scoreA:0,scoreB:0,date:playedOn??today,giver:"",points:0,highBreaks:[]
     });
     setModal("match");
   }
@@ -650,7 +650,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch}/>}
-      {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} provisionalGames={data.settings.provisionalGames} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}}/>}
+      {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} provisionalGames={data.settings.provisionalGames} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecordMatch={(opponentId,date)=>newMatch("1v1",opponentId,date)}/>}
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
     </main>
