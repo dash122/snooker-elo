@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addDaysHongKong, availabilityDensity, availabilityPeak, composeAvailabilityInterval, dayRangeHongKong, intervalFromHours, intersectIntervals, mergeIntervals, nextAvailabilityStart, overlapMinutes, rankOpponents, recommendationScore, validateAvailabilityInterval } from "../lib/availability.ts";
+import { addDaysHongKong, availabilityDensity, availabilityPeak, composeAvailabilityInterval, dayRangeHongKong, gamesPlayed, intervalFromHours, intersectIntervals, matchesBetween, mergeIntervals, nextAvailabilityStart, overlapMinutes, rankOpponents, recommendationScore, validateAvailabilityInterval } from "../lib/availability.ts";
 
 test("keeps a same-day slot on the day the member picked",()=>{
   // Deriving the end date from `new Date(date+"T00:00+08:00").toISOString()` rolled it back a day,
@@ -138,4 +138,20 @@ test("keeps a sub-30-minute overlap in the list but unqualified",()=>{
   });
   assert.equal(ranked.length,1,"still worth showing");
   assert.equal(ranked[0].qualifies,false);
+});
+
+const played=(a,b,status="confirmed")=>({a,b,status});
+
+test("finds confirmed matches between two players regardless of side",()=>{
+  const matches=[played("x","y"),played("y","x"),played("x","z"),played("x","y","void")];
+  assert.equal(matchesBetween(matches,"x","y").length,2,"both sides, only confirmed");
+  assert.equal(matchesBetween(matches,"y","x").length,2,"order of the two ids doesn't matter");
+  assert.equal(matchesBetween(matches,"x","z").length,1);
+  assert.equal(matchesBetween(matches,"z","y").length,0,"never played each other");
+});
+test("counts lifetime games for one player from either side, confirmed only",()=>{
+  const matches=[played("x","y"),played("z","x"),played("y","z"),played("x","y","void")];
+  assert.equal(gamesPlayed(matches,"x"),2);
+  assert.equal(gamesPlayed(matches,"y"),2);
+  assert.equal(gamesPlayed(matches,"nobody"),0);
 });
