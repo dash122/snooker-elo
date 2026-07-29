@@ -540,7 +540,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   <button type="button" className="secondary" onClick={()=>markAcceptedSeen(invite.id)}>知道了</button>
  </div>)}
 {userPlayerId&&confirmedMatches.length>0&&<section className="availability-card confirmed-matches" aria-label="已確認對局">
-  <header className="availability-grid-head"><div><h3>已確認對局</h3><small>雙方都已確認嘅時段</small></div><span>{confirmedMatches.length} 場</span></header>
+  <header className="availability-grid-head"><div><h3>我的配對狀態</h3><small>已確認的下一場對局</small></div><span>{confirmedMatches.length} 場</span></header>
   <div className="invite-inbox-list">
    {confirmedMatches.map(invite=>{const opponent=invite.fromPlayer.id===userPlayerId?invite.toPlayer:invite.fromPlayer;return <div className="invite-inbox-item" key={invite.id}>
     <PlayerBadge player={opponent}/>
@@ -554,13 +554,8 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   </div>
  </section>}
 {view==="find"&&<>
-{userPlayerId&&newcomerCount>0&&<button type="button" className="nudge-banner nudge-banner-gold" onClick={()=>setFilter("new")}>
-  <span className="nudge-banner-icon" aria-hidden="true">★</span>
-  <span className="nudge-banner-body"><b>{newcomerCount} 位新加入球友還未有人約</b><small>主動打招呼，做佢哋第一個對手</small></span>
-  <span className="nudge-banner-chevron" aria-hidden="true">›</span>
- </button>}
 {userPlayerId&&invites.received.filter(i=>i.status==="pending").length>0&&<section className="availability-card invite-inbox" aria-label="收到的邀請">
-  <header className="availability-grid-head"><div><h3>收到的邀請</h3><small>回覆邀請，雙方都會見到已確認時段</small></div><span>{invites.received.filter(i=>i.status==="pending").length} 位</span></header>
+  <header className="availability-grid-head"><div><h3>需要你回覆</h3><small>先處理邀請，再決定下一場</small></div><span>{invites.received.filter(i=>i.status==="pending").length} 位</span></header>
   <div className="invite-inbox-list">
    {invites.received.filter(i=>i.status==="pending").map(invite=><div className="invite-inbox-item" key={invite.id}>
     <PlayerBadge player={invite.fromPlayer}/>
@@ -572,13 +567,6 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    </div>)}
   </div>
  </section>}
-{userPlayerId&&<div className="availability-filter-row" role="tablist" aria-label="篩選對手">
-  {([["all","全部"],["new","新球友"],["never","從沒交手"],["close","實力相近"]] as [ListFilter,string][]).map(([key,label])=>{const disabled=key!=="all"&&!filterHasResults[key];return <button key={key} type="button" role="tab" aria-selected={filter===key} aria-disabled={disabled} disabled={disabled} title={disabled?"暫時沒有符合的球友":undefined} className={`availability-filter-chip${filter===key?" active":""}`} onClick={()=>setFilter(key)}>{label}</button>})}
- </div>}
-{userPlayerId&&<button type="button" className="priority-toggle-row" aria-pressed={prioritizeNew} aria-disabled={!canPrioritizeNew} disabled={!canPrioritizeNew} title={!canPrioritizeNew?"暫時沒有新球友可優先顯示":undefined} onClick={()=>setPrioritizeNew(v=>!v)}>
-  <span>優先顯示新球友配對</span>
-  <span className={`toggle-switch${prioritizeNew&&canPrioritizeNew?" on":""}`} aria-hidden="true"><i/></span>
- </button>}
 {userPlayerId&&!own.length&&!ownBannerDismissed&&<div className="nudge-banner nudge-banner-neutral">
   <b>你仲未公開自己嘅得閒時間</b>
   <small>冇問題，你依然可以直接向下面任何一位提議時段。公開時段之後，配對建議會更準。</small>
@@ -589,14 +577,16 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
  </div>}
 {userPlayerId&&mine.length>0&&<header className="availability-day-head"><span/><button className="more" onClick={()=>nav("manage")}>{`我的時段 ${mine.map(range).join("、")}`}</button></header>}
 {loading?<div className="availability-skeleton" aria-hidden="true"/>:<div className="find-stack">
- {members.length>0&&<DensityChart buckets={density} best={busiest} lo={rosterRange.lo} hi={rosterRange.hi} focus={focus} onFocus={setFocus}/>}
- {members.length>0&&<AvailabilityGrid members={members} mine={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi} userPlayerId={userPlayerId} focus={focus} onFocus={setFocus} highlightId={jumpTo?.playerId} onPlayer={onPlayer}/>}
  {activeList.length
-  ?<section className="availability-card match-stack">
-    <header className="availability-grid-head match-stack-head"><div><h3>{filter==="new"?"新球友":filter==="never"?"從沒交手過":filter==="close"?"實力相近":isBrowseTier?"今日得閒嘅球友":focus?`${time(focus.startAt)}–${time(focus.endAt)} 可約的對手`:"和你都有空的對手"}</h3><small>{isBrowseTier?"未有時段重疊，但一樣可以直接提議時間":"按 ELO 相近及近期較少交手排序，點按卡片查看球員資料"}</small></div><span>{activeList.length} 位</span></header>
-    <div className="match-stack-list">{activeList.map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} onPlayer={onPlayer} cardStatus={inviteStatusById.get(o.member.id)??{status:"none",invite:null}} onInvite={openInviteSheet} onCancelInvite={cancelInviteAction}/>)}</div>
+  ?<section className="availability-card match-stack" aria-label="最佳配對機會">
+    <header className="availability-grid-head match-stack-head"><div><h3>最佳配對機會</h3><small>{isBrowseTier?"暫時未有重疊時段；你仍可直接提議時間":"已按共同空檔、ELO 及近期交手排好次序"}</small></div><span>最多 3 位</span></header>
+    <div className="match-stack-list">{activeList.slice(0,3).map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} onPlayer={onPlayer} cardStatus={inviteStatusById.get(o.member.id)??{status:"none",invite:null}} onInvite={openInviteSheet} onCancelInvite={cancelInviteAction}/>)}</div>
    </section>
   :<MatchPrompt hasMine={mine.length>0} userPlayerId={userPlayerId} members={members.length} focus={focus} onManage={nav}/>}
+ {members.length>0&&<section className="availability-board-section" aria-label="所有球員空檔">
+   <header className="availability-day-head"><div><h2>所有球員的空檔</h2><small>想自己瀏覽？左右滑動時間，點按球員空檔即可查看或提議。</small></div></header>
+   <AvailabilityGrid members={members} mine={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi} userPlayerId={userPlayerId} focus={focus} onFocus={setFocus} highlightId={jumpTo?.playerId} onPlayer={onPlayer}/>
+  </section>}
 </div>}</>}
 {/* One screen, one gesture: the board is the list, the editor and the composer at once. Nothing here
     navigates away, so a member can paint three evenings and publish them in a single pass. */}
