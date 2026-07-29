@@ -2204,28 +2204,30 @@ button.nudge-banner{border:0;cursor:pointer}
 .availability-grid-head small{display:block;margin-top:3px;color:var(--muted);font-size:11px}
 .availability-grid-head>span{padding:3px 9px;border-radius:20px;background:#e1eee6;color:#27704e;font-size:11px;font-weight:800;white-space:nowrap}
 .availability-grid-scroll{overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin}
-/* Lock the clock rail to one physical width. Using minmax(...,1fr) let the rail grow while the
-   repeating half-hour background stayed at a fixed pixel cadence, so labels, strong hour lines and
-   faint half-hour lines drifted apart on some mobile viewport/card-width combinations. */
-.availability-grid{display:grid;grid-template-columns:150px 720px;width:max-content;min-width:870px}
+/* The clock rail's width must be the single source of truth every row measures against — CSS Grid's
+   column-track sharing across many implicit rows turned out not to be reliably honored on some real
+   WebKit builds (rows drifted from the header despite passing every check in this session's browser
+   testing). Plain flex rows with the same explicit pixel width stamped on every cell removes the
+   shared-grid-track mechanism entirely, so there's nothing left that could let one row disagree with
+   another about how wide an hour is. */
+.availability-grid{display:flex;flex-direction:column;width:870px}
+.availability-grid-headrow,.availability-grid-row{display:flex;width:870px}
+.availability-grid-corner,.availability-grid-player{flex:0 0 150px;width:150px}
+.availability-grid-axis,.availability-grid-track{flex:0 0 720px;width:720px}
 .availability-grid-corner{position:sticky;left:0;z-index:6;display:flex;align-items:end;padding:0 14px 9px;background:var(--paper);border-right:1px solid var(--line);color:var(--muted);font-size:10px;font-weight:800}
 .availability-grid-axis{position:relative;height:43px;background:var(--paper);border-bottom:1px solid var(--line)}
 .availability-grid-axis b{position:absolute;bottom:9px;transform:translateX(-50%);font-size:10px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
 .availability-grid-axis b:first-child{transform:none}.availability-grid-axis b:last-child{transform:none}
 .availability-grid-player{position:sticky;left:0;z-index:5;display:flex;align-items:center;gap:9px;min-height:58px;padding:8px 11px;background:var(--paper);border-right:1px solid var(--line);border-bottom:1px solid #f0eee6}
-.availability-grid-player.is-me,.availability-grid-track.is-me{background:#f0f7f2}
+.availability-grid-row.is-me .availability-grid-player,.availability-grid-row.is-me .availability-grid-track{background:#f0f7f2}
 /* The name cell doubles as the way into a player's card, so it becomes a real button — which means
    undoing the UA button styling the shared class was never written to fight. */
-button.availability-grid-player{width:100%;border:0;border-right:1px solid var(--line);border-bottom:1px solid #f0eee6;font:inherit;color:inherit;text-align:left;cursor:pointer}
+button.availability-grid-player{border:0;border-right:1px solid var(--line);border-bottom:1px solid #f0eee6;font:inherit;color:inherit;text-align:left;cursor:pointer}
 button.availability-grid-player:hover b{text-decoration:underline}
-/* Player and track used to share a `display:contents` row wrapper so one highlight class could reach
-   both — but some WebKit versions don't give `display:contents` children the parent grid's column
-   tracks, letting the track drift to its own intrinsic width instead of the shared 480/720px rail.
-   Each cell now carries its own row-state classes directly, so both stay real grid items. */
-.availability-grid-player.is-highlighted{box-shadow:inset 3px 0 0 var(--gold)}
-.availability-grid-track.is-highlighted{box-shadow:inset 0 0 0 2px var(--gold);animation:availability-highlight-pulse 1.6s ease-out 1}
+.availability-grid-row.is-highlighted .availability-grid-player{box-shadow:inset 3px 0 0 var(--gold)}
+.availability-grid-row.is-highlighted .availability-grid-track{box-shadow:inset 0 0 0 2px var(--gold);animation:availability-highlight-pulse 1.6s ease-out 1}
 @keyframes availability-highlight-pulse{0%{box-shadow:inset 0 0 0 2px var(--gold),0 0 0 0 rgba(228,180,82,.5)}100%{box-shadow:inset 0 0 0 2px var(--gold),0 0 0 10px rgba(228,180,82,0)}}
-@media(prefers-reduced-motion:reduce){.availability-grid-track.is-highlighted{animation:none}}
+@media(prefers-reduced-motion:reduce){.availability-grid-row.is-highlighted .availability-grid-track{animation:none}}
 .availability-grid-player>.player-badge,.availability-grid-you{flex:0 0 auto;width:32px;height:32px;display:grid;place-items:center;border-radius:50%;overflow:hidden;background:var(--green);color:#fff;font-size:10px;font-weight:800;font-style:normal}
 .availability-grid-player>.player-badge img{width:100%;height:100%;object-fit:cover}
 .availability-grid-player>span:last-child{min-width:0}
@@ -2251,7 +2253,10 @@ button.availability-grid-player:hover b{text-decoration:underline}
  .availability-day-head{margin:12px 0 7px}.availability-day-head h2{font-size:19px}.availability-day-head .more{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--paper);text-align:left}
  .find-stack{gap:10px}.density-card{padding:14px}.density-note{display:none}
  /* A 480px time track keeps each 30-minute cell at 15px while showing roughly 11 hours in one phone viewport. */
- .availability-grid{grid-template-columns:132px 480px;width:max-content;min-width:612px}
+ .availability-grid{width:612px}
+ .availability-grid-headrow,.availability-grid-row{width:612px}
+ .availability-grid-corner,.availability-grid-player{flex:0 0 132px;width:132px}
+ .availability-grid-axis,.availability-grid-track{flex:0 0 480px;width:480px}
  .availability-grid-track{background-size:30px 100%}
  .availability-grid-head{padding:14px 13px 11px}.availability-grid-head small{font-size:10.5px}
  .availability-grid-corner{padding-left:10px}.availability-grid-player{padding:7px 8px;gap:7px}
@@ -2738,6 +2743,11 @@ button.availability-grid-player:hover b{text-decoration:underline}
    and detailed time board may scroll inside their own labelled regions. */
 .availability-page{overflow-x:clip}
 .availability-page :where(section,div,header,nav){max-width:100%;min-width:0}
+/* The page-wide overflow guard above caps every div at 100% of its own containing block — which,
+   chained through several nested divs, silently squashed the clock rail's explicit pixel widths back
+   down to the viewport instead of letting it overflow into its own dedicated horizontal scroller.
+   These cells need their real widths back so every row keeps agreeing on how wide an hour is. */
+.availability-grid,.availability-grid-headrow,.availability-grid-row,.availability-grid-corner,.availability-grid-player,.availability-grid-axis,.availability-grid-track{max-width:none}
 .matchmaking-status-card{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:14px;padding:20px 22px;border-left:4px solid #27704e;overflow:hidden}
 .matchmaking-status-card.is-received{border-left-color:#d69a2d;background:linear-gradient(135deg,#fffaf0,#fff)}
 .matchmaking-status-card.is-confirmed{border-left-color:#27704e;background:linear-gradient(135deg,#f2f8f4,#fff)}
