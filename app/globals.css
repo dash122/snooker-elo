@@ -2211,7 +2211,7 @@ button.nudge-banner{border:0;cursor:pointer}
 .availability-grid-corner{position:sticky;left:0;z-index:6;display:flex;align-items:end;padding:0 14px 9px;background:var(--paper);border-right:1px solid var(--line);color:var(--muted);font-size:10px;font-weight:800}
 .availability-grid-axis{position:relative;height:43px;background:var(--paper);border-bottom:1px solid var(--line)}
 .availability-grid-axis b{position:absolute;bottom:9px;transform:translateX(-50%);font-size:10px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
-.availability-grid-axis b:first-child{transform:none}
+.availability-grid-axis b:first-child{transform:none}.availability-grid-axis b:last-child{transform:translateX(-100%)}
 .availability-grid-row{display:contents}
 .availability-grid-player{position:sticky;left:0;z-index:5;display:flex;align-items:center;gap:9px;min-height:58px;padding:8px 11px;background:var(--paper);border-right:1px solid var(--line);border-bottom:1px solid #f0eee6}
 .availability-grid-row.is-me .availability-grid-player,.availability-grid-row.is-me .availability-grid-track{background:#f0f7f2}
