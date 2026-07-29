@@ -727,23 +727,26 @@ function Overview({top,data,onPlayer}:{top:Player[];data:AppState;onPlayer:(p:Pl
 }
 
 function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:Player[];data:AppState;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
-  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall">("players"),[homeView,setHomeView]=useState<"ranking"|"breaks"|"recent">("ranking");
+  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall">("players"),[homeView,setHomeView]=useState<"ranking"|"breaks"|"recent">("ranking"),[officialOnly,setOfficialOnly]=useState(false);
   const confirmed=data.matches.filter(m=>m.status==="confirmed");
   const month=confirmed.filter(m=>m.playedOn.slice(0,7)===today.slice(0,7)).length,total=confirmed.length;
-  const shown=sortPlayers(ranked,data,sort,dir),rankOf=new Map(ranked.map((p,i)=>[p.id,i+1]));
+  // Toggling to 正式球手 re-sequences ranks among only the visible players,
+  // rather than keeping their position in the full board with gaps.
+  const visibleRanked=useMemo(()=>officialOnly?ranked.filter(p=>games(p)>=data.settings.provisionalGames):ranked,[ranked,officialOnly,data.settings.provisionalGames]);
+  const shown=sortPlayers(visibleRanked,data,sort,dir),rankOf=new Map(visibleRanked.map((p,i)=>[p.id,i+1]));
   // Movement compares today's table against the standings 30 days ago. A single
   // Ten days balances recent momentum with enough matches for a meaningful comparison.
   const movement=useMemo(()=>{
     const recent=confirmed.filter(m=>isInPastTenDays(m.playedOn));
     if(!recent.length)return {map:new Map<string,number>(),active:false};
-    const before=data.players.map(p=>{
+    const before=visibleRanked.map(p=>{
       const swing=recent.filter(m=>m.a===p.id||m.b===p.id)
         .reduce((sum,m)=>sum+(m.a===p.id?m.deltaA:-m.deltaA),0);
       return {id:p.id,rating:p.rating-swing,name:p.name};
     }).sort((a,b)=>b.rating-a.rating||a.name.localeCompare(b.name));
     const priorRank=new Map(before.map((p,i)=>[p.id,i+1]));
-    return {map:new Map(ranked.map((p,i)=>[p.id,(priorRank.get(p.id)??i+1)-(i+1)])),active:true};
-  },[confirmed,data.players,ranked]);
+    return {map:new Map(visibleRanked.map((p,i)=>[p.id,(priorRank.get(p.id)??i+1)-(i+1)])),active:true};
+  },[confirmed,visibleRanked]);
   const breakRecords=useMemo(()=>{
     const playerById=new Map(data.players.map(player=>[player.id,player]));
     const records=data.matches.flatMap(match=>match.status==="confirmed"?(match.highBreaks??[])
@@ -768,11 +771,11 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
       <button role="tab" aria-selected={homeView==="recent"} className={homeView==="recent"?"active":""} onClick={()=>setHomeView("recent")}><span>近三十日統計</span></button>
     </nav>
     {homeView==="ranking"&&<>
-    <Overview top={ranked.slice(0,3)} data={data} onPlayer={onPlayer}/>
+    <Overview top={visibleRanked.slice(0,3)} data={data} onPlayer={onPlayer}/>
     <section className="home-view-panel ranking-panel" aria-labelledby="ranking-title">
-      <div className="home-panel-head"><div><p className="kicker">即時競爭形勢</p><h2 id="ranking-title">目前排名</h2><p>每場結果都會即時反映在 ELO 與近期狀態。</p></div></div>
+      <div className="home-panel-head"><div><p className="kicker">即時競爭形勢</p><h2 id="ranking-title">目前排名</h2><p>每場結果都會即時反映在 ELO 與近期狀態。</p></div><div className="mini-toggle ranking-scope-toggle" aria-label="排名球員範圍"><button aria-pressed={!officialOnly} className={!officialOnly?"active":""} onClick={()=>setOfficialOnly(false)}>全部球員</button><button aria-pressed={officialOnly} className={officialOnly?"active":""} onClick={()=>setOfficialOnly(true)}>正式球手</button></div></div>
     <SortControls sort={sort} dir={dir} onSort={sortBy}/>
-    <div className="table-card">{ranked.length===0?<Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>:<><div className="table-head sortable"><button title="箭嘴為過去 10 天的排名升跌" onClick={()=>sortBy("rank")}>排名<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>球員<SortArrow active={sort==="name"} dir={dir}/></button><button title="最近五筆比賽；較近期結果權重較高" onClick={()=>sortBy("form")}>近況<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>場數／勝率<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>建議／正式評分<SortArrow active={sort==="suggested"} dir={dir}/></button><button title="ELO 及近10天ELO變化" onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
+    <div className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?"尚未有正式球手":"尚未有球員"} sub={officialOnly?"未有球員完成臨時門檻，暫時未有正式評分。":"前往球員頁面新增第一位球員。"}/>:<><div className="table-head sortable"><button title="箭嘴為過去 10 天的排名升跌" onClick={()=>sortBy("rank")}>排名<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>球員<SortArrow active={sort==="name"} dir={dir}/></button><button title="最近五筆比賽；較近期結果權重較高" onClick={()=>sortBy("form")}>近況<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>場數／勝率<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>建議／正式評分<SortArrow active={sort==="suggested"} dir={dir}/></button><button title="ELO 及近10天ELO變化" onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
       <MobileSortHead sort={sort}/>
       {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=recentDeltaDays(p,data,10),played=games(p),rate=played?Math.round(p.wins/played*100):0,provisional=played<data.settings.provisionalGames,trailing=trailingStat(sort,p,data,suggested);
         return <button className={`row ${rank===1?"top":""} ${provisional?"provisional":""}`} key={p.id} onClick={()=>onPlayer(p)} aria-label={`${p.name}，排名 ${rank}，ELO ${Math.round(p.rating)}，近10天ELO變化 ${swing>=0?"+":""}${Math.round(swing)}，建議讓分 ${suggested}${provisional?"，臨時評分":""}`}>
