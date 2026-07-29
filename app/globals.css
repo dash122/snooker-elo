@@ -1026,7 +1026,7 @@ main>.match-view-toggle,main>.player-toolbar{margin-top:2rem}
 .match-form-head{display:block}
 .match-form-head h2{margin:0}
 .match-form-head h2.accent{color:var(--green)}
-.match-title-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding-right:3.25rem}
+.match-title-row{display:flex;align-items:center;justify-content:space-between;gap:1rem}
 .match-date-chip{position:relative;flex:none;display:flex;align-items:center;justify-content:center;min-height:2.75rem;padding:.5rem .9rem;border:1px solid #d7c398;border-radius:var(--radius-sm);background:#faf1de}
 .match-date-chip span{display:flex;align-items:center;gap:.25rem;color:#8d6a23;font-family:var(--font-display);font-size:var(--fs-lead);font-weight:700;line-height:1}
 .match-date-chip span i{font-style:normal;color:#a97828;font-size:var(--fs-sm)}
@@ -1041,8 +1041,13 @@ main>.match-view-toggle,main>.player-toolbar{margin-top:2rem}
 .matchup-card.team-2v2 .matchup-slot{justify-content:center;border-radius:var(--radius-md)}
 .matchup-vs{color:var(--muted);font-size:var(--fs-caption);font-style:normal;font-weight:800}
 .matchup-card .matchup-slot{position:relative;display:flex;flex-direction:column;align-items:center;gap:.4rem;text-align:center;padding:.25rem}
-.matchup-avatar{position:relative;display:flex;align-items:center;justify-content:center;width:3rem;height:3rem;border-radius:50%;background:var(--green);color:white;font-style:normal;font-weight:700;font-size:var(--fs-sm)}
-.matchup-avatar:after{content:"✎";position:absolute;right:-.2rem;bottom:-.2rem;width:1.15rem;height:1.15rem;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--gold);color:var(--deep);font-size:.6rem;box-shadow:0 0 0 2px #f7f8f4}
+.matchup-avatar{display:flex;align-items:center;justify-content:center;width:3rem;height:3rem;border-radius:50%;background:var(--green);color:white;font-style:normal;font-weight:700;font-size:var(--fs-sm)}
+/* The pencil badge must overlay the avatar's corner, but `.player-badge` itself
+   clips to a circle with overflow:hidden (needed for photo avatars) — a pseudo
+   on that same element gets clipped by its own overflow instead of floating on
+   top. Putting the pencil on this unclipped wrapper around the avatar fixes it. */
+.matchup-avatar-wrap{position:relative;display:inline-flex}
+.matchup-avatar-wrap:after{content:"✎";position:absolute;right:-.2rem;bottom:-.2rem;width:1.15rem;height:1.15rem;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--gold);color:var(--deep);font-size:.6rem;box-shadow:0 0 0 2px #f7f8f4}
 .matchup-card .matchup-slot b{font-size:var(--fs-body);font-weight:800;letter-spacing:-.01em;color:var(--ink)}
 .matchup-card .matchup-slot small{color:#8d6a23;font-size:var(--fs-caption);font-weight:500}
 .matchup-player-info{display:flex;flex-direction:column;gap:.1rem}
@@ -1110,7 +1115,6 @@ main>.match-view-toggle,main>.player-toolbar{margin-top:2rem}
 .match-save .primary small{display:block;margin-top:.05rem;color:#c6d9d4;font-size:var(--fs-caption);font-weight:600}
 .match-save .primary:disabled{cursor:not-allowed;opacity:.45}
 @media(max-width:700px){
-  .match-title-row{padding-right:2.75rem}
   .matchup-card{gap:.3rem;padding:.75rem .4rem}
   .score-panel{margin-inline:-.25rem;padding:.875rem .625rem}
   .scoreboard-entry{gap:.45rem}
