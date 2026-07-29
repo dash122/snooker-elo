@@ -86,7 +86,7 @@ function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:
   </div>
  </section>
 }function AvailabilityGrid({members,mine,date,lo,hi,userPlayerId,focus,onFocus,highlightId,onPlayer}:{members:Member[];mine:Interval[];date:string;lo:number;hi:number;userPlayerId?:string;focus:Interval|null;onFocus:(x:Interval|null)=>void;highlightId?:string|null;onPlayer?:(playerId:string)=>void}){
- const span=hi-lo,ticks=Array.from({length:hi-lo+1},(_,i)=>lo+i),scrollRef=useRef<HTMLDivElement>(null),highlightRef=useRef<HTMLDivElement>(null);
+ const span=hi-lo,ticks=Array.from({length:hi-lo+1},(_,i)=>lo+i),labelTicks=ticks.filter((_,i)=>i%2===0),scrollRef=useRef<HTMLDivElement>(null),highlightRef=useRef<HTMLDivElement>(null);
  /* Arriving here from a player's profile card should land on their row, not just the right tab — a
     quiet flash (borrowed from the match-history "just recorded" treatment) is the only way to say
     "this one" without a modal in the way. */
@@ -96,9 +96,9 @@ function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:
  const me=members.find(x=>x.id===userPlayerId),rows=[...(userPlayerId?[{id:"__me",name:"你",short:"你",rating:me?.rating??0,colour:"#176b55",slots:mine as AvailabilitySlot[]}]:[]),...members.filter(x=>x.id!==userPlayerId)];
  const position=(iso:string)=>`${(hoursOf(date,iso)-lo)/span*100}%`,slotWidth=(slot:Interval)=>`${(hoursOf(date,slot.endAt)-hoursOf(date,slot.startAt))/span*100}%`;
  return <section className="availability-card availability-grid-card" aria-labelledby="availability-grid-title">
-  <header className="availability-grid-head"><div><h3 id="availability-grid-title">球員空檔</h3><small>左右滑動查看時間，點按空檔即可篩選</small></div><span>{rows.length} 位</span></header>
+  <header className="availability-grid-head"><div><h3 id="availability-grid-title">球員空檔</h3><small>時間標記每兩小時對齊格線；輕掃查看更多，點按空檔即可篩選</small></div><span>{rows.length} 位</span></header>
   <div className="availability-grid-scroll" ref={scrollRef}><div className="availability-grid">
-   <div className="availability-grid-corner">球員</div><div className="availability-grid-axis" aria-hidden="true">{ticks.map(h=><b key={h} style={{left:`${(h-lo)/span*100}%`}}>{clockAt(h)}</b>)}</div>
+   <div className="availability-grid-corner">球員</div><div className="availability-grid-axis" aria-hidden="true">{labelTicks.map(h=><b key={h} style={{left:`${(h-lo)/span*100}%`}}>{clockAt(h)}</b>)}</div>
    {rows.map(member=>{const isMe=member.id==="__me",isHighlighted=highlightId===member.id;return <div ref={isHighlighted?highlightRef:undefined} className={`availability-grid-row${isMe?" is-me":""}${isHighlighted?" is-highlighted":""}`} key={member.id}>
     {onPlayer&&!isMe
       ? <button type="button" className="availability-grid-player is-clickable" aria-label={`查看 ${member.name} 的球員卡`} onClick={()=>onPlayer(member.id)}><PlayerBadge player={member}/><span><b>{member.name}</b><small>{Math.round(member.rating)} ELO</small></span></button>
