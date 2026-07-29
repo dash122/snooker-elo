@@ -2775,3 +2775,21 @@ button.match-hero-window-action:hover,button.match-hero-window-action:focus-visi
  .invite-mode-toggle,.invite-propose .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
  .invite-mode-toggle button,.invite-propose select{width:100%;min-width:0}
 }
+
+
+/* Leaderboard mobile tabs: this authoritative override must follow the base
+   .home-view-nav block, which otherwise wins the cascade and restores the old
+   inset, rounded segmented-control layout after the shared sticky-nav rule. */
+@media(max-width:820px){
+  .home-view-nav{
+    width:auto;
+    min-height:58px;
+    gap:0;
+    margin:0 calc(-1 * var(--page-gutter,18px)) 18px;
+    padding:0 var(--page-gutter,18px);
+    border-radius:0;
+    border-bottom:1px solid var(--line);
+    background:var(--paper);
+    box-shadow:0 1px 0 rgba(18,61,55,.06);
+  }
+}
