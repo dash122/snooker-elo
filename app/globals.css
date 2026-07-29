@@ -2245,7 +2245,9 @@ button.availability-grid-player:hover b{text-decoration:underline}
  .availability-date-scroll-button{width:32px}
  .availability-day-head{margin:12px 0 7px}.availability-day-head h2{font-size:19px}.availability-day-head .more{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--paper);text-align:left}
  .find-stack{gap:10px}.density-card{padding:14px}.density-note{display:none}
- .availability-grid{grid-template-columns:132px minmax(720px,1fr);min-width:852px}
+ /* A 480px time track keeps each 30-minute cell at 15px while showing roughly 11 hours in one phone viewport. */
+ .availability-grid{grid-template-columns:132px minmax(480px,1fr);min-width:612px}
+ .availability-grid-track{background-size:30px 100%}
  .availability-grid-head{padding:14px 13px 11px}.availability-grid-head small{font-size:10.5px}
  .availability-grid-corner{padding-left:10px}.availability-grid-player{padding:7px 8px;gap:7px}
  .availability-grid-player>.player-badge,.availability-grid-you{width:29px;height:29px}
