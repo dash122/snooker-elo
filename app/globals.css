@@ -121,7 +121,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .break-position{color:var(--muted);font-size:12px;font-weight:900;text-align:center}
 .break-ranking li>i{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--green);color:white;font-size:9px;font-style:normal;font-weight:900}
 .break-ranking li>b{overflow:hidden;font-size:13px;text-overflow:ellipsis;white-space:nowrap}
-.break-ranking time{color:var(--muted);font-size:11px}
+.break-ranking time{color:var(--muted);font-size:11px;font-weight:400}
 .break-ranking strong{color:#9a6d1d;font-size:19px;text-align:right;font-variant-numeric:tabular-nums}
 .break-ranking .empty-rank{grid-template-columns:32px 1fr;color:var(--muted)}
 .break-ranking .empty-rank b{font-weight:600}
@@ -183,7 +183,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .break-ranking li{min-height:58px}
 .break-ranking li>b{display:block;min-width:0;overflow:hidden;white-space:normal;text-overflow:clip}
 .break-ranking li>b>span,.break-ranking li>b>small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.break-ranking li>b>small{margin-top:2px;color:var(--muted);font-size:10px;font-weight:500}
+.break-ranking li>b>small{margin-top:2px;color:var(--muted);font-size:10px;font-weight:400}
 .break-date-inline{display:none}
 @media(max-width:700px){.break-ranking li{min-height:54px}.break-ranking li>b>small{font-size:9px}}
 @media(max-width:480px){.break-date-inline{display:inline}}
