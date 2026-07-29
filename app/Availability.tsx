@@ -121,7 +121,7 @@ function MatchPrompt({hasMine,userPlayerId,members,focus,onManage}:{hasMine:bool
 /** One card per candidate opponent — ranked overlaps and the no-overlap-yet browse tier both render
     through here, in the same full-size treatment. There is no single "best tonight" card any more:
     every name a member could actually play gets the same room to make its case. */
-function OpponentCard({opponent,rank,onPlayer,cardStatus,onInvite,onCancelInvite}:{opponent:OpponentCardVM;rank:number;onPlayer?:(playerId:string)=>void;cardStatus:{status:CardStatus;invite:MatchInvite|null};onInvite:(playerId:string)=>void;onCancelInvite:(inviteId:string)=>void}){
+function OpponentCard({opponent,rank,onPlayer,cardStatus,onInvite,onCancelInvite}:{opponent:OpponentCardVM;rank:number;onPlayer?:(playerId:string)=>void;cardStatus:{status:CardStatus;invite:MatchInvite|null};onInvite:(playerId:string,window?:Interval)=>void;onCancelInvite:(inviteId:string)=>void}){
  const open=()=>onPlayer?.(opponent.member.id);
  return <section className={`match-hero match-hero-compact${onPlayer?" is-clickable":""}`} role={onPlayer?"button":undefined} tabIndex={onPlayer?0:undefined} onClick={onPlayer?open:undefined} onKeyDown={onPlayer?(e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open()}}):undefined}>
   <div className="match-hero-main">
@@ -132,7 +132,7 @@ function OpponentCard({opponent,rank,onPlayer,cardStatus,onInvite,onCancelInvite
    </span>
    <div className="match-hero-who"><h2>{opponent.member.name}</h2><small>{Math.round(opponent.member.rating)} ELO · 相差 {Math.round(opponent.difference)}</small></div>
   </div>
-  <div className="match-hero-windows">{opponent.windows.map(w=><span key={w.startAt} className="match-hero-window-chip">{dayLabel(hkDate(new Date(w.startAt)))} {range(w)}</span>)}<small>{opponent.windowsCaption}</small></div>
+  <div className="match-hero-windows">{opponent.windows.map(w=><button type="button" key={w.startAt} className="match-hero-window-chip match-hero-window-action" onClick={e=>{e.stopPropagation();onInvite(opponent.member.id,w)}} aria-label={`邀請 ${opponent.member.name} 在 ${dayLabel(hkDate(new Date(w.startAt)))} ${range(w)} 對局`}>{dayLabel(hkDate(new Date(w.startAt)))} {range(w)} <span aria-hidden="true">→</span></button>)}<small>{opponent.windowsCaption}</small></div>
   {opponent.chips.length>0&&<div className="track-chips">{opponent.chips.map(c=><span key={c} className={c.startsWith("新加入")?"chip-new":undefined}>{c}</span>)}</div>}
   <div className="match-hero-foot" onClick={e=>e.stopPropagation()}>
    {cardStatus.status==="none"&&<button type="button" className="secondary" onClick={()=>onInvite(opponent.member.id)}>邀請對局</button>}
@@ -240,7 +240,7 @@ function SlotBoard({dates,items,lo,hi,soonest,selected,onSelect,onCreate,onResiz
 const HORIZON=14;
 export default function Availability({userPlayerId,matches,provisionalGames=10,onDirtyChange,jumpTo,onPlayer,onRecordMatch}:{userPlayerId?:string;matches:Match[];provisionalGames?:number;onDirtyChange?:(dirty:boolean)=>void;jumpTo?:{playerId:string;date:string}|null;onPlayer?:(playerId:string)=>void;onRecordMatch?:(opponentId:string,playedOn:string)=>void}){
  const week=useMemo(()=>days(hkDate(),HORIZON),[]),[date,setDate]=useState(jumpTo?.date??hkDate()),[appliedJump,setAppliedJump]=useState(jumpTo??null),[members,setMembers]=useState<Member[]>([]),[counts,setCounts]=useState<Record<string,number>>({}),[own,setOwn]=useState<AvailabilitySlot[]>([]),[view,setView]=useState<View>("find"),[draft,setDraft]=useState<Interval[]>([]),[selected,setSelected]=useState<string|null>(null),[adjustments,setAdjustments]=useState<Record<string,Interval>>({}),[focus,setFocus]=useState<Interval|null>(null),[boardWide,setBoardWide]=useState(false),[pending,setPending]=useState<AvailabilitySlot|null>(null),[leaveTo,setLeaveTo]=useState<View|null>(null),[confirmClear,setConfirmClear]=useState(false),[clearing,setClearing]=useState(false),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[cancelling,setCancelling]=useState(false),[confirmingChange,setConfirmingChange]=useState(false),[message,setMessage]=useState(""),[recommendationNow]=useState(()=>Date.now());
- const[filter,setFilter]=useState<ListFilter>("all"),[prioritizeNew,setPrioritizeNew]=useState(false),[ownBannerDismissed,setOwnBannerDismissed]=useState(false),
+ const[filter,setFilter]=useState<ListFilter>("all"),[prioritizeNew,setPrioritizeNew]=useState(false),
   [invites,setInvites]=useState<{sent:MatchInvite[];received:MatchInvite[]}>({sent:[],received:[]}),
   [inviteFor,setInviteFor]=useState<string|null>(null),[inviteMode,setInviteMode]=useState<"simple"|"propose">("simple"),[selectedWindow,setSelectedWindow]=useState<Interval|null>(null),
   [proposeStart,setProposeStart]=useState("19:00"),[proposeEnd,setProposeEnd]=useState("21:00"),[inviteMessage,setInviteMessage]=useState(""),
@@ -352,21 +352,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   return members.filter(m=>m.id!==userPlayerId&&gamesPlayed(matches,m.id)<provisionalGames&&!met.has(m.id)).length;
  },[members,matches,provisionalGames,userPlayerId,invites]);
  const activeOpponent=useMemo(()=>inviteFor?[...shortlist,...browseList].find(o=>o.member.id===inviteFor)??null:null,[inviteFor,shortlist,browseList]);
- /* Acceptance is otherwise silent for the person who sent the invite — no websocket exists, so this is
-    the one durable trace of "they said yes" that survives longer than the 4s toast and doesn't depend
-    on which tab happens to be open. Seen state lives in localStorage, keyed per member, so dismissing
-    one device doesn't hide it from another. */
- const seenKey=userPlayerId?`invite-accept-seen:${userPlayerId}`:null;
- const[seenAcceptedIds,setSeenAcceptedIds]=useState<Set<string>>(()=>{
-  if(typeof window==="undefined"||!seenKey)return new Set();
-  try{return new Set(JSON.parse(window.localStorage.getItem(seenKey)??"[]"))}catch{return new Set()}
- });
- const markAcceptedSeen=(id:string)=>{
-  if(!seenKey)return;
-  setSeenAcceptedIds(prev=>{const next=new Set(prev);next.add(id);try{window.localStorage.setItem(seenKey,JSON.stringify([...next]))}catch{/* best effort */}return next});
- };
  const confirmedMatches=useMemo(()=>[...invites.sent,...invites.received].filter(i=>i.status==="accepted").sort((a,b)=>a.startAt.localeCompare(b.startAt)),[invites]);
- const newlyAccepted=useMemo(()=>confirmedMatches.filter(i=>i.fromPlayer.id===userPlayerId&&!seenAcceptedIds.has(i.id)),[confirmedMatches,userPlayerId,seenAcceptedIds]);
  const refreshInvites=async()=>{
   if(!userPlayerId)return;
   try{const r=await fetch("/api/invites");const b=await r.json();if(r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}catch{/* keep the previous invites in view if a background refresh fails */}
@@ -387,9 +373,9 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   const id=window.setInterval(()=>{if(document.visibilityState==="visible")void poll()},30000);
   return()=>{cancelled=true;window.clearInterval(id)};
  },[userPlayerId]);
- const openInviteSheet=(playerId:string)=>{
+ const openInviteSheet=(playerId:string,window?:Interval)=>{
   const opponent=[...shortlist,...browseList].find(o=>o.member.id===playerId);
-  setInviteFor(playerId);setInviteMode("simple");setSelectedWindow(opponent?.windows[0]??null);setInviteMessage("");setProposeStart("19:00");setProposeEnd("21:00");
+  setInviteFor(playerId);setInviteMode("simple");setSelectedWindow(window??opponent?.windows[0]??null);setInviteMessage("");setProposeStart("19:00");setProposeEnd("21:00");
  };
  const closeInviteSheet=()=>{setInviteFor(null);setSelectedWindow(null);setInviteMessage("")};
  const sendInviteAction=async()=>{
@@ -534,47 +520,31 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
 <nav className="availability-tabs" aria-label="配對功能" role="tablist"><button role="tab" aria-selected={view==="find"} className={view==="find"?"active":""} onClick={()=>nav("find")}><span className="availability-tab-label">尋找對手</span></button>{userPlayerId&&<button role="tab" aria-selected={view==="manage"||view==="create"} className={view==="manage"||view==="create"?"active":""} onClick={()=>nav("manage")}><span className="availability-tab-label">我的時段</span>{own.length>0&&<span className="availability-tab-count">{own.length}</span>}</button>}</nav>
 {view==="find"&&<DateScroller dates={week} selected={date} counts={counts} onSelect={changeDate}/>}
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
-{userPlayerId&&newlyAccepted.map(invite=><div className="nudge-banner nudge-banner-gold" key={invite.id} role="status">
-  <span className="nudge-banner-icon" aria-hidden="true">✓</span>
-  <span className="nudge-banner-body"><b>{invite.toPlayer.name} 已接受你嘅邀請</b><small>已確認 · {dayLabel(hkDate(new Date(invite.startAt)))} {range(invite)}</small></span>
-  <button type="button" className="secondary" onClick={()=>markAcceptedSeen(invite.id)}>知道了</button>
- </div>)}
-{userPlayerId&&confirmedMatches.length>0&&<section className="availability-card confirmed-matches" aria-label="已確認對局">
-  <header className="availability-grid-head"><div><h3>我的配對狀態</h3><small>已確認的下一場對局</small></div><span>{confirmedMatches.length} 場</span></header>
-  <div className="invite-inbox-list">
-   {confirmedMatches.map(invite=>{const opponent=invite.fromPlayer.id===userPlayerId?invite.toPlayer:invite.fromPlayer;return <div className="invite-inbox-item" key={invite.id}>
-    <PlayerBadge player={opponent}/>
-    <div className="invite-inbox-who"><b>{opponent.name}</b><small>{dayLabel(hkDate(new Date(invite.startAt)))} {range(invite)}</small></div>
-    <div className="invite-inbox-actions">
-     <span className="invite-status-accepted">✓ 已確認</span>
-     {onRecordMatch&&<button type="button" className="secondary" onClick={()=>onRecordMatch(opponent.id,hkDate(new Date(invite.startAt)))}>記錄比分</button>}
-     <button type="button" className="secondary" disabled={cancellingInviteId===invite.id} onClick={()=>cancelInviteAction(invite.id)}>取消</button>
-    </div>
-   </div>})}
+{userPlayerId&&view==="find"&&(()=>{
+ const received=invites.received.find(i=>i.status==="pending");
+ const confirmed=confirmedMatches[0];
+ const sent=invites.sent.find(i=>i.status==="pending");
+ const opponent=received?.fromPlayer??(confirmed?(confirmed.fromPlayer.id===userPlayerId?confirmed.toPlayer:confirmed.fromPlayer):sent?.toPlayer);
+ const slot=received??confirmed??sent;
+ const published=own.slice().sort((a,b)=>a.startAt.localeCompare(b.startAt))[0];
+ const state=received?"received":confirmed?"confirmed":sent?"waiting":own.length?"available":"empty";
+ return <section className={`availability-card matchmaking-status-card is-${state}`} aria-label="我的配對狀態">
+  <div className="matchmaking-status-copy"><p className="matchmaking-status-kicker">我的配對狀態</p>
+   <div className="matchmaking-status-title">{opponent&&<PlayerBadge player={opponent}/>}<div>
+    <h2>{received?`${opponent?.name} 想約你打波`:confirmed?`已確認與 ${opponent?.name} 的對局`:sent?`等待 ${opponent?.name} 回覆`:own.length?"你正在尋找對手":"你幾時得閒？"}</h2>
+    <p>{slot?`${dayLabel(hkDate(new Date(slot.startAt)))} · ${range(slot)}`:published?`最近時段：${dayLabel(hkDate(new Date(published.startAt)))} · ${range(published)}`:"公開空閒時間後，我們會直接推薦最合適的球友。"}</p>
+   </div></div>
+   {received?.message&&<p className="matchmaking-status-message">{received.message}</p>}
   </div>
- </section>}
+  <div className="matchmaking-status-actions">
+   {received&&<><button type="button" className="secondary" disabled={respondingId===received.id} onClick={()=>void respondToInvite(received.id,"decline")}>婉拒</button><button type="button" className="primary" disabled={respondingId===received.id} onClick={()=>void respondToInvite(received.id,"accept")}>接受邀請</button></>}
+   {confirmed&&<>{onRecordMatch&&opponent&&<button type="button" className="primary" onClick={()=>onRecordMatch(opponent.id,hkDate(new Date(confirmed.startAt)))}>記錄比分</button>}<button type="button" className="secondary" disabled={cancellingInviteId===confirmed.id} onClick={()=>cancelInviteAction(confirmed.id)}>取消對局</button></>}
+   {sent&&<button type="button" className="secondary" disabled={cancellingInviteId===sent.id} onClick={()=>cancelInviteAction(sent.id)}>取消邀請</button>}
+   {!slot&&<button type="button" className={own.length?"secondary":"primary"} onClick={()=>nav(own.length?"manage":"create")}>{own.length?"編輯我的時段":"公開我的時段"}</button>}
+  </div>
+ </section>;
+})()}
 {view==="find"&&<>
-{userPlayerId&&invites.received.filter(i=>i.status==="pending").length>0&&<section className="availability-card invite-inbox" aria-label="收到的邀請">
-  <header className="availability-grid-head"><div><h3>需要你回覆</h3><small>先處理邀請，再決定下一場</small></div><span>{invites.received.filter(i=>i.status==="pending").length} 位</span></header>
-  <div className="invite-inbox-list">
-   {invites.received.filter(i=>i.status==="pending").map(invite=><div className="invite-inbox-item" key={invite.id}>
-    <PlayerBadge player={invite.fromPlayer}/>
-    <div className="invite-inbox-who"><b>{invite.fromPlayer.name}</b><small>{range(invite)}</small>{invite.message&&<p>{invite.message}</p>}</div>
-    <div className="invite-inbox-actions">
-     <button type="button" className="secondary" disabled={respondingId===invite.id} onClick={()=>void respondToInvite(invite.id,"decline")}>婉拒</button>
-     <button type="button" className="primary" disabled={respondingId===invite.id} onClick={()=>void respondToInvite(invite.id,"accept")}>接受</button>
-    </div>
-   </div>)}
-  </div>
- </section>}
-{userPlayerId&&!own.length&&!ownBannerDismissed&&<div className="nudge-banner nudge-banner-neutral">
-  <b>你仲未公開自己嘅得閒時間</b>
-  <small>冇問題，你依然可以直接向下面任何一位提議時段。公開時段之後，配對建議會更準。</small>
-  <div className="nudge-banner-actions">
-   <button type="button" className="primary" onClick={()=>nav("create")}>而家公開時段</button>
-   <button type="button" className="secondary" onClick={()=>setOwnBannerDismissed(true)}>先睇下</button>
-  </div>
- </div>}
 {userPlayerId&&mine.length>0&&<header className="availability-day-head"><span/><button className="more" onClick={()=>nav("manage")}>{`我的時段 ${mine.map(range).join("、")}`}</button></header>}
 {loading?<div className="availability-skeleton" aria-hidden="true"/>:<div className="find-stack">
  {activeList.length

@@ -2754,3 +2754,47 @@ button.availability-grid-player:hover b{text-decoration:underline}
   .person b{display:block;min-width:0;max-width:100%;white-space:normal;overflow-wrap:break-word;word-break:normal;line-height:1.2}
   .row>.form{width:auto!important;justify-content:flex-end}
 }
+
+
+/* Decision-first matchmaking status. Keep the page itself viewport-contained; only the date strip
+   and detailed time board may scroll inside their own labelled regions. */
+.availability-page{overflow-x:clip}
+.availability-page :where(section,div,header,nav){max-width:100%;min-width:0}
+.matchmaking-status-card{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:14px;padding:20px 22px;border-left:4px solid #27704e;overflow:hidden}
+.matchmaking-status-card.is-received{border-left-color:#d69a2d;background:linear-gradient(135deg,#fffaf0,#fff)}
+.matchmaking-status-card.is-confirmed{border-left-color:#27704e;background:linear-gradient(135deg,#f2f8f4,#fff)}
+.matchmaking-status-copy{min-width:0;flex:1}
+.matchmaking-status-kicker{margin:0 0 9px;color:#8c6a2c;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.matchmaking-status-title{display:flex;align-items:center;gap:12px;min-width:0}
+.matchmaking-status-title>.player-badge{flex:0 0 44px;width:44px;height:44px;border-radius:13px}
+.matchmaking-status-title>div{min-width:0}
+.matchmaking-status-title h2{margin:0;font-size:19px;line-height:1.25;overflow-wrap:anywhere}
+.matchmaking-status-title p{margin:4px 0 0;color:var(--muted);font-size:12.5px;line-height:1.45;overflow-wrap:anywhere}
+.matchmaking-status-message{margin:12px 0 0;padding:9px 11px;border-radius:10px;background:rgba(18,61,55,.055);color:var(--ink);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.matchmaking-status-actions{display:flex;justify-content:flex-end;gap:8px;flex:0 0 auto;flex-wrap:wrap}
+.matchmaking-status-actions button{min-height:44px;white-space:normal}
+button.match-hero-window-action{max-width:100%;border:0;cursor:pointer;font:inherit;line-height:1.2}
+button.match-hero-window-action:hover,button.match-hero-window-action:focus-visible{background:#ffe5ad;box-shadow:0 0 0 2px rgba(240,201,119,.45);outline:none}
+.invite-sheet{width:min(520px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:min(86dvh,760px);overflow-y:auto;overflow-x:hidden}
+.invite-window-option,.invite-message-field,.invite-message-field textarea{max-width:100%;min-width:0}
+.invite-window-option span:first-child{min-width:0;overflow-wrap:anywhere}
+
+@media(max-width:620px){
+ .matchmaking-status-card{align-items:stretch;flex-direction:column;gap:14px;margin-inline:0;padding:17px 16px}
+ .matchmaking-status-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+ .matchmaking-status-actions button:only-child{grid-column:1/-1}
+ .matchmaking-status-actions .primary{order:-1}
+ .matchmaking-status-title{align-items:flex-start}
+ .matchmaking-status-title h2{font-size:17px}
+ .match-stack-head,.availability-grid-head{align-items:flex-start;gap:8px}
+ .match-stack-head>span,.availability-grid-head>span{flex:0 0 auto}
+ .match-hero-compact{max-width:100%;padding:16px}
+ .match-hero-compact .match-hero-main{flex-wrap:nowrap}
+ .match-hero-compact .match-hero-who small{white-space:normal;overflow-wrap:anywhere}
+ .match-hero-window-chip{white-space:normal;text-align:left;overflow-wrap:anywhere}
+ .match-hero-foot{align-items:stretch}
+ .match-hero-foot>button{width:100%;justify-content:center}
+ .invite-sheet{border-radius:20px 20px 0 0;width:100%;max-width:100%;margin-top:auto}
+ .invite-mode-toggle,.invite-propose .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .invite-mode-toggle button,.invite-propose select{width:100%;min-width:0}
+}
