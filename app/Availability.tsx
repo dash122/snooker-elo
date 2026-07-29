@@ -544,8 +544,8 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   </div>
  </section>;
 })()}
-{view==="find"&&<>{view==="find"&&<>
-{userPlayerId&&mine.length>0&&<header className="availability-day-head">{userPlayerId&&mine.length>0&&<header className="availability-day-head"><span/><button className="more" onClick={()=>nav("manage")}>{`我的時段 ${mine.map(range).join("、")}`}</button></header>}
+{view==="find"&&<>
+{userPlayerId&&mine.length>0&&<header className="availability-day-head"><span/><button className="more" onClick={()=>nav("manage")}>{`我的時段 ${mine.map(range).join("、")}`}</button></header>}
 {loading?<div className="availability-skeleton" aria-hidden="true"/>:<div className="find-stack">
  {activeList.length
   ?<section className="availability-card match-stack" aria-label="最佳配對機會">
