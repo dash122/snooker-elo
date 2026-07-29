@@ -1,5 +1,5 @@
 "use client";
-import {Fragment,useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
+import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
 import {addDaysHongKong,availabilityDensity,availabilityPeak,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval} from "../lib/availability";
@@ -98,15 +98,15 @@ function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:
  return <section className="availability-card availability-grid-card" aria-labelledby="availability-grid-title">
   <header className="availability-grid-head"><div><h3 id="availability-grid-title">球員空檔</h3><small>時間標記每兩小時對齊格線；輕掃查看更多，點按空檔即可篩選</small></div><span>{rows.length} 位</span></header>
   <div className="availability-grid-scroll" ref={scrollRef}><div className="availability-grid">
-   <div className="availability-grid-corner">球員</div><div className="availability-grid-axis" aria-hidden="true">{labelTicks.map(h=><b key={h} style={h>=hi?{right:0}:{left:`${(h-lo)/span*100}%`}}>{clockAt(h)}</b>)}</div>
-   {rows.map(member=>{const isMe=member.id==="__me",isHighlighted=highlightId===member.id,rowClass=`${isMe?" is-me":""}${isHighlighted?" is-highlighted":""}`;return <Fragment key={member.id}>
+   <div className="availability-grid-headrow"><div className="availability-grid-corner">球員</div><div className="availability-grid-axis" aria-hidden="true">{labelTicks.map(h=><b key={h} style={h>=hi?{right:0}:{left:`${(h-lo)/span*100}%`}}>{clockAt(h)}</b>)}</div></div>
+   {rows.map(member=>{const isMe=member.id==="__me",isHighlighted=highlightId===member.id;return <div ref={isHighlighted?highlightRef:undefined} className={`availability-grid-row${isMe?" is-me":""}${isHighlighted?" is-highlighted":""}`} key={member.id}>
     {onPlayer&&!isMe
-      ? <button type="button" className={`availability-grid-player is-clickable${rowClass}`} aria-label={`查看 ${member.name} 的球員卡`} onClick={()=>onPlayer(member.id)}><PlayerBadge player={member}/><span><b>{member.name}</b><small>{Math.round(member.rating)} ELO</small></span></button>
-      : <div className={`availability-grid-player${rowClass}`}>{isMe?<span className="availability-grid-you">你</span>:<PlayerBadge player={member}/>}<span><b>{member.name}</b>{!isMe&&<small>{Math.round(member.rating)} ELO</small>}</span></div>}
-    <div ref={isHighlighted?highlightRef:undefined} className={`availability-grid-track${rowClass}`}>{ticks.slice(1).map(h=><i className="availability-grid-line" key={h} style={h>=hi?{right:0}:{left:`${(h-lo)/span*100}%`}}/>)}
+      ? <button type="button" className="availability-grid-player is-clickable" aria-label={`查看 ${member.name} 的球員卡`} onClick={()=>onPlayer(member.id)}><PlayerBadge player={member}/><span><b>{member.name}</b><small>{Math.round(member.rating)} ELO</small></span></button>
+      : <div className="availability-grid-player">{isMe?<span className="availability-grid-you">你</span>:<PlayerBadge player={member}/>}<span><b>{member.name}</b>{!isMe&&<small>{Math.round(member.rating)} ELO</small>}</span></div>}
+    <div className="availability-grid-track">{ticks.slice(1).map(h=><i className="availability-grid-line" key={h} style={h>=hi?{right:0}:{left:`${(h-lo)/span*100}%`}}/>)}
      {member.slots.map(slot=>{const active=Boolean(focus&&intersectIntervals([slot],[focus]).length);return <button type="button" key={`${member.id}-${slot.startAt}`} className={`availability-grid-slot${active?" is-active":""}`} style={{left:position(slot.startAt),width:slotWidth(slot)}} aria-label={`${member.name} ${range(slot)}`} onClick={()=>onFocus(active?null:{startAt:slot.startAt,endAt:slot.endAt})}><span>{range(slot)}</span></button>})}
      {focus&&<i className="availability-grid-focus" style={{left:position(focus.startAt),width:slotWidth(focus)}}/>}{showNow&&<i className="availability-grid-now" style={{left:`${(now-lo)/span*100}%`}}/>}
-    </div></Fragment>})}
+    </div></div>})}
   </div></div>
   <div className="availability-grid-legend"><span><i/>該時段有空</span>{focus&&<button type="button" className="more" onClick={()=>onFocus(null)}>清除 {range(focus)}</button>}</div>
  </section>
