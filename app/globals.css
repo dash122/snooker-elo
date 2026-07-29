@@ -2203,7 +2203,7 @@ button.nudge-banner{border:0;cursor:pointer}
 .availability-grid-head small{display:block;margin-top:3px;color:var(--muted);font-size:11px}
 .availability-grid-head>span{padding:3px 9px;border-radius:20px;background:#e1eee6;color:#27704e;font-size:11px;font-weight:800;white-space:nowrap}
 .availability-grid-scroll{overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin}
-.availability-grid{display:grid;grid-template-columns:150px minmax(720px,1fr);min-width:870px}
+/* Lock the clock rail to one physical width. Using minmax(...,1fr) let the rail grow while the\n   repeating half-hour background stayed at a fixed pixel cadence, so labels, strong hour lines and\n   faint half-hour lines drifted apart on some mobile viewport/card-width combinations. */\n.availability-grid{display:grid;grid-template-columns:150px 720px;width:max-content;min-width:870px}
 .availability-grid-corner{position:sticky;left:0;z-index:6;display:flex;align-items:end;padding:0 14px 9px;background:var(--paper);border-right:1px solid var(--line);color:var(--muted);font-size:10px;font-weight:800}
 .availability-grid-axis{position:relative;height:43px;background:var(--paper);border-bottom:1px solid var(--line)}
 .availability-grid-axis b{position:absolute;bottom:9px;transform:translateX(-50%);font-size:10px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
@@ -2246,7 +2246,7 @@ button.availability-grid-player:hover b{text-decoration:underline}
  .availability-day-head{margin:12px 0 7px}.availability-day-head h2{font-size:19px}.availability-day-head .more{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--paper);text-align:left}
  .find-stack{gap:10px}.density-card{padding:14px}.density-note{display:none}
  /* A 480px time track keeps each 30-minute cell at 15px while showing roughly 11 hours in one phone viewport. */
- .availability-grid{grid-template-columns:132px minmax(480px,1fr);min-width:612px}
+ .availability-grid{grid-template-columns:132px 480px;width:max-content;min-width:612px}
  .availability-grid-track{background-size:30px 100%}
  .availability-grid-head{padding:14px 13px 11px}.availability-grid-head small{font-size:10.5px}
  .availability-grid-corner{padding-left:10px}.availability-grid-player{padding:7px 8px;gap:7px}
