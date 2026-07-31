@@ -11,3 +11,11 @@ export async function putState(data: string) {
 export async function deleteState() {
   return backend.deleteState();
 }
+
+export async function listSnapshots(limit?: number) {
+  return backend.listSnapshots(limit);
+}
+
+export async function restoreSnapshot(id: number) {
+  return backend.restoreSnapshot(id);
+}
