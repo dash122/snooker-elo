@@ -464,7 +464,21 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     if(restorable)undoTimer.current=setTimeout(()=>setUndoSnapshot(null),2600);
     toastTimer.current=setTimeout(()=>{setToast("");setUndoSnapshot(null)},restorable?2600:3200);
     try {
-      const r=await fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(next)});
+      // The client only polls every 15s, so another member's match saved in
+      // that window is invisible here. Sending `next` as-is would silently
+      // drop it from the payload, which the server reads as tampering with a
+      // match that isn't ours and rejects with a permission error — even
+      // though nothing about this save was actually about their match. Pull
+      // the latest matches first and merge back in anything we don't know
+      // about yet, so an unrelated concurrent save can't masquerade as one.
+      const latest=await fetch("/api/state",{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null);
+      let payload=next;
+      if(Array.isArray(latest?.matches)){
+        const knownIds=new Set(next.matches.map(m=>m.id));
+        const missing=latest.matches.filter((m:Match)=>!knownIds.has(m.id));
+        if(missing.length)payload={...next,matches:[...next.matches,...missing]};
+      }
+      const r=await fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
       if(!r.ok){
         const body=await r.json().catch(()=>null);
         throw new Error(typeof body?.error==="string"?body.error:"");
