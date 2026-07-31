@@ -455,6 +455,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   // `undo` holds the pre-change snapshot; while the toast is on screen it can be persisted back.
   async function persist(next:AppState,message:string,undo?:AppState) {
     if(!user){setToast("請先登入會員帳戶，才可更改球會資料。");return;}
+    const baseline=data;
     setData(next); setSaving(true);
     if(toastTimer.current) clearTimeout(toastTimer.current);
     if(undoTimer.current) clearTimeout(undoTimer.current);
@@ -474,7 +475,12 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       const latest=await fetch("/api/state",{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null);
       let payload=next;
       if(Array.isArray(latest?.matches)){
-        const knownIds=new Set(next.matches.map(m=>m.id));
+        // A match absent from `next` is only "unknown to us" — and worth
+        // restoring — if it was also absent from the snapshot this edit
+        // started from. One we already had and deliberately removed (a
+        // delete/edit) must stay gone, or every delete would silently
+        // resurrect the very match it just removed.
+        const knownIds=new Set([...next.matches,...baseline.matches].map(m=>m.id));
         const missing=latest.matches.filter((m:Match)=>!knownIds.has(m.id));
         if(missing.length)payload={...next,matches:[...next.matches,...missing]};
       }
