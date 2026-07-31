@@ -58,7 +58,14 @@ export async function putState(data: string) {
     // orphaned session sits idle holding locks before Postgres kills it itself
     // — previously it could sit for 10+ minutes, queueing up every other write.
     await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
-    await tx`INSERT INTO app_state_snapshots (state) VALUES (${tx.json(state as any)})`;
+    // Snapshots exist for admin rollback, not per-save auditing — writing one
+    // on every save (some of which are near-identical, seconds apart) grew the
+    // table without bound. Throttle to at most one per hour and cap history to
+    // the most recent 100, so storage stays flat regardless of save frequency.
+    await tx`INSERT INTO app_state_snapshots (state)
+      SELECT ${tx.json(state as any)}::jsonb
+      WHERE NOT EXISTS (SELECT 1 FROM app_state_snapshots WHERE saved_at > now() - interval '1 hour')`;
+    await tx`DELETE FROM app_state_snapshots WHERE id NOT IN (SELECT id FROM app_state_snapshots ORDER BY saved_at DESC LIMIT 100)`;
     await tx`INSERT INTO state_settings (id, data, updated_at) VALUES (true, ${tx.json(state.settings as any)}, now()) ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`;
 
     // Each table below does at most one bulk upsert plus one bulk stale-row
@@ -113,6 +120,20 @@ export async function putState(data: string) {
     }
     await tx`DELETE FROM state_audits WHERE NOT (id = ANY(${auditIds}::text[]))`;
   });
+}
+
+export async function listSnapshots(limit = 50): Promise<{ id: number; savedAt: string }[]> {
+  await ensureStateSchema();
+  const sql = getSql();
+  return sql<{ id: number; savedAt: string }[]>`SELECT id, saved_at AS "savedAt" FROM app_state_snapshots ORDER BY saved_at DESC LIMIT ${limit}`;
+}
+
+export async function restoreSnapshot(id: number) {
+  await ensureStateSchema();
+  const sql = getSql();
+  const rows = await sql<{ state: State }[]>`SELECT state FROM app_state_snapshots WHERE id = ${id}`;
+  if (!rows.length) throw new Error("snapshot not found");
+  await putState(JSON.stringify(rows[0].state));
 }
 
 export async function deleteState() {

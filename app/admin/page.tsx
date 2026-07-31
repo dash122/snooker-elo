@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentMember, listMembers } from "../../db/auth";
-import { getState } from "../../db/state";
+import { getState, listSnapshots } from "../../db/state";
 import MemberDirectory, { Avatar, type Member, type Player } from "./MemberDirectory";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
+import SnapshotList from "./SnapshotList";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,9 @@ const zh = {
   selfDelete: "無法刪除您目前登入的帳戶。",
   lastAdmin: "至少需要保留一位管理員帳戶。",
   hasMatches: "此球員已有比賽紀錄，無法刪除檔案。請先停用帳戶，或移除相關賽事後再試。",
+  restored: "資料已還原至所選快照。",
+  snapshotsSection: "資料備份快照", snapshotsSub: "系統每小時最多保留一個完整資料備份，最多保留 100 個。還原會以該時間點的資料覆蓋目前所有資料。",
+  snapshotsEmpty: "暫無備份快照。", restore: "還原",
   statAccounts: "帳戶總數", statAdmins: "管理員", statUnlinked: "待連結球員檔案", statAllLinked: "全部已連結",
   statNoAccount: "球員待開帳戶", statAllHaveAccounts: "球員全部已開帳戶",
   attentionTitle: "需要處理", attentionSub: "以下帳戶未連結球員檔案，成績不會計入排行榜。選擇對應的球員即可連結。",
@@ -29,13 +33,13 @@ const zh = {
   add: "新增帳戶", directorySection: "成員目錄", back: "返回我的帳戶",
 };
 
-type Search = { error?: string; created?: string; updated?: string; linked?: string; deleted?: string; who?: string; player?: string };
+type Search = { error?: string; created?: string; updated?: string; linked?: string; deleted?: string; restored?: string; who?: string; player?: string };
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<Search> }) {
   const user = await getCurrentMember();
   if (!user) redirect("/login");
   if (user.role !== "admin") redirect("/account");
-  const [p, members, raw] = await Promise.all([searchParams, listMembers(), getState()]);
+  const [p, members, raw, snapshots] = await Promise.all([searchParams, listMembers(), getState(), listSnapshots(20)]);
   const players: Player[] = raw ? (JSON.parse(raw) as { players?: Player[] }).players ?? [] : [];
   const linkedIds = new Set(players.map(player => player.id));
   const isLinked = (member: Member) => !!member.statePlayerId && linkedIds.has(member.statePlayerId);
@@ -63,6 +67,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       {p.updated && <p className="form-success">{note(zh.updated)}</p>}
       {p.linked && <p className="form-success">{note(zh.linkedOne)}</p>}
       {p.deleted && <p className="form-success">{note(zh.deleted)}</p>}
+      {p.restored && <p className="form-success">{zh.restored}</p>}
       {p.error && <p className="form-error">
         {p.error === "exists" ? zh.exists
           : p.error === "self-delete" ? zh.selfDelete
@@ -135,6 +140,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <h2>{zh.directorySection}</h2>
         <MemberDirectory members={members} players={players} currentEmail={user.email} />
       </section>
+
+      <details className="admin-section">
+        <summary>{zh.snapshotsSection}</summary>
+        <p className="admin-section-sub">{zh.snapshotsSub}</p>
+        {snapshots.length === 0
+          ? <p className="admin-section-sub">{zh.snapshotsEmpty}</p>
+          : <SnapshotList snapshots={snapshots} restoreLabel={zh.restore} confirmMessage="確定要以此快照覆蓋目前所有資料嗎？此操作無法復原。" />}
+      </details>
 
       <Link className="more admin-back" href="/account">{zh.back}</Link>
     </section>
