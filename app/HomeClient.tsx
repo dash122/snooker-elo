@@ -465,12 +465,16 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     toastTimer.current=setTimeout(()=>{setToast("");setUndoSnapshot(null)},restorable?2600:3200);
     try {
       const r=await fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(next)});
-      if(!r.ok) throw new Error();
-    } catch {
+      if(!r.ok){
+        const body=await r.json().catch(()=>null);
+        throw new Error(typeof body?.error==="string"?body.error:"");
+      }
+    } catch (error) {
       if(toastTimer.current)clearTimeout(toastTimer.current);
       if(undoTimer.current)clearTimeout(undoTimer.current);
       setUndoSnapshot(null);
-      setToast("未能連接伺服器；資料仍保留在此畫面，請稍後再試。");
+      const reason=error instanceof Error?error.message:"";
+      setToast(reason?`未能儲存：${reason}`:"未能連接伺服器；資料仍保留在此畫面，請稍後再試。");
       toastTimer.current=setTimeout(()=>setToast(""),3200);
     } finally { setSaving(false); }
   }
