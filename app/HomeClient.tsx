@@ -385,6 +385,8 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const undoTimer = useRef<ReturnType<typeof setTimeout>|null>(null);
   const [saving,setSaving] = useState(false);
   const [recordMenuOpen,setRecordMenuOpen] = useState(false);
+  const [pullDistance,setPullDistance] = useState(0);
+  const [refreshing,setRefreshing] = useState(false);
   const [draft,setDraft] = useState({mode:"1v1" as MatchMode,teamAName:"Team A",teamBName:"Team B",a:"",b:"",a2:"",b2:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[] as {playerId:string;value:number}[]});
   const [playerForm,setPlayerForm] = useState({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});
   const ownPlayerId=user?.statePlayerId;
@@ -396,13 +398,58 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     if(local) try { setDraft(JSON.parse(local)); } catch {}
     fetch("/api/state").then(r=>r.ok?r.json():null).then(v=>{if(!v?.players)return;const upgraded=upgradeState(v);setData(upgraded.state);if(upgraded.changed)fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(upgraded.state)}).catch(()=>{});}).catch(()=>{});
   },[]);
+  async function refreshData(){
+    try{
+      const r=await fetch("/api/state",{cache:"no-store"});
+      const v=r.ok?await r.json():null;
+      if(v?.players)setData(upgradeState(v).state);
+    }catch{}
+  }
   useEffect(()=>{
     const timer=setInterval(()=>{
       if(document.visibilityState!=="visible"||saving)return;
-      fetch("/api/state").then(r=>r.ok?r.json():null).then(v=>v?.players&&setData(upgradeState(v).state)).catch(()=>{});
+      refreshData();
     },15000);
     return ()=>clearInterval(timer);
   },[saving]);
+  // Standalone/PWA mode drops the browser's native pull-to-refresh along with
+  // its chrome, so members on the home-screen app have no gesture at all for
+  // "someone else might have just recorded a match" — this reimplements it by
+  // hand, only engaging when the page is already scrolled to the very top so
+  // it can't hijack an ordinary upward scroll mid-page.
+  const pullStart = useRef<number|null>(null);
+  const PULL_THRESHOLD = 72;
+  useEffect(()=>{
+    const onTouchStart=(e:TouchEvent)=>{
+      if(window.scrollY>0||refreshing)return;
+      pullStart.current=e.touches[0].clientY;
+    };
+    const onTouchMove=(e:TouchEvent)=>{
+      if(pullStart.current==null)return;
+      const delta=e.touches[0].clientY-pullStart.current;
+      if(delta<=0){setPullDistance(0);return;}
+      if(window.scrollY>0){pullStart.current=null;setPullDistance(0);return;}
+      setPullDistance(Math.min(delta,PULL_THRESHOLD*1.5));
+    };
+    const onTouchEnd=async ()=>{
+      if(pullStart.current==null)return;
+      pullStart.current=null;
+      const shouldRefresh=pullDistance>=PULL_THRESHOLD;
+      setPullDistance(0);
+      if(!shouldRefresh)return;
+      setRefreshing(true);
+      await refreshData();
+      setRefreshing(false);
+    };
+    window.addEventListener("touchstart",onTouchStart,{passive:true});
+    window.addEventListener("touchmove",onTouchMove,{passive:true});
+    window.addEventListener("touchend",onTouchEnd);
+    return ()=>{
+      window.removeEventListener("touchstart",onTouchStart);
+      window.removeEventListener("touchmove",onTouchMove);
+      window.removeEventListener("touchend",onTouchEnd);
+    };
+  },[pullDistance,refreshing]);
   useEffect(()=>{ localStorage.setItem("scaa-draft",JSON.stringify(draft)); },[draft]);
   // The match tab is egocentric in practice — a member opens it to check their
   // own last result, not the club archive. Restore whatever they were last
@@ -679,6 +726,9 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   }
 
   return <><style>{`.read-only .card-tools,.read-only .hero.small > .primary{display:none}`}</style><div className={`shell${user?"":" read-only"}`}>
+    <div className={`pull-refresh${refreshing?" spinning":""}`} style={{height:refreshing?PULL_THRESHOLD:pullDistance,opacity:refreshing||pullDistance>0?1:0}} aria-hidden="true">
+      <span/>
+    </div>
     <aside className="side">
       <div className="brand"><span>S</span><div><b>SCAA</b><small>Snooker ELO</small></div></div>
       <nav>{[["leaderboard","排行榜"],["matches","比賽"],["availability","約戰"],["players","球員"],["settings","設定"]].map(([id,label])=>

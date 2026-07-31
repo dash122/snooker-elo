@@ -2804,3 +2804,9 @@ button.match-hero-window-action:hover,button.match-hero-window-action:focus-visi
     box-shadow:0 1px 0 rgba(18,61,55,.06);
   }
 }
+
+.pull-refresh{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:center;overflow:hidden;transition:opacity .15s;pointer-events:none}
+.pull-refresh>span{width:22px;height:22px;border-radius:50%;border:3px solid #cfe0d8;border-top-color:var(--green)}
+.pull-refresh.spinning>span{animation:pull-refresh-spin .7s linear infinite}
+@keyframes pull-refresh-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.pull-refresh.spinning>span{animation:none}}
