@@ -9,8 +9,19 @@ const defaultState = {
   audits: [],
 };
 
+// Saving any 1v1 match recalibrates conversion/curvature and stamps
+// calibration.updatedAt with the current time (see recalibrate() in
+// HomeClient.tsx), so those fields differ on essentially every save. Compare
+// only the knobs an admin actually sets by hand — otherwise no ordinary
+// member could ever save a normal match.
+function settingsForCompare(settings: any) {
+  if (!settings) return settings;
+  const { conversion, curvature, calibration, ...rest } = settings;
+  return rest;
+}
+
 function memberCanWrite(current: any, next: any, playerId?: string) {
-  if (!playerId || !current || !next || JSON.stringify(current.settings) !== JSON.stringify(next.settings)) return false;
+  if (!playerId || !current || !next || JSON.stringify(settingsForCompare(current.settings)) !== JSON.stringify(settingsForCompare(next.settings))) return false;
   const currentPlayers = new Map((current.players ?? []).map((player: any) => [player.id, player]));
   const nextPlayers = new Map((next.players ?? []).map((player: any) => [player.id, player]));
   if (currentPlayers.size !== nextPlayers.size || !currentPlayers.has(playerId) || !nextPlayers.has(playerId)) return false;
