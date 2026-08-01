@@ -1,8 +1,35 @@
+import { createHash } from "node:crypto";
 import { getSql } from "./sql";
 
 type Player = { id:string; name:string; short:string; handicap:number|null; rating:number; colour?:string; avatar?:string|null; initialRating:number; active:boolean; wins:number; losses:number; draws:number; framesWon:number; framesLost:number; lastChange:number; form:string[] };
 type Match = { id:string; a:string; b:string; a2?:string; b2?:string; mode?:string; teamAName?:string; teamBName?:string; scoreA:number; scoreB:number; playedOn:string; entryMode?:"match"|"aggregate"; frameEvidence?:number; performanceScore?:number; evidenceWeight?:number; handicapAdjustment?:number; overHandicapElo?:number; overHandicapMultiplier?:number; highBreaks?:{playerId:string;value:number}[]; actual:number; giver:string|null; official:number|null; extra:number; expectedA:number; beforeA:number; beforeB:number; beforeA2?:number; beforeB2?:number; afterA:number; afterB:number; afterA2?:number; afterB2?:number; deltaA:number; marginMultiplier?:number; status:"confirmed"|"void"; createdAt:string };
 type State = { players:Player[]; matches:Match[]; settings:Record<string, unknown>; audits:{id:string;text:string;at:string}[] };
+type SnapshotEntity = { entityType: "player"|"match"|"settings"|"audit"; entityId: string; position: number; payload: unknown };
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function snapshotHash(entityType: SnapshotEntity["entityType"], entityId: string, payload: unknown) {
+  // md5 is used only as a compact content-address key, not as a security
+  // primitive. Including the type and id avoids accidental cross-entity
+  // collisions when two rows happen to have the same shape.
+  return createHash("md5").update(`${entityType}\0${entityId}\0${canonicalJson(payload)}`).digest("hex");
+}
+
+function snapshotEntities(state: State): SnapshotEntity[] {
+  return [
+    { entityType: "settings", entityId: "settings", position: 0, payload: state.settings },
+    ...state.players.map((payload, position) => ({ entityType: "player" as const, entityId: payload.id, position, payload })),
+    ...state.matches.map((payload, position) => ({ entityType: "match" as const, entityId: payload.id, position, payload })),
+    ...state.audits.map((payload, position) => ({ entityType: "audit" as const, entityId: payload.id, position, payload })),
+  ];
+}
 
 let schemaReady: Promise<unknown> | null = null;
 export function ensureStateSchema() {
@@ -17,6 +44,60 @@ export function ensureStateSchema() {
     await sql.begin(async tx => {
       await tx`SELECT pg_advisory_xact_lock(72591002)`;
       await tx`CREATE TABLE IF NOT EXISTS app_state_snapshots (id bigserial PRIMARY KEY, state jsonb NOT NULL, saved_at timestamptz NOT NULL DEFAULT now())`;
+      await tx`ALTER TABLE app_state_snapshots ALTER COLUMN state DROP NOT NULL`;
+      await tx`CREATE TABLE IF NOT EXISTS app_state_snapshot_entities (content_hash text PRIMARY KEY, entity_type text NOT NULL, entity_id text NOT NULL, payload jsonb NOT NULL)`;
+      await tx`CREATE TABLE IF NOT EXISTS app_state_snapshot_items (snapshot_id bigint NOT NULL REFERENCES app_state_snapshots(id) ON DELETE CASCADE, entity_type text NOT NULL, entity_id text NOT NULL, content_hash text NOT NULL REFERENCES app_state_snapshot_entities(content_hash), position integer NOT NULL, PRIMARY KEY (snapshot_id, entity_type, entity_id))`;
+      await tx`CREATE INDEX IF NOT EXISTS app_state_snapshot_items_lookup_idx ON app_state_snapshot_items (snapshot_id, entity_type, position)`;
+      // Convert legacy full-document snapshots once. The UPDATE below makes
+      // this backfill self-terminating on future cold starts and releases the
+      // large JSONB value after its normalized references are safe.
+      await tx`INSERT INTO app_state_snapshot_entities (content_hash, entity_type, entity_id, payload)
+        SELECT md5('settings' || chr(0) || 'settings' || chr(0) || (s.state->'settings')::text), 'settings', 'settings', s.state->'settings'
+        FROM app_state_snapshots s
+        WHERE s.state IS NOT NULL AND s.state ? 'settings'
+        ON CONFLICT (content_hash) DO NOTHING`;
+      await tx`INSERT INTO app_state_snapshot_entities (content_hash, entity_type, entity_id, payload)
+        SELECT md5('player' || chr(0) || (item->>'id') || chr(0) || item::text), 'player', item->>'id', item
+        FROM app_state_snapshots s
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'players', '[]'::jsonb)) AS rows(item)
+        WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
+        ON CONFLICT (content_hash) DO NOTHING`;
+      await tx`INSERT INTO app_state_snapshot_entities (content_hash, entity_type, entity_id, payload)
+        SELECT md5('match' || chr(0) || (item->>'id') || chr(0) || item::text), 'match', item->>'id', item
+        FROM app_state_snapshots s
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'matches', '[]'::jsonb)) AS rows(item)
+        WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
+        ON CONFLICT (content_hash) DO NOTHING`;
+      await tx`INSERT INTO app_state_snapshot_entities (content_hash, entity_type, entity_id, payload)
+        SELECT md5('audit' || chr(0) || (item->>'id') || chr(0) || item::text), 'audit', item->>'id', item
+        FROM app_state_snapshots s
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'audits', '[]'::jsonb)) AS rows(item)
+        WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
+        ON CONFLICT (content_hash) DO NOTHING`;
+      await tx`INSERT INTO app_state_snapshot_items (snapshot_id, entity_type, entity_id, content_hash, position)
+        SELECT s.id, 'settings', 'settings', md5('settings' || chr(0) || 'settings' || chr(0) || (s.state->'settings')::text), 0
+        FROM app_state_snapshots s
+        WHERE s.state IS NOT NULL AND s.state ? 'settings'
+        ON CONFLICT (snapshot_id, entity_type, entity_id) DO NOTHING`;
+      await tx`INSERT INTO app_state_snapshot_items (snapshot_id, entity_type, entity_id, content_hash, position)
+        SELECT s.id, 'player', item->>'id', md5('player' || chr(0) || (item->>'id') || chr(0) || item::text), rows.ordinality::integer - 1
+        FROM app_state_snapshots s
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'players', '[]'::jsonb)) WITH ORDINALITY AS rows(item, ordinality)
+        WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
+        ON CONFLICT (snapshot_id, entity_type, entity_id) DO NOTHING`;
+      await tx`INSERT INTO app_state_snapshot_items (snapshot_id, entity_type, entity_id, content_hash, position)
+        SELECT s.id, 'match', item->>'id', md5('match' || chr(0) || (item->>'id') || chr(0) || item::text), rows.ordinality::integer - 1
+        FROM app_state_snapshots s
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'matches', '[]'::jsonb)) WITH ORDINALITY AS rows(item, ordinality)
+        WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
+        ON CONFLICT (snapshot_id, entity_type, entity_id) DO NOTHING`;
+      await tx`INSERT INTO app_state_snapshot_items (snapshot_id, entity_type, entity_id, content_hash, position)
+        SELECT s.id, 'audit', item->>'id', md5('audit' || chr(0) || (item->>'id') || chr(0) || item::text), rows.ordinality::integer - 1
+        FROM app_state_snapshots s
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'audits', '[]'::jsonb)) WITH ORDINALITY AS rows(item, ordinality)
+        WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
+        ON CONFLICT (snapshot_id, entity_type, entity_id) DO NOTHING`;
+      await tx`UPDATE app_state_snapshots SET state = NULL WHERE state IS NOT NULL`;
       await tx`CREATE TABLE IF NOT EXISTS state_settings (id boolean PRIMARY KEY DEFAULT true CHECK (id), data jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())`;
       await tx`CREATE TABLE IF NOT EXISTS state_audits (id text PRIMARY KEY, text text NOT NULL, occurred_at timestamptz NOT NULL)`;
       // Added after the first release — existing deployments get it here rather
@@ -58,14 +139,35 @@ export async function putState(data: string) {
     // orphaned session sits idle holding locks before Postgres kills it itself
     // — previously it could sit for 10+ minutes, queueing up every other write.
     await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
+    await tx`SELECT pg_advisory_xact_lock(72591003)`;
     // Snapshots exist for admin rollback, not per-save auditing — writing one
     // on every save (some of which are near-identical, seconds apart) grew the
     // table without bound. Throttle to at most one per hour and cap history to
     // the most recent 100, so storage stays flat regardless of save frequency.
-    await tx`INSERT INTO app_state_snapshots (state)
-      SELECT ${tx.json(state as any)}::jsonb
-      WHERE NOT EXISTS (SELECT 1 FROM app_state_snapshots WHERE saved_at > now() - interval '1 hour')`;
+    const snapshotRows = await tx<{ id: number }[]>`INSERT INTO app_state_snapshots (state)
+      SELECT NULL::jsonb
+      WHERE NOT EXISTS (SELECT 1 FROM app_state_snapshots WHERE saved_at > now() - interval '1 hour')
+      RETURNING id`;
+    if (snapshotRows.length) {
+      const snapshotId = snapshotRows[0].id;
+      const entities = snapshotEntities(state).map(entity => ({
+        content_hash: snapshotHash(entity.entityType, entity.entityId, entity.payload),
+        entity_type: entity.entityType,
+        entity_id: entity.entityId,
+        payload: tx.json(entity.payload as any),
+      }));
+      await tx`INSERT INTO app_state_snapshot_entities ${entities} ON CONFLICT (content_hash) DO NOTHING`;
+      const items = snapshotEntities(state).map(entity => ({
+        snapshot_id: snapshotId,
+        entity_type: entity.entityType,
+        entity_id: entity.entityId,
+        content_hash: snapshotHash(entity.entityType, entity.entityId, entity.payload),
+        position: entity.position,
+      }));
+      await tx`INSERT INTO app_state_snapshot_items ${items}`;
+    }
     await tx`DELETE FROM app_state_snapshots WHERE id NOT IN (SELECT id FROM app_state_snapshots ORDER BY saved_at DESC LIMIT 100)`;
+    await tx`DELETE FROM app_state_snapshot_entities e WHERE NOT EXISTS (SELECT 1 FROM app_state_snapshot_items i WHERE i.content_hash = e.content_hash)`;
     await tx`INSERT INTO state_settings (id, data, updated_at) VALUES (true, ${tx.json(state.settings as any)}, now()) ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`;
 
     // Each table below does at most one bulk upsert plus one bulk stale-row
@@ -131,15 +233,26 @@ export async function listSnapshots(limit = 50): Promise<{ id: number; savedAt: 
 export async function restoreSnapshot(id: number) {
   await ensureStateSchema();
   const sql = getSql();
-  const rows = await sql<{ state: State }[]>`SELECT state FROM app_state_snapshots WHERE id = ${id}`;
+  const rows = await sql<{ state: State | null }[]>`SELECT state FROM app_state_snapshots WHERE id = ${id}`;
   if (!rows.length) throw new Error("snapshot not found");
-  await putState(JSON.stringify(rows[0].state));
+  let state = rows[0].state;
+  if (!state) {
+    const items = await sql<{ entityType: SnapshotEntity["entityType"]; entityId: string; position: number; payload: unknown }[]>`SELECT i.entity_type AS "entityType", i.entity_id AS "entityId", i.position, e.payload FROM app_state_snapshot_items i JOIN app_state_snapshot_entities e ON e.content_hash = i.content_hash WHERE i.snapshot_id = ${id} ORDER BY i.entity_type, i.position`;
+    state = {
+      players: items.filter(item => item.entityType === "player").map(item => item.payload as Player),
+      matches: items.filter(item => item.entityType === "match").map(item => item.payload as Match),
+      settings: (items.find(item => item.entityType === "settings")?.payload ?? {}) as Record<string, unknown>,
+      audits: items.filter(item => item.entityType === "audit").map(item => item.payload as { id:string;text:string;at:string }),
+    };
+  }
+  await putState(JSON.stringify(state));
 }
 
 export async function deleteState() {
   await ensureStateSchema(); const sql = getSql();
   await sql.begin(async tx => {
     await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
+    await tx`SELECT pg_advisory_xact_lock(72591003)`;
     await tx`DELETE FROM state_audits`; await tx`DELETE FROM state_matches`; await tx`DELETE FROM state_players`; await tx`DELETE FROM state_settings`;
   });
 }
