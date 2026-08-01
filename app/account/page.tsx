@@ -1,3 +1,6 @@
+Exit code: 0
+Wall time: 0.3 seconds
+Output:
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentMember } from "../../db/auth";
@@ -6,7 +9,7 @@ import { InteractiveEloChart, type EloTrendPoint } from "../UiBits";
 import { avatarHex } from "../avatar-colours";
 import AccountForms from "./AccountForms";
 import MatchHistory, { type MatchRecord } from "./MatchHistory";
-import { resolveInitials } from "../api/account/validate";
+import { deriveInitials, resolveInitials } from "../api/account/validate";
 
 export const dynamic = "force-dynamic";
 
@@ -91,8 +94,8 @@ function matchRecords(player: Player, matches: Match[], players: Player[]): Matc
       id: match.id, mode: match.mode === "2v2" ? "2v2" : "1v1", date: match.playedOn || match.createdAt.slice(0, 10),
       result: ownScore === opponentScore ? "D" : ownScore > opponentScore ? "W" : "L",
       score: `${ownScore}–${opponentScore}`, ownScore, opponentScore,
-      opponent: opponentName, opponentShort: opponentName,
-      opponentColour: opponentPlayer?.colour ?? null, opponentAvatar: opponentPlayer?.avatar ?? null,
+      opponent: opponentName, opponentShort: opponentPlayer?.short ?? deriveInitials(opponentName),
+      opponentColour: opponentPlayer?.colour ?? null, opponentAvatar: null,
       opponentRating: opponentRatings.length ? opponentRatings.reduce((sum, value) => sum + value, 0) / opponentRatings.length : undefined,
       before, after, delta: after - before,
       // `actual` is signed from A's point of view; flip it for the B side so
@@ -159,10 +162,7 @@ export default async function AccountPage() {
 
     <section className="account-hero">
       <div className="account-identity">
-        {member.avatar
-          // eslint-disable-next-line @next/next/no-img-element -- data URI, no loader needed
-          ? <img className="member-avatar" src={member.avatar} alt="" />
-          : <div className="member-avatar" style={{ background: avatarHex(member.iconColour ?? player?.colour) }}>{initials}</div>}
+        <div className="member-avatar" style={{ background: avatarHex(member.iconColour ?? player?.colour) }}>{initials}</div>
         <div>
           <p className="kicker">{zh.account}</p>
           <h1>{member.displayName}</h1>
@@ -234,3 +234,4 @@ export default async function AccountPage() {
     </div>}
   </main>;
 }
+
