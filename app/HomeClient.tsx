@@ -89,20 +89,6 @@ function officialHandicapAnchor(data:AppState) {
 function suggestedHandicap(p: Player,data: AppState) {
   return roundToEven(officialHandicapAnchor(data)-eloToHandicap(p.rating-clubMeanRating(data),data.settings));
 }
-// Holds today's club average/anchor fixed and re-runs the suggestion against a
-// past rating, so the result isolates how much *this player's* rating moved —
-// it doesn't get confused by the rest of the club also playing in between.
-function suggestedHandicapTrend(p:Player,data:AppState,matchesAgo:number) {
-  const points=playerTrendPoints(p,data);
-  if(points.length<2) return null;
-  const index=Math.max(0,points.length-1-matchesAgo);
-  const past=points[index].before;
-  const meanRating=clubMeanRating(data),anchor=officialHandicapAnchor(data);
-  return {
-    now:suggestedHandicap(p,data),
-    past:roundToEven(anchor-eloToHandicap(past-meanRating,data.settings)),
-  };
-}
 function recentFramesPerMatch(p:Player,data:AppState,count:number) {
   const matches=[...data.matches].filter(m=>m.status==="confirmed"&&!isEntertainmentMode(m.mode)&&isParticipant(m,p.id)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
   const recent=matches.slice(0,count),prior=matches.slice(count,count*2);
@@ -1754,7 +1740,6 @@ function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOppone
 }
 function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFindOpponent}:{player:Player;rank:number;data:AppState;onCompare:(opponent:Player)=>void;onViewAllMatches:()=>void;onMatch:(matchId:string)=>void;onFindOpponent:(playerId:string,date:string)=>void}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data),series=playerSeries(player,data),trendPoints=playerTrendPoints(player,data),high=Math.max(...series),low=Math.min(...series);const provisional=g<data.settings.provisionalGames;
   const frameTrend=recentFramesPerMatch(player,data,5);
-  const handicapTrend=suggestedHandicapTrend(player,data,5);
   /* One hero, then a single `.profile-body` grid: every section below is a `.profile-section`, so the
      gaps, surfaces and heads come from one place rather than from each section's own margins. */
   /* A plain div, not a <header>: the global `header{height:62px}` page rule would clamp this and
@@ -1770,17 +1755,17 @@ function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFin
   <div className="profile-body">
     {/* Current ELO already leads the hero above, so it isn't repeated here. */}
     <div className="profile-stats"><div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div><div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div><div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div></div>
-    {(frameTrend.recent!=null||handicapTrend)&&<div className="profile-stats profile-progress">
+    {(frameTrend.recent!=null||player.framesWon+player.framesLost>0)&&<div className="profile-stats profile-progress">
       {frameTrend.recent!=null&&<div>
         <small>近 5 場局均得分</small>
         <b className={frameTrend.prior!=null&&frameTrend.recent>frameTrend.prior?"positive":undefined}>{frameTrend.recent.toFixed(1)} 局</b>
         {frameTrend.prior!=null&&<span className="profile-progress-sub">前 5 場 {frameTrend.prior.toFixed(1)} 局</span>}
       </div>}
-      {handicapTrend&&handicapTrend.now!==handicapTrend.past&&<div>
-        <small>建議讓分走勢</small>
-        <b className={Math.abs(handicapTrend.now)<Math.abs(handicapTrend.past)?"positive":undefined}>{handicapTrend.past} → {handicapTrend.now}</b>
-        <span className="profile-progress-sub">近 5 場評分變化</span>
-      </div>}
+      <div>
+        <small>局數勝率</small>
+        <b>{Math.round(frameRate(player)*100)}%</b>
+        <span className="profile-progress-sub">{player.framesWon} 局獲勝</span>
+      </div>
     </div>}
     <PlayerUpcomingSlots player={player} onFindOpponent={onFindOpponent}/>
     <BreakStats player={player} data={data}/>
