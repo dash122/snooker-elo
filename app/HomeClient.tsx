@@ -1606,7 +1606,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
 function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) { const [s,setS]=useState(data.settings);const field=(k:"start"|"provisionalGames"|"kProvisional"|"kRated"|"conversion"|"curvature"|"handicapSoftCap"|"winnerBonus"|"overHandicapBoost"|"overHandicapScale",label:string,step=1)=><label>{label}<input type="number" step={step} value={s[k]??""} onChange={e=>setS({...s,[k]:+e.target.value})}/></label>;return <><p className="kicker">公開管理</p><h2>編輯 ELO 設定</h2><p className="warning">任何人都可修改。儲存後會以新規則重播全部歷史評分。</p><div className="two">{field("start","起始 ELO")}{field("provisionalGames","臨時門檻")}{field("kProvisional","臨時 K")}{field("kRated","正式 K")}{field("conversion","10 分附近每點換算",.25)}{field("curvature","非線性讓分曲線",.01)}{field("handicapSoftCap","讓分等效 ELO 軟上限")}{field("winnerBonus","勝者虛擬局數",.1)}{field("overHandicapBoost","超額讓分最高加乘",.05)}{field("overHandicapScale","超額讓分加乘尺度")}</div><button className="primary full" onClick={()=>confirm("確定更新並重播全部歷史 ELO？")&&onSave(s)}>儲存並重播</button></>}
 type RivalSnapshot = {
   opponent:Player; wins:number; losses:number; draws:number; matches:number;
-  framesWon:number; framesLost:number; frameRate:number; winRate:number;
+  framesWon:number; framesLost:number; frameRate:number;
   latest:string; hasAggregate:boolean; label?:string;
 };
 
@@ -1619,7 +1619,7 @@ function rivalSnapshots(player:Player,data:AppState):RivalSnapshot[] {
     if(!opponent)continue;
     const first=match.a===player.id;
     const scored=first?match.scoreA:match.scoreB,conceded=first?match.scoreB:match.scoreA;
-    const current=byOpponent.get(opponentId)??{opponent,wins:0,losses:0,draws:0,matches:0,framesWon:0,framesLost:0,frameRate:0,winRate:0,latest:"",hasAggregate:false};
+    const current=byOpponent.get(opponentId)??{opponent,wins:0,losses:0,draws:0,matches:0,framesWon:0,framesLost:0,frameRate:0,latest:"",hasAggregate:false};
     current.framesWon+=scored;current.framesLost+=conceded;
     current.latest=current.latest>match.playedOn?current.latest:match.playedOn;
     if(match.entryMode==="aggregate")current.hasAggregate=true;
@@ -1631,13 +1631,13 @@ function rivalSnapshots(player:Player,data:AppState):RivalSnapshot[] {
   }
   const rivals=[...byOpponent.values()].map(rival=>{
     const totalFrames=rival.framesWon+rival.framesLost;
-    return {...rival,frameRate:totalFrames?rival.framesWon/totalFrames:0,winRate:rival.matches?rival.wins/rival.matches:0};
+    return {...rival,frameRate:totalFrames?rival.framesWon/totalFrames:0};
   });
   const picks:{label:string;sort:(a:RivalSnapshot,b:RivalSnapshot)=>number}[]=[
     {label:"最多交手",sort:(a,b)=>b.matches-a.matches||(b.framesWon+b.framesLost)-(a.framesWon+a.framesLost)},
-    {label:"最難應付",sort:(a,b)=>a.winRate-b.winRate||b.matches-a.matches},
-    {label:"最佳對賽",sort:(a,b)=>b.winRate-a.winRate||b.matches-a.matches},
-    {label:"勢均力敵",sort:(a,b)=>Math.abs(a.winRate-.5)-Math.abs(b.winRate-.5)||b.matches-a.matches},
+    {label:"最難應付",sort:(a,b)=>a.frameRate-b.frameRate||b.matches-a.matches},
+    {label:"最佳對賽",sort:(a,b)=>b.frameRate-a.frameRate||b.matches-a.matches},
+    {label:"勢均力敵",sort:(a,b)=>Math.abs(a.frameRate-.5)-Math.abs(b.frameRate-.5)||b.matches-a.matches},
     {label:"最近交手",sort:(a,b)=>b.latest.localeCompare(a.latest)}
   ];
   const selected:RivalSnapshot[]=[];
@@ -1652,11 +1652,11 @@ function RivalrySnapshot({player,data,onCompare}:{player:Player;data:AppState;on
   const rivals=rivalSnapshots(player,data);
   return <section className="profile-section rivalry-snapshot"><div className="profile-section-head"><div><p className="kicker">對賽概覽</p><h3>主要對手</h3></div></div>
     {rivals.length===0?<div className="rivalry-empty"><b>尚未有對賽記錄</b><span>記錄第一場比賽後，主要對手會顯示在這裡。</span></div>:<div className="rivalry-list">{rivals.map(rival=>{
-      const percent=Math.round((rival.matches?rival.winRate:rival.frameRate)*100);
+      const percent=Math.round(rival.frameRate*100);
       const confidence=Math.min(1,.28+Math.max(rival.matches,(rival.framesWon+rival.framesLost)/12)*.18);
       return <button key={rival.opponent.id} className="rivalry-row" onClick={()=>onCompare(rival.opponent)} aria-label={`查看 ${player.name} 對 ${rival.opponent.name} 的詳細對賽`}>
         <PlayerBadge player={rival.opponent}/><span className="rivalry-person"><small>{rival.label}</small><b>{rival.opponent.name}</b><em>{rival.matches?`${rival.wins} 勝 · ${rival.losses} 負 · ${rival.draws} 和`:`歷史局數匯總`}{rival.hasAggregate&&rival.matches?" · 另有匯總":""}</em></span>
-        <span className="rivalry-heat"><b>{percent}%</b><small>{rival.matches?"場數勝率":"局數勝率"}</small><em aria-hidden="true"><i style={{width:`${percent}%`,opacity:confidence}}/></em></span><strong>›</strong>
+        <span className="rivalry-heat"><b>{percent}%</b><small>局數勝率</small><em aria-hidden="true"><i style={{width:`${percent}%`,opacity:confidence}}/></em></span><strong>›</strong>
       </button>;
     })}</div>}
   </section>;
