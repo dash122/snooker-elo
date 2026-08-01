@@ -215,6 +215,30 @@ function highestBreak(p:Player,data:AppState){
   const values=data.matches.filter(m=>m.status==="confirmed").flatMap(m=>(m.highBreaks??[]).filter(b=>b.playerId===p.id&&b.value>0&&b.value<=147).map(b=>b.value));
   return values.length?Math.max(...values):null;
 }
+type BreakChartMode="personal"|"monthly";
+type BreakChartPoint={period:string;value:number};
+function breakChartPoints(player:Player,data:AppState,mode:BreakChartMode):BreakChartPoint[]{
+  const byPeriod=new Map<string,number>();
+  const matches=[...data.matches]
+    .filter(m=>m.status==="confirmed"&&isParticipant(m,player.id))
+    .sort((a,b)=>(a.playedOn||a.createdAt.slice(0,10)).localeCompare(b.playedOn||b.createdAt.slice(0,10))||a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id));
+  for(const match of matches){
+    const values=(match.highBreaks??[]).filter(item=>item.playerId===player.id&&item.value>0&&item.value<=147).map(item=>item.value);
+    const date=match.playedOn||match.createdAt.slice(0,10),period=mode==="monthly"?date.slice(0,7):date;
+    byPeriod.set(period,Math.max(byPeriod.get(period)??0,...values,0));
+  }
+  const periods=[...byPeriod.keys()].sort();
+  if(mode==="monthly")return periods.map(period=>({period,value:byPeriod.get(period)!}));
+  if(!periods.length)return [];
+  let best=byPeriod.get(periods[0])??0;
+  const points:BreakChartPoint[]=[{period:periods[0],value:best}];
+  for(const period of periods.slice(1)){
+    const value=byPeriod.get(period)??0;
+    if(value>best){best=value;points.push({period,value:best});}
+  }
+  if(today>points[points.length-1].period)points.push({period:today,value:best});
+  return points;
+}
 /** "我讓他 X 分" / "他讓我 X 分" — the same fair-handicap conversion the match form uses, read as a verdict about `me` vs. `p` rather than as a giver/points pair to apply. */
 function handicapVerdict(me:Player,p:Player,s:Settings){
   const eloDifference=me.rating-p.rating;
@@ -1651,6 +1675,39 @@ function RivalrySnapshot({player,data,onCompare}:{player:Player;data:AppState;on
 /** Buckets a break value into its ten-point band, e.g. 47→"40-49", 100+→"100+". */
 function breakBand(value:number){ return value>=100?"100+":`${Math.floor(value/10)*10}-${Math.floor(value/10)*10+9}`; }
 /** Groups the player's recorded breaks into ten-point bands (20-29 up to 100+) so the shape of their form shows at a glance, rather than a flat list of individual scores. */
+function BreakMilestoneChart({player,data}:{player:Player;data:AppState}){
+  const [mode,setMode]=useState<BreakChartMode>("personal");
+  const [activeIndex,setActiveIndex]=useState<number|null>(null);
+  const points=useMemo(()=>breakChartPoints(player,data,mode),[player,data,mode]);
+  if(!points.length)return null;
+  const max=Math.max(...points.map(point=>point.value));
+  const yMax=Math.max(10,Math.ceil(max/10)*10);
+  const x=(index:number)=>points.length===1?50:5+index/(points.length-1)*90;
+  const y=(value:number)=>53-(value/yMax)*43;
+  const linePath=points.reduce((path,point,index)=>index===0?`M ${x(index)} ${y(point.value)}`:`${path} L ${x(index)} ${y(point.value)}`,"");
+  const areaPath=points.length>1?`${linePath} V 53 H ${x(0)} Z`:"";
+  const tickIndexes=[...new Set([0,Math.floor((points.length-1)/2),points.length-1])];
+  const periodLabel=mode==="monthly"?"月份":"日期";
+  const active=activeIndex==null?null:points[activeIndex]??null;
+  return <div className="break-milestone-chart">
+    <div className="break-milestone-plot">
+      <div className="break-chart-y-axis" aria-hidden="true"><span>{yMax}</span><span>{Math.round(yMax/2)}</span><span>0</span></div>
+      <div className="break-chart-canvas" onPointerLeave={()=>setActiveIndex(null)}>
+        <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label={`${player.name} ${mode==="personal"?"個人最佳":"每月最高"}單桿圖表`}>
+          {[10,31,53].map(line=><line key={line} x1="5" y1={line} x2="95" y2={line} className="break-chart-grid"/>)}
+           {active&&<line x1={x(activeIndex!)} y1="6" x2={x(activeIndex!)} y2="56" className="trend-guide"/>}
+          {areaPath&&<path d={areaPath} className="break-chart-area"/>}
+          <path d={linePath} className="break-chart-line"/>
+        </svg>
+               {active&&<div className={`trend-tooltip ${x(activeIndex!)>70?"align-right":x(activeIndex!)<30?"align-left":""}`} style={{left:`${x(activeIndex!)}%`,top:`${Math.max(3,y(active.value)/60*100-7)}%`}} role="status"><small>{active.period}</small><b>{active.value?`${active.value} 分`:"N/A"}</b><span>{active.value?(mode==="personal"?"個人最佳":"該月最高"):"未記錄單桿"}</span></div>}        {points.map((point,index)=><button key={`${point.period}-${point.value}`} type="button" className={`break-chart-point${activeIndex===index?" active":""}`} style={{left:`${x(index)}%`,top:`${y(point.value)/60*100}%`}} onPointerEnter={()=>setActiveIndex(index)} onFocus={()=>setActiveIndex(index)} onBlur={()=>setActiveIndex(null)} onClick={()=>setActiveIndex(current=>current===index?null:index)} title={`${periodLabel} ${point.period}：${point.value?`${mode==="personal"?"個人最佳":"該月最高"} ${point.value} 分`:"N/A"}`} aria-label={`${periodLabel} ${point.period}，${point.value?`${mode==="personal"?"個人最佳":"該月最高"} ${point.value} 分`:"未記錄單桿"}`}/>) }
+      </div>
+    </div>
+    <div className="break-chart-x-axis" aria-hidden="true">{tickIndexes.map(index=><span key={index} style={{left:`${x(index)}%`}}>{points[index].period}</span>)}</div>
+    <p className="chart-summary">{mode==="personal"?`共 ${points.length} 次個人最佳里程碑。`:`共 ${points.length} 個有賽事記錄月份；N/A 代表該月未記錄單桿。`}</p>
+    <div className="mini-toggle break-milestone-toggle" role="group" aria-label="高桿圖表顯示方式"><button type="button" aria-pressed={mode==="personal"} className={mode==="personal"?"active":""} onClick={()=>{setMode("personal");setActiveIndex(null)}}>個人最佳</button><button type="button" aria-pressed={mode==="monthly"} className={mode==="monthly"?"active":""} onClick={()=>{setMode("monthly");setActiveIndex(null)}}>每月最高</button></div>
+  </div>;
+}
+
 function BreakStats({player,data}:{player:Player;data:AppState}) {
   const breaks=data.matches.filter(m=>m.status==="confirmed").flatMap(m=>
     (m.highBreaks??[]).filter(item=>item.playerId===player.id&&item.value>0&&item.value<=147).map(item=>item.value));
@@ -1663,7 +1720,9 @@ function BreakStats({player,data}:{player:Player;data:AppState}) {
   for(const v of breaks) counts.set(band(v),(counts.get(band(v))??0)+1);
   const maxCount=Math.max(1,...allBands.map(b=>counts.get(b)??0));
   return <section className="profile-section break-stats">
-    <div className="profile-section-head"><div><p className="kicker">單桿表現</p><h3>最高單桿</h3></div><b>{highest}</b></div>
+    <div className="profile-section-head break-milestone-head"><div><p className="kicker">高桿里程碑</p><h3>突破軌跡</h3></div><div className="break-stats-record"><small>最高單桿</small><b>{highest}</b></div></div>
+    <BreakMilestoneChart player={player} data={data}/>
+    <div className="break-stats-subhead"><span>單桿表現</span><b>{highest}</b></div>
     <div className="break-bar-chart">{allBands.map(band=>{const count=counts.get(band)??0;return <div className="break-bar-row" key={band}>
       <span className="break-bar-label">{band}</span>
       <span className="break-bar-track"><i style={{width:count?`${8+count/maxCount*92}%`:"0%"}}/></span>
