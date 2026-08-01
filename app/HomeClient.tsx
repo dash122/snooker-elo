@@ -1377,7 +1377,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
 
   const tests:Record<PlayersChip,(p:Player)=>boolean>={
     all:()=>true,
-    near:p=>Boolean(me)&&Math.abs(p.rating-me!.rating)<=80,
+    near:p=>Boolean(me)&&Math.abs(p.rating-me!.rating)<=200,
     free:isFreeToday,
     soon:p=>Boolean(freeToday[p.id]),
     hot:p=>recentDeltaDays(p,data,30)>0,
@@ -1390,7 +1390,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
     hot:data.players.filter(tests.hot).length,
   };
   const activeChip:PlayersChip=chip==="near"&&!me?"all":chip;
-  const chipDefs:[PlayersChip,string][]=[["all","全部"],["near","我的水平"],["free","今日有空"],["soon","近期有空"],["hot","狀態 🔥"]];
+  const chipDefs:[PlayersChip,string][]=[["all","全部"],["near","水平相約"],["free","今日有空"],["soon","近期有空"],["hot","狀態 🔥"]];
 
   const cycleSort=()=>setSort(current=>PLAYERS_SORT_CYCLE[(PLAYERS_SORT_CYCLE.indexOf(current)+1)%PLAYERS_SORT_CYCLE.length]);
   const q=query.trim().toLowerCase();
