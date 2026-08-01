@@ -19,7 +19,7 @@ function snapshotHash(entityType: SnapshotEntity["entityType"], entityId: string
   // md5 is used only as a compact content-address key, not as a security
   // primitive. Including the type and id avoids accidental cross-entity
   // collisions when two rows happen to have the same shape.
-  return createHash("md5").update(`${entityType}\0${entityId}\0${canonicalJson(payload)}`).digest("hex");
+  return createHash("md5").update(`${entityType}${entityId}${canonicalJson(payload)}`).digest("hex");
 }
 
 function snapshotEntities(state: State): SnapshotEntity[] {
@@ -52,47 +52,47 @@ export function ensureStateSchema() {
       // this backfill self-terminating on future cold starts and releases the
       // large JSONB value after its normalized references are safe.
       await tx`INSERT INTO app_state_snapshot_entities (content_hash, entity_type, entity_id, payload)
-        SELECT md5('settings' || chr(0) || 'settings' || chr(0) || (s.state->'settings')::text), 'settings', 'settings', s.state->'settings'
+        SELECT md5('settings' || chr(1) || 'settings' || chr(1) || (s.state->'settings')::text), 'settings', 'settings', s.state->'settings'
         FROM app_state_snapshots s
         WHERE s.state IS NOT NULL AND s.state ? 'settings'
         ON CONFLICT (content_hash) DO NOTHING`;
       await tx`INSERT INTO app_state_snapshot_entities (content_hash, entity_type, entity_id, payload)
-        SELECT md5('player' || chr(0) || (item->>'id') || chr(0) || item::text), 'player', item->>'id', item
+        SELECT md5('player' || chr(1) || (item->>'id') || chr(1) || item::text), 'player', item->>'id', item
         FROM app_state_snapshots s
         CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'players', '[]'::jsonb)) AS rows(item)
         WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
         ON CONFLICT (content_hash) DO NOTHING`;
       await tx`INSERT INTO app_state_snapshot_entities (content_hash, entity_type, entity_id, payload)
-        SELECT md5('match' || chr(0) || (item->>'id') || chr(0) || item::text), 'match', item->>'id', item
+        SELECT md5('match' || chr(1) || (item->>'id') || chr(1) || item::text), 'match', item->>'id', item
         FROM app_state_snapshots s
         CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'matches', '[]'::jsonb)) AS rows(item)
         WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
         ON CONFLICT (content_hash) DO NOTHING`;
       await tx`INSERT INTO app_state_snapshot_entities (content_hash, entity_type, entity_id, payload)
-        SELECT md5('audit' || chr(0) || (item->>'id') || chr(0) || item::text), 'audit', item->>'id', item
+        SELECT md5('audit' || chr(1) || (item->>'id') || chr(1) || item::text), 'audit', item->>'id', item
         FROM app_state_snapshots s
         CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'audits', '[]'::jsonb)) AS rows(item)
         WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
         ON CONFLICT (content_hash) DO NOTHING`;
       await tx`INSERT INTO app_state_snapshot_items (snapshot_id, entity_type, entity_id, content_hash, position)
-        SELECT s.id, 'settings', 'settings', md5('settings' || chr(0) || 'settings' || chr(0) || (s.state->'settings')::text), 0
+        SELECT s.id, 'settings', 'settings', md5('settings' || chr(1) || 'settings' || chr(1) || (s.state->'settings')::text), 0
         FROM app_state_snapshots s
         WHERE s.state IS NOT NULL AND s.state ? 'settings'
         ON CONFLICT (snapshot_id, entity_type, entity_id) DO NOTHING`;
       await tx`INSERT INTO app_state_snapshot_items (snapshot_id, entity_type, entity_id, content_hash, position)
-        SELECT s.id, 'player', item->>'id', md5('player' || chr(0) || (item->>'id') || chr(0) || item::text), rows.ordinality::integer - 1
+        SELECT s.id, 'player', item->>'id', md5('player' || chr(1) || (item->>'id') || chr(1) || item::text), rows.ordinality::integer - 1
         FROM app_state_snapshots s
         CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'players', '[]'::jsonb)) WITH ORDINALITY AS rows(item, ordinality)
         WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
         ON CONFLICT (snapshot_id, entity_type, entity_id) DO NOTHING`;
       await tx`INSERT INTO app_state_snapshot_items (snapshot_id, entity_type, entity_id, content_hash, position)
-        SELECT s.id, 'match', item->>'id', md5('match' || chr(0) || (item->>'id') || chr(0) || item::text), rows.ordinality::integer - 1
+        SELECT s.id, 'match', item->>'id', md5('match' || chr(1) || (item->>'id') || chr(1) || item::text), rows.ordinality::integer - 1
         FROM app_state_snapshots s
         CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'matches', '[]'::jsonb)) WITH ORDINALITY AS rows(item, ordinality)
         WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
         ON CONFLICT (snapshot_id, entity_type, entity_id) DO NOTHING`;
       await tx`INSERT INTO app_state_snapshot_items (snapshot_id, entity_type, entity_id, content_hash, position)
-        SELECT s.id, 'audit', item->>'id', md5('audit' || chr(0) || (item->>'id') || chr(0) || item::text), rows.ordinality::integer - 1
+        SELECT s.id, 'audit', item->>'id', md5('audit' || chr(1) || (item->>'id') || chr(1) || item::text), rows.ordinality::integer - 1
         FROM app_state_snapshots s
         CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'audits', '[]'::jsonb)) WITH ORDINALITY AS rows(item, ordinality)
         WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
