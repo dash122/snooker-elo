@@ -2786,6 +2786,48 @@ button.availability-grid-player:hover b{text-decoration:underline}
 .matchmaking-status-actions button{min-height:44px;white-space:normal}
 button.match-hero-window-action{max-width:100%;border:0;cursor:pointer;font:inherit;line-height:1.2}
 button.match-hero-window-action:hover,button.match-hero-window-action:focus-visible{background:#ffe5ad;box-shadow:0 0 0 2px rgba(240,201,119,.45);outline:none}
+
+/* --- Invite inbox, follow-up and open calls ------------------------------ */
+.matchmaking-status-more{margin:10px 0 0;color:#8c6a2c;font-size:12px;font-weight:700}
+.invite-row-list{list-style:none;display:flex;flex-direction:column;gap:8px;margin:0 0 4px;padding:0}
+.invite-group-title{margin:14px 0 8px;color:var(--muted);font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.invite-group-title:first-of-type{margin-top:4px}
+.invite-row{display:flex;align-items:center;gap:12px;min-width:0;padding:11px 13px;border:1px solid var(--line);border-left:3px solid #cfd9d3;border-radius:12px;background:#fafbf8}
+.invite-row.is-received{border-left-color:#d69a2d;background:linear-gradient(120deg,#fffaf0,#fafbf8)}
+.invite-row.is-upcoming{border-left-color:#27704e;background:linear-gradient(120deg,#f2f8f4,#fafbf8)}
+.invite-row.is-followUp{border-left-color:#a94f53;background:linear-gradient(120deg,#fdf4f3,#fafbf8)}
+.invite-row>.player-badge{flex:0 0 38px;width:38px;height:38px;border-radius:11px}
+.invite-row-copy{flex:1;min-width:0}
+.invite-row-copy b{display:block;font-size:14px;overflow-wrap:anywhere}
+.invite-row-copy small{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.invite-row-copy p{margin:6px 0 0;color:var(--ink);font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.invite-row-actions{display:flex;flex:0 0 auto;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.invite-row-actions button{min-height:38px;padding-inline:12px;font-size:13px}
+.follow-up-card{border-left:4px solid #a94f53}
+.open-call-section{border-left:4px solid #2f6f9f}
+.open-call-list{list-style:none;display:flex;flex-direction:column;gap:8px;margin:0;padding:0}
+.open-call-card{display:flex;align-items:center;gap:12px;min-width:0;padding:11px 13px;border:1px solid var(--line);border-left:3px solid #2f6f9f;border-radius:12px;background:linear-gradient(120deg,#f3f8fc,#fafbf8)}
+.open-call-card.is-mine{border-left-color:#8c9aa4;background:#f7f8f6}
+.open-call-card>.player-badge{flex:0 0 38px;width:38px;height:38px;border-radius:11px}
+.open-call-copy{flex:1;min-width:0}
+.open-call-copy b{display:block;font-size:14px;overflow-wrap:anywhere}
+.open-call-copy small{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.open-call-copy p{margin:6px 0 0;color:var(--ink);font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.open-call-actions{flex:0 0 auto}
+.open-call-actions button{min-height:38px;padding-inline:14px;font-size:13px}
+.open-call-empty{margin:4px 0 0;color:var(--muted);font-size:12.5px}
+.open-call-composer{margin:0 0 13px;padding:13px;border:1px dashed #c3d2ca;border-radius:12px;background:#fafbf8}
+.open-call-composer.availability-slot-form .composer-times{grid-template-columns:repeat(2,minmax(0,1fr))}
+.open-call-composer .invite-message-field{display:block;margin-top:10px}
+.open-call-composer .invite-message-field span{display:block;margin-bottom:5px;color:var(--muted);font-size:11px;font-weight:750}
+.open-call-composer textarea{width:100%;max-width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font:inherit;font-size:13px;resize:vertical}
+
+@media(max-width:620px){
+ .invite-row,.open-call-card{align-items:flex-start;flex-wrap:wrap}
+ .invite-row-actions,.open-call-actions{width:100%}
+ .invite-row-actions button,.open-call-actions button{flex:1;min-width:0}
+}
+
 .invite-sheet{width:min(520px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:min(86dvh,760px);overflow-y:auto;overflow-x:hidden}
 .invite-window-option,.invite-message-field,.invite-message-field textarea{max-width:100%;min-width:0}
 .invite-window-option span:first-child{min-width:0;overflow-wrap:anywhere}

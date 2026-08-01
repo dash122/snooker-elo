@@ -4,10 +4,14 @@ export type Interval = { startAt:string; endAt:string };
 
 const minute = 60_000;
 
+/** How long after a slot begins it is still considered current. Shared by publishing, open calls and
+    their expiry sweep so a member never meets three different opinions of "too late". */
+export const AVAILABILITY_GRACE_MINUTES = 30;
+
 export function validateAvailabilityInterval(input:Interval, now=Date.now()) {
   const startAt=Date.parse(input.startAt), endAt=Date.parse(input.endAt);
   if(!Number.isFinite(startAt)||!Number.isFinite(endAt)) throw new Error("Invalid availability time");
-  if(startAt<now-30*minute) throw new Error("Availability must start in the future");
+  if(startAt<now-AVAILABILITY_GRACE_MINUTES*minute) throw new Error("Availability must start in the future");
   if(endAt<=startAt) throw new Error("End time must be after start time");
   if(startAt%(30*minute)!==0 || endAt%(30*minute)!==0) throw new Error("Times must use 30-minute intervals");
   const duration=(endAt-startAt)/minute;
@@ -67,7 +71,7 @@ export function intervalFromHours(date:string,from:number,to:number):Interval {
     Hong Kong terms, mirroring the grace window in `validateAvailabilityInterval`. A slot that just
     started remains pickable for a little while instead of vanishing from the menu the instant it begins. */
 export function nextAvailabilityStart(now=Date.now()) {
-  const at=Math.ceil((now-30*minute+1)/(30*minute))*(30*minute);
+  const at=Math.ceil((now-AVAILABILITY_GRACE_MINUTES*minute+1)/(30*minute))*(30*minute);
   return {date:hongKongDay.format(at),time:hongKongClock.format(at),at};
 }
 
@@ -176,4 +180,82 @@ export function rankOpponents(input:{mine:Interval[];rating:number;opponents:Opp
     const scored=recommendationScore({minutes,eloDifference,recentMatches:recent});
     return [{id:opponent.id,overlaps,minutes,recent,difference:Math.abs(eloDifference),score:scored?.score??-1,qualifies:Boolean(scored)}];
   }).sort((a,b)=>b.score-a.score||b.minutes-a.minutes||a.difference-b.difference);
+}
+
+/* --- Invite lifecycle ---------------------------------------------------- */
+
+export type InviteLifecycleStatus="pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";
+export type LifecycleInvite={
+  id:string; startAt:string; endAt:string; status:InviteLifecycleStatus;
+  createdAt:string; fromPlayer:{id:string}; toPlayer:{id:string};
+};
+
+/** A pending invite is only answerable until the slot it proposes begins. Past that, "still waiting"
+    is a lie to the sender and a guilt trip for the recipient, so it expires. Keeping this as one
+    named predicate means the database sweep and the client agree on the cutoff to the millisecond. */
+export function isInviteExpired(invite:{status:string;startAt:string},now=Date.now()) {
+  return invite.status==="pending"&&Date.parse(invite.startAt)<=now;
+}
+
+/** An accepted invite whose slot has finished but whose result nobody has recorded. This is the step
+    the funnel used to lose silently: the app knew two members agreed to play and then never asked
+    whether they did. */
+export function inviteAwaitsOutcome(invite:{status:string;endAt:string},now=Date.now()) {
+  return invite.status==="accepted"&&Date.parse(invite.endAt)<=now;
+}
+
+/** Has a confirmed match between these two been recorded on or after the invited slot's day? Used to
+    retire a follow-up prompt the moment the score lands, so members who already did the right thing
+    are never nagged for it. */
+export function hasRecordedMatchSince<T extends {a:string;b:string;playedOn:string;status:"confirmed"|"void"}>(
+  matches:T[],x:string,y:string,sinceDate:string
+) {
+  return matchesBetween(matches,x,y).some(match=>(match.playedOn||"")>=sinceDate);
+}
+
+export type InviteBuckets<T>={needsResponse:T[];awaitingReply:T[];upcoming:T[];followUps:T[]};
+
+/** The whole invite inbox in one pass, ordered the way a member would triage it: what needs an answer
+    from me, what I am waiting on, what is locked in, and what still needs a score. Sorting is by the
+    slot time rather than creation time so "next game" always means next, and every bucket is a full
+    list — surfacing only the first pending invite is how three people asking to play reads as two of
+    them being ignored. */
+export function partitionInvites<T extends LifecycleInvite>(input:{
+  sent:T[]; received:T[]; playerId:string;
+  matches?:{a:string;b:string;playedOn:string;status:"confirmed"|"void"}[];
+  now?:number;
+}):InviteBuckets<T> {
+  const now=input.now??Date.now(),matches=input.matches??[];
+  const bySlot=(a:T,b:T)=>a.startAt.localeCompare(b.startAt);
+  const live=(invite:T)=>!isInviteExpired(invite,now);
+  const other=(invite:T)=>invite.fromPlayer.id===input.playerId?invite.toPlayer.id:invite.fromPlayer.id;
+  const settled=(invite:T)=>hasRecordedMatchSince(matches,input.playerId,other(invite),hkDate(new Date(invite.startAt)));
+  const accepted=[...input.sent,...input.received].filter(invite=>invite.status==="accepted");
+  return {
+    needsResponse:input.received.filter(invite=>invite.status==="pending"&&live(invite)).sort(bySlot),
+    awaitingReply:input.sent.filter(invite=>invite.status==="pending"&&live(invite)).sort(bySlot),
+    upcoming:accepted.filter(invite=>!inviteAwaitsOutcome(invite,now)).sort(bySlot),
+    followUps:accepted.filter(invite=>inviteAwaitsOutcome(invite,now)&&!settled(invite)).sort(bySlot),
+  };
+}
+
+/* --- Open calls ---------------------------------------------------------- */
+
+export type OpenCallStatus="open"|"claimed"|"cancelled"|"expired";
+
+/** An open call stays claimable until its slot has been under way for longer than the grace window —
+    the same 30 minutes `validateAvailabilityInterval` already allows when publishing. A member
+    standing at the table who posted "starting now" must still be visible to the club; holding this
+    to a strict `startAt > now` made a freshly posted call disappear from its own author's screen. */
+export function isOpenCallLive(call:{status:string;startAt:string},now=Date.now()) {
+  return call.status==="open"&&Date.parse(call.startAt)>now-AVAILABILITY_GRACE_MINUTES*minute;
+}
+
+/** Open calls a member can act on, soonest first, with their own calls separated out — you cannot
+    claim your own table, and mixing the two lists makes the board read as busier than it is. */
+export function partitionOpenCalls<T extends {id:string;status:string;startAt:string;player:{id:string}}>(
+  calls:T[],playerId:string|undefined,now=Date.now()
+) {
+  const live=calls.filter(call=>isOpenCallLive(call,now)).sort((a,b)=>a.startAt.localeCompare(b.startAt));
+  return {mine:live.filter(call=>call.player.id===playerId),others:live.filter(call=>call.player.id!==playerId)};
 }

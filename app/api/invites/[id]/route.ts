@@ -1,5 +1,5 @@
 import { requireMember } from "../../../../db/auth";
-import { cancelInvite, respondInvite } from "../../../../db/invites";
+import { cancelInvite, closeInvite, respondInvite } from "../../../../db/invites";
 
 async function member(){const current=await requireMember();return current?.statePlayerId?current:null;}
 
@@ -9,6 +9,12 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   const body=await request.json() as {action?:unknown};
   if(body.action==="accept"||body.action==="decline"){
     const invite=await respondInvite(id,current.statePlayerId!,body.action);
+    return invite?Response.json({invite}):Response.json({error:"Invite not found"},{status:404});
+  }
+  /* The post-slot follow-up: either participant reports whether the confirmed game actually
+     happened, which is what turns "they agreed to play" into a measurable outcome. */
+  if(body.action==="played"||body.action==="missed"){
+    const invite=await closeInvite(id,current.statePlayerId!,body.action);
     return invite?Response.json({invite}):Response.json({error:"Invite not found"},{status:404});
   }
   if(body.action==="cancel"){

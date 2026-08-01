@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addDaysHongKong, availabilityDensity, availabilityPeak, composeAvailabilityInterval, dayRangeHongKong, gamesPlayed, intervalFromHours, intersectIntervals, matchesBetween, mergeIntervals, nextAvailabilityStart, overlapMinutes, rankOpponents, recommendationScore, validateAvailabilityInterval } from "../lib/availability.ts";
+import { addDaysHongKong, availabilityDensity, availabilityPeak, composeAvailabilityInterval, dayRangeHongKong, gamesPlayed, intervalFromHours, intersectIntervals, matchesBetween, mergeIntervals, inviteAwaitsOutcome, isInviteExpired, isOpenCallLive, nextAvailabilityStart, overlapMinutes, partitionInvites, partitionOpenCalls, rankOpponents, recommendationScore, validateAvailabilityInterval } from "../lib/availability.ts";
 
 test("keeps a same-day slot on the day the member picked",()=>{
   // Deriving the end date from `new Date(date+"T00:00+08:00").toISOString()` rolled it back a day,
@@ -154,4 +154,80 @@ test("counts lifetime games for one player from either side, confirmed only",()=
   assert.equal(gamesPlayed(matches,"x"),2);
   assert.equal(gamesPlayed(matches,"y"),2);
   assert.equal(gamesPlayed(matches,"nobody"),0);
+});
+
+/* --- Invite lifecycle ---------------------------------------------------- */
+
+const invite=(over={})=>({id:"i1",startAt:"2026-08-01T11:00:00.000Z",endAt:"2026-08-01T13:00:00.000Z",status:"pending",createdAt:"2026-07-30T00:00:00.000Z",fromPlayer:{id:"a"},toPlayer:{id:"b"},...over});
+const before=Date.parse("2026-08-01T09:00:00.000Z"),during=Date.parse("2026-08-01T12:00:00.000Z"),after=Date.parse("2026-08-01T15:00:00.000Z");
+
+test("a pending invite expires once the slot it proposes has begun",()=>{
+  // The unique (from,to) index on pending invites meant an unanswered invite blocked its sender from
+  // ever inviting that opponent again. Expiry at the slot start is what releases the pair.
+  assert.equal(isInviteExpired(invite(),before),false);
+  assert.equal(isInviteExpired(invite(),during),true,"a slot already under way can no longer be accepted");
+  assert.equal(isInviteExpired(invite({status:"accepted"}),after),false,"only pending invites expire");
+});
+
+test("an accepted invite awaits an outcome only after its slot ends",()=>{
+  assert.equal(inviteAwaitsOutcome(invite({status:"accepted"}),during),false,"still being played");
+  assert.equal(inviteAwaitsOutcome(invite({status:"accepted"}),after),true);
+  assert.equal(inviteAwaitsOutcome(invite({status:"pending"}),after),false,"nobody agreed to play, so there is nothing to follow up");
+});
+
+test("partitions the whole inbox rather than surfacing one invite",()=>{
+  // Three people asking to play used to read as two of them being ignored, because the status card
+  // took only the first pending invite.
+  const received=[invite({id:"r1"}),invite({id:"r2",startAt:"2026-08-01T10:00:00.000Z",endAt:"2026-08-01T12:00:00.000Z"}),invite({id:"stale",startAt:"2026-07-31T11:00:00.000Z",endAt:"2026-07-31T13:00:00.000Z"})];
+  const sent=[invite({id:"s1",fromPlayer:{id:"b"},toPlayer:{id:"c"}})];
+  const buckets=partitionInvites({sent,received,playerId:"b",now:before});
+  assert.deepEqual(buckets.needsResponse.map(x=>x.id),["r2","r1"],"soonest slot first, and the stale one is gone");
+  assert.deepEqual(buckets.awaitingReply.map(x=>x.id),["s1"]);
+});
+
+test("a confirmed game moves from upcoming to follow-up when its slot ends",()=>{
+  const accepted=[invite({id:"a1",status:"accepted"})];
+  const upcoming=partitionInvites({sent:accepted,received:[],playerId:"a",now:before});
+  assert.deepEqual(upcoming.upcoming.map(x=>x.id),["a1"]);
+  assert.deepEqual(upcoming.followUps,[]);
+  const done=partitionInvites({sent:accepted,received:[],playerId:"a",now:after});
+  assert.deepEqual(done.upcoming,[],"a finished game is no longer 'next up'");
+  assert.deepEqual(done.followUps.map(x=>x.id),["a1"]);
+});
+
+test("recording the score retires the follow-up prompt",()=>{
+  // Members who already did the right thing must never be nagged for it.
+  const accepted=[invite({id:"a1",status:"accepted"})];
+  const played=[{a:"a",b:"b",playedOn:"2026-08-01",status:"confirmed"}];
+  const buckets=partitionInvites({sent:accepted,received:[],playerId:"a",matches:played,now:after});
+  assert.deepEqual(buckets.followUps,[],"a confirmed match on the slot's day closes the loop");
+  const earlier=[{a:"a",b:"b",playedOn:"2026-07-20",status:"confirmed"}];
+  assert.equal(partitionInvites({sent:accepted,received:[],playerId:"a",matches:earlier,now:after}).followUps.length,1,
+    "an older match between the same pair is not this game's result");
+});
+
+test("past confirmed games never occupy the status card",()=>{
+  // `confirmedMatches[0]` was sorted ascending with no lower bound, so a game from three weeks ago
+  // could present itself as the member's next fixture.
+  const old=invite({id:"old",status:"accepted",startAt:"2026-07-10T11:00:00.000Z",endAt:"2026-07-10T13:00:00.000Z"});
+  const next=invite({id:"next",status:"accepted",startAt:"2026-08-02T11:00:00.000Z",endAt:"2026-08-02T13:00:00.000Z"});
+  const buckets=partitionInvites({sent:[old,next],received:[],playerId:"a",now:before});
+  assert.deepEqual(buckets.upcoming.map(x=>x.id),["next"]);
+});
+
+/* --- Open calls ---------------------------------------------------------- */
+
+const call=(over={})=>({id:"c1",status:"open",startAt:"2026-08-01T11:00:00.000Z",player:{id:"a"},...over});
+
+test("an open call stays claimable until its slot starts",()=>{
+  assert.equal(isOpenCallLive(call(),before),true);
+  assert.equal(isOpenCallLive(call(),during),false);
+  assert.equal(isOpenCallLive(call({status:"claimed"}),before),false,"somebody already took it");
+});
+
+test("separates a member's own calls from the ones they can claim",()=>{
+  const calls=[call({id:"mine"}),call({id:"theirs",player:{id:"b"},startAt:"2026-08-01T10:00:00.000Z"}),call({id:"gone",status:"cancelled",player:{id:"c"}})];
+  const {mine,others}=partitionOpenCalls(calls,"a",before);
+  assert.deepEqual(mine.map(x=>x.id),["mine"]);
+  assert.deepEqual(others.map(x=>x.id),["theirs"],"you cannot claim your own table, and a cancelled call is not on offer");
 });
