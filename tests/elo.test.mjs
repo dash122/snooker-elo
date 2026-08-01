@@ -9,13 +9,13 @@ function calculate({ra,rb,official,actual,c=8,curve=1.25,softCap=800,k=24,bonus=
   const total=scoreA+scoreB;
   const frameEvidence=Math.min(total,20);
   const performance=scoreA===scoreB?.5:scoreA>scoreB?(scoreA+bonus)/(total+bonus):scoreA/(total+bonus);
-  const weight=Math.sqrt(frameEvidence/4);
+  const weight=frameEvidence<4?frameEvidence/4:Math.sqrt(frameEvidence/4);
   const baseDelta=k*weight*(performance-expected);
   const ratingDifference=ra-rb;
   const performerIsA=performance>.5||(performance===.5&&expected<.5);
   const overHandicapElo=performerIsA?Math.max(0,adjustment-ratingDifference):Math.max(0,ratingDifference-adjustment);
   const performanceMargin=performance===.5?.6:.6+.4*Math.min(1,Math.abs(performance-.5)/.5);
-  const multiplier=1+boost*(1-Math.exp(-overHandicapElo/boostScale))*performanceMargin;
+  const multiplier=1+boost*Math.min(1,weight)*(1-Math.exp(-overHandicapElo/boostScale))*performanceMargin;
   const delta=baseDelta*multiplier;
   return {extra,adjustment,expected,performance,weight,delta,other:-delta,frameEvidence,overHandicapElo,multiplier};
 }
@@ -67,4 +67,29 @@ test("a favourite winning without excess handicap gets no multiplier",()=>{
 test("drawing under excess handicap receives a positive boosted reward",()=>{
   const result=calculate({ra:1500,rb:1500,official:0,actual:20,scoreA:3,scoreB:3});
   assert.ok(result.delta>0&&result.multiplier>1);
+});
+test("evidence weight scales linearly below 4 frames and matches the old sqrt curve at and above it",()=>{
+  assert.equal(calculate({ra:1500,rb:1500,official:0,actual:0,scoreA:1,scoreB:0}).weight,.25);
+  assert.equal(calculate({ra:1500,rb:1500,official:0,actual:0,scoreA:2,scoreB:0}).weight,.5);
+  assert.equal(calculate({ra:1500,rb:1500,official:0,actual:0,scoreA:4,scoreB:0}).weight,1);
+  assert.equal(calculate({ra:1500,rb:1500,official:0,actual:0,scoreA:16,scoreB:0}).weight,2);
+});
+test("a single frame moves rating half as much as the old formula would have",()=>{
+  const oldWeight=Math.sqrt(1/4);
+  const result=calculate({ra:1500,rb:1500,official:0,actual:0,scoreA:1,scoreB:0});
+  assert.ok(result.weight<=oldWeight/2);
+});
+test("a generous handicap can't earn its full over-handicap multiplier off a single frame",()=>{
+  const oneFrame=calculate({ra:1500,rb:1500,official:0,actual:20,scoreA:1,scoreB:0});
+  const fullMatch=calculate({ra:1500,rb:1500,official:0,actual:20,scoreA:4,scoreB:0});
+  assert.ok(oneFrame.overHandicapElo>0);
+  assert.ok(oneFrame.multiplier<fullMatch.multiplier);
+});
+test("a receiving player who loses a single big-handicap frame loses much less than the pre-fix formula would",()=>{
+  // Mirrors Joe Tang's 07-20 match: his opponent (ra) gave him (rb) 40 points
+  // — about +410 ELO of adjustment — then still won the only frame played.
+  // Under the old sqrt(frameEvidence/4) weight with no multiplier scaling
+  // this cost Joe about -23 ELO for one frame; the fix brings it under -10.
+  const result=calculate({ra:1194,rb:1000,official:0,actual:40,k:40,scoreA:1,scoreB:0});
+  assert.ok(-result.delta<10,`expected receiving player's loss under ~10 ELO, got ${-result.delta}`);
 });

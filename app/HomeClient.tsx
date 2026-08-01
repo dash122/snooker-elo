@@ -79,11 +79,35 @@ function roundToEven(value:number) {
   const rounded=Math.round(value/2)*2;
   return Object.is(rounded,-0)?0:rounded;
 }
-function suggestedHandicap(p: Player,data: AppState) {
-  const meanRating=data.players.length?data.players.reduce((sum,x)=>sum+x.rating,0)/data.players.length:data.settings.start;
+function clubMeanRating(data:AppState) {
+  return data.players.length?data.players.reduce((sum,x)=>sum+x.rating,0)/data.players.length:data.settings.start;
+}
+function officialHandicapAnchor(data:AppState) {
   const official=data.players.map(x=>x.handicap).filter((x):x is number=>x!=null);
-  const anchor=official.length?official.reduce((sum,x)=>sum+x,0)/official.length:0;
-  return roundToEven(anchor-eloToHandicap(p.rating-meanRating,data.settings));
+  return official.length?official.reduce((sum,x)=>sum+x,0)/official.length:0;
+}
+function suggestedHandicap(p: Player,data: AppState) {
+  return roundToEven(officialHandicapAnchor(data)-eloToHandicap(p.rating-clubMeanRating(data),data.settings));
+}
+// Holds today's club average/anchor fixed and re-runs the suggestion against a
+// past rating, so the result isolates how much *this player's* rating moved —
+// it doesn't get confused by the rest of the club also playing in between.
+function suggestedHandicapTrend(p:Player,data:AppState,matchesAgo:number) {
+  const points=playerTrendPoints(p,data);
+  if(points.length<2) return null;
+  const index=Math.max(0,points.length-1-matchesAgo);
+  const past=points[index].before;
+  const meanRating=clubMeanRating(data),anchor=officialHandicapAnchor(data);
+  return {
+    now:suggestedHandicap(p,data),
+    past:roundToEven(anchor-eloToHandicap(past-meanRating,data.settings)),
+  };
+}
+function recentFramesPerMatch(p:Player,data:AppState,count:number) {
+  const matches=[...data.matches].filter(m=>m.status==="confirmed"&&!isEntertainmentMode(m.mode)&&isParticipant(m,p.id)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  const recent=matches.slice(0,count),prior=matches.slice(count,count*2);
+  const perMatch=(list:Match[])=>list.length?list.reduce((sum,m)=>{const side=playerSide(m,p.id);return sum+(side==="A"?m.scoreA:m.scoreB)},0)/list.length:null;
+  return {recent:perMatch(recent),prior:perMatch(prior)};
 }
 function winRate(p:Player){return games(p)?p.wins/games(p):0}
 function frameRate(p:Player){const total=p.framesWon+p.framesLost;return total?p.framesWon/total:0}
@@ -225,7 +249,11 @@ function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,
   const frameEvidence = Math.min(totalFrames,20);
   const bonus=s.winnerBonus??.5;
   const performanceScore=scoreA===scoreB?.5:scoreA>scoreB?(scoreA+bonus)/(totalFrames+bonus):scoreA/(totalFrames+bonus);
-  const evidenceWeight=Math.sqrt(frameEvidence/4);
+  // Below 4 frames there just isn't much evidence: sqrt(frameEvidence/4) alone
+  // still let a single frame swing a rating almost as hard as a full match, so
+  // scale linearly under 4 frames instead (continuous with the sqrt curve at
+  // frameEvidence===4, unchanged above it).
+  const evidenceWeight=frameEvidence<4?frameEvidence/4:Math.sqrt(frameEvidence/4);
   const baseDelta=k*evidenceWeight*(performanceScore-expectedA);
   const ratingDifference=a.rating-b.rating;
   const performerIsA=performanceScore>.5||(performanceScore===.5&&expectedA<.5);
@@ -233,7 +261,11 @@ function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,
     ? Math.max(0,adjustment-ratingDifference)
     : Math.max(0,ratingDifference-adjustment);
   const performanceMargin=performanceScore===.5?.6:.6+.4*Math.min(1,Math.abs(performanceScore-.5)/.5);
-  const overHandicapMultiplier=1+(s.overHandicapBoost??.75)*(1-Math.exp(-overHandicapElo/(s.overHandicapScale??200)))*performanceMargin;
+  // A generous handicap can make an early scratch match look like a lopsided
+  // favourite; don't let a single low-evidence frame collect the full
+  // over-handicap bonus/penalty for that gap — scale it down with the same
+  // evidence weight (uncapped once there's a real match's worth of frames).
+  const overHandicapMultiplier=1+(s.overHandicapBoost??.75)*Math.min(1,evidenceWeight)*(1-Math.exp(-overHandicapElo/(s.overHandicapScale??200)))*performanceMargin;
   const deltaA=baseDelta*overHandicapMultiplier;
   return { official,actual,extra,expectedA,deltaA,frameShare,frameEvidence,performanceScore,evidenceWeight,adjustment,overHandicapElo,overHandicapMultiplier };
 }
@@ -1460,6 +1492,14 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
   const [breakOpen,setBreakOpen]=useState<Record<string,boolean>>({});
   const [customHandicap,setCustomHandicap]=useState(editing||Boolean(draft.giver));
   const update=(k:string,v:any)=>setDraft((d:any)=>({...d,[k]:v}));
+  // A loss is exactly when a player is least likely to think to log a break,
+  // and exactly when it matters most to their own record — open the field for
+  // whoever's trailing instead of waiting for them to notice the toggle.
+  useEffect(()=>{
+    if(draft.mode==="2v2"||!draft.a||!draft.b)return;
+    const trailing=draft.scoreA>draft.scoreB?draft.b:draft.scoreB>draft.scoreA?draft.a:null;
+    if(trailing)setBreakOpen(current=>current[trailing]?current:{...current,[trailing]:true});
+  },[draft.scoreA,draft.scoreB,draft.a,draft.b,draft.mode]);
   const players=[...data.players].filter(p=>p.active).sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
   const isTeamMode=draft.mode==="2v2";
   const a2=isTeamMode?data.players.find(player=>player.id===draft.a2):undefined;
@@ -1713,6 +1753,8 @@ function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOppone
   </section>;
 }
 function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFindOpponent}:{player:Player;rank:number;data:AppState;onCompare:(opponent:Player)=>void;onViewAllMatches:()=>void;onMatch:(matchId:string)=>void;onFindOpponent:(playerId:string,date:string)=>void}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data),series=playerSeries(player,data),trendPoints=playerTrendPoints(player,data),high=Math.max(...series),low=Math.min(...series);const provisional=g<data.settings.provisionalGames;
+  const frameTrend=recentFramesPerMatch(player,data,5);
+  const handicapTrend=suggestedHandicapTrend(player,data,5);
   /* One hero, then a single `.profile-body` grid: every section below is a `.profile-section`, so the
      gaps, surfaces and heads come from one place rather than from each section's own margins. */
   /* A plain div, not a <header>: the global `header{height:62px}` page rule would clamp this and
@@ -1728,6 +1770,18 @@ function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFin
   <div className="profile-body">
     {/* Current ELO already leads the hero above, so it isn't repeated here. */}
     <div className="profile-stats"><div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div><div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div><div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div></div>
+    {(frameTrend.recent!=null||handicapTrend)&&<div className="profile-stats profile-progress">
+      {frameTrend.recent!=null&&<div>
+        <small>近 5 場局均得分</small>
+        <b className={frameTrend.prior!=null&&frameTrend.recent>frameTrend.prior?"positive":undefined}>{frameTrend.recent.toFixed(1)} 局</b>
+        {frameTrend.prior!=null&&<span className="profile-progress-sub">前 5 場 {frameTrend.prior.toFixed(1)} 局</span>}
+      </div>}
+      {handicapTrend&&handicapTrend.now!==handicapTrend.past&&<div>
+        <small>建議讓分走勢</small>
+        <b className={Math.abs(handicapTrend.now)<Math.abs(handicapTrend.past)?"positive":undefined}>{handicapTrend.past} → {handicapTrend.now}</b>
+        <span className="profile-progress-sub">近 5 場評分變化</span>
+      </div>}
+    </div>}
     <PlayerUpcomingSlots player={player} onFindOpponent={onFindOpponent}/>
     <BreakStats player={player} data={data}/>
     <RecentMatches points={trendPoints} onViewAll={onViewAllMatches} onMatch={onMatch}/>
