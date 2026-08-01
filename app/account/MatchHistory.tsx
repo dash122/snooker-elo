@@ -22,6 +22,7 @@ export type MatchRecord = {
   handicap: number;
   expected: number;
   highBreak: number | null;
+  createdBy?: string | null;
 };
 
 const PAGE = 8;
@@ -109,6 +110,7 @@ export default function MatchHistory({ records }: { records: MatchRecord[] }) {
                   <div><dt>賽前勝算</dt><dd>{Math.round(record.expected * 100)}%</dd></div>
                   <div><dt>局數</dt><dd>{record.score}</dd></div>
                   <div><dt>最佳單桿</dt><dd>{record.highBreak ?? "—"}</dd></div>
+                  <div><dt>紀錄者</dt><dd>{record.createdBy ?? "—"}</dd></div>
                 </dl>}
               </li>;
             })}

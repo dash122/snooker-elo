@@ -20,6 +20,7 @@ type Match = {
   status?: "confirmed" | "void"; actual?: number; expectedA?: number;
   beforeA: number; beforeB: number; beforeA2?: number; beforeB2?: number; afterA: number; afterB: number; afterA2?: number; afterB2?: number; deltaA: number;
   highBreaks?: { playerId: string; value: number }[];
+  createdBy?: string | null;
 };
 
 const zh = {
@@ -100,6 +101,7 @@ function matchRecords(player: Player, matches: Match[], players: Player[]): Matc
       handicap: (match.actual ?? 0) * (isA ? 1 : -1),
       expected: isA ? expectedA : 1 - expectedA,
       highBreak: breaks.length ? Math.max(...breaks) : null,
+      createdBy: match.createdBy ?? null,
     } satisfies MatchRecord;
   }).reverse();
 }
