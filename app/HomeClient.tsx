@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { CalibrationTrend, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import Availability from "./Availability";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
-import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
+import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, partitionInvites, type AvailabilitySlot, type MatchInvite } from "../lib/availability";
 
 type Player = {
   id: string; name: string; short: string; handicap: number | null; rating: number; colour?: string; avatar?: string | null;
@@ -408,7 +408,16 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const [tab,setTab] = useState("leaderboard");
   const [availabilityDirty,setAvailabilityDirty] = useState(false);
   const [leavingAvailability,setLeavingAvailability] = useState<string|null>(null);
-  const [jumpToAvailability,setJumpToAvailability] = useState<{playerId:string;date:string}|null>(null);
+  const [jumpToAvailability,setJumpToAvailability] = useState<{playerId:string;date:string;intent?:"browse"|"invite"}|null>(null);
+  /* The invite inbox is polled here rather than inside the availability tab, because the badge has to
+     be right for a member who has not opened that tab — which is precisely the member the badge
+     exists for. The tab receives this as a prop and asks for a refresh after its own writes. */
+  const [invites,setInvites] = useState<{sent:MatchInvite[];received:MatchInvite[]}>({sent:[],received:[]});
+  const refreshInvites = async () => {
+    if(!ownPlayerId)return;
+    try{const r=await fetch("/api/invites");const b=await r.json();if(r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}
+    catch{/* a failed refresh leaves the last known inbox in place */}
+  };
   const [matchesView,setMatchesView] = useState<"history"|"calendar">("history");
   const [headToHead,setHeadToHead] = useState({a:"",b:""});
   const [highlightMatch,setHighlightMatch] = useState<string|null>(null);
@@ -526,6 +535,33 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   // would race that.
   /* Leaving the availability tab unmounts its editor, taking any unsaved slot work with it, so a
      dirty editor gets to intercept the move first. */
+  /* Mirrors the tab's own poll, but at the shell level so the badge is live wherever the member is
+     standing. Visibility-gated for the same reason: a backgrounded phone should not keep polling. */
+  useEffect(()=>{
+    /* No linked player means nothing to poll. The inbox is left as-is rather than cleared: every
+       reader is gated on ownPlayerId, so stale state is unreachable, and clearing it here would be a
+       synchronous setState in an effect for no observable gain. */
+    if(!ownPlayerId)return;
+    let cancelled=false;
+    async function poll(){
+      try{const r=await fetch("/api/invites");const b=await r.json();if(!cancelled&&r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}
+      catch{/* keep the last known inbox rather than clearing the badge on a flaky network */}
+    }
+    void poll();
+    const id=window.setInterval(()=>{if(document.visibilityState==="visible")void poll()},30000);
+    return()=>{cancelled=true;window.clearInterval(id)};
+  },[ownPlayerId]);
+  /* What the badge counts: invites waiting on this member, plus finished games still missing a score.
+     Both are things only they can clear. Deliberately excludes invites they sent and games already
+     confirmed — a badge that counts things you cannot act on is a badge people learn to ignore. */
+  const [inboxTick,setInboxTick]=useState(()=>Date.now());
+  useEffect(()=>{const id=window.setInterval(()=>setInboxTick(Date.now()),60000);return()=>window.clearInterval(id)},[]);
+  const inboxCount=useMemo(()=>{
+    if(!ownPlayerId)return 0;
+    const buckets=partitionInvites({sent:invites.sent,received:invites.received,playerId:ownPlayerId,matches:data.matches,now:inboxTick});
+    return buckets.needsResponse.length+buckets.followUps.length;
+  },[invites,ownPlayerId,data.matches,inboxTick]);
+
   const goTab=(next:string)=>{if(availabilityDirty&&tab==="availability"&&next!==tab)return setLeavingAvailability(next);setRecordMenuOpen(false);setHighlightMatch(null);if(next!=="availability")setJumpToAvailability(null);window.scrollTo(0,0);setTab(next)};
   useEffect(()=>{
     if(data.players.length<2)return;
@@ -635,9 +671,13 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     setMatchesView("history");
     goTab("matches");
   };
-  const jumpToPlayerAvailability=(playerId:string,date:string)=>{
+  /* Two different intents land on the matchmaking tab. "browse" is the old behaviour: show me this
+     player's free time on the grid. "invite" comes from a player card's 約戰 button, where the whole
+     point may be someone who has published nothing — for them the grid has nothing to show, so the
+     tab opens the invite sheet directly instead of stranding the member on an empty board. */
+  const jumpToPlayerAvailability=(playerId:string,date:string,intent:"browse"|"invite"="browse")=>{
     setModal(null);
-    setJumpToAvailability({playerId,date});
+    setJumpToAvailability({playerId,date,intent});
     goTab("availability");
   };
 
@@ -775,14 +815,14 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     <aside className="side">
       <div className="brand"><span>S</span><div><b>SCAA</b><small>Snooker ELO</small></div></div>
       <nav>{[["leaderboard","排行榜"],["matches","比賽"],["availability","約戰"],["players","球員"],["settings","設定"]].map(([id,label])=>
-        <button key={id} className={tab===id?"active":""} onClick={()=>goTab(id)}><i><NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/></i>{label}</button>)}</nav>
+        <button key={id} className={tab===id?"active":""} onClick={()=>goTab(id)}><i><NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/>{id==="availability"&&inboxCount>0&&<b className="nav-unread" aria-hidden="true">{inboxCount>9?"9+":inboxCount}</b>}</i>{label}{id==="availability"&&inboxCount>0&&<span className="sr-only">，{inboxCount} 項待處理</span>}</button>)}</nav>
       <div className="public-note"><b>{user?"會員模式":"公開瀏覽"}</b><span>{user?"已登入，可更新球會資料":"登入會員後即可記錄比賽"}</span></div>
     </aside>
     <main>
       <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch}/>}
-      {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} provisionalGames={data.settings.provisionalGames} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecordMatch={(opponentId,date)=>newMatch("1v1",opponentId,date)}/>}
+      {tab==="availability"&&<Availability userPlayerId={ownPlayerId} players={data.players} invites={invites} onRefreshInvites={refreshInvites} matches={data.matches} provisionalGames={data.settings.provisionalGames} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecordMatch={(opponentId,date)=>newMatch("1v1",opponentId,date)}/>}
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
     </main>
@@ -795,7 +835,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     </div>
     <nav className="bottom" aria-label="主導覽">{[["leaderboard","排行榜"],["matches","比賽"],["record","記錄"],["availability","約戰"],["players","球員"]].map(([id,label])=>
       <button key={id} className={`${id==="record"?"bottom-record":tab===id?"active":""}${id==="record"&&recordMenuOpen?" menu-open":""}`} aria-current={tab===id?"page":undefined} aria-expanded={id==="record"?recordMenuOpen:undefined} aria-haspopup={id==="record"?"menu":undefined} onClick={()=>id==="record"?setRecordMenuOpen(open=>!open):goTab(id)}>
-        <i>{id==="record"?"＋":<NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/>}</i>
+        <i>{id==="record"?"＋":<NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/>}{id==="availability"&&inboxCount>0&&<b className="nav-unread" aria-hidden="true">{inboxCount>9?"9+":inboxCount}</b>}</i>
         <small>{label}</small>
       </button>)}</nav>
     {modal&&<div className="backdrop" onMouseDown={e=>e.target===e.currentTarget&&closeModal()}>
@@ -1335,7 +1375,7 @@ const playersSortDir=(key:SortKey):"asc"|"desc"=>key==="rank"||key==="name"?"asc
 function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,onOpen,onCompare,onRecordAgainst,onFindOpponent}:{
   data:AppState;ownPlayerId?:string;canAdd:boolean;canManagePlayer:(player:Player)=>boolean;
   onAdd:()=>void;onEdit:(p:Player)=>void;onDelete:(p:Player)=>void;onOpen:(p:Player)=>void;
-  onCompare:(p:Player)=>void;onRecordAgainst:(p:Player)=>void;onFindOpponent:(playerId:string,date:string)=>void;
+  onCompare:(p:Player)=>void;onRecordAgainst:(p:Player)=>void;onFindOpponent:(playerId:string,date:string,intent?:"browse"|"invite")=>void;
 }) {
   const me=data.players.find(p=>p.id===ownPlayerId);
   const [query,setQuery]=useState("");
@@ -1473,7 +1513,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
                     : <>
                         <button type="button" className="primary" onClick={()=>onRecordAgainst(p)}>記錄對局</button>
                         <button type="button" onClick={()=>onCompare(p)}>對戰紀錄</button>
-                        <button type="button" onClick={()=>onFindOpponent(p.id,today)}>約戰</button>
+                        <button type="button" onClick={()=>onFindOpponent(p.id,today,"invite")}>約戰</button>
                         <button type="button" className="players-row-open" aria-label={`開啟 ${p.name} 的球員卡`} onClick={()=>onOpen(p)}>›</button>
                       </>}
                 </div>
@@ -1735,7 +1775,7 @@ function BreakStats({player,data}:{player:Player;data:AppState}) {
     most profile views never open this section and the rest of `AppState` has no concept of slots. */
 const SLOT_PREVIEW_DAYS=3; // days shown before the section needs expanding
 const hoursFromDayStart=(day:string,iso:string)=>(Date.parse(iso)-Date.parse(dayRangeHongKong(day).startAt))/3600000;
-function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOpponent:(playerId:string,date:string)=>void}) {
+function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOpponent:(playerId:string,date:string,intent?:"browse"|"invite")=>void}) {
   /* Keyed by player id rather than reset in the effect: the fetch resolving is what flips this out of
      its loading state, so a stale response for a previously-viewed player can never paint. */
   const [loaded,setLoaded] = useState<{playerId:string;slots:AvailabilitySlot[]}|null>(null);
@@ -1795,7 +1835,7 @@ function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOppone
     </div>
   </section>;
 }
-function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFindOpponent}:{player:Player;rank:number;data:AppState;onCompare:(opponent:Player)=>void;onViewAllMatches:()=>void;onMatch:(matchId:string)=>void;onFindOpponent:(playerId:string,date:string)=>void}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data),series=playerSeries(player,data),trendPoints=playerTrendPoints(player,data),high=Math.max(...series),low=Math.min(...series);const provisional=g<data.settings.provisionalGames;
+function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFindOpponent}:{player:Player;rank:number;data:AppState;onCompare:(opponent:Player)=>void;onViewAllMatches:()=>void;onMatch:(matchId:string)=>void;onFindOpponent:(playerId:string,date:string,intent?:"browse"|"invite")=>void}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data),series=playerSeries(player,data),trendPoints=playerTrendPoints(player,data),high=Math.max(...series),low=Math.min(...series);const provisional=g<data.settings.provisionalGames;
   const frameTrend=recentFramesPerMatch(player,data,5);
   const highestBreak=data.matches.filter(m=>m.status==="confirmed").flatMap(m=>(m.highBreaks??[]).filter(item=>item.playerId===player.id).map(item=>item.value)).reduce((max,value)=>Math.max(max,value),0);
   /* One hero, then a single `.profile-body` grid: every section below is a `.profile-section`, so the

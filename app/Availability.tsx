@@ -2,10 +2,9 @@
 import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
-import {addDaysHongKong,availabilityDensity,availabilityPeak,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOpenCalls,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval} from "../lib/availability";
+import {addDaysHongKong,availabilityDensity,availabilityPeak,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOpenCalls,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type InvitePlayer,type MatchInvite} from "../lib/availability";
 type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type View="find"|"recommendations"|"manage"|"create";
-type InviteStatus="pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";type InvitePlayer={id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null};
-type MatchInvite={id:string;startAt:string;endAt:string;message:string;status:InviteStatus;createdAt:string;respondedAt:string|null;fromPlayer:InvitePlayer;toPlayer:InvitePlayer};
+
 type OpenCall={id:string;startAt:string;endAt:string;message:string;status:"open"|"claimed"|"cancelled"|"expired";createdAt:string;claimedAt:string|null;player:InvitePlayer;claimedBy:InvitePlayer|null};
 type ListFilter="all"|"new"|"never"|"close";type CardStatus="none"|"pendingSent"|"pendingReceived"|"accepted";
 type OpponentCardVM={member:Member;difference:number;windows:Interval[];windowsCaption:string;isNew:boolean;games:number;neverEver:boolean;chips:string[]};
@@ -48,6 +47,13 @@ function defaultProposalTimes(date:string,now=Date.now()){
  return {start,end:start>=end?end:(PROPOSE_END_TIMES.find(t=>t>=addHours(start,2))??end)};
 }
 const addHours=(time:string,hours:number)=>{const[h,m]=time.split(":").map(Number);return `${String((h+hours)%24).padStart(2,"0")}:${String(m).padStart(2,"0")}`};
+/* `appliedJump` is seeded with `jumpTo`, so a jump that is already present when this tab mounts —
+   which is every jump arriving from another tab — is treated as applied and the render-time handler
+   below never runs for it. Browse jumps survive that because `date` and the grid highlight read
+   `jumpTo` directly; an invite jump has no such back door, so the sheet's initial state is seeded
+   from the same prop here. */
+const invitedByJump=(jumpTo:{playerId:string;intent?:"browse"|"invite"}|null|undefined,me?:string)=>
+ jumpTo?.intent==="invite"&&me&&jumpTo.playerId!==me?jumpTo.playerId:null;
 const ICEBREAKER_MESSAGE="歡迎入會！有冇興趣一齊打第一局？我哋可以由輕鬆嘅友誼賽開始。";
 function Timeline({slots,overlaps=[],date,lo,hi}:{slots:Interval[];overlaps?:Interval[];date:string;lo:number;hi:number}){
  const span=hi-lo;
@@ -201,22 +207,23 @@ function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,p
  dateLabel:string;message:string;onMessageChange:(value:string)=>void;
  onSend:()=>void;onClose:()=>void;sending:boolean;sendLabel:string;
 }){
+ const canQuickInvite=opponent.windows.length>0;
  return <div className="backdrop invite-backdrop" onMouseDown={onClose}>
   <section className="sheet invite-sheet" onMouseDown={e=>e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="invite-sheet-title">
    <button type="button" className="close" aria-label="關閉" onClick={onClose}>×</button>
    <p className="kicker">邀請對局</p>
    <h2 id="invite-sheet-title">{opponent.member.name}</h2>
-   <div className="invite-mode-toggle" role="tablist" aria-label="邀請方式">
+   {canQuickInvite&&<div className="invite-mode-toggle" role="tablist" aria-label="邀請方式">
     <button type="button" role="tab" aria-selected={mode==="simple"} className={mode==="simple"?"active":""} onClick={()=>onModeChange("simple")}>快速邀請</button>
     <button type="button" role="tab" aria-selected={mode==="propose"} className={mode==="propose"?"active":""} onClick={()=>onModeChange("propose")}>提議時段</button>
-   </div>
-   {mode==="simple"
+   </div>}
+   {canQuickInvite&&mode==="simple"
     ?<div className="invite-window-list">
       <p className="sub">{opponent.windows.length?"佢公開嘅得閒時段，揀一個一鍵送出：":"對方今日未公開時段 — 可以改用「提議時段」直接建議時間。"}</p>
       {opponent.windows.map(w=><button type="button" key={w.startAt} className={`invite-window-option${selectedWindow?.startAt===w.startAt?" active":""}`} onClick={()=>onSelectWindow(w)}><span>{dayLabel(hkDate(new Date(w.startAt)))} {range(w)}</span>{selectedWindow?.startAt===w.startAt&&<span aria-hidden="true">✓</span>}</button>)}
      </div>
     :<div className="invite-propose">
-      <p className="sub">提議 {dateLabel} 一個具體時段，對方直接確認或改期。</p>
+      <p className="sub">{canQuickInvite?`提議 ${dateLabel} 一個具體時段，對方直接確認或改期。`:`${opponent.member.name} 未公開任何時段 — 提議 ${dateLabel} 一個具體時間，對方可以直接確認或改期。`}</p>
       <div className="two">
        <label>開始<select value={proposeStart} onChange={e=>onProposeStart(e.target.value)}>{PROPOSE_START_TIMES.map(t=><option key={t} value={t}>{t}</option>)}</select></label>
        <label>結束<select value={proposeEnd} onChange={e=>onProposeEnd(e.target.value)}>{PROPOSE_END_TIMES.map(t=><option key={t} value={t}>{t}</option>)}</select></label>
@@ -224,7 +231,7 @@ function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,p
      </div>}
    {opponent.isNew&&<button type="button" className="icebreaker-suggestion" onClick={()=>onMessageChange(ICEBREAKER_MESSAGE)}><span aria-hidden="true">★</span><span>呢位係新加入球友 — 加句「歡迎入會，一齊打第一局？」使佢更放心答應</span></button>}
    <label className="invite-message-field">留言（可省略）<textarea value={message} onChange={e=>onMessageChange(e.target.value)} placeholder="加句留言（可省略）"/></label>
-   <button type="button" className="primary full" disabled={sending||(mode==="simple"&&!selectedWindow)} onClick={onSend}>{sending?"送出中…":sendLabel}</button>
+   <button type="button" className="primary full" disabled={sending||(canQuickInvite&&mode==="simple"&&!selectedWindow)} onClick={onSend}>{sending?"送出中…":sendLabel}</button>
   </section>
  </div>;
 }
@@ -288,12 +295,11 @@ function SlotBoard({dates,items,lo,hi,soonest,selected,onSelect,onCreate,onResiz
  </div>;
 }
 const HORIZON=14;
-export default function Availability({userPlayerId,matches,provisionalGames=10,onDirtyChange,jumpTo,onPlayer,onRecordMatch}:{userPlayerId?:string;matches:Match[];provisionalGames?:number;onDirtyChange?:(dirty:boolean)=>void;jumpTo?:{playerId:string;date:string}|null;onPlayer?:(playerId:string)=>void;onRecordMatch?:(opponentId:string,playedOn:string)=>void}){
+export default function Availability({userPlayerId,players=[],invites,onRefreshInvites,matches,provisionalGames=10,onDirtyChange,jumpTo,onPlayer,onRecordMatch}:{userPlayerId?:string;players?:Player[];invites:{sent:MatchInvite[];received:MatchInvite[]};onRefreshInvites:()=>Promise<void>|void;matches:Match[];provisionalGames?:number;onDirtyChange?:(dirty:boolean)=>void;jumpTo?:{playerId:string;date:string;intent?:"browse"|"invite"}|null;onPlayer?:(playerId:string)=>void;onRecordMatch?:(opponentId:string,playedOn:string)=>void}){
  const week=useMemo(()=>days(hkDate(),HORIZON),[]),[date,setDate]=useState(jumpTo?.date??hkDate()),[appliedJump,setAppliedJump]=useState(jumpTo??null),[members,setMembers]=useState<Member[]>([]),[counts,setCounts]=useState<Record<string,number>>({}),[own,setOwn]=useState<AvailabilitySlot[]>([]),[view,setView]=useState<View>("find"),[draft,setDraft]=useState<Interval[]>([]),[selected,setSelected]=useState<string|null>(null),[adjustments,setAdjustments]=useState<Record<string,Interval>>({}),[focus,setFocus]=useState<Interval|null>(null),[boardWide,setBoardWide]=useState(false),[pending,setPending]=useState<AvailabilitySlot|null>(null),[leaveTo,setLeaveTo]=useState<View|null>(null),[confirmClear,setConfirmClear]=useState(false),[clearing,setClearing]=useState(false),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[cancelling,setCancelling]=useState(false),[confirmingChange,setConfirmingChange]=useState(false),[message,setMessage]=useState(""),[recommendationNow]=useState(()=>Date.now());
  const[filter,setFilter]=useState<ListFilter>("all"),[prioritizeNew,setPrioritizeNew]=useState(false),
-  [invites,setInvites]=useState<{sent:MatchInvite[];received:MatchInvite[]}>({sent:[],received:[]}),
-  [inviteFor,setInviteFor]=useState<string|null>(null),[inviteMode,setInviteMode]=useState<"simple"|"propose">("simple"),[selectedWindow,setSelectedWindow]=useState<Interval|null>(null),
-  [proposeStart,setProposeStart]=useState("19:00"),[proposeEnd,setProposeEnd]=useState("21:00"),[inviteMessage,setInviteMessage]=useState(""),
+  [inviteFor,setInviteFor]=useState<string|null>(()=>invitedByJump(jumpTo,userPlayerId)),[inviteMode,setInviteMode]=useState<"simple"|"propose">(()=>invitedByJump(jumpTo,userPlayerId)?"propose":"simple"),[selectedWindow,setSelectedWindow]=useState<Interval|null>(null),
+  [proposeStart,setProposeStart]=useState(()=>defaultProposalTimes(jumpTo?.date??hkDate()).start),[proposeEnd,setProposeEnd]=useState(()=>defaultProposalTimes(jumpTo?.date??hkDate()).end),[inviteMessage,setInviteMessage]=useState(""),
   [sendingInvite,setSendingInvite]=useState(false),[respondingId,setRespondingId]=useState<string|null>(null),[cancellingInviteId,setCancellingInviteId]=useState<string|null>(null),
   [openCalls,setOpenCalls]=useState<OpenCall[]>([]),[callComposerOpen,setCallComposerOpen]=useState(false),[callStart,setCallStart]=useState("19:00"),[callEnd,setCallEnd]=useState("21:00"),[callMessage,setCallMessage]=useState(""),
   [postingCall,setPostingCall]=useState(false),[claimingCallId,setClaimingCallId]=useState<string|null>(null),[withdrawingCallId,setWithdrawingCallId]=useState<string|null>(null),[closingInviteId,setClosingInviteId]=useState<string|null>(null);
@@ -308,7 +314,18 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
     open (card opened from the grid itself), so mount-time initial state alone would miss it, and an
     effect would paint the wrong day first. The highlight is the parent's to clear, mirroring
     highlightMatch in Matches, so it survives until the member navigates away. */
- if(jumpTo&&jumpTo!==appliedJump){setAppliedJump(jumpTo);setView("find");setFocus(null);setDate(jumpTo.date)}
+ if(jumpTo&&jumpTo!==appliedJump){
+  setAppliedJump(jumpTo);setView("find");setFocus(null);setDate(jumpTo.date);
+  /* An "invite" jump opens the sheet in the same render-time adjustment, using jumpTo.date rather
+     than `date` — the setDate above has not been committed yet. It commits to proposing a time
+     because the target's published slots for that day may not have loaded (and may not exist); the
+     sheet re-offers 快速邀請 on its own once it can see they have windows. */
+  if(invitedByJump(jumpTo,userPlayerId)){
+   const times=defaultProposalTimes(jumpTo.date);
+   setInviteFor(jumpTo.playerId);setInviteMode("propose");setSelectedWindow(null);
+   setInviteMessage("");setProposeStart(times.start);setProposeEnd(times.end);
+  }
+ }
  useEffect(()=>trackAvailabilityEvent("availability_view"),[]);
  useEffect(()=>{if(!message)return;const timer=window.setTimeout(()=>setMessage(""),4000);return()=>window.clearTimeout(timer)},[message]);
  const refreshFind=async()=>{
@@ -407,7 +424,23 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   const met=new Set([...invites.sent,...invites.received].filter(i=>i.status==="pending"||i.status==="accepted").map(i=>i.fromPlayer.id===userPlayerId?i.toPlayer.id:i.fromPlayer.id));
   return members.filter(m=>m.id!==userPlayerId&&gamesPlayed(matches,m.id)<provisionalGames&&!met.has(m.id)).length;
  },[members,matches,provisionalGames,userPlayerId,invites]);
- const activeOpponent=useMemo(()=>inviteFor?[...shortlist,...browseList].find(o=>o.member.id===inviteFor)??null:null,[inviteFor,shortlist,browseList]);
+ /* Anyone in the club can be invited, including a member who has never opened a slot. Those members
+    appear in neither the overlap-ranked shortlist nor the browse tier (both are built from players
+    with published availability), so the roster is the final fallback — an opponent with no windows,
+    which the sheet already knows how to handle by proposing a time instead. */
+ const opponentFor=useMemo(()=>(playerId:string):OpponentCardVM|null=>{
+  const known=[...shortlist,...browseList].find(o=>o.member.id===playerId);
+  if(known)return known;
+  const player=players.find(p=>p.id===playerId);
+  if(!player||player.id===userPlayerId)return null;
+  const games=gamesPlayed(matches,player.id),isNew=games<provisionalGames;
+  const neverEver=userPlayerId?matchesBetween(matches,userPlayerId,player.id).length===0:false;
+  const myRating=players.find(p=>p.id===userPlayerId)?.rating??0;
+  const difference=Math.abs(myRating-player.rating);
+  return {member:{...player,slots:[]},difference,windows:[],windowsCaption:"未公開時段",isNew,games,neverEver,
+   chips:buildOpponentChips({isNew,games,difference,neverEver,recentZero:true})};
+ },[shortlist,browseList,players,userPlayerId,matches,provisionalGames]);
+ const activeOpponent=useMemo(()=>inviteFor?opponentFor(inviteFor):null,[inviteFor,opponentFor]);
  /* One pass over the inbox, re-derived on every poll so a slot that has just finished moves itself
     from "upcoming" into "needs a result" without the member reloading anything. `recommendationNow`
     is deliberately not used here — that is pinned at mount to keep the shortlist stable, whereas
@@ -415,10 +448,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
  const buckets=useMemo(()=>partitionInvites({sent:invites.sent,received:invites.received,playerId:userPlayerId??"",matches,now:tick}),[invites,userPlayerId,matches,tick]);
  const confirmedMatches=buckets.upcoming;
  const {mine:myOpenCalls,others:claimableCalls}=useMemo(()=>partitionOpenCalls(openCalls,userPlayerId,tick),[openCalls,userPlayerId,tick]);
- const refreshInvites=async()=>{
-  if(!userPlayerId)return;
-  try{const r=await fetch("/api/invites");const b=await r.json();if(r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}catch{/* keep the previous invites in view if a background refresh fails */}
- };
+ const refreshInvites=async()=>{await onRefreshInvites()};
  /* Open calls are public, so this runs signed out too — a visitor browsing the club's free tables is
     exactly the person most worth showing them to. */
  const refreshOpenCalls=async()=>{
@@ -433,7 +463,6 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
  useEffect(()=>{
   let cancelled=false;
   async function poll(){
-   if(userPlayerId)try{const r=await fetch("/api/invites");const b=await r.json();if(!cancelled&&r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}catch{/* keep the previous invites in view if a background poll fails */}
    try{const r=await fetch("/api/open-calls");const b=await r.json();if(!cancelled&&r.ok)setOpenCalls(b.calls??[]);}catch{/* same: last known calls stay on screen */}
   }
   void poll();
@@ -441,15 +470,20 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   return()=>{cancelled=true;window.clearInterval(id)};
  },[userPlayerId]);
  const openInviteSheet=(playerId:string,window?:Interval)=>{
-  const opponent=[...shortlist,...browseList].find(o=>o.member.id===playerId);
+  const opponent=opponentFor(playerId);
   const times=defaultProposalTimes(date);
-  setInviteFor(playerId);setInviteMode("simple");setSelectedWindow(window??opponent?.windows[0]??null);setInviteMessage("");setProposeStart(times.start);setProposeEnd(times.end);
+  /* An opponent with no published windows has nothing to quick-invite against, so the sheet opens
+     straight into proposing a time — otherwise the send button sits in a mode whose only input does
+     not exist, and tapping it does nothing. */
+  const quick=Boolean(opponent?.windows.length);
+  setInviteFor(playerId);setInviteMode(quick?"simple":"propose");setSelectedWindow(quick?(window??opponent?.windows[0]??null):null);setInviteMessage("");setProposeStart(times.start);setProposeEnd(times.end);
  };
  const closeInviteSheet=()=>{setInviteFor(null);setSelectedWindow(null);setInviteMessage("")};
  const sendInviteAction=async()=>{
   if(!inviteFor||sendingInvite)return;
   let interval:Interval;
-  if(inviteMode==="simple"){if(!selectedWindow)return;interval=selectedWindow;}
+  if(inviteMode==="simple"&&selectedWindow){interval=selectedWindow;}
+  else if(inviteMode==="simple"){return;}
   else{try{interval=validateAvailabilityInterval(composeAvailabilityInterval(date,proposeStart,proposeEnd));}catch{setMessage("請揀一個未開始、香港時間上午 10 時至翌日凌晨 2 時之間的時段。");return;}}
   setSendingInvite(true);setMessage("");
   try{

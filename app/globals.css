@@ -2787,6 +2787,23 @@ button.availability-grid-player:hover b{text-decoration:underline}
 button.match-hero-window-action{max-width:100%;border:0;cursor:pointer;font:inherit;line-height:1.2}
 button.match-hero-window-action:hover,button.match-hero-window-action:focus-visible{background:#ffe5ad;box-shadow:0 0 0 2px rgba(240,201,119,.45);outline:none}
 
+/* --- Unread badge on the matchmaking tab --------------------------------- */
+/* Both navs wrap their icon in an <i>, so anchoring to that covers the sidebar and the bottom bar
+   with one rule. */
+.side nav button i,.bottom button i{position:relative}
+.nav-unread{
+ position:absolute;top:-5px;left:calc(100% - 9px);
+ display:grid;place-items:center;min-width:17px;height:17px;padding:0 4px;
+ border-radius:9px;border:2px solid var(--cream);
+ background:var(--red,#a94f53);color:#fff;
+ font-size:9.5px;font-style:normal;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;
+}
+.side nav button .nav-unread{border-color:var(--deep)}
+.bottom button .nav-unread{border-color:rgba(251,250,246,.96)}
+/* The badge is decorative; the count is announced through the label's visually hidden text instead,
+   so a screen reader hears "約戰，2 項待處理" rather than a bare number. */
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+
 /* --- Invite inbox, follow-up and open calls ------------------------------ */
 .matchmaking-status-more{margin:10px 0 0;color:#8c6a2c;font-size:12px;font-weight:700}
 .invite-row-list{list-style:none;display:flex;flex-direction:column;gap:8px;margin:0 0 4px;padding:0}

@@ -185,6 +185,14 @@ export function rankOpponents(input:{mine:Interval[];rating:number;opponents:Opp
 /* --- Invite lifecycle ---------------------------------------------------- */
 
 export type InviteLifecycleStatus="pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";
+
+/* The invite shape as it crosses the wire. Declared here rather than in a component because both the
+   matchmaking tab and the app shell (which owns the unread badge) need to agree on it. */
+export type InvitePlayer={id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null};
+export type MatchInvite={
+  id:string; startAt:string; endAt:string; message:string; status:InviteLifecycleStatus;
+  createdAt:string; respondedAt:string|null; fromPlayer:InvitePlayer; toPlayer:InvitePlayer;
+};
 export type LifecycleInvite={
   id:string; startAt:string; endAt:string; status:InviteLifecycleStatus;
   createdAt:string; fromPlayer:{id:string}; toPlayer:{id:string};
