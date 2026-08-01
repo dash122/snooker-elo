@@ -1,7 +1,7 @@
 import postgres from "postgres";
 
 export type InvitePlayer = { id:string; name:string; short:string; rating:number; colour?:string|null; avatar?:string|null };
-export type InviteStatus = "pending"|"accepted"|"declined"|"cancelled";
+export type InviteStatus = "pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";
 export type MatchInvite = {
   id:string; startAt:string; endAt:string; message:string; status:InviteStatus;
   createdAt:string; respondedAt:string|null;
@@ -19,6 +19,10 @@ function getSql() {
 }
 
 let schemaReady:Promise<unknown>|null=null;
+/* Exported so open-calls.pg.ts can guarantee match_invites exists before writing the accepted invite
+   that a claimed call turns into — the two modules hold separate pools and neither can assume the
+   other's schema bootstrap has already run in this process. */
+export async function ensureInviteSchema(){ return ensureSchema(); }
 async function ensureSchema(){
   schemaReady??=(async()=>{
     const sql=getSql();
@@ -31,9 +35,17 @@ async function ensureSchema(){
       status text NOT NULL DEFAULT 'pending',
       created_at timestamptz NOT NULL DEFAULT now(),
       responded_at timestamptz,
-      CHECK (end_at > start_at), CHECK (from_player_id <> to_player_id),
-      CHECK (status IN ('pending','accepted','declined','cancelled'))
+      CHECK (end_at > start_at), CHECK (from_player_id <> to_player_id)
     )`;
+    /* The status vocabulary grew (expired/played/missed) after the original CHECK shipped, and a
+       CHECK constraint is not idempotent the way CREATE TABLE IF NOT EXISTS is — an existing
+       deployment still carries the old four-value list and would reject every new terminal state.
+       Dropping by the name Postgres assigned the inline constraint and re-adding it widens the
+       column on old and new databases alike. */
+    await sql`ALTER TABLE match_invites DROP CONSTRAINT IF EXISTS match_invites_status_check`;
+    await sql`ALTER TABLE match_invites ADD CONSTRAINT match_invites_status_check
+      CHECK (status IN ('pending','accepted','declined','cancelled','expired','played','missed'))`;
+    await sql`ALTER TABLE match_invites ADD COLUMN IF NOT EXISTS closed_at timestamptz`;
     /* One outstanding invite per direction at a time — the UI turns the invite button into a status
        display the instant one is pending, so a second insert here would only ever be a race. */
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS match_invites_pending_pair_idx ON match_invites (from_player_id,to_player_id) WHERE status='pending'`;
@@ -65,10 +77,25 @@ async function getInviteById(id:string):Promise<MatchInvite|null> {
   return rows[0]?hydrate(rows[0]):null;
 }
 
+/** Retire pending invites whose proposed slot has already begun.
+ *
+ *  This is what keeps a ghosted invite from becoming permanent: `match_invites_pending_pair_idx` is
+ *  unique on (from,to) WHERE status='pending', so one unanswered invite used to block its sender
+ *  from ever inviting that opponent again — `createInvite` would raise 23505 forever. Nothing ever
+ *  moved a pending row out of the way, because there is no scheduler in this deployment.
+ *
+ *  So the sweep runs lazily on the paths that care (reading an inbox, writing a new invite) rather
+ *  than on a cron. It is a single indexed UPDATE that usually matches nothing, and it means the
+ *  invariant holds even if no background job ever runs. */
+export async function expireStaleInvites() {
+  const sql=getSql();
+  await sql`UPDATE match_invites SET status='expired',closed_at=now() WHERE status='pending' AND start_at<=now()`;
+}
+
 /** Both directions in one call — the caller splits into sent/received, since which side a member is
     on can flip invite to invite. */
 export async function listInvitesFor(playerId:string) {
-  await ensureSchema(); const sql=getSql();
+  await ensureSchema(); await expireStaleInvites(); const sql=getSql();
   const rows=await sql.unsafe(`SELECT ${inviteColumns} WHERE i.from_player_id=$1 OR i.to_player_id=$1 ORDER BY i.created_at DESC`,[playerId]);
   const all=rows.map(hydrate);
   return {
@@ -79,7 +106,7 @@ export async function listInvitesFor(playerId:string) {
 
 export async function createInvite(fromPlayerId:string,toPlayerId:string,interval:{startAt:string;endAt:string},message:string) {
   if(fromPlayerId===toPlayerId) throw new Error("Cannot invite yourself");
-  await ensureSchema(); const sql=getSql();
+  await ensureSchema(); await expireStaleInvites(); const sql=getSql();
   const id=crypto.randomUUID();
   try {
     await sql`INSERT INTO match_invites (id,from_player_id,to_player_id,start_at,end_at,message) VALUES (${id},${fromPlayerId},${toPlayerId},${interval.startAt},${interval.endAt},${message})`;
@@ -95,6 +122,19 @@ export async function respondInvite(id:string,playerId:string,action:"accept"|"d
   await ensureSchema(); const sql=getSql();
   const status:InviteStatus=action==="accept"?"accepted":"declined";
   const rows=await sql<any[]>`UPDATE match_invites SET status=${status},responded_at=now() WHERE id=${id} AND to_player_id=${playerId} AND status='pending' RETURNING id`;
+  return rows[0]?getInviteById(id):null;
+}
+
+/** Record what actually became of a confirmed game, once its slot has passed. Either participant may
+    answer, because either one is equally placed to know. `accepted` used to be the terminal state
+    the system ever saw, which left the one question worth measuring — does agreeing to play produce
+    a played match — permanently unanswerable. */
+export async function closeInvite(id:string,playerId:string,outcome:"played"|"missed") {
+  await ensureSchema(); const sql=getSql();
+  const rows=await sql<{id:string}[]>`UPDATE match_invites SET status=${outcome},closed_at=now()
+    WHERE id=${id} AND status='accepted' AND end_at<=now()
+    AND (from_player_id=${playerId} OR to_player_id=${playerId})
+    RETURNING id`;
   return rows[0]?getInviteById(id):null;
 }
 

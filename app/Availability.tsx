@@ -2,10 +2,11 @@
 import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
-import {addDaysHongKong,availabilityDensity,availabilityPeak,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval} from "../lib/availability";
+import {addDaysHongKong,availabilityDensity,availabilityPeak,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOpenCalls,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval} from "../lib/availability";
 type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type View="find"|"recommendations"|"manage"|"create";
-type InviteStatus="pending"|"accepted"|"declined"|"cancelled";type InvitePlayer={id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null};
+type InviteStatus="pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";type InvitePlayer={id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null};
 type MatchInvite={id:string;startAt:string;endAt:string;message:string;status:InviteStatus;createdAt:string;respondedAt:string|null;fromPlayer:InvitePlayer;toPlayer:InvitePlayer};
+type OpenCall={id:string;startAt:string;endAt:string;message:string;status:"open"|"claimed"|"cancelled"|"expired";createdAt:string;claimedAt:string|null;player:InvitePlayer;claimedBy:InvitePlayer|null};
 type ListFilter="all"|"new"|"never"|"close";type CardStatus="none"|"pendingSent"|"pendingReceived"|"accepted";
 type OpponentCardVM={member:Member;difference:number;windows:Interval[];windowsCaption:string;isNew:boolean;games:number;neverEver:boolean;chips:string[]};
 const time=hkClock,dayLabel=hkDayLabel,range=(x:Interval)=>`${time(x.startAt)}–${time(x.endAt)}`,utc=(d:string,t:string)=>new Date(`${d}T${t}:00+08:00`).toISOString(),days=(start:string,horizon=7)=>Array.from({length:horizon},(_,i)=>addDaysHongKong(start,i)),fullDay=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"long",day:"numeric",weekday:"long"}).format(new Date(`${d}T00:00:00+08:00`));
@@ -33,6 +34,20 @@ function byPriority<T extends {isNew:boolean}>(list:T[],prioritizeNew:boolean){
 }
 const PROPOSE_START_TIMES=Array.from({length:28},(_,i)=>`${String(10+Math.floor(i/2)).padStart(2,"0")}:${i%2?"30":"00"}`);
 const PROPOSE_END_TIMES=Array.from({length:32},(_,i)=>`${String((10+Math.floor((i+1)/2))%24).padStart(2,"0")}:${(i+1)%2?"30":"00"}`);
+/* Defaults for any "propose a time" control. Hardcoding 19:00 meant that from 19:00 onwards — the
+   exact hours a club fills up — the composer opened pre-loaded with a time the validator rejects,
+   and the member's first action was an error message. Today's defaults start from the next pickable
+   half-hour instead; other days keep the sensible evening default. */
+function defaultProposalTimes(date:string,now=Date.now()){
+ const evening={start:"19:00",end:"21:00"};
+ if(date!==hkDate(new Date(now)))return evening;
+ const next=nextAvailabilityStart(now);
+ const start=PROPOSE_START_TIMES.find(t=>t>=next.time);
+ if(!start)return evening;
+ const end=PROPOSE_END_TIMES.find(t=>t>start)??PROPOSE_END_TIMES[PROPOSE_END_TIMES.length-1];
+ return {start,end:start>=end?end:(PROPOSE_END_TIMES.find(t=>t>=addHours(start,2))??end)};
+}
+const addHours=(time:string,hours:number)=>{const[h,m]=time.split(":").map(Number);return `${String((h+hours)%24).padStart(2,"0")}:${String(m).padStart(2,"0")}`};
 const ICEBREAKER_MESSAGE="歡迎入會！有冇興趣一齊打第一局？我哋可以由輕鬆嘅友誼賽開始。";
 function Timeline({slots,overlaps=[],date,lo,hi}:{slots:Interval[];overlaps?:Interval[];date:string;lo:number;hi:number}){
  const span=hi-lo;
@@ -111,6 +126,41 @@ function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:
   <div className="availability-grid-legend"><span><i/>該時段有空</span>{focus&&<button type="button" className="more" onClick={()=>onFocus(null)}>清除 {range(focus)}</button>}</div>
  </section>
 }
+/* One row of the invite inbox. Every pending invite gets one of these — the previous design surfaced
+   only the first, so a member with three people waiting on them answered one and silently ignored
+   two. `tone` drives nothing but colour; the actions are what differ between the buckets. */
+function InviteRow({invite,me,tone,actions}:{invite:MatchInvite;me?:string;tone:"received"|"sent"|"upcoming"|"followUp";actions:React.ReactNode}){
+ const other=invite.fromPlayer.id===me?invite.toPlayer:invite.fromPlayer;
+ return <li className={`invite-row is-${tone}`}>
+  <PlayerBadge player={other}/>
+  <div className="invite-row-copy">
+   <b>{other.name}</b>
+   <small>{dayLabel(hkDate(new Date(invite.startAt)))} · {range(invite)}</small>
+   {invite.message&&<p>{invite.message}</p>}
+  </div>
+  <div className="invite-row-actions">{actions}</div>
+ </li>;
+}
+
+/* An open call: one member offering a table to the whole club rather than asking one person. The
+   claim button is the entire point, so it stays primary and single-tap — a member should never have
+   to open a sheet to say yes to a game that is already on offer. */
+function OpenCallCard({call,mine,onClaim,onWithdraw,busy,canClaim}:{call:OpenCall;mine:boolean;onClaim:()=>void;onWithdraw:()=>void;busy:boolean;canClaim:boolean}){
+ return <li className={`open-call-card${mine?" is-mine":""}`}>
+  <PlayerBadge player={call.player}/>
+  <div className="open-call-copy">
+   <b>{mine?"你的開放邀請":call.player.name}</b>
+   <small>{dayLabel(hkDate(new Date(call.startAt)))} · {range(call)}</small>
+   {call.message&&<p>{call.message}</p>}
+  </div>
+  <div className="open-call-actions">
+   {mine
+    ?<button type="button" className="secondary" disabled={busy} onClick={onWithdraw}>{busy?"收回中…":"收回"}</button>
+    :<button type="button" className="primary" disabled={busy||!canClaim} title={canClaim?undefined:"需要連結球員檔案才可接受"} onClick={onClaim}>{busy?"接受中…":"我要打"}</button>}
+  </div>
+ </li>;
+}
+
 function SlotComposer({initialDate,onSave}:{initialDate:string;onSave:(x:Interval)=>void}){return <SlotForm initialDate={initialDate} onSave={onSave}/>}/* The one question the page exists to answer, answered before anything else on screen. Which card
    shows up depends on what is actually blocking the member from playing tonight. */
 function MatchPrompt({hasMine,userPlayerId,members,focus,onManage}:{hasMine:boolean;userPlayerId?:string;members:number;focus:Interval|null;onManage:(v:"manage"|"create")=>void}){
@@ -244,7 +294,13 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   [invites,setInvites]=useState<{sent:MatchInvite[];received:MatchInvite[]}>({sent:[],received:[]}),
   [inviteFor,setInviteFor]=useState<string|null>(null),[inviteMode,setInviteMode]=useState<"simple"|"propose">("simple"),[selectedWindow,setSelectedWindow]=useState<Interval|null>(null),
   [proposeStart,setProposeStart]=useState("19:00"),[proposeEnd,setProposeEnd]=useState("21:00"),[inviteMessage,setInviteMessage]=useState(""),
-  [sendingInvite,setSendingInvite]=useState(false),[respondingId,setRespondingId]=useState<string|null>(null),[cancellingInviteId,setCancellingInviteId]=useState<string|null>(null);
+  [sendingInvite,setSendingInvite]=useState(false),[respondingId,setRespondingId]=useState<string|null>(null),[cancellingInviteId,setCancellingInviteId]=useState<string|null>(null),
+  [openCalls,setOpenCalls]=useState<OpenCall[]>([]),[callComposerOpen,setCallComposerOpen]=useState(false),[callStart,setCallStart]=useState("19:00"),[callEnd,setCallEnd]=useState("21:00"),[callMessage,setCallMessage]=useState(""),
+  [postingCall,setPostingCall]=useState(false),[claimingCallId,setClaimingCallId]=useState<string|null>(null),[withdrawingCallId,setWithdrawingCallId]=useState<string|null>(null),[closingInviteId,setClosingInviteId]=useState<string|null>(null);
+ /* The buckets below are time-dependent, and a member can sit on this screen while a slot starts or
+    ends. A one-minute tick re-evaluates them so the follow-up prompt appears on its own. */
+ const[tick,setTick]=useState(()=>Date.now());
+ useEffect(()=>{const id=window.setInterval(()=>setTick(Date.now()),60000);return()=>window.clearInterval(id)},[]);
  const dialogRef=useRef<HTMLElement|null>(null),firstLoad=useRef(true),savingRef=useRef(false),cancellingRef=useRef(false),confirmingChangeRef=useRef(false),clearingRef=useRef(false);
  useEffect(()=>{const c=new AbortController();async function load(){setLoading(true);try{const[selected,summary,mine]=await Promise.all([fetch(`/api/availability?date=${date}`,{signal:c.signal}).then(r=>r.json()),fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`,{signal:c.signal}).then(r=>r.json()),userPlayerId?fetch("/api/availability?me",{signal:c.signal}).then(r=>r.json()):Promise.resolve({slots:[]})]);if(selected.error)throw Error(selected.error);setMembers(selected.members);setCounts(summary.counts??{});setOwn(mine.slots??[]);setMessage("")}catch(e){if(e instanceof Error&&e.name!=="AbortError")setMessage(e.message)}finally{if(!c.signal.aborted)setLoading(false)}}if(firstLoad.current)firstLoad.current=false;else trackAvailabilityEvent("availability_date_select");void load();return()=>c.abort()},[date,userPlayerId,week]);
  /* A profile card's "在可配對查看" button lands here with a target player and their nearest free day.
@@ -352,10 +408,21 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   return members.filter(m=>m.id!==userPlayerId&&gamesPlayed(matches,m.id)<provisionalGames&&!met.has(m.id)).length;
  },[members,matches,provisionalGames,userPlayerId,invites]);
  const activeOpponent=useMemo(()=>inviteFor?[...shortlist,...browseList].find(o=>o.member.id===inviteFor)??null:null,[inviteFor,shortlist,browseList]);
- const confirmedMatches=useMemo(()=>[...invites.sent,...invites.received].filter(i=>i.status==="accepted").sort((a,b)=>a.startAt.localeCompare(b.startAt)),[invites]);
+ /* One pass over the inbox, re-derived on every poll so a slot that has just finished moves itself
+    from "upcoming" into "needs a result" without the member reloading anything. `recommendationNow`
+    is deliberately not used here — that is pinned at mount to keep the shortlist stable, whereas
+    these buckets are about the clock actually moving. */
+ const buckets=useMemo(()=>partitionInvites({sent:invites.sent,received:invites.received,playerId:userPlayerId??"",matches,now:tick}),[invites,userPlayerId,matches,tick]);
+ const confirmedMatches=buckets.upcoming;
+ const {mine:myOpenCalls,others:claimableCalls}=useMemo(()=>partitionOpenCalls(openCalls,userPlayerId,tick),[openCalls,userPlayerId,tick]);
  const refreshInvites=async()=>{
   if(!userPlayerId)return;
   try{const r=await fetch("/api/invites");const b=await r.json();if(r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}catch{/* keep the previous invites in view if a background refresh fails */}
+ };
+ /* Open calls are public, so this runs signed out too — a visitor browsing the club's free tables is
+    exactly the person most worth showing them to. */
+ const refreshOpenCalls=async()=>{
+  try{const r=await fetch("/api/open-calls");const b=await r.json();if(r.ok)setOpenCalls(b.calls??[]);}catch{/* a failed background refresh leaves the last known calls on screen */}
  };
 /* Mirrors the mount-time `load()` above: an effect that sets state declares its own inline fetch
     rather than calling out to a function defined elsewhere, so an incoming invite still shows up
@@ -364,10 +431,10 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
     invisible to the sender the moment they leave "find", since nothing else in the app pushes it to
     them. */
  useEffect(()=>{
-  if(!userPlayerId)return;
   let cancelled=false;
   async function poll(){
-   try{const r=await fetch("/api/invites");const b=await r.json();if(!cancelled&&r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}catch{/* keep the previous invites in view if a background poll fails */}
+   if(userPlayerId)try{const r=await fetch("/api/invites");const b=await r.json();if(!cancelled&&r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}catch{/* keep the previous invites in view if a background poll fails */}
+   try{const r=await fetch("/api/open-calls");const b=await r.json();if(!cancelled&&r.ok)setOpenCalls(b.calls??[]);}catch{/* same: last known calls stay on screen */}
   }
   void poll();
   const id=window.setInterval(()=>{if(document.visibilityState==="visible")void poll()},30000);
@@ -375,14 +442,15 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
  },[userPlayerId]);
  const openInviteSheet=(playerId:string,window?:Interval)=>{
   const opponent=[...shortlist,...browseList].find(o=>o.member.id===playerId);
-  setInviteFor(playerId);setInviteMode("simple");setSelectedWindow(window??opponent?.windows[0]??null);setInviteMessage("");setProposeStart("19:00");setProposeEnd("21:00");
+  const times=defaultProposalTimes(date);
+  setInviteFor(playerId);setInviteMode("simple");setSelectedWindow(window??opponent?.windows[0]??null);setInviteMessage("");setProposeStart(times.start);setProposeEnd(times.end);
  };
  const closeInviteSheet=()=>{setInviteFor(null);setSelectedWindow(null);setInviteMessage("")};
  const sendInviteAction=async()=>{
   if(!inviteFor||sendingInvite)return;
   let interval:Interval;
   if(inviteMode==="simple"){if(!selectedWindow)return;interval=selectedWindow;}
-  else{try{interval=validateAvailabilityInterval(composeAvailabilityInterval(date,proposeStart,proposeEnd));}catch(error){setMessage(error instanceof Error?error.message:"時段無效，請重新選擇。");return;}}
+  else{try{interval=validateAvailabilityInterval(composeAvailabilityInterval(date,proposeStart,proposeEnd));}catch{setMessage("請揀一個未開始、香港時間上午 10 時至翌日凌晨 2 時之間的時段。");return;}}
   setSendingInvite(true);setMessage("");
   try{
    const r=await fetch("/api/invites",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({toPlayerId:inviteFor,startAt:interval.startAt,endAt:interval.endAt,message:inviteMessage})});
@@ -413,6 +481,59 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    await refreshInvites();setMessage("已取消對局。");
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setCancellingInviteId(null)}
+ };
+ /* --- Open calls ---------------------------------------------------------- */
+ const postOpenCall=async()=>{
+  if(postingCall)return;
+  let interval:Interval;
+  /* `validateAvailabilityInterval` throws in English for the server's benefit; every string a member
+     reads in this app is Traditional Chinese, so the reason is restated rather than passed through. */
+  try{interval=validateAvailabilityInterval(composeAvailabilityInterval(date,callStart,callEnd));}
+  catch{setMessage("請揀一個未開始、香港時間上午 10 時至翌日凌晨 2 時之間的時段。");return;}
+  setPostingCall(true);setMessage("");
+  try{
+   const r=await fetch("/api/open-calls",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({startAt:interval.startAt,endAt:interval.endAt,message:callMessage})});
+   const b=await r.json();
+   if(!r.ok){setMessage(b.error??"開放邀請未能發出，請再試一次。");return;}
+   setCallComposerOpen(false);setCallMessage("");await refreshOpenCalls();setMessage("開放邀請已發出，全會所都睇到。");
+  }catch{setMessage("網絡連線失敗，請再試一次。")}
+  finally{setPostingCall(false)}
+ };
+ const claimCall=async(id:string)=>{
+  if(claimingCallId)return;
+  setClaimingCallId(id);setMessage("");
+  try{
+   const r=await fetch(`/api/open-calls/${id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({action:"claim"})});
+   const b=await r.json();
+   /* A 409 means someone else claimed it first. Refreshing on the failure path is the point: the
+      member sees the call disappear and understands why, instead of tapping a dead button again. */
+   if(!r.ok){setMessage(b.error??"未能接受，請再試一次。");await refreshOpenCalls();return;}
+   await Promise.all([refreshOpenCalls(),refreshInvites()]);setMessage("已接受，對局已確認。");
+  }catch{setMessage("網絡連線失敗，請再試一次。")}
+  finally{setClaimingCallId(null)}
+ };
+ const withdrawCall=async(id:string)=>{
+  if(withdrawingCallId)return;
+  setWithdrawingCallId(id);setMessage("");
+  try{
+   const r=await fetch(`/api/open-calls/${id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({action:"cancel"})});
+   const b=await r.json();
+   if(!r.ok){setMessage(b.error??"未能收回，請再試一次。");return;}
+   await refreshOpenCalls();setMessage("已收回開放邀請。");
+  }catch{setMessage("網絡連線失敗，請再試一次。")}
+  finally{setWithdrawingCallId(null)}
+ };
+ /* --- Post-slot follow-up -------------------------------------------------- */
+ const closeInviteOutcome=async(id:string,outcome:"played"|"missed")=>{
+  if(closingInviteId)return;
+  setClosingInviteId(id);setMessage("");
+  try{
+   const r=await fetch(`/api/invites/${id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({action:outcome})});
+   const b=await r.json();
+   if(!r.ok){setMessage(b.error??"未能更新，請再試一次。");return;}
+   await refreshInvites();setMessage(outcome==="played"?"多謝，已記低你哋打咗。":"已記低今次冇打成。");
+  }catch{setMessage("網絡連線失敗，請再試一次。")}
+  finally{setClosingInviteId(null)}
  };
  const changeDate=(next:string)=>{setFocus(null);setDate(next)};
  const editor=view==="manage"||view==="create";
@@ -521,13 +642,17 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
 {view==="find"&&<DateScroller dates={week} selected={date} counts={counts} onSelect={changeDate}/>}
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
 {userPlayerId&&view==="find"&&(()=>{
- const received=invites.received.find(i=>i.status==="pending");
+ /* Triage order is deliberate and it is not the order things were created in: a game that already
+    happened needs a score before anything else matters, then an invite waiting on me, then what is
+    locked in, then what I am waiting on someone else for. */
+ const received=buckets.needsResponse[0];
  const confirmed=confirmedMatches[0];
- const sent=invites.sent.find(i=>i.status==="pending");
+ const sent=buckets.awaitingReply[0];
  const opponent=received?.fromPlayer??(confirmed?(confirmed.fromPlayer.id===userPlayerId?confirmed.toPlayer:confirmed.fromPlayer):sent?.toPlayer);
  const slot=received??confirmed??sent;
  const published=own.slice().sort((a,b)=>a.startAt.localeCompare(b.startAt))[0];
  const state=received?"received":confirmed?"confirmed":sent?"waiting":own.length?"available":"empty";
+ const waitingCount=buckets.needsResponse.length;
  return <section className={`availability-card matchmaking-status-card is-${state}`} aria-label="我的配對狀態">
   <div className="matchmaking-status-copy"><p className="matchmaking-status-kicker">我的配對狀態</p>
    <div className="matchmaking-status-title">{opponent&&<PlayerBadge player={opponent}/>}<div>
@@ -535,15 +660,51 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
     <p>{slot?`${dayLabel(hkDate(new Date(slot.startAt)))} · ${range(slot)}`:published?`最近時段：${dayLabel(hkDate(new Date(published.startAt)))} · ${range(published)}`:"公開空閒時間後，我們會直接推薦最合適的球友。"}</p>
    </div></div>
    {received?.message&&<p className="matchmaking-status-message">{received.message}</p>}
+   {waitingCount>1&&<p className="matchmaking-status-more">仲有 {waitingCount-1} 個邀請等你回覆 · 全部列於下方</p>}
   </div>
   <div className="matchmaking-status-actions">
    {received&&<><button type="button" className="secondary" disabled={respondingId===received.id} onClick={()=>void respondToInvite(received.id,"decline")}>婉拒</button><button type="button" className="primary" disabled={respondingId===received.id} onClick={()=>void respondToInvite(received.id,"accept")}>接受邀請</button></>}
-   {confirmed&&<>{onRecordMatch&&opponent&&<button type="button" className="primary" onClick={()=>onRecordMatch(opponent.id,hkDate(new Date(confirmed.startAt)))}>記錄比分</button>}<button type="button" className="secondary" disabled={cancellingInviteId===confirmed.id} onClick={()=>cancelInviteAction(confirmed.id)}>取消對局</button></>}
-   {sent&&<button type="button" className="secondary" disabled={cancellingInviteId===sent.id} onClick={()=>cancelInviteAction(sent.id)}>取消邀請</button>}
+   {!received&&confirmed&&<>{onRecordMatch&&opponent&&<button type="button" className="primary" onClick={()=>onRecordMatch(opponent.id,hkDate(new Date(confirmed.startAt)))}>記錄比分</button>}<button type="button" className="secondary" disabled={cancellingInviteId===confirmed.id} onClick={()=>cancelInviteAction(confirmed.id)}>取消對局</button></>}
+   {!received&&!confirmed&&sent&&<button type="button" className="secondary" disabled={cancellingInviteId===sent.id} onClick={()=>cancelInviteAction(sent.id)}>取消邀請</button>}
    {!slot&&<button type="button" className={own.length?"secondary":"primary"} onClick={()=>nav(own.length?"manage":"create")}>{own.length?"編輯我的時段":"公開我的時段"}</button>}
   </div>
  </section>;
 })()}
+{/* The one question the app never used to ask. A confirmed slot that has finished with no score
+    against it is the exact moment to ask whether the game happened — late enough to know, early
+    enough to remember. Answering either way retires the prompt for good. */}
+{userPlayerId&&view==="find"&&buckets.followUps.length>0&&
+ <section className="availability-card follow-up-card" aria-label="待確認賽果">
+  <header className="availability-grid-head"><div><h3>你哋打咗未？</h3><small>確認賽果之後，這個提示就會消失。</small></div></header>
+  <ul className="invite-row-list">{buckets.followUps.map(invite=>{
+   const other=invite.fromPlayer.id===userPlayerId?invite.toPlayer:invite.fromPlayer;
+   return <InviteRow key={invite.id} invite={invite} me={userPlayerId} tone="followUp" actions={<>
+    <button type="button" className="secondary" disabled={closingInviteId===invite.id} onClick={()=>void closeInviteOutcome(invite.id,"missed")}>冇打成</button>
+    {onRecordMatch&&<button type="button" className="primary" onClick={()=>onRecordMatch(other.id,hkDate(new Date(invite.startAt)))}>記錄比分</button>}
+   </>}/>;
+  })}</ul>
+ </section>}
+{/* Everything still in flight, in full. */}
+{userPlayerId&&view==="find"&&(buckets.needsResponse.length>1||buckets.awaitingReply.length>0||confirmedMatches.length>1)&&
+ <section className="availability-card invite-inbox" aria-label="邀請匣">
+  <header className="availability-grid-head"><div><h3>邀請匣</h3><small>所有未完成的邀請同已確認的對局。</small></div></header>
+  {buckets.needsResponse.length>1&&<><h4 className="invite-group-title">等你回覆 · {buckets.needsResponse.length}</h4>
+   <ul className="invite-row-list">{buckets.needsResponse.slice(1).map(invite=>
+    <InviteRow key={invite.id} invite={invite} me={userPlayerId} tone="received" actions={<>
+     <button type="button" className="secondary" disabled={respondingId===invite.id} onClick={()=>void respondToInvite(invite.id,"decline")}>婉拒</button>
+     <button type="button" className="primary" disabled={respondingId===invite.id} onClick={()=>void respondToInvite(invite.id,"accept")}>接受</button>
+    </>}/>)}</ul></>}
+  {confirmedMatches.length>1&&<><h4 className="invite-group-title">已確認 · {confirmedMatches.length}</h4>
+   <ul className="invite-row-list">{confirmedMatches.slice(1).map(invite=>
+    <InviteRow key={invite.id} invite={invite} me={userPlayerId} tone="upcoming" actions={
+     <button type="button" className="secondary" disabled={cancellingInviteId===invite.id} onClick={()=>cancelInviteAction(invite.id)}>取消</button>
+    }/>)}</ul></>}
+  {buckets.awaitingReply.length>0&&<><h4 className="invite-group-title">等對方回覆 · {buckets.awaitingReply.length}</h4>
+   <ul className="invite-row-list">{buckets.awaitingReply.map(invite=>
+    <InviteRow key={invite.id} invite={invite} me={userPlayerId} tone="sent" actions={
+     <button type="button" className="secondary" disabled={cancellingInviteId===invite.id} onClick={()=>cancelInviteAction(invite.id)}>取消邀請</button>
+    }/>)}</ul></>}
+ </section>}
 {view==="find"&&<>
 {userPlayerId&&mine.length>0&&<header className="availability-day-head"><span/><button className="more" onClick={()=>nav("manage")}>{`我的時段 ${mine.map(range).join("、")}`}</button></header>}
 {loading?<div className="availability-skeleton" aria-hidden="true"/>:<div className="find-stack">
@@ -553,6 +714,31 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
     <div className="match-stack-list">{activeList.slice(0,3).map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} onPlayer={onPlayer} cardStatus={inviteStatusById.get(o.member.id)??{status:"none",invite:null}} onInvite={openInviteSheet} onCancelInvite={cancelInviteAction}/>)}</div>
    </section>
   :<MatchPrompt hasMine={mine.length>0} userPlayerId={userPlayerId} members={members.length} focus={focus} onManage={nav}/>}
+ {/* An open call reaches the member who never published a slot, which directed invites structurally
+     cannot. It also removes the part people actually hesitate over: you are offering a table to the
+     room, so nobody is being personally turned down if it goes unclaimed. */}
+ <section className="availability-card open-call-section" aria-label="開放邀請">
+  <header className="availability-grid-head"><div><h3>開放邀請</h3><small>{claimableCalls.length?"任何人都可以接受，先到先得。":"貼一個時段，全會所都睇到，唔使指定對手。"}</small></div>
+   {userPlayerId&&<button type="button" className="more" onClick={()=>setCallComposerOpen(open=>{if(!open){const t=defaultProposalTimes(date);setCallStart(t.start);setCallEnd(t.end)}return !open})}>{callComposerOpen?"收起":"貼開放邀請"}</button>}</header>
+  {callComposerOpen&&userPlayerId&&<div className="open-call-composer availability-slot-form">
+   <div className="composer-times">
+    <label><span>開始時間</span><select value={callStart} onChange={e=>setCallStart(e.target.value)}>{PROPOSE_START_TIMES.map(v=><option key={v}>{v}</option>)}</select></label>
+    <label><span>結束時間</span><select value={callEnd} onChange={e=>setCallEnd(e.target.value)}>{PROPOSE_END_TIMES.map(v=><option key={v}>{v}{v<=callStart?" · 次日":""}</option>)}</select></label>
+   </div>
+   <label className="invite-message-field"><span>留言（可選）</span><textarea rows={2} maxLength={300} value={callMessage} placeholder="例如：訂咗枱，有冇人一齊打？" onChange={e=>setCallMessage(e.target.value)}/></label>
+   <p className="availability-form-hint">{dayLabel(date)} · 任何會員都可以接受，接受後即成為已確認對局。</p>
+   <div className="availability-form-actions">
+    <button type="button" className="primary publish-button" disabled={postingCall} aria-busy={postingCall} onClick={()=>void postOpenCall()}>{postingCall&&<i className="button-spinner" aria-hidden="true"/>}<span>{postingCall?"發出中…":`發出 · ${callStart}–${callEnd}`}</span></button>
+    <button type="button" className="secondary" onClick={()=>setCallComposerOpen(false)}>取消</button>
+   </div>
+  </div>}
+  {myOpenCalls.length===0&&claimableCalls.length===0
+   ?<p className="open-call-empty">暫時未有開放邀請。{userPlayerId?"你可以做第一個。":"登入後即可貼出。"}</p>
+   :<ul className="open-call-list">
+     {myOpenCalls.map(call=><OpenCallCard key={call.id} call={call} mine onClaim={()=>{}} onWithdraw={()=>void withdrawCall(call.id)} busy={withdrawingCallId===call.id} canClaim={false}/>)}
+     {claimableCalls.map(call=><OpenCallCard key={call.id} call={call} mine={false} onClaim={()=>void claimCall(call.id)} onWithdraw={()=>{}} busy={claimingCallId===call.id} canClaim={Boolean(userPlayerId)}/>)}
+    </ul>}
+ </section>
  {members.length>0&&<section className="availability-board-section" aria-label="所有球員空檔">
    <header className="availability-day-head"><div><h2>所有球員的空檔</h2><small>想自己瀏覽？左右滑動時間，點按球員空檔即可查看或提議。</small></div></header>
    <AvailabilityGrid members={members} mine={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi} userPlayerId={userPlayerId} focus={focus} onFocus={setFocus} highlightId={jumpTo?.playerId} onPlayer={onPlayer}/>
