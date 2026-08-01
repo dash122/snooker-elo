@@ -156,7 +156,7 @@ export async function putState(data: string) {
         entity_id: entity.entityId,
         payload: tx.json(entity.payload as any),
       }));
-      await tx`INSERT INTO app_state_snapshot_entities ${entities} ON CONFLICT (content_hash) DO NOTHING`;
+      await tx`INSERT INTO app_state_snapshot_entities ${tx(entities)} ON CONFLICT (content_hash) DO NOTHING`;
       const items = snapshotEntities(state).map(entity => ({
         snapshot_id: snapshotId,
         entity_type: entity.entityType,
@@ -164,7 +164,7 @@ export async function putState(data: string) {
         content_hash: snapshotHash(entity.entityType, entity.entityId, entity.payload),
         position: entity.position,
       }));
-      await tx`INSERT INTO app_state_snapshot_items ${items}`;
+      await tx`INSERT INTO app_state_snapshot_items ${tx(items)}`;
     }
     await tx`DELETE FROM app_state_snapshots WHERE id NOT IN (SELECT id FROM app_state_snapshots ORDER BY saved_at DESC LIMIT 100)`;
     await tx`DELETE FROM app_state_snapshot_entities e WHERE NOT EXISTS (SELECT 1 FROM app_state_snapshot_items i WHERE i.content_hash = e.content_hash)`;
