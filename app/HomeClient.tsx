@@ -642,6 +642,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   };
 
   function saveMatch(){
+    if(saving)return;
     if(!isAdmin&&(!ownPlayerId||(a?.id!==ownPlayerId&&b?.id!==ownPlayerId&&a2?.id!==ownPlayerId&&b2?.id!==ownPlayerId))){setToast("你只能記錄或修改自己參與的比賽。");return;}
     const valid1v1 = draft.mode==="1v1";
     const valid2v2 = draft.mode==="2v2" && a && b && a2 && b2 && new Set([a.id,b.id,a2.id,b2.id]).size===4;
@@ -805,7 +806,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       <div className={`sheet-shell${modal==="detail"?" player-detail-sheet":""}${modal==="match"?" match-entry-sheet":""}`}>
         <button className="close" aria-label="關閉" onClick={closeModal}>×</button>
         <section className={`sheet${modal==="deleteMatch"?" confirm-sheet":""}`} role="dialog" aria-modal="true">
-          {modal==="match"&&<MatchForm data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} onSave={saveMatch}/>}
+          {modal==="match"&&<MatchForm data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} saving={saving} onSave={saveMatch}/>}
           {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} onSave={savePlayer}/>}
           {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,modelVersion:3},rebuilt=replay(data.players,data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"更新 ELO 設定；完整重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已更新，歷史 ELO 已重播。")}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
@@ -1495,21 +1496,15 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
     {canReset&&<section className="danger-zone"><div><h2>清除並重設資料</h2><p>永久刪除共用資料庫內所有球員、比賽及審計記錄，並恢復預設 ELO 設定。</p></div><button onClick={onReset}>清除所有資料</button></section>}</>;
 }
 
-function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;editing:boolean;onSave:()=>void}) {
+function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;editing:boolean;saving:boolean;onSave:()=>void}) {
   const [breakInput,setBreakInput]=useState<Record<string,string>>({});
+  const [breakMessage,setBreakMessage]=useState<Record<string,string>>({});
+  const [breakReminder,setBreakReminder]=useState(false);
   const eloPreviewRef=useRef<HTMLElement|null>(null);
   const hadEloPreview=useRef(false);
   const [breakOpen,setBreakOpen]=useState<Record<string,boolean>>({});
   const [customHandicap,setCustomHandicap]=useState(editing||Boolean(draft.giver));
   const update=(k:string,v:any)=>setDraft((d:any)=>({...d,[k]:v}));
-  // A loss is exactly when a player is least likely to think to log a break,
-  // and exactly when it matters most to their own record — open the field for
-  // whoever's trailing instead of waiting for them to notice the toggle.
-  useEffect(()=>{
-    if(draft.mode==="2v2"||!draft.a||!draft.b)return;
-    const trailing=draft.scoreA>draft.scoreB?draft.b:draft.scoreB>draft.scoreA?draft.a:null;
-    if(trailing)setBreakOpen(current=>current[trailing]?current:{...current,[trailing]:true});
-  },[draft.scoreA,draft.scoreB,draft.a,draft.b,draft.mode]);
   const players=[...data.players].filter(p=>p.active).sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
   const isTeamMode=draft.mode==="2v2";
   const a2=isTeamMode?data.players.find(player=>player.id===draft.a2):undefined;
@@ -1532,6 +1527,9 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
     if(!Number.isInteger(value)||value<1||value>147)return;
     setDraft((d:any)=>({...d,highBreaks:[...(d.highBreaks??[]),{playerId,value}]}));
     setBreakInput(current=>({...current,[playerId]:""}));
+    const previousBest=data.matches.filter(match=>match.status==="confirmed").flatMap(match=>(match.highBreaks??[]).filter(item=>item.playerId===playerId).map(item=>item.value)).reduce((best,item)=>Math.max(best,item),0);
+    setBreakReminder(false);
+    setBreakMessage(current=>({...current,[playerId]:value>previousBest&&previousBest>0?`新個人最佳！比之前高 ${value-previousBest} 分 🎉`:value>previousBest?"第一個單桿紀錄，繼續突破！":previousBest-value<=5?`距離個人最佳 ${previousBest} 只差 ${previousBest-value} 分`:"已記低，下一桿再挑戰更高！"}));
   };
   const removeBreak=(index:number)=>setDraft((d:any)=>({...d,highBreaks:(d.highBreaks??[]).filter((_:unknown,itemIndex:number)=>itemIndex!==index)}));
   const teamEloDifference=draft.mode==="2v2"&&a2&&b2?roundedTeamEloDifference([a,a2],[b,b2]):a.rating-b.rating;
@@ -1595,21 +1593,21 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,onSave}:{data:AppSta
     <section className="quick-handicap" aria-labelledby="handicap-title"><h3 id="handicap-title">讓分 <small>{handicapLabel}</small></h3>{validTeamSelection&&<div className="entertainment-handicap-note recommended"><b>建議讓分</b><span>{fairPoints===0?`${teamAName} 與 ${teamBName} 毋須讓分`:`${fairActual!>0?teamAName:teamBName} 每局讓 ${fairActual!>0?teamBName:teamAName} ${fairPoints} 分`}</span><small>{teamAHandicap!=null&&teamBHandicap!=null?`${teamAName} 平均 ${Math.round(teamAHandicap)} · ${teamBName} 平均 ${Math.round(teamBHandicap)}`:`隊伍平均 ELO 相差 ${Math.abs(teamEloDifference)}`}；按球員 ELO 建議讓分計算。</small></div>}<div className="handicap-segment"><button type="button" className={!draft.giver&&!customHandicap?"active":""} onClick={setNoHandicap}>沒有讓分</button><button type="button" disabled={fairActual==null} className={draft.giver&&+draft.points===fairPoints&&!customHandicap?"active":""} onClick={fairPoints===0?setNoHandicap:applyFair}>ELO 建議</button><button type="button" className={customHandicap?"active":""} onClick={()=>setCustomHandicap(value=>!value)}>自訂</button></div>
       {customHandicap&&<div className="custom-handicap"><label>{draft.mode==="2v2"?"讓分隊伍":"讓分球員"}<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">沒有讓分</option><option value={a?.id}>{draft.mode==="2v2"?`${teamAName}（${a.name} / ${a2?.name}）`:a?.name}</option><option value={b?.id}>{draft.mode==="2v2"?`${teamBName}（${b.name} / ${b2?.name}）`:b?.name}</option></select></label><label>每局分數<input type="number" inputMode="numeric" min="0" step="1" value={draft.points} onChange={e=>update("points",Math.max(0,+e.target.value))}/></label></div>}
     </section>
-    <section className="score-panel" aria-labelledby="score-title">{preview&&<div className="predicted-ratio"><div><span>預測局數比例</span><b>{isTeamMode?teamAName:a.short} {Math.round(preview.expectedA*100)}% · {Math.round((1-preview.expectedA)*100)}% {isTeamMode?teamBName:b.short}</b></div><em aria-label={`${isTeamMode?teamAName:a.name} ${Math.round(preview.expectedA*100)}%，${isTeamMode?teamBName:b.name} ${Math.round((1-preview.expectedA)*100)}%`}><i style={{width:`${Math.round(preview.expectedA*100)}%`}}/></em></div>}<h3 id="score-title">最終比分</h3><div className="scoreboard-entry">
+    <section className="score-panel" aria-labelledby="score-title">{preview&&<div className="predicted-ratio"><div><span>預測局數比例</span><b>{isTeamMode?teamAName:a.short} {Math.round(preview.expectedA*100)}% · {Math.round((1-preview.expectedA)*100)}% {isTeamMode?teamBName:b.short}</b></div><em aria-label={`${isTeamMode?teamAName:a.name} ${Math.round(preview.expectedA*100)}%，${isTeamMode?teamBName:b.name} ${Math.round((1-preview.expectedA)*100)}%`}><i style={{width:`${Math.round(preview.expectedA*100)}%`}}/></em></div>}<h3 id="score-title">最終比分</h3>{!isTeamMode&&<div className="break-invitation"><b>今場有冇值得記低嘅單桿？</b><span>每次突破，都係進步嘅紀錄。</span></div>}<div className="scoreboard-entry">
       <div><b>{isTeamMode?teamAName:(a?.name??"球員 A")}</b><div className="score-row"><button type="button" aria-label={`${isTeamMode?teamAName:(a?.name??"球員 A")}減一局`} onClick={()=>changeScore("scoreA",-1)}>−</button><input className="score-value" aria-label={`${isTeamMode?teamAName:(a?.name??"球員 A")}局數`} type="number" inputMode="numeric" min="0" value={draft.scoreA} onChange={e=>update("scoreA",Math.max(0,+e.target.value))}/><button type="button" aria-label={`${isTeamMode?teamAName:(a?.name??"球員 A")}加一局`} onClick={()=>changeScore("scoreA",1)}>＋</button></div>
-        {!isTeamMode&&a&&<div className="break-inline">{(breakOpen[a.id]||(draft.highBreaks??[]).some((item:{playerId:string})=>item.playerId===a.id))&&<p className="break-heading">單桿度數</p>}<div className="break-chips">{(draft.highBreaks??[]).map((item:{playerId:string;value:number},index:number)=>item.playerId===a.id?<button type="button" key={index} onClick={()=>removeBreak(index)} aria-label={`移除 ${a.name} 的 ${item.value} 分單桿度數`}>{item.value}<span>×</span></button>:null)}</div>
-          {breakOpen[a.id]?<form className="break-add" onSubmit={event=>{event.preventDefault();addBreak(a.id)}}><input autoFocus className="break-value" aria-label={`${a.name} 單桿度數`} type="number" inputMode="numeric" min="1" max="147" placeholder="度數" value={breakInput[a.id]??""} onChange={event=>setBreakInput(current=>({...current,[a.id]:event.target.value}))}/><button type="submit">加入</button></form>:<button type="button" className="break-add-toggle" onClick={()=>setBreakOpen(current=>({...current,[a.id]:true}))}>＋ 單桿度數</button>}
-        </div>}
+        {!isTeamMode&&a&&<div className="break-inline">{(breakOpen[a.id]||(draft.highBreaks??[]).some((item:{playerId:string})=>item.playerId===a.id))&&<p className="break-heading">已記錄嘅單桿</p>}<div className="break-chips">{(draft.highBreaks??[]).map((item:{playerId:string;value:number},index:number)=>item.playerId===a.id?<button type="button" key={index} onClick={()=>removeBreak(index)} aria-label={`移除 ${a.name} 的 ${item.value} 分單桿度數`}>{item.value}<span>×</span></button>:null)}</div>
+          {breakOpen[a.id]?<form className="break-add" onSubmit={event=>{event.preventDefault();addBreak(a.id)}}><input autoFocus className="break-value" aria-label={`${a.name} 單桿度數`} type="number" inputMode="numeric" min="1" max="147" placeholder="輸入度數" enterKeyHint="done" value={breakInput[a.id]??""} onChange={event=>setBreakInput(current=>({...current,[a.id]:event.target.value}))}/><button type="submit">記低</button></form>:<button type="button" className="break-add-toggle" onClick={()=>setBreakOpen(current=>({...current,[a.id]:true}))}>＋ 記錄單桿</button>}
+        {breakMessage[a.id]&&<p className="break-encouragement" role="status">{breakMessage[a.id]}</p>}</div>}
       </div>
       <strong aria-hidden="true">–</strong>
       <div><b>{isTeamMode?teamBName:(b?.name??"球員 B")}</b><div className="score-row"><button type="button" aria-label={`${isTeamMode?teamBName:(b?.name??"球員 B")}減一局`} onClick={()=>changeScore("scoreB",-1)}>−</button><input className="score-value" aria-label={`${isTeamMode?teamBName:(b?.name??"球員 B")}局數`} type="number" inputMode="numeric" min="0" value={draft.scoreB} onChange={e=>update("scoreB",Math.max(0,+e.target.value))}/><button type="button" aria-label={`${isTeamMode?teamBName:(b?.name??"球員 B")}加一局`} onClick={()=>changeScore("scoreB",1)}>＋</button></div>
-        {!isTeamMode&&b&&<div className="break-inline">{(breakOpen[b.id]||(draft.highBreaks??[]).some((item:{playerId:string})=>item.playerId===b.id))&&<p className="break-heading">單桿度數</p>}<div className="break-chips">{(draft.highBreaks??[]).map((item:{playerId:string;value:number},index:number)=>item.playerId===b.id?<button type="button" key={index} onClick={()=>removeBreak(index)} aria-label={`移除 ${b.name} 的 ${item.value} 分單桿度數`}>{item.value}<span>×</span></button>:null)}</div>
-          {breakOpen[b.id]?<form className="break-add" onSubmit={event=>{event.preventDefault();addBreak(b.id)}}><input autoFocus className="break-value" aria-label={`${b.name} 單桿度數`} type="number" inputMode="numeric" min="1" max="147" placeholder="度數" value={breakInput[b.id]??""} onChange={event=>setBreakInput(current=>({...current,[b.id]:event.target.value}))}/><button type="submit">加入</button></form>:<button type="button" className="break-add-toggle" onClick={()=>setBreakOpen(current=>({...current,[b.id]:true}))}>＋ 單桿度數</button>}
-        </div>}
+        {!isTeamMode&&b&&<div className="break-inline">{(breakOpen[b.id]||(draft.highBreaks??[]).some((item:{playerId:string})=>item.playerId===b.id))&&<p className="break-heading">已記錄嘅單桿</p>}<div className="break-chips">{(draft.highBreaks??[]).map((item:{playerId:string;value:number},index:number)=>item.playerId===b.id?<button type="button" key={index} onClick={()=>removeBreak(index)} aria-label={`移除 ${b.name} 的 ${item.value} 分單桿度數`}>{item.value}<span>×</span></button>:null)}</div>
+          {breakOpen[b.id]?<form className="break-add" onSubmit={event=>{event.preventDefault();addBreak(b.id)}}><input autoFocus className="break-value" aria-label={`${b.name} 單桿度數`} type="number" inputMode="numeric" min="1" max="147" placeholder="輸入度數" enterKeyHint="done" value={breakInput[b.id]??""} onChange={event=>setBreakInput(current=>({...current,[b.id]:event.target.value}))}/><button type="submit">記低</button></form>:<button type="button" className="break-add-toggle" onClick={()=>setBreakOpen(current=>({...current,[b.id]:true}))}>＋ 記錄單桿</button>}
+        {breakMessage[b.id]&&<p className="break-encouragement" role="status">{breakMessage[b.id]}</p>}</div>}
       </div>
     </div></section>
     {preview&&totalFrames>0&&(draft.mode==="2v2"?<section ref={eloPreviewRef} className="elo-preview entertainment-preview"><b>潮拍娛樂模式</b><p>本場只記錄隊伍、讓分與比分；四位球員的目前 ELO、勝負、局數及近況均不會改變。</p></section>:<section ref={eloPreviewRef} className="elo-preview"><div><span><small>{a.name}</small><b className={preview.deltaA>=0?"positive":"negative"}>{preview.deltaA>=0?"+":""}{Math.round(preview.deltaA)} ELO</b></span><i aria-hidden="true">↔</i><span className="right"><small>{b.name}</small><b className={preview.deltaA<=0?"positive":"negative"}>{-preview.deltaA>=0?"+":""}{Math.round(-preview.deltaA)} ELO</b></span></div><details><summary>查看計算詳情</summary><p>{probabilities?`A 勝 ${Math.round(probabilities.win*100)}% · 和 ${Math.round(probabilities.draw*100)}% · `:""}表現分 {Math.round(preview.performanceScore*100)}% · 證據權重 ×{preview.evidenceWeight.toFixed(2)} · 讓分等效 {preview.adjustment>=0?"+":""}{Math.round(preview.adjustment)} ELO</p></details></section>)}
-    <div className="match-save"><button className="primary full" disabled={!valid||data.players.length<2} onClick={onSave}>{editing?"儲存變更":"儲存賽果"}<small>{resultLabel}</small></button></div>
+    <div className="match-save">{breakReminder&&<div className="break-save-reminder" role="status"><b>今場有冇值得記低嘅單桿？</b><span><button type="button" onClick={()=>{setBreakReminder(false);setBreakOpen({[a.id]:true,[b.id]:true})}}>返回記錄</button><button type="button" onClick={onSave}>今場沒有，照樣儲存</button></span></div>}<button className="primary full" disabled={!valid||data.players.length<2||saving} aria-busy={saving} onClick={()=>{if(!isTeamMode&&!editing&&(draft.highBreaks??[]).length===0){setBreakReminder(true);return}onSave()}}>{saving?"儲存中…":editing?"儲存變更":"儲存賽果"}<small>{saving?"請稍候":resultLabel}</small></button></div>
   </div>;
 }
 
@@ -1799,6 +1797,7 @@ function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOppone
 }
 function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFindOpponent}:{player:Player;rank:number;data:AppState;onCompare:(opponent:Player)=>void;onViewAllMatches:()=>void;onMatch:(matchId:string)=>void;onFindOpponent:(playerId:string,date:string)=>void}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data),series=playerSeries(player,data),trendPoints=playerTrendPoints(player,data),high=Math.max(...series),low=Math.min(...series);const provisional=g<data.settings.provisionalGames;
   const frameTrend=recentFramesPerMatch(player,data,5);
+  const highestBreak=data.matches.filter(m=>m.status==="confirmed").flatMap(m=>(m.highBreaks??[]).filter(item=>item.playerId===player.id).map(item=>item.value)).reduce((max,value)=>Math.max(max,value),0);
   /* One hero, then a single `.profile-body` grid: every section below is a `.profile-section`, so the
      gaps, surfaces and heads come from one place rather than from each section's own margins. */
   /* A plain div, not a <header>: the global `header{height:62px}` page rule would clamp this and
@@ -1808,24 +1807,28 @@ function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFin
     <div className="profile-identity">
       <h2>{player.name}</h2>
       <div className="profile-chips"><span className="profile-chip">排名 #{rank||"—"}</span><span className={`profile-chip${provisional?" provisional":""}`}>{provisional?"臨時 ELO":"正式 ELO"}</span><span className="profile-chip">{g} 場</span></div>
+      <div className="profile-hero-form"><div><small>近期 5 場</small><span className="profile-form-dots">{player.form.slice(0,5).map((result,index)=><i key={`${result}-${index}`} className={result.toLowerCase()}>{result}</i>)}</span></div></div>
     </div>
     <div className="profile-hero-elo"><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div>
   </div>
   <div className="profile-body">
     {/* Current ELO already leads the hero above, so it isn't repeated here. */}
-    <div className="profile-stats"><div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div><div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div><div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div></div>
-    {(frameTrend.recent!=null||player.framesWon+player.framesLost>0)&&<div className="profile-stats profile-progress">
-      {frameTrend.recent!=null&&<div>
+    <div className="profile-stats profile-progress">
+      <div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div>
+      <div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div>
+      <div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div>
+      <div>
         <small>近 5 場局均得分</small>
-        <b className={frameTrend.prior!=null&&frameTrend.recent>frameTrend.prior?"positive":undefined}>{frameTrend.recent.toFixed(1)} 局</b>
+        <b className={frameTrend.prior!=null&&frameTrend.recent!=null&&frameTrend.recent>frameTrend.prior?"positive":undefined}>{frameTrend.recent!=null?`${frameTrend.recent.toFixed(1)} 局`:"—"}</b>
         {frameTrend.prior!=null&&<span className="profile-progress-sub">前 5 場 {frameTrend.prior.toFixed(1)} 局</span>}
-      </div>}
+      </div>
       <div>
         <small>局數勝率</small>
         <b>{Math.round(frameRate(player)*100)}%</b>
         <span className="profile-progress-sub">{player.framesWon} 局獲勝</span>
       </div>
-    </div>}
+      <div><small>最高單桿</small><b>{highestBreak||"—"}</b><span className="profile-progress-sub">{highestBreak?"歷史記錄":"尚未有單桿記錄"}</span></div>
+    </div>
     <PlayerUpcomingSlots player={player} onFindOpponent={onFindOpponent}/>
     <BreakStats player={player} data={data}/>
     <RecentMatches points={trendPoints} onViewAll={onViewAllMatches} onMatch={onMatch}/>
