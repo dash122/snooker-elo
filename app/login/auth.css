@@ -43,3 +43,36 @@
 .auth-welcome-card{width:min(92%,480px);margin:auto;padding:44px;border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:0 28px 80px rgba(24,50,42,.1)}
 @media(max-width:840px){.auth-experience{grid-template-columns:1fr}.auth-story{display:none}.auth-panel{padding:28px 20px 46px}.auth-mobile-brand{display:block;margin-bottom:32px;color:var(--deep);font-size:17px;font-weight:900;text-decoration:none}.auth-mobile-brand span{color:var(--gold);font-weight:700}.auth-tabs{margin-bottom:34px}}
 @media(max-width:480px){.auth-panel{align-items:start}.auth-panel-inner{padding-top:10px}.auth-panel h2{font-size:34px}.auth-main-form input{font-size:16px}.auth-tabs a{min-height:46px}}
+
+
+/* Login joins the same product-wide type, spacing, and control contract. */
+.auth-experience{width:100%;max-width:none;margin:0;padding:0;font-size:var(--fs-body);line-height:1.65}
+.auth-story{padding:var(--page-gutter)}
+.auth-story>div{margin-block:clamp(3rem,8vh,5rem)}
+.auth-story>div>p:not(.kicker){font-size:var(--fs-body)}
+.auth-story li{font-size:var(--fs-body)}
+.auth-panel{padding:var(--page-gutter)}
+.auth-panel-inner{width:min(100%,30rem)}
+.auth-tabs{margin-bottom:var(--space-section);border-radius:var(--radius-md)}
+.auth-tabs a{min-height:var(--control-md);font-size:var(--fs-sm);border-radius:var(--radius-sm)}
+.auth-panel h2{margin:.5rem 0 .75rem;font-size:clamp(2.25rem,4vw,3rem)}
+.auth-intro{margin-bottom:var(--space-block);font-size:var(--fs-body)}
+.auth-main-form{gap:var(--space-block)}
+.auth-main-form label{font-size:var(--fs-sm)}
+.auth-main-form input{min-height:var(--control-lg);border-radius:var(--radius-sm);font-size:var(--fs-body)}
+.auth-main-form label>small,.field-error{font-size:var(--fs-caption)}
+.auth-password-field button{font-size:var(--fs-caption)}
+.auth-submit{min-height:var(--control-lg);font-size:var(--fs-body)}
+.auth-switch{font-size:var(--fs-sm)}
+.auth-back{font-size:var(--fs-caption)}
+
+@media(max-width:840px){
+  .auth-panel{padding:var(--page-gutter)}
+  .auth-mobile-brand{margin-bottom:var(--space-section)}
+  .auth-tabs{margin-bottom:var(--space-section)}
+}
+
+@media(max-width:480px){
+  .auth-panel-inner{padding-top:0}
+  .auth-panel h2{font-size:2rem}
+}
