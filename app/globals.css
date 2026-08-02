@@ -2751,14 +2751,15 @@ button.availability-grid-player:hover b{text-decoration:underline}
 @media(max-width:700px){
   .ranking-panel{padding-inline:.625rem}
   .ranking-panel .table-card{padding:.3125rem .5rem}
-  .row-head-mobile,.row{grid-template-columns:2.25rem minmax(0,1fr) 4.75rem 3.75rem!important;column-gap:.5rem!important}
+  .row-head-mobile,.row{grid-template-columns:2.25rem minmax(0,1fr) 3.75rem 3.5rem!important;column-gap:.5rem!important}
   .row{padding:.625rem!important;min-height:4.375rem}
   .row-head-mobile{padding:0 .3125rem .375rem}
   .row-head-mobile>span{text-align:center}
   .rank{text-align:center}
   .person{min-width:0}
   .person b{display:block;min-width:0;max-width:100%;white-space:normal;overflow-wrap:break-word;word-break:normal;line-height:1.2}
-  .row>.form{width:auto!important;justify-content:flex-end}
+  .row>.form{width:3.75rem!important;justify-content:flex-end;gap:.125rem!important}
+  .row>.form i{max-width:.75rem!important;width:.75rem!important;height:.75rem!important;border-radius:.25rem!important}
 }
 
 
@@ -2947,3 +2948,239 @@ button.match-hero-window-action:hover,button.match-hero-window-action:focus-visi
 }
 .shell{background-color:var(--cream);background-image:repeating-linear-gradient(0deg,rgba(21,48,45,.018) 0 1px,transparent 1px 4px),repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 1px,transparent 1px 5px)}
 .shell:before{display:none}
+
+
+/* ===========================================================================
+   UI consistency contract
+
+   This is the final, authoritative layer for layout and type roles. The app
+   contains several feature-specific style generations; keeping the contract at
+   the end makes every page share the same content rail, gutters, readable type
+   floor, surface geometry, control sizing, and vertical rhythm.
+   =========================================================================== */
+:root{
+  --content-max:80rem;
+  --page-gutter:clamp(2rem,4vw,4rem);
+  --page-top:1.5rem;
+  --space-section:2.5rem;
+  --space-block:1.25rem;
+  --space-card:clamp(1.25rem,2.2vw,1.75rem);
+  --fs-label:.75rem;
+  --fs-caption:.8125rem;
+  --fs-sm:.875rem;
+  --fs-body:1rem;
+  --fs-lead:1.125rem;
+  --fs-stat:1.5rem;
+  --fs-h3:1.25rem;
+  --fs-h2:1.625rem;
+  --control-sm:2.25rem;
+  --control-md:2.75rem;
+  --control-lg:3.125rem;
+  --radius-sm:.75rem;
+  --radius-md:1rem;
+  --radius-lg:1.25rem;
+}
+
+body{font-size:var(--fs-body);line-height:1.65}
+:where(p,li,dd){text-wrap:pretty}
+:where(h1,h2,h3){text-wrap:balance}
+
+/* One rail for every first-level dashboard view. Fixed overlays and mobile
+   navigation are deliberately excluded from document-width calculations. */
+.shell>main{max-width:none;padding-inline:var(--page-gutter)}
+:where(.shell>main)>:where(:not(.bottom):not(.fab):not(.backdrop):not(.toast):not(.record-speed-dial):not(.record-menu-scrim):not(.pull-refresh):not(.availability-dialog-backdrop)){
+  width:min(100%,var(--content-max));
+  margin-inline:auto;
+}
+
+/* Stable reading hierarchy. Decorative microcopy remains compact, but no
+   explanatory or interactive text falls below the shared readable floor. */
+.kicker,.pill,.status,.table-head,.table-head.sortable button,
+.admin-field-group,.recent-chart-card header small{font-size:var(--fs-label)}
+.hero p:not(.kicker),.home-panel-head>div>p,.section-title>div>p:last-child,
+.sub,.summary,.account-settings-hint,.account-unlinked p:not(.kicker),
+.admin-section-sub,.admin-attention>p,.availability-page p{font-size:var(--fs-body)}
+.home-panel-head h2,.section-title h2,.account-panel-head h2,
+.admin-section-open>h2,.admin-section>summary{font-size:var(--fs-h2)}
+.chart-head h2,.chart-head h3,.recent-chart-card h3,.availability-grid-head h3,
+.matchmaking-status-title h2{font-size:var(--fs-h3)}
+
+.account-link,.account-topbar-links a,.auth-form label,.sheet label,
+.filters label,.sort-controls label,.match-filter-label,.admin-search,
+.admin-chip,.players-chip,.players-sort-btn,.match-history-filters button,
+.match-history-more,.availability-page button{font-size:var(--fs-sm)}
+
+.metrics small,.metrics span,.setting small,.account-hero-metrics small,
+.account-stat-grid small,.account-highlights span,.admin-stats small,
+.match-row-date small,.match-row-opponent small,.match-row-delta small,
+.match-row-detail dt,.availability-grid-head small,.availability-grid-legend,
+.availability-date-selector-head>span,.availability-date-strip>button small,
+.availability-date-strip>button span,.availability-grid-player small,
+.matchmaking-status-kicker{font-size:var(--fs-caption)}
+
+.metrics b,.setting b,.account-stat-grid b,.admin-stats b{font-size:var(--fs-stat)}
+
+/* Shared page rhythm and surface geometry. */
+.hero{margin-bottom:var(--space-block)}
+.hero.small{margin-bottom:.5rem}
+.section-title{margin:var(--space-section) 0 var(--space-block)}
+.home-view-panel,.podium-section,.match-filter-toolbar,.match-filter-status,
+.h2h-summary,.match-list,.calendar-view,.players-view,.calibration-card,
+.danger-zone,.audit,.availability-page>section{margin-top:var(--space-block)}
+
+.table-card,.home-view-panel,.chart-card,.trend-card,.detail-chart,.match,
+.player-card,.setting,.audit,.account-panel,.auth-card,.admin-attention,
+.availability-grid-card,.matchmaking-status-card,.availability-date-strip-wrap{
+  border-radius:var(--radius-lg);
+}
+.home-view-panel,.chart-card,.trend-card,.detail-chart,.account-panel{
+  padding:var(--space-card);
+}
+.account-layout,.account-column{gap:var(--space-block)}
+
+/* Controls use two predictable heights and one text size. */
+.primary{min-height:var(--control-lg);font-size:var(--fs-sm);border-radius:var(--radius-sm)}
+.secondary,.danger,.account-link,.account-topbar-links a,.admin-chip,
+.match-history-more,.players-sort-btn{min-height:var(--control-md)}
+input,select,textarea{font-size:var(--fs-body)}
+.auth-form input,.auth-form select,.sheet input,.sheet select,.filters input,
+.filters select,.admin-search{min-height:var(--control-lg);border-radius:var(--radius-sm)}
+
+/* Account and administration use the same outer rail and interior spacing as
+   the main product instead of behaving like isolated microsites. */
+.account-page{padding:var(--page-top) var(--page-gutter) 4rem}
+.account-page>*{width:min(100%,var(--content-max))}
+.account-topbar{min-height:3.5rem}
+.account-topbar-links a{display:inline-flex;align-items:center;padding-inline:1rem}
+.account-hero{margin-top:var(--space-block);padding:var(--space-card);border-radius:var(--radius-lg)}
+.account-panel-head{margin-bottom:var(--space-block)}
+.account-stat-grid,.account-highlights,.match-history-list{gap:.625rem}
+.account-stat-grid>div{padding:1rem;border-radius:var(--radius-md)}
+.auth-page{padding:var(--page-gutter)}
+.admin-card{width:min(100%,64rem);padding:clamp(1.5rem,3vw,2.5rem)}
+.admin-stats{gap:.75rem;margin:var(--space-block) 0}
+.admin-stats>div{padding:1rem}
+.admin-section,.admin-section-open{margin-top:var(--space-section);padding-top:var(--space-block)}
+.member-list>details>summary,.admin-unlinked-row{padding-block:1rem}
+
+/* Feature pages retain their dense visualisations while their surrounding
+   headings, cards, and controls align with the shared product language. */
+.availability-date-selector{margin-block:var(--space-block) .75rem}
+.availability-grid-head{padding:var(--space-card)}
+.availability-grid-head h3{line-height:1.3}
+.matchmaking-status-card{padding:var(--space-card)}
+.matchmaking-status-title p,.matchmaking-status-message{font-size:var(--fs-sm)}
+.players-row-name-line b,.person b,.admin-row-id b,.match-row-opponent b{font-size:var(--fs-body)}
+
+@media(max-width:980px){
+  :root{--page-gutter:1.75rem}
+}
+
+/* Compact desktop/tablet landscape type scale for narrower browser widths. */
+@media(max-width:1180px) and (min-width:821px){
+  :root{
+    --fs-label:.6875rem;
+    --fs-caption:.75rem;
+    --fs-sm:.8125rem;
+    --fs-body:.9375rem;
+    --fs-lead:1.0625rem;
+    --fs-h3:1.125rem;
+    --fs-h2:1.5rem;
+  }
+  input,select,textarea{font-size:16px}
+}
+
+@media(max-width:820px){
+  :root{
+    --page-gutter:1.125rem;
+    --page-top:1rem;
+    --space-section:2rem;
+    --space-block:1rem;
+    --space-card:1.125rem;
+    --fs-label:.6875rem;
+    --fs-caption:.75rem;
+    --fs-sm:.8125rem;
+    --fs-body:.9rem;
+    --fs-lead:1rem;
+    --fs-h3:1.0625rem;
+    --fs-h2:1.25rem;
+  }
+  .shell>main{padding-inline:var(--page-gutter)}
+  .home-view-nav,.match-view-toggle,.availability-tabs{
+    margin-inline:calc(-1 * var(--page-gutter));
+    padding-inline:var(--page-gutter);
+  }
+  .hero{margin-bottom:0}
+  .home-view-panel,.chart-card,.trend-card,.detail-chart,.account-panel{
+    padding:var(--space-card);
+  }
+  .account-page{padding:var(--page-top) var(--page-gutter) 3rem}
+  .account-actions{min-width:0}
+  .account-link.sign-in{max-width:5.25rem;padding-inline:.625rem;font-size:var(--fs-label)}
+  .auth-page{padding:var(--page-gutter)}
+  .admin-card{padding:1.5rem}
+  input,select,textarea{font-size:16px}
+}
+
+@media(max-width:480px){
+  :root{--page-gutter:.875rem;--space-card:1rem}
+  .account-topbar{align-items:flex-start}
+  .account-topbar-links{width:100%;overflow-x:auto;padding-bottom:.25rem}
+  .account-topbar-links a{flex:none}
+  .account-hero{padding:1.125rem}
+  .account-panel,.home-view-panel{border-radius:var(--radius-md)}
+  .admin-card{padding:1.25rem;border-radius:var(--radius-md)}
+  .admin-stats{grid-template-columns:1fr 1fr}
+  .admin-stats>div{display:block;padding:.875rem}
+  .admin-stats b{margin-top:.25rem}
+}
+
+/* Keep the mobile header controls on one shared tap-target height and center
+   the account label inside its rounded button. */
+.account-actions{align-items:center}
+.account-link{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:var(--control-md);
+  min-height:var(--control-md);
+  padding-block:0;
+  line-height:1.2;
+  text-align:center;
+}
+.header-settings{
+  width:var(--control-md);
+  height:var(--control-md);
+  min-height:var(--control-md);
+}
+
+/* All mobile top-level tab bars share the same full-rail geometry. */
+@media(max-width:820px){
+  .home-view-nav,.match-view-toggle,.availability-tabs{
+    width:calc(100% + var(--page-gutter) + var(--page-gutter));
+  }
+  .home-view-nav button,.availability-tabs button,main>.match-view-toggle button{
+    flex:1 1 0;
+    min-width:0;
+  }
+}
+/* The availability overflow guard caps nested navs at the content rail; the
+   shared full-rail tab bar intentionally extends beyond that rail. */
+@media(max-width:820px){
+  .availability-page .availability-tabs{max-width:none}
+}
+@media(max-width:820px){
+  .availability-page{overflow-x:visible}
+}
+
+/* Keep leaderboard names inside their grid track on every viewport. */
+.row>.person{min-width:0}
+.row>.person>b{
+  flex:1 1 0;
+  min-width:0;
+  max-width:100%;
+  font-size:var(--fs-sm);
+  line-height:1.25;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
