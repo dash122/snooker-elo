@@ -1,17 +1,20 @@
 "use client";
 import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
+import {CardHead,CounterSheet,NextUpCard,NotificationPrefsPanel,PushOptIn,RecurrenceEditor,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type QueueItem,type RecurrenceRule,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
-import {addDaysHongKong,availabilityDensity,availabilityPeak,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOpenCalls,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval} from "../lib/availability";
+import {addDaysHongKong,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOffers,partitionOpenCalls,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type MutualOffer,type ReliabilitySignals} from "../lib/availability";
 type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type View="find"|"recommendations"|"manage"|"create";
 type InviteStatus="pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";type InvitePlayer={id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null};
-type MatchInvite={id:string;startAt:string;endAt:string;message:string;status:InviteStatus;createdAt:string;respondedAt:string|null;fromPlayer:InvitePlayer;toPlayer:InvitePlayer};
-type OpenCall={id:string;startAt:string;endAt:string;message:string;status:"open"|"claimed"|"cancelled"|"expired";createdAt:string;claimedAt:string|null;player:InvitePlayer;claimedBy:InvitePlayer|null};
+type MatchInvite={id:string;startAt:string;endAt:string;message:string;status:InviteStatus;venue:string;createdAt:string;respondedAt:string|null;counter:{startAt:string;endAt:string;byPlayerId:string}|null;fromPlayer:InvitePlayer;toPlayer:InvitePlayer};
+type OpenCall={id:string;startAt:string;endAt:string;message:string;status:"open"|"claimed"|"cancelled"|"expired";venue:string;createdAt:string;claimedAt:string|null;player:InvitePlayer;claimedBy:InvitePlayer|null};
 type ListFilter="all"|"new"|"never"|"close";type CardStatus="none"|"pendingSent"|"pendingReceived"|"accepted";
+/** The three ways a member browses for a game, as one segmented control rather than three stacked
+    sections competing for the same screen. */
+type FindView="suggested"|"calls"|"board";
 type OpponentCardVM={member:Member;difference:number;windows:Interval[];windowsCaption:string;isNew:boolean;games:number;neverEver:boolean;chips:string[]};
-const time=hkClock,dayLabel=hkDayLabel,range=(x:Interval)=>`${time(x.startAt)}–${time(x.endAt)}`,utc=(d:string,t:string)=>new Date(`${d}T${t}:00+08:00`).toISOString(),days=(start:string,horizon=7)=>Array.from({length:horizon},(_,i)=>addDaysHongKong(start,i)),fullDay=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"long",day:"numeric",weekday:"long"}).format(new Date(`${d}T00:00:00+08:00`));
+const time=hkClock,dayLabel=hkDayLabel,range=(x:Interval)=>`${time(x.startAt)}–${time(x.endAt)}`,days=(start:string,horizon=7)=>Array.from({length:horizon},(_,i)=>addDaysHongKong(start,i)),fullDay=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"long",day:"numeric",weekday:"long"}).format(new Date(`${d}T00:00:00+08:00`));
 const durationLabel=(minutes:number)=>{const hours=Math.floor(minutes/60),rest=Math.round(minutes%60);return hours?`${hours} 小時${rest?` ${rest} 分鐘`:""}`:`${rest} 分鐘`};
-const shortDurationLabel=(minutes:number)=>minutes<60?`${Math.round(minutes)}分鐘`:`${Math.round(minutes/6)/10}小時`;
 /* Shared by both the overlap-ranked shortlist and the no-overlap-yet browse tier, so the same
    opponent reads identically ("新加入", "從沒交手", …) no matter which tier is showing them. */
 function buildOpponentChips(o:{isNew:boolean;games:number;difference:number;neverEver:boolean;recentZero:boolean}){
@@ -49,12 +52,9 @@ function defaultProposalTimes(date:string,now=Date.now()){
 }
 const addHours=(time:string,hours:number)=>{const[h,m]=time.split(":").map(Number);return `${String((h+hours)%24).padStart(2,"0")}:${String(m).padStart(2,"0")}`};
 const ICEBREAKER_MESSAGE="歡迎入會！有冇興趣一齊打第一局？我哋可以由輕鬆嘅友誼賽開始。";
-function Timeline({slots,overlaps=[],date,lo,hi}:{slots:Interval[];overlaps?:Interval[];date:string;lo:number;hi:number}){
- const span=hi-lo;
- const mark=(x:Interval,k:string)=>{const s=Math.max(lo,hoursOf(date,x.startAt)),e=Math.min(hi,hoursOf(date,x.endAt));return e<=s||e<=lo||s>=hi?null:<i key={`${k}${x.startAt}`} className={k} style={{left:`${(s-lo)/span*100}%`,width:`${Math.max(1,(e-s)/span*100)}%`}}/>};
- return <div className={`availability-timeline${overlaps.length?" has-overlap":""}`} aria-label="可配對時間線"><div>{slots.map(x=>mark(x,"slot"))}{overlaps.map(x=>mark(x,"overlap"))}</div></div>
-}
-function peak(members:Member[]){const e=members.flatMap(m=>m.slots.flatMap(s=>[{at:Date.parse(s.startAt),n:1},{at:Date.parse(s.endAt),n:-1}])).sort((a,b)=>a.at-b.at);let n=0,i=0,b:{s:number;e:number;n:number}|null=null;while(i<e.length){const at=e[i].at;while(i<e.length&&e[i].at===at)n+=e[i++].n;const next=e[i]?.at;if(next&&n>0&&(!b||n>b.n||(n===b.n&&next-at>b.e-b.s)))b={s:at,e:next,n}}return b?{label:`${time(new Date(b.s).toISOString())}–${time(new Date(b.e).toISOString())}`,count:b.n}:null}
+/** The time an invite is actually about. A counter-proposal supersedes the original everywhere it is
+    displayed, so every surface agrees on which hour the two are currently negotiating over. */
+const effectiveSlot=(invite:{startAt:string;endAt:string;counter?:{startAt:string;endAt:string}|null}):Interval=>invite.counter??{startAt:invite.startAt,endAt:invite.endAt};
 function SlotForm({initialDate,slot,onSave,onCancel}:{initialDate:string;slot?:AvailabilitySlot;onSave:(x:Interval)=>void;onCancel?:()=>void}){
  const[d,setD]=useState(slot?hkDate(new Date(slot.startAt)):initialDate),[s,setS]=useState(slot?time(slot.startAt):"19:00"),[e,setE]=useState(slot?time(slot.endAt):"21:00"),[error,setError]=useState("");
  const startTimes=Array.from({length:28},(_,i)=>`${String(10+Math.floor(i/2)).padStart(2,"0")}:${i%2?"30":"00"}`),endTimes=Array.from({length:32},(_,i)=>`${String((10+Math.floor((i+1)/2))%24).padStart(2,"0")}:${(i+1)%2?"30":"00"}`);
@@ -73,19 +73,6 @@ function SlotForm({initialDate,slot,onSave,onCancel}:{initialDate:string;slot?:A
   <div className="availability-form-actions"><button className="primary">{slot?"儲存變更":"加入時段"}</button>{onCancel&&<button type="button" className="secondary" onClick={onCancel}>取消</button>}</div>
  </form>
 }const timelineRange=(items:Interval[],date:string)=>{void items;void date;return {lo:10,hi:26}};
-const scaleLabels=(lo:number,hi:number)=>Array.from({length:Math.floor((hi-lo)/2)+1},(_,i)=>`${String((lo+i*2)%24).padStart(2,"0")}:00`);
-const mobileScaleLabels=(lo:number,hi:number)=>Array.from({length:Math.floor((hi-lo)/4)+1},(_,i)=>`${String((lo+i*4)%24).padStart(2,"0")}:00`);
-function DensityChart({buckets,best,lo,hi,focus,onFocus}:{buckets:{at:string;count:number}[];best:{startAt:string;endAt:string;count:number}|null;lo:number;hi:number;focus:Interval|null;onFocus:(x:Interval|null)=>void}){
- const max=Math.max(1,...buckets.map(x=>x.count));
- const[hovered,setHovered]=useState<{at:string;count:number}|null>(null);
- const preview=hovered??(focus?buckets.find(x=>x.at===focus.startAt)??null:null);
- return <section className="availability-card density-card" aria-label="可配對密度圖">
-  <header><div><small>{hovered?"游標所在時段":"球手時間分佈"}</small><b className={(preview??best)?"":"muted"}>{preview?`${time(preview.at)}–${time(new Date(Date.parse(preview.at)+30*60000).toISOString())}`:best?`${time(best.startAt)}–${time(best.endAt)}`:"未有高峰"}{preview?<span>{preview.count} 位</span>:best&&<span>{best.count} 位</span>}</b></div>{focus&&<button type="button" className="more" onClick={()=>onFocus(null)}>清除篩選</button>}</header>
-  <div className={`density-bars${focus?" is-filtered":""}`}>{buckets.map(x=>{const active=focus?.startAt===x.at,isPeak=best?.startAt===x.at,isHovered=hovered?.at===x.at;return <button type="button" key={x.at} aria-label={`${time(x.at)} 至 ${time(new Date(Date.parse(x.at)+30*60000).toISOString())}，${x.count} 位球員；按下篩選這 30 分鐘`} className={`${active?"on ":""}${isPeak?"peak ":""}${isHovered?"hovered":""}`.trim()} onPointerEnter={()=>setHovered(x)} onPointerLeave={()=>setHovered(null)} onFocus={()=>setHovered(x)} onBlur={()=>setHovered(null)} onClick={()=>onFocus(active?null:{startAt:x.at,endAt:new Date(Date.parse(x.at)+30*60000).toISOString()})}><i style={{height:`${Math.max(8,x.count/max*100)}%`}}/></button>})}</div>
-  <div className="density-axis" aria-hidden="true"><span>{clockAt(lo)}</span><span>{clockAt((lo+hi)/2)}</span><span>{clockAt(hi)}</span></div>
-  <p className="density-note">{hovered?`${time(hovered.at)}–${time(new Date(Date.parse(hovered.at)+30*60000).toISOString())} 有 ${hovered.count} 位球員有空；按下可篩選這 30 分鐘。`:focus?`${time(focus.startAt)}–${time(focus.endAt)} 的球員已篩選。`:"每條柱代表 30 分鐘；游標停留可預覽，點按可篩選該 30 分鐘。"}</p>
- </section>
-}
 function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:string;counts:Record<string,number>;onSelect:(date:string)=>void}){
  const scrollRef=useRef<HTMLDivElement>(null);
  const move=(direction:-1|1)=>scrollRef.current?.scrollBy({left:direction*Math.max(220,scrollRef.current.clientWidth*.72),behavior:"smooth"});
@@ -129,19 +116,6 @@ function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:
 /* One row of the invite inbox. Every pending invite gets one of these — the previous design surfaced
    only the first, so a member with three people waiting on them answered one and silently ignored
    two. `tone` drives nothing but colour; the actions are what differ between the buckets. */
-function InviteRow({invite,me,tone,actions}:{invite:MatchInvite;me?:string;tone:"received"|"sent"|"upcoming"|"followUp";actions:React.ReactNode}){
- const other=invite.fromPlayer.id===me?invite.toPlayer:invite.fromPlayer;
- return <li className={`invite-row is-${tone}`}>
-  <PlayerBadge player={other}/>
-  <div className="invite-row-copy">
-   <b>{other.name}</b>
-   <small>{dayLabel(hkDate(new Date(invite.startAt)))} · {range(invite)}</small>
-   {invite.message&&<p>{invite.message}</p>}
-  </div>
-  <div className="invite-row-actions">{actions}</div>
- </li>;
-}
-
 /* An open call: one member offering a table to the whole club rather than asking one person. The
    claim button is the entire point, so it stays primary and single-tap — a member should never have
    to open a sheet to say yes to a game that is already on offer. */
@@ -150,7 +124,7 @@ function OpenCallCard({call,mine,onClaim,onWithdraw,busy,canClaim}:{call:OpenCal
   <PlayerBadge player={call.player}/>
   <div className="open-call-copy">
    <b>{mine?"你的開放邀請":call.player.name}</b>
-   <small>{dayLabel(hkDate(new Date(call.startAt)))} · {range(call)}</small>
+   <small>{dayLabel(hkDate(new Date(call.startAt)))} · {range(call)}{call.venue?` · ${call.venue}`:""}</small>
    {call.message&&<p>{call.message}</p>}
   </div>
   <div className="open-call-actions">
@@ -194,11 +168,12 @@ function OpponentCard({opponent,rank,onPlayer,cardStatus,onInvite,onCancelInvite
 }
 /** The bottom-sheet-on-mobile / centered-modal-on-desktop invite composer, reusing the app's existing
     `.backdrop`/`.sheet` pattern rather than a one-off overlay. */
-function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,proposeStart,proposeEnd,onProposeStart,onProposeEnd,dateLabel,message,onMessageChange,onSend,onClose,sending,sendLabel}:{
+function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,proposeStart,proposeEnd,onProposeStart,onProposeEnd,dateLabel,message,onMessageChange,venue,onVenueChange,onSend,onClose,sending,sendLabel}:{
  opponent:OpponentCardVM;mode:"simple"|"propose";onModeChange:(mode:"simple"|"propose")=>void;
  selectedWindow:Interval|null;onSelectWindow:(window:Interval)=>void;
  proposeStart:string;proposeEnd:string;onProposeStart:(value:string)=>void;onProposeEnd:(value:string)=>void;
  dateLabel:string;message:string;onMessageChange:(value:string)=>void;
+ venue:string;onVenueChange:(value:string)=>void;
  onSend:()=>void;onClose:()=>void;sending:boolean;sendLabel:string;
 }){
  return <div className="backdrop invite-backdrop" onMouseDown={onClose}>
@@ -223,6 +198,9 @@ function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,p
       </div>
      </div>}
    {opponent.isNew&&<button type="button" className="icebreaker-suggestion" onClick={()=>onMessageChange(ICEBREAKER_MESSAGE)}><span aria-hidden="true">★</span><span>呢位係新加入球友 — 加句「歡迎入會，一齊打第一局？」使佢更放心答應</span></button>}
+   {/* Naming the table turns a vague "let's play" into something the other side can just turn up to,
+       which is the difference between an accepted invite and a game that actually happens. */}
+   <VenueField value={venue} onChange={onVenueChange}/>
    <label className="invite-message-field">留言（可省略）<textarea value={message} onChange={e=>onMessageChange(e.target.value)} placeholder="加句留言（可省略）"/></label>
    <button type="button" className="primary full" disabled={sending||(mode==="simple"&&!selectedWindow)} onClick={onSend}>{sending?"送出中…":sendLabel}</button>
   </section>
@@ -288,7 +266,10 @@ function SlotBoard({dates,items,lo,hi,soonest,selected,onSelect,onCreate,onResiz
  </div>;
 }
 const HORIZON=14;
-export default function Availability({userPlayerId,matches,provisionalGames=10,onDirtyChange,jumpTo,onPlayer,onRecordMatch}:{userPlayerId?:string;matches:Match[];provisionalGames?:number;onDirtyChange?:(dirty:boolean)=>void;jumpTo?:{playerId:string;date:string}|null;onPlayer?:(playerId:string)=>void;onRecordMatch?:(opponentId:string,playedOn:string)=>void}){
+export default function Availability({userPlayerId,matches,provisionalGames=10,onDirtyChange,jumpTo,onPlayer,onRecordMatch,onActivity}:{userPlayerId?:string;matches:Match[];provisionalGames?:number;onDirtyChange?:(dirty:boolean)=>void;jumpTo?:{playerId:string;date:string}|null;onPlayer?:(playerId:string)=>void;onRecordMatch?:(opponentId:string,playedOn:string)=>void;
+ /** Anything that changes what the shell's badge should say. The tab owns the truth while it is
+     open, so it tells the shell rather than making the shell poll faster on the off-chance. */
+ onActivity?:()=>void}){
  const week=useMemo(()=>days(hkDate(),HORIZON),[]),[date,setDate]=useState(jumpTo?.date??hkDate()),[appliedJump,setAppliedJump]=useState(jumpTo??null),[members,setMembers]=useState<Member[]>([]),[counts,setCounts]=useState<Record<string,number>>({}),[own,setOwn]=useState<AvailabilitySlot[]>([]),[view,setView]=useState<View>("find"),[draft,setDraft]=useState<Interval[]>([]),[selected,setSelected]=useState<string|null>(null),[adjustments,setAdjustments]=useState<Record<string,Interval>>({}),[focus,setFocus]=useState<Interval|null>(null),[boardWide,setBoardWide]=useState(false),[pending,setPending]=useState<AvailabilitySlot|null>(null),[leaveTo,setLeaveTo]=useState<View|null>(null),[confirmClear,setConfirmClear]=useState(false),[clearing,setClearing]=useState(false),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[cancelling,setCancelling]=useState(false),[confirmingChange,setConfirmingChange]=useState(false),[message,setMessage]=useState(""),[recommendationNow]=useState(()=>Date.now());
  const[filter,setFilter]=useState<ListFilter>("all"),[prioritizeNew,setPrioritizeNew]=useState(false),
   [invites,setInvites]=useState<{sent:MatchInvite[];received:MatchInvite[]}>({sent:[],received:[]}),
@@ -297,6 +278,13 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   [sendingInvite,setSendingInvite]=useState(false),[respondingId,setRespondingId]=useState<string|null>(null),[cancellingInviteId,setCancellingInviteId]=useState<string|null>(null),
   [openCalls,setOpenCalls]=useState<OpenCall[]>([]),[callComposerOpen,setCallComposerOpen]=useState(false),[callStart,setCallStart]=useState("19:00"),[callEnd,setCallEnd]=useState("21:00"),[callMessage,setCallMessage]=useState(""),
   [postingCall,setPostingCall]=useState(false),[claimingCallId,setClaimingCallId]=useState<string|null>(null),[withdrawingCallId,setWithdrawingCallId]=useState<string|null>(null),[closingInviteId,setClosingInviteId]=useState<string|null>(null);
+ /* The pieces the redesign added: mutual offers, per-fixture venue, weekly rules, counter-proposals,
+    and the reliability signals only the server can know. */
+ const[offers,setOffers]=useState<MutualOffer[]>([]),[answeringOfferId,setAnsweringOfferId]=useState<string|null>(null),
+  [inviteVenue,setInviteVenue]=useState(""),[callVenue,setCallVenue]=useState(""),
+  [rules,setRules]=useState<RecurrenceRule[]>([]),[rulesBusy,setRulesBusy]=useState(false),
+  [counterFor,setCounterFor]=useState<MatchInvite|null>(null),[counteringId,setCounteringId]=useState<string|null>(null),
+  [reliability,setReliability]=useState<Record<string,ReliabilitySignals>>({}),[findView,setFindView]=useState<FindView>("suggested");
  /* The buckets below are time-dependent, and a member can sit on this screen while a slot starts or
     ends. A one-minute tick re-evaluates them so the follow-up prompt appears on its own. */
  const[tick,setTick]=useState(()=>Date.now());
@@ -337,9 +325,6 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
  const adjusted=active&&adjustment?{...active,from:hoursOf(active.date,adjustment.startAt),to:hoursOf(active.date,adjustment.endAt)}:active;
  const displayedBoardItems=useMemo(()=>boardItems.map(item=>{const x=adjustments[item.key];return x?{...item,from:hoursOf(item.date,x.startAt),to:hoursOf(item.date,x.endAt),pending:true}:item}),[boardItems,adjustments]);
  const rosterRange=useMemo(()=>timelineRange([...mine,...members.flatMap(m=>m.slots)],date),[mine,members,date]);
- const perMember=useMemo(()=>members.map(m=>m.slots as Interval[]),[members]);
- const busiest=useMemo(()=>availabilityPeak(perMember),[perMember]);
- const density=useMemo(()=>availabilityDensity(perMember,date,rosterRange.lo,rosterRange.hi),[perMember,date,rosterRange]);
  /* Every overlapping opponent, ranked — the page recommends the whole list, not one name. Ranking
     lives in lib so it stays testable and so the focused band narrows the overlap it ranks on. */
  /* Unfiltered pools, so the filter chips can tell — before the member taps them — whether tapping
@@ -351,14 +336,17 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    mine,rating:me?.rating??0,window:focus,
    opponents:members.filter(m=>m.id!==userPlayerId).map(m=>({id:m.id,rating:m.rating,slots:m.slots as Interval[]})),
    recentMatches:id=>matches.filter(m=>m.status==="confirmed"&&Date.parse(`${m.playedOn}T00:00:00+08:00`)>=cut&&((m.a===userPlayerId&&m.b===id)||(m.b===userPlayerId&&m.a===id))).length,
+   /* The signal the browser cannot compute for itself: how this opponent actually behaves once
+      invited. Supplied by the server, composed here, so the ranking stays one tested function. */
+   signals:id=>reliability[id],
   });
   const longest=Math.max(0,...ranked.map(x=>x.minutes));
   return ranked.map(x=>{
    const games=gamesPlayed(matches,x.id),isNew=games<provisionalGames,neverEver=matchesBetween(matches,userPlayerId,x.id).length===0;
-   const chips=[...(longest>0&&x.minutes===longest?["時間重疊最長"]:[]),...buildOpponentChips({isNew,games,difference:x.difference,neverEver,recentZero:x.recent===0})];
+   const chips=[...(longest>0&&x.minutes===longest?["時間重疊最長"]:[]),...buildOpponentChips({isNew,games,difference:x.difference,neverEver,recentZero:x.recent===0}),...reliabilityChips(x.signals)];
    return {member:byId.get(x.id)!,difference:x.difference,windows:x.overlaps,windowsCaption:`共 ${durationLabel(x.minutes)}重疊`,isNew,games,neverEver,chips};
   });
- },[members,matches,mine,userPlayerId,recommendationNow,focus,provisionalGames]);
+ },[members,matches,mine,userPlayerId,recommendationNow,focus,provisionalGames,reliability]);
  const shortlist=useMemo(()=>byPriority(rankedPool.filter(o=>passesListFilter(filter,o)),prioritizeNew),[rankedPool,filter,prioritizeNew]);
  /* Requirement: a member can invite anyone even before publishing (or overlapping) their own
     availability. When the overlap-ranked shortlist above comes up empty — no slots of their own yet,
@@ -373,9 +361,9 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    const games=gamesPlayed(matches,m.id),isNew=games<provisionalGames,neverEver=matchesBetween(matches,userPlayerId,m.id).length===0;
    const recentZero=matches.filter(x=>x.status==="confirmed"&&Date.parse(`${x.playedOn}T00:00:00+08:00`)>=cut&&((x.a===userPlayerId&&x.b===m.id)||(x.b===userPlayerId&&x.a===m.id))).length===0;
    const difference=Math.abs(myRating-m.rating);
-   return {member:m,difference,windows:m.slots as Interval[],windowsCaption:`${m.slots.length} 個公開時段`,isNew,games,neverEver,chips:buildOpponentChips({isNew,games,difference,neverEver,recentZero})};
+   return {member:m,difference,windows:m.slots as Interval[],windowsCaption:`${m.slots.length} 個公開時段`,isNew,games,neverEver,chips:[...buildOpponentChips({isNew,games,difference,neverEver,recentZero}),...reliabilityChips(reliability[m.id])]};
   }).sort((a,b)=>a.difference-b.difference);
- },[userPlayerId,rankedPool.length,members,matches,focus,recommendationNow,provisionalGames]);
+ },[userPlayerId,rankedPool.length,members,matches,focus,recommendationNow,provisionalGames,reliability]);
  const browseList=useMemo(()=>byPriority(browsePool.filter(o=>passesListFilter(filter,o)),prioritizeNew),[browsePool,filter,prioritizeNew]);
  const activeList=shortlist.length?shortlist:browseList;
  const isBrowseTier=!shortlist.length&&browseList.length>0;
@@ -402,11 +390,6 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   }
   return map;
  },[invites,userPlayerId]);
- const newcomerCount=useMemo(()=>{
-  if(!userPlayerId)return 0;
-  const met=new Set([...invites.sent,...invites.received].filter(i=>i.status==="pending"||i.status==="accepted").map(i=>i.fromPlayer.id===userPlayerId?i.toPlayer.id:i.fromPlayer.id));
-  return members.filter(m=>m.id!==userPlayerId&&gamesPlayed(matches,m.id)<provisionalGames&&!met.has(m.id)).length;
- },[members,matches,provisionalGames,userPlayerId,invites]);
  const activeOpponent=useMemo(()=>inviteFor?[...shortlist,...browseList].find(o=>o.member.id===inviteFor)??null:null,[inviteFor,shortlist,browseList]);
  /* One pass over the inbox, re-derived on every poll so a slot that has just finished moves itself
     from "upcoming" into "needs a result" without the member reloading anything. `recommendationNow`
@@ -415,9 +398,62 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
  const buckets=useMemo(()=>partitionInvites({sent:invites.sent,received:invites.received,playerId:userPlayerId??"",matches,now:tick}),[invites,userPlayerId,matches,tick]);
  const confirmedMatches=buckets.upcoming;
  const {mine:myOpenCalls,others:claimableCalls}=useMemo(()=>partitionOpenCalls(openCalls,userPlayerId,tick),[openCalls,userPlayerId,tick]);
+ /* Same one-minute tick as the invite buckets: an offer for 20:00 stops being answerable at 20:30,
+    and it should take itself off the screen rather than wait for a reload. */
+ const liveOffers=useMemo(()=>partitionOffers(offers,tick),[offers,tick]);
+ useEffect(()=>{if(liveOffers.awaitingMe.length)trackAvailabilityEvent("matchmaking_offer_shown",{count:liveOffers.awaitingMe.length})},[liveOffers.awaitingMe.length]);
+ /* One list out of what used to be four sections. A result to confirm, an invite to answer and an
+    offer to accept are the same thing to a member — something waiting on them — and differ only in
+    which buttons the row carries. Results sort first because they already happened; everything else
+    goes by when it is due. */
+ const queueItems=useMemo<QueueItem[]>(()=>{
+  if(!userPlayerId)return [];
+  const across=(invite:MatchInvite)=>invite.fromPlayer.id===userPlayerId?invite.toPlayer:invite.fromPlayer;
+  const results:QueueItem[]=buckets.followUps.map(invite=>{
+   const other=across(invite);
+   return {id:`r-${invite.id}`,kind:"result" as const,person:other,startAt:invite.startAt,endAt:invite.endAt,venue:invite.venue,
+    reason:"呢場打咗未？記錄咗先計 ELO。",busy:closingInviteId===invite.id,
+    actions:[
+     {label:"冇打成",tone:"secondary" as const,onClick:()=>void closeInviteOutcome(invite.id,"missed")},
+     ...(onRecordMatch?[{label:"記錄比分",tone:"primary" as const,onClick:()=>onRecordMatch(other.id,hkDate(new Date(invite.startAt)))}]:[]),
+    ]};
+  });
+  const invites:QueueItem[]=buckets.needsResponse.map(invite=>{
+   const other=across(invite),slot=effectiveSlot(invite);
+   return {id:`i-${invite.id}`,kind:"invite" as const,person:other,startAt:slot.startAt,endAt:slot.endAt,venue:invite.venue,
+    reason:invite.counter?"提議改時間":"想約你打波",
+    note:invite.counter?`原本 ${range(invite)}${invite.message?` · ${invite.message}`:""}`:invite.message||undefined,
+    busy:respondingId===invite.id,
+    actions:[
+     {label:"婉拒",tone:"secondary" as const,onClick:()=>void respondToInvite(invite.id,"decline")},
+     {label:"改時間",tone:"secondary" as const,onClick:()=>setCounterFor(invite)},
+     {label:invite.counter?"接受新時間":"接受",tone:"primary" as const,onClick:()=>void respondToInvite(invite.id,"accept")},
+    ]};
+  });
+  const asks:QueueItem[]=liveOffers.awaitingMe.map(offer=>({
+   id:`o-${offer.id}`,kind:"offer" as const,person:offer.opponent,startAt:offer.startAt,endAt:offer.endAt,venue:offer.venue,
+   reason:"大家時間夾到 · 答「唔得閒」對方唔會知",busy:answeringOfferId===offer.id,
+   actions:[
+    {label:"唔得閒",tone:"secondary" as const,onClick:()=>void answerOffer(offer.id,"no")},
+    {label:"打！",tone:"primary" as const,onClick:()=>void answerOffer(offer.id,"yes")},
+   ]}));
+  return [...results,...[...invites,...asks].sort((a,b)=>a.startAt.localeCompare(b.startAt))];
+ },[userPlayerId,buckets.followUps,buckets.needsResponse,liveOffers.awaitingMe,closingInviteId,respondingId,answeringOfferId,onRecordMatch]);
+ /* Work I have already done my part on. Information, not a task — so it collapses to one line. */
+ const waitingItems=useMemo<WaitingItem[]>(()=>{
+  if(!userPlayerId)return [];
+  const fromInvites=buckets.awaitingReply.map(invite=>{
+   const other=invite.fromPlayer.id===userPlayerId?invite.toPlayer:invite.fromPlayer;
+   return {id:invite.id,name:other.name,label:`${dayLabel(hkDate(new Date(effectiveSlot(invite).startAt)))} ${range(effectiveSlot(invite))}`,cancellable:true};
+  });
+  const fromOffers=liveOffers.answered.map(offer=>
+   ({id:offer.id,name:offer.opponent.name,label:`${dayLabel(hkDate(new Date(offer.startAt)))} ${range(offer)} · 已回覆`,cancellable:false}));
+  return [...fromInvites,...fromOffers];
+ },[userPlayerId,buckets.awaitingReply,liveOffers.answered]);
  const refreshInvites=async()=>{
   if(!userPlayerId)return;
   try{const r=await fetch("/api/invites");const b=await r.json();if(r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}catch{/* keep the previous invites in view if a background refresh fails */}
+  onActivity?.();
  };
  /* Open calls are public, so this runs signed out too — a visitor browsing the club's free tables is
     exactly the person most worth showing them to. */
@@ -435,17 +471,34 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   async function poll(){
    if(userPlayerId)try{const r=await fetch("/api/invites");const b=await r.json();if(!cancelled&&r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}catch{/* keep the previous invites in view if a background poll fails */}
    try{const r=await fetch("/api/open-calls");const b=await r.json();if(!cancelled&&r.ok)setOpenCalls(b.calls??[]);}catch{/* same: last known calls stay on screen */}
+   /* An offer is time-critical in a way an invite is not — it exists because two people are free
+      *now-ish* — so it rides the same 30-second poll rather than waiting for a reload. */
+   if(userPlayerId)try{const r=await fetch("/api/offers");const b=await r.json();if(!cancelled&&r.ok)setOffers(b.offers??[]);}catch{/* last known offers stay on screen */}
   }
   void poll();
   const id=window.setInterval(()=>{if(document.visibilityState==="visible")void poll()},30000);
   return()=>{cancelled=true;window.clearInterval(id)};
  },[userPlayerId]);
+ /* Reliability changes over weeks, not seconds, so it is fetched once per mount rather than polled —
+    and it arrives before first paint of the shortlist so the ranking never visibly reshuffles. */
+ useEffect(()=>{
+  let cancelled=false;
+  void (async()=>{try{const r=await fetch("/api/matchmaking/summary");const b=await r.json();if(!cancelled&&r.ok)setReliability(b.reliability??{})}catch{/* ranking falls back to neutral signals */}})();
+  return()=>{cancelled=true};
+ },[]);
+ useEffect(()=>{
+  if(!userPlayerId)return;
+  let cancelled=false;
+  void (async()=>{try{const r=await fetch("/api/availability/recurring");const b=await r.json();if(!cancelled&&r.ok)setRules(b.rules??[])}catch{/* the editor simply shows no rules */}})();
+  return()=>{cancelled=true};
+ },[userPlayerId]);
  const openInviteSheet=(playerId:string,window?:Interval)=>{
   const opponent=[...shortlist,...browseList].find(o=>o.member.id===playerId);
   const times=defaultProposalTimes(date);
-  setInviteFor(playerId);setInviteMode("simple");setSelectedWindow(window??opponent?.windows[0]??null);setInviteMessage("");setProposeStart(times.start);setProposeEnd(times.end);
+  trackAvailabilityEvent("matchmaking_invite_open");
+  setInviteFor(playerId);setInviteMode("simple");setSelectedWindow(window??opponent?.windows[0]??null);setInviteMessage("");setInviteVenue("");setProposeStart(times.start);setProposeEnd(times.end);
  };
- const closeInviteSheet=()=>{setInviteFor(null);setSelectedWindow(null);setInviteMessage("")};
+ const closeInviteSheet=()=>{setInviteFor(null);setSelectedWindow(null);setInviteMessage("");setInviteVenue("")};
  const sendInviteAction=async()=>{
   if(!inviteFor||sendingInvite)return;
   let interval:Interval;
@@ -453,10 +506,11 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   else{try{interval=validateAvailabilityInterval(composeAvailabilityInterval(date,proposeStart,proposeEnd));}catch{setMessage("請揀一個未開始、香港時間上午 10 時至翌日凌晨 2 時之間的時段。");return;}}
   setSendingInvite(true);setMessage("");
   try{
-   const r=await fetch("/api/invites",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({toPlayerId:inviteFor,startAt:interval.startAt,endAt:interval.endAt,message:inviteMessage})});
+   const r=await fetch("/api/invites",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({toPlayerId:inviteFor,startAt:interval.startAt,endAt:interval.endAt,message:inviteMessage,venue:inviteVenue})});
    const b=await r.json();
    if(!r.ok){setMessage(b.error??"邀請未能送出，請再試一次。");return;}
-   closeInviteSheet();await refreshInvites();setMessage("邀請已送出，等待回覆。");
+   trackAvailabilityEvent("matchmaking_invite_send",{mode:inviteMode,hasVenue:Boolean(inviteVenue)});
+   closeInviteSheet();await refreshInvites();setMessage("邀請已送出，對方會收到通知。");
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setSendingInvite(false)}
  };
@@ -467,7 +521,8 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    const r=await fetch(`/api/invites/${id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({action})});
    const b=await r.json();
    if(!r.ok){setMessage(b.error??"操作失敗，請再試一次。");return;}
-   await refreshInvites();setMessage(action==="accept"?"已確認對局。":"已婉拒邀請。");
+   trackAvailabilityEvent(action==="accept"?"matchmaking_invite_accept":"matchmaking_invite_decline");
+   await refreshInvites();setMessage(action==="accept"?"已確認對局，對方會收到通知。":"已婉拒邀請。");
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setRespondingId(null)}
  };
@@ -482,6 +537,87 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setCancellingInviteId(null)}
  };
+ /* --- Mutual offers -------------------------------------------------------- */
+ const answerOffer=async(id:string,answer:"yes"|"no")=>{
+  if(answeringOfferId)return;
+  setAnsweringOfferId(id);setMessage("");
+  try{
+   const r=await fetch(`/api/offers/${id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({answer})});
+   const b=await r.json();
+   if(!r.ok){setMessage(b.error??"未能回覆，請再試一次。");await refreshOffers();return;}
+   trackAvailabilityEvent(answer==="yes"?"matchmaking_offer_yes":"matchmaking_offer_no");
+   if(b.matched)trackAvailabilityEvent("matchmaking_offer_matched");
+   await Promise.all([refreshOffers(),refreshInvites()]);
+   /* Three outcomes, three different things worth saying: it is on, it is pending the other side,
+      or it is quietly gone. The middle one matters most — a member who says yes and sees nothing
+      happen assumes the feature is broken. */
+   setMessage(b.matched?"對局已確認！":answer==="yes"?"已回覆，等對方答應就即刻confirm。":"知道喇，唔會再提呢個配對。");
+  }catch{setMessage("網絡連線失敗，請再試一次。")}
+  finally{setAnsweringOfferId(null)}
+ };
+ const refreshOffers=async()=>{
+  if(!userPlayerId)return;
+  try{const r=await fetch("/api/offers");const b=await r.json();if(r.ok)setOffers(b.offers??[])}catch{/* keep what is on screen */}
+  onActivity?.();
+ };
+ /* --- Counter-proposals ---------------------------------------------------- */
+ const sendCounter=async(input:{date:string;start:string;end:string;venue:string})=>{
+  if(!counterFor||counteringId)return;
+  let interval:Interval;
+  try{interval=validateAvailabilityInterval(composeAvailabilityInterval(input.date,input.start,input.end));}
+  catch{setMessage("請揀一個未開始、香港時間上午 10 時至翌日凌晨 2 時之間的時段。");return;}
+  setCounteringId(counterFor.id);setMessage("");
+  try{
+   const r=await fetch(`/api/invites/${counterFor.id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({action:"counter",...interval,venue:input.venue})});
+   const b=await r.json();
+   if(!r.ok){setMessage(b.error??"未能提議，請再試一次。");return;}
+   trackAvailabilityEvent("matchmaking_invite_counter");
+   setCounterFor(null);await refreshInvites();setMessage("已提議新時間，等對方確認。");
+  }catch{setMessage("網絡連線失敗，請再試一次。")}
+  finally{setCounteringId(null)}
+ };
+ /* --- Recurring availability ----------------------------------------------- */
+ const refreshRules=async()=>{try{const r=await fetch("/api/availability/recurring");const b=await r.json();if(r.ok)setRules(b.rules??[])}catch{/* leave the list as it is */}};
+ const addRule=async(input:{weekday:number;startTime:string;endTime:string})=>{
+  if(rulesBusy)return;
+  setRulesBusy(true);setMessage("");
+  try{
+   const r=await fetch("/api/availability/recurring",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(input)});
+   const b=await r.json();
+   if(!r.ok){setMessage(b.error??"未能加入，請再試一次。");return;}
+   trackAvailabilityEvent("matchmaking_recurrence_add");
+   await Promise.all([refreshRules(),reloadOwn()]);setMessage("每週時段已設定，未來四星期已自動公開。");
+  }catch{setMessage("網絡連線失敗，請再試一次。")}
+  finally{setRulesBusy(false)}
+ };
+ const removeRule=async(id:string)=>{
+  if(rulesBusy)return;
+  setRulesBusy(true);setMessage("");
+  try{
+   const r=await fetch("/api/availability/recurring",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id})});
+   const b=await r.json().catch(()=>({}));
+   if(!r.ok){setMessage(b.error??"未能刪除，請再試一次。");return;}
+   trackAvailabilityEvent("matchmaking_recurrence_remove");
+   await refreshRules();setMessage("已停止每週自動公開。已經公開咗嘅時段仍然有效，可以逐個取消。");
+  }catch{setMessage("網絡連線失敗，請再試一次。")}
+  finally{setRulesBusy(false)}
+ };
+ const copyLastWeek=async()=>{
+  if(rulesBusy)return;
+  setRulesBusy(true);setMessage("");
+  try{
+   const r=await fetch("/api/availability/recurring",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"copyLastWeek"})});
+   const b=await r.json();
+   if(!r.ok){setMessage(b.error??"未能複製，請再試一次。");return;}
+   trackAvailabilityEvent("matchmaking_copy_last_week",{copied:b.copied??0});
+   setOwn(b.slots??[]);await refreshFind();setMessage(`已複製上星期 ${b.copied} 個時段。`);
+  }catch{setMessage("網絡連線失敗，請再試一次。")}
+  finally{setRulesBusy(false)}
+ };
+ const reloadOwn=async()=>{
+  if(!userPlayerId)return;
+  try{const r=await fetch("/api/availability?me");const b=await r.json();if(r.ok)setOwn(b.slots??[])}catch{/* board keeps what it has */}
+ };
  /* --- Open calls ---------------------------------------------------------- */
  const postOpenCall=async()=>{
   if(postingCall)return;
@@ -492,10 +628,11 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   catch{setMessage("請揀一個未開始、香港時間上午 10 時至翌日凌晨 2 時之間的時段。");return;}
   setPostingCall(true);setMessage("");
   try{
-   const r=await fetch("/api/open-calls",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({startAt:interval.startAt,endAt:interval.endAt,message:callMessage})});
+   const r=await fetch("/api/open-calls",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({startAt:interval.startAt,endAt:interval.endAt,message:callMessage,venue:callVenue})});
    const b=await r.json();
    if(!r.ok){setMessage(b.error??"開放邀請未能發出，請再試一次。");return;}
-   setCallComposerOpen(false);setCallMessage("");await refreshOpenCalls();setMessage("開放邀請已發出，全會所都睇到。");
+   trackAvailabilityEvent("matchmaking_open_call_post");
+   setCallComposerOpen(false);setCallMessage("");setCallVenue("");await refreshOpenCalls();setMessage("開放邀請已發出，得閒嘅球友會收到通知。");
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setPostingCall(false)}
  };
@@ -508,6 +645,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    /* A 409 means someone else claimed it first. Refreshing on the failure path is the point: the
       member sees the call disappear and understands why, instead of tapping a dead button again. */
    if(!r.ok){setMessage(b.error??"未能接受，請再試一次。");await refreshOpenCalls();return;}
+   trackAvailabilityEvent("matchmaking_open_call_claim");
    await Promise.all([refreshOpenCalls(),refreshInvites()]);setMessage("已接受，對局已確認。");
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setClaimingCallId(null)}
@@ -531,6 +669,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    const r=await fetch(`/api/invites/${id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({action:outcome})});
    const b=await r.json();
    if(!r.ok){setMessage(b.error??"未能更新，請再試一次。");return;}
+   trackAvailabilityEvent(outcome==="played"?"matchmaking_result_played":"matchmaking_result_missed");
    await refreshInvites();setMessage(outcome==="played"?"多謝，已記低你哋打咗。":"已記低今次冇打成。");
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setClosingInviteId(null)}
@@ -637,113 +776,74 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
  };
  useEffect(()=>{if(!pending&&!leaveTo&&!confirmClear)return;const previous=document.activeElement as HTMLElement|null,dialog=dialogRef.current,focusable=dialog?Array.from(dialog.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')):[];focusable[0]?.focus();function onKey(ev:KeyboardEvent){if(ev.key==="Escape"){setPending(null);setLeaveTo(null);setConfirmClear(false);return}if(ev.key==="Tab"&&focusable.length){const first=focusable[0],last=focusable[focusable.length-1];if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus()}else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus()}}}document.addEventListener("keydown",onKey);return()=>{document.removeEventListener("keydown",onKey);previous?.focus()}},[pending,leaveTo,confirmClear]);
  return <section className="availability-page">
-<section className="hero small availability-hero"><div><p className="kicker">MATCHMAKING</p><h1>找對手，約一局</h1><p>公開你的空閒時間，快速找到最合適的球友。</p></div>{userPlayerId&&<button className="primary" onClick={()=>nav("create")}>＋ 新增時段</button>}</section>
-<nav className="availability-tabs" aria-label="配對功能" role="tablist"><button role="tab" aria-selected={view==="find"} className={view==="find"?"active":""} onClick={()=>nav("find")}><span className="availability-tab-label">尋找對手</span></button>{userPlayerId&&<button role="tab" aria-selected={view==="manage"||view==="create"} className={view==="manage"||view==="create"?"active":""} onClick={()=>nav("manage")}><span className="availability-tab-label">我的時段</span>{own.length>0&&<span className="availability-tab-count">{own.length}</span>}</button>}</nav>
-{view==="find"&&<DateScroller dates={week} selected={date} counts={counts} onSelect={changeDate}/>}
+<section className="hero small availability-hero"><div><p className="kicker">MATCHMAKING</p><h1>約一局</h1><p>公開你嘅空閒時間，快速搵到啱傾嘅球友。</p></div></section>
+<nav className="availability-tabs" aria-label="配對功能" role="tablist"><button role="tab" aria-selected={view==="find"} className={view==="find"?"active":""} onClick={()=>nav("find")}><span className="availability-tab-label">搵對手</span>{userPlayerId&&queueItems.length>0&&<span className="availability-tab-count is-alert">{queueItems.length}</span>}</button>{userPlayerId&&<button role="tab" aria-selected={view==="manage"||view==="create"} className={view==="manage"||view==="create"?"active":""} onClick={()=>nav("manage")}><span className="availability-tab-label">我的時段</span>{own.length>0&&<span className="availability-tab-count">{own.length}</span>}</button>}</nav>
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
-{userPlayerId&&view==="find"&&(()=>{
- /* Triage order is deliberate and it is not the order things were created in: a game that already
-    happened needs a score before anything else matters, then an invite waiting on me, then what is
-    locked in, then what I am waiting on someone else for. */
- const received=buckets.needsResponse[0];
- const confirmed=confirmedMatches[0];
- const sent=buckets.awaitingReply[0];
- const opponent=received?.fromPlayer??(confirmed?(confirmed.fromPlayer.id===userPlayerId?confirmed.toPlayer:confirmed.fromPlayer):sent?.toPlayer);
- const slot=received??confirmed??sent;
- const published=own.slice().sort((a,b)=>a.startAt.localeCompare(b.startAt))[0];
- const state=received?"received":confirmed?"confirmed":sent?"waiting":own.length?"available":"empty";
- const waitingCount=buckets.needsResponse.length;
- return <section className={`availability-card matchmaking-status-card is-${state}`} aria-label="我的配對狀態">
-  <div className="matchmaking-status-copy"><p className="matchmaking-status-kicker">我的配對狀態</p>
-   <div className="matchmaking-status-title">{opponent&&<PlayerBadge player={opponent}/>}<div>
-    <h2>{received?`${opponent?.name} 想約你打波`:confirmed?`已確認與 ${opponent?.name} 的對局`:sent?`等待 ${opponent?.name} 回覆`:own.length?"你正在尋找對手":"你幾時得閒？"}</h2>
-    <p>{slot?`${dayLabel(hkDate(new Date(slot.startAt)))} · ${range(slot)}`:published?`最近時段：${dayLabel(hkDate(new Date(published.startAt)))} · ${range(published)}`:"公開空閒時間後，我們會直接推薦最合適的球友。"}</p>
-   </div></div>
-   {received?.message&&<p className="matchmaking-status-message">{received.message}</p>}
-   {waitingCount>1&&<p className="matchmaking-status-more">仲有 {waitingCount-1} 個邀請等你回覆 · 全部列於下方</p>}
-  </div>
-  <div className="matchmaking-status-actions">
-   {received&&<><button type="button" className="secondary" disabled={respondingId===received.id} onClick={()=>void respondToInvite(received.id,"decline")}>婉拒</button><button type="button" className="primary" disabled={respondingId===received.id} onClick={()=>void respondToInvite(received.id,"accept")}>接受邀請</button></>}
-   {!received&&confirmed&&<>{onRecordMatch&&opponent&&<button type="button" className="primary" onClick={()=>onRecordMatch(opponent.id,hkDate(new Date(confirmed.startAt)))}>記錄比分</button>}<button type="button" className="secondary" disabled={cancellingInviteId===confirmed.id} onClick={()=>cancelInviteAction(confirmed.id)}>取消對局</button></>}
-   {!received&&!confirmed&&sent&&<button type="button" className="secondary" disabled={cancellingInviteId===sent.id} onClick={()=>cancelInviteAction(sent.id)}>取消邀請</button>}
-   {!slot&&<button type="button" className={own.length?"secondary":"primary"} onClick={()=>nav(own.length?"manage":"create")}>{own.length?"編輯我的時段":"公開我的時段"}</button>}
-  </div>
- </section>;
-})()}
-{/* The one question the app never used to ask. A confirmed slot that has finished with no score
-    against it is the exact moment to ask whether the game happened — late enough to know, early
-    enough to remember. Answering either way retires the prompt for good. */}
-{userPlayerId&&view==="find"&&buckets.followUps.length>0&&
- <section className="availability-card follow-up-card" aria-label="待確認賽果">
-  <header className="availability-grid-head"><div><h3>你哋打咗未？</h3><small>確認賽果之後，這個提示就會消失。</small></div></header>
-  <ul className="invite-row-list">{buckets.followUps.map(invite=>{
-   const other=invite.fromPlayer.id===userPlayerId?invite.toPlayer:invite.fromPlayer;
-   return <InviteRow key={invite.id} invite={invite} me={userPlayerId} tone="followUp" actions={<>
-    <button type="button" className="secondary" disabled={closingInviteId===invite.id} onClick={()=>void closeInviteOutcome(invite.id,"missed")}>冇打成</button>
-    {onRecordMatch&&<button type="button" className="primary" onClick={()=>onRecordMatch(other.id,hkDate(new Date(invite.startAt)))}>記錄比分</button>}
-   </>}/>;
-  })}</ul>
- </section>}
-{/* Everything still in flight, in full. */}
-{userPlayerId&&view==="find"&&(buckets.needsResponse.length>1||buckets.awaitingReply.length>0||confirmedMatches.length>1)&&
- <section className="availability-card invite-inbox" aria-label="邀請匣">
-  <header className="availability-grid-head"><div><h3>邀請匣</h3><small>所有未完成的邀請同已確認的對局。</small></div></header>
-  {buckets.needsResponse.length>1&&<><h4 className="invite-group-title">等你回覆 · {buckets.needsResponse.length}</h4>
-   <ul className="invite-row-list">{buckets.needsResponse.slice(1).map(invite=>
-    <InviteRow key={invite.id} invite={invite} me={userPlayerId} tone="received" actions={<>
-     <button type="button" className="secondary" disabled={respondingId===invite.id} onClick={()=>void respondToInvite(invite.id,"decline")}>婉拒</button>
-     <button type="button" className="primary" disabled={respondingId===invite.id} onClick={()=>void respondToInvite(invite.id,"accept")}>接受</button>
-    </>}/>)}</ul></>}
-  {confirmedMatches.length>1&&<><h4 className="invite-group-title">已確認 · {confirmedMatches.length}</h4>
-   <ul className="invite-row-list">{confirmedMatches.slice(1).map(invite=>
-    <InviteRow key={invite.id} invite={invite} me={userPlayerId} tone="upcoming" actions={
-     <button type="button" className="secondary" disabled={cancellingInviteId===invite.id} onClick={()=>cancelInviteAction(invite.id)}>取消</button>
-    }/>)}</ul></>}
-  {buckets.awaitingReply.length>0&&<><h4 className="invite-group-title">等對方回覆 · {buckets.awaitingReply.length}</h4>
-   <ul className="invite-row-list">{buckets.awaitingReply.map(invite=>
-    <InviteRow key={invite.id} invite={invite} me={userPlayerId} tone="sent" actions={
-     <button type="button" className="secondary" disabled={cancellingInviteId===invite.id} onClick={()=>cancelInviteAction(invite.id)}>取消邀請</button>
-    }/>)}</ul></>}
- </section>}
 {view==="find"&&<>
-{userPlayerId&&mine.length>0&&<header className="availability-day-head"><span/><button className="more" onClick={()=>nav("manage")}>{`我的時段 ${mine.map(range).join("、")}`}</button></header>}
-{loading?<div className="availability-skeleton" aria-hidden="true"/>:<div className="find-stack">
- {activeList.length
-  ?<section className="availability-card match-stack" aria-label="最佳配對機會">
-    <header className="availability-grid-head match-stack-head"><div><h3>最佳配對機會</h3><small>{isBrowseTier?"暫時未有重疊時段；你仍可直接提議時間":"已按共同空檔、ELO 及近期交手排好次序"}</small></div><span>最多 3 位</span></header>
-    <div className="match-stack-list">{activeList.slice(0,3).map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} onPlayer={onPlayer} cardStatus={inviteStatusById.get(o.member.id)??{status:"none",invite:null}} onInvite={openInviteSheet} onCancelInvite={cancelInviteAction}/>)}</div>
-   </section>
-  :<MatchPrompt hasMine={mine.length>0} userPlayerId={userPlayerId} members={members.length} focus={focus} onManage={nav}/>}
- {/* An open call reaches the member who never published a slot, which directed invites structurally
-     cannot. It also removes the part people actually hesitate over: you are offering a table to the
-     room, so nobody is being personally turned down if it goes unclaimed. */}
- <section className="availability-card open-call-section" aria-label="開放邀請">
-  <header className="availability-grid-head"><div><h3>開放邀請</h3><small>{claimableCalls.length?"任何人都可以接受，先到先得。":"貼一個時段，全會所都睇到，唔使指定對手。"}</small></div>
-   {userPlayerId&&<button type="button" className="more" onClick={()=>setCallComposerOpen(open=>{if(!open){const t=defaultProposalTimes(date);setCallStart(t.start);setCallEnd(t.end)}return !open})}>{callComposerOpen?"收起":"貼開放邀請"}</button>}</header>
-  {callComposerOpen&&userPlayerId&&<div className="open-call-composer availability-slot-form">
-   <div className="composer-times">
-    <label><span>開始時間</span><select value={callStart} onChange={e=>setCallStart(e.target.value)}>{PROPOSE_START_TIMES.map(v=><option key={v}>{v}</option>)}</select></label>
-    <label><span>結束時間</span><select value={callEnd} onChange={e=>setCallEnd(e.target.value)}>{PROPOSE_END_TIMES.map(v=><option key={v}>{v}{v<=callStart?" · 次日":""}</option>)}</select></label>
-   </div>
-   <label className="invite-message-field"><span>留言（可選）</span><textarea rows={2} maxLength={300} value={callMessage} placeholder="例如：訂咗枱，有冇人一齊打？" onChange={e=>setCallMessage(e.target.value)}/></label>
-   <p className="availability-form-hint">{dayLabel(date)} · 任何會員都可以接受，接受後即成為已確認對局。</p>
-   <div className="availability-form-actions">
-    <button type="button" className="primary publish-button" disabled={postingCall} aria-busy={postingCall} onClick={()=>void postOpenCall()}>{postingCall&&<i className="button-spinner" aria-hidden="true"/>}<span>{postingCall?"發出中…":`發出 · ${callStart}–${callEnd}`}</span></button>
-    <button type="button" className="secondary" onClick={()=>setCallComposerOpen(false)}>取消</button>
-   </div>
-  </div>}
-  {myOpenCalls.length===0&&claimableCalls.length===0
-   ?<p className="open-call-empty">暫時未有開放邀請。{userPlayerId?"你可以做第一個。":"登入後即可貼出。"}</p>
-   :<ul className="open-call-list">
-     {myOpenCalls.map(call=><OpenCallCard key={call.id} call={call} mine onClaim={()=>{}} onWithdraw={()=>void withdrawCall(call.id)} busy={withdrawingCallId===call.id} canClaim={false}/>)}
-     {claimableCalls.map(call=><OpenCallCard key={call.id} call={call} mine={false} onClaim={()=>void claimCall(call.id)} onWithdraw={()=>{}} busy={claimingCallId===call.id} canClaim={Boolean(userPlayerId)}/>)}
-    </ul>}
- </section>
- {members.length>0&&<section className="availability-board-section" aria-label="所有球員空檔">
-   <header className="availability-day-head"><div><h2>所有球員的空檔</h2><small>想自己瀏覽？左右滑動時間，點按球員空檔即可查看或提議。</small></div></header>
-   <AvailabilityGrid members={members} mine={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi} userPlayerId={userPlayerId} focus={focus} onFocus={setFocus} highlightId={jumpTo?.playerId} onPlayer={onPlayer}/>
-  </section>}
-</div>}</>}
+{/* ZONE 1 — "Am I playing?" Answered first, and only about what is settled: what still needs an
+    answer belongs to the queue below, and surfacing the top of that queue here as well (as the old
+    status card did, with a 「全部列於下方」 footnote) made one obligation look like two. */}
+<NextUpCard signedIn={Boolean(userPlayerId)} slotCount={own.length}
+  game={confirmedMatches[0]?{id:confirmedMatches[0].id,startAt:confirmedMatches[0].startAt,endAt:confirmedMatches[0].endAt,venue:confirmedMatches[0].venue,
+    opponent:confirmedMatches[0].fromPlayer.id===userPlayerId?confirmedMatches[0].toPlayer:confirmedMatches[0].fromPlayer}:null}
+  others={Math.max(0,confirmedMatches.length-1)}
+  onRecord={(opponentId,startAt)=>onRecordMatch?.(opponentId,hkDate(new Date(startAt)))}
+  onCancel={id=>void cancelInviteAction(id)} cancelling={Boolean(cancellingInviteId)}
+  onEditSlots={()=>nav(own.length?"manage":"create")}
+  onFreeNow={result=>{
+    void Promise.all([reloadOwn(),refreshFind(),refreshOpenCalls(),refreshOffers()]);
+    setMessage(result.offers?`已公開你嘅時間，仲問咗 ${result.offers} 位夾得到嘅球友。`:"已公開你嘅時間，全會所都睇到你想打波。");
+  }}/>
+{userPlayerId&&<PushOptIn/>}
+{/* ZONE 2 — everything waiting on this member, as one list. */}
+{userPlayerId&&<ResponseQueue items={queueItems}/>}
+{userPlayerId&&<WaitingStrip items={waitingItems} cancellingId={cancellingInviteId} onCancel={id=>void cancelInviteAction(id)}/>}
+{/* ZONE 3 — one place to go looking, with three ways to look, instead of three stacked sections
+    each re-asking for the same screen space. */}
+<section className="availability-card mm-card find-section" aria-label="搵人打波">
+ <CardHead title="搵人打波" hint={findView==="suggested"?"已按共同空檔、ELO、近期交手同回覆習慣排序":findView==="calls"?"任何人都可以接受，先到先得":"自己揀時間同對手"}
+   aside={userPlayerId&&findView==="calls"?<button type="button" className="more" onClick={()=>setCallComposerOpen(open=>{if(!open){const t=defaultProposalTimes(date);setCallStart(t.start);setCallEnd(t.end)}return !open})}>{callComposerOpen?"收起":"貼開放邀請"}</button>:undefined}/>
+ <div className="mm-segmented" role="tablist" aria-label="搵人方式">
+  {([["suggested","建議對手",activeList.length],["calls","開放邀請",claimableCalls.length+myOpenCalls.length],["board","全部空檔",members.length]] as [FindView,string,number][]).map(([id,label,count])=>
+   <button type="button" key={id} role="tab" aria-selected={findView===id} className={findView===id?"active":""} onClick={()=>setFindView(id)}>
+    {label}{count>0&&<i>{count}</i>}
+   </button>)}
+ </div>
+ {findView!=="calls"&&<DateScroller dates={week} selected={date} counts={counts} onSelect={changeDate}/>}
+ {loading&&findView!=="calls"
+  ?<div className="availability-skeleton" aria-hidden="true"/>
+  :<>
+   {findView==="suggested"&&(activeList.length
+    ?<><div className="match-stack-list">{activeList.slice(0,5).map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} onPlayer={onPlayer} cardStatus={inviteStatusById.get(o.member.id)??{status:"none",invite:null}} onInvite={openInviteSheet} onCancelInvite={cancelInviteAction}/>)}</div>
+      {isBrowseTier&&<p className="mm-note">暫時未有重疊時段 — 你仍然可以直接提議時間。</p>}</>
+    :<MatchPrompt hasMine={mine.length>0} userPlayerId={userPlayerId} members={members.length} focus={focus} onManage={nav}/>)}
+   {findView==="calls"&&<>
+    {callComposerOpen&&userPlayerId&&<div className="open-call-composer availability-slot-form">
+     <div className="composer-times">
+      <label><span>開始時間</span><select value={callStart} onChange={e=>setCallStart(e.target.value)}>{PROPOSE_START_TIMES.map(v=><option key={v}>{v}</option>)}</select></label>
+      <label><span>結束時間</span><select value={callEnd} onChange={e=>setCallEnd(e.target.value)}>{PROPOSE_END_TIMES.map(v=><option key={v}>{v}{v<=callStart?" · 次日":""}</option>)}</select></label>
+     </div>
+     <VenueField value={callVenue} onChange={setCallVenue}/>
+     <label className="invite-message-field"><span>留言（可選）</span><textarea rows={2} maxLength={300} value={callMessage} placeholder="例如：訂咗枱，有冇人一齊打？" onChange={e=>setCallMessage(e.target.value)}/></label>
+     <p className="availability-form-hint">{dayLabel(date)} · 任何會員都可以接受，接受後即成為已確認對局。得閒嘅球友會收到通知。</p>
+     <div className="availability-form-actions">
+      <button type="button" className="primary publish-button" disabled={postingCall} aria-busy={postingCall} onClick={()=>void postOpenCall()}>{postingCall&&<i className="button-spinner" aria-hidden="true"/>}<span>{postingCall?"發出中…":`發出 · ${callStart}–${callEnd}`}</span></button>
+      <button type="button" className="secondary" onClick={()=>setCallComposerOpen(false)}>取消</button>
+     </div>
+    </div>}
+    {myOpenCalls.length===0&&claimableCalls.length===0
+     ?<p className="mm-note">暫時未有開放邀請。{userPlayerId?"你可以做第一個 — 貼一個時段，全會所都睇到。":"登入後即可貼出。"}</p>
+     :<ul className="open-call-list">
+       {myOpenCalls.map(call=><OpenCallCard key={call.id} call={call} mine onClaim={()=>{}} onWithdraw={()=>void withdrawCall(call.id)} busy={withdrawingCallId===call.id} canClaim={false}/>)}
+       {claimableCalls.map(call=><OpenCallCard key={call.id} call={call} mine={false} onClaim={()=>void claimCall(call.id)} onWithdraw={()=>{}} busy={claimingCallId===call.id} canClaim={Boolean(userPlayerId)}/>)}
+      </ul>}
+   </>}
+   {findView==="board"&&(members.length
+    ?<AvailabilityGrid members={members} mine={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi} userPlayerId={userPlayerId} focus={focus} onFocus={setFocus} highlightId={jumpTo?.playerId} onPlayer={onPlayer}/>
+    :<p className="mm-note">呢日暫時未有人公開時段。</p>)}
+  </>}
+</section>
+</>}
 {/* One screen, one gesture: the board is the list, the editor and the composer at once. Nothing here
     navigates away, so a member can paint three evenings and publish them in a single pass. */}
 {editor&&userPlayerId&&<section className="availability-editor">
@@ -767,10 +867,18 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    <span>{uncommitted.map(x=>`${dayLabel(hkDate(new Date(x.startAt)))} ${range(x)}`).join("、")}</span></div>
   <div><button className="secondary" disabled={saving} onClick={()=>{setAdjustments({});setDraft([]);setSelected(null)}}>{pendingKeys.length?"全部還原":"清除"}</button>
    <button className="primary publish-button" disabled={saving} aria-busy={saving} onClick={()=>void commitAll()}>{saving&&<i className="button-spinner" aria-hidden="true"/>}<span>{saving?"儲存中…":pendingKeys.length&&draft.length?"儲存並發佈":draft.length?"發佈":"儲存變更"}</span></button></div></div>}
+ {/* Sits under the board rather than beside it: painting is how a member starts, and a rule is what
+     they reach for once they notice they are painting the same evening every week. */}
+ <RecurrenceEditor rules={rules} busy={rulesBusy} onAdd={input=>void addRule(input)} onRemove={id=>void removeRule(id)} onCopyLastWeek={()=>void copyLastWeek()}/>
+ {/* Lives with the member's own settings rather than in the busy find tab: turning a channel off is
+     a considered decision, not something anyone does mid-search. */}
+ <NotificationPrefsPanel/>
+ <PushOptIn/>
  <details className="board-precise"><summary>用選單精確加入時段</summary><SlotComposer initialDate={date} onSave={x=>{setDraft(a=>mergeIntervals([...a,x]));setMessage("");trackAvailabilityEvent("availability_slot_draft_add")}}/></details>
 </section>}
 {confirmClear&&<div className="availability-dialog-backdrop" onMouseDown={()=>!clearing&&setConfirmClear(false)}><section className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby="clear-title" ref={dialogRef as never} onMouseDown={e=>e.stopPropagation()}><small>刪除全部時段</small><h2 id="clear-title">刪除全部 {own.length} 個時段？</h2><p>所有已公開的時段都會被取消，其他球員將不會再看到你的空檔。此操作無法復原。</p><div><button className="secondary" disabled={clearing} onClick={()=>setConfirmClear(false)}>保留時段</button><button className="danger cancel-button" disabled={clearing} aria-busy={clearing} onClick={()=>void clearAll()}>{clearing&&<i className="button-spinner" aria-hidden="true"/>}<span>{clearing?"刪除中…":`刪除全部 ${own.length} 個`}</span></button></div></section></div>}
 {leaveTo&&<div className="availability-dialog-backdrop" onMouseDown={()=>setLeaveTo(null)}><section className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby="leave-title" ref={dialogRef as never} onMouseDown={e=>e.stopPropagation()}><small>未儲存的變更</small><h2 id="leave-title">離開後變更會消失</h2><p>{[pendingKeys.length?`${pendingKeys.length} 個時段變更`:"",draft.length?`${draft.length} 個新時段`:""].filter(Boolean).join("、")}尚未儲存。離開後這些變更不會保留。</p><div><button className="secondary" onClick={()=>setLeaveTo(null)}>留在此頁</button><button className="primary publish-button" disabled={saving} aria-busy={saving} onClick={()=>{const next=leaveTo;setLeaveTo(null);void commitAll().then(()=>go(next))}}>{saving&&<i className="button-spinner" aria-hidden="true"/>}<span>儲存後離開</span></button><button className="danger" onClick={()=>{const next=leaveTo;discard();setLeaveTo(null);go(next)}}>捨棄變更</button></div></section></div>}
 {pending&&<div className="availability-dialog-backdrop" onMouseDown={()=>setPending(null)}><section className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby="cancel-title" ref={dialogRef as never} onMouseDown={e=>e.stopPropagation()}><small>取消可配對時段</small><h2 id="cancel-title">{dayLabel(hkDate(new Date(pending.startAt)))} {range(pending)}</h2><p>取消後，這段時間不會再出現在其他球員的配對結果中。</p><div><button className="secondary" disabled={cancelling} onClick={()=>setPending(null)}>保留時段</button><button className="danger cancel-button" disabled={cancelling} aria-busy={cancelling} onClick={()=>void cancel()}>{cancelling&&<i className="button-spinner" aria-hidden="true"/>}<span>{cancelling?"取消中…":"確認取消"}</span></button></div></section></div>}
-{inviteFor&&activeOpponent&&<InviteSheet opponent={activeOpponent} mode={inviteMode} onModeChange={setInviteMode} selectedWindow={selectedWindow} onSelectWindow={setSelectedWindow} proposeStart={proposeStart} proposeEnd={proposeEnd} onProposeStart={setProposeStart} onProposeEnd={setProposeEnd} dateLabel={dayLabel(date)} message={inviteMessage} onMessageChange={setInviteMessage} onSend={()=>void sendInviteAction()} onClose={closeInviteSheet} sending={sendingInvite} sendLabel={inviteMode==="simple"?(selectedWindow?`送出邀請 · ${range(selectedWindow)}`:"請先揀時段"):`提議 ${proposeStart}–${proposeEnd}`}/>}
+{inviteFor&&activeOpponent&&<InviteSheet opponent={activeOpponent} mode={inviteMode} onModeChange={setInviteMode} selectedWindow={selectedWindow} onSelectWindow={setSelectedWindow} proposeStart={proposeStart} proposeEnd={proposeEnd} onProposeStart={setProposeStart} onProposeEnd={setProposeEnd} dateLabel={dayLabel(date)} message={inviteMessage} onMessageChange={setInviteMessage} venue={inviteVenue} onVenueChange={setInviteVenue} onSend={()=>void sendInviteAction()} onClose={closeInviteSheet} sending={sendingInvite} sendLabel={inviteMode==="simple"?(selectedWindow?`送出邀請 · ${range(selectedWindow)}`:"請先揀時段"):`提議 ${proposeStart}–${proposeEnd}`}/>}
+{counterFor&&<CounterSheet title={(counterFor.fromPlayer.id===userPlayerId?counterFor.toPlayer:counterFor.fromPlayer).name} date={hkDate(new Date(effectiveSlot(counterFor).startAt))} busy={counteringId===counterFor.id} onClose={()=>setCounterFor(null)} onSubmit={input=>void sendCounter(input)}/>}
 </section>}

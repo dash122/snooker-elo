@@ -11,6 +11,8 @@ The interface is currently written for Traditional Chinese (Hong Kong), while th
 - Records frame scores, handicap points, high breaks, expected result, rating movement, and the evidence used by the calculation.
 - Uses a handicap-aware ELO model: frame score contributes evidence, ratings are zero-sum, provisional players use a different K-factor, extreme handicaps are soft-capped, and winning beyond the expected handicap can receive an explicit performance multiplier.
 - Replays confirmed match history whenever player details or ELO settings change, so current ratings remain reproducible.
+- Runs the club's matchmaking: a one-tap "I'm free now" that publishes availability, opens a table to the club and asks the best-matched opponents at once; mutual match offers where neither side learns the other declined; directed invites with counter-proposals; open calls; recurring weekly availability; and a post-match result prompt.
+- Notifies members of invites, offers, open calls and results by web push, with an optional email fallback, so matchmaking reaches people who do not have the app open.
 - Supports member registration, login, sessions, linked member/player profiles, account settings, password changes, and account deactivation.
 - Provides an admin area for member management, player-account linking, player creation, ELO settings, data reset, and audit history.
 
@@ -38,6 +40,34 @@ POSTGRES_URL=postgres://...
 ```
 
 The server creates or upgrades the required auth and rating tables on first use. Supabase migration files are also available under `supabase/migrations/` for deployments that prefer explicit migrations.
+
+### Notifications (optional)
+
+Matchmaking works without these, but members will only see invites while the app is open — which is the single biggest thing standing between an invite and a game. Generate a VAPID key pair once and set all three variables:
+
+```bash
+node scripts/generate-vapid-keys.mjs
+```
+
+```text
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:you@example.com
+```
+
+Web push is implemented directly against `node:crypto` (RFC 8291 payload encryption, RFC 8292 VAPID), so it adds no dependencies. With the keys unset, every notification call is an inert no-op.
+
+An email fallback reaches members whose devices push cannot deliver to. Set either a Resend key or your own relay endpoint; with neither set, no mail is sent:
+
+```text
+RESEND_API_KEY=...            # plus NOTIFY_EMAIL_FROM
+NOTIFY_EMAIL_FROM=club@example.com
+NOTIFY_WEBHOOK_URL=...        # alternative: POST {to,subject,text} to your own relay
+NOTIFY_WEBHOOK_TOKEN=...      # optional bearer token for the webhook
+NEXT_PUBLIC_SITE_URL=https://...   # used to deep-link from emails back into the app
+```
+
+Notification delivery is per-member and per-channel; members control it in 約戰 → 我的時段 → 通知設定.
 
 ## Local development
 

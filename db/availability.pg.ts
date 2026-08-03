@@ -1,17 +1,8 @@
-import postgres from "postgres";
+import { getSql } from "./sql";
 import { mergeIntervals, type AvailabilitySlot } from "../lib/availability";
+import { materialiseRecurrence, materialiseRecurrenceThrottled } from "./recurrence.pg";
 
 export type AvailabilityMember = { id:string; name:string; short:string; rating:number; colour?:string|null; avatar?:string|null; slots:AvailabilitySlot[] };
-
-let sqlClient: ReturnType<typeof postgres> | null = null;
-function getSql() {
-  if (!sqlClient) {
-    const url=process.env.POSTGRES_URL||process.env.DATABASE_URL||process.env.SUPABASE_DB_URL;
-    if(!url)throw new Error("No Postgres connection string found. Set POSTGRES_URL.");
-    sqlClient=postgres(url,{ssl:"require",prepare:false});
-  }
-  return sqlClient;
-}
 
 let schemaReady:Promise<unknown>|null=null;
 async function ensureSchema(){
@@ -32,7 +23,7 @@ async function ensureSchema(){
 function slot(row:any):AvailabilitySlot { return {id:row.id,playerId:row.playerId,startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString(),createdAt:new Date(row.createdAt).toISOString(),updatedAt:new Date(row.updatedAt).toISOString(),cancelledAt:row.cancelledAt?new Date(row.cancelledAt).toISOString():null}; }
 
 export async function listAvailability(startAt:string,endAt:string){
-  await ensureSchema(); const sql=getSql();
+  await ensureSchema(); await materialiseRecurrenceThrottled(); const sql=getSql();
   const rows=await sql<any[]>`SELECT p.id AS "playerId",p.name,p.short,p.rating::float8 AS rating,p.colour,p.avatar,s.id,s.start_at AS "startAt",s.end_at AS "endAt",s.created_at AS "createdAt",s.updated_at AS "updatedAt",s.cancelled_at AS "cancelledAt"
     FROM availability_slots s JOIN state_players p ON p.id=s.player_id
     WHERE s.cancelled_at IS NULL AND s.end_at > now() AND s.start_at < ${endAt} AND s.end_at > ${startAt} AND p.active=true
@@ -43,7 +34,10 @@ export async function listAvailability(startAt:string,endAt:string){
 }
 
 export async function listOwnAvailability(playerId:string){
-  await ensureSchema(); const sql=getSql();
+  /* This member's own rules are expanded eagerly rather than on the throttled club-wide sweep: they
+     are about to look at their own board, and a regular's Wednesday missing from it would read as
+     the recurrence having quietly failed. */
+  await ensureSchema(); await materialiseRecurrence(playerId).catch(()=>0); const sql=getSql();
   const rows=await sql<any[]>`SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt" FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() ORDER BY start_at`;
   return rows.map(slot);
 }
@@ -79,7 +73,7 @@ export async function updateAvailability(id:string,playerId:string,item:{startAt
 }
 
 export async function listAvailabilityCounts(days:{date:string;startAt:string;endAt:string}[]){
-  await ensureSchema(); const sql=getSql();
+  await ensureSchema(); await materialiseRecurrenceThrottled(); const sql=getSql();
   if(!days.length)return {};
   const rangeStart=days[0].startAt,rangeEnd=days[days.length-1].endAt;
   const rows=await sql<any[]>`SELECT DISTINCT player_id AS "playerId",start_at AS "startAt",end_at AS "endAt" FROM availability_slots

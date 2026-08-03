@@ -3226,3 +3226,190 @@ input,select,textarea{font-size:var(--fs-body)}
   white-space:normal;
   overflow-wrap:anywhere;
 }
+
+/* ==========================================================================
+   MATCHMAKING
+   ==========================================================================
+   One tab, three zones: what is settled (NextUp), what needs an answer
+   (ResponseQueue), and where to go looking (find-section).
+
+   The design rules this file enforces, because the first pass broke all three:
+
+   1. ONE card shape. `.mm-card` + `.mm-head` everywhere. The previous version
+      had four header grammars (h2 vs h3, kicker vs none, count vs no count) on
+      a single screen, which made one product read as four bolted together.
+   2. ONE row shape. `.mm-row` is used by the queue, open calls and anything
+      else that is "a person + a time + some buttons".
+   3. Colour MEANS something. An accent is only spent on states the member has
+      to act on: amber = needs you, green = confirmed. Everything else is
+      neutral. The first pass had green/red/blue/purple/gold accents chosen per
+      feature, which is decoration pretending to be information.
+   4. Buttons come in two sizes only — 44px in rows, 52px for a zone's primary
+      action. Previously they ranged across 38/42/44/46/48/50/56px.
+   ========================================================================== */
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* --- Card + header -------------------------------------------------------- */
+.mm-card{margin-top:14px;border-radius:17px}
+.mm-card.is-attention{border-left:4px solid var(--gold)}
+.mm-card.is-confirmed{border-left:4px solid #2f7f63}
+.mm-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 12px}
+.mm-head>div:first-child{min-width:0;flex:1}
+.mm-head h3{margin:0;font-size:18px;letter-spacing:-.02em;line-height:1.3}
+.mm-head small{display:block;margin-top:3px;color:var(--muted);font-size:12px;line-height:1.5}
+.mm-head-aside{flex:0 0 auto;display:flex;align-items:center;gap:8px}
+.mm-head-aside .more{min-height:36px;color:var(--green);font-size:12px}
+.mm-count{display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 8px;border-radius:13px;
+  background:#efe2c4;color:#7d5a15;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.mm-card.is-confirmed .mm-count{background:#dcece3;color:#2c6b55}
+.mm-note{margin:10px 0 0;padding:13px 15px;border-radius:12px;background:#f2f4f0;color:var(--muted);font-size:13px;line-height:1.6}
+
+/* --- Shared row ----------------------------------------------------------- */
+.mm-rows{list-style:none;display:grid;gap:8px;margin:0;padding:0}
+.mm-row{display:flex;align-items:flex-start;gap:12px;min-width:0;padding:13px;border:1px solid var(--line);
+  border-radius:12px;background:#fbfcfa}
+.mm-row>.player-badge{flex:0 0 42px;width:42px;height:42px;border-radius:12px}
+.mm-row-copy{flex:1;min-width:0}
+.mm-row-copy b{display:block;font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.mm-row-copy small{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.mm-row-copy em{display:block;margin-top:5px;font-style:normal;font-size:12.5px;line-height:1.5;color:#5a6b66}
+.mm-row-copy p{margin:6px 0 0;padding:8px 10px;border-radius:9px;background:#f1f4ef;color:var(--ink);
+  font-size:12.5px;line-height:1.5;overflow-wrap:anywhere}
+/* The reason line carries the row's meaning, so it is the only thing tinted. */
+.mm-row.is-result .mm-row-copy em{color:#9a5b28;font-weight:700}
+.mm-row.is-offer .mm-row-copy em{color:#2f7f63}
+.mm-row-actions{display:flex;flex:0 0 auto;gap:7px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.mm-row-actions button{min-height:44px;padding-inline:15px;border-radius:11px;font-size:13.5px;font-weight:700}
+.mm-row-actions button.secondary{border:1px solid var(--line);background:#fff;color:var(--ink)}
+.mm-row-actions button.secondary:hover{border-color:#b9c6bf;background:#f6f8f4}
+.mm-row-actions button:disabled{opacity:.45;cursor:not-allowed}
+
+/* --- Zone 1: your next game / free now ------------------------------------ */
+.next-up{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.next-up>.player-badge{flex:0 0 46px;width:46px;height:46px;border-radius:13px}
+.next-up-copy{flex:1 1 160px;min-width:0}
+.next-up-copy b{display:block;font-size:17px;letter-spacing:-.02em}
+.next-up-copy small{display:block;margin-top:3px;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.mm-card.is-idle{background:linear-gradient(135deg,#f3faf5,var(--paper));border-color:#cfe0d6}
+.free-now-panel{display:grid;gap:11px}
+.free-now-durations{display:flex;gap:7px;flex-wrap:wrap}
+.free-now-durations button{flex:1 1 auto;min-height:44px;padding-inline:12px;border:1px solid var(--line);
+  border-radius:11px;background:#fff;color:var(--ink);font-size:13px;font-weight:700;white-space:nowrap}
+.free-now-durations button.active{border-color:var(--green);background:#e8f1ec;box-shadow:inset 0 0 0 1px var(--green)}
+.free-now-button{width:100%;min-height:52px;font-size:15.5px;border-radius:13px}
+.free-now-toggle{justify-self:start;color:var(--green)}
+.free-now-details{display:grid;gap:10px;padding-top:11px;border-top:1px solid var(--line)}
+
+/* --- Push opt-in strip ---------------------------------------------------- */
+.push-strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;padding:11px 15px;
+  border:1px solid #e6d6ae;border-radius:13px;background:#fdf8ec}
+.push-strip-copy{flex:1 1 200px;min-width:0}
+.push-strip-copy b{display:block;font-size:13.5px;color:#7d5a15}
+.push-strip-copy small{display:block;margin-top:2px;color:#8a6a22;font-size:12px;line-height:1.5}
+.push-strip-actions{display:flex;flex:0 0 auto;gap:7px}
+.push-strip-actions button{min-height:40px;padding-inline:14px;border-radius:10px;font-size:13px;font-weight:700}
+.push-strip-actions .secondary{border:1px solid #e0d3b2;background:transparent;color:#8a6a22}
+.push-status{display:flex;align-items:center;gap:8px;margin:10px 0 0;padding:9px 13px;border-radius:11px;
+  background:#eef4f0;color:#3c6355;font-size:12.5px}
+.push-status .more{margin-left:auto;color:var(--muted)}
+.push-status.is-denied{background:#fdf2ef;color:#8d4a41}
+
+/* --- Waiting strip -------------------------------------------------------- */
+.waiting-strip{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:#fbfcfa;overflow:hidden}
+.waiting-strip-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+  min-height:46px;padding:0 15px;border:0;background:transparent;color:var(--muted);font-size:13px;font-weight:700}
+.waiting-strip-toggle i{font-style:normal;font-size:10px}
+.waiting-strip ul{list-style:none;margin:0;padding:0 15px 12px;display:grid;gap:7px}
+.waiting-strip li{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding-top:9px;border-top:1px solid var(--line)}
+.waiting-strip li b{display:block;font-size:13.5px}
+.waiting-strip li small{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.waiting-strip li button{min-height:40px;padding-inline:13px;border:1px solid var(--line);border-radius:10px;
+  background:#fff;color:var(--ink);font-size:12.5px;font-weight:700}
+
+/* --- Zone 3: find --------------------------------------------------------- */
+.mm-segmented{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;margin-bottom:12px;
+  padding:4px;border-radius:13px;background:#eef1ec}
+.mm-segmented button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:42px;
+  border:0;border-radius:10px;background:transparent;color:var(--muted);font-size:13px;font-weight:700;white-space:nowrap}
+.mm-segmented button.active{background:var(--paper);color:var(--ink);box-shadow:0 2px 8px rgba(15,45,39,.09)}
+.mm-segmented button i{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;
+  border-radius:10px;background:#dfe5de;color:#5d6f69;font-style:normal;font-size:11px;font-weight:800;
+  font-variant-numeric:tabular-nums}
+.mm-segmented button.active i{background:#e2ece5;color:var(--green)}
+.find-section .availability-date-selector{margin:0 0 12px}
+.find-section .match-stack-list{display:grid;gap:10px}
+.find-section .availability-grid-card{margin:0;border:0;box-shadow:none;padding:0}
+.find-section .open-call-list{margin-top:0}
+.find-section .open-call-composer{margin-bottom:12px}
+
+/* --- Counter-proposal ----------------------------------------------------- */
+.invite-counter-note{color:#5c4a90!important;font-weight:700}
+.invite-counter-note s{color:var(--muted);font-weight:500}
+
+/* --- Recurring availability + notification prefs (我的時段) ----------------- */
+.recurrence-card,.notification-prefs{margin-top:14px}
+.recurrence-list{list-style:none;display:grid;gap:7px;margin:12px 0 0;padding:0}
+.recurrence-list li{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--line);
+  border-radius:12px;background:#fbfcfa}
+.recurrence-list li>span{flex:1;min-width:0}
+.recurrence-list b{display:block;font-size:14px}
+.recurrence-list small{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.recurrence-composer{margin-top:12px}
+.recurrence-add{margin-top:12px;min-height:44px;padding-inline:16px;border-radius:11px;font-size:13px}
+.pref-list{list-style:none;display:grid;gap:2px;margin:12px 0 0;padding:0}
+.pref-list label,.pref-quiet>label{display:flex;align-items:flex-start;gap:11px;padding:10px 12px;border-radius:11px;cursor:pointer}
+.pref-list label:hover,.pref-quiet>label:hover{background:#f4f6f2}
+.pref-list input[type="checkbox"],.pref-quiet input[type="checkbox"]{flex:0 0 auto;width:20px;height:20px;margin-top:2px;accent-color:var(--green)}
+.pref-list b,.pref-quiet b{display:block;font-size:14px;font-weight:700}
+.pref-list small,.pref-quiet small{display:block;margin-top:2px;color:var(--muted);font-size:12px;line-height:1.45}
+.pref-quiet{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.pref-quiet-times{display:flex;gap:10px;margin:6px 0 0 43px;flex-wrap:wrap}
+.pref-quiet-times label{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);font-weight:700}
+.pref-quiet-times select{min-height:44px;border:1px solid var(--line);border-radius:11px;padding:6px 10px;background:#fff;color:var(--ink)}
+
+/* --- Venue ---------------------------------------------------------------- */
+.venue-field{display:grid;gap:8px;margin-top:12px}
+.venue-field label{display:block;font-size:12px;font-weight:700;color:var(--muted)}
+.venue-field input{display:block;width:100%;margin-top:6px;min-height:46px;border:1px solid var(--line);
+  border-radius:11px;padding:8px 12px;background:#fff;color:var(--ink)}
+.venue-chips{display:flex;gap:6px;flex-wrap:wrap}
+.venue-chips button{min-height:36px;padding-inline:12px;border:1px solid var(--line);border-radius:10px;
+  background:#fff;color:var(--muted);font-size:12.5px;font-weight:700}
+.venue-chips button.active{border-color:var(--green);background:#e8f1ec;color:var(--green)}
+
+/* --- Navigation badge ----------------------------------------------------- */
+.side nav button i,.bottom button i{position:relative}
+.nav-badge{position:absolute;top:-5px;right:-2px;min-width:18px;height:18px;padding:0 5px;display:grid;place-items:center;
+  border-radius:9px;background:var(--red);color:#fff;font-style:normal;font-size:10.5px;font-weight:800;line-height:1;
+  font-variant-numeric:tabular-nums;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.side nav button i{width:31px;display:inline-grid;place-items:center}
+.bottom button i .nav-badge{top:-4px;right:2px}
+.availability-tab-count.is-alert{background:var(--red);color:#fff}
+
+/* --- Tonight strip (leaderboard) ------------------------------------------ */
+.tonight-strip{display:flex;align-items:center;gap:12px;width:100%;margin:18px 0 0;padding:14px 18px;
+  border:1px solid #cfe0d6;border-radius:15px;background:linear-gradient(120deg,#eef7f1,#fbfdfb);
+  color:var(--ink);text-align:left;box-shadow:var(--shadow);transition:transform .18s,box-shadow .18s}
+.tonight-strip:hover{transform:translateY(-1px);box-shadow:var(--shadow-hover)}
+.tonight-dot{flex:0 0 auto;width:9px;height:9px;border-radius:50%;background:#3f9b6d;box-shadow:0 0 0 4px rgba(63,155,109,.16);
+  animation:tonight-pulse 2.4s ease-in-out infinite}
+@keyframes tonight-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce){.tonight-dot{animation:none}}
+.tonight-copy{flex:1;min-width:0}
+.tonight-copy b{display:block;font-size:14px}
+.tonight-copy small{display:block;margin-top:2px;color:var(--muted);font-size:12px}
+.tonight-go{flex:0 0 auto;color:var(--muted);font-size:22px;line-height:1}
+
+@media (max-width:620px){
+  .mm-head h3{font-size:17px}
+  .mm-row{flex-wrap:wrap}
+  .mm-row-actions{width:100%;justify-content:stretch}
+  .mm-row-actions button{flex:1}
+  .next-up .mm-row-actions{width:100%}
+  .mm-segmented button{font-size:12px;padding-inline:4px}
+  .push-strip-actions{width:100%}
+  .push-strip-actions button{flex:1}
+  .tonight-strip{padding:12px 14px}
+}

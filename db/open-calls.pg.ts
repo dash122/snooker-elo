@@ -1,25 +1,18 @@
-import postgres from "postgres";
+import { getSql } from "./sql";
 import { ensureInviteSchema } from "./invites.pg";
 
 export type OpenCallPlayer = { id:string; name:string; short:string; rating:number; colour?:string|null; avatar?:string|null };
 export type OpenCallStatus = "open"|"claimed"|"cancelled"|"expired";
 export type OpenCall = {
-  id:string; startAt:string; endAt:string; message:string; status:OpenCallStatus;
+  id:string; startAt:string; endAt:string; message:string; status:OpenCallStatus; venue:string;
   createdAt:string; claimedAt:string|null;
   player:OpenCallPlayer; claimedBy:OpenCallPlayer|null;
 };
 
-let sqlClient: ReturnType<typeof postgres> | null = null;
-function getSql() {
-  if (!sqlClient) {
-    const url=process.env.POSTGRES_URL||process.env.DATABASE_URL||process.env.SUPABASE_DB_URL;
-    if(!url)throw new Error("No Postgres connection string found. Set POSTGRES_URL.");
-    sqlClient=postgres(url,{ssl:"require",prepare:false});
-  }
-  return sqlClient;
-}
-
 let schemaReady:Promise<unknown>|null=null;
+/* Exported for the same reason invites exports its own: the summary query counts open calls without
+   ever having gone through a read or write path that would have bootstrapped the table. */
+export async function ensureOpenCallSchema(){ return ensureSchema(); }
 async function ensureSchema(){
   schemaReady??=(async()=>{
     const sql=getSql();
@@ -35,13 +28,20 @@ async function ensureSchema(){
       CHECK (end_at > start_at), CHECK (player_id <> claimed_by_id),
       CHECK (status IN ('open','claimed','cancelled','expired'))
     )`;
+    /* Bounded for the same reason as the invite bootstrap, and scoped with SET LOCAL for the same
+       pooler reason: DDL that cannot take its lock promptly must fail and retry rather than queue
+       every subsequent reader behind itself. */
+    await sql.begin(async tx=>{
+      await tx`SET LOCAL lock_timeout = '4s'`;
+      await tx`ALTER TABLE open_calls ADD COLUMN IF NOT EXISTS venue text NOT NULL DEFAULT ''`;
+    });
     await sql`CREATE INDEX IF NOT EXISTS open_calls_live_idx ON open_calls (start_at) WHERE status='open'`;
     await sql`CREATE INDEX IF NOT EXISTS open_calls_player_idx ON open_calls (player_id,status)`;
   })().catch(error=>{schemaReady=null;throw error;});
   return schemaReady;
 }
 
-const callColumns=`c.id,c.start_at AS "startAt",c.end_at AS "endAt",c.message,c.status,
+const callColumns=`c.id,c.start_at AS "startAt",c.end_at AS "endAt",c.message,c.status,c.venue,
   c.created_at AS "createdAt",c.claimed_at AS "claimedAt",
   p.id AS "playerId",p.name AS "playerName",p.short AS "playerShort",p.rating::float8 AS "playerRating",p.colour AS "playerColour",p.avatar AS "playerAvatar",
   q.id AS "claimId",q.name AS "claimName",q.short AS "claimShort",q.rating::float8 AS "claimRating",q.colour AS "claimColour",q.avatar AS "claimAvatar"
@@ -50,7 +50,7 @@ const callColumns=`c.id,c.start_at AS "startAt",c.end_at AS "endAt",c.message,c.
 function hydrate(row:any):OpenCall {
   return {
     id:row.id, startAt:new Date(row.startAt).toISOString(), endAt:new Date(row.endAt).toISOString(),
-    message:row.message, status:row.status, createdAt:new Date(row.createdAt).toISOString(),
+    message:row.message, status:row.status, venue:row.venue??"", createdAt:new Date(row.createdAt).toISOString(),
     claimedAt:row.claimedAt?new Date(row.claimedAt).toISOString():null,
     player:{id:row.playerId,name:row.playerName,short:row.playerShort,rating:Number(row.playerRating),colour:row.playerColour,avatar:row.playerAvatar},
     claimedBy:row.claimId?{id:row.claimId,name:row.claimName,short:row.claimShort,rating:Number(row.claimRating),colour:row.claimColour,avatar:row.claimAvatar}:null,
@@ -74,10 +74,10 @@ export async function listOpenCalls() {
   return rows.map(hydrate);
 }
 
-export async function createOpenCall(playerId:string,interval:{startAt:string;endAt:string},message:string) {
+export async function createOpenCall(playerId:string,interval:{startAt:string;endAt:string},message:string,venue="") {
   await ensureSchema(); await expireStaleOpenCalls(); const sql=getSql();
   const id=crypto.randomUUID();
-  await sql`INSERT INTO open_calls (id,player_id,start_at,end_at,message) VALUES (${id},${playerId},${interval.startAt},${interval.endAt},${message})`;
+  await sql`INSERT INTO open_calls (id,player_id,start_at,end_at,message,venue) VALUES (${id},${playerId},${interval.startAt},${interval.endAt},${message},${venue})`;
   const rows=await sql.unsafe(`SELECT ${callColumns} WHERE c.id=$1`,[id]);
   return rows[0]?hydrate(rows[0]):null;
 }
@@ -96,14 +96,14 @@ export async function claimOpenCall(id:string,playerId:string) {
   /* Both writes or neither: a call marked claimed without the confirmed game to match would leave
      the taker with a table nobody else can claim and no fixture to show for it. */
   const claimed=await sql.begin(async tx=>{
-    const rows=await tx<{id:string;player_id:string;start_at:Date;end_at:Date;message:string}[]>`
+    const rows=await tx<{id:string;player_id:string;start_at:Date;end_at:Date;message:string;venue:string}[]>`
       UPDATE open_calls SET status='claimed',claimed_by_id=${playerId},claimed_at=now()
       WHERE id=${id} AND status='open' AND start_at>now()-interval '30 minutes' AND player_id<>${playerId}
-      RETURNING id,player_id,start_at,end_at,message`;
+      RETURNING id,player_id,start_at,end_at,message,venue`;
     const row=rows[0];
     if(!row)return null;
-    await tx`INSERT INTO match_invites (id,from_player_id,to_player_id,start_at,end_at,message,status,responded_at)
-      VALUES (${crypto.randomUUID()},${row.player_id},${playerId},${row.start_at},${row.end_at},${row.message},'accepted',now())`;
+    await tx`INSERT INTO match_invites (id,from_player_id,to_player_id,start_at,end_at,message,venue,status,responded_at)
+      VALUES (${crypto.randomUUID()},${row.player_id},${playerId},${row.start_at},${row.end_at},${row.message},${row.venue??""},'accepted',now())`;
     return row;
   });
   if(!claimed)return null;

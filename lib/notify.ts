@@ -1,0 +1,73 @@
+import { hkClock, hkDate, hkDayLabel, type Interval } from "./availability";
+
+/** Every message the club can send a member, composed in one place.
+ *
+ *  Kept free of any database or transport import so the wording is unit-testable and so the same
+ *  composer serves push, email and (later) anything else. The four channels match the four things a
+ *  member can switch off independently in settings — a channel is a promise about what kind of
+ *  interruption this is, not a technical detail. */
+
+export type NotificationChannel = "invite" | "openCall" | "offer" | "result";
+
+export type NotificationMessage = {
+  channel:NotificationChannel; title:string; body:string;
+  /** Collapse key. A second invite from the same person replaces the first in the tray rather than
+      stacking, which is the difference between a useful nudge and a notification spammer. */
+  tag:string;
+  url?:string; urgency?:"very-low"|"low"|"normal"|"high"; ttl?:number;
+};
+
+const when=(slot:Interval)=>`${hkDayLabel(hkDate(new Date(slot.startAt)))} ${hkClock(slot.startAt)}–${hkClock(slot.endAt)}`;
+const withVenue=(text:string,venue?:string|null)=>venue?`${text} · ${venue}`:text;
+
+/** How soon does this stop being worth delivering? A push about a game starting in 40 minutes is
+    worthless tomorrow morning, so the TTL is the time left until the slot rather than a flat value —
+    the push service drops it on its own if the member's phone stays offline past then. */
+const untilSlot=(slot:Interval,now=Date.now())=>Math.max(60,Math.round((Date.parse(slot.startAt)-now)/1000));
+/* Inside two hours a game is a "come now" message and should wake the screen; beyond that it can wait
+   for the member to pick the phone up. */
+const urgencyFor=(slot:Interval,now=Date.now()):"normal"|"high"=>Date.parse(slot.startAt)-now<2*60*60*1000?"high":"normal";
+
+export function inviteReceived(from:string,slot:Interval,message:string,venue?:string|null):NotificationMessage {
+  return {
+    channel:"invite",title:`${from} 想約你打波`,
+    body:withVenue(`${when(slot)}${message?` · ${message}`:""}`,venue),
+    tag:`invite:${from}`,urgency:urgencyFor(slot),ttl:untilSlot(slot),
+  };
+}
+
+export function inviteAccepted(by:string,slot:Interval,venue?:string|null):NotificationMessage {
+  return {channel:"invite",title:`${by} 接受咗你嘅邀請`,body:withVenue(`${when(slot)} · 對局已確認`,venue),tag:`invite:${by}`,urgency:urgencyFor(slot),ttl:untilSlot(slot)};
+}
+
+export function inviteDeclined(by:string,slot:Interval):NotificationMessage {
+  return {channel:"invite",title:`${by} 今次未得閒`,body:`${when(slot)} 嘅邀請被婉拒；試下其他時間或其他球友。`,tag:`invite:${by}`,urgency:"low"};
+}
+
+/** A counter-proposal is the one notification that must never read as a rejection — the whole point
+    of adding it was to give "no" a next step. */
+export function inviteCountered(by:string,slot:Interval,venue?:string|null):NotificationMessage {
+  return {channel:"invite",title:`${by} 提議改時間`,body:withVenue(`改為 ${when(slot)} — 睇下就唔就`,venue),tag:`invite:${by}`,urgency:urgencyFor(slot),ttl:untilSlot(slot)};
+}
+
+export function openCallPosted(from:string,slot:Interval,message:string,venue?:string|null):NotificationMessage {
+  return {
+    channel:"openCall",title:`${from} 開枱搵人`,
+    body:withVenue(`${when(slot)}${message?` · ${message}`:""} · 先到先得`,venue),
+    tag:"open-call",urgency:urgencyFor(slot),ttl:untilSlot(slot),
+  };
+}
+
+/** The mutual-match ask. Phrased so that neither side learns the other said no: it is an invitation
+    from the club, not from a person, which is exactly why it costs nothing to decline. */
+export function offerProposed(other:string,slot:Interval,venue?:string|null):NotificationMessage {
+  return {channel:"offer",title:"有人同你夾到時間",body:withVenue(`${other} · ${when(slot)} — 打唔打？`,venue),tag:`offer:${other}`,urgency:urgencyFor(slot),ttl:untilSlot(slot)};
+}
+
+export function offerMatched(other:string,slot:Interval,venue?:string|null):NotificationMessage {
+  return {channel:"offer",title:`同 ${other} 嘅對局已確認`,body:withVenue(`${when(slot)} · 兩邊都答應咗`,venue),tag:`offer:${other}`,urgency:urgencyFor(slot),ttl:untilSlot(slot)};
+}
+
+export function followUpDue(other:string,slot:Interval):NotificationMessage {
+  return {channel:"result",title:"你哋打咗未？",body:`${when(slot)} 同 ${other} 嘅對局 — 記低賽果先計 ELO。`,tag:`result:${other}`,urgency:"low"};
+}
