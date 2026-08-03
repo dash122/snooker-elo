@@ -1,5 +1,6 @@
 import { requireMember } from "../../../db/auth";
 import { listAvailability, listAvailabilityCounts, listOwnAvailability, publishAvailability } from "../../../db/availability";
+import { announceAvailability } from "../../../db/matchmaking-actions.pg";
 import { addDaysHongKong, dayRangeHongKong, mergeIntervals, validateAvailabilityInterval } from "../../../lib/availability";
 
 function slots(body:unknown){
@@ -24,5 +25,13 @@ export async function GET(request:Request){
   }catch(error){return Response.json({error:error instanceof Error?error.message:"Availability unavailable"},{status:400});}}
 export async function POST(request:Request){
   const member=await requireMember();if(!member)return Response.json({error:"Sign in required"},{status:401});if(!member.statePlayerId)return Response.json({error:"Link a player profile first"},{status:403});
-  try{return Response.json({slots:await publishAvailability(member.statePlayerId,slots(await request.json()))},{status:201});}catch(error){return Response.json({error:error instanceof Error?error.message:"Invalid slot"},{status:400});}
+  try{
+    const intervals=slots(await request.json());
+    const published=await publishAvailability(member.statePlayerId,intervals);
+    /* Publishing time is now an event, not just a write: the matcher asks the best few overlapping
+       opponents whether they want the game. Without this a member's slots sit on a board waiting to
+       be noticed, which is the passivity the whole redesign is aimed at. */
+    const {offers}=await announceAvailability(member.statePlayerId,intervals);
+    return Response.json({slots:published,offers},{status:201});
+  }catch(error){return Response.json({error:error instanceof Error?error.message:"Invalid slot"},{status:400});}
 }

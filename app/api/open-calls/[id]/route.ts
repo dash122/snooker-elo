@@ -1,5 +1,7 @@
 import { requireMember } from "../../../../db/auth";
 import { cancelOpenCall, claimOpenCall } from "../../../../db/open-calls";
+import { notifyPlayers } from "../../../../db/notifications";
+import { inviteAccepted } from "../../../../lib/notify";
 
 export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){
   const current=await requireMember();
@@ -10,7 +12,12 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
     const call=await claimOpenCall(id,current.statePlayerId);
     /* A claim that matches no row means somebody else got there first (or the slot has since
        started) — not a missing record, so say so in the words the member needs to hear. */
-    return call?Response.json({call}):Response.json({error:"這個開放邀請已經被人接受或已過期"},{status:409});
+    if(!call)return Response.json({error:"這個開放邀請已經被人接受或已過期"},{status:409});
+    /* The member who put the table up is the one who has been waiting to hear. Reusing the
+       invite-accepted wording is accurate rather than lazy: claiming a call *is* accepting an
+       offer to play, and it produces the same confirmed fixture. */
+    await notifyPlayers([call.player.id],inviteAccepted(call.claimedBy?.name??"有人",call,call.venue));
+    return Response.json({call});
   }
   if(body.action==="cancel"){
     const ok=await cancelOpenCall(id,current.statePlayerId);

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { addDaysHongKong, availabilityDensity, availabilityPeak, composeAvailabilityInterval, dayRangeHongKong, gamesPlayed, intervalFromHours, intersectIntervals, matchesBetween, mergeIntervals, inviteAwaitsOutcome, isInviteExpired, isOpenCallLive, nextAvailabilityStart, overlapMinutes, partitionInvites, partitionOpenCalls, rankOpponents, recommendationScore, validateAvailabilityInterval } from "../lib/availability.ts";
 
+
 test("keeps a same-day slot on the day the member picked",()=>{
   // Deriving the end date from `new Date(date+"T00:00+08:00").toISOString()` rolled it back a day,
   // so every slot ended before it started and nothing could be created.
@@ -63,7 +64,30 @@ test("calculates multi-slot overlaps",()=>{
   assert.equal(overlapMinutes(overlaps),120);
 });
 test("uses Hong Kong dates as UTC+8",()=>assert.deepEqual(dayRangeHongKong("2026-08-01"),{startAt:"2026-07-31T16:00:00.000Z",endAt:"2026-08-01T16:00:00.000Z"}));
-test("requires 30 minutes and caps score components",()=>{assert.equal(recommendationScore({minutes:29,eloDifference:0,recentMatches:0}),null);assert.deepEqual(recommendationScore({minutes:120,eloDifference:400,recentMatches:5}),{score:60,overlap:60,elo:0,variety:0});});
+test("requires 30 minutes and caps score components",()=>{
+  assert.equal(recommendationScore({minutes:29,eloDifference:0,recentMatches:0}),null);
+  // Full overlap, worst possible ELO gap, played out — plus a neutral reliability score, because an
+  // opponent with no invite history must not be penalised for being unmeasured.
+  assert.deepEqual(recommendationScore({minutes:120,eloDifference:400,recentMatches:5}),{score:55,overlap:45,elo:0,variety:0,reliability:10});
+});
+test("reliability moves the ranking without letting it dominate",()=>{
+  const base={minutes:120,eloDifference:400,recentMatches:5};
+  const unknown=recommendationScore(base).score;
+  const great=recommendationScore({...base,signals:{acceptRate:1,showRate:1,responseHours:0.5}}).score;
+  const poor=recommendationScore({...base,signals:{acceptRate:0,showRate:0,responseHours:48}}).score;
+  assert.equal(great-poor,20,"reliability is worth a fifth of the score, no more");
+  assert.ok(great>unknown&&unknown>poor,"an unmeasured opponent sits between the proven and the flaky");
+  // A newcomer with two answered invites has no rate at all yet, so they score exactly neutral —
+  // this is what stops the shortlist from freezing into whoever happened to reply first.
+  assert.equal(recommendationScore({...base,signals:{}}).score,unknown);
+});
+test("a partial reliability picture only moves the part it knows about",()=>{
+  const base={minutes:120,eloDifference:400,recentMatches:5};
+  // Answers fast, nothing known about turning up: better than neutral, worse than a proven regular.
+  const responsive=recommendationScore({...base,signals:{responseHours:1}}).score;
+  assert.ok(responsive>recommendationScore(base).score);
+  assert.ok(responsive<recommendationScore({...base,signals:{acceptRate:1,showRate:1,responseHours:1}}).score);
+});
 
 const hk=(time)=>`2026-08-01T${time}:00+08:00`;
 const slot=(from,to)=>({startAt:hk(from),endAt:hk(to)});

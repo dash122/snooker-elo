@@ -2751,14 +2751,15 @@ button.availability-grid-player:hover b{text-decoration:underline}
 @media(max-width:700px){
   .ranking-panel{padding-inline:.625rem}
   .ranking-panel .table-card{padding:.3125rem .5rem}
-  .row-head-mobile,.row{grid-template-columns:2.25rem minmax(0,1fr) 4.75rem 3.75rem!important;column-gap:.5rem!important}
+  .row-head-mobile,.row{grid-template-columns:2.25rem minmax(0,1fr) 3.75rem 3.5rem!important;column-gap:.5rem!important}
   .row{padding:.625rem!important;min-height:4.375rem}
   .row-head-mobile{padding:0 .3125rem .375rem}
   .row-head-mobile>span{text-align:center}
   .rank{text-align:center}
   .person{min-width:0}
   .person b{display:block;min-width:0;max-width:100%;white-space:normal;overflow-wrap:break-word;word-break:normal;line-height:1.2}
-  .row>.form{width:auto!important;justify-content:flex-end}
+  .row>.form{width:3.75rem!important;justify-content:flex-end;gap:.125rem!important}
+  .row>.form i{max-width:.75rem!important;width:.75rem!important;height:.75rem!important;border-radius:.25rem!important}
 }
 
 
@@ -2989,3 +2990,426 @@ button.match-hero-window-action:hover,button.match-hero-window-action:focus-visi
 }
 .shell{background-color:var(--cream);background-image:repeating-linear-gradient(0deg,rgba(21,48,45,.018) 0 1px,transparent 1px 4px),repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 1px,transparent 1px 5px)}
 .shell:before{display:none}
+
+
+/* ===========================================================================
+   UI consistency contract
+
+   This is the final, authoritative layer for layout and type roles. The app
+   contains several feature-specific style generations; keeping the contract at
+   the end makes every page share the same content rail, gutters, readable type
+   floor, surface geometry, control sizing, and vertical rhythm.
+   =========================================================================== */
+:root{
+  --content-max:80rem;
+  --page-gutter:clamp(2rem,4vw,4rem);
+  --page-top:1.5rem;
+  --space-section:2.5rem;
+  --space-block:1.25rem;
+  --space-card:clamp(1.25rem,2.2vw,1.75rem);
+  --fs-label:.75rem;
+  --fs-caption:.8125rem;
+  --fs-sm:.875rem;
+  --fs-body:1rem;
+  --fs-lead:1.125rem;
+  --fs-stat:1.5rem;
+  --fs-h3:1.25rem;
+  --fs-h2:1.625rem;
+  --control-sm:2.25rem;
+  --control-md:2.75rem;
+  --control-lg:3.125rem;
+  --radius-sm:.75rem;
+  --radius-md:1rem;
+  --radius-lg:1.25rem;
+}
+
+body{font-size:var(--fs-body);line-height:1.65}
+:where(p,li,dd){text-wrap:pretty}
+:where(h1,h2,h3){text-wrap:balance}
+
+/* One rail for every first-level dashboard view. Fixed overlays and mobile
+   navigation are deliberately excluded from document-width calculations. */
+.shell>main{max-width:none;padding-inline:var(--page-gutter)}
+:where(.shell>main)>:where(:not(.bottom):not(.fab):not(.backdrop):not(.toast):not(.record-speed-dial):not(.record-menu-scrim):not(.pull-refresh):not(.availability-dialog-backdrop)){
+  width:min(100%,var(--content-max));
+  margin-inline:auto;
+}
+
+/* Stable reading hierarchy. Decorative microcopy remains compact, but no
+   explanatory or interactive text falls below the shared readable floor. */
+.kicker,.pill,.status,.table-head,.table-head.sortable button,
+.admin-field-group,.recent-chart-card header small{font-size:var(--fs-label)}
+.hero p:not(.kicker),.home-panel-head>div>p,.section-title>div>p:last-child,
+.sub,.summary,.account-settings-hint,.account-unlinked p:not(.kicker),
+.admin-section-sub,.admin-attention>p,.availability-page p{font-size:var(--fs-body)}
+.home-panel-head h2,.section-title h2,.account-panel-head h2,
+.admin-section-open>h2,.admin-section>summary{font-size:var(--fs-h2)}
+.chart-head h2,.chart-head h3,.recent-chart-card h3,.availability-grid-head h3,
+.matchmaking-status-title h2{font-size:var(--fs-h3)}
+
+.account-link,.account-topbar-links a,.auth-form label,.sheet label,
+.filters label,.sort-controls label,.match-filter-label,.admin-search,
+.admin-chip,.players-chip,.players-sort-btn,.match-history-filters button,
+.match-history-more,.availability-page button{font-size:var(--fs-sm)}
+
+.metrics small,.metrics span,.setting small,.account-hero-metrics small,
+.account-stat-grid small,.account-highlights span,.admin-stats small,
+.match-row-date small,.match-row-opponent small,.match-row-delta small,
+.match-row-detail dt,.availability-grid-head small,.availability-grid-legend,
+.availability-date-selector-head>span,.availability-date-strip>button small,
+.availability-date-strip>button span,.availability-grid-player small,
+.matchmaking-status-kicker{font-size:var(--fs-caption)}
+
+.metrics b,.setting b,.account-stat-grid b,.admin-stats b{font-size:var(--fs-stat)}
+
+/* Shared page rhythm and surface geometry. */
+.hero{margin-bottom:var(--space-block)}
+.hero.small{margin-bottom:.5rem}
+.section-title{margin:var(--space-section) 0 var(--space-block)}
+.home-view-panel,.podium-section,.match-filter-toolbar,.match-filter-status,
+.h2h-summary,.match-list,.calendar-view,.players-view,.calibration-card,
+.danger-zone,.audit,.availability-page>section{margin-top:var(--space-block)}
+
+.table-card,.home-view-panel,.chart-card,.trend-card,.detail-chart,.match,
+.player-card,.setting,.audit,.account-panel,.auth-card,.admin-attention,
+.availability-grid-card,.matchmaking-status-card,.availability-date-strip-wrap{
+  border-radius:var(--radius-lg);
+}
+.home-view-panel,.chart-card,.trend-card,.detail-chart,.account-panel{
+  padding:var(--space-card);
+}
+.account-layout,.account-column{gap:var(--space-block)}
+
+/* Controls use two predictable heights and one text size. */
+.primary{min-height:var(--control-lg);font-size:var(--fs-sm);border-radius:var(--radius-sm)}
+.secondary,.danger,.account-link,.account-topbar-links a,.admin-chip,
+.match-history-more,.players-sort-btn{min-height:var(--control-md)}
+input,select,textarea{font-size:var(--fs-body)}
+.auth-form input,.auth-form select,.sheet input,.sheet select,.filters input,
+.filters select,.admin-search{min-height:var(--control-lg);border-radius:var(--radius-sm)}
+
+/* Account and administration use the same outer rail and interior spacing as
+   the main product instead of behaving like isolated microsites. */
+.account-page{padding:var(--page-top) var(--page-gutter) 4rem}
+.account-page>*{width:min(100%,var(--content-max))}
+.account-topbar{min-height:3.5rem}
+.account-topbar-links a{display:inline-flex;align-items:center;padding-inline:1rem}
+.account-hero{margin-top:var(--space-block);padding:var(--space-card);border-radius:var(--radius-lg)}
+.account-panel-head{margin-bottom:var(--space-block)}
+.account-stat-grid,.account-highlights,.match-history-list{gap:.625rem}
+.account-stat-grid>div{padding:1rem;border-radius:var(--radius-md)}
+.auth-page{padding:var(--page-gutter)}
+.admin-card{width:min(100%,64rem);padding:clamp(1.5rem,3vw,2.5rem)}
+.admin-stats{gap:.75rem;margin:var(--space-block) 0}
+.admin-stats>div{padding:1rem}
+.admin-section,.admin-section-open{margin-top:var(--space-section);padding-top:var(--space-block)}
+.member-list>details>summary,.admin-unlinked-row{padding-block:1rem}
+
+/* Feature pages retain their dense visualisations while their surrounding
+   headings, cards, and controls align with the shared product language. */
+.availability-date-selector{margin-block:var(--space-block) .75rem}
+.availability-grid-head{padding:var(--space-card)}
+.availability-grid-head h3{line-height:1.3}
+.matchmaking-status-card{padding:var(--space-card)}
+.matchmaking-status-title p,.matchmaking-status-message{font-size:var(--fs-sm)}
+.players-row-name-line b,.person b,.admin-row-id b,.match-row-opponent b{font-size:var(--fs-body)}
+
+@media(max-width:980px){
+  :root{--page-gutter:1.75rem}
+}
+
+/* Compact desktop/tablet landscape type scale for narrower browser widths. */
+@media(max-width:1180px) and (min-width:821px){
+  :root{
+    --fs-label:.6875rem;
+    --fs-caption:.75rem;
+    --fs-sm:.8125rem;
+    --fs-body:.9375rem;
+    --fs-lead:1.0625rem;
+    --fs-h3:1.125rem;
+    --fs-h2:1.5rem;
+  }
+  input,select,textarea{font-size:16px}
+}
+
+@media(max-width:820px){
+  :root{
+    --page-gutter:1.125rem;
+    --page-top:1rem;
+    --space-section:2rem;
+    --space-block:1rem;
+    --space-card:1.125rem;
+    --fs-label:.6875rem;
+    --fs-caption:.75rem;
+    --fs-sm:.8125rem;
+    --fs-body:.9rem;
+    --fs-lead:1rem;
+    --fs-h3:1.0625rem;
+    --fs-h2:1.25rem;
+  }
+  .shell>main{padding-inline:var(--page-gutter)}
+  .home-view-nav,.match-view-toggle,.availability-tabs{
+    margin-inline:calc(-1 * var(--page-gutter));
+    padding-inline:var(--page-gutter);
+  }
+  .hero{margin-bottom:0}
+  .home-view-panel,.chart-card,.trend-card,.detail-chart,.account-panel{
+    padding:var(--space-card);
+  }
+  .account-page{padding:var(--page-top) var(--page-gutter) 3rem}
+  .account-actions{min-width:0}
+  .account-link.sign-in{max-width:5.25rem;padding-inline:.625rem;font-size:var(--fs-label)}
+  .auth-page{padding:var(--page-gutter)}
+  .admin-card{padding:1.5rem}
+  input,select,textarea{font-size:16px}
+}
+
+@media(max-width:480px){
+  :root{--page-gutter:.875rem;--space-card:1rem}
+  .account-topbar{align-items:flex-start}
+  .account-topbar-links{width:100%;overflow-x:auto;padding-bottom:.25rem}
+  .account-topbar-links a{flex:none}
+  .account-hero{padding:1.125rem}
+  .account-panel,.home-view-panel{border-radius:var(--radius-md)}
+  .admin-card{padding:1.25rem;border-radius:var(--radius-md)}
+  .admin-stats{grid-template-columns:1fr 1fr}
+  .admin-stats>div{display:block;padding:.875rem}
+  .admin-stats b{margin-top:.25rem}
+}
+
+/* Keep the mobile header controls on one shared tap-target height and center
+   the account label inside its rounded button. */
+.account-actions{align-items:center}
+.account-link{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:var(--control-md);
+  min-height:var(--control-md);
+  padding-block:0;
+  line-height:1.2;
+  text-align:center;
+}
+.header-settings{
+  width:var(--control-md);
+  height:var(--control-md);
+  min-height:var(--control-md);
+}
+
+/* All mobile top-level tab bars share the same full-rail geometry. */
+@media(max-width:820px){
+  .home-view-nav,.match-view-toggle,.availability-tabs{
+    width:calc(100% + var(--page-gutter) + var(--page-gutter));
+  }
+  .home-view-nav button,.availability-tabs button,main>.match-view-toggle button{
+    flex:1 1 0;
+    min-width:0;
+  }
+}
+/* The availability overflow guard caps nested navs at the content rail; the
+   shared full-rail tab bar intentionally extends beyond that rail. */
+@media(max-width:820px){
+  .availability-page .availability-tabs{max-width:none}
+}
+@media(max-width:820px){
+  .availability-page{overflow-x:visible}
+}
+
+/* Keep leaderboard names inside their grid track on every viewport. */
+.row>.person{min-width:0}
+.row>.person>b{
+  flex:1 1 0;
+  min-width:0;
+  max-width:100%;
+  font-size:var(--fs-sm);
+  line-height:1.25;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+
+/* ==========================================================================
+   MATCHMAKING
+   ==========================================================================
+   One tab, three zones: what is settled (NextUp), what needs an answer
+   (ResponseQueue), and where to go looking (find-section).
+
+   The design rules this file enforces, because the first pass broke all three:
+
+   1. ONE card shape. `.mm-card` + `.mm-head` everywhere. The previous version
+      had four header grammars (h2 vs h3, kicker vs none, count vs no count) on
+      a single screen, which made one product read as four bolted together.
+   2. ONE row shape. `.mm-row` is used by the queue, open calls and anything
+      else that is "a person + a time + some buttons".
+   3. Colour MEANS something. An accent is only spent on states the member has
+      to act on: amber = needs you, green = confirmed. Everything else is
+      neutral. The first pass had green/red/blue/purple/gold accents chosen per
+      feature, which is decoration pretending to be information.
+   4. Buttons come in two sizes only — 44px in rows, 52px for a zone's primary
+      action. Previously they ranged across 38/42/44/46/48/50/56px.
+   ========================================================================== */
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* --- Card + header -------------------------------------------------------- */
+.mm-card{margin-top:14px;border-radius:17px}
+.mm-card.is-attention{border-left:4px solid var(--gold)}
+.mm-card.is-confirmed{border-left:4px solid #2f7f63}
+.mm-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 12px}
+.mm-head>div:first-child{min-width:0;flex:1}
+.mm-head h3{margin:0;font-size:18px;letter-spacing:-.02em;line-height:1.3}
+.mm-head small{display:block;margin-top:3px;color:var(--muted);font-size:12px;line-height:1.5}
+.mm-head-aside{flex:0 0 auto;display:flex;align-items:center;gap:8px}
+.mm-head-aside .more{min-height:36px;color:var(--green);font-size:12px}
+.mm-count{display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 8px;border-radius:13px;
+  background:#efe2c4;color:#7d5a15;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.mm-card.is-confirmed .mm-count{background:#dcece3;color:#2c6b55}
+.mm-note{margin:10px 0 0;padding:13px 15px;border-radius:12px;background:#f2f4f0;color:var(--muted);font-size:13px;line-height:1.6}
+
+/* --- Shared row ----------------------------------------------------------- */
+.mm-rows{list-style:none;display:grid;gap:8px;margin:0;padding:0}
+.mm-row{display:flex;align-items:flex-start;gap:12px;min-width:0;padding:13px;border:1px solid var(--line);
+  border-radius:12px;background:#fbfcfa}
+.mm-row>.player-badge{flex:0 0 42px;width:42px;height:42px;border-radius:12px}
+.mm-row-copy{flex:1;min-width:0}
+.mm-row-copy b{display:block;font-size:15px;line-height:1.35;overflow-wrap:anywhere}
+.mm-row-copy small{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.mm-row-copy em{display:block;margin-top:5px;font-style:normal;font-size:12.5px;line-height:1.5;color:#5a6b66}
+.mm-row-copy p{margin:6px 0 0;padding:8px 10px;border-radius:9px;background:#f1f4ef;color:var(--ink);
+  font-size:12.5px;line-height:1.5;overflow-wrap:anywhere}
+/* The reason line carries the row's meaning, so it is the only thing tinted. */
+.mm-row.is-result .mm-row-copy em{color:#9a5b28;font-weight:700}
+.mm-row.is-offer .mm-row-copy em{color:#2f7f63}
+.mm-row-actions{display:flex;flex:0 0 auto;gap:7px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.mm-row-actions button{min-height:44px;padding-inline:15px;border-radius:11px;font-size:13.5px;font-weight:700}
+.mm-row-actions button.secondary{border:1px solid var(--line);background:#fff;color:var(--ink)}
+.mm-row-actions button.secondary:hover{border-color:#b9c6bf;background:#f6f8f4}
+.mm-row-actions button:disabled{opacity:.45;cursor:not-allowed}
+
+/* --- Zone 1: your next game / free now ------------------------------------ */
+.next-up{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.next-up>.player-badge{flex:0 0 46px;width:46px;height:46px;border-radius:13px}
+.next-up-copy{flex:1 1 160px;min-width:0}
+.next-up-copy b{display:block;font-size:17px;letter-spacing:-.02em}
+.next-up-copy small{display:block;margin-top:3px;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.mm-card.is-idle{background:linear-gradient(135deg,#f3faf5,var(--paper));border-color:#cfe0d6}
+.free-now-panel{display:grid;gap:11px}
+.free-now-durations{display:flex;gap:7px;flex-wrap:wrap}
+.free-now-durations button{flex:1 1 auto;min-height:44px;padding-inline:12px;border:1px solid var(--line);
+  border-radius:11px;background:#fff;color:var(--ink);font-size:13px;font-weight:700;white-space:nowrap}
+.free-now-durations button.active{border-color:var(--green);background:#e8f1ec;box-shadow:inset 0 0 0 1px var(--green)}
+.free-now-button{width:100%;min-height:52px;font-size:15.5px;border-radius:13px}
+.free-now-toggle{justify-self:start;color:var(--green)}
+.free-now-details{display:grid;gap:10px;padding-top:11px;border-top:1px solid var(--line)}
+
+/* --- Push opt-in strip ---------------------------------------------------- */
+.push-strip{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;padding:11px 15px;
+  border:1px solid #e6d6ae;border-radius:13px;background:#fdf8ec}
+.push-strip-copy{flex:1 1 200px;min-width:0}
+.push-strip-copy b{display:block;font-size:13.5px;color:#7d5a15}
+.push-strip-copy small{display:block;margin-top:2px;color:#8a6a22;font-size:12px;line-height:1.5}
+.push-strip-actions{display:flex;flex:0 0 auto;gap:7px}
+.push-strip-actions button{min-height:40px;padding-inline:14px;border-radius:10px;font-size:13px;font-weight:700}
+.push-strip-actions .secondary{border:1px solid #e0d3b2;background:transparent;color:#8a6a22}
+.push-status{display:flex;align-items:center;gap:8px;margin:10px 0 0;padding:9px 13px;border-radius:11px;
+  background:#eef4f0;color:#3c6355;font-size:12.5px}
+.push-status .more{margin-left:auto;color:var(--muted)}
+.push-status.is-denied{background:#fdf2ef;color:#8d4a41}
+
+/* --- Waiting strip -------------------------------------------------------- */
+.waiting-strip{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:#fbfcfa;overflow:hidden}
+.waiting-strip-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+  min-height:46px;padding:0 15px;border:0;background:transparent;color:var(--muted);font-size:13px;font-weight:700}
+.waiting-strip-toggle i{font-style:normal;font-size:10px}
+.waiting-strip ul{list-style:none;margin:0;padding:0 15px 12px;display:grid;gap:7px}
+.waiting-strip li{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding-top:9px;border-top:1px solid var(--line)}
+.waiting-strip li b{display:block;font-size:13.5px}
+.waiting-strip li small{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.waiting-strip li button{min-height:40px;padding-inline:13px;border:1px solid var(--line);border-radius:10px;
+  background:#fff;color:var(--ink);font-size:12.5px;font-weight:700}
+
+/* --- Zone 3: find --------------------------------------------------------- */
+.mm-segmented{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;margin-bottom:12px;
+  padding:4px;border-radius:13px;background:#eef1ec}
+.mm-segmented button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:42px;
+  border:0;border-radius:10px;background:transparent;color:var(--muted);font-size:13px;font-weight:700;white-space:nowrap}
+.mm-segmented button.active{background:var(--paper);color:var(--ink);box-shadow:0 2px 8px rgba(15,45,39,.09)}
+.mm-segmented button i{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;
+  border-radius:10px;background:#dfe5de;color:#5d6f69;font-style:normal;font-size:11px;font-weight:800;
+  font-variant-numeric:tabular-nums}
+.mm-segmented button.active i{background:#e2ece5;color:var(--green)}
+.find-section .availability-date-selector{margin:0 0 12px}
+.find-section .match-stack-list{display:grid;gap:10px}
+.find-section .availability-grid-card{margin:0;border:0;box-shadow:none;padding:0}
+.find-section .open-call-list{margin-top:0}
+.find-section .open-call-composer{margin-bottom:12px}
+
+/* --- Counter-proposal ----------------------------------------------------- */
+.invite-counter-note{color:#5c4a90!important;font-weight:700}
+.invite-counter-note s{color:var(--muted);font-weight:500}
+
+/* --- Recurring availability + notification prefs (我的時段) ----------------- */
+.recurrence-card,.notification-prefs{margin-top:14px}
+.recurrence-list{list-style:none;display:grid;gap:7px;margin:12px 0 0;padding:0}
+.recurrence-list li{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--line);
+  border-radius:12px;background:#fbfcfa}
+.recurrence-list li>span{flex:1;min-width:0}
+.recurrence-list b{display:block;font-size:14px}
+.recurrence-list small{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.recurrence-composer{margin-top:12px}
+.recurrence-add{margin-top:12px;min-height:44px;padding-inline:16px;border-radius:11px;font-size:13px}
+.pref-list{list-style:none;display:grid;gap:2px;margin:12px 0 0;padding:0}
+.pref-list label,.pref-quiet>label{display:flex;align-items:flex-start;gap:11px;padding:10px 12px;border-radius:11px;cursor:pointer}
+.pref-list label:hover,.pref-quiet>label:hover{background:#f4f6f2}
+.pref-list input[type="checkbox"],.pref-quiet input[type="checkbox"]{flex:0 0 auto;width:20px;height:20px;margin-top:2px;accent-color:var(--green)}
+.pref-list b,.pref-quiet b{display:block;font-size:14px;font-weight:700}
+.pref-list small,.pref-quiet small{display:block;margin-top:2px;color:var(--muted);font-size:12px;line-height:1.45}
+.pref-quiet{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.pref-quiet-times{display:flex;gap:10px;margin:6px 0 0 43px;flex-wrap:wrap}
+.pref-quiet-times label{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);font-weight:700}
+.pref-quiet-times select{min-height:44px;border:1px solid var(--line);border-radius:11px;padding:6px 10px;background:#fff;color:var(--ink)}
+
+/* --- Venue ---------------------------------------------------------------- */
+.venue-field{display:grid;gap:8px;margin-top:12px}
+.venue-field label{display:block;font-size:12px;font-weight:700;color:var(--muted)}
+.venue-field input{display:block;width:100%;margin-top:6px;min-height:46px;border:1px solid var(--line);
+  border-radius:11px;padding:8px 12px;background:#fff;color:var(--ink)}
+.venue-chips{display:flex;gap:6px;flex-wrap:wrap}
+.venue-chips button{min-height:36px;padding-inline:12px;border:1px solid var(--line);border-radius:10px;
+  background:#fff;color:var(--muted);font-size:12.5px;font-weight:700}
+.venue-chips button.active{border-color:var(--green);background:#e8f1ec;color:var(--green)}
+
+/* --- Navigation badge ----------------------------------------------------- */
+.side nav button i,.bottom button i{position:relative}
+.nav-badge{position:absolute;top:-5px;right:-2px;min-width:18px;height:18px;padding:0 5px;display:grid;place-items:center;
+  border-radius:9px;background:var(--red);color:#fff;font-style:normal;font-size:10.5px;font-weight:800;line-height:1;
+  font-variant-numeric:tabular-nums;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.side nav button i{width:31px;display:inline-grid;place-items:center}
+.bottom button i .nav-badge{top:-4px;right:2px}
+.availability-tab-count.is-alert{background:var(--red);color:#fff}
+
+/* --- Tonight strip (leaderboard) ------------------------------------------ */
+.tonight-strip{display:flex;align-items:center;gap:12px;width:100%;margin:18px 0 0;padding:14px 18px;
+  border:1px solid #cfe0d6;border-radius:15px;background:linear-gradient(120deg,#eef7f1,#fbfdfb);
+  color:var(--ink);text-align:left;box-shadow:var(--shadow);transition:transform .18s,box-shadow .18s}
+.tonight-strip:hover{transform:translateY(-1px);box-shadow:var(--shadow-hover)}
+.tonight-dot{flex:0 0 auto;width:9px;height:9px;border-radius:50%;background:#3f9b6d;box-shadow:0 0 0 4px rgba(63,155,109,.16);
+  animation:tonight-pulse 2.4s ease-in-out infinite}
+@keyframes tonight-pulse{0%,100%{opacity:1}50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce){.tonight-dot{animation:none}}
+.tonight-copy{flex:1;min-width:0}
+.tonight-copy b{display:block;font-size:14px}
+.tonight-copy small{display:block;margin-top:2px;color:var(--muted);font-size:12px}
+.tonight-go{flex:0 0 auto;color:var(--muted);font-size:22px;line-height:1}
+
+@media (max-width:620px){
+  .mm-head h3{font-size:17px}
+  .mm-row{flex-wrap:wrap}
+  .mm-row-actions{width:100%;justify-content:stretch}
+  .mm-row-actions button{flex:1}
+  .next-up .mm-row-actions{width:100%}
+  .mm-segmented button{font-size:12px;padding-inline:4px}
+  .push-strip-actions{width:100%}
+  .push-strip-actions button{flex:1}
+  .tonight-strip{padding:12px 14px}
+}

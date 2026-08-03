@@ -44,6 +44,26 @@ export function addDaysHongKong(date:string,days:number) {
   return at.toISOString().slice(0,10);
 }
 
+/** Day of the week for a Hong Kong calendar date, 0 = Sunday.
+    Anchored at midday so the reading never falls on the wrong side of the UTC+8 offset the way a
+    midnight anchor does — the same trap `addDaysHongKong` sidesteps. */
+export function hongKongWeekday(date:string) {
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error("Invalid date");
+  return new Date(`${date}T12:00:00+08:00`).getUTCDay();
+}
+
+/** Which of the next `horizonDays` days fall on this weekday, as Hong Kong dates. The engine behind
+    recurring availability: a rule is expanded to concrete days rather than stored as a query, so
+    everything that reads availability keeps reading plain slots and knows nothing about recurrence. */
+export function recurrenceDates(weekday:number,from:string,horizonDays:number) {
+  const dates:string[]=[];
+  for(let offset=0;offset<horizonDays;offset+=1){
+    const date=addDaysHongKong(from,offset);
+    if(hongKongWeekday(date)===weekday)dates.push(date);
+  }
+  return dates;
+}
+
 /** `2026-08-01` + `19:30` in Hong Kong, as an ISO instant. */
 export function hongKongInstant(date:string,time:string) {
   if(!/^\d{2}:\d{2}$/.test(time))throw new Error("Invalid time");
@@ -144,12 +164,35 @@ export function availabilityDensity(perMember:Interval[][],date:string,lo:number
   return buckets;
 }
 
-export function recommendationScore(input:{minutes:number;eloDifference:number;recentMatches:number}) {
+/** What the club knows about how a member behaves once invited. Every field is optional and every
+    missing field scores neutral — a newcomer with no history must never rank below a known flake
+    simply for being unmeasured, which is the trap a naive reliability score falls into. */
+export type ReliabilitySignals = { acceptRate?:number; showRate?:number; responseHours?:number };
+
+const NEUTRAL = 0.5;
+/** Answering within the hour is worth full marks; a day later is worth nothing. Snooker plans are
+    made the same evening, so a reply that arrives tomorrow may as well not have arrived. */
+const responsiveness=(hours?:number)=>hours===undefined?NEUTRAL:Math.max(0,Math.min(1,1-(hours-1)/23));
+
+export function reliabilityFactor(signals?:ReliabilitySignals) {
+  if(!signals)return NEUTRAL;
+  const accept=signals.acceptRate??NEUTRAL,show=signals.showRate??NEUTRAL;
+  return Math.max(0,Math.min(1,accept*.5+show*.3+responsiveness(signals.responseHours)*.2));
+}
+
+/** How good a game is this likely to be, and how likely is it to actually happen?
+ *
+ *  The original model answered only the first half — overlap, ELO closeness and variety. That ranks
+ *  the *fixture* rather than the *outcome*, so the member who never replies sat top of the list
+ *  every evening. Reliability is now a fifth of the score: enough to move a proven partner above a
+ *  marginally better-matched stranger, not enough to freeze the ranking into a clique. */
+export function recommendationScore(input:{minutes:number;eloDifference:number;recentMatches:number;signals?:ReliabilitySignals}) {
   if(input.minutes<30)return null;
-  const overlap=Math.min(input.minutes/120,1)*60;
-  const elo=Math.max(1-Math.abs(input.eloDifference)/400,0)*30;
+  const overlap=Math.min(input.minutes/120,1)*45;
+  const elo=Math.max(1-Math.abs(input.eloDifference)/400,0)*25;
   const variety=(1-Math.min(input.recentMatches,5)/5)*10;
-  return {score:Math.round((overlap+elo+variety)*10)/10,overlap,elo,variety};
+  const reliability=reliabilityFactor(input.signals)*20;
+  return {score:Math.round((overlap+elo+variety+reliability)*10)/10,overlap,elo,variety,reliability};
 }
 
 /** Every confirmed match ever played between two players, regardless of side. Shared by the
@@ -166,35 +209,138 @@ export function gamesPlayed<T extends {a:string;b:string;status:"confirmed"|"voi
 }
 
 export type OpponentSlots={id:string;rating:number;slots:Interval[]};
-export type RankedOpponent={id:string;overlaps:Interval[];minutes:number;recent:number;difference:number;score:number;qualifies:boolean};
+export type RankedOpponent={id:string;overlaps:Interval[];minutes:number;recent:number;difference:number;score:number;qualifies:boolean;signals?:ReliabilitySignals};
 
 /** Everyone whose free time touches mine, best first — the whole shortlist, not just the top pick.
     `window` narrows both sides to one band, so a focused hour ranks on the hour actually asked about
     rather than on a whole-day overlap that happens elsewhere. */
-export function rankOpponents(input:{mine:Interval[];rating:number;opponents:OpponentSlots[];recentMatches?:(id:string)=>number;window?:Interval|null}):RankedOpponent[] {
+export function rankOpponents(input:{mine:Interval[];rating:number;opponents:OpponentSlots[];recentMatches?:(id:string)=>number;window?:Interval|null;signals?:(id:string)=>ReliabilitySignals|undefined}):RankedOpponent[] {
   const mine=input.window?intersectIntervals(input.mine,[input.window]):mergeIntervals(input.mine);
   return input.opponents.flatMap(opponent=>{
     const overlaps=intersectIntervals(mine,opponent.slots),minutes=overlapMinutes(overlaps);
     if(minutes<=0)return [];
     const recent=input.recentMatches?.(opponent.id)??0,eloDifference=input.rating-opponent.rating;
-    const scored=recommendationScore({minutes,eloDifference,recentMatches:recent});
-    return [{id:opponent.id,overlaps,minutes,recent,difference:Math.abs(eloDifference),score:scored?.score??-1,qualifies:Boolean(scored)}];
+    const signals=input.signals?.(opponent.id);
+    const scored=recommendationScore({minutes,eloDifference,recentMatches:recent,signals});
+    return [{id:opponent.id,overlaps,minutes,recent,difference:Math.abs(eloDifference),score:scored?.score??-1,qualifies:Boolean(scored),signals}];
   }).sort((a,b)=>b.score-a.score||b.minutes-a.minutes||a.difference-b.difference);
+}
+
+/* --- "I'm free now" ------------------------------------------------------- */
+
+/** The interval behind the one-tap free-now button.
+ *
+ *  Rounds *down* to the half hour rather than up: at 19:42 a member is free now, not at 20:00, and
+ *  the 30-minute grace window in `validateAvailabilityInterval` is exactly wide enough to accept it.
+ *  Rounding up would also silently discard the next eighteen minutes of a member's evening. */
+export function nowInterval(minutes:number,now=Date.now()):Interval {
+  const step=30*minute;
+  const startAt=Math.floor(now/step)*step;
+  const length=Math.max(step,Math.round(minutes*minute/step)*step);
+  return {startAt:new Date(startAt).toISOString(),endAt:new Date(startAt+length).toISOString()};
+}
+
+/* --- Mutual match offers -------------------------------------------------- */
+
+export type OfferProposal={opponentId:string;startAt:string;endAt:string;minutes:number};
+
+/** The longest overlap the two share, trimmed to a plausible session.
+    A four-hour mutual gap is not a four-hour frame commitment; proposing the whole thing makes the
+    offer easy to refuse. Two hours from the start of the widest window is the club's normal booking. */
+const OFFER_LENGTH_MINUTES=120;
+function offerWindow(overlaps:Interval[]):Interval|null {
+  const widest=overlaps.reduce<Interval|null>((best,item)=>{
+    const span=Date.parse(item.endAt)-Date.parse(item.startAt);
+    return !best||span>Date.parse(best.endAt)-Date.parse(best.startAt)?item:best;
+  },null);
+  if(!widest)return null;
+  const startAt=Date.parse(widest.startAt);
+  return {startAt:widest.startAt,endAt:new Date(Math.min(Date.parse(widest.endAt),startAt+OFFER_LENGTH_MINUTES*minute)).toISOString()};
+}
+
+/** Who should be asked "有人同你夾到 — 打唔打?" after this member publishes time.
+ *
+ *  This is the half of matchmaking that removes the social risk: neither side is told the other
+ *  declined, so saying no costs nothing and saying yes is not an exposure. That only works if the
+ *  ask stays rare and well-targeted — a broadcast to everyone free tonight would train members to
+ *  ignore it within a week. Hence: a real overlap (an hour, not a passing fifteen minutes), nobody
+ *  already mid-conversation with this member, and a hard cap on how many go out at once, closest
+ *  ELO first. */
+export function proposeMatchOffers(input:{
+  mine:Interval[]; rating:number; opponents:OpponentSlots[];
+  /** Anyone already in a live offer, a pending invite or a confirmed game with this member. */
+  excluded?:Iterable<string>;
+  minMinutes?:number; limit?:number;
+}):OfferProposal[] {
+  const skip=new Set(input.excluded??[]);
+  const minMinutes=input.minMinutes??60,limit=input.limit??3;
+  const mine=mergeIntervals(input.mine);
+  return input.opponents
+    .filter(opponent=>!skip.has(opponent.id))
+    .flatMap(opponent=>{
+      const overlaps=intersectIntervals(mine,opponent.slots);
+      if(overlapMinutes(overlaps)<minMinutes)return [];
+      const window=offerWindow(overlaps);
+      if(!window)return [];
+      return [{opponentId:opponent.id,startAt:window.startAt,endAt:window.endAt,
+        minutes:overlapMinutes(overlaps),difference:Math.abs(input.rating-opponent.rating)}];
+    })
+    .sort((a,b)=>a.difference-b.difference||b.minutes-a.minutes)
+    .slice(0,limit)
+    .map(({opponentId,startAt,endAt,minutes})=>({opponentId,startAt,endAt,minutes}));
+}
+
+export type OfferSide="a"|"b";
+export type MutualOffer={
+  id:string; startAt:string; endAt:string; venue:string; status:"live"|"matched"|"dead"|"expired";
+  createdAt:string; opponent:{id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null};
+  /** This member's own answer. The other side's is deliberately never sent to the client — that
+      secrecy is the whole reason declining is safe. */
+  myResponse:"pending"|"yes"|"no";
+};
+
+/** A live offer stops being answerable once its slot has begun, on the same grace window everything
+    else in matchmaking uses. */
+export function isOfferLive(offer:{status:string;startAt:string},now=Date.now()) {
+  return offer.status==="live"&&Date.parse(offer.startAt)>now-AVAILABILITY_GRACE_MINUTES*minute;
+}
+
+export function partitionOffers<T extends MutualOffer>(offers:T[],now=Date.now()) {
+  const live=offers.filter(offer=>isOfferLive(offer,now)).sort((a,b)=>a.startAt.localeCompare(b.startAt));
+  return {awaitingMe:live.filter(offer=>offer.myResponse==="pending"),answered:live.filter(offer=>offer.myResponse!=="pending")};
 }
 
 /* --- Invite lifecycle ---------------------------------------------------- */
 
 export type InviteLifecycleStatus="pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";
+export type InviteCounterProposal={startAt:string;endAt:string;byPlayerId:string};
 export type LifecycleInvite={
   id:string; startAt:string; endAt:string; status:InviteLifecycleStatus;
   createdAt:string; fromPlayer:{id:string}; toPlayer:{id:string};
+  counter?:InviteCounterProposal|null;
 };
+
+/** The times an invite is currently about. A counter-proposal supersedes the original, so every
+    deadline, label and sort key downstream reads through here rather than off the raw columns. */
+export function invitedSlot<T extends {startAt:string;endAt:string;counter?:InviteCounterProposal|null}>(invite:T):Interval {
+  return invite.counter?{startAt:invite.counter.startAt,endAt:invite.counter.endAt}:{startAt:invite.startAt,endAt:invite.endAt};
+}
 
 /** A pending invite is only answerable until the slot it proposes begins. Past that, "still waiting"
     is a lie to the sender and a guilt trip for the recipient, so it expires. Keeping this as one
     named predicate means the database sweep and the client agree on the cutoff to the millisecond. */
-export function isInviteExpired(invite:{status:string;startAt:string},now=Date.now()) {
-  return invite.status==="pending"&&Date.parse(invite.startAt)<=now;
+export function isInviteExpired(invite:{status:string;startAt:string;counter?:InviteCounterProposal|null},now=Date.now()) {
+  return invite.status==="pending"&&Date.parse(invite.counter?.startAt??invite.startAt)<=now;
+}
+
+/** Whose turn is it?
+ *
+ *  Normally the recipient's. Once someone counter-proposes it is the *other* side's, whichever
+ *  direction the invite originally went. Every surface that sorts an inbox or draws a button asks
+ *  this one question, so a member is never shown an action the server would refuse — and, more
+ *  importantly, never has an invite silently waiting on them in a bucket labelled "waiting on them". */
+export function inviteOwedBy(invite:LifecycleInvite):string {
+  return invite.counter?(invite.counter.byPlayerId===invite.fromPlayer.id?invite.toPlayer.id:invite.fromPlayer.id):invite.toPlayer.id;
 }
 
 /** An accepted invite whose slot has finished but whose result nobody has recorded. This is the step
@@ -226,14 +372,19 @@ export function partitionInvites<T extends LifecycleInvite>(input:{
   now?:number;
 }):InviteBuckets<T> {
   const now=input.now??Date.now(),matches=input.matches??[];
-  const bySlot=(a:T,b:T)=>a.startAt.localeCompare(b.startAt);
+  const bySlot=(a:T,b:T)=>invitedSlot(a).startAt.localeCompare(invitedSlot(b).startAt);
   const live=(invite:T)=>!isInviteExpired(invite,now);
   const other=(invite:T)=>invite.fromPlayer.id===input.playerId?invite.toPlayer.id:invite.fromPlayer.id;
-  const settled=(invite:T)=>hasRecordedMatchSince(matches,input.playerId,other(invite),hkDate(new Date(invite.startAt)));
+  const settled=(invite:T)=>hasRecordedMatchSince(matches,input.playerId,other(invite),hkDate(new Date(invitedSlot(invite).startAt)));
   const accepted=[...input.sent,...input.received].filter(invite=>invite.status==="accepted");
+  /* Both directions go into one pile before being split by whose turn it is, rather than assuming
+     sent = waiting and received = mine to answer. After a counter-proposal that assumption is
+     exactly backwards, and an invite waiting on me would sit in "等對方回覆" where I would never
+     think to look for it. */
+  const pending=[...input.sent,...input.received].filter(invite=>invite.status==="pending"&&live(invite));
   return {
-    needsResponse:input.received.filter(invite=>invite.status==="pending"&&live(invite)).sort(bySlot),
-    awaitingReply:input.sent.filter(invite=>invite.status==="pending"&&live(invite)).sort(bySlot),
+    needsResponse:pending.filter(invite=>inviteOwedBy(invite)===input.playerId).sort(bySlot),
+    awaitingReply:pending.filter(invite=>inviteOwedBy(invite)!==input.playerId).sort(bySlot),
     upcoming:accepted.filter(invite=>!inviteAwaitsOutcome(invite,now)).sort(bySlot),
     followUps:accepted.filter(invite=>inviteAwaitsOutcome(invite,now)&&!settled(invite)).sort(bySlot),
   };
