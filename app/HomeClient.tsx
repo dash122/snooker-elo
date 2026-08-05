@@ -660,7 +660,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const bEntity = draft.mode==="2v2" && valid2v2 ? {
     id:"teamB",name:teamLabel(teamMatch,data,"B"),short:teamLabel(teamMatch,data,"B"),handicap:teamHandicap(teamMatch,data,"B"),rating:teamRating(teamMatch,data,"B"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]
   } as Player : b;
-  const preview=a&&b&&(!draft.mode||draft.mode==="1v1"||valid2v2)
+  const preview=a&&b&&(!draft.mode||draft.mode==="1v1"||valid2v2||draft.mode==="cup")
     ? calc(aEntity,bEntity,+draft.scoreA,+draft.scoreB,draft.giver,+draft.points,data.settings,
         draft.mode==="2v2"?([a.id,a2?.id].includes(draft.giver) ? "A" : [b.id,b2?.id].includes(draft.giver) ? "B" : undefined):undefined)
     : null;
@@ -1084,10 +1084,10 @@ function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,s
   const [monthOpen,setMonthOpen]=useState<Record<string,boolean>>({});
   const [sortDirection,setSortDirection]=useState<"desc"|"asc">("desc");
   const [modeFilter,setModeFilter]=useState<"all"|MatchMode>("all");
-  const [selectedTournament,setSelectedTournament]=useState<string>(data.tournaments?.[0]?.id??"");
+  const [selectedTournament,setSelectedTournament]=useState<string>("");
   useEffect(()=>{
     if(selectedTournament && data.tournaments.some(item=>item.id===selectedTournament))return;
-    setSelectedTournament(data.tournaments[0]?.id??"");
+    if(selectedTournament)setSelectedTournament("");
   },[data.tournaments,selectedTournament]);
   // This component unmounts on every trip to another tab, so without a round
   // trip through storage a scouting session loses its sort and date range the
@@ -1256,35 +1256,30 @@ function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,s
 }
 
 function CupBracketView({data,selectedTournament,setSelectedTournament,canManageMatch,onEdit,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament}:{data:AppState;selectedTournament:string;setSelectedTournament:(id:string)=>void;canManageMatch:(match:Match)=>boolean;onEdit:(match:Match)=>void;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void}){
+  const recentTournaments=[...data.tournaments].sort((left,right)=>right.createdAt.localeCompare(left.createdAt)).slice(0,3);
   const tournament=data.tournaments.find(item=>item.id===selectedTournament);
-  const tournamentMatches=data.matches
-    .filter(match=>match.mode==="cup"&&match.tournamentId===selectedTournament&&match.status==="confirmed")
-    .sort((left,right)=>(left.tournamentRound??1)-(right.tournamentRound??1)||(left.tournamentMatchIndex??1)-(right.tournamentMatchIndex??1)||left.playedOn.localeCompare(right.playedOn));
-  if(!selectedTournament){
-    return <section className="bracket-view"><div className="bracket-header"><label>選擇盃賽<select value={selectedTournament} onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}</div><div className="bracket-body"><p className="mm-note">請先選擇盃賽。</p></div></section>;
-  }
-  const signupCount=Math.max(2,tournament?.signups?.length??0);
-  const bracketSize=2**Math.ceil(Math.log2(signupCount));
-  const totalRounds=Math.max(1,Math.log2(bracketSize));
-  const slotsByRound=Array.from({length:totalRounds},(_,idx)=>{
-    const round=idx+1;
-    const expected=Math.max(1,Math.floor(bracketSize/(2**round)));
-    const byIndex=new Map<number,Match>();
-    for(const match of tournamentMatches){
-      if((match.tournamentRound??1)!==round)continue;
-      byIndex.set(Math.max(1,match.tournamentMatchIndex??1),match);
-    }
-    const slots=Array.from({length:expected},(__,slotIdx)=>byIndex.get(slotIdx+1)??null);
-    return {round,slots};
-  });
-  const winner=(match:Match|undefined)=>match?match.scoreA>match.scoreB?match.a:match.scoreB>match.scoreA?match.b:"":"";
+  const tournamentMatches=data.matches.filter(match=>match.mode==="cup"&&match.tournamentId===selectedTournament&&match.status==="confirmed");
+  const deadline=tournament?.signupDeadline?new Date(`${tournament.signupDeadline.length===10?tournament.signupDeadline+"T23:59":tournament.signupDeadline}:00+08:00`):null;
+  const deadlinePassed=Boolean(deadline&&!Number.isNaN(deadline.getTime())&&deadline.getTime()<=Date.now());
+  const name=(id:string)=>data.players.find(player=>player.id===id)?.name??"待定";
+  const hash=(value:string)=>{let result=2166136261;for(const character of value){result^=character.charCodeAt(0);result=Math.imul(result,16777619)}return result>>>0;};
+  const draw=deadlinePassed&&tournament?[...(tournament.signups??[])].sort((left,right)=>hash(`${tournament.id}:${left}`)-hash(`${tournament.id}:${right}`) ):[];
+  const bracketSize=draw.length>0?2**Math.ceil(Math.log2(Math.max(2,draw.length))):0;
+  const totalRounds=bracketSize?Math.max(1,Math.log2(bracketSize)):0;
+  const matchBySlot=(round:number,index:number)=>tournamentMatches.find(match=>(match.tournamentRound??1)===round&&(match.tournamentMatchIndex??1)===index);
+  const winner=(match:Match|undefined)=>match?(match.scoreA>match.scoreB?match.a:match.scoreB>match.scoreA?match.b:""):"";
   const participants=(round:number,index:number):[string,string]=>{
-    if(round===1)return [tournament?.signups[(index-1)*2]??"",tournament?.signups[(index-1)*2+1]??""];
-    const previous=(slot:number)=>tournamentMatches.find(match=>(match.tournamentRound??1)===round-1&&(match.tournamentMatchIndex??1)===slot);
-    return [winner(previous((index-1)*2+1)),winner(previous((index-1)*2+2))];
+    if(round===1)return [draw[(index-1)*2]??"",draw[(index-1)*2+1]??""];
+    const first=participants(round-1,(index-1)*2+1),second=participants(round-1,(index-1)*2+2);
+    const firstMatch=matchBySlot(round-1,(index-1)*2+1),secondMatch=matchBySlot(round-1,(index-1)*2+2);
+    return [winner(firstMatch)||(!first[1]?first[0]:""),winner(secondMatch)||(!second[1]?second[0]:"")];
   };
-  return <section className="bracket-view"><div className="bracket-header"><div><label>選擇盃賽<select value={selectedTournament} onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{tournament&&<small>{tournament.signups.length} 人報名 · {totalRounds} 輪淘汰 · 報名截止 {tournament.signupDeadline.replace("T"," ")}</small>}</div>{isAdmin&&<div className="bracket-actions"><button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>{tournament&&<><button type="button" className="more" onClick={()=>onEditTournament(tournament)}>編輯</button><button type="button" className="danger-link" onClick={()=>onDeleteTournament(tournament)}>刪除</button></>}</div>}</div>
-    <div className="bracket-body">{tournamentMatches.length===0?<p className="mm-note">尚未有此盃賽的賽事記錄。</p>:<div className="cup-tree" role="list" aria-label="盃賽淘汰圖">{slotsByRound.map(({round,slots})=><section key={round} className="cup-round" role="listitem"><h4>第 {round} 輪</h4><div className="cup-round-slots">{slots.map((match,index)=>{if(!match){const [first,second]=participants(round,index+1),left=data.players.find(player=>player.id===first)?.name??"待定",right=data.players.find(player=>player.id===second)?.name??"待定";return <article key={`empty-${round}-${index+1}`} className="cup-node empty"><small>第 {index+1} 場</small><div className="cup-score"><b>{left}</b><span>未開始</span><b>{right}</b></div><span>{first&&second?"可記錄賽果":"等待上一輪完成"}</span></article>;}const left=data.players.find(player=>player.id===match.a)?.name??"已刪除球員";const right=data.players.find(player=>player.id===match.b)?.name??"已刪除球員";return <article key={match.id} className="cup-node"><small>第 {match.tournamentMatchIndex??index+1} 場 · {match.playedOn}</small><div className="cup-score"><b>{left}</b><span>{match.scoreA}–{match.scoreB}</span><b>{right}</b></div>{canManageMatch(match)&&<button type="button" className="more" onClick={()=>onEdit(match)}>編輯</button>}</article>})}</div></section>)}</div>}</div>
+  const roundLabel=(round:number)=>totalRounds===3?(round===1?"八強":round===2?"四強":"決賽"):totalRounds===2?(round===1?"四強":"決賽"):"決賽";
+  const controls=(item:Tournament)=><><button type="button" className="more" onClick={()=>onEditTournament(item)}>編輯</button><button type="button" className="danger-link" onClick={()=>onDeleteTournament(item)}>刪除</button></>;
+  if(!selectedTournament)return <section className="bracket-view"><div className="bracket-header"><label>選擇盃賽<select value="" onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}</div><div className="recent-tournaments"><h3>最近盃賽</h3>{recentTournaments.length===0?<p className="mm-note">尚未建立盃賽。</p>:recentTournaments.map(item=><article className="recent-tournament-row" key={item.id}><button type="button" className="recent-tournament-open" onClick={()=>setSelectedTournament(item.id)}><span><b>{item.name}</b><small>{item.signups.length} 人報名 · 報名截止 {item.signupDeadline.replace("T"," ")}</small></span></button>{isAdmin&&controls(item)}</article>)}</div></section>;
+  if(!tournament)return null;
+  return <section className="bracket-view"><div className="bracket-header"><div><label>選擇盃賽<select value={selectedTournament} onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><small>{tournament.signups.length} 人報名 · 報名截止 {tournament.signupDeadline.replace("T"," ")}</small></div><div className="bracket-actions">{isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}{isAdmin&&controls(tournament)}</div></div>
+    {!deadlinePassed?<div className="bracket-body"><p className="mm-note">報名截止後會按報名名單抽籤並建立賽事對陣。</p></div>:draw.length<2?<div className="bracket-body"><p className="mm-note">報名人數不足兩人，未能建立賽事。</p></div>:<div className="cup-match-list">{Array.from({length:totalRounds},(_,roundIndex)=>{const round=roundIndex+1;const count=bracketSize/(2**round);return <section className="cup-round-list" key={round}><h3>{roundLabel(round)}</h3>{Array.from({length:count},(_,slotIndex)=>{const index=slotIndex+1,match=matchBySlot(round,index),[first,second]=participants(round,index),firstName=name(first),secondName=name(second),bye=Boolean((first&&!second)||(!first&&second)),known=Boolean(first&&second);return <article className={`cup-match-row${match?" played":""}`} key={`${round}-${index}`}><div className="cup-match-number">比賽 {index}</div><div className="cup-match-players"><b>{first?firstName:"待定"}</b><span>{match?`${match.scoreA}–${match.scoreB}`:bye?"輪空":known?"對":"等待上一場"}</span><b>{second?secondName:"待定"}</b></div><small>{match?`已完成 · ${match.playedOn}`:bye?"自動晉級下一輪":known?"可記錄賽果":"完成上一輪後顯示對手"}</small>{match&&canManageMatch(match)&&<button type="button" className="more" onClick={()=>onEdit(match)}>編輯賽果</button>}</article>})}</section>})}</div>}
   </section>;
 }
 
@@ -1626,6 +1621,10 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   const cupMatches=data.matches.filter(match=>match.mode==="cup"&&match.tournamentId===draft.tournamentId&&match.status==="confirmed");
   const tournamentHandicap=isCupMode&&tournament?.handicapMode==="suggested";
   const tournamentDeadline=tournament?.signupDeadline;
+  const tournamentDeadlineDate=tournamentDeadline?new Date(`${tournamentDeadline.length===10?tournamentDeadline+"T23:59":tournamentDeadline}:00+08:00`):null;
+  const cupDeadlinePassed=Boolean(tournamentDeadlineDate&&!Number.isNaN(tournamentDeadlineDate.getTime())&&tournamentDeadlineDate.getTime()<=Date.now());
+  const cupHash=(value:string)=>{let result=2166136261;for(const character of value){result^=character.charCodeAt(0);result=Math.imul(result,16777619)}return result>>>0;};
+  const cupDraw=isCupMode&&tournament&&cupDeadlinePassed?[...(tournament.signups??[])].sort((left,right)=>cupHash(`${tournament.id}:${left}`)-cupHash(`${tournament.id}:${right}`)):[];
   const tournamentLabel=tournament?.name||"未選擇盃賽";
   const playersForA=players.filter(p=>p.id!==draft.b&&p.id!==draft.b2&&p.id!==draft.a2);
   const playersForB=players.filter(p=>p.id!==draft.a&&p.id!==draft.a2&&p.id!==draft.b2);
@@ -1640,20 +1639,19 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   const pickA2=(id:string)=>{update("a2",id);if(id&&!draft.b2)setOpenB2Signal(s=>s+1)};
   const pickB2=(id:string)=>{update("b2",id);if(id&&!draft.a2)setOpenA2Signal(s=>s+1)};
   const cupSlotPlayers=(round:number,index:number):[string,string]=>{
-    if(round===1)return [tournament?.signups[(index-1)*2]??"",tournament?.signups[(index-1)*2+1]??""];
+    if(round===1)return [cupDraw[(index-1)*2]??"",cupDraw[(index-1)*2+1]??""];
     const previous=(slot:number)=>cupMatches.find(match=>(match.tournamentRound??1)===round-1&&(match.tournamentMatchIndex??1)===slot);
     const winner=(match:Match|undefined)=>match?match.scoreA>match.scoreB?match.a:match.scoreB>match.scoreA?match.b:"":"";
     return [winner(previous((index-1)*2+1)),winner(previous((index-1)*2+2))];
   };
   const cupSlots=useMemo(()=>{
     if(!isCupMode||!tournament)return [] as {round:number;index:number;a:string;b:string;played:boolean}[];
-    const size=2**Math.ceil(Math.log2(Math.max(2,tournament.signups.length))),rounds=Math.max(1,Math.log2(size));
+    const size=2**Math.ceil(Math.log2(Math.max(2,cupDraw.length))),rounds=Math.max(1,Math.log2(size));
     return Array.from({length:rounds},(_,roundIndex)=>Array.from({length:Math.max(1,size/(2**(roundIndex+1)))},(_,index)=>{
       const round=roundIndex+1,[first,second]=cupSlotPlayers(round,index+1);
       return {round,index:index+1,a:first,b:second,played:cupMatches.some(match=>(match.tournamentRound??1)===round&&(match.tournamentMatchIndex??1)===index+1)};
     })).flat();
-  },[isCupMode,tournament,cupMatches]);
-  const firstUnplayedCupSlot=()=>cupSlots.find(slot=>!slot.played&&slot.a&&slot.b);
+  },[isCupMode,tournament,cupMatches,cupDraw]);
   const pickCupPlayer=(id:string)=>{
     const slot=cupSlots.find(candidate=>!candidate.played&&candidate.a&&candidate.b&&(candidate.a===id||candidate.b===id));
     update("a",id);update("b",slot?(slot.a===id?slot.b:slot.a):"");
@@ -1663,12 +1661,15 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
     update("tournamentId",id);
     const nextTournament=data.tournaments.find(item=>item.id===id);
     const nextMatches=data.matches.filter(match=>match.mode==="cup"&&match.tournamentId===id&&match.status==="confirmed");
-    const size=2**Math.ceil(Math.log2(Math.max(2,nextTournament?.signups.length??0))),rounds=Math.max(1,Math.log2(size));
+    const nextDeadline=nextTournament?.signupDeadline?new Date(`${nextTournament.signupDeadline.length===10?nextTournament.signupDeadline+"T23:59":nextTournament.signupDeadline}:00+08:00`):null;
+    const nextDeadlinePassed=Boolean(nextDeadline&&!Number.isNaN(nextDeadline.getTime())&&nextDeadline.getTime()<=Date.now());
+    const nextDraw=nextTournament&&nextDeadlinePassed?[...(nextTournament.signups??[])].sort((left,right)=>cupHash(`${nextTournament.id}:${left}`)-cupHash(`${nextTournament.id}:${right}`)):[];
+    const size=2**Math.ceil(Math.log2(Math.max(2,nextDraw.length))),rounds=Math.max(1,Math.log2(size));
     const winner=(match:Match|undefined)=>match?match.scoreA>match.scoreB?match.a:match.scoreB>match.scoreA?match.b:"":"";
     for(let round=1;round<=rounds;round++)for(let index=1;index<=Math.max(1,size/(2**round));index++){
       if(nextMatches.some(match=>(match.tournamentRound??1)===round&&(match.tournamentMatchIndex??1)===index))continue;
       const previous=(slot:number)=>nextMatches.find(match=>(match.tournamentRound??1)===round-1&&(match.tournamentMatchIndex??1)===slot);
-      const first=round===1?nextTournament?.signups[(index-1)*2]??"":winner(previous((index-1)*2+1)),second=round===1?nextTournament?.signups[(index-1)*2+1]??"":winner(previous((index-1)*2+2));
+      const first=round===1?nextDraw[(index-1)*2]??"":winner(previous((index-1)*2+1)),second=round===1?nextDraw[(index-1)*2+1]??"":winner(previous((index-1)*2+2));
       if(first&&second){update("a",first);update("b",second);update("tournamentRound",round);update("tournamentMatchIndex",index);return;}
     }
     update("a","");update("b","");
@@ -1698,25 +1699,6 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
     setDraft((d:any)=>({...d,giver:"",points:0}));
     setCustomHandicap(false);
   };
-  const suggestCupSlot=(tournamentId:string)=>{
-    const tournamentMatches=data.matches.filter(match=>match.mode==="cup"&&match.tournamentId===tournamentId&&match.status==="confirmed");
-    const signupCount=Math.max(2,tournament?.signups?.length??0);
-    const bracketSize=2**Math.ceil(Math.log2(signupCount));
-    const totalRounds=Math.max(1,Math.log2(bracketSize));
-    const byRound=new Map<number,number>();
-    for(const match of tournamentMatches){
-      const round=Math.max(1,match.tournamentRound??1);
-      byRound.set(round,(byRound.get(round)??0)+1);
-    }
-    for(let round=1;round<=totalRounds;round++){
-      const expected=Math.max(1,Math.floor(bracketSize/(2**round)));
-      const current=byRound.get(round)??0;
-      if(current<expected)return {round,index:current+1};
-    }
-    const fallbackRound=Math.max(1,...byRound.keys(),1);
-    return {round:fallbackRound,index:(byRound.get(fallbackRound)??0)+1};
-  };
-  const lastAutoFilledTournament=useRef<string>("");
   useEffect(()=>{
     if(isCupMode && tournament && tournament.handicapMode === "suggested" && preview){
       if(fairActual!=null){
@@ -1769,7 +1751,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
         <div className="matchup-slot"><PlayerCombobox players={players} value={draft.a} onChange={pickCupPlayer} placeholder="選擇球員" ariaLabel="選擇球員" autoOpenSignal={openASignal}
           renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO` : "未完成盃賽場次"}</small></span></button>}/></div>
         <span className="matchup-vs" aria-hidden="true">對</span>
-        <div className="matchup-slot derived-opponent"><span className="matchup-trigger"><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={b??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{draft.b?b.name:"對手會由盃賽圖表帶出"}</b><small>{draft.b?"已按未完成場次配對":"先選擇一位球員"}</small></span></span></div>
+        <div className="matchup-slot derived-opponent"><span className="matchup-trigger"><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={b??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{draft.b?b.name:"對手會由賽事名單帶出"}</b><small>{draft.b?"已按未完成場次配對":"先選擇一位球員"}</small></span></span></div>
       </div>}
       {isTeamMode&&<div className="matchup-card team-2v2">
         <div className="matchup-team">
@@ -1787,8 +1769,8 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
         </div>
       </div>}
     </section>
-    {isCupMode && <div className="tournament-stage"><label>輪次<input type="number" min={1} value={draft.tournamentRound||1} onChange={e=>{update("tournamentRound",Math.max(1,Number(e.target.value)||1));lastAutoFilledTournament.current="";}}/></label>
-      <label>場次<input type="number" min={1} value={draft.tournamentMatchIndex||1} onChange={e=>{update("tournamentMatchIndex",Math.max(1,Number(e.target.value)||1));lastAutoFilledTournament.current="";}}/></label></div>}
+    {isCupMode && <div className="tournament-stage"><label>輪次<input type="number" min={1} value={draft.tournamentRound||1} onChange={e=>update("tournamentRound",Math.max(1,Number(e.target.value)||1))}/></label>
+      <label>場次<input type="number" min={1} value={draft.tournamentMatchIndex||1} onChange={e=>update("tournamentMatchIndex",Math.max(1,Number(e.target.value)||1))}/></label></div>}
     <section className="quick-handicap" aria-labelledby="handicap-title"><h3 id="handicap-title">讓分 <small>{handicapLabel}</small></h3>
       {isCupMode
         ? <div className="tournament-handicap-note"><b>盃賽模式</b><span>{tournament ? (tournament.handicapMode==="suggested" ? `自動套用建議讓分：每局 ${fairPoints} 分` : "此盃賽不設讓分") : "未選擇盃賽"}</span></div>
