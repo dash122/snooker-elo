@@ -2,9 +2,10 @@ import { createHash } from "node:crypto";
 import { getSql } from "./sql";
 
 type Player = { id:string; name:string; short:string; handicap:number|null; rating:number; colour?:string; avatar?:string|null; initialRating:number; active:boolean; wins:number; losses:number; draws:number; framesWon:number; framesLost:number; lastChange:number; form:string[] };
-type Match = { id:string; a:string; b:string; a2?:string; b2?:string; mode?:string; teamAName?:string; teamBName?:string; scoreA:number; scoreB:number; playedOn:string; entryMode?:"match"|"aggregate"; frameEvidence?:number; performanceScore?:number; evidenceWeight?:number; handicapAdjustment?:number; overHandicapElo?:number; overHandicapMultiplier?:number; highBreaks?:{playerId:string;value:number}[]; actual:number; giver:string|null; official:number|null; extra:number; expectedA:number; beforeA:number; beforeB:number; beforeA2?:number; beforeB2?:number; afterA:number; afterB:number; afterA2?:number; afterB2?:number; deltaA:number; marginMultiplier?:number; status:"confirmed"|"void"; createdAt:string };
-type State = { players:Player[]; matches:Match[]; settings:Record<string, unknown>; audits:{id:string;text:string;at:string}[] };
-type SnapshotEntity = { entityType: "player"|"match"|"settings"|"audit"; entityId: string; position: number; payload: unknown };
+type Match = { id:string; a:string; b:string; a2?:string; b2?:string; mode?:string; teamAName?:string; teamBName?:string; scoreA:number; scoreB:number; playedOn:string; entryMode?:("match"|"aggregate"); frameEvidence?:number; performanceScore?:number; evidenceWeight?:number; handicapAdjustment?:number; overHandicapElo?:number; overHandicapMultiplier?:number; highBreaks?:{playerId:string;value:number}[]; actual:number; giver:string|null; official:number|null; extra:number; expectedA:number; beforeA:number; beforeB:number; beforeA2?:number; beforeB2?:number; afterA:number; afterB:number; afterA2?:number; afterB2?:number; deltaA:number; marginMultiplier?:number; status:("confirmed"|"void"); createdAt:string; tournamentId?:string; tournamentRound?:number; tournamentMatchIndex?:number };
+type Tournament = { id:string; name:string; handicapMode:"suggested"|"none"; signupDeadline:string; createdAt:string; createdBy?:string; signups:string[] };
+type State = { players:Player[]; matches:Match[]; tournaments:Tournament[]; settings:Record<string, unknown>; audits:{id:string;text:string;at:string}[] };
+type SnapshotEntity = { entityType: "player"|"match"|"settings"|"tournament"|"audit"; entityId: string; position: number; payload: unknown };
 
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
@@ -27,6 +28,7 @@ function snapshotEntities(state: State): SnapshotEntity[] {
     { entityType: "settings", entityId: "settings", position: 0, payload: state.settings },
     ...state.players.map((payload, position) => ({ entityType: "player" as const, entityId: payload.id, position, payload })),
     ...state.matches.map((payload, position) => ({ entityType: "match" as const, entityId: payload.id, position, payload })),
+    ...state.tournaments.map((payload, position) => ({ entityType: "tournament" as const, entityId: payload.id, position, payload })),
     ...state.audits.map((payload, position) => ({ entityType: "audit" as const, entityId: payload.id, position, payload })),
   ];
 }
@@ -69,6 +71,12 @@ export function ensureStateSchema() {
         WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
         ON CONFLICT (content_hash) DO NOTHING`;
       await tx`INSERT INTO app_state_snapshot_entities (content_hash, entity_type, entity_id, payload)
+        SELECT md5('tournament' || chr(1) || (item->>'id') || chr(1) || item::text), 'tournament', item->>'id', item
+        FROM app_state_snapshots s
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'tournaments', '[]'::jsonb)) AS rows(item)
+        WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
+        ON CONFLICT (content_hash) DO NOTHING`;
+      await tx`INSERT INTO app_state_snapshot_entities (content_hash, entity_type, entity_id, payload)
         SELECT md5('audit' || chr(1) || (item->>'id') || chr(1) || item::text), 'audit', item->>'id', item
         FROM app_state_snapshots s
         CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'audits', '[]'::jsonb)) AS rows(item)
@@ -92,6 +100,12 @@ export function ensureStateSchema() {
         WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
         ON CONFLICT (snapshot_id, entity_type, entity_id) DO NOTHING`;
       await tx`INSERT INTO app_state_snapshot_items (snapshot_id, entity_type, entity_id, content_hash, position)
+        SELECT s.id, 'tournament', item->>'id', md5('tournament' || chr(1) || (item->>'id') || chr(1) || item::text), rows.ordinality::integer - 1
+        FROM app_state_snapshots s
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'tournaments', '[]'::jsonb)) WITH ORDINALITY AS rows(item, ordinality)
+        WHERE s.state IS NOT NULL AND item->>'id' IS NOT NULL
+        ON CONFLICT (snapshot_id, entity_type, entity_id) DO NOTHING`;
+      await tx`INSERT INTO app_state_snapshot_items (snapshot_id, entity_type, entity_id, content_hash, position)
         SELECT s.id, 'audit', item->>'id', md5('audit' || chr(1) || (item->>'id') || chr(1) || item::text), rows.ordinality::integer - 1
         FROM app_state_snapshots s
         CROSS JOIN LATERAL jsonb_array_elements(COALESCE(s.state->'audits', '[]'::jsonb)) WITH ORDINALITY AS rows(item, ordinality)
@@ -100,6 +114,8 @@ export function ensureStateSchema() {
       await tx`UPDATE app_state_snapshots SET state = NULL WHERE state IS NOT NULL`;
       await tx`CREATE TABLE IF NOT EXISTS state_settings (id boolean PRIMARY KEY DEFAULT true CHECK (id), data jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())`;
       await tx`CREATE TABLE IF NOT EXISTS state_audits (id text PRIMARY KEY, text text NOT NULL, occurred_at timestamptz NOT NULL)`;
+      await tx`CREATE TABLE IF NOT EXISTS state_tournaments (id text PRIMARY KEY, name text NOT NULL, handicap_mode text NOT NULL, signup_deadline timestamptz NOT NULL, created_at timestamptz NOT NULL, created_by text REFERENCES state_players(id) ON DELETE SET NULL, signups jsonb NOT NULL DEFAULT '[]'::jsonb)`;
+      await tx`DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'state_tournaments' AND column_name = 'signup_deadline' AND data_type = 'date') THEN ALTER TABLE state_tournaments ALTER COLUMN signup_deadline TYPE timestamptz USING signup_deadline::timestamp AT TIME ZONE 'Asia/Hong_Kong'; END IF; END $$`;
       // Added after the first release — existing deployments get it here rather
       // than depending on a migration having been run by hand.
       await tx`ALTER TABLE state_players ADD COLUMN IF NOT EXISTS avatar text`;
@@ -112,6 +128,9 @@ export function ensureStateSchema() {
       await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS before_b2 numeric`;
       await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS after_a2 numeric`;
       await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS after_b2 numeric`;
+      await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS tournament_id text REFERENCES state_tournaments(id) ON DELETE SET NULL`;
+      await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS tournament_round integer`;
+      await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS tournament_match_index integer`;
     });
   })().catch(error => { schemaReady = null; throw error; });
   return schemaReady;
@@ -120,14 +139,15 @@ export function ensureStateSchema() {
 export async function getState(): Promise<string | null> {
   await ensureStateSchema();
   const sql = getSql();
-  const [players, matches, settings, audits] = await Promise.all([
+  const [players, matches, tournaments, settings, audits] = await Promise.all([
     sql<Player[]>`SELECT id, name, short, handicap::float8 AS handicap, rating::float8 AS rating, colour, avatar, initial_rating::float8 AS "initialRating", active, wins, losses, draws, frames_won AS "framesWon", frames_lost AS "framesLost", last_change::float8 AS "lastChange", form FROM state_players ORDER BY name`,
-    sql<Match[]>`SELECT id, player_a AS a, player_b AS b, player_a2 AS a2, player_b2 AS b2, mode, team_a_name AS "teamAName", team_b_name AS "teamBName", score_a AS "scoreA", score_b AS "scoreB", to_char(played_on, 'YYYY-MM-DD') AS "playedOn", entry_mode AS "entryMode", frame_evidence::float8 AS "frameEvidence", performance_score::float8 AS "performanceScore", evidence_weight::float8 AS "evidenceWeight", handicap_adjustment::float8 AS "handicapAdjustment", over_handicap_elo::float8 AS "overHandicapElo", over_handicap_multiplier::float8 AS "overHandicapMultiplier", high_breaks AS "highBreaks", actual::float8 AS actual, giver, official::float8 AS official, extra::float8 AS extra, expected_a::float8 AS "expectedA", before_a::float8 AS "beforeA", before_b::float8 AS "beforeB", before_a2::float8 AS "beforeA2", before_b2::float8 AS "beforeB2", after_a::float8 AS "afterA", after_b::float8 AS "afterB", after_a2::float8 AS "afterA2", after_b2::float8 AS "afterB2", delta_a::float8 AS "deltaA", margin_multiplier::float8 AS "marginMultiplier", status, created_at AS "createdAt" FROM state_matches ORDER BY played_on, created_at, id`,
+    sql<Match[]>`SELECT id, player_a AS a, player_b AS b, player_a2 AS a2, player_b2 AS b2, mode, team_a_name AS "teamAName", team_b_name AS "teamBName", score_a AS "scoreA", score_b AS "scoreB", to_char(played_on, 'YYYY-MM-DD') AS "playedOn", entry_mode AS "entryMode", frame_evidence::float8 AS "frameEvidence", performance_score::float8 AS "performanceScore", evidence_weight::float8 AS "evidenceWeight", handicap_adjustment::float8 AS "handicapAdjustment", over_handicap_elo::float8 AS "overHandicapElo", over_handicap_multiplier::float8 AS "overHandicapMultiplier", high_breaks AS "highBreaks", actual::float8 AS actual, giver, official::float8 AS official, extra::float8 AS extra, expected_a::float8 AS "expectedA", before_a::float8 AS "beforeA", before_b::float8 AS "beforeB", before_a2::float8 AS "beforeA2", before_b2::float8 AS "beforeB2", after_a::float8 AS "afterA", after_b::float8 AS "afterB", after_a2::float8 AS "afterA2", after_b2::float8 AS "afterB2", delta_a::float8 AS "deltaA", margin_multiplier::float8 AS "marginMultiplier", tournament_id AS "tournamentId", tournament_round AS "tournamentRound", tournament_match_index AS "tournamentMatchIndex", status, created_at AS "createdAt" FROM state_matches ORDER BY played_on, created_at, id`,
+    sql<Tournament[]>`SELECT id, name, handicap_mode AS "handicapMode", to_char(signup_deadline AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD"T"HH24:MI') AS "signupDeadline", created_at AS "createdAt", created_by AS "createdBy", signups FROM state_tournaments ORDER BY created_at DESC`,
     sql<{data:Record<string, unknown>}[]>`SELECT data FROM state_settings WHERE id = true`,
     sql<{id:string;text:string;at:string}[]>`SELECT id, text, occurred_at AS at FROM state_audits ORDER BY occurred_at DESC, id DESC`,
   ]);
-  if (!players.length && !matches.length && !settings.length && !audits.length) return null;
-  return JSON.stringify({ players, matches, settings: settings[0]?.data ?? {}, audits });
+  if (!players.length && !matches.length && !tournaments.length && !settings.length && !audits.length) return null;
+  return JSON.stringify({ players, matches, tournaments, settings: settings[0]?.data ?? {}, audits });
 }
 
 export async function putState(data: string) {
@@ -177,6 +197,7 @@ export async function putState(data: string) {
     // open mid-save, holding locks for everyone else.
     const playerIds = state.players.map(p => p.id);
     const matchIds = state.matches.map(m => m.id);
+    const tournamentIds = state.tournaments.map(t => t.id);
     const auditIds = state.audits.map(a => a.id);
 
     // Matches are deleted before players are touched: state_matches has an
@@ -209,12 +230,19 @@ export async function putState(data: string) {
         before_a: m.beforeA, before_b: m.beforeB, before_a2: m.beforeA2 ?? null, before_b2: m.beforeB2 ?? null,
         after_a: m.afterA, after_b: m.afterB, after_a2: m.afterA2 ?? null, after_b2: m.afterB2 ?? null,
         delta_a: m.deltaA,
-        margin_multiplier: m.marginMultiplier ?? null, status: m.status, created_at: m.createdAt, updated_at: new Date(),
+        margin_multiplier: m.marginMultiplier ?? null, tournament_id: m.tournamentId ?? null, tournament_round: m.tournamentRound ?? null, tournament_match_index: m.tournamentMatchIndex ?? null,
+        status: m.status, created_at: m.createdAt, updated_at: new Date(),
       }));
       await tx`INSERT INTO state_matches ${tx(rows)}
-        ON CONFLICT (id) DO UPDATE SET player_a=excluded.player_a,player_b=excluded.player_b,player_a2=excluded.player_a2,player_b2=excluded.player_b2,mode=excluded.mode,team_a_name=excluded.team_a_name,team_b_name=excluded.team_b_name,score_a=excluded.score_a,score_b=excluded.score_b,played_on=excluded.played_on,entry_mode=excluded.entry_mode,frame_evidence=excluded.frame_evidence,performance_score=excluded.performance_score,evidence_weight=excluded.evidence_weight,handicap_adjustment=excluded.handicap_adjustment,over_handicap_elo=excluded.over_handicap_elo,over_handicap_multiplier=excluded.over_handicap_multiplier,high_breaks=excluded.high_breaks,actual=excluded.actual,giver=excluded.giver,official=excluded.official,extra=excluded.extra,expected_a=excluded.expected_a,before_a=excluded.before_a,before_b=excluded.before_b,before_a2=excluded.before_a2,before_b2=excluded.before_b2,after_a=excluded.after_a,after_b=excluded.after_b,after_a2=excluded.after_a2,after_b2=excluded.after_b2,delta_a=excluded.delta_a,margin_multiplier=excluded.margin_multiplier,status=excluded.status,created_at=excluded.created_at,updated_at=excluded.updated_at`;
+        ON CONFLICT (id) DO UPDATE SET player_a=excluded.player_a,player_b=excluded.player_b,player_a2=excluded.player_a2,player_b2=excluded.player_b2,mode=excluded.mode,team_a_name=excluded.team_a_name,team_b_name=excluded.team_b_name,score_a=excluded.score_a,score_b=excluded.score_b,played_on=excluded.played_on,entry_mode=excluded.entry_mode,frame_evidence=excluded.frame_evidence,performance_score=excluded.performance_score,evidence_weight=excluded.evidence_weight,handicap_adjustment=excluded.handicap_adjustment,over_handicap_elo=excluded.over_handicap_elo,over_handicap_multiplier=excluded.over_handicap_multiplier,high_breaks=excluded.high_breaks,actual=excluded.actual,giver=excluded.giver,official=excluded.official,extra=excluded.extra,expected_a=excluded.expected_a,before_a=excluded.before_a,before_b=excluded.before_b,before_a2=excluded.before_a2,before_b2=excluded.before_b2,after_a=excluded.after_a,after_b=excluded.after_b,after_a2=excluded.after_a2,after_b2=excluded.after_b2,delta_a=excluded.delta_a,margin_multiplier=excluded.margin_multiplier,tournament_id=excluded.tournament_id,tournament_round=excluded.tournament_round,tournament_match_index=excluded.tournament_match_index,status=excluded.status,created_at=excluded.created_at,updated_at=excluded.updated_at`;
     }
 
+    if (state.tournaments.length) {
+      const rows = state.tournaments.map(t => ({ id: t.id, name: t.name, handicap_mode: t.handicapMode, signup_deadline: t.signupDeadline.length === 16 ? `${t.signupDeadline}:00+08:00` : t.signupDeadline, created_at: t.createdAt, created_by: t.createdBy ?? null, signups: tx.json(t.signups) }));
+      await tx`INSERT INTO state_tournaments ${tx(rows)}
+        ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by,signups=excluded.signups`;
+    }
+    await tx`DELETE FROM state_tournaments WHERE NOT (id = ANY(${tournamentIds}::text[]))`;
     if (state.audits.length) {
       const rows = state.audits.map(a => ({ id: a.id, text: a.text, occurred_at: a.at }));
       await tx`INSERT INTO state_audits ${tx(rows)}
@@ -241,6 +269,7 @@ export async function restoreSnapshot(id: number) {
     state = {
       players: items.filter(item => item.entityType === "player").map(item => item.payload as Player),
       matches: items.filter(item => item.entityType === "match").map(item => item.payload as Match),
+      tournaments: items.filter(item => item.entityType === "tournament").map(item => item.payload as Tournament),
       settings: (items.find(item => item.entityType === "settings")?.payload ?? {}) as Record<string, unknown>,
       audits: items.filter(item => item.entityType === "audit").map(item => item.payload as { id:string;text:string;at:string }),
     };
@@ -253,6 +282,10 @@ export async function deleteState() {
   await sql.begin(async tx => {
     await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
     await tx`SELECT pg_advisory_xact_lock(72591003)`;
-    await tx`DELETE FROM state_audits`; await tx`DELETE FROM state_matches`; await tx`DELETE FROM state_players`; await tx`DELETE FROM state_settings`;
+    await tx`DELETE FROM state_audits`;
+    await tx`DELETE FROM state_matches`;
+    await tx`DELETE FROM state_tournaments`;
+    await tx`DELETE FROM state_players`;
+    await tx`DELETE FROM state_settings`;
   });
 }
