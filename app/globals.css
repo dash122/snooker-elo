@@ -3669,3 +3669,34 @@ input,select,textarea{font-size:var(--fs-body)}
   .ses-ask-actions{grid-template-columns:1fr}
   .ses-ask-actions button{min-height:56px}
 }
+
+/* --- 大家都想打 — the market strip ------------------------------------------
+   Always visible, including on the cold open where it is the only content.
+   Deliberately a different object from the session card above it: that one is
+   a ranked recommendation, this is unranked proof that the club is alive. */
+.mk-strip{padding-bottom:12px}
+.mk-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:11px}
+.mk-head h3{margin:0;font-size:.95rem}
+.mk-head small{font-size:.74rem;color:var(--muted);white-space:nowrap}
+.mk-row{list-style:none;margin:0;padding:2px 2px 8px;display:flex;gap:10px;overflow-x:auto;
+  scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+.mk-card{flex:0 0 148px;scroll-snap-align:start;background:#fff;border:1px solid var(--line);
+  border-radius:13px;padding:11px;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+.mk-card.is-call{background:#12403a;border-color:#12403a;color:#e6efe9}
+.mk-card b{font-size:.85rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mk-card small{font-size:.7rem;color:var(--muted)}
+.mk-card.is-call small{color:#a8c3bb}
+.mk-card .mk-when{color:var(--gold);filter:brightness(.7)}
+.mk-card.is-call .mk-when{color:#ffe2a8;filter:none}
+.mk-hcap{font-size:.68rem;font-weight:700;color:#7a5a12;background:#fdf4e2;border-radius:6px;
+  padding:2px 7px;margin:2px 0 1px}
+.mk-mine{font-size:.7rem;color:#a8c3bb;margin-top:2px}
+.mk-card button{width:100%;margin-top:5px;min-height:32px;border-radius:8px;font-size:.75rem}
+
+.ses-alt-list{list-style:none;margin:9px 0 0;padding:0;display:grid;gap:7px}
+.ses-alt-list li{display:flex;align-items:center;gap:9px;padding:8px 9px;border:1px solid var(--line);
+  border-radius:11px;background:#fbfaf8}
+.ses-alt-copy{flex:1 1 auto;min-width:0}
+.ses-alt-copy b{display:block;font-size:.83rem}
+.ses-alt-copy small{display:block;font-size:.72rem;color:var(--muted);margin-top:1px}
+.ses-alt-list button{min-height:32px;padding:0 12px;border-radius:9px;font-size:.75rem;flex:none}

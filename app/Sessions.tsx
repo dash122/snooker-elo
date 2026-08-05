@@ -18,7 +18,15 @@ import { nowStart, type SessionStatus } from "../lib/sessions";
  *
  * So the recommendation lives inside the session rather than beside it. A shortlist floating above a
  * list of slots leaves the member to work out which evening it refers to, which is precisely the
- * analysis the app exists to do for them. */
+ * analysis the app exists to do for them.
+ *
+ * MARKET is the second half of the screen, and it exists for a reason the deck's own persona work
+ * does not directly name but the club's size forces on us: with few active members, the single
+ * biggest risk is not a bad recommendation, it is a member opening the tab and concluding nobody
+ * plays here. So below the session cards — and, critically, on the cold open where there is nothing
+ * else to look at — the strip shows everyone else's open time as-is, not ranked, not filtered. It is
+ * proof of a live club, and it is deliberately a different object from the recommendation above: the
+ * best-match card says "we picked this for you", the strip says "here is what's actually happening". */
 
 export type SessionOption={
   player:{id:string;name:string;short?:string|null;rating:number;colour?:string|null;avatar?:string|null};
@@ -30,6 +38,15 @@ export type SessionVM={
   booking:{inviteId:string;opponentId:string;startAt:string;endAt:string;
     opponent:{id:string;name:string;short?:string|null;colour?:string|null;avatar?:string|null}|null}|null;
   options:SessionOption[];
+};
+export type MarketEntry={
+  player:{id:string;name:string;short?:string|null;rating:number;colour?:string|null;avatar?:string|null};
+  slot:Interval; difference:number; levelLabel:string;
+  handicap:{points:number;direction:"give"|"receive"|"level";label:string;evidence:string|null;played:number};
+};
+export type MarketCall={
+  id:string; startAt:string; endAt:string; venue:string; message:string; mine:boolean;
+  player:{id:string;name:string;short?:string|null;colour?:string|null;avatar?:string|null};
 };
 
 const when=(session:{startAt:string;endAt:string})=>{
@@ -49,9 +66,10 @@ const when=(session:{startAt:string;endAt:string})=>{
  * number out loud before a game. That negotiation is where the ask dies: nobody wants to be the one
  * who says they need a head start. We have ratings and match history, so the app proposes the terms
  * and neither player has to raise it. */
-function BestMatch({option,others,onInvite,onLater,onSeeMore,busy}:{
-  option:SessionOption; others:number; onInvite:()=>void; onLater:()=>void;
-  onSeeMore:()=>void; busy:boolean;
+function BestMatch({option,alternates,expanded,onInvite,onLater,onToggle,busy,busyId}:{
+  option:SessionOption; alternates:SessionOption[]; expanded:boolean;
+  onInvite:(opponentId:string,slot:Interval)=>void; onLater:()=>void; onToggle:()=>void;
+  busy:boolean; busyId:string|null;
 }){
   return <div className="ses-match">
     <p className="ses-kick">最佳配對</p>
@@ -66,22 +84,39 @@ function BestMatch({option,others,onInvite,onLater,onSeeMore,busy}:{
       <b>{option.handicap.label}</b>
       {option.handicap.evidence&&<small>{option.handicap.evidence}</small>}
     </div>
-    <button type="button" className="primary ses-go" disabled={busy} aria-busy={busy} onClick={onInvite}>
+    <button type="button" className="primary ses-go" disabled={busy} aria-busy={busy} onClick={()=>onInvite(option.player.id,option.slot)}>
       {busy&&<i className="button-spinner" aria-hidden="true"/>}<span>邀請 {option.player.name}</span>
     </button>
     <button type="button" className="secondary ses-alt" onClick={onLater}>改時間／加留言</button>
-    {others>0&&<button type="button" className="more ses-more" onClick={onSeeMore}>睇另外 {others} 個選擇</button>}
+    {/* Expands within the same card rather than jumping to a separate browse surface — these two are
+        already ranked and fetched for this exact evening, so there is nothing a second screen would
+        add except a tap. */}
+    {alternates.length>0&&<button type="button" className="more ses-more" aria-expanded={expanded} onClick={onToggle}>
+      {expanded?"收起":`睇另外 ${alternates.length} 個選擇`}</button>}
+    {expanded&&<ul className="ses-alt-list">{alternates.map(alt=>
+      <li key={alt.player.id}>
+        <PlayerBadge player={alt.player}/>
+        <span className="ses-alt-copy">
+          <b>{alt.player.name}</b>
+          <small>只差 {alt.difference} · {alt.handicap.label}</small>
+        </span>
+        <button type="button" className="secondary" disabled={busyId===alt.player.id}
+          onClick={()=>onInvite(alt.player.id,alt.slot)}>約佢</button>
+      </li>)}
+    </ul>}
   </div>;
 }
 
-function SessionCard({session,onInvite,onCustomise,onCancel,onRecord,onWatch,onOpenRoom,busyId}:{
+function SessionCard({session,onInvite,onCustomise,onCancel,onRecord,onWatch,busyId}:{
   session:SessionVM;
   onInvite:(opponentId:string,slot:Interval)=>void;
   onCustomise:(opponentId:string,slot:Interval)=>void;
   onCancel:(id:string)=>void; onRecord:(opponentId:string,startAt:string)=>void;
-  onWatch:()=>void; onOpenRoom:()=>void; busyId:string|null;
+  onWatch:()=>void; busyId:string|null;
 }){
+  const [expanded,setExpanded]=useState(false);
   const best=session.options[0];
+  const alternates=session.options.slice(1);
   return <article className={`ses-card is-${session.status}`}>
     <header className="ses-head">
       <div>
@@ -93,10 +128,9 @@ function SessionCard({session,onInvite,onCustomise,onCancel,onRecord,onWatch,onO
     </header>
 
     {session.status==="looking"&&(best
-      ?<BestMatch option={best} others={session.options.length-1} busy={busyId===best.player.id}
-        onInvite={()=>onInvite(best.player.id,best.slot)}
-        onLater={()=>onCustomise(best.player.id,best.slot)}
-        onSeeMore={onOpenRoom}/>
+      ?<BestMatch option={best} alternates={alternates} expanded={expanded} busy={busyId===best.player.id} busyId={busyId}
+        onInvite={onInvite} onLater={()=>onCustomise(best.player.id,best.slot)}
+        onToggle={()=>setExpanded(value=>!value)}/>
       /* One message and one action. The old screen said this three times in three cards and offered
          four exits, which reads as the club being dead rather than as tonight being quiet. */
       :<div className="ses-empty">
@@ -131,6 +165,56 @@ function SessionCard({session,onInvite,onCustomise,onCancel,onRecord,onWatch,onO
     {/* Shown once, quietly, then it stops mattering. A permanent 「你冇打成」 is a reproach. */}
     {session.status==="missed"&&<p className="ses-missed">呢一節冇約成。</p>}
   </article>;
+}
+
+/* --- Market ------------------------------------------------------------- */
+
+/** One other member's soonest open window, or one open call. Compact by design — this is a glance at
+    liveliness, not a second shortlist, so it carries the minimum that still makes the club look
+    alive: who, roughly when, roughly how good a game, and the handicap that makes asking safe. */
+function MarketCard({entry,busy,onAsk}:{entry:MarketEntry;busy:boolean;onAsk:()=>void}){
+  return <li className="mk-card">
+    <PlayerBadge player={entry.player}/>
+    <b>{entry.player.name}</b>
+    <small>{entry.levelLabel}</small>
+    <small className="mk-when">{when(entry.slot)}</small>
+    <span className="mk-hcap">{entry.handicap.label}</span>
+    <button type="button" className="secondary" disabled={busy} onClick={onAsk}>約佢</button>
+  </li>;
+}
+
+function CallCard({call,busy,onJoin}:{call:MarketCall;busy:boolean;onJoin:()=>void}){
+  return <li className="mk-card is-call">
+    <PlayerBadge player={call.player}/>
+    <b>{call.venue||"開咗枱"}</b>
+    <small>{call.player.name} 開嘅</small>
+    <small className="mk-when">{when(call)}</small>
+    {call.mine
+      ?<span className="mk-mine">你開嘅</span>
+      :<button type="button" className="primary" disabled={busy} onClick={onJoin}>接受</button>}
+  </li>;
+}
+
+/** Always visible — on the cold open it is the *only* content, which is the point: a new member's
+    first look at an empty-feeling tab should not be a form, it should be evidence that other people
+    are already doing this tonight. */
+function MarketStrip({market,calls,busyId,claimingId,onAsk,onJoin}:{
+  market:MarketEntry[]; calls:MarketCall[]; busyId:string|null; claimingId:string|null;
+  onAsk:(playerId:string,slot:Interval)=>void; onJoin:(callId:string)=>void;
+}){
+  if(!market.length&&!calls.length)return null;
+  const people=new Set(market.map(entry=>entry.player.id)).size;
+  return <section className="availability-card mm-card mk-strip" aria-label="大家都想打">
+    <header className="mk-head">
+      <h3>大家都想打</h3>
+      <small>{people>0&&`${people} 位得閒`}{people>0&&calls.length>0&&" · "}{calls.length>0&&`${calls.length} 張枱開緊`}</small>
+    </header>
+    <ul className="mk-row">
+      {calls.map(call=><CallCard key={call.id} call={call} busy={claimingId===call.id} onJoin={()=>onJoin(call.id)}/>)}
+      {market.map(entry=><MarketCard key={entry.player.id} entry={entry} busy={busyId===entry.player.id}
+        onAsk={()=>onAsk(entry.player.id,entry.slot)}/>)}
+    </ul>
+  </section>;
 }
 
 /* --- Opening one ----------------------------------------------------------- */
@@ -186,15 +270,19 @@ function NewSession({onCreate,onClose,busy,error}:{
 
 /* --- The tab ---------------------------------------------------------------- */
 
-export function Sessions({signedIn,onInvite,onCustomise,onRecord,onWatch,onOpenRoom,onChanged,invitingId}:{
+export function Sessions({signedIn,onInvite,onCustomise,onRecord,onWatch,onClaim,claimingCallId,onChanged,invitingId}:{
   signedIn:boolean;
   onInvite:(opponentId:string,slot:Interval)=>void;
   onCustomise:(opponentId:string,slot:Interval)=>void;
   onRecord:(opponentId:string,playedOn:string)=>void;
-  onWatch:()=>void; onOpenRoom:()=>void; onChanged:()=>void;
+  onWatch:()=>void;
+  onClaim:(callId:string)=>void; claimingCallId:string|null;
+  onChanged:()=>void;
   invitingId:string|null;
 }){
   const [sessions,setSessions]=useState<SessionVM[]|null>(null);
+  const [market,setMarket]=useState<MarketEntry[]>([]);
+  const [calls,setCalls]=useState<MarketCall[]>([]);
   const [composing,setComposing]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
@@ -205,6 +293,8 @@ export function Sessions({signedIn,onInvite,onCustomise,onRecord,onWatch,onOpenR
       if(!response.ok)return;
       const body=await response.json();
       setSessions(body.sessions??[]);
+      setMarket(body.market??[]);
+      setCalls(body.calls??[]);
     }catch{/* a failed poll leaves the last cards on screen rather than blanking the tab */}
   },[]);
 
@@ -260,18 +350,23 @@ export function Sessions({signedIn,onInvite,onCustomise,onRecord,onWatch,onOpenR
 
   if(sessions===null)return <div className="availability-skeleton" aria-hidden="true"/>;
 
+  const marketStrip=<MarketStrip market={market} calls={calls} busyId={invitingId} claimingId={claimingCallId}
+    onAsk={onInvite} onJoin={onClaim}/>;
+
   return <>
     {sessions.length===0
-      ?<ColdOpen busy={busy} onQuick={shape=>void quick(shape)} onPick={()=>setComposing(true)} onWatch={onWatch}/>
+      ?<><ColdOpen busy={busy} onQuick={shape=>void quick(shape)} onPick={()=>setComposing(true)} onWatch={onWatch}/>{marketStrip}</>
       :<section className="ses-list" aria-label="我嘅場次">
         {sessions.map(session=>
           <SessionCard key={session.id} session={session} busyId={invitingId}
             onInvite={onInvite} onCustomise={onCustomise}
             onCancel={id=>void cancel(id)}
             onRecord={(opponentId,startAt)=>onRecord(opponentId,hkDate(new Date(startAt)))}
-            onWatch={onWatch} onOpenRoom={onOpenRoom}/>)}
+            onWatch={onWatch}/>)}
         <button type="button" className="secondary ses-add" onClick={()=>setComposing(true)}>＋ 開多一節</button>
       </section>}
+
+    {sessions.length>0&&marketStrip}
 
     {error&&!composing&&<p className="availability-form-error" role="alert">{error}</p>}
 

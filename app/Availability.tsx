@@ -1,7 +1,6 @@
 "use client";
 import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
-import {Room} from "./Room";
 import {Sessions} from "./Sessions";
 import {CounterSheet,NotificationPrefsPanel,PushOptIn,RecurrenceEditor,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type QueueItem,type RecurrenceRule,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
@@ -9,7 +8,7 @@ import {addDaysHongKong,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed
 type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type View="screen"|"manage"|"create";
 type InviteStatus="pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";type InvitePlayer={id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null};
 type MatchInvite={id:string;startAt:string;endAt:string;message:string;status:InviteStatus;venue:string;createdAt:string;respondedAt:string|null;counter:{startAt:string;endAt:string;byPlayerId:string}|null;fromPlayer:InvitePlayer;toPlayer:InvitePlayer};
-type ListFilter="all"|"new"|"never"|"close";type CardStatus="none"|"pendingSent"|"pendingReceived"|"accepted";
+type ListFilter="all"|"new"|"never"|"close";
 type Tournament={id:string;name:string;handicapMode:"suggested"|"none";signupDeadline:string;createdAt:string;createdBy?:string;signups:string[]};
 type OpponentCardVM={member:Member;difference:number;windows:Interval[];windowsCaption:string;isNew:boolean;games:number;neverEver:boolean;chips:string[];ranked?:RankedOpponent};
 const time=hkClock,dayLabel=hkDayLabel,range=(x:Interval)=>`${time(x.startAt)}–${time(x.endAt)}`,days=(start:string,horizon=7)=>Array.from({length:horizon},(_,i)=>addDaysHongKong(start,i)),fullDay=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"long",day:"numeric",weekday:"long"}).format(new Date(`${d}T00:00:00+08:00`));
@@ -255,9 +254,6 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     Room, claiming a table there — so invites, calls and offers refresh immediately instead of at the
     next 30-second tick, which is long enough for a member to think their tap did nothing. */
  const[refreshNonce,setRefreshNonce]=useState(0);
- /* Tier two — the market and the grid, opened from 睇另外 N 個選擇 and never shown alongside the
-    session cards. */
- const[showRoom,setShowRoom]=useState(false);
  useEffect(()=>{const id=window.setInterval(()=>setTick(Date.now()),60000);return()=>window.clearInterval(id)},[]);
  const dialogRef=useRef<HTMLElement|null>(null),firstLoad=useRef(true),savingRef=useRef(false),cancellingRef=useRef(false),confirmingChangeRef=useRef(false),clearingRef=useRef(false);
  useEffect(()=>{const c=new AbortController();async function load(){try{const[selected,summary,mine]=await Promise.all([fetch(`/api/availability?date=${date}`,{signal:c.signal}).then(r=>r.json()),fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`,{signal:c.signal}).then(r=>r.json()),userPlayerId?fetch("/api/availability?me",{signal:c.signal}).then(r=>r.json()):Promise.resolve({slots:[]})]);if(selected.error)throw Error(selected.error);setMembers(selected.members);setCounts(summary.counts??{});setOwn(mine.slots??[]);setMessage("")}catch(e){if(e instanceof Error&&e.name!=="AbortError")setMessage(e.message)}finally{/* the session list owns its own loading state */}}if(firstLoad.current)firstLoad.current=false;else trackAvailabilityEvent("availability_date_select");void load();return()=>c.abort()},[date,userPlayerId,week]);
@@ -797,22 +793,22 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     replaced four separate controls that all declared the same intent and three cards that all said
     nobody was free — the union of two designs, which is always worse than either.
 
-    The browse tier (The Room) and the grid live behind 睇另外 N 個選擇 rather than beside this, per
-    the deck's 原則 02：先推薦，後瀏覽. */}
+    The market strip inside `Sessions` (「大家都想打」) is what shows other members now — everyone's
+    open time, unranked, always visible including on the cold open. That is a deliberate departure
+    from 原則 02 for a club this small: a thin club needs to look alive before it can afford to be
+    choosy about what it recommends. The Room's own board (ranked, grouped, built on `match_intents`)
+    is retired from this flow — nothing in the sessions model writes an intent any more, so it would
+    only ever show empty. The raw per-day grid stays reachable as the last-resort, fully-manual view
+    underneath. */}
 {state!=="owed"&&<Sessions signedIn={Boolean(userPlayerId)} invitingId={sendingInvite?inviteFor:null}
   onInvite={(opponentId,slot)=>void quickAsk({key:`ses:${opponentId}`,opponentId,slot})}
   onCustomise={(opponentId,slot)=>openInviteSheet(opponentId,slot)}
   onRecord={(opponentId,playedOn)=>onRecordMatch?.(opponentId,playedOn)}
   onWatch={()=>void postIntentAction("standby")}
-  onOpenRoom={()=>setShowRoom(true)}
+  onClaim={id=>void claimCall(id)} claimingCallId={claimingCallId}
   onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>}
 
-{/* Tier two: the whole market, and then the raw grid under that. Reachable, never in the way. */}
-{showRoom&&userPlayerId&&<>
- <Room signedIn onAsk={(playerId,window)=>openInviteSheet(playerId,window??undefined)}
-   onOpen={onPlayer} onClaim={id=>void claimCall(id)} claimingCallId={claimingCallId}
-   refreshKey={refreshNonce} onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>
- <section className="availability-card mm-card">
+{userPlayerId&&<section className="availability-card mm-card">
   <button type="button" className="mm-see-all" onClick={()=>setShowBoard(v=>!v)} aria-expanded={showBoard}>
     {showBoard?"收起全部空檔":`睇全部 ${members.length} 位球員空檔`}</button>
   {showBoard&&<>
@@ -821,9 +817,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     ?<AvailabilityGrid members={members} mine={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi} userPlayerId={userPlayerId} focus={focus} onFocus={setFocus} highlightId={jumpTo?.playerId} onPlayer={onPlayer}/>
     :<p className="mm-note">呢日暫時未有人公開時段。</p>}
   </>}
-  <button type="button" className="more ses-ask-link" onClick={()=>setShowRoom(false)}>收起</button>
- </section>
-</>}
+ </section>}
 
 {userPlayerId&&<WaitingStrip items={waitingItems} cancellingId={cancellingInviteId} onCancel={id=>void cancelInviteAction(id)}/>}
 {userPlayerId&&<div className="mm-footer-links">
