@@ -2,12 +2,14 @@ import { requireMember } from "../../../db/auth";
 import { createSession, listSessions, listAvailability } from "../../../db/availability";
 import { getState } from "../../../db/state";
 import { listInvitesFor } from "../../../db/invites";
+import { listOpenCalls } from "../../../db/open-calls";
 import { reliabilityByPlayer } from "../../../db/matchmaking.pg";
 import { liveIntentsByPlayer } from "../../../db/intents";
 import { announceAvailability } from "../../../db/matchmaking-actions.pg";
-import { hasRecordedMatchSince, hkDate, intersectIntervals, matchesBetween,
+import { hasRecordedMatchSince, hkDate, intersectIntervals, isOpenCallLive, matchesBetween,
   rankOpponents, validateAvailabilityInterval, type Interval } from "../../../lib/availability";
 import { handicapSentence } from "../../../lib/handicap";
+import { levelLabel } from "../../../lib/room";
 import { sessionStatus, sortSessions, visibleSessions } from "../../../lib/sessions";
 
 /** A member's own sessions, each carrying the answer for that evening.
@@ -19,9 +21,15 @@ import { sessionStatus, sortSessions, visibleSessions } from "../../../lib/sessi
 
 export const dynamic="force-dynamic";
 
-/** How many opponents a session card offers. One is the answer; the other two are behind a link.
-    先推薦，後瀏覽 — the deck's 原則 02. */
+/** How many opponents a session card offers. One is the answer; the other two expand in place when
+    the member taps 睇另外 N 個選擇 — never a separate surface, per 原則 02: 先推薦，後瀏覽. */
 const PER_SESSION = 3;
+
+/** How far ahead the market looks, and how many rows it shows. Wide enough that a member with no
+    session of their own still sees a real evening's worth of activity; capped so the strip stays a
+    glance, not a second shortlist to analyse. */
+const MARKET_HORIZON_HOURS = 72;
+const MARKET_LIMIT = 8;
 
 type ClubState={players:{id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null;active:boolean}[];
   matches:{a:string;b:string;scoreA:number;scoreB:number;playedOn:string;status:"confirmed"|"void"}[];
@@ -56,9 +64,13 @@ export async function GET(){
 
     /* One availability read covers every session: the windows are all inside the same horizon, and
        ranking each session against the same roster keeps the club's supply consistent from card to
-       card. */
-    const horizon=mine.length?mine[mine.length-1].endAt:new Date(now).toISOString();
+       card. The market strip needs a real horizon even when this member has zero sessions of their
+       own — that is exactly the screen it exists to fill, so it can never collapse to "now" the way
+       a horizon derived only from `mine` would. */
+    const marketHorizon=new Date(now+MARKET_HORIZON_HOURS*3600_000).toISOString();
+    const horizon=mine.length&&mine[mine.length-1].endAt>marketHorizon?mine[mine.length-1].endAt:marketHorizon;
     const roster=await listAvailability(new Date(now).toISOString(),horizon).catch(()=>[]);
+    const otherMembers=roster.filter(other=>other.id!==me&&!engaged.has(other.id));
 
     const sessions=visibleSessions(sortSessions(mine.map(item=>{
       /* A confirmed game counts as this session's booking when it sits inside the window — the
@@ -82,8 +94,7 @@ export async function GET(){
       const opponents=status==="looking"
         ?rankOpponents({
             mine:[window],rating:myRating,window,
-            opponents:roster.filter(other=>other.id!==me&&!engaged.has(other.id))
-              .map(other=>({id:other.id,rating:other.rating,slots:other.slots as Interval[]})),
+            opponents:otherMembers.map(other=>({id:other.id,rating:other.rating,slots:other.slots as Interval[]})),
             recentMatches:id=>matchesBetween(matches,me,id).length,
             signals:id=>(reliability as Record<string,{acceptRate?:number;showRate?:number;responseHours?:number}>)[id],
             intents:id=>(intents as Record<string,{kind:"tonight"|"window"|"standby"}>)[id],
@@ -118,7 +129,44 @@ export async function GET(){
       };
     });
 
-    return Response.json({sessions:withMatches,signedIn:true,myRating,today:hkDate()},
+    /* MARKET — everyone else's open time, shown whether or not this member has a session of their
+     * own. Small clubs live or die on this screen looking alive: a member's first look at an empty
+     * tab is the moment they decide the product is dead, and the fix is not a better empty state, it
+     * is proof that other people are actually doing this right now. So the market renders on the
+     * cold open too — it is the primary content there, not a footnote below a shortlist.
+     *
+     * Each entry is one member's *soonest* published window — not a ranked recommendation, just
+     * "here is when they're free" — plus the same handicap sentence the best-match card uses, so the
+     * differentiator shows up everywhere a member might consider an opponent, not only the one the
+     * algorithm picked for them. Sorted soonest first: liveliness, not fit, is the point of this
+     * list. */
+    const market=otherMembers
+      .flatMap(other=>{
+        const player=byId.get(other.id);
+        const next=[...other.slots].filter(slot=>Date.parse(slot.endAt)>now)
+          .sort((a,b)=>a.startAt.localeCompare(b.startAt))[0];
+        if(!player||!next)return [];
+        return [{
+          player:{id:player.id,name:player.name,short:player.short,rating:player.rating,colour:player.colour,avatar:player.avatar},
+          slot:{startAt:next.startAt,endAt:next.endAt},
+          difference:Math.round(player.rating-myRating),
+          levelLabel:levelLabel(myRating,player.rating),
+          handicap:handicapSentence({myRating,theirRating:player.rating,settings,matches,me,them:player.id}),
+        }];
+      })
+      .sort((a,b)=>a.slot.startAt.localeCompare(b.slot.startAt)||Math.abs(a.difference)-Math.abs(b.difference))
+      .slice(0,MARKET_LIMIT);
+
+    /* Open calls belong in the same strip: a table somebody already booked and opened to the club is
+       strictly less work to join than any session above, and hiding it behind a second surface (as
+       the old Room did) buries the easiest "yes" on the whole screen. */
+    const calls=(await listOpenCalls().catch(()=>[]))
+      .filter(call=>isOpenCallLive(call,now))
+      .slice(0,MARKET_LIMIT)
+      .map(call=>({id:call.id,startAt:call.startAt,endAt:call.endAt,venue:call.venue,message:call.message,
+        player:call.player,mine:call.player.id===me}));
+
+    return Response.json({sessions:withMatches,market,calls,signedIn:true,myRating,today:hkDate()},
       {headers:{"cache-control":"no-store"}});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"Sessions unavailable"},{status:500});
