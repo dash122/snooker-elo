@@ -1,9 +1,9 @@
 "use client";
 import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
-import {CardHead,CounterSheet,NextUpCard,NotificationPrefsPanel,PushOptIn,RecurrenceEditor,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type QueueItem,type RecurrenceRule,type WaitingItem} from "./MatchmakingBits";
+import {CardHead,CounterSheet,IntentBar,NextUpCard,NotificationPrefsPanel,PushOptIn,RecurrenceEditor,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type QueueItem,type RecurrenceRule,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
-import {addDaysHongKong,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOffers,partitionOpenCalls,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type MutualOffer,type ReliabilitySignals} from "../lib/availability";
+import {addDaysHongKong,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOffers,partitionOpenCalls,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type IntentSignal,type MutualOffer,type ReliabilitySignals} from "../lib/availability";
 type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type View="find"|"recommendations"|"manage"|"create"|"tournaments";
 type InviteStatus="pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";type InvitePlayer={id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null};
 type MatchInvite={id:string;startAt:string;endAt:string;message:string;status:InviteStatus;venue:string;createdAt:string;respondedAt:string|null;counter:{startAt:string;endAt:string;byPlayerId:string}|null;fromPlayer:InvitePlayer;toPlayer:InvitePlayer};
@@ -24,6 +24,15 @@ function buildOpponentChips(o:{isNew:boolean;games:number;difference:number;neve
  if(o.difference<50)chips.push("ELO 相近");
  if(o.neverEver)chips.push("從沒交手");else if(o.recentZero)chips.push("近期未交手");
  return chips;
+}
+/** The one chip that answers "why now" rather than "why them" — the reason the deck's redesign
+    exists. Always positive, same principle as `reliabilityChips`: a member who has not posted an
+    intent is unmeasured, not uninterested, so absence renders nothing rather than a negative claim. */
+function intentChip(intent?:IntentSignal){
+ if(!intent)return [];
+ if(intent.kind==="tonight")return ["佢今晚想打"];
+ if(intent.kind==="window")return ["佢呢個星期想打"];
+ return ["佢話有啱就打"];
 }
 function passesListFilter(filter:ListFilter,o:{isNew:boolean;neverEver:boolean;difference:number}){
  if(filter==="new")return o.isNew;
@@ -285,7 +294,8 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   [inviteVenue,setInviteVenue]=useState(""),[callVenue,setCallVenue]=useState(""),
   [rules,setRules]=useState<RecurrenceRule[]>([]),[rulesBusy,setRulesBusy]=useState(false),
   [counterFor,setCounterFor]=useState<MatchInvite|null>(null),[counteringId,setCounteringId]=useState<string|null>(null),
-  [reliability,setReliability]=useState<Record<string,ReliabilitySignals>>({}),[findView,setFindView]=useState<FindView>("suggested");
+  [reliability,setReliability]=useState<Record<string,ReliabilitySignals>>({}),[findView,setFindView]=useState<FindView>("suggested"),
+  [intentsByPlayer,setIntentsByPlayer]=useState<Record<string,IntentSignal>>({}),[myIntent,setMyIntent]=useState<IntentState>(null),[intentBusy,setIntentBusy]=useState(false),[shortlistExpanded,setShortlistExpanded]=useState(false);
  /* The buckets below are time-dependent, and a member can sit on this screen while a slot starts or
     ends. A one-minute tick re-evaluates them so the follow-up prompt appears on its own. */
  const[tick,setTick]=useState(()=>Date.now());
@@ -341,14 +351,15 @@ export default function Availability({userPlayerId,matches,tournaments,provision
    /* The signal the browser cannot compute for itself: how this opponent actually behaves once
       invited. Supplied by the server, composed here, so the ranking stays one tested function. */
    signals:id=>reliability[id],
+   intents:id=>intentsByPlayer[id],
   });
   const longest=Math.max(0,...ranked.map(x=>x.minutes));
   return ranked.map(x=>{
    const games=gamesPlayed(matches,x.id),isNew=games<provisionalGames,neverEver=matchesBetween(matches,userPlayerId,x.id).length===0;
-   const chips=[...(longest>0&&x.minutes===longest?["時間重疊最長"]:[]),...buildOpponentChips({isNew,games,difference:x.difference,neverEver,recentZero:x.recent===0}),...reliabilityChips(x.signals)];
+   const chips=[...intentChip(x.intent),...(longest>0&&x.minutes===longest?["時間重疊最長"]:[]),...buildOpponentChips({isNew,games,difference:x.difference,neverEver,recentZero:x.recent===0}),...reliabilityChips(x.signals)];
    return {member:byId.get(x.id)!,difference:x.difference,windows:x.overlaps,windowsCaption:`共 ${durationLabel(x.minutes)}重疊`,isNew,games,neverEver,chips};
   });
- },[members,matches,mine,userPlayerId,recommendationNow,focus,provisionalGames,reliability]);
+ },[members,matches,mine,userPlayerId,recommendationNow,focus,provisionalGames,reliability,intentsByPlayer]);
  const shortlist=useMemo(()=>byPriority(rankedPool.filter(o=>passesListFilter(filter,o)),prioritizeNew),[rankedPool,filter,prioritizeNew]);
  /* Requirement: a member can invite anyone even before publishing (or overlapping) their own
     availability. When the overlap-ranked shortlist above comes up empty — no slots of their own yet,
@@ -363,9 +374,9 @@ export default function Availability({userPlayerId,matches,tournaments,provision
    const games=gamesPlayed(matches,m.id),isNew=games<provisionalGames,neverEver=matchesBetween(matches,userPlayerId,m.id).length===0;
    const recentZero=matches.filter(x=>x.status==="confirmed"&&Date.parse(`${x.playedOn}T00:00:00+08:00`)>=cut&&((x.a===userPlayerId&&x.b===m.id)||(x.b===userPlayerId&&x.a===m.id))).length===0;
    const difference=Math.abs(myRating-m.rating);
-   return {member:m,difference,windows:m.slots as Interval[],windowsCaption:`${m.slots.length} 個公開時段`,isNew,games,neverEver,chips:[...buildOpponentChips({isNew,games,difference,neverEver,recentZero}),...reliabilityChips(reliability[m.id])]};
+   return {member:m,difference,windows:m.slots as Interval[],windowsCaption:`${m.slots.length} 個公開時段`,isNew,games,neverEver,chips:[...intentChip(intentsByPlayer[m.id]),...buildOpponentChips({isNew,games,difference,neverEver,recentZero}),...reliabilityChips(reliability[m.id])]};
   }).sort((a,b)=>a.difference-b.difference);
- },[userPlayerId,rankedPool.length,members,matches,focus,recommendationNow,provisionalGames,reliability]);
+ },[userPlayerId,rankedPool.length,members,matches,focus,recommendationNow,provisionalGames,reliability,intentsByPlayer]);
  const browseList=useMemo(()=>byPriority(browsePool.filter(o=>passesListFilter(filter,o)),prioritizeNew),[browsePool,filter,prioritizeNew]);
  const activeList=shortlist.length?shortlist:browseList;
  const isBrowseTier=!shortlist.length&&browseList.length>0;
@@ -426,9 +437,12 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     reason:invite.counter?"提議改時間":"想約你打波",
     note:invite.counter?`原本 ${range(invite)}${invite.message?` · ${invite.message}`:""}`:invite.message||undefined,
     busy:respondingId===invite.id,
+    /* Reschedule before decline, in reading order as well as button order: "no" should never be the
+       first or easiest option on someone's screen when "not this time" is what they actually mean.
+       改時間 keeps the invite — and the relationship — alive; 婉拒 ends it. */
     actions:[
-     {label:"婉拒",tone:"secondary" as const,onClick:()=>void respondToInvite(invite.id,"decline")},
      {label:"改時間",tone:"secondary" as const,onClick:()=>setCounterFor(invite)},
+     {label:"婉拒",tone:"secondary" as const,onClick:()=>void respondToInvite(invite.id,"decline")},
      {label:invite.counter?"接受新時間":"接受",tone:"primary" as const,onClick:()=>void respondToInvite(invite.id,"accept")},
     ]};
   });
@@ -485,9 +499,40 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     and it arrives before first paint of the shortlist so the ranking never visibly reshuffles. */
  useEffect(()=>{
   let cancelled=false;
-  void (async()=>{try{const r=await fetch("/api/matchmaking/summary");const b=await r.json();if(!cancelled&&r.ok)setReliability(b.reliability??{})}catch{/* ranking falls back to neutral signals */}})();
+  void (async()=>{try{const r=await fetch("/api/matchmaking/summary");const b=await r.json();if(!cancelled&&r.ok){setReliability(b.reliability??{});setIntentsByPlayer(b.intents??{})}}catch{/* ranking falls back to neutral signals */}})();
   return()=>{cancelled=true};
  },[]);
+ /* The member's own intent, separate from everyone else's — polled with the invite/offer inbox so
+    "free now" (which posts a `tonight` intent server-side) and an explicit withdrawal both show up
+    without a manual refresh. */
+ const refreshMyIntent=async()=>{
+  if(!userPlayerId)return;
+  try{const r=await fetch("/api/intents");const b=await r.json();if(r.ok){setIntentsByPlayer(b.byPlayer??{});setMyIntent(b.mine?{id:b.mine.id,kind:b.mine.kind,expiresAt:b.mine.expiresAt}:null)}}catch{/* keep the previous state on a failed refresh */}
+ };
+ useEffect(()=>{void refreshMyIntent()},[userPlayerId]);
+ useEffect(()=>{setShortlistExpanded(false)},[date,filter]);
+ const postIntentAction=async(kind:"window"|"standby")=>{
+  if(intentBusy)return;
+  setIntentBusy(true);
+  try{
+   const r=await fetch("/api/intents",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kind})});
+   const b=await r.json();
+   if(r.ok){setMyIntent({id:b.intent.id,kind:b.intent.kind,expiresAt:b.intent.expiresAt});setIntentsByPlayer(m=>({...m,[userPlayerId!]:{kind}}));trackAvailabilityEvent("matchmaking_intent_posted",{kind})}
+   else setMessage(b.error??"暫時未能更新。");
+  }catch{setMessage("網絡連線失敗，請再試一次。")}
+  finally{setIntentBusy(false)}
+ };
+ const withdrawIntentAction=async()=>{
+  if(intentBusy||!myIntent)return;
+  setIntentBusy(true);
+  try{
+   await fetch(`/api/intents/${myIntent.id}`,{method:"DELETE"});
+   setMyIntent(null);
+   setIntentsByPlayer(m=>{const next={...m};delete next[userPlayerId!];return next});
+   trackAvailabilityEvent("matchmaking_intent_withdrawn");
+  }catch{setMessage("網絡連線失敗，請再試一次。")}
+  finally{setIntentBusy(false)}
+ };
  useEffect(()=>{
   if(!userPlayerId)return;
   let cancelled=false;
@@ -794,10 +839,14 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   onCancel={id=>void cancelInviteAction(id)} cancelling={Boolean(cancellingInviteId)}
   onEditSlots={()=>nav(own.length?"manage":"create")}
   onFreeNow={result=>{
-    void Promise.all([reloadOwn(),refreshFind(),refreshOpenCalls(),refreshOffers()]);
+    void Promise.all([reloadOwn(),refreshFind(),refreshOpenCalls(),refreshOffers(),refreshMyIntent()]);
     setMessage(result.offers?`已公開你嘅時間，仲問咗 ${result.offers} 位夾得到嘅球友。`:"已公開你嘅時間，全會所都睇到你想打波。");
   }}/>
 {userPlayerId&&<PushOptIn/>}
+{/* "得閒" and "想打" are different facts — this is where the second one gets said, on the result
+    screen rather than in front of it. "Free now" above already posts the strongest form of this
+    (`tonight`) on its own, so this bar only needs to offer the softer two. */}
+{userPlayerId&&<IntentBar intent={myIntent} busy={intentBusy} onPost={kind=>void postIntentAction(kind)} onWithdraw={()=>void withdrawIntentAction()}/>}
 {/* ZONE 2 — everything waiting on this member, as one list. */}
 {userPlayerId&&<ResponseQueue items={queueItems}/>}
 {userPlayerId&&<WaitingStrip items={waitingItems} cancellingId={cancellingInviteId} onCancel={id=>void cancelInviteAction(id)}/>}
@@ -817,7 +866,11 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   ?<div className="availability-skeleton" aria-hidden="true"/>
   :<>
    {findView==="suggested"&&(activeList.length
-   ?<><div className="match-stack-list">{activeList.slice(0,5).map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} onPlayer={onPlayer} cardStatus={inviteStatusById.get(o.member.id)??{status:"none",invite:null}} onInvite={openInviteSheet} onCancelInvite={cancelInviteAction}/>)}</div>
+   ?<><div className="match-stack-list">{activeList.slice(0,shortlistExpanded?activeList.length:3).map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} onPlayer={onPlayer} cardStatus={inviteStatusById.get(o.member.id)??{status:"none",invite:null}} onInvite={openInviteSheet} onCancelInvite={cancelInviteAction}/>)}</div>
+      {/* Three recommendations, not a database. Recommending the whole ranked list by default is the
+          "睇吓個 App 有幾多功能" mistake the redesign is meant to fix — a member who wants to keep
+          browsing can still ask for the rest, one tap away. */}
+      {!shortlistExpanded&&activeList.length>3&&<button type="button" className="more mm-see-more" onClick={()=>setShortlistExpanded(true)}>睇另外 {activeList.length-3} 個</button>}
       {isBrowseTier&&<p className="mm-note">暫時未有重疊時段 — 你仍然可以直接提議時間。</p>}</>
     :<MatchPrompt hasMine={mine.length>0} userPlayerId={userPlayerId} members={members.length} focus={focus} onManage={nav}/>)}
    {findView==="calls"&&<>

@@ -30,7 +30,9 @@ export type AvailabilityEvent =
   | "matchmaking_push_enabled"
   | "matchmaking_push_dismissed"
   | "matchmaking_result_played"
-  | "matchmaking_result_missed";
+  | "matchmaking_result_missed"
+  | "matchmaking_intent_posted"
+  | "matchmaking_intent_withdrawn";
 
 type QueuedEvent = { event:AvailabilityEvent; props?:Record<string,unknown>; at:string };
 

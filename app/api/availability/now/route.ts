@@ -2,6 +2,7 @@ import { requireMember } from "../../../../db/auth";
 import { publishAvailability } from "../../../../db/availability";
 import { createOpenCall } from "../../../../db/open-calls";
 import { announceAvailability, announceOpenCall } from "../../../../db/matchmaking-actions.pg";
+import { postIntent } from "../../../../db/intents";
 import { nowInterval, validateAvailabilityInterval } from "../../../../lib/availability";
 
 /** One tap: "I'm free now."
@@ -32,6 +33,10 @@ export async function POST(request:Request){
     return Response.json({error:"而家唔喺開放時間內（香港時間 10:00 至翌日 02:00）。"},{status:400});
   }
   const slots=await publishAvailability(member.statePlayerId,[interval]);
+  /* "I'm free now" already *is* the strongest possible intent signal — tapping it means "I want a
+     game tonight", not merely "I happen to have time" — so it posts a `tonight` intent alongside the
+     publish rather than asking the member to say the same thing twice. */
+  await postIntent(member.statePlayerId,"tonight",interval,message).catch(()=>{});
   /* Three fan-outs, deliberately different in reach: an open call the whole club can see and claim,
      direct offers to the few best-matched opponents, and pushes to the members already free then. */
   const call=body.broadcast===false?null:await createOpenCall(member.statePlayerId,interval,message,venue);

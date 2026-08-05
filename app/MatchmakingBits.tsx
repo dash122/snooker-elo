@@ -187,6 +187,37 @@ export function FreeNowPanel({onDone,disabled}:{onDone:(result:{offers:number;br
   </div>;
 }
 
+/* --- Intent ----------------------------------------------------------------
+ *
+ * "得閒" and "想打" are different questions. The find tab already answers the first one (the grid,
+ * the shortlist); this answers the second, and it sits on the result rather than gating it — a
+ * member who never touches this still sees a shortlist, just one that cannot yet say "佢正想搵局"
+ * about anyone. Principle 01 (意圖先於功能) without principle 02's mistake of putting a form in
+ * front of the screen a member actually came for. */
+
+export type IntentState={id:string;kind:"tonight"|"window"|"standby";expiresAt:string}|null;
+const INTENT_COPY:Record<"window"|"standby",{label:string;active:string}>={
+  window:{label:"呢個星期想打",active:"呢個星期想打一局"},
+  standby:{label:"有啱就得，通知我",active:"有啱就通知你"},
+};
+
+export function IntentBar({intent,onPost,onWithdraw,busy}:{intent:IntentState;onPost:(kind:"window"|"standby")=>void;onWithdraw:()=>void;busy:boolean}){
+  if(intent){
+    const label=intent.kind==="tonight"?"今晚想打一局":INTENT_COPY[intent.kind as "window"|"standby"]?.active??"想打一局";
+    return <div className="intent-bar is-active" role="status">
+      <span><b>{label}</b><small>其他球員睇你時會知你想打 · 之後會自動失效</small></span>
+      <button type="button" className="secondary" disabled={busy} onClick={onWithdraw}>收回</button>
+    </div>;
+  }
+  return <div className="intent-bar">
+    <span className="intent-bar-copy"><b>依家想打波？</b><small>話俾其他球員知，佢哋揀對手時會見到。</small></span>
+    <span className="intent-bar-actions">
+      <button type="button" className="secondary" disabled={busy} onClick={()=>onPost("window")}>{INTENT_COPY.window.label}</button>
+      <button type="button" className="secondary" disabled={busy} onClick={()=>onPost("standby")}>{INTENT_COPY.standby.label}</button>
+    </span>
+  </div>;
+}
+
 /* --- The response queue --------------------------------------------------- */
 
 export type QueueAction={label:string;tone:"primary"|"secondary";onClick:()=>void};

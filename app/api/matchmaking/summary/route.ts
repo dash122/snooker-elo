@@ -2,6 +2,7 @@ import { getCurrentMember } from "../../../../db/auth";
 import { matchmakingCounts, reliabilityByPlayer } from "../../../../db/matchmaking";
 import { listAvailability } from "../../../../db/availability";
 import { listOpenCalls } from "../../../../db/open-calls";
+import { liveIntentsByPlayer } from "../../../../db/intents";
 import { dayRangeHongKong, hkDate, isOpenCallLive } from "../../../../lib/availability";
 
 /** The small, cheap answer to "is there anything happening?"
@@ -23,14 +24,15 @@ export async function GET(){
       free:members.filter(entry=>entry.slots.length>0).length,
       openCalls:calls.filter(call=>isOpenCallLive(call,now)).length,
     };
-    if(!member?.statePlayerId)return Response.json({tonight,counts:null,reliability:{}},{headers:{"cache-control":"no-store"}});
-    const [counts,reliability]=await Promise.all([
+    if(!member?.statePlayerId)return Response.json({tonight,counts:null,reliability:{},intents:{}},{headers:{"cache-control":"no-store"}});
+    const [counts,reliability,intents]=await Promise.all([
       matchmakingCounts(member.statePlayerId),
       /* Sent with the summary rather than from its own endpoint so the ranking has its signals on
          first paint — a shortlist that visibly reorders a second after it appears reads as broken. */
       reliabilityByPlayer().catch(()=>({})),
+      liveIntentsByPlayer().catch(()=>({})),
     ]);
-    return Response.json({tonight,counts,reliability},{headers:{"cache-control":"no-store"}});
+    return Response.json({tonight,counts,reliability,intents},{headers:{"cache-control":"no-store"}});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"Summary unavailable"},{status:400});
   }
