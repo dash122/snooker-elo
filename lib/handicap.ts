@@ -1,0 +1,96 @@
+/* --- The proposed handicap -------------------------------------------------
+ *
+ * 讓分 is the social technology that makes an uneven game worth playing, and the competing 約腳 apps
+ * can only offer it as a checkbox — 「接受讓分」 says a handicap is *permitted*, leaving the two
+ * players to negotiate the number themselves, out loud, before a game. That negotiation is where the
+ * ask dies: nobody wants to be the one who says they need a head start, and nobody wants to be the
+ * one who suggests the other player does.
+ *
+ * We can skip it, because we have ratings and they do not. The club has been computing a per-player
+ * suggested handicap from ELO for as long as the leaderboard has existed; this is the same
+ * arithmetic said about a *pair*, so it can be printed on a recommendation before either member has
+ * to raise the subject. The system proposes the terms, so neither player has to.
+ *
+ * The conversion itself is lifted verbatim from the match form so a proposal and the handicap
+ * actually applied when the score is recorded can never disagree. */
+
+export type HandicapSettings = {
+  conversion:number; curvature?:number; handicapSoftCap?:number;
+};
+
+/** ELO difference → points, on the club's calibrated curve.
+    `tanh`/`atanh` keep the curve from running away at the extremes: a 900-point gap and a 1200-point
+    gap are both "far beyond a fair game", and a linear conversion would propose absurd numbers. */
+export function eloToHandicap(eloDifference:number,settings:HandicapSettings){
+  if(!eloDifference)return 0;
+  const ceiling=settings.handicapSoftCap??800,clamped=Math.min(Math.abs(eloDifference),ceiling*.995);
+  const raw=ceiling*Math.atanh(clamped/ceiling);
+  return Math.sign(eloDifference)*10*(raw/(Math.max(.01,settings.conversion)*10))**(1/(settings.curvature??1.25));
+}
+
+/** Snooker handicaps are given in even points. Also normalises `-0`, which would otherwise print as
+    "-0 分" in one branch of every label below. */
+export function roundToEven(value:number) {
+  const rounded=Math.round(value/2)*2;
+  return Object.is(rounded,-0)?0:rounded;
+}
+
+export type HandicapProposal = {
+  /** Positive: I give points away. Negative: I receive them. Zero: level. */
+  points:number;
+  /** Who gives, said from the reader's side. */
+  direction:"give"|"receive"|"level";
+  /** The one line that goes on the card. */
+  label:string;
+};
+
+/** What the two of us should play off, said to me about them. */
+export function proposeHandicap(myRating:number,theirRating:number,settings:HandicapSettings):HandicapProposal {
+  const points=roundToEven(eloToHandicap(myRating-theirRating,settings));
+  if(points===0)return {points:0,direction:"level",label:"平手打就啱"};
+  return points>0
+    ?{points,direction:"give",label:`建議你讓 ${points} 分`}
+    :{points,direction:"receive",label:`建議佢讓 ${Math.abs(points)} 分`};
+}
+
+/* --- Does it actually produce a close game? --------------------------------
+ *
+ * The proposal is a model's opinion, and a model's opinion is worth much less to a member than the
+ * evidence sitting in their own match history. Two people who have played nine times know exactly
+ * how those nine went, so the card quotes the record rather than asking them to trust the curve. */
+
+export type PastMatch = {a:string;b:string;scoreA:number;scoreB:number;status:"confirmed"|"void"};
+
+export type HeadToHead = {played:number;myWins:number;theirWins:number;label:string|null};
+
+/** Our record, phrased as evidence for or against the proposal.
+ *
+ *  Deliberately silent below three games: "你哋打過 1 局，你贏咗" is not evidence of anything, and
+ *  dressing it up as a reason to trust the handicap would be the app overclaiming — which costs more
+ *  trust than saying nothing. */
+export function headToHead(matches:PastMatch[],me:string,them:string):HeadToHead {
+  const played=matches.filter(match=>match.status==="confirmed"
+    &&((match.a===me&&match.b===them)||(match.a===them&&match.b===me)));
+  let myWins=0,theirWins=0;
+  for(const match of played){
+    const mine=match.a===me?match.scoreA:match.scoreB;
+    const theirs=match.a===me?match.scoreB:match.scoreA;
+    if(mine>theirs)myWins+=1; else if(theirs>mine)theirWins+=1;
+  }
+  const label=played.length>=3?`你哋過往 ${played.length} 局 ${myWins} : ${theirWins}`:null;
+  return {played:played.length,myWins,theirWins,label};
+}
+
+/** The full sentence for the recommendation card: the proposal, and the evidence behind it.
+ *
+ *  Two members who have never met get the proposal alone — which is exactly when it is worth the
+ *  most, because there is no shared history to fall back on and the handicap is the only thing
+ *  standing between "he is way better than me" and a game worth turning up for. */
+export function handicapSentence(input:{
+  myRating:number; theirRating:number; settings:HandicapSettings;
+  matches:PastMatch[]; me:string; them:string;
+}){
+  const proposal=proposeHandicap(input.myRating,input.theirRating,input.settings);
+  const record=headToHead(input.matches,input.me,input.them);
+  return {...proposal,evidence:record.label,played:record.played};
+}

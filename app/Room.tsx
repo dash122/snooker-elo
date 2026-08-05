@@ -166,7 +166,7 @@ function RoomRow({entry,now,onAsk,onOpen,busy}:{
 
 const GROUPS:RoomGroup[]=["at-club","free-now","later","unconfirmed"];
 
-export function Room({signedIn,onAsk,onOpen,onClaim,claimingCallId,onChanged}:{
+export function Room({signedIn,onAsk,onOpen,onClaim,claimingCallId,onChanged,refreshKey}:{
   signedIn:boolean;
   /** Asking somebody opens the existing invite flow — The Room decides *who is worth asking*, it does
       not reinvent the ask. */
@@ -176,6 +176,9 @@ export function Room({signedIn,onAsk,onOpen,onClaim,claimingCallId,onChanged}:{
   claimingCallId:string|null;
   /** Fired after anything that changes the club's state, so the tab around this can refresh too. */
   onChanged?:()=>void;
+  /** Bumped by the tab when something outside this component changed the club's state — claiming a
+      table, opening a session — so the board reloads immediately instead of at the next poll. */
+  refreshKey?:number;
 }){
   const [data,setData]=useState<RoomData|null>(null);
   const [busy,setBusy]=useState(false);
@@ -195,7 +198,7 @@ export function Room({signedIn,onAsk,onOpen,onClaim,claimingCallId,onChanged}:{
     void load();
     const id=window.setInterval(()=>{if(document.visibilityState==="visible")void load()},60_000);
     return ()=>window.clearInterval(id);
-  },[load]);
+  },[load,refreshKey]);
 
   const act=async(run:()=>Promise<Response>)=>{
     if(busy)return;
