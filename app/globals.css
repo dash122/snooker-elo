@@ -3413,3 +3413,32 @@ input,select,textarea{font-size:var(--fs-body)}
   .push-strip-actions button{flex:1}
   .tonight-strip{padding:12px 14px}
 }
+
+/* Cup bracket + tournament quick actions */
+.bracket-view{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--paper)}
+.bracket-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.bracket-header label{display:grid;gap:6px;font-size:12px;font-weight:700;color:var(--muted)}
+.bracket-header select{min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.bracket-header small{font-size:12px;color:var(--muted)}
+.cup-tree{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(240px,1fr);gap:12px;overflow:auto;padding-bottom:4px}
+.cup-round{display:grid;gap:8px;align-content:start}
+.cup-round h4{margin:0;font-size:14px}
+.cup-round-slots{display:grid;gap:8px}
+.cup-node{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.cup-node small{font-size:11px;color:var(--muted)}
+.cup-node.empty{border-style:dashed;background:#fbfcfa}
+.cup-node.empty b{font-size:13px;color:var(--muted)}
+.cup-node.empty span{font-size:11px;color:var(--muted)}
+.cup-score{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px}
+.cup-score b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cup-score b:last-child{text-align:right}
+.cup-score span{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
+
+.tournament-quick-actions .quick-action-chips{display:flex;gap:8px;flex-wrap:wrap}
+.quick-action-chip{min-height:38px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink);font-size:12px;font-weight:700}
+.quick-action-chip.signed{border-color:#bcd5c8;background:#ebf5ef;color:#1f6e58}
+
+.tournament-selector{display:grid;gap:10px;margin:10px 0 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fbfcfa}
+.tournament-selector label{display:grid;gap:6px;font-size:12px;font-weight:700;color:var(--muted)}
+.tournament-selector select,.tournament-selector input{min-height:44px;padding:0 11px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.tournament-stage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
