@@ -3524,3 +3524,73 @@ input,select,textarea{font-size:var(--fs-body)}
 .cup-signup-row small{display:block;font-size:.6875rem;color:var(--muted);margin-top:.125rem}
 .cup-signup-row button,.cup-signup-row a{min-height:var(--control-md);padding:0 1rem;border-radius:.625rem;
   font-size:var(--fs-sm);font-weight:700;display:inline-flex;align-items:center;text-decoration:none}
+
+/* --- The Room -------------------------------------------------------------
+   Everybody looking for a game, as one board. Visually quieter than the
+   PlayableCard stream beneath it on purpose: this is a list to scan, not three
+   propositions to weigh, and giving every row card weight would make eight
+   people look like eight decisions. */
+.room-card{margin-bottom:14px}
+.room-me{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 14px;border-radius:13px;
+  background:#12403a;color:#e6efe9;margin-bottom:12px}
+.room-me-dot{width:8px;height:8px;border-radius:50%;background:#7fd6a5;flex:none;
+  box-shadow:0 0 0 3px rgba(127,214,165,.2)}
+.room-me.is-here .room-me-dot{background:var(--gold);box-shadow:0 0 0 3px rgba(217,170,88,.25)}
+.room-me-copy{flex:1 1 190px;min-width:0}
+.room-me-copy b{display:block;font-size:.9rem;color:#ffe2a8}
+.room-me-copy small{display:block;font-size:.72rem;color:#a8c3bb;margin-top:1px}
+.room-me-actions{display:flex;gap:7px;flex-wrap:wrap}
+.room-me-actions button{min-height:34px;padding:0 12px;border-radius:9px;font-size:.75rem;font-weight:700;
+  border:1px solid #326159;background:transparent;color:#d9e7e1}
+.room-me-actions button.is-on{background:var(--gold);border-color:var(--gold);color:#12403a}
+.room-me-actions button.more{border-color:transparent;color:#9dbab3}
+.room-me-actions button:disabled{opacity:.55}
+
+.room-live{display:grid;gap:9px;margin-bottom:14px}
+.room-live-shape,.room-live-until,.room-live-pref div{display:flex;gap:6px;flex-wrap:wrap}
+.room-live-shape button,.room-live-until button,.room-live-pref button{min-height:36px;padding:0 13px;
+  border-radius:10px;border:1px solid var(--line);background:#fff;font-size:.78rem;font-weight:700;color:var(--ink)}
+.room-live-shape button.active,.room-live-until button.active,.room-live-pref button.active{
+  background:var(--green);border-color:var(--green);color:#ffe2a8}
+.room-live-pref{display:grid;gap:6px}
+.room-live-lbl{font-size:.72rem;font-weight:800;letter-spacing:.04em;color:var(--muted)}
+.room-live-pref>small{font-size:.72rem;color:var(--muted)}
+.room-live-note{margin:0;font-size:.78rem;color:var(--muted)}
+.room-live-go{min-height:46px;border-radius:13px;font-size:.92rem}
+
+.room-group{margin-top:14px}
+.room-group-head{margin:0 0 7px;font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--muted)}
+.room-group-head small{display:block;font-weight:600;letter-spacing:0;margin-top:2px;font-size:.7rem}
+.room-rows,.room-call-list{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.room-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);
+  border-radius:12px;background:#fff}
+.room-row.is-at-club{border-color:#bcd9c9;background:#f4faf6}
+/* Unconfirmed members are visibly a question rather than an answer — the row is quieter than a live
+   one and its button says 問佢, so nothing here claims they are free. */
+.room-row.is-unconfirmed{background:transparent;border-style:dashed;opacity:.9}
+.room-row-person{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:10px;border:0;
+  background:transparent;padding:0;text-align:left;color:inherit}
+.room-row-person:disabled{cursor:default}
+.room-row-copy{min-width:0}
+.room-row-copy b{display:block;font-size:.86rem}
+.room-row-copy small{display:block;font-size:.72rem;color:var(--muted);margin-top:1px}
+.room-row-copy .room-tag{font-style:normal;display:inline-block;font-size:.64rem;font-weight:800;
+  padding:1px 5px;border-radius:4px;background:#eaf2ec;color:#1c6340;margin-right:5px}
+.room-licence{display:block;font-style:normal;font-size:.7rem;color:#1c6340;margin-top:2px}
+.room-row-ask{min-height:36px;padding:0 14px;border-radius:10px;font-size:.78rem;font-weight:800;flex:none}
+
+.room-calls{margin-top:14px}
+.room-call{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;
+  background:#12403a;color:#e6efe9}
+.room-call>div{flex:1 1 auto;min-width:0}
+.room-call b{display:block;font-size:.84rem;color:#ffe2a8}
+.room-call small{display:block;font-size:.72rem;color:#a8c3bb;margin-top:1px}
+.room-call button{min-height:36px;padding:0 14px;border-radius:10px;font-size:.78rem;font-weight:800;
+  background:var(--gold);color:#12403a;border:0}
+.room-call-mine{font-size:.72rem;color:#a8c3bb}
+
+@media (max-width:640px){
+  .room-me-actions{width:100%}
+  .room-me-actions button{flex:1 1 auto}
+  .room-row-ask{padding:0 11px}
+}

@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
+import {Room} from "./Room";
 import {CardHead,CounterSheet,ExitList,IntentAsk,NextUpCard,NotificationPrefsPanel,PlayableCard,PushOptIn,RecurrenceEditor,ResponseQueue,SearchingCard,VenueField,WaitingStrip,reliabilityChips,type Exit,type IntentState,type QueueItem,type RecurrenceRule,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
 import {addDaysHongKong,bestNight,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOffers,partitionOpenCalls,rankOpponents,rankPlayables,screenState,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type IntentSignal,type RankedOpponent,type MutualOffer,type ReliabilitySignals} from "../lib/availability";
@@ -267,6 +268,10 @@ export default function Availability({userPlayerId,matches,tournaments,provision
  /* The buckets below are time-dependent, and a member can sit on this screen while a slot starts or
     ends. A one-minute tick re-evaluates them so the follow-up prompt appears on its own. */
  const[tick,setTick]=useState(()=>Date.now());
+ /* Bumped by anything that changes club state from outside the poll's own effect — going live in The
+    Room, claiming a table there — so invites, calls and offers refresh immediately instead of at the
+    next 30-second tick, which is long enough for a member to think their tap did nothing. */
+ const[refreshNonce,setRefreshNonce]=useState(0);
  useEffect(()=>{const id=window.setInterval(()=>setTick(Date.now()),60000);return()=>window.clearInterval(id)},[]);
  const dialogRef=useRef<HTMLElement|null>(null),firstLoad=useRef(true),savingRef=useRef(false),cancellingRef=useRef(false),confirmingChangeRef=useRef(false),clearingRef=useRef(false);
  useEffect(()=>{const c=new AbortController();async function load(){setLoading(true);try{const[selected,summary,mine]=await Promise.all([fetch(`/api/availability?date=${date}`,{signal:c.signal}).then(r=>r.json()),fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`,{signal:c.signal}).then(r=>r.json()),userPlayerId?fetch("/api/availability?me",{signal:c.signal}).then(r=>r.json()):Promise.resolve({slots:[]})]);if(selected.error)throw Error(selected.error);setMembers(selected.members);setCounts(summary.counts??{});setOwn(mine.slots??[]);setMessage("")}catch(e){if(e instanceof Error&&e.name!=="AbortError")setMessage(e.message)}finally{if(!c.signal.aborted)setLoading(false)}}if(firstLoad.current)firstLoad.current=false;else trackAvailabilityEvent("availability_date_select");void load();return()=>c.abort()},[date,userPlayerId,week]);
@@ -461,7 +466,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   void poll();
   const id=window.setInterval(()=>{if(document.visibilityState==="visible")void poll()},30000);
   return()=>{cancelled=true;window.clearInterval(id)};
- },[userPlayerId]);
+ },[userPlayerId,refreshNonce]);
  /* Reliability changes over weeks, not seconds, so it is fetched once per mount rather than polled —
     and it arrives before first paint of the shortlist so the ranking never visibly reshuffles. */
  useEffect(()=>{
@@ -882,7 +887,10 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   const me=members.find(x=>x.id===userPlayerId);
   return rankPlayables({
    rating:me?.rating??0,opponents:rankedPool.flatMap(o=>o.ranked?[o.ranked]:[]),
-   calls:claimableCalls.map(c=>({id:c.id,startAt:c.startAt,endAt:c.endAt,player:{id:c.player.id,rating:c.player.rating}})),
+   /* Open calls have moved to The Room, which shows the whole live market rather than the app's top
+      three. Leaving them here as well would put the same table on screen twice with two different
+      buttons, and a member cannot tell that both lead to the same game. */
+   calls:[],
    excluded:engaged,
   });
  },[userPlayerId,members,rankedPool,claimableCalls,engaged]);
@@ -964,11 +972,18 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   <CardHead title="登入後即可約戰" hint="連結球員檔案，就可以公開時間、收邀請同接受開枱。"/>
 </section>}
 
-{/* The one stream of games. Shown wherever the member could act on one — hidden only while they owe
-    somebody an answer, and behind a link once they already have a game booked. */}
+{/* THE ROOM — everybody looking for a game right now, ordered by fit.
+    Above the app's own picks on purpose: the picks are an opinion, and an opinion with the market it
+    came from hidden behind it reads as a dead club on an evening when eight people are free. */}
+{userPlayerId&&state!=="owed"&&(state!=="booked"||showMore)&&<Room signedIn
+  onAsk={(playerId,window)=>openInviteSheet(playerId,window??undefined)}
+  onOpen={onPlayer} onClaim={id=>void claimCall(id)} claimingCallId={claimingCallId}
+  onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>}
+
+{/* The app's own picks, beneath the room they were drawn from. */}
 {userPlayerId&&state!=="owed"&&(state!=="booked"||showMore)&&<section className="availability-card mm-card find-section" aria-label="而家約得成嘅局">
- <CardHead title={streamCards.length?`而家有 ${streamCards.length} 個約得成`:"暫時未有夾到嘅局"}
-   hint={streamCards.length?"開咗枱嘅排先 — 嗰啲唔使等人應承。":undefined}/>
+ <CardHead title={streamCards.length?"我哋幫你揀嘅":"暫時未有夾到嘅局"}
+   hint={streamCards.length?"喺上面嘅名單入面，同你最夾嘅幾個。":undefined}/>
  {loading
   ?<div className="availability-skeleton" aria-hidden="true"/>
   :streamCards.length
