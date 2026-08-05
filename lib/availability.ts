@@ -180,19 +180,41 @@ export function reliabilityFactor(signals?:ReliabilitySignals) {
   return Math.max(0,Math.min(1,accept*.5+show*.3+responsiveness(signals.responseHours)*.2));
 }
 
+/** Whether a member currently wants a game, distinct from merely having free time.
+ *
+ *  "得閒" and "想打" are different facts — the whole reason this exists — so it stays its own signal
+ *  rather than folding into availability. `tonight` and `window` both come with a real time slot (the
+ *  intent doubles as an availability publish, so the rest of matchmaking never has to know it exists
+ *  as a separate concept); `standby` has none and represents "ask me if something fits". */
+export type IntentKind = "tonight"|"window"|"standby";
+export type IntentSignal = { kind:IntentKind };
+
+/** `tonight` is the strongest signal a shortlist can carry — immediate, unambiguous, expires in
+    hours. `standby` is real but softer: a member who said "ask me" is not necessarily thinking about
+    it right now, so it counts for less than an active `window` intent. Absence stays neutral, on the
+    same principle as `reliabilityFactor`: a member who has not touched the intent control yet must
+    never rank below one who deliberately said "not this week". */
+const INTENT_STRENGTH:Record<IntentKind,number> = {tonight:1,window:.85,standby:.6};
+export function intentFactor(intent?:IntentSignal) {
+  return intent?INTENT_STRENGTH[intent.kind]:NEUTRAL;
+}
+
 /** How good a game is this likely to be, and how likely is it to actually happen?
  *
  *  The original model answered only the first half — overlap, ELO closeness and variety. That ranks
- *  the *fixture* rather than the *outcome*, so the member who never replies sat top of the list
- *  every evening. Reliability is now a fifth of the score: enough to move a proven partner above a
- *  marginally better-matched stranger, not enough to freeze the ranking into a clique. */
-export function recommendationScore(input:{minutes:number;eloDifference:number;recentMatches:number;signals?:ReliabilitySignals}) {
+ *  the *fixture* rather than the *outcome*, so the member who never replies sat top of the list every
+ *  evening, and the member who has no overlapping availability but is actively asking "who wants to
+ *  play" was invisible to it. Reliability and intent are each roughly a seventh of the score: enough
+ *  to move a proven, currently-keen partner above a marginally better-matched stranger who has not
+ *  said a word about wanting a game, not enough to freeze the ranking into a clique. */
+export function recommendationScore(input:{minutes:number;eloDifference:number;recentMatches:number;signals?:ReliabilitySignals;intent?:IntentSignal}) {
   if(input.minutes<30)return null;
-  const overlap=Math.min(input.minutes/120,1)*45;
-  const elo=Math.max(1-Math.abs(input.eloDifference)/400,0)*25;
-  const variety=(1-Math.min(input.recentMatches,5)/5)*10;
-  const reliability=reliabilityFactor(input.signals)*20;
-  return {score:Math.round((overlap+elo+variety+reliability)*10)/10,overlap,elo,variety,reliability};
+  const overlap=Math.min(input.minutes/120,1)*40;
+  const elo=Math.max(1-Math.abs(input.eloDifference)/400,0)*22;
+  const variety=(1-Math.min(input.recentMatches,5)/5)*8;
+  const reliability=reliabilityFactor(input.signals)*15;
+  const intent=intentFactor(input.intent)*15;
+  return {score:Math.round((overlap+elo+variety+reliability+intent)*10)/10,overlap,elo,variety,reliability,intent};
 }
 
 /** Every confirmed match ever played between two players, regardless of side. Shared by the
@@ -209,20 +231,20 @@ export function gamesPlayed<T extends {a:string;b:string;status:"confirmed"|"voi
 }
 
 export type OpponentSlots={id:string;rating:number;slots:Interval[]};
-export type RankedOpponent={id:string;overlaps:Interval[];minutes:number;recent:number;difference:number;score:number;qualifies:boolean;signals?:ReliabilitySignals};
+export type RankedOpponent={id:string;overlaps:Interval[];minutes:number;recent:number;difference:number;score:number;qualifies:boolean;signals?:ReliabilitySignals;intent?:IntentSignal};
 
 /** Everyone whose free time touches mine, best first — the whole shortlist, not just the top pick.
     `window` narrows both sides to one band, so a focused hour ranks on the hour actually asked about
     rather than on a whole-day overlap that happens elsewhere. */
-export function rankOpponents(input:{mine:Interval[];rating:number;opponents:OpponentSlots[];recentMatches?:(id:string)=>number;window?:Interval|null;signals?:(id:string)=>ReliabilitySignals|undefined}):RankedOpponent[] {
+export function rankOpponents(input:{mine:Interval[];rating:number;opponents:OpponentSlots[];recentMatches?:(id:string)=>number;window?:Interval|null;signals?:(id:string)=>ReliabilitySignals|undefined;intents?:(id:string)=>IntentSignal|undefined}):RankedOpponent[] {
   const mine=input.window?intersectIntervals(input.mine,[input.window]):mergeIntervals(input.mine);
   return input.opponents.flatMap(opponent=>{
     const overlaps=intersectIntervals(mine,opponent.slots),minutes=overlapMinutes(overlaps);
     if(minutes<=0)return [];
     const recent=input.recentMatches?.(opponent.id)??0,eloDifference=input.rating-opponent.rating;
-    const signals=input.signals?.(opponent.id);
-    const scored=recommendationScore({minutes,eloDifference,recentMatches:recent,signals});
-    return [{id:opponent.id,overlaps,minutes,recent,difference:Math.abs(eloDifference),score:scored?.score??-1,qualifies:Boolean(scored),signals}];
+    const signals=input.signals?.(opponent.id),intent=input.intents?.(opponent.id);
+    const scored=recommendationScore({minutes,eloDifference,recentMatches:recent,signals,intent});
+    return [{id:opponent.id,overlaps,minutes,recent,difference:Math.abs(eloDifference),score:scored?.score??-1,qualifies:Boolean(scored),signals,intent}];
   }).sort((a,b)=>b.score-a.score||b.minutes-a.minutes||a.difference-b.difference);
 }
 
@@ -409,4 +431,26 @@ export function partitionOpenCalls<T extends {id:string;status:string;startAt:st
 ) {
   const live=calls.filter(call=>isOpenCallLive(call,now)).sort((a,b)=>a.startAt.localeCompare(b.startAt));
   return {mine:live.filter(call=>call.player.id===playerId),others:live.filter(call=>call.player.id!==playerId)};
+}
+
+/* --- Intent ---------------------------------------------------------------
+ *
+ * "得閒" and "想打" are different facts. Availability answers the first; intent answers the second,
+ * and it decays on its own rather than sitting stale until a member remembers to clear it — a
+ * `standby` flag left on for a month is worse than no signal at all, because it teaches the shortlist
+ * to keep offering someone who stopped meaning it weeks ago. */
+
+/** How long a `standby` intent (no window attached) stays live before it must be renewed. Also the
+    ceiling for `window` intents whose own end is further out than that — nobody's "I want a game this
+    week" should still be steering a shortlist a fortnight later. */
+const INTENT_STANDBY_HOURS = 72;
+
+export function intentExpiry(kind:IntentKind,window:Interval|null,now=Date.now()) {
+  const cap = now+INTENT_STANDBY_HOURS*60*minute;
+  if(kind==="standby"||!window)return new Date(cap).toISOString();
+  return new Date(Math.min(Date.parse(window.endAt),cap)).toISOString();
+}
+
+export function isIntentLive(intent:{status:string;expiresAt:string},now=Date.now()) {
+  return intent.status==="live"&&Date.parse(intent.expiresAt)>now;
 }

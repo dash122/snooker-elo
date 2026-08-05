@@ -3315,6 +3315,19 @@ input,select,textarea{font-size:var(--fs-body)}
 .push-status .more{margin-left:auto;color:var(--muted)}
 .push-status.is-denied{background:#fdf2ef;color:#8d4a41}
 
+/* --- Intent bar ------------------------------------------------------------ */
+.intent-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;padding:11px 15px;
+  border:1px solid var(--line);border-radius:13px;background:var(--paper)}
+.intent-bar-copy{flex:1 1 200px;min-width:0}
+.intent-bar-copy b{display:block;font-size:13.5px;color:var(--ink)}
+.intent-bar-copy small{display:block;margin-top:2px;color:var(--muted);font-size:12px;line-height:1.5}
+.intent-bar-actions{display:flex;flex:0 0 auto;gap:7px;flex-wrap:wrap}
+.intent-bar-actions button{min-height:40px;padding-inline:14px;border-radius:10px;font-size:13px;font-weight:700}
+.intent-bar.is-active{border-color:#bfe0cf;background:#eef7f1}
+.intent-bar.is-active b{color:#1f6b4a}
+.intent-bar.is-active small{color:#3c6355}
+.mm-see-more{color:var(--green);align-self:flex-start;margin-top:2px}
+
 /* --- Waiting strip -------------------------------------------------------- */
 .waiting-strip{margin-top:10px;border:1px solid var(--line);border-radius:12px;background:#fbfcfa;overflow:hidden}
 .waiting-strip-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
