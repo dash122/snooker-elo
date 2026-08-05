@@ -32,7 +32,16 @@ export type AvailabilityEvent =
   | "matchmaking_result_played"
   | "matchmaking_result_missed"
   | "matchmaking_intent_posted"
-  | "matchmaking_intent_withdrawn";
+  | "matchmaking_intent_withdrawn"
+  /* The Room. `room_go_live` carries which shape the member picked (now / tonight / soon), which is
+     the first time we can tell whether members are declaring an immediate window or hedging with
+     "ask me" — the two need completely different follow-up work from the club. `room_ask` carries
+     the tier, so a poke at somebody whose availability was never confirmed can be counted separately
+     from an ask at somebody who said tonight out loud. */
+  | "room_go_live"
+  | "room_extend"
+  | "room_presence_on"
+  | "room_ask";
 
 type QueuedEvent = { event:AvailabilityEvent; props?:Record<string,unknown>; at:string };
 
