@@ -3488,6 +3488,25 @@ input,select,textarea{font-size:var(--fs-body)}
 
 /* Cup bracket + tournament quick actions */
 .bracket-view{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--paper)}
+.bracket-chart{display:flex;align-items:stretch;gap:36px;margin-top:14px;padding-bottom:6px;overflow-x:auto}
+.bracket-round{display:flex;flex-direction:column;justify-content:space-around;gap:16px;min-width:190px;flex:0 0 auto}
+.bracket-round-title{margin:0 0 10px;font-size:13px;font-weight:800;color:var(--muted);text-align:center;text-transform:uppercase;letter-spacing:.02em}
+.bracket-round-matches{display:flex;flex-direction:column;justify-content:space-around;flex:1;gap:16px}
+.bracket-match{position:relative;display:grid;gap:1px;padding:2px;border:1px solid var(--line);border-radius:10px;background:var(--line)}
+.bracket-match.played{border-color:#9fcbb5}
+.bracket-round:not(.final) .bracket-match::after{content:"";position:absolute;top:50%;left:100%;width:18px;height:0;border-top:2px solid var(--line)}
+.bracket-round:not(:first-child) .bracket-match::before{content:"";position:absolute;top:50%;right:100%;width:18px;height:0;border-top:2px solid var(--line)}
+.bracket-slot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:#fff;font-size:13px;font-weight:700}
+.bracket-slot:first-child{border-radius:8px 8px 0 0}
+.bracket-slot:last-child{border-radius:0 0 8px 8px}
+.bracket-slot span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bracket-slot.tbd span{color:var(--muted);font-weight:600}
+.bracket-slot.winner{background:#f1f8f2;color:var(--green)}
+.bracket-slot.winner span{font-weight:800}
+.bracket-slot b{color:var(--green);font-size:13px}
+.bracket-bye{display:block;margin-top:4px;color:var(--muted);font-size:10px;text-align:center}
+.bracket-edit.more{display:block;margin-top:6px;width:100%;height:32px;min-height:32px;font-size:11px}
+@media (max-width:640px){.bracket-chart{gap:24px}.bracket-round{min-width:150px}}
 .bracket-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .bracket-header>div{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}.bracket-actions{align-items:center!important}.bracket-actions button{min-height:40px}.cup-matchup-card .derived-opponent{opacity:.88}.cup-matchup-card .derived-opponent .matchup-trigger{cursor:default}.tournament-directory{padding:24px}.tournament-directory header h2{margin:0;font-size:24px}.tournament-directory header small{display:block;margin-top:4px;color:var(--muted);font-size:12px}.tournament-directory-list{display:grid;gap:10px;margin-top:20px}.tournament-directory-item{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 18px;border:1px solid var(--line);border-radius:14px;background:#fff}.tournament-directory-item.signed{border-color:#9fcbb5;background:#f1f8f2}.tournament-directory-item b,.tournament-directory-item small,.tournament-directory-item span{display:block}.tournament-directory-item b{font-size:16px}.tournament-directory-item small{margin-top:4px;color:#9a6d1d;font-size:11px}.tournament-directory-item span{margin-top:3px;color:var(--muted);font-size:11px}.tournament-directory-item a{display:grid;place-items:center;text-decoration:none;min-height:42px;padding:0 14px;border:1px solid var(--line);border-radius:11px;color:var(--ink);font-weight:800;font-size:12px;white-space:nowrap}
 .bracket-actions{display:flex;align-items:center;gap:8px}.bracket-actions button{height:40px;min-height:40px;line-height:1;white-space:nowrap}.recent-tournaments{display:grid;gap:10px;margin-top:4px}.recent-tournaments h3{margin:4px 0;font-size:16px}.recent-tournament-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff}.recent-tournament-open{flex:1;padding:2px;border:0;background:transparent;text-align:left;cursor:pointer}.recent-tournament-open span,.recent-tournament-open b,.recent-tournament-open small{display:block}.recent-tournament-open b{font-size:14px}.recent-tournament-open small{margin-top:4px;color:var(--muted);font-size:11px}.cup-match-list{display:grid;gap:18px}.cup-round-list{display:grid;gap:8px}.cup-round-list h3{margin:0;font-size:16px}.cup-match-row{display:grid;grid-template-columns:78px minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff}.cup-match-row.played{border-color:#9fcbb5;background:#f5faf6}.cup-match-number{font-size:12px;font-weight:800;color:var(--muted)}.cup-match-players{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:10px}.cup-match-players b:last-child{text-align:right}.cup-match-players span{font-weight:800;color:var(--green);white-space:nowrap}.cup-match-row>small{color:var(--muted);font-size:11px}.cup-match-row .more{height:36px;min-height:36px;white-space:nowrap}
