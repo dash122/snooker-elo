@@ -12,6 +12,7 @@ type ListFilter="all"|"new"|"never"|"close";type CardStatus="none"|"pendingSent"
 /** The three ways a member browses for a game, as one segmented control rather than three stacked
     sections competing for the same screen. */
 type FindView="suggested"|"calls"|"board";
+type Tournament={id:string;name:string;handicapMode:"suggested"|"none";signupDeadline:string;createdAt:string;createdBy?:string;signups:string[]};
 type OpponentCardVM={member:Member;difference:number;windows:Interval[];windowsCaption:string;isNew:boolean;games:number;neverEver:boolean;chips:string[]};
 const time=hkClock,dayLabel=hkDayLabel,range=(x:Interval)=>`${time(x.startAt)}–${time(x.endAt)}`,days=(start:string,horizon=7)=>Array.from({length:horizon},(_,i)=>addDaysHongKong(start,i)),fullDay=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"long",day:"numeric",weekday:"long"}).format(new Date(`${d}T00:00:00+08:00`));
 const durationLabel=(minutes:number)=>{const hours=Math.floor(minutes/60),rest=Math.round(minutes%60);return hours?`${hours} 小時${rest?` ${rest} 分鐘`:""}`:`${rest} 分鐘`};
@@ -145,7 +146,7 @@ function MatchPrompt({hasMine,userPlayerId,members,focus,onManage}:{hasMine:bool
 /** One card per candidate opponent — ranked overlaps and the no-overlap-yet browse tier both render
     through here, in the same full-size treatment. There is no single "best tonight" card any more:
     every name a member could actually play gets the same room to make its case. */
-function OpponentCard({opponent,rank,onPlayer,cardStatus,onInvite,onCancelInvite}:{opponent:OpponentCardVM;rank:number;onPlayer?:(playerId:string)=>void;cardStatus:{status:CardStatus;invite:MatchInvite|null};onInvite:(playerId:string,window?:Interval)=>void;onCancelInvite:(inviteId:string)=>void}){
+function OpponentCard({opponent,rank,onPlayer,cardStatus,onInvite,onCancelInvite,tournaments,onSignUpTournament,userPlayerId}:{opponent:OpponentCardVM;rank:number;onPlayer?:(playerId:string)=>void;cardStatus:{status:CardStatus;invite:MatchInvite|null};onInvite:(playerId:string,window?:Interval)=>void;onCancelInvite:(inviteId:string)=>void;tournaments?:Tournament[];onSignUpTournament?:(tournamentId:string)=>void;userPlayerId?:string}){
  const open=()=>onPlayer?.(opponent.member.id);
  return <section className={`match-hero match-hero-compact${onPlayer?" is-clickable":""}`} role={onPlayer?"button":undefined} tabIndex={onPlayer?0:undefined} onClick={onPlayer?open:undefined} onKeyDown={onPlayer?(e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open()}}):undefined}>
   <div className="match-hero-main">
@@ -158,13 +159,23 @@ function OpponentCard({opponent,rank,onPlayer,cardStatus,onInvite,onCancelInvite
   </div>
   <div className="match-hero-windows">{opponent.windows.map(w=><button type="button" key={w.startAt} className="match-hero-window-chip match-hero-window-action" onClick={e=>{e.stopPropagation();onInvite(opponent.member.id,w)}} aria-label={`邀請 ${opponent.member.name} 在 ${dayLabel(hkDate(new Date(w.startAt)))} ${range(w)} 對局`}>{dayLabel(hkDate(new Date(w.startAt)))} {range(w)} <span aria-hidden="true">→</span></button>)}<small>{opponent.windowsCaption}</small></div>
   {opponent.chips.length>0&&<div className="track-chips">{opponent.chips.map(c=><span key={c} className={c.startsWith("新加入")?"chip-new":undefined}>{c}</span>)}</div>}
-  <div className="match-hero-foot" onClick={e=>e.stopPropagation()}>
+   <div className="match-hero-foot" onClick={e=>e.stopPropagation()}>
+    {tournaments&&tournaments.length>0&&userPlayerId&&<div className="tournament-signup">
+       <TournamentSignup tournaments={tournaments} onSignUp={onSignUpTournament} userPlayerId={userPlayerId}/>
+    </div>}
    {cardStatus.status==="none"&&<button type="button" className="secondary" onClick={()=>onInvite(opponent.member.id)}>邀請對局</button>}
    {cardStatus.status==="pendingSent"&&<span className="invite-status-pending"><small>邀請待回覆…</small><button type="button" className="secondary" onClick={()=>cardStatus.invite&&onCancelInvite(cardStatus.invite.id)}>收回</button></span>}
    {cardStatus.status==="pendingReceived"&&<small className="invite-status-incoming">對方已邀請你 · 見上方「收到的邀請」</small>}
    {cardStatus.status==="accepted"&&cardStatus.invite&&<span className="invite-status-accepted">✓ 已確認 · {range(cardStatus.invite)}</span>}
   </div>
  </section>
+}
+function TournamentSignup({tournaments,onSignUp,userPlayerId}:{tournaments:Tournament[];onSignUp?:(id:string)=>void;userPlayerId?:string}){
+   const [selected,setSelected]=useState(tournaments[0]?.id||"");
+   useEffect(()=>{if(!selected&&tournaments[0])setSelected(tournaments[0].id)},[tournaments]);
+   const t = tournaments.find(x=>x.id===selected);
+   const signed = Boolean(t && userPlayerId && t.signups?.includes(userPlayerId));
+   return <div className="tournament-signup-inline"><label><select value={selected} onChange={e=>setSelected(e.target.value)}>{tournaments.map(x=> <option key={x.id} value={x.id}>{x.name}</option>)}</select></label><button type="button" className="secondary" onClick={()=>onSignUp?.(selected)}>{signed?"取消報名":"報名盃賽"}</button></div>;
 }
 /** The bottom-sheet-on-mobile / centered-modal-on-desktop invite composer, reusing the app's existing
     `.backdrop`/`.sheet` pattern rather than a one-off overlay. */
@@ -266,10 +277,10 @@ function SlotBoard({dates,items,lo,hi,soonest,selected,onSelect,onCreate,onResiz
  </div>;
 }
 const HORIZON=14;
-export default function Availability({userPlayerId,matches,provisionalGames=10,onDirtyChange,jumpTo,onPlayer,onRecordMatch,onActivity}:{userPlayerId?:string;matches:Match[];provisionalGames?:number;onDirtyChange?:(dirty:boolean)=>void;jumpTo?:{playerId:string;date:string}|null;onPlayer?:(playerId:string)=>void;onRecordMatch?:(opponentId:string,playedOn:string)=>void;
+export default function Availability({userPlayerId,matches,tournaments,provisionalGames=10,onDirtyChange,jumpTo,onPlayer,onRecordMatch,onActivity,onSignUpTournament}:{userPlayerId?:string;matches:Match[];tournaments?:Tournament[];provisionalGames?:number;onDirtyChange?:(dirty:boolean)=>void;jumpTo?:{playerId:string;date:string}|null;onPlayer?:(playerId:string)=>void;onRecordMatch?:(opponentId:string,playedOn:string)=>void;
  /** Anything that changes what the shell's badge should say. The tab owns the truth while it is
-     open, so it tells the shell rather than making the shell poll faster on the off-chance. */
- onActivity?:()=>void}){
+    open, so it tells the shell rather than making the shell poll faster on the off-chance. */
+ onActivity?:()=>void; onSignUpTournament?:(tournamentId:string)=>void}){
  const week=useMemo(()=>days(hkDate(),HORIZON),[]),[date,setDate]=useState(jumpTo?.date??hkDate()),[appliedJump,setAppliedJump]=useState(jumpTo??null),[members,setMembers]=useState<Member[]>([]),[counts,setCounts]=useState<Record<string,number>>({}),[own,setOwn]=useState<AvailabilitySlot[]>([]),[view,setView]=useState<View>("find"),[draft,setDraft]=useState<Interval[]>([]),[selected,setSelected]=useState<string|null>(null),[adjustments,setAdjustments]=useState<Record<string,Interval>>({}),[focus,setFocus]=useState<Interval|null>(null),[boardWide,setBoardWide]=useState(false),[pending,setPending]=useState<AvailabilitySlot|null>(null),[leaveTo,setLeaveTo]=useState<View|null>(null),[confirmClear,setConfirmClear]=useState(false),[clearing,setClearing]=useState(false),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[cancelling,setCancelling]=useState(false),[confirmingChange,setConfirmingChange]=useState(false),[message,setMessage]=useState(""),[recommendationNow]=useState(()=>Date.now());
  const[filter,setFilter]=useState<ListFilter>("all"),[prioritizeNew,setPrioritizeNew]=useState(false),
   [invites,setInvites]=useState<{sent:MatchInvite[];received:MatchInvite[]}>({sent:[],received:[]}),
@@ -779,6 +790,11 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
 <section className="hero small availability-hero"><div><p className="kicker">MATCHMAKING</p><h1>約一局</h1><p>公開你嘅空閒時間，快速搵到啱傾嘅球友。</p></div></section>
 <nav className="availability-tabs" aria-label="配對功能" role="tablist"><button role="tab" aria-selected={view==="find"} className={view==="find"?"active":""} onClick={()=>nav("find")}><span className="availability-tab-label">搵對手</span>{userPlayerId&&queueItems.length>0&&<span className="availability-tab-count is-alert">{queueItems.length}</span>}</button>{userPlayerId&&<button role="tab" aria-selected={view==="manage"||view==="create"} className={view==="manage"||view==="create"?"active":""} onClick={()=>nav("manage")}><span className="availability-tab-label">我的時段</span>{own.length>0&&<span className="availability-tab-count">{own.length}</span>}</button>}</nav>
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
+{/** Tournament signup list */}
+{tournaments&&tournaments.length>0&&<section className="availability-card tournament-list"><header><h3>會友盃</h3><small>即將舉行的盃賽與報名狀態</small></header><ul className="tournament-list-items">{tournaments.map(t=>{
+   const signedIn = Boolean(userPlayerId && (t.signups||[]).includes(userPlayerId));
+   return <li key={t.id} className="tournament-item"><div className="tournament-meta"><b>{t.name}</b><small>報名截止 {t.signupDeadline}</small></div><div className="tournament-actions">{onSignUpTournament?<button type="button" className={`primary${signedIn?" secondary":""}`} onClick={()=>onSignUpTournament(t.id)}>{signedIn?"取消報名":"報名"}</button>:null}<span className="tournament-count">{(t.signups||[]).length} 人</span></div></li>} )}</ul></section>}
+{userPlayerId&&tournaments&&tournaments.length>0&&<section className="availability-card tournament-quick-actions"><header><h3>快速報名</h3><small>無需展開卡片，直接切換盃賽報名狀態</small></header><div className="quick-action-chips">{tournaments.slice(0,4).map(t=>{const signed=Boolean((t.signups||[]).includes(userPlayerId));return <button key={t.id} type="button" className={`quick-action-chip${signed?" signed":""}`} onClick={()=>onSignUpTournament?.(t.id)}>{signed?`已報名 · ${t.name}`:`報名 · ${t.name}`}</button>})}</div></section>}
 {view==="find"&&<>
 {/* ZONE 1 — "Am I playing?" Answered first, and only about what is settled: what still needs an
     answer belongs to the queue below, and surfacing the top of that queue here as well (as the old
@@ -814,7 +830,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   ?<div className="availability-skeleton" aria-hidden="true"/>
   :<>
    {findView==="suggested"&&(activeList.length
-    ?<><div className="match-stack-list">{activeList.slice(0,5).map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} onPlayer={onPlayer} cardStatus={inviteStatusById.get(o.member.id)??{status:"none",invite:null}} onInvite={openInviteSheet} onCancelInvite={cancelInviteAction}/>)}</div>
+   ?<><div className="match-stack-list">{activeList.slice(0,5).map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} onPlayer={onPlayer} cardStatus={inviteStatusById.get(o.member.id)??{status:"none",invite:null}} onInvite={openInviteSheet} onCancelInvite={cancelInviteAction} tournaments={tournaments} onSignUpTournament={onSignUpTournament} userPlayerId={userPlayerId}/>)}</div>
       {isBrowseTier&&<p className="mm-note">暫時未有重疊時段 — 你仍然可以直接提議時間。</p>}</>
     :<MatchPrompt hasMine={mine.length>0} userPlayerId={userPlayerId} members={members.length} focus={focus} onManage={nav}/>)}
    {findView==="calls"&&<>
@@ -861,7 +877,12 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   <div><small>{fullDay(active.date)}</small><b>{clockAt(adjusted.from)}–{clockAt(adjusted.to)}</b><span>{durationLabel((adjusted.to-adjusted.from)*60)}{active.draft?" · 未發佈":""}{adjustment?" · 待確認":""}</span></div>
   <div className="slot-nudge"><small>開始</small><button type="button" aria-label="開始時間提早 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,-.5,0)}>−</button><button type="button" aria-label="開始時間延後 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,.5,0)}>+</button></div>
   <div className="slot-nudge"><small>結束</small><button type="button" aria-label="結束時間提早 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,0,-.5)}>−</button><button type="button" aria-label="結束時間延後 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,0,.5)}>+</button></div>
-  <span className="card-tools"><button className="card-tool danger" aria-label={`刪除 ${dayLabel(active.date)} ${clockAt(active.from)}–${clockAt(active.to)} 的時段`} onClick={()=>{const found=own.find(v=>v.id===active.key);if(active.draft)setDraft(a=>a.filter(v=>v.startAt!==active.key));else if(found)setPending(found);setSelected(null);dropAdjustment(active.key)}}>✕</button></span>{adjustment&&<div className="slot-confirm-actions"><button type="button" className="secondary" disabled={confirmingChange} onClick={()=>dropAdjustment(active.key)}>取消變更</button><button type="button" className="primary publish-button" disabled={confirmingChange} aria-busy={confirmingChange} onClick={()=>void confirmNudge()}>{confirmingChange&&<i className="button-spinner" aria-hidden="true"/>}<span>{confirmingChange?"儲存中…":"確認變更"}</span></button></div>}
+   <span className="card-tools"><button className="card-tool danger" aria-label={`刪除 ${dayLabel(active.date)} ${clockAt(active.from)}–${clockAt(active.to)} 的時段`} onClick={()=>{const found=own.find(v=>v.id===active.key);if(active.draft)setDraft(a=>a.filter(v=>v.startAt!==active.key));else if(found)setPending(found);setSelected(null);dropAdjustment(active.key)}}>✕</button></span>
+   {tournaments&&tournaments.length>0&&userPlayerId&&own.find(s=>s.id===active.key)&&<div className="slot-tournament-signups">
+      <small>對應盃賽</small>
+      <div className="tournament-actions-inline">{tournaments.map(t=>{const signed=Boolean(userPlayerId&&(t.signups||[]).includes(userPlayerId));return <button key={t.id} type="button" className={`secondary tournament-action${signed?" signed":""}`} onClick={()=>onSignUpTournament?.(t.id)}>{signed?`取消 ${t.name}`:`報名 ${t.name}`}</button>})}</div>
+   </div>}
+   {adjustment&&<div className="slot-confirm-actions"><button type="button" className="secondary" disabled={confirmingChange} onClick={()=>dropAdjustment(active.key)}>取消變更</button><button type="button" className="primary publish-button" disabled={confirmingChange} aria-busy={confirmingChange} onClick={()=>void confirmNudge()}>{confirmingChange&&<i className="button-spinner" aria-hidden="true"/>}<span>{confirmingChange?"儲存中…":"確認變更"}</span></button></div>}
  </section>}
  {uncommitted.length>0&&<div className="draft-bar" role="status"><div><b>{[pendingKeys.length?`${pendingKeys.length} 個變更`:"",draft.length?`${draft.length} 個新時段`:""].filter(Boolean).join(" · ")}未儲存</b>
    <span>{uncommitted.map(x=>`${dayLabel(hkDate(new Date(x.startAt)))} ${range(x)}`).join("、")}</span></div>
