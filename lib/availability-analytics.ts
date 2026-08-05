@@ -33,11 +33,14 @@ export type AvailabilityEvent =
   | "matchmaking_result_missed"
   | "matchmaking_intent_posted"
   | "matchmaking_intent_withdrawn"
-  /* The Room. `room_go_live` carries which shape the member picked (now / tonight / soon), which is
-     the first time we can tell whether members are declaring an immediate window or hedging with
-     "ask me" — the two need completely different follow-up work from the club. `room_ask` carries
-     the tier, so a poke at somebody whose availability was never confirmed can be counted separately
-     from an ask at somebody who said tonight out loud. */
+  /* Sessions. One slot is one session, so `session_created` is the top of the funnel the deck
+     measures (意圖 → 邀請 → 確認), and the first event that can be counted per evening rather than
+     per member. */
+  | "session_created"
+  | "session_cancelled"
+  /* The Room, now the browse tier behind 睇另外 N 個選擇. `room_ask` carries the tier, so a poke at
+     somebody whose availability was never confirmed is counted separately from an ask at somebody
+     who said tonight out loud. */
   | "room_go_live"
   | "room_extend"
   | "room_presence_on"

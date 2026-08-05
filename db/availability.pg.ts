@@ -14,6 +14,14 @@ async function ensureSchema(){
       created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), cancelled_at timestamptz,
       CHECK (end_at > start_at)
     )`;
+    /* A slot is a session: the block of time a member set aside to play. `venue` and `note` are what
+       they would otherwise have had to type into an open call, which is now the same object. Added
+       after the table shipped, so bounded DDL for the same pooler reason as everywhere else. */
+    await sql.begin(async tx=>{
+      await tx`SET LOCAL lock_timeout = '4s'`;
+      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS venue text NOT NULL DEFAULT ''`;
+      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS note text NOT NULL DEFAULT ''`;
+    });
     await sql`CREATE INDEX IF NOT EXISTS availability_slots_active_range_idx ON availability_slots (start_at, end_at) WHERE cancelled_at IS NULL`;
     await sql`CREATE INDEX IF NOT EXISTS availability_slots_player_active_idx ON availability_slots (player_id, start_at) WHERE cancelled_at IS NULL`;
   })().catch(error=>{schemaReady=null;throw error;});
@@ -91,4 +99,48 @@ export async function cancelAvailability(id:string,playerId:string){
   await ensureSchema();const sql=getSql();
   const rows=await sql<any[]>`UPDATE availability_slots SET cancelled_at=now(),updated_at=now() WHERE id=${id} AND player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() RETURNING id`;
   return Boolean(rows[0]);
+}
+
+
+/* --- Sessions --------------------------------------------------------------
+ *
+ * One slot is one session. These read and write the same table every other surface already uses, so
+ * the grid, the offer matcher and open-call targeting keep working untouched — but they never merge
+ * adjacent rows the way `publishAvailability` does, because a session has an identity a member can
+ * see on a card and cancel by name. Silently folding 今晚 into 聽日 would make a card the member is
+ * looking at disappear into another one. */
+
+export type Session = AvailabilitySlot & { venue:string; note:string };
+
+function session(row:any):Session {
+  return {...slot(row),venue:row.venue??"",note:row.note??""};
+}
+
+/** This member's own sessions, newest window last. Finished ones are included: the card for a
+    session that just ended is what asks for the score. */
+export async function listSessions(playerId:string,sinceHours=12):Promise<Session[]>{
+  await ensureSchema(); await materialiseRecurrence(playerId).catch(()=>0); const sql=getSql();
+  const rows=await sql<any[]>`SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",
+      created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",venue,note
+    FROM availability_slots
+    WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() - ${`${sinceHours} hours`}::interval
+    ORDER BY start_at`;
+  return rows.map(session);
+}
+
+/** Create one. Overlap is refused rather than merged — two sessions covering the same evening are
+    one evening entered twice, and they would produce two cards racing to fill the same table. */
+export async function createSession(playerId:string,input:{startAt:string;endAt:string;venue?:string;note?:string}):Promise<Session|null>{
+  await ensureSchema(); const sql=getSql();
+  return sql.begin(async tx=>{
+    const clash=await tx<any[]>`SELECT id FROM availability_slots
+      WHERE player_id=${playerId} AND cancelled_at IS NULL
+        AND start_at < ${input.endAt} AND end_at > ${input.startAt} LIMIT 1`;
+    if(clash.length)return null;
+    const [row]=await tx<any[]>`INSERT INTO availability_slots (id,player_id,start_at,end_at,venue,note)
+      VALUES (${crypto.randomUUID()},${playerId},${input.startAt},${input.endAt},${input.venue??""},${input.note??""})
+      RETURNING id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",
+        created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",venue,note`;
+    return session(row);
+  });
 }
