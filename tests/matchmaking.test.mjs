@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { hongKongWeekday, inviteOwedBy, invitedSlot, isInviteExpired, isOfferLive, nowInterval, partitionInvites, partitionOffers, proposeMatchOffers, recurrenceDates, reliabilityFactor, validateAvailabilityInterval } from "../lib/availability.ts";
+import { bestNight, hongKongWeekday, inviteOwedBy, invitedSlot, isInviteExpired, isOfferLive, nowInterval, partitionInvites, partitionOffers, proposeMatchOffers, recurrenceDates, rankPlayables, reliabilityFactor, screenState, validateAvailabilityInterval } from "../lib/availability.ts";
 
 const hk=(time)=>`2026-08-01T${time}:00+08:00`;
 const slot=(from,to)=>({startAt:hk(from),endAt:hk(to)});
@@ -150,4 +150,68 @@ test("weekday is read at midday so the UTC+8 offset cannot shift it",()=>{
   // reports the wrong weekday for every single date.
   for(const [date,weekday] of [["2026-08-02",0],["2026-08-03",1],["2026-08-04",2],["2026-08-05",3],["2026-08-06",4],["2026-08-07",5],["2026-08-08",6]])
     assert.equal(hongKongWeekday(date),weekday,date);
+});
+
+/* --- Screen state ---------------------------------------------------------- */
+
+test("the screen follows what the member owes, not what they might want",()=>{
+  // Obligation outranks everything: leaving an invite unanswered costs somebody else a game.
+  assert.equal(screenState({owed:2,upcoming:1,intent:{kind:"tonight"},pendingAsks:3}),"owed");
+  assert.equal(screenState({owed:0,upcoming:1,intent:{kind:"tonight"},pendingAsks:3}),"booked");
+  // Saying "I want a game" and having an unanswered invite out are the same situation to a member:
+  // they have done their part and are waiting.
+  assert.equal(screenState({owed:0,upcoming:0,intent:{kind:"window"},pendingAsks:0}),"searching");
+  assert.equal(screenState({owed:0,upcoming:0,intent:null,pendingAsks:1}),"searching");
+  assert.equal(screenState({owed:0,upcoming:0,intent:null,pendingAsks:0}),"idle");
+});
+
+/* --- One stream of games --------------------------------------------------- */
+
+const rival=(id,score,intent)=>({id,score,qualifies:true,intent,minutes:120,recent:0,difference:0,
+  overlaps:[{startAt:"2026-08-01T12:00:00.000Z",endAt:"2026-08-01T14:00:00.000Z"}]});
+const table=(id,playerId,rating)=>({id,startAt:"2026-08-01T11:00:00.000Z",endAt:"2026-08-01T13:00:00.000Z",
+  player:{id:playerId,rating}});
+
+test("a claimable table outranks an opponent who still has to say yes",()=>{
+  // A well-matched call (82) leads a strong keen opponent (70): the table is booked and nobody has
+  // to say yes, which is what actually decides whether a frame gets played.
+  const ranked=rankPlayables({rating:1500,opponents:[rival("keen",70,{kind:"tonight"})],calls:[table("c1","kelvin",1500)]});
+  assert.deepEqual(ranked.map(x=>x.kind),["claim","keen"]);
+  assert.equal(ranked[0].callId,"c1");
+});
+
+test("the claim bonus is generous but not infinite",()=>{
+  // A badly mismatched call (400 ELO apart) scores 60, so a strong ranked opponent above that still
+  // wins — the shortlist never degrades into "every open call first, then the rest".
+  const ranked=rankPlayables({rating:1500,opponents:[rival("great",75)],calls:[table("c1","far",1900)]});
+  assert.deepEqual(ranked.map(x=>x.opponentId),["great","far"]);
+});
+
+test("intent decides the label, not the ordering",()=>{
+  const ranked=rankPlayables({rating:1500,calls:[],
+    opponents:[rival("quiet",80),rival("keen",60,{kind:"tonight"})]});
+  assert.deepEqual(ranked.map(x=>x.kind),["overlap","keen"],"score still sorts; the kind is only how the row reads");
+});
+
+test("one member never appears as both a table and a suggestion",()=>{
+  const ranked=rankPlayables({rating:1500,opponents:[rival("kelvin",90,{kind:"tonight"})],calls:[table("c1","kelvin",1500)]});
+  assert.equal(ranked.length,1,"the call wins — same game, less work");
+  assert.equal(ranked[0].kind,"claim");
+});
+
+test("never re-offers somebody already mid-conversation",()=>{
+  const ranked=rankPlayables({rating:1500,opponents:[rival("marco",90)],calls:[table("c1","kelvin",1500)],
+    excluded:["marco","kelvin"]});
+  assert.deepEqual(ranked,[]);
+});
+
+/* --- Best night ------------------------------------------------------------ */
+
+test("suggests the fullest upcoming night, never today",()=>{
+  const counts={"2026-08-01":9,"2026-08-02":4,"2026-08-03":8,"2026-08-04":1};
+  // Today is excluded even though it is the fullest: a member seeing this has already established
+  // that tonight is not working for them.
+  assert.deepEqual(bestNight(counts,"2026-08-01"),{date:"2026-08-03",count:8});
+  assert.equal(bestNight({"2026-08-02":2},"2026-08-01"),null,"below the floor is not worth suggesting");
+  assert.equal(bestNight({},"2026-08-01"),null);
 });

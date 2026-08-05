@@ -454,3 +454,127 @@ export function intentExpiry(kind:IntentKind,window:Interval|null,now=Date.now()
 export function isIntentLive(intent:{status:string;expiresAt:string},now=Date.now()) {
   return intent.status==="live"&&Date.parse(intent.expiresAt)>now;
 }
+
+/* --- What the screen is about right now -----------------------------------
+ *
+ * The matchmaking tab used to be a place with three sub-tabs and a segmented control inside one of
+ * them, which meant a member made four navigation choices before seeing a single name. But a member
+ * opening it is only ever in one of four situations, and which one they are in fully determines what
+ * the screen should say. So the screen follows the member's state instead of their taps.
+ *
+ * Ordering is by obligation, not by recency: something another member is waiting on outranks
+ * anything this member might want to start, because leaving it unanswered costs somebody else a
+ * game. */
+
+export type ScreenState =
+  /** Somebody is waiting on an answer from me — an invite, a mutual offer, or an unrecorded result. */
+  | "owed"
+  /** A game is confirmed and hasn't happened yet. */
+  | "booked"
+  /** I've said I want a game and I'm waiting to hear back. */
+  | "searching"
+  /** I haven't said anything yet. The most common cold open. */
+  | "idle";
+
+export function screenState(input:{
+  owed:number; upcoming:number;
+  intent?:{kind:IntentKind}|null;
+  /** Invites I've sent that nobody has answered, and offers I've said yes to. */
+  pendingAsks:number;
+}):ScreenState {
+  if(input.owed>0)return "owed";
+  if(input.upcoming>0)return "booked";
+  if(input.intent||input.pendingAsks>0)return "searching";
+  return "idle";
+}
+
+/* --- One stream of games, not three lists of records -----------------------
+ *
+ * An open call, a keen opponent and a merely-overlapping opponent were three tabs because they are
+ * three tables. To a member they are one thing — a game they could have tonight — differing only in
+ * how much work stands between them and playing it.
+ *
+ * That difference is exactly what the ordering should encode, and it runs the other way from how the
+ * old UI ranked. An open call is not a lesser kind of match to check after the good suggestions:
+ * it is a *pre-accepted invite*. Somebody has already booked the table and already said yes. Nothing
+ * else in the system has a higher chance of turning into a played frame, so nothing else should sit
+ * above it. */
+
+export type PlayableKind =
+  /** An open call: the table is up, first to answer gets it, no negotiation at all. */
+  | "claim"
+  /** An opponent whose free time overlaps mine *and* who has said they want a game. */
+  | "keen"
+  /** An opponent whose free time overlaps mine. */
+  | "overlap";
+
+export type Playable = {
+  kind:PlayableKind; key:string; opponentId:string; slot:Interval; score:number;
+  /** Set for `claim` only — claiming answers an existing call rather than sending an invite. */
+  callId?:string;
+};
+
+/** The premium for a game that needs no agreement.
+ *
+ *  Deliberately modest, because most of a claim's advantage is already earned honestly elsewhere: an
+ *  open call is a settled time, so it takes the full overlap credit that a ranked opponent only gets
+ *  for a long *mutual gap*. A shared free evening is a chance to play; a booked table is a game. On
+ *  top of that, this is the part that cannot be scored any other way — nobody has to say yes.
+ *
+ *  The sum is bounded well under a perfect opponent's, and that matters: a call from somebody 400
+ *  points away still loses to a close, keen opponent. Claiming should lead the list when the game is
+ *  reasonable, not drag the club into whatever table happens to be up. */
+const CLAIM_BONUS = 20;
+const CLAIM_SETTLED_TIME = 40;
+
+export function rankPlayables(input:{
+  /** Already-ranked opponents, straight from `rankOpponents`. */
+  opponents:RankedOpponent[];
+  /** Live open calls posted by somebody else. */
+  calls:{id:string;startAt:string;endAt:string;player:{id:string;rating?:number}}[];
+  /** My rating, for scoring a call whose poster I have no overlap record with. */
+  rating:number;
+  /** Opponents I already have a pending invite or confirmed game with — never re-offer them. */
+  excluded?:Iterable<string>;
+}):Playable[] {
+  const skip=new Set(input.excluded??[]);
+  const fromCalls:Playable[]=input.calls
+    .filter(call=>!skip.has(call.player.id))
+    .map(call=>{
+      /* Scored on the same axes as a ranked opponent so the two can share one list honestly: the
+         time is settled (full overlap credit, which a mutual gap only ever approximates), ELO
+         closeness as usual, and the premium for needing nobody's agreement. */
+      const difference=Math.abs(input.rating-(call.player.rating??input.rating));
+      const elo=Math.max(1-difference/400,0)*22;
+      return {kind:"claim" as const,key:`call:${call.id}`,opponentId:call.player.id,callId:call.id,
+        slot:{startAt:call.startAt,endAt:call.endAt},
+        score:Math.round((CLAIM_SETTLED_TIME+elo+CLAIM_BONUS)*10)/10};
+    });
+  const fromOpponents:Playable[]=input.opponents
+    .filter(opponent=>opponent.qualifies&&!skip.has(opponent.id))
+    .flatMap(opponent=>{
+      const slot=opponent.overlaps[0];
+      if(!slot)return [];
+      return [{kind:opponent.intent?"keen" as const:"overlap" as const,key:`opp:${opponent.id}`,
+        opponentId:opponent.id,slot,score:opponent.score}];
+    });
+  /* One member can appear as both a claimable call and a ranked opponent. The call wins — it is the
+     same game with less work — and showing them twice would read as two chances at one table. */
+  const seen=new Set(fromCalls.map(item=>item.opponentId));
+  return [...fromCalls,...fromOpponents.filter(item=>!seen.has(item.opponentId))]
+    .sort((a,b)=>b.score-a.score||a.slot.startAt.localeCompare(b.slot.startAt));
+}
+
+/** The night the club is fullest, for telling a member *which* evening is worth adding rather than
+ *  asking them to guess.
+ *
+ *  The counts behind this were already computed for the date strip and never shown as advice.
+ *  "Add another slot" is a chore; "add Friday, 8 people are free" is a reason. Today is excluded —
+ *  a member looking at an empty screen tonight has already established that tonight is not working. */
+export function bestNight(counts:Record<string,number>,today:string,minMembers=3) {
+  const candidates=Object.entries(counts)
+    .filter(([date,count])=>date>today&&count>=minMembers)
+    .sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+  const best=candidates[0];
+  return best?{date:best[0],count:best[1]}:null;
+}
