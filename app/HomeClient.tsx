@@ -1280,7 +1280,9 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     const firstMatch=matchBySlot(round-1,(index-1)*2+1),secondMatch=matchBySlot(round-1,(index-1)*2+2);
     return [winner(firstMatch)||(!first[1]?first[0]:""),winner(secondMatch)||(!second[1]?second[0]:"")];
   };
-  const roundLabel=(round:number)=>totalRounds===3?(round===1?"八強":round===2?"四強":"決賽"):totalRounds===2?(round===1?"四強":"決賽"):"決賽";
+  const roundLabel=(round:number,total:number)=>{const remaining=total-round;return remaining<=0?"決賽":remaining===1?"四強":remaining===2?"八強":`${2**(remaining+1)}強`;};
+  const projectedBracketSize=(tournament?.signups?.length??0)>0?2**Math.ceil(Math.log2(Math.max(2,tournament!.signups.length))):0;
+  const projectedRounds=projectedBracketSize?Math.max(1,Math.log2(projectedBracketSize)):0;
   const controls=(item:Tournament)=><><button type="button" className="more" onClick={()=>onEditTournament(item)}>編輯</button><button type="button" className="danger-link" onClick={()=>onDeleteTournament(item)}>刪除</button></>;
   if(!selectedTournament)return <section className="bracket-view"><div className="bracket-header"><label>選擇盃賽<select value="" onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}</div><div className="recent-tournaments"><h3>最近盃賽</h3>{recentTournaments.length===0?<p className="mm-note">尚未建立盃賽。</p>:recentTournaments.map(item=><article className="recent-tournament-row" key={item.id}><button type="button" className="recent-tournament-open" onClick={()=>setSelectedTournament(item.id)}><span><b>{item.name}</b><small>{item.signups.length} 人報名 · 報名截止 {item.signupDeadline.replace("T"," ")}</small></span></button>{isAdmin&&controls(item)}</article>)}</div></section>;
   if(!tournament)return null;
@@ -1295,8 +1297,51 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
           ?<button type="button" className={signedUp?"secondary":"primary"} onClick={()=>onSignUpTournament(selectedTournament)}>{signedUp?"取消報名":"報名"}</button>
           :<a className="secondary" href="/login">登入後報名</a>}
       </div>
-    </div>:draw.length<2?<div className="bracket-body"><p className="mm-note">報名人數不足兩人，未能建立賽事。</p></div>:<div className="cup-match-list">{Array.from({length:totalRounds},(_,roundIndex)=>{const round=roundIndex+1;const count=bracketSize/(2**round);return <section className="cup-round-list" key={round}><h3>{roundLabel(round)}</h3>{Array.from({length:count},(_,slotIndex)=>{const index=slotIndex+1,match=matchBySlot(round,index),[first,second]=participants(round,index),firstName=name(first),secondName=name(second),bye=Boolean((first&&!second)||(!first&&second)),known=Boolean(first&&second);return <article className={`cup-match-row${match?" played":""}`} key={`${round}-${index}`}><div className="cup-match-number">比賽 {index}</div><div className="cup-match-players"><b>{first?firstName:"待定"}</b><span>{match?`${match.scoreA}–${match.scoreB}`:bye?"輪空":known?"對":"等待上一場"}</span><b>{second?secondName:"待定"}</b></div><small>{match?`已完成 · ${match.playedOn}`:bye?"自動晉級下一輪":known?"可記錄賽果":"完成上一輪後顯示對手"}</small>{match&&canManageMatch(match)&&<button type="button" className="more" onClick={()=>onEdit(match)}>編輯賽果</button>}</article>})}</section>})}</div>}
+      {projectedBracketSize>=2?<TournamentBracketChart totalRounds={projectedRounds} bracketSize={projectedBracketSize} roundLabel={roundLabel} participants={()=>["",""]} matchBySlot={()=>undefined} winner={()=>""} name={name} canManageMatch={canManageMatch} onEdit={onEdit} started={false}/>:<p className="mm-note">報名人數不足兩人，暫未能預覽對陣圖。</p>}
+    </div>:draw.length<2?<div className="bracket-body"><p className="mm-note">報名人數不足兩人，未能建立賽事。</p></div>:<TournamentBracketChart totalRounds={totalRounds} bracketSize={bracketSize} roundLabel={roundLabel} participants={participants} matchBySlot={matchBySlot} winner={winner} name={name} canManageMatch={canManageMatch} onEdit={onEdit} started/>}
   </section>;
+}
+
+// A horizontal, left-to-right bracket tree: each round is a column of match
+// boxes vertically centred against the pair feeding it, using the flex
+// "stretch + space-around" trick so pairing lines up correctly without
+// needing to measure pixel positions in JS.
+function TournamentBracketChart({totalRounds,bracketSize,roundLabel,participants,matchBySlot,winner,name,canManageMatch,onEdit,started}:{
+  totalRounds:number;
+  bracketSize:number;
+  roundLabel:(round:number,total:number)=>string;
+  participants:(round:number,index:number)=>[string,string];
+  matchBySlot:(round:number,index:number)=>Match|undefined;
+  winner:(match:Match|undefined)=>string;
+  name:(id:string)=>string;
+  canManageMatch:(match:Match)=>boolean;
+  onEdit:(match:Match)=>void;
+  started:boolean;
+}){
+  return <div className="bracket-chart" role="group" aria-label="賽事對陣圖">
+    {Array.from({length:totalRounds},(_,roundIndex)=>{
+      const round=roundIndex+1,count=bracketSize/(2**round);
+      return <div className={`bracket-round${round===totalRounds?" final":""}`} key={round}>
+        <h3 className="bracket-round-title">{roundLabel(round,totalRounds)}</h3>
+        <div className="bracket-round-matches">
+          {Array.from({length:count},(_,slotIndex)=>{
+            const index=slotIndex+1;
+            const match=started?matchBySlot(round,index):undefined;
+            const [first,second]=started?participants(round,index):["",""];
+            const firstName=first?name(first):"待定",secondName=second?name(second):"待定";
+            const win=winner(match);
+            const bye=started&&Boolean((first&&!second)||(!first&&second));
+            return <div className={`bracket-match${match?" played":""}`} key={`${round}-${index}`}>
+              <div className={`bracket-slot${win&&win===first?" winner":""}${!first?" tbd":""}`}><span>{firstName}</span>{match&&<b>{match.scoreA}</b>}</div>
+              <div className={`bracket-slot${win&&win===second?" winner":""}${!second?" tbd":""}`}><span>{secondName}</span>{match&&<b>{match.scoreB}</b>}</div>
+              {bye&&<small className="bracket-bye">輪空晉級</small>}
+              {match&&canManageMatch(match)&&<button type="button" className="more bracket-edit" onClick={()=>onEdit(match)}>編輯賽果</button>}
+            </div>;
+          })}
+        </div>
+      </div>;
+    })}
+  </div>;
 }
 
 // Collapsed by default: who played, the score, and each player's own ELO
