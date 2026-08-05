@@ -4,7 +4,7 @@ import {PlayerBadge} from "./UiBits";
 import {CardHead,CounterSheet,NextUpCard,NotificationPrefsPanel,PushOptIn,RecurrenceEditor,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type QueueItem,type RecurrenceRule,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
 import {addDaysHongKong,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOffers,partitionOpenCalls,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type MutualOffer,type ReliabilitySignals} from "../lib/availability";
-type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type View="find"|"recommendations"|"manage"|"create";
+type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type View="find"|"recommendations"|"manage"|"create"|"tournaments";
 type InviteStatus="pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";type InvitePlayer={id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null};
 type MatchInvite={id:string;startAt:string;endAt:string;message:string;status:InviteStatus;venue:string;createdAt:string;respondedAt:string|null;counter:{startAt:string;endAt:string;byPlayerId:string}|null;fromPlayer:InvitePlayer;toPlayer:InvitePlayer};
 type OpenCall={id:string;startAt:string;endAt:string;message:string;status:"open"|"claimed"|"cancelled"|"expired";venue:string;createdAt:string;claimedAt:string|null;player:InvitePlayer;claimedBy:InvitePlayer|null};
@@ -146,7 +146,7 @@ function MatchPrompt({hasMine,userPlayerId,members,focus,onManage}:{hasMine:bool
 /** One card per candidate opponent — ranked overlaps and the no-overlap-yet browse tier both render
     through here, in the same full-size treatment. There is no single "best tonight" card any more:
     every name a member could actually play gets the same room to make its case. */
-function OpponentCard({opponent,rank,onPlayer,cardStatus,onInvite,onCancelInvite,tournaments,onSignUpTournament,userPlayerId}:{opponent:OpponentCardVM;rank:number;onPlayer?:(playerId:string)=>void;cardStatus:{status:CardStatus;invite:MatchInvite|null};onInvite:(playerId:string,window?:Interval)=>void;onCancelInvite:(inviteId:string)=>void;tournaments?:Tournament[];onSignUpTournament?:(tournamentId:string)=>void;userPlayerId?:string}){
+function OpponentCard({opponent,rank,onPlayer,cardStatus,onInvite,onCancelInvite}:{opponent:OpponentCardVM;rank:number;onPlayer?:(playerId:string)=>void;cardStatus:{status:CardStatus;invite:MatchInvite|null};onInvite:(playerId:string,window?:Interval)=>void;onCancelInvite:(inviteId:string)=>void}){
  const open=()=>onPlayer?.(opponent.member.id);
  return <section className={`match-hero match-hero-compact${onPlayer?" is-clickable":""}`} role={onPlayer?"button":undefined} tabIndex={onPlayer?0:undefined} onClick={onPlayer?open:undefined} onKeyDown={onPlayer?(e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open()}}):undefined}>
   <div className="match-hero-main">
@@ -160,22 +160,12 @@ function OpponentCard({opponent,rank,onPlayer,cardStatus,onInvite,onCancelInvite
   <div className="match-hero-windows">{opponent.windows.map(w=><button type="button" key={w.startAt} className="match-hero-window-chip match-hero-window-action" onClick={e=>{e.stopPropagation();onInvite(opponent.member.id,w)}} aria-label={`邀請 ${opponent.member.name} 在 ${dayLabel(hkDate(new Date(w.startAt)))} ${range(w)} 對局`}>{dayLabel(hkDate(new Date(w.startAt)))} {range(w)} <span aria-hidden="true">→</span></button>)}<small>{opponent.windowsCaption}</small></div>
   {opponent.chips.length>0&&<div className="track-chips">{opponent.chips.map(c=><span key={c} className={c.startsWith("新加入")?"chip-new":undefined}>{c}</span>)}</div>}
    <div className="match-hero-foot" onClick={e=>e.stopPropagation()}>
-    {tournaments&&tournaments.length>0&&userPlayerId&&<div className="tournament-signup">
-       <TournamentSignup tournaments={tournaments} onSignUp={onSignUpTournament} userPlayerId={userPlayerId}/>
-    </div>}
    {cardStatus.status==="none"&&<button type="button" className="secondary" onClick={()=>onInvite(opponent.member.id)}>邀請對局</button>}
    {cardStatus.status==="pendingSent"&&<span className="invite-status-pending"><small>邀請待回覆…</small><button type="button" className="secondary" onClick={()=>cardStatus.invite&&onCancelInvite(cardStatus.invite.id)}>收回</button></span>}
    {cardStatus.status==="pendingReceived"&&<small className="invite-status-incoming">對方已邀請你 · 見上方「收到的邀請」</small>}
    {cardStatus.status==="accepted"&&cardStatus.invite&&<span className="invite-status-accepted">✓ 已確認 · {range(cardStatus.invite)}</span>}
   </div>
  </section>
-}
-function TournamentSignup({tournaments,onSignUp,userPlayerId}:{tournaments:Tournament[];onSignUp?:(id:string)=>void;userPlayerId?:string}){
-   const [selected,setSelected]=useState(tournaments[0]?.id||"");
-   useEffect(()=>{if(!selected&&tournaments[0])setSelected(tournaments[0].id)},[tournaments]);
-   const t = tournaments.find(x=>x.id===selected);
-   const signed = Boolean(t && userPlayerId && t.signups?.includes(userPlayerId));
-   return <div className="tournament-signup-inline"><label><select value={selected} onChange={e=>setSelected(e.target.value)}>{tournaments.map(x=> <option key={x.id} value={x.id}>{x.name}</option>)}</select></label><button type="button" className="secondary" onClick={()=>onSignUp?.(selected)}>{signed?"取消報名":"報名盃賽"}</button></div>;
 }
 /** The bottom-sheet-on-mobile / centered-modal-on-desktop invite composer, reusing the app's existing
     `.backdrop`/`.sheet` pattern rather than a one-off overlay. */
@@ -300,6 +290,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     ends. A one-minute tick re-evaluates them so the follow-up prompt appears on its own. */
  const[tick,setTick]=useState(()=>Date.now());
  useEffect(()=>{const id=window.setInterval(()=>setTick(Date.now()),60000);return()=>window.clearInterval(id)},[]);
+ const openTournaments=useMemo(()=> (tournaments??[]).filter(t=>{const value=t.signupDeadline.length===10?`${t.signupDeadline}T23:59`:t.signupDeadline;const deadline=Date.parse(`${value}:00+08:00`);return Number.isNaN(deadline)||deadline>=tick}),[tournaments,tick]);
  const dialogRef=useRef<HTMLElement|null>(null),firstLoad=useRef(true),savingRef=useRef(false),cancellingRef=useRef(false),confirmingChangeRef=useRef(false),clearingRef=useRef(false);
  useEffect(()=>{const c=new AbortController();async function load(){setLoading(true);try{const[selected,summary,mine]=await Promise.all([fetch(`/api/availability?date=${date}`,{signal:c.signal}).then(r=>r.json()),fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`,{signal:c.signal}).then(r=>r.json()),userPlayerId?fetch("/api/availability?me",{signal:c.signal}).then(r=>r.json()):Promise.resolve({slots:[]})]);if(selected.error)throw Error(selected.error);setMembers(selected.members);setCounts(summary.counts??{});setOwn(mine.slots??[]);setMessage("")}catch(e){if(e instanceof Error&&e.name!=="AbortError")setMessage(e.message)}finally{if(!c.signal.aborted)setLoading(false)}}if(firstLoad.current)firstLoad.current=false;else trackAvailabilityEvent("availability_date_select");void load();return()=>c.abort()},[date,userPlayerId,week]);
  /* A profile card's "在可配對查看" button lands here with a target player and their nearest free day.
@@ -788,13 +779,9 @@ export default function Availability({userPlayerId,matches,tournaments,provision
  useEffect(()=>{if(!pending&&!leaveTo&&!confirmClear)return;const previous=document.activeElement as HTMLElement|null,dialog=dialogRef.current,focusable=dialog?Array.from(dialog.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')):[];focusable[0]?.focus();function onKey(ev:KeyboardEvent){if(ev.key==="Escape"){setPending(null);setLeaveTo(null);setConfirmClear(false);return}if(ev.key==="Tab"&&focusable.length){const first=focusable[0],last=focusable[focusable.length-1];if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus()}else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus()}}}document.addEventListener("keydown",onKey);return()=>{document.removeEventListener("keydown",onKey);previous?.focus()}},[pending,leaveTo,confirmClear]);
  return <section className="availability-page">
 <section className="hero small availability-hero"><div><p className="kicker">MATCHMAKING</p><h1>約一局</h1><p>公開你嘅空閒時間，快速搵到啱傾嘅球友。</p></div></section>
-<nav className="availability-tabs" aria-label="配對功能" role="tablist"><button role="tab" aria-selected={view==="find"} className={view==="find"?"active":""} onClick={()=>nav("find")}><span className="availability-tab-label">搵對手</span>{userPlayerId&&queueItems.length>0&&<span className="availability-tab-count is-alert">{queueItems.length}</span>}</button>{userPlayerId&&<button role="tab" aria-selected={view==="manage"||view==="create"} className={view==="manage"||view==="create"?"active":""} onClick={()=>nav("manage")}><span className="availability-tab-label">我的時段</span>{own.length>0&&<span className="availability-tab-count">{own.length}</span>}</button>}</nav>
+<nav className="availability-tabs" aria-label="配對功能" role="tablist"><button role="tab" aria-selected={view==="find"} className={view==="find"?"active":""} onClick={()=>nav("find")}><span className="availability-tab-label">搵對手</span>{userPlayerId&&queueItems.length>0&&<span className="availability-tab-count is-alert">{queueItems.length}</span>}</button>{userPlayerId&&<button role="tab" aria-selected={view==="manage"||view==="create"} className={view==="manage"||view==="create"?"active":""} onClick={()=>nav("manage")}><span className="availability-tab-label">我的時段</span>{own.length>0&&<span className="availability-tab-count">{own.length}</span>}</button>}<button role="tab" aria-selected={view==="tournaments"} className={view==="tournaments"?"active":""} onClick={()=>nav("tournaments")}><span className="availability-tab-label">報名盃賽</span>{openTournaments.length>0&&<span className="availability-tab-count">{openTournaments.length}</span>}</button></nav>
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
-{/** Tournament signup list */}
-{tournaments&&tournaments.length>0&&<section className="availability-card tournament-list"><header><h3>會友盃</h3><small>即將舉行的盃賽與報名狀態</small></header><ul className="tournament-list-items">{tournaments.map(t=>{
-   const signedIn = Boolean(userPlayerId && (t.signups||[]).includes(userPlayerId));
-   return <li key={t.id} className="tournament-item"><div className="tournament-meta"><b>{t.name}</b><small>報名截止 {t.signupDeadline}</small></div><div className="tournament-actions">{onSignUpTournament?<button type="button" className={`primary${signedIn?" secondary":""}`} onClick={()=>onSignUpTournament(t.id)}>{signedIn?"取消報名":"報名"}</button>:null}<span className="tournament-count">{(t.signups||[]).length} 人</span></div></li>} )}</ul></section>}
-{userPlayerId&&tournaments&&tournaments.length>0&&<section className="availability-card tournament-quick-actions"><header><h3>快速報名</h3><small>無需展開卡片，直接切換盃賽報名狀態</small></header><div className="quick-action-chips">{tournaments.slice(0,4).map(t=>{const signed=Boolean((t.signups||[]).includes(userPlayerId));return <button key={t.id} type="button" className={`quick-action-chip${signed?" signed":""}`} onClick={()=>onSignUpTournament?.(t.id)}>{signed?`已報名 · ${t.name}`:`報名 · ${t.name}`}</button>})}</div></section>}
+{view==="tournaments"&&<section className="availability-card tournament-directory"><header><p className="kicker">SCAA CUP</p><h2>報名盃賽</h2><small>選擇想參加的會友盃，截止時間前都可以取消報名。</small></header>{openTournaments.length>0?<div className="tournament-directory-list">{openTournaments.map(t=>{const signed=Boolean(userPlayerId&&(t.signups||[]).includes(userPlayerId));const deadline=t.signupDeadline.replace("T"," ");return <article className={`tournament-directory-item${signed?" signed":""}`} key={t.id}><div><b>{t.name}</b><small>報名截止 {deadline}</small><span>{(t.signups||[]).length} 人已報名</span></div>{userPlayerId?<button type="button" className={signed?"secondary":"primary"} onClick={()=>onSignUpTournament?.(t.id)}>{signed?"取消報名":"報名"}</button>:<a className="secondary" href="/login">登入後報名</a>}</article>})}</div>:<p className="mm-note">暫時未有可報名的會友盃。</p>}</section>}
 {view==="find"&&<>
 {/* ZONE 1 — "Am I playing?" Answered first, and only about what is settled: what still needs an
     answer belongs to the queue below, and surfacing the top of that queue here as well (as the old
@@ -830,7 +817,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   ?<div className="availability-skeleton" aria-hidden="true"/>
   :<>
    {findView==="suggested"&&(activeList.length
-   ?<><div className="match-stack-list">{activeList.slice(0,5).map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} onPlayer={onPlayer} cardStatus={inviteStatusById.get(o.member.id)??{status:"none",invite:null}} onInvite={openInviteSheet} onCancelInvite={cancelInviteAction} tournaments={tournaments} onSignUpTournament={onSignUpTournament} userPlayerId={userPlayerId}/>)}</div>
+   ?<><div className="match-stack-list">{activeList.slice(0,5).map((o,i)=><OpponentCard key={o.member.id} opponent={o} rank={i+1} onPlayer={onPlayer} cardStatus={inviteStatusById.get(o.member.id)??{status:"none",invite:null}} onInvite={openInviteSheet} onCancelInvite={cancelInviteAction}/>)}</div>
       {isBrowseTier&&<p className="mm-note">暫時未有重疊時段 — 你仍然可以直接提議時間。</p>}</>
     :<MatchPrompt hasMine={mine.length>0} userPlayerId={userPlayerId} members={members.length} focus={focus} onManage={nav}/>)}
    {findView==="calls"&&<>
