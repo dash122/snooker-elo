@@ -810,6 +810,19 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     persist({...snapshot,audits:[{id:crypto.randomUUID(),text:"復原已刪除的賽事；還原評分及近況",at:new Date().toISOString()},...snapshot.audits]},"已復原賽事，ELO 及統計已還原。");
   }
 
+  /* Signing up for a cup belongs to 比賽, not 約戰 — entering a competition and pitching a friendly
+     are different jobs. Lifted out of the matchmaking tab's props so the cup bracket and the
+     per-slot shortcut can both call the same thing. */
+  const signUpTournament=async(tournamentId:string)=>{
+        if(!ownPlayerId){setToast("請先登入會員帳戶，才可報名盃賽。");return}
+        const tournament=data.tournaments.find(item=>item.id===tournamentId),deadline=tournament?.signupDeadline?new Date(`${tournament.signupDeadline.length===10?tournament.signupDeadline+"T23:59":tournament.signupDeadline}:00+08:00`):null;
+        if(deadline&&!Number.isNaN(deadline.getTime())&&deadline.getTime()<Date.now()){setToast("此盃賽報名已截止。");return}
+        const snapshot=data;
+        const nextTournaments = data.tournaments.map(t=>t.id===tournamentId?{...t,signups: (t.signups||[]).includes(ownPlayerId)?t.signups.filter(s=>s!==ownPlayerId):[... (t.signups||[]), ownPlayerId]}:t);
+        const next={...data,tournaments:nextTournaments,audits:[{id:crypto.randomUUID(),text:`${(nextTournaments.find(t=>t.id===tournamentId)?.signups||[]).includes(ownPlayerId)?'報名':'取消報名'} 會友盃：${nextTournaments.find(t=>t.id===tournamentId)?.name}`,at:new Date().toISOString()},...data.audits]};
+        setData(next);persist(next,(nextTournaments.find(t=>t.id===tournamentId)?.signups||[]).includes(ownPlayerId)?"已報名會友盃。":"已取消報名會友盃。",snapshot);
+  };
+
   return <><style>{`.read-only .card-tools,.read-only .hero.small > .primary{display:none}`}</style><div className={`shell${user?"":" read-only"}`}>
     <div className={`pull-refresh${refreshing?" spinning":""}`} style={{height:refreshing?PULL_THRESHOLD:pullDistance,opacity:refreshing||pullDistance>0?1:0}} aria-hidden="true">
       <span/>
@@ -826,16 +839,8 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
           behind a tab, so "is anyone playing tonight?" was unanswerable without going to look. */}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
-      {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setTournamentForm({name:"",handicapMode:"suggested",signupDeadline:`${today}T23:59`});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setTournamentForm({name:tournament.name,handicapMode:tournament.handicapMode,signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline});setModal("tournament")}} onDeleteTournament={deleteTournament}/>}
-      {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} tournaments={data.tournaments} provisionalGames={data.settings.provisionalGames} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecordMatch={(opponentId,date)=>newMatch("1v1",opponentId,date)} onActivity={refreshMatchmaking} onSignUpTournament={async(tournamentId:string)=>{
-        if(!ownPlayerId){setToast("請先登入會員帳戶，才可報名盃賽。");return}
-        const tournament=data.tournaments.find(item=>item.id===tournamentId),deadline=tournament?.signupDeadline?new Date(`${tournament.signupDeadline.length===10?tournament.signupDeadline+"T23:59":tournament.signupDeadline}:00+08:00`):null;
-        if(deadline&&!Number.isNaN(deadline.getTime())&&deadline.getTime()<Date.now()){setToast("此盃賽報名已截止。");return}
-        const snapshot=data;
-        const nextTournaments = data.tournaments.map(t=>t.id===tournamentId?{...t,signups: (t.signups||[]).includes(ownPlayerId)?t.signups.filter(s=>s!==ownPlayerId):[... (t.signups||[]), ownPlayerId]}:t);
-        const next={...data,tournaments:nextTournaments,audits:[{id:crypto.randomUUID(),text:`${(nextTournaments.find(t=>t.id===tournamentId)?.signups||[]).includes(ownPlayerId)?'報名':'取消報名'} 會友盃：${nextTournaments.find(t=>t.id===tournamentId)?.name}`,at:new Date().toISOString()},...data.audits]};
-        setData(next);persist(next,(nextTournaments.find(t=>t.id===tournamentId)?.signups||[]).includes(ownPlayerId)?"已報名會友盃。":"已取消報名會友盃。",snapshot);
-      }}/>} 
+      {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setTournamentForm({name:"",handicapMode:"suggested",signupDeadline:`${today}T23:59`});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setTournamentForm({name:tournament.name,handicapMode:tournament.handicapMode,signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament}/>}
+      {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} tournaments={data.tournaments} provisionalGames={data.settings.provisionalGames} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecordMatch={(opponentId,date)=>newMatch("1v1",opponentId,date)} onActivity={refreshMatchmaking} onSignUpTournament={signUpTournament}/>} 
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
     </main>
@@ -1079,7 +1084,7 @@ const monthGroupLabel=(month:string)=>{
   return `${y}年${m}月`;
 };
 
-function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,setPair,highlight,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onPlayer:(player:Player)=>void;view:"history"|"calendar"|"cup";setView:(view:"history"|"calendar"|"cup")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void;highlight:string|null;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void}) {
+function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,setPair,highlight,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onPlayer:(player:Player)=>void;view:"history"|"calendar"|"cup";setView:(view:"history"|"calendar"|"cup")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void;highlight:string|null;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string)=>void}) {
   const [sortBy,setSortBy]=useState<"playedOn"|"createdAt">("playedOn");
   const [monthOpen,setMonthOpen]=useState<Record<string,boolean>>({});
   const [sortDirection,setSortDirection]=useState<"desc"|"asc">("desc");
@@ -1199,7 +1204,7 @@ function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,s
   const newestMonth=groups.reduce((latest,group)=>group.key>latest?group.key:latest,"");
   return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽記錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
     <div className="match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button><button role="tab" aria-selected={view==="cup"} className={view==="cup"?"active":""} onClick={()=>setView("cup")}>盃賽紀錄</button></div>
-    {view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament}/> : <>
+    {view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament}/> : <>
     <section className="match-filter-toolbar" aria-label="篩選及排序比賽記錄">
       <div className="match-filter-control player-control">
         <span className="match-filter-label">球員</span>
@@ -1255,12 +1260,13 @@ function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,s
     })}</div></>}</>;
 }
 
-function CupBracketView({data,selectedTournament,setSelectedTournament,canManageMatch,onEdit,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament}:{data:AppState;selectedTournament:string;setSelectedTournament:(id:string)=>void;canManageMatch:(match:Match)=>boolean;onEdit:(match:Match)=>void;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void}){
+function CupBracketView({data,selectedTournament,setSelectedTournament,canManageMatch,onEdit,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament}:{data:AppState;selectedTournament:string;setSelectedTournament:(id:string)=>void;canManageMatch:(match:Match)=>boolean;onEdit:(match:Match)=>void;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string)=>void}){
   const recentTournaments=[...data.tournaments].sort((left,right)=>right.createdAt.localeCompare(left.createdAt)).slice(0,3);
   const tournament=data.tournaments.find(item=>item.id===selectedTournament);
   const tournamentMatches=data.matches.filter(match=>match.mode==="cup"&&match.tournamentId===selectedTournament&&match.status==="confirmed");
   const deadline=tournament?.signupDeadline?new Date(`${tournament.signupDeadline.length===10?tournament.signupDeadline+"T23:59":tournament.signupDeadline}:00+08:00`):null;
   const deadlinePassed=Boolean(deadline&&!Number.isNaN(deadline.getTime())&&deadline.getTime()<=Date.now());
+  const signedUp=Boolean(ownPlayerId&&(tournament?.signups||[]).includes(ownPlayerId));
   const name=(id:string)=>data.players.find(player=>player.id===id)?.name??"待定";
   const hash=(value:string)=>{let result=2166136261;for(const character of value){result^=character.charCodeAt(0);result=Math.imul(result,16777619)}return result>>>0;};
   const draw=deadlinePassed&&tournament?[...(tournament.signups??[])].sort((left,right)=>hash(`${tournament.id}:${left}`)-hash(`${tournament.id}:${right}`) ):[];
@@ -1279,7 +1285,17 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   if(!selectedTournament)return <section className="bracket-view"><div className="bracket-header"><label>選擇盃賽<select value="" onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}</div><div className="recent-tournaments"><h3>最近盃賽</h3>{recentTournaments.length===0?<p className="mm-note">尚未建立盃賽。</p>:recentTournaments.map(item=><article className="recent-tournament-row" key={item.id}><button type="button" className="recent-tournament-open" onClick={()=>setSelectedTournament(item.id)}><span><b>{item.name}</b><small>{item.signups.length} 人報名 · 報名截止 {item.signupDeadline.replace("T"," ")}</small></span></button>{isAdmin&&controls(item)}</article>)}</div></section>;
   if(!tournament)return null;
   return <section className="bracket-view"><div className="bracket-header"><div><label>選擇盃賽<select value={selectedTournament} onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><small>{tournament.signups.length} 人報名 · 報名截止 {tournament.signupDeadline.replace("T"," ")}</small></div><div className="bracket-actions">{isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}{isAdmin&&controls(tournament)}</div></div>
-    {!deadlinePassed?<div className="bracket-body"><p className="mm-note">報名截止後會按報名名單抽籤並建立賽事對陣。</p></div>:draw.length<2?<div className="bracket-body"><p className="mm-note">報名人數不足兩人，未能建立賽事。</p></div>:<div className="cup-match-list">{Array.from({length:totalRounds},(_,roundIndex)=>{const round=roundIndex+1;const count=bracketSize/(2**round);return <section className="cup-round-list" key={round}><h3>{roundLabel(round)}</h3>{Array.from({length:count},(_,slotIndex)=>{const index=slotIndex+1,match=matchBySlot(round,index),[first,second]=participants(round,index),firstName=name(first),secondName=name(second),bye=Boolean((first&&!second)||(!first&&second)),known=Boolean(first&&second);return <article className={`cup-match-row${match?" played":""}`} key={`${round}-${index}`}><div className="cup-match-number">比賽 {index}</div><div className="cup-match-players"><b>{first?firstName:"待定"}</b><span>{match?`${match.scoreA}–${match.scoreB}`:bye?"輪空":known?"對":"等待上一場"}</span><b>{second?secondName:"待定"}</b></div><small>{match?`已完成 · ${match.playedOn}`:bye?"自動晉級下一輪":known?"可記錄賽果":"完成上一輪後顯示對手"}</small>{match&&canManageMatch(match)&&<button type="button" className="more" onClick={()=>onEdit(match)}>編輯賽果</button>}</article>})}</section>})}</div>}
+    {!deadlinePassed?<div className="bracket-body">
+      {/* Entering a cup is a competition decision, so it sits with the bracket it leads to rather
+          than in 約戰, where it competed for attention with arranging tonight's frame. */}
+      <p className="mm-note">報名截止後會按報名名單抽籤並建立賽事對陣。</p>
+      <div className="cup-signup-row">
+        <span><b>{(tournament?.signups||[]).length} 人已報名</b><small>報名截止 {tournament?.signupDeadline.replace("T"," ")}</small></span>
+        {ownPlayerId
+          ?<button type="button" className={signedUp?"secondary":"primary"} onClick={()=>onSignUpTournament(selectedTournament)}>{signedUp?"取消報名":"報名"}</button>
+          :<a className="secondary" href="/login">登入後報名</a>}
+      </div>
+    </div>:draw.length<2?<div className="bracket-body"><p className="mm-note">報名人數不足兩人，未能建立賽事。</p></div>:<div className="cup-match-list">{Array.from({length:totalRounds},(_,roundIndex)=>{const round=roundIndex+1;const count=bracketSize/(2**round);return <section className="cup-round-list" key={round}><h3>{roundLabel(round)}</h3>{Array.from({length:count},(_,slotIndex)=>{const index=slotIndex+1,match=matchBySlot(round,index),[first,second]=participants(round,index),firstName=name(first),secondName=name(second),bye=Boolean((first&&!second)||(!first&&second)),known=Boolean(first&&second);return <article className={`cup-match-row${match?" played":""}`} key={`${round}-${index}`}><div className="cup-match-number">比賽 {index}</div><div className="cup-match-players"><b>{first?firstName:"待定"}</b><span>{match?`${match.scoreA}–${match.scoreB}`:bye?"輪空":known?"對":"等待上一場"}</span><b>{second?secondName:"待定"}</b></div><small>{match?`已完成 · ${match.playedOn}`:bye?"自動晉級下一輪":known?"可記錄賽果":"完成上一輪後顯示對手"}</small>{match&&canManageMatch(match)&&<button type="button" className="more" onClick={()=>onEdit(match)}>編輯賽果</button>}</article>})}</section>})}</div>}
   </section>;
 }
 

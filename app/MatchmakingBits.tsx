@@ -8,6 +8,10 @@ import { hkClock, hkDate, hkDayLabel, type Interval, type ReliabilitySignals } f
 const range=(x:Interval)=>`${hkClock(x.startAt)}–${hkClock(x.endAt)}`;
 const day=(iso:string)=>hkDayLabel(hkDate(new Date(iso)));
 export const slotLabel=(x:Interval)=>`${day(x.startAt)} · ${range(x)}`;
+/** "今晚 19:30" rather than "8月5日(三) 19:30" for anything happening today. A member reading a
+    recommendation for tonight should not have to parse a date to notice it is tonight. */
+export const gameLabel=(x:Interval)=>
+  hkDate(new Date(x.startAt))===hkDate()?`今晚 ${range(x)}`:slotLabel(x);
 
 /** The one card header in the matchmaking tab.
  *
@@ -196,26 +200,122 @@ export function FreeNowPanel({onDone,disabled}:{onDone:(result:{offers:number;br
  * front of the screen a member actually came for. */
 
 export type IntentState={id:string;kind:"tonight"|"window"|"standby";expiresAt:string}|null;
-const INTENT_COPY:Record<"window"|"standby",{label:string;active:string}>={
-  window:{label:"呢個星期想打",active:"呢個星期想打一局"},
-  standby:{label:"有啱就得，通知我",active:"有啱就通知你"},
+
+/** The cold open. One question, then the answer immediately underneath it.
+ *
+ *  This is the whole top of the idle screen, not a strip bolted onto one — asking "想打波？" *is* the
+ *  page's job, so it gets the headline rather than a band above the real content. The two buttons
+ *  are the only navigation the screen has; everything else on it is already an answer. */
+export function IntentAsk({onPost,busy,todayLabel}:{onPost:(kind:"tonight"|"window")=>void;busy:boolean;todayLabel:string}){
+  return <section className="mm-ask" aria-label="想唔想打波">
+    <h2>想打波？</h2>
+    <p>話畀會所知，我哋即刻幫你搵夾得到嘅對手。</p>
+    <div className="mm-ask-actions">
+      <button type="button" className="primary" disabled={busy} onClick={()=>onPost("tonight")}>今晚<small>{todayLabel}</small></button>
+      <button type="button" className="secondary" disabled={busy} onClick={()=>onPost("window")}>呢個星期</button>
+    </div>
+  </section>;
+}
+
+/* --- One game, one card ----------------------------------------------------
+ *
+ * The old card opened with a rank number, an avatar and an ELO line, and put the time third. That is
+ * identity-first: it answers "who is this person" before "what am I being offered". A member is not
+ * shopping for an opponent, they want a game — so the time leads, the person qualifies it, and the
+ * reasons are the smallest thing on the card rather than a row of four chips competing for the eye.
+ *
+ * The button says what will happen ("約佢 · 今晚 7:30"), not which subsystem it calls ("邀請對局"). */
+
+export type PlayableCardKind="claim"|"keen"|"overlap";
+export type PlayableCardVM={
+  key:string; kind:PlayableCardKind; slot:Interval;
+  person:{id:string;name:string;short?:string|null;colour?:string|null;avatar?:string|null;rating?:number};
+  difference:number; venue?:string; message?:string;
+  /** At most two. Three or more stops being a reason and becomes a wall. */
+  reasons:string[];
 };
 
-export function IntentBar({intent,onPost,onWithdraw,busy}:{intent:IntentState;onPost:(kind:"window"|"standby")=>void;onWithdraw:()=>void;busy:boolean}){
-  if(intent){
-    const label=intent.kind==="tonight"?"今晚想打一局":INTENT_COPY[intent.kind as "window"|"standby"]?.active??"想打一局";
-    return <div className="intent-bar is-active" role="status">
-      <span><b>{label}</b><small>其他球員睇你時會知你想打 · 之後會自動失效</small></span>
-      <button type="button" className="secondary" disabled={busy} onClick={onWithdraw}>收回</button>
-    </div>;
-  }
-  return <div className="intent-bar">
-    <span className="intent-bar-copy"><b>依家想打波？</b><small>話俾其他球員知，佢哋揀對手時會見到。</small></span>
-    <span className="intent-bar-actions">
-      <button type="button" className="secondary" disabled={busy} onClick={()=>onPost("window")}>{INTENT_COPY.window.label}</button>
-      <button type="button" className="secondary" disabled={busy} onClick={()=>onPost("standby")}>{INTENT_COPY.standby.label}</button>
-    </span>
-  </div>;
+const KIND_TAG:Record<PlayableCardKind,string>={claim:"一撳即成 · 開咗枱",keen:"佢今晚都想打",overlap:"夾到時間"};
+
+export function PlayableCard({item,onAct,onOpen,busy,actionLabel,sent,onUndo,onCustomise}:{
+  item:PlayableCardVM; onAct:()=>void; onOpen?:(playerId:string)=>void; busy?:boolean;
+  actionLabel:string;
+  /** After a one-tap send, the card holds its place and offers the way back rather than vanishing. */
+  sent?:boolean; onUndo?:()=>void;
+  /** Picking a different time or adding a note stays available — beside the primary action, never in
+      front of it. The member who wants the old form can still have it; nobody is made to fill one. */
+  onCustomise?:()=>void;
+}){
+  const open=()=>onOpen?.(item.person.id);
+  return <article className={`mm-play is-${item.kind}${sent?" is-sent":""}`}>
+    <span className={`mm-play-tag is-${item.kind}`}>{KIND_TAG[item.kind]}</span>
+    <p className="mm-play-when">{gameLabel(item.slot)}</p>
+    <div className="mm-play-who">
+      <button type="button" className="mm-play-person" onClick={open} disabled={!onOpen}>
+        <PlayerBadge player={item.person}/>
+        <span><b>{item.person.name}</b><small>相差 {Math.round(item.difference)} ELO{item.venue?` · ${item.venue}`:""}</small></span>
+      </button>
+    </div>
+    {item.message&&<p className="mm-play-msg">{item.message}</p>}
+    {item.reasons.length>0&&!sent&&<ul className="mm-play-why">{item.reasons.slice(0,2).map(reason=>
+      <li key={reason}>{reason}</li>)}</ul>}
+    {sent
+      ?<div className="mm-play-sent" role="status">
+        <span>已送出</span>
+        {onUndo&&<button type="button" className="mm-play-undo" onClick={onUndo}>收回</button>}
+      </div>
+      :<div className="mm-play-actions">
+        <button type="button" className="primary mm-play-go" disabled={busy} aria-busy={busy} onClick={onAct}>
+          {busy&&<i className="button-spinner" aria-hidden="true"/>}<span>{actionLabel}</span>
+        </button>
+        {onCustomise&&<button type="button" className="mm-play-alt" onClick={onCustomise}>改時間／加留言</button>}
+      </div>}
+  </article>;
+}
+
+/* --- Searching -------------------------------------------------------------
+ *
+ * The state the old design gave the least room to and a member feels the most: I have done my part,
+ * and now I am waiting with no idea whether anything is happening. A collapsed one-line strip reads
+ * as "nothing here". So this says what the club actually did on their behalf, and — more importantly
+ * — offers the ways to widen the net without making the member feel they have to start over. */
+
+export function SearchingCard({asked,seen,exits,onWithdraw,busy}:{
+  asked:number; seen:number; exits:React.ReactNode; onWithdraw:()=>void; busy:boolean;
+}){
+  const progress=asked?Math.min(100,Math.round((seen/Math.max(asked,1))*100)):0;
+  return <section className="availability-card mm-card mm-searching" aria-label="搵緊對手">
+    <CardHead title="搵緊你嘅對手" hint="有人應承就即刻通知你。"/>
+    <div className="mm-searching-state">
+      <div className="mm-prog" role="img" aria-label={`${asked} 位球友收到，${seen} 位睇咗`}>
+        <i style={{width:`${Math.max(progress,asked?8:0)}%`}}/>
+      </div>
+      <p className="mm-searching-copy">
+        {asked>0
+          ?<><b>{asked} 位</b>夾得到嘅球友收到咗{seen>0&&<> · <b>{seen} 位</b>睇咗</>}</>
+          :<>已話畀會所知你想打波。</>}
+      </p>
+    </div>
+    <div className="mm-exits">{exits}</div>
+    <button type="button" className="mm-withdraw" disabled={busy} onClick={onWithdraw}>收回，暫時唔打住</button>
+  </section>;
+}
+
+/* --- Nothing matched -------------------------------------------------------
+ *
+ * An empty market is where a member decides the club is dead and stops opening the app, so it must
+ * never be only a statement of fact. Three ways out, ordered by how little they cost: the one that
+ * needs no follow-up at all, the one that is a single tap, and the one that asks for a real decision
+ * — but names the night worth picking, because "add another slot" is a chore and "add Friday, 8
+ * people are free" is a reason. */
+
+export type Exit={label:string;hint?:string;tone:"primary"|"secondary";onClick:()=>void};
+
+export function ExitList({exits}:{exits:Exit[]}){
+  return <>{exits.map(exit=>
+    <button type="button" key={exit.label} className={`mm-exit is-${exit.tone}`} onClick={exit.onClick}>
+      <b>{exit.label}</b>{exit.hint&&<small>{exit.hint}</small>}
+    </button>)}</>;
 }
 
 /* --- The response queue --------------------------------------------------- */
