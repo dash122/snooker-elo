@@ -71,3 +71,17 @@ export function offerMatched(other:string,slot:Interval,venue?:string|null):Noti
 export function followUpDue(other:string,slot:Interval):NotificationMessage {
   return {channel:"result",title:"你哋打咗未？",body:`${when(slot)} 同 ${other} 嘅對局 — 記低賽果先計 ELO。`,tag:`result:${other}`,urgency:"low"};
 }
+
+/** 「佢開局通知我」 firing: one push per post, to everyone watching that member, never naming who
+    else is watching. Reuses the `openCall` channel — a posted slot is the same kind of "somebody
+    opened a table" news an open call already sends, so this does not need its own preference toggle. */
+export function slotWatcherPosted(by:string,slot:Interval,venue?:string|null):NotificationMessage {
+  return {channel:"openCall",title:`${by} 開咗局`,body:withVenue(`${when(slot)} · 你早前話想知`,venue),tag:`slot-watch:${by}`,urgency:urgencyFor(slot),ttl:untilSlot(slot)};
+}
+
+/** A slot has a filler — first-hand-wins landed, or the poster picked. Reuses the `offer` channel:
+    like a mutual offer, this is the club telling both sides a game now exists, not one member
+    telling the other. */
+export function slotFilled(other:string,slot:Interval,venue?:string|null):NotificationMessage {
+  return {channel:"offer",title:`同 ${other} 夾到今晚呢局`,body:withVenue(`${when(slot)} · 撳入去交換聯絡方法`,venue),tag:`slot:${other}`,urgency:urgencyFor(slot),ttl:untilSlot(slot)};
+}

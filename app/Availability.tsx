@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
-import {Sessions} from "./Sessions";
+import {Slots} from "./Slots";
 import {CounterSheet,NotificationPrefsPanel,PushOptIn,RecurrenceEditor,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type QueueItem,type RecurrenceRule,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
 import {addDaysHongKong,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOffers,rankOpponents,screenState,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type IntentSignal,type RankedOpponent,type MutualOffer,type ReliabilitySignals} from "../lib/availability";
@@ -793,19 +793,17 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     replaced four separate controls that all declared the same intent and three cards that all said
     nobody was free — the union of two designs, which is always worse than either.
 
-    The market strip inside `Sessions` (「大家都想打」) is what shows other members now — everyone's
-    open time, unranked, always visible including on the cold open. That is a deliberate departure
-    from 原則 02 for a club this small: a thin club needs to look alive before it can afford to be
-    choosy about what it recommends. The Room's own board (ranked, grouped, built on `match_intents`)
-    is retired from this flow — nothing in the sessions model writes an intent any more, so it would
-    only ever show empty. The raw per-day grid stays reachable as the last-resort, fully-manual view
-    underneath. */}
-{state!=="owed"&&<Sessions signedIn={Boolean(userPlayerId)} invitingId={sendingInvite?inviteFor:null}
-  onInvite={(opponentId,slot)=>void quickAsk({key:`ses:${opponentId}`,opponentId,slot})}
-  onCustomise={(opponentId,slot)=>openInviteSheet(opponentId,slot)}
+    `Slots` replaces `Sessions` as of the 開局卡 redesign: instead of the system proposing a best
+    opponent to invite, a member posts a slot — with a fill rule and conditions decided up front —
+    and the club raises hands on it. No name is ever read off a public list before a slot is filled,
+    which is the whole point: raising a hand costs nothing, and confirming one does not mean reading
+    past the others. The board inside `Slots` (「大家開緊嘅局」) plays the same role the old market
+    strip did for a club this size: always visible, unranked, proof the club is alive, including on
+    the cold open. The Room's own board (ranked, grouped, built on `match_intents`) stays retired for
+    the same reason it always was. The raw per-day grid stays reachable as the last-resort,
+    fully-manual view underneath. */}
+{state!=="owed"&&<Slots signedIn={Boolean(userPlayerId)}
   onRecord={(opponentId,playedOn)=>onRecordMatch?.(opponentId,playedOn)}
-  onWatch={()=>void postIntentAction("standby")}
-  onClaim={id=>void claimCall(id)} claimingCallId={claimingCallId}
   onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>}
 
 {userPlayerId&&<section className="availability-card mm-card">
