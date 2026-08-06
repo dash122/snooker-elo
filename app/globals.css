@@ -3700,3 +3700,91 @@ input,select,textarea{font-size:var(--fs-body)}
 .ses-alt-copy b{display:block;font-size:.83rem}
 .ses-alt-copy small{display:block;font-size:.72rem;color:var(--muted);margin-top:1px}
 .ses-alt-list button{min-height:32px;padding:0 12px;border-radius:9px;font-size:.75rem;flex:none}
+
+/* --- 開局卡 · Slots ---------------------------------------------------------
+   One primitive replaces four. `.sl-demand` is the banner that turns hidden
+   want into a reason to post; `.sl-mine` cards carry a poster's own posts,
+   `.sl-hands-tray` the hands they have raised elsewhere, `.sl-board` the rest
+   of the club's open posts — never with a hand count attached. */
+.sl-demand{display:grid;gap:9px}
+.sl-demand>p{margin:0;font-size:.9rem}
+.btn-row{display:flex;gap:9px;flex-wrap:wrap}
+.btn-row button{min-height:44px;border-radius:12px;font-size:.85rem;flex:1 1 auto}
+.sl-muted{margin:4px 0 0;font-size:.78rem;color:var(--muted)}
+.sl-kick{margin:0 0 8px;font-size:.68rem;font-weight:800;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--gold);filter:brightness(.72)}
+
+.sl-field{margin-top:14px}
+.sl-label{display:block;font-size:.72rem;font-weight:700;color:var(--muted);margin-bottom:7px}
+.sl-hint{margin:7px 0 0;font-size:.76rem;color:var(--muted)}
+
+.sl-chips{display:flex;flex-wrap:wrap;gap:6px}
+.sl-chips-compact{width:100%;margin-top:3px}
+.sl-chip{border:1px solid var(--line);background:#fbfaf8;color:var(--muted);border-radius:20px;
+  padding:6px 12px;font-size:.76rem;font-weight:600}
+button.sl-chip{min-height:34px}
+button.sl-chip.on{background:#12403a;color:#e6efe9;border-color:#12403a}
+span.sl-chip{padding:4px 10px;font-size:.72rem}
+.sl-chips-compact i{font-style:normal;background:transparent;border:1px solid var(--line);
+  color:var(--muted);border-radius:20px;padding:2px 8px;font-size:.68rem;margin-right:4px;display:inline-block}
+
+/* The fill-rule segmented control, reusing the same shape as the "幾時得閒" control in The Room. */
+.sl-composer .seg{display:grid;grid-auto-flow:column;gap:4px;background:#f1f0ea;padding:3px;
+  border-radius:11px;margin-top:2px}
+.sl-composer .seg span{text-align:center;font-size:.78rem;padding:9px 6px;border-radius:9px;
+  color:var(--muted);cursor:pointer}
+.sl-composer .seg span.on{background:#fff;color:var(--ink);font-weight:700;box-shadow:var(--shadow)}
+
+/* Board rows — every other member's open post, no hand count attached. */
+.sl-board{margin-top:14px}
+.sl-list{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+.sl-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--line);
+  border-radius:13px;background:#fbfaf8}
+.sl-row-copy{flex:1 1 auto;min-width:0}
+.sl-row-copy b{display:block;font-size:.86rem}
+.sl-row-copy small{display:block;font-size:.72rem;color:var(--muted);margin-top:1px}
+.sl-row button{min-height:38px;padding:0 14px;border-radius:10px;font-size:.78rem;flex:none}
+
+/* A poster's own slot. */
+.sl-mine{margin-top:0}
+.sl-hands{display:grid;gap:7px;padding:9px;background:#f1f0ea;border-radius:11px;margin-bottom:11px}
+.sl-hands .hand{display:flex;align-items:center;gap:9px}
+.sl-hands .hand .grow{flex:1 1 auto;min-width:0}
+.sl-hands .hand b{display:block;font-size:.83rem}
+.sl-hands .hand small{display:block;font-size:.72rem;color:var(--muted)}
+.sl-hands .hand .mini{min-height:32px;padding:0 12px;border-radius:9px;font-size:.75rem;
+  background:var(--green);color:#fff;border:0;font-weight:700}
+
+/* The hand-off card — what a filled slot becomes once the app's job is done. */
+.sl-handoff{display:grid;gap:9px;margin-top:9px}
+.sl-who{display:flex;align-items:center;gap:11px}
+.sl-who b{display:block;font-size:1rem}
+.sl-who small{display:block;font-size:.75rem;color:var(--muted);margin-top:1px}
+.sl-meta{display:flex;gap:9px;font-size:.8rem;color:var(--muted)}
+.sl-handoff a.primary{display:block;text-align:center;text-decoration:none;min-height:46px;
+  line-height:46px;border-radius:13px;font-weight:700}
+.sl-handoff button.secondary.full{min-height:40px;border-radius:11px;font-size:.8rem}
+
+.sl-hands-tray{margin-top:14px}
+.sl-mine-hand{border-top:1px solid var(--line);padding-top:11px;margin-top:11px}
+.sl-mine-hand:first-of-type{border-top:0;padding-top:0;margin-top:0}
+
+/* The share page behind a link — readable without an account. */
+.share-page{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--cream)}
+.share-card{width:min(420px,100%);background:var(--paper);border:1px solid var(--line);
+  border-radius:20px;padding:26px;box-shadow:var(--shadow)}
+.share-kicker{text-transform:uppercase;letter-spacing:.14em;color:#a97828;font-size:.68rem;
+  font-weight:800;margin:0 0 10px}
+.share-card h1{margin:8px 0 12px;font-size:1.4rem;letter-spacing:-.01em}
+.share-who{display:flex;align-items:center;gap:11px;margin-bottom:4px}
+.share-who b{display:block;font-size:1rem}
+.share-who small{display:block;font-size:.75rem;color:var(--muted)}
+.share-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.share-chip{border:1px solid var(--line);background:#fbfaf8;color:var(--muted);border-radius:20px;
+  padding:4px 10px;font-size:.72rem}
+.share-cta{display:block;text-align:center;text-decoration:none;min-height:48px;line-height:48px;
+  border-radius:14px;font-weight:700;margin-top:6px}
+.share-note{margin:10px 0 0;font-size:.76rem;color:var(--muted)}
+.share-error{margin:10px 0 0;font-size:.8rem;color:var(--red)}
+.share-done{margin:12px 0 0;font-size:.88rem;color:#188056;font-weight:700}
+.share-foot{margin:22px 0 0;font-size:.68rem;color:var(--muted);text-align:center}
