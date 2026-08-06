@@ -39,11 +39,14 @@ async function ensureSchema(){
     /* Accepting is a state on the hand rather than a column on the slot, which is what lets a slot
        hold several accepted people at once. `availability_slots.filled_by` is kept in step with the
        *first* one so every surface that already understands a filled slot — status, hand-off card,
-       result prompt — keeps working untouched. */
+       result prompt — keeps working untouched.
+
+       `availability_slots.closed_at` is not added here even though this module is the only writer:
+       it is read and indexed by `db/availability.pg.ts`, so it is created by that module's own
+       bootstrap (which `ensureAvailabilitySchema` above has already run). */
     await sql.begin(async tx=>{
       await tx`SET LOCAL lock_timeout = '4s'`;
       await tx`ALTER TABLE slot_hands ADD COLUMN IF NOT EXISTS accepted_at timestamptz`;
-      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS closed_at timestamptz`;
     });
     /* One active hand per player per slot — raising twice is a no-op, not a stronger claim. */
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS slot_hands_active_idx ON slot_hands (slot_id,player_id) WHERE retracted_at IS NULL`;
