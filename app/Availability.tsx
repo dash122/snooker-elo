@@ -780,7 +780,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   owed:queueItems.length,upcoming:confirmedMatches.length,intent:myIntent,pendingAsks,
  }),[queueItems.length,confirmedMatches.length,myIntent,pendingAsks]);
  return <section className="availability-page">
-<section className="hero small availability-hero"><div><p className="kicker">MATCHMAKING</p><h1>約一局</h1><p>話畀我哋知你幾時想打，我哋幫你搵夾得到嘅對手。</p></div></section>
+<section className="hero small availability-hero"><div><p className="kicker">SCAA MATCHMAKING</p><h1>約戰</h1><p>搵一場啱你嘅球局，或者開一場等人加入。</p></div></section>
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
 {!editor&&<>
 {/* STATE · OWED — somebody is waiting on this member. Nothing else belongs on screen: everything
@@ -802,7 +802,8 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     the cold open. The Room's own board (ranked, grouped, built on `match_intents`) stays retired for
     the same reason it always was. The raw per-day grid stays reachable as the last-resort,
     fully-manual view underneath. */}
-{state!=="owed"&&<Slots signedIn={Boolean(userPlayerId)}
+{state!=="owed"&&<Slots signedIn={Boolean(userPlayerId)} availabilityCount={own.length} availability={own}
+  onManageAvailability={()=>nav(own.length?"manage":"create")}
   onRecord={(opponentId,playedOn)=>onRecordMatch?.(opponentId,playedOn)}
   onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>}
 
