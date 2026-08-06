@@ -1,0 +1,835 @@
+<title>開局 — SCAA 約戰體驗設計提案</title>
+
+<style>
+:root{
+  --baize:#1D5B45; --baize-soft:#E2EDE7; --chalk:#2F6D9E; --chalk-soft:#E3EDF5;
+  --brass:#9A7024; --brass-soft:#F2EADA; --flag:#A8443C; --flag-soft:#F6E4E1;
+  --ink:#111917; --ink-2:#3B4744; --ink-3:#6A7671;
+  --paper:#F4F5F2; --card:#FFFFFF; --sunk:#EBEDE8; --line:#DBDFD8;
+  --frame:#1A2320; --screen:#FBFBF9;
+  --shadow:0 1px 2px rgba(17,25,23,.05), 0 10px 30px -20px rgba(17,25,23,.5);
+  --display:"Songti TC","Noto Serif CJK TC","Source Han Serif TC",Georgia,"Times New Roman",serif;
+  --body:"PingFang TC","Noto Sans CJK TC","Microsoft JhengHei",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --baize:#5CBF9B; --baize-soft:#16302722; --chalk:#7FB8E4; --chalk-soft:#1A2C3A;
+    --brass:#C9A059; --brass-soft:#2C2517; --flag:#D9827A; --flag-soft:#33201E;
+    --ink:#E8EDEA; --ink-2:#AFBAB6; --ink-3:#7D8985;
+    --paper:#0D1211; --card:#151C1A; --sunk:#1B2321; --line:#2A3431;
+    --frame:#000; --screen:#111716;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -20px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="light"]{
+  --baize:#1D5B45; --baize-soft:#E2EDE7; --chalk:#2F6D9E; --chalk-soft:#E3EDF5;
+  --brass:#9A7024; --brass-soft:#F2EADA; --flag:#A8443C; --flag-soft:#F6E4E1;
+  --ink:#111917; --ink-2:#3B4744; --ink-3:#6A7671;
+  --paper:#F4F5F2; --card:#FFFFFF; --sunk:#EBEDE8; --line:#DBDFD8;
+  --frame:#1A2320; --screen:#FBFBF9;
+  --shadow:0 1px 2px rgba(17,25,23,.05), 0 10px 30px -20px rgba(17,25,23,.5);
+}
+:root[data-theme="dark"]{
+  --baize:#5CBF9B; --baize-soft:#163027; --chalk:#7FB8E4; --chalk-soft:#1A2C3A;
+  --brass:#C9A059; --brass-soft:#2C2517; --flag:#D9827A; --flag-soft:#33201E;
+  --ink:#E8EDEA; --ink-2:#AFBAB6; --ink-3:#7D8985;
+  --paper:#0D1211; --card:#151C1A; --sunk:#1B2321; --line:#2A3431;
+  --frame:#000; --screen:#111716;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -20px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);
+  font-size:16.5px;line-height:1.72;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 clamp(18px,4vw,40px)}
+.col{max-width:68ch;margin-inline:auto}
+h1,h2,h3,h4{font-family:var(--display);font-weight:600;text-wrap:balance;line-height:1.25;margin:0}
+p{margin:0}
+a{color:var(--baize)}
+b,strong{font-weight:650}
+:where(a,button,summary):focus-visible{outline:2px solid var(--chalk);outline-offset:3px;border-radius:4px}
+
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-3);margin:0}
+
+/* ---- hero ---- */
+.hero{border-bottom:1px solid var(--line);background:
+  radial-gradient(120% 90% at 80% -10%, var(--baize-soft) 0%, transparent 60%);}
+.hero-in{padding:clamp(56px,9vw,110px) 0 clamp(40px,6vw,72px);display:grid;gap:26px}
+.hero h1{font-size:clamp(38px,7vw,74px);letter-spacing:-.01em}
+.hero h1 em{font-style:normal;color:var(--baize)}
+.hero .lede{font-size:clamp(17px,2.1vw,21px);color:var(--ink-2);max-width:56ch}
+.hero-meta{display:flex;flex-wrap:wrap;gap:10px 26px;padding-top:6px;border-top:1px solid var(--line);
+  font-family:var(--mono);font-size:12px;color:var(--ink-3);letter-spacing:.04em}
+
+/* ---- sections ---- */
+section{padding:clamp(48px,7vw,88px) 0;border-bottom:1px solid var(--line)}
+.sec-head{display:grid;gap:12px;margin-bottom:34px}
+.sec-head h2{font-size:clamp(26px,3.6vw,38px)}
+.sec-head .sub{color:var(--ink-2);max-width:62ch}
+.stack{display:grid;gap:20px}
+.stack p{color:var(--ink-2)}
+
+/* ---- generic cards ---- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 24px;
+  box-shadow:var(--shadow)}
+.grid{display:grid;gap:16px}
+@media(min-width:760px){.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:repeat(3,1fr)}}
+
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.card h3{font-size:19px;margin:8px 0 8px}
+.card p{color:var(--ink-2);font-size:15.5px}
+
+/* critique blocks */
+.crit{display:grid;gap:14px;border-left:3px solid var(--flag);padding:4px 0 4px 20px}
+.crit .claim{font-family:var(--display);font-size:18px}
+.crit .claim span{color:var(--ink-3);font-family:var(--mono);font-size:11px;
+  letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:4px}
+.crit .fix{color:var(--ink-2);font-size:15.5px}
+.crit .fix b{color:var(--baize)}
+.crit-list{display:grid;gap:30px}
+
+/* table */
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);
+  border-radius:12px;background:var(--card);box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;min-width:720px;font-size:14.5px}
+th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);background:var(--sunk);font-weight:500;white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td b{color:var(--ink)}
+td small{color:var(--ink-3);display:block;font-size:12.5px;line-height:1.5}
+.num{font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:13px}
+.pri{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-family:var(--mono);
+  letter-spacing:.06em;white-space:nowrap}
+.pri.core{background:var(--baize-soft);color:var(--baize)}
+.pri.liq{background:var(--chalk-soft);color:var(--chalk)}
+.pri.low{background:var(--sunk);color:var(--ink-3)}
+
+/* ---- phone mockups ---- */
+.rail{display:flex;gap:24px;overflow-x:auto;padding:6px 4px 22px;scroll-snap-type:x mandatory;
+  -webkit-overflow-scrolling:touch}
+.rail::-webkit-scrollbar{height:8px}
+.rail::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+.shot{scroll-snap-align:start;flex:0 0 auto;width:296px;display:grid;gap:12px;align-content:start}
+.shot-cap{display:grid;gap:4px}
+.shot-cap .n{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--baize)}
+.shot-cap h4{font-size:16px}
+.shot-cap p{font-size:13.5px;color:var(--ink-3);line-height:1.55}
+
+.phone{width:296px;border-radius:30px;background:var(--frame);padding:9px;box-shadow:var(--shadow)}
+.screen{background:var(--screen);border-radius:23px;overflow:hidden;font-size:13px;line-height:1.5;
+  min-height:560px;display:flex;flex-direction:column}
+.statusbar{display:flex;justify-content:space-between;padding:9px 16px 3px;font-family:var(--mono);
+  font-size:10px;color:var(--ink-3)}
+.navbar{display:flex;align-items:center;justify-content:space-between;padding:6px 16px 12px;
+  border-bottom:1px solid var(--line)}
+.navbar .t{font-family:var(--display);font-size:17px;font-weight:600}
+.navbar .r{font-size:12px;color:var(--baize)}
+.body-s{padding:14px 14px 18px;display:grid;gap:12px;flex:1;align-content:start}
+.body-s.tight{gap:9px}
+
+.s-card{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:12px;display:grid;gap:8px}
+.s-card.hi{border-color:var(--baize);box-shadow:0 0 0 1px var(--baize) inset}
+.s-card.mine{background:var(--baize-soft);border-color:transparent}
+.row{display:flex;align-items:center;gap:9px}
+.row.sb{justify-content:space-between}
+.av{width:28px;height:28px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;
+  font-size:11px;font-weight:650;color:#fff;font-family:var(--mono)}
+.av.a{background:#2F6D9E}.av.b{background:#1D5B45}.av.c{background:#9A7024}.av.d{background:#7A4E86}
+.av.e{background:#A8443C}.av.f{background:#3E6B5C}
+.av.stack2{margin-left:-12px;box-shadow:0 0 0 2px var(--screen)}
+.nm{font-weight:650;font-size:13.5px}
+.mut{color:var(--ink-3);font-size:11.5px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.when{font-family:var(--mono);font-size:12px;color:var(--ink-2);letter-spacing:.01em}
+
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font-size:11px;padding:3px 8px;border-radius:999px;background:var(--sunk);color:var(--ink-2);
+  border:1px solid transparent;white-space:nowrap}
+.chip.on{background:var(--baize);color:#fff}
+.chip.out{background:transparent;border-color:var(--line);color:var(--ink-3)}
+.chip.warn{background:var(--brass-soft);color:var(--brass)}
+.chip.blue{background:var(--chalk-soft);color:var(--chalk)}
+
+.btn{display:block;width:100%;text-align:center;padding:10px;border-radius:9px;font-size:13.5px;
+  font-weight:650;border:1px solid transparent}
+.btn.p{background:var(--baize);color:#fff}
+.btn.s{background:transparent;border-color:var(--line);color:var(--ink)}
+.btn.g{background:var(--sunk);color:var(--ink-2)}
+.btn.q{background:transparent;color:var(--ink-3);font-weight:400;font-size:12.5px;padding:6px}
+.btn-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+.sect-lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);padding-top:4px}
+.hands{display:grid;gap:7px;padding:9px;background:var(--sunk);border-radius:9px}
+.hand{display:flex;align-items:center;gap:8px}
+.hand .grow{flex:1;min-width:0}
+.mini{font-size:11px;padding:5px 10px;border-radius:7px;background:var(--baize);color:#fff;font-weight:650;
+  white-space:nowrap}
+.mini.s{background:transparent;border:1px solid var(--line);color:var(--ink-2);font-weight:400}
+.sheet{margin-top:auto;background:var(--card);border-top:1px solid var(--line);border-radius:16px 16px 0 0;
+  padding:14px;display:grid;gap:11px;box-shadow:0 -14px 30px -22px rgba(0,0,0,.6)}
+.sheet .grab{width:34px;height:4px;border-radius:9px;background:var(--line);margin:0 auto}
+.field{display:grid;gap:6px}
+.field .lb{font-size:11.5px;color:var(--ink-3)}
+.seg{display:grid;grid-auto-flow:column;gap:4px;background:var(--sunk);padding:3px;border-radius:9px}
+.seg span{text-align:center;font-size:12px;padding:6px 4px;border-radius:7px;color:var(--ink-2)}
+.seg span.on{background:var(--card);color:var(--ink);font-weight:650;box-shadow:var(--shadow)}
+.push{border:1px solid var(--line);background:var(--card);border-radius:11px;padding:10px 11px;display:grid;gap:3px}
+.push .ap{font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--ink-3);
+  display:flex;justify-content:space-between}
+.push .h{font-weight:650;font-size:13px}
+.push .b2{font-size:12px;color:var(--ink-2)}
+.wa{background:#0b141a;border-radius:11px;padding:11px;display:grid;gap:8px}
+.wa .bub{background:#005c4b;color:#e9edef;border-radius:9px 9px 2px 9px;padding:9px 10px;font-size:12px;
+  display:grid;gap:6px;justify-self:end;max-width:94%}
+.wa .prev{background:#0a463a;border-radius:6px;padding:8px;display:grid;gap:3px}
+.wa .prev .t{font-weight:650;font-size:12px}
+.wa .prev .d{font-size:11px;color:#a8c4bb}
+.wa .time{font-size:9px;color:#8fa9a1;text-align:right;font-family:var(--mono)}
+.empty{text-align:center;padding:14px;display:grid;gap:6px;color:var(--ink-3);font-size:12px}
+.timer{font-family:var(--mono);font-size:11px;color:var(--brass)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--baize);flex:0 0 auto}
+.dot.amber{background:var(--brass)}
+.bar{height:4px;border-radius:9px;background:var(--sunk);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--baize)}
+
+/* flow diagram */
+.flow{display:grid;gap:0;counter-reset:step}
+.step{display:grid;grid-template-columns:auto 1fr;gap:0 20px}
+.step .gut{display:grid;justify-items:center;gap:0}
+.step .pip{width:30px;height:30px;border-radius:50%;background:var(--baize);color:#fff;display:grid;
+  place-items:center;font-family:var(--mono);font-size:12px;margin-top:3px}
+.step .line{width:2px;flex:1;background:var(--line);min-height:100%;justify-self:center}
+.step .gut{grid-template-rows:auto 1fr}
+.step:last-child .line{background:transparent}
+.step .content{padding-bottom:26px;display:grid;gap:6px}
+.step h4{font-size:17px}
+.step p{color:var(--ink-2);font-size:15px}
+.step .old{font-size:13.5px;color:var(--ink-3);border-left:2px solid var(--line);padding-left:12px}
+.step .old b{color:var(--flag);font-weight:600}
+
+.ledger{display:grid;gap:2px}
+.ledger .r2{display:grid;grid-template-columns:1fr 1fr;gap:2px}
+@media(max-width:700px){.ledger .r2{grid-template-columns:1fr}}
+.ledger .cell{padding:14px 16px;background:var(--card);border:1px solid var(--line)}
+.ledger .cell.was{background:var(--sunk);color:var(--ink-3)}
+.ledger .cell .h{font-size:11px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:6px}
+.ledger .cell p{font-size:14.5px;color:inherit}
+.ledger .cell.now p{color:var(--ink-2)}
+.ledger .cell.now b{color:var(--baize)}
+
+.metric-grid{display:grid;gap:14px}
+@media(min-width:700px){.metric-grid{grid-template-columns:repeat(3,1fr)}}
+.metric{border-top:2px solid var(--baize);padding-top:12px;display:grid;gap:4px}
+.metric .v{font-family:var(--mono);font-size:13px;color:var(--baize);letter-spacing:.04em}
+.metric .n{font-weight:650;font-size:15px}
+.metric p{font-size:13.5px;color:var(--ink-3)}
+
+.phase{display:grid;gap:10px}
+.phase .tag{font-family:var(--mono);font-size:11px;letter-spacing:.1em;padding:3px 9px;border-radius:999px;
+  justify-self:start}
+.phase.p0 .tag{background:var(--baize);color:#fff}
+.phase.p1 .tag{background:var(--chalk-soft);color:var(--chalk)}
+.phase.p2 .tag{background:var(--sunk);color:var(--ink-3)}
+.phase ul{margin:0;padding-left:18px;display:grid;gap:6px;color:var(--ink-2);font-size:14.5px}
+.phase code{font-family:var(--mono);font-size:12.5px;background:var(--sunk);padding:1px 5px;border-radius:4px;
+  color:var(--ink-2)}
+
+footer{padding:50px 0 70px;color:var(--ink-3);font-size:14px}
+footer .col{display:grid;gap:8px}
+@media (prefers-reduced-motion:no-preference){
+  .shot{transition:transform .2s ease}
+}
+</style>
+
+<header class="hero">
+  <div class="wrap hero-in">
+    <p class="eyebrow">SCAA Snooker · 約戰體驗設計提案</p>
+    <h1>唔使問邊個<br>先開得成一局<em>。</em></h1>
+    <p class="lede">今日嘅約戰要你先揀一個人、再開口、再等佢覆。呢個提案將所有 persona 收埋喺同一個物件度：<b>一張開局卡</b>。你放低你嘅時段，其他人舉手，你確認。冇 1:1 承諾包袱，冇尷尬開口，一撳就可以分享落 WhatsApp 群。</p>
+    <div class="hero-meta">
+      <span>核心概念 · 開局卡</span><span>7 個畫面</span><span>6 個 persona，一個功能</span><span>北極星 · 每月成局數</span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap col stack">
+    <p class="eyebrow">先講結論</p>
+    <h2>Deck 揀咗一條啱嘅路，但止步喺最重嗰一步。</h2>
+    <p>份 deck 對用戶分層、社交許可、意圖失效嘅睇法都好準，App 而家亦已經做到 The Room、場次卡、讓分建議。問題喺個旅程嘅終點：<b>所有路最後都收窄成「邀請一個人」</b>。而邀請係整條流程入面承諾最重、最難撤回、最怕失禮嘅動作 —— deck 將佢當成解決方案，但佢本身就係最後一個障礙。</p>
+    <p>用戶真正嘅分別唔係「想打波」定「想進步」，而係<b>對「鎖死一個對手」呢件事有幾大抗拒</b>。有人只想有波打，邊個都得，但唔想承諾住一個人（驚遲到、驚臨時甩底、驚拒絕人）。有人相反，佢好清楚要咩：要讓分、要無煙、要短局。呢兩種人今日都卡喺同一個位 —— <b>App 逼你由「揀人」開始</b>。</p>
+    <p>所以提案唔係加多幾個 persona 功能，而係換走個起點：<b>由「揀人」變成「放時段」</b>。放低時段係零社交成本嘅動作；舉手係零承諾嘅動作；確認先至係承諾，而且到嗰陣已經係雙方都表達過意願。條件（讓分／無煙／水平）唔係另一個功能，只係同一張卡上面嘅幾粒 chip。</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col sec-head">
+      <p class="eyebrow">Deck 批評</p>
+      <h2>七個要調整嘅假設</h2>
+      <p class="sub">逐點對應返 deck 入面嘅原話，同建議點改。</p>
+    </div>
+    <div class="col crit-list">
+
+      <div class="crit">
+        <p class="claim"><span>Deck p.18 「放心邀請」</span>邀請被當成流程終點</p>
+        <p class="fix">邀請 = 一對一、獨佔、要對方明確拒絕先完。對開局者嚟講係「我押咗個 yes 落一個人身上」，對收到嘅人嚟講係「我要為呢個人負責」。<b>改成舉手：非獨佔、可以多人同時舉、隨時收返。</b>承諾延後到雙方都表達過意願先發生。</p>
+      </div>
+
+      <div class="crit">
+        <p class="claim"><span>Deck p.20 「令『唔得』唔再針對個人」</span>只處理咗被拒絕，冇處理承諾焦慮</p>
+        <p class="fix">Deck 講嘅係「怕被拒絕」。但更常令人唔撳掣嘅係<b>怕自己做唔到</b> —— 驚加班、驚遲到、驚臨時要甩底累人。改期 (p.17 原則 04) 唔夠：要有<b>後補隊列、自動補位、一撳「我遲 15 分鐘」</b>，令甩底唔會殺死成局波。</p>
+      </div>
+
+      <div class="crit">
+        <p class="claim"><span>Deck p.22 「最多三張推薦卡」</span>細會所唔可以收埋個市場</p>
+        <p class="fix">三張卡喺一個幾十人嘅球會會令人覺得冇人用。<b>永遠顯示全部開局</b>，排名決定次序，唔決定名單 —— 呢點現有 <code>Room.tsx</code> 已經行緊，提案保留並擴大。</p>
+      </div>
+
+      <div class="crit">
+        <p class="claim"><span>Deck p.22 「公開陌生人市場 · 停止」</span>會所本身就係信任邊界</p>
+        <p class="fix">要停嘅係「對外開放畀陌生人」，唔係「對會員公開」。<b>會內公開市場正正係機會型球員唯一會用嘅入口</b> —— 佢唔會維護日曆，亦唔會主動寫邀請訊息，但會撳一下已經放咗喺度嘅局。</p>
+      </div>
+
+      <div class="crit">
+        <p class="claim"><span>Deck 全份</span>完全冇提對局條件（讓分／無煙／局數）</p>
+        <p class="fix">Deck 淨係用 ELO 同時間去配對。但真實會所入面「只打讓分」「一定要無煙」「淨係打 15 紅」係<b>硬條件</b>，唔啱就唔會出現。冇咗呢層，推薦會準確噉推介一啲根本唔會成事嘅人。<b>條件要做成開局卡上嘅 chip：開局者寫要求，舉手者一眼睇到自己啱唔啱。</b></p>
+      </div>
+
+      <div class="crit">
+        <p class="claim"><span>Deck p.15 「比 WhatsApp 更低社交成本」</span>WhatsApp 係渠道，唔係對手</p>
+        <p class="fix">球會嘅人流住喺 WhatsApp 群。同佢對打只會令 App 好難冷啟動。<b>將分享做成一級功能</b>：開完局一撳，貼一張帶連結嘅卡入群，群友唔使開 App 都睇到，撳入去就舉到手。WhatsApp 負責覆蓋率，App 負責成局。</p>
+      </div>
+
+      <div class="crit">
+        <p class="claim"><span>Deck p.05–p.12 Persona 分層</span>分層啱，但唔可以變成分功能</p>
+        <p class="fix">六個 persona 好易變成六忽 UI。<b>一個物件，唔同預設值</b>：機會型入嚟見到嘅係「今晚得閒」一粒掣（自動幫佢開一張最寬鬆嘅局），條件型見到嘅係同一張卡展開咗條件，新會員見到嘅係人哋張卡上面嘅「舉手」。三個人用緊同一個 schema。</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col sec-head">
+      <p class="eyebrow">Persona · JTBD · 張力</p>
+      <h2>六種人，同一張卡</h2>
+      <p class="sub">最右一欄係關鍵：每個 persona 唔係要新功能，只係開局卡嘅一個唔同入口或者預設值。</p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>Persona</th><th>JTBD（佢想完成嘅事）</th><th>今日嘅張力</th><th>優先</th><th>喺開局卡入面點體現</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td><b>阿聰</b><small>進步型 · 缺約戰網絡</small></td>
+            <td>當我想練波嘅時候，幫我搵一個實力啱、真係會出現嘅對手，唔使我逐個問。</td>
+            <td>知道邊個勁，但唔敢開口；驚實力唔對等、驚人哋唔想同佢打。</td>
+            <td><span class="pri core">核心</span></td>
+            <td>開局後見到<b>舉手嘅人 + 系統建議讓分</b>，佢由「開口求人」變成「喺舉咗手嘅人入面揀」。</td>
+          </tr>
+          <tr>
+            <td><b>Jason</b><small>機會型 · 有局就打</small></td>
+            <td>當我今晚突然得閒，畀我 10 秒內知道有冇波打，冇就唔好煩我。</td>
+            <td>唔會維護日曆、唔會寫邀請；一多過兩步就走咗。</td>
+            <td><span class="pri liq">流動性</span></td>
+            <td><b>「今晚得閒」一粒掣</b> = 開一張最寬鬆、兩個鐘後自動失效嘅開局卡。同一個物件，零填表。</td>
+          </tr>
+          <tr>
+            <td><b>Amy</b><small>新會員 · 社交保守</small></td>
+            <td>畀我一個唔尷尬嘅方法打第一局，最好唔使我主動搵人。</td>
+            <td>唔識人、唔知邊個好講話、驚打擾熟客圈。</td>
+            <td><span class="pri core">次核心</span></td>
+            <td><b>舉手</b>係佢唯一需要嘅動作 —— 對方已經公開講咗想搵人，舉手唔算打擾，被略過亦唔算被拒絕。</td>
+          </tr>
+          <tr>
+            <td><b>阿強</b><small>條件型 · 只打特定局</small></td>
+            <td>幫我搵到肯讓分／無煙／打短局嘅對手，唔啱嘅唔好嚟。</td>
+            <td>要喺群組打長段字解釋要求，講完可能都冇人啱，好嘥氣。</td>
+            <td><span class="pri core">核心</span></td>
+            <td><b>條件 chip</b>寫一次，之後每次開局沿用；唔啱條件嘅人見到卡上面直接標示「同你嘅設定唔夾」。</td>
+          </tr>
+          <tr>
+            <td><b>Uncle Ming</b><small>搞手 · 中間人</small></td>
+            <td>幫我一次過為班兄弟開幾張局，慳返我喺群組度逐個問。</td>
+            <td>而家全人手協調，佢一唔在線，配對就停。</td>
+            <td><span class="pri liq">推動者</span></td>
+            <td><b>分享落 WhatsApp</b> + 幫人開種子局。佢由「協調員」變成「發起人」，之後嘅來回由 App 接手。</td>
+          </tr>
+          <tr>
+            <td><b>Peter</b><small>傳統型 · 人脈充足</small></td>
+            <td>我約波冇問題，我只想記低賽果同睇返 ELO。</td>
+            <td>基本上冇約戰痛點。</td>
+            <td><span class="pri low">低優先</span></td>
+            <td>唔為佢優化。但佢開嘅局係<b>供應</b>，所以分享同記錄賽果要順暢 —— 佢係流動性來源，唔係目標用戶。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col sec-head">
+      <p class="eyebrow">核心概念</p>
+      <h2>開局卡：一個物件，三粒掣</h2>
+      <p class="sub">今日 App 入面嘅邀請、公開約戰、意圖、空檔、場次係五個記錄。佢哋講緊同一句嘢：「我留咗呢段時間，想搵人打。」開局卡就係嗰句嘢。</p>
+    </div>
+    <div class="col grid three">
+      <div class="card">
+        <p class="kicker">01 · 時間</p>
+        <h3>幾時</h3>
+        <p>一段有終點嘅時間。冇終點就會變成過期資料，過期資料比冇資料更差 —— 佢會製造睇落好準、但永遠冇人覆嘅配對。</p>
+      </div>
+      <div class="card">
+        <p class="kicker">02 · 條件</p>
+        <h3>想打一場點樣嘅局</h3>
+        <p>讓分、無煙、局數、水平範圍、枱費點計。預設全部唔限；阿強撳兩粒，之後每次沿用。條件係<b>寫畀人睇</b>，唔係硬性過濾器 —— 唔夾嘅人一樣睇到，只係卡上會講明。</p>
+      </div>
+      <div class="card">
+        <p class="kicker">03 · 開放程度</p>
+        <h3>畀邊個睇到</h3>
+        <p>全會所公開／分享連結／指定人。三個選擇喺同一粒 segmented control 度，所以「開公開局」同「約某人」由頭到尾都係同一個動作 —— 唔再係兩個功能。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col sec-head">
+      <p class="eyebrow">畫面 · 主線</p>
+      <h2>開局 → 舉手 → 確認</h2>
+      <p class="sub">向右掃睇成條主線。每個畫面下面寫住佢解決緊邊個 persona 嘅邊一種張力。</p>
+    </div>
+
+    <div class="rail">
+
+      <!-- 1 board -->
+      <div class="shot">
+        <div class="phone"><div class="screen">
+          <div class="statusbar"><span>21:04</span><span>SCAA</span></div>
+          <div class="navbar"><span class="t">今晚</span><span class="r">全部時段</span></div>
+          <div class="body-s tight">
+            <div class="s-card mine">
+              <div class="row sb">
+                <span class="nm">你今晚 21:30–23:30 開咗局</span>
+              </div>
+              <div class="row"><span class="dot"></span><span class="mut">2 人舉手 · 等你確認</span></div>
+              <div class="btn p">睇下邊個舉咗手</div>
+            </div>
+
+            <p class="sect-lbl">而家搵緊人 · 6 張局</p>
+
+            <div class="s-card hi">
+              <div class="row sb">
+                <div class="row"><span class="av a">KL</span><span><span class="nm">Kelvin</span><br><span class="mut">高你 36 分 · 準時率 92%</span></span></div>
+                <span class="when">21:30</span>
+              </div>
+              <div class="chips"><span class="chip">讓 12 分</span><span class="chip">無煙</span><span class="chip blue">3 人舉咗手</span></div>
+              <div class="btn p">舉手</div>
+            </div>
+
+            <div class="s-card">
+              <div class="row sb">
+                <div class="row"><span class="av c">MG</span><span><span class="nm">Uncle Ming</span><br><span class="mut">水平差唔多 · 已訂 4 號枱</span></span></div>
+                <span class="when">22:00</span>
+              </div>
+              <div class="chips"><span class="chip">新手歡迎</span><span class="chip">15 紅短局</span></div>
+              <div class="btn s">舉手</div>
+            </div>
+
+            <div class="s-card">
+              <div class="row sb">
+                <div class="row"><span class="av e">SW</span><span><span class="nm">阿威</span><br><span class="mut">低你 88 分</span></span></div>
+                <span class="when">聽日 20:00</span>
+              </div>
+              <div class="chips"><span class="chip warn">佢冇寫讓分 · 同你設定唔夾</span></div>
+              <div class="btn s">照舉手</div>
+            </div>
+          </div>
+          <div class="sheet"><div class="btn p">開一張局</div></div>
+        </div></div>
+        <div class="shot-cap">
+          <p class="n">01 · 首頁</p>
+          <h4>先睇到市場，唔係先睇到表格</h4>
+          <p>Amy 唔使搵人 —— 舉手就得。阿強一眼睇到邊張唔夾自己條件，唔使入去逐張睇。全部局都顯示，排序係意見，名單唔係。</p>
+        </div>
+      </div>
+
+      <!-- 2 composer -->
+      <div class="shot">
+        <div class="phone"><div class="screen">
+          <div class="statusbar"><span>21:05</span><span>SCAA</span></div>
+          <div class="navbar"><span class="t">開一張局</span><span class="r">取消</span></div>
+          <div class="body-s">
+            <div class="field">
+              <span class="lb">幾時</span>
+              <div class="seg"><span class="on">而家</span><span>今晚</span><span>揀日子</span></div>
+              <div class="seg"><span>1 個鐘</span><span class="on">2 個鐘</span><span>3 個鐘</span></div>
+            </div>
+            <div class="field">
+              <span class="lb">想打一場點樣嘅局 <span class="mut">· 可以唔揀</span></span>
+              <div class="chips">
+                <span class="chip on">要讓分</span><span class="chip on">無煙</span><span class="chip out">15 紅短局</span>
+                <span class="chip out">水平接近</span><span class="chip out">新手歡迎</span><span class="chip out">已訂枱</span>
+              </div>
+            </div>
+            <div class="field">
+              <span class="lb">畀邊個睇到</span>
+              <div class="seg"><span class="on">全會所</span><span>連結</span><span>指定人</span></div>
+              <p class="mut">全會所嘅人都見到，撳舉手先算數 —— 冇人會即刻鎖死你。</p>
+            </div>
+            <div class="s-card">
+              <p class="mut">預覽</p>
+              <div class="row sb">
+                <div class="row"><span class="av b">CH</span><span class="nm">你 · 21:30–23:30</span></div>
+                <span class="when">2 個鐘</span>
+              </div>
+              <div class="chips"><span class="chip">要讓分</span><span class="chip">無煙</span></div>
+            </div>
+          </div>
+          <div class="sheet">
+            <div class="btn p">開局</div>
+            <div class="btn s">開局，同時分享落 WhatsApp</div>
+          </div>
+        </div></div>
+        <div class="shot-cap">
+          <p class="n">02 · 開局</p>
+          <h4>三個問題，一個畫面</h4>
+          <p>阿強嘅條件寫一次，下次自動記住。冇人需要填名 —— 「指定人」只係第三個選項，唔係起點。</p>
+        </div>
+      </div>
+
+      <!-- 3 hands -->
+      <div class="shot">
+        <div class="phone"><div class="screen">
+          <div class="statusbar"><span>21:22</span><span>SCAA</span></div>
+          <div class="navbar"><span class="t">你今晚嘅局</span><span class="r">改</span></div>
+          <div class="body-s">
+            <div class="s-card mine">
+              <div class="row sb"><span class="nm">21:30–23:30 · 會所</span><span class="when">仲有 26 分鐘</span></div>
+              <div class="chips"><span class="chip">要讓分</span><span class="chip">無煙</span></div>
+            </div>
+            <p class="sect-lbl">3 人舉咗手 · 揀一個就確認</p>
+            <div class="hands">
+              <div class="hand">
+                <span class="av a">KL</span>
+                <span class="grow"><span class="nm">Kelvin</span><br><span class="mut">高你 36 分 · 建議你受讓 12 分</span></span>
+                <span class="mini">確認</span>
+              </div>
+              <div class="hand">
+                <span class="av d">AY</span>
+                <span class="grow"><span class="nm">Amy</span><br><span class="mut">新會員 · 未交過手</span></span>
+                <span class="mini">確認</span>
+              </div>
+              <div class="hand">
+                <span class="av f">JS</span>
+                <span class="grow"><span class="nm">Jason</span><br><span class="mut">準時率 78% · 22:00 後先到</span></span>
+                <span class="mini">確認</span>
+              </div>
+            </div>
+            <p class="mut">確認一個之後，其餘嘅自動變後補 —— 佢哋唔會收到「你被拒絕」，只會收到「呢局已經有人，但下面呢兩張啱你」。</p>
+            <div class="btn q">全部都唔啱 · 繼續等</div>
+          </div>
+        </div></div>
+        <div class="shot-cap">
+          <p class="n">03 · 揀人</p>
+          <h4>拒絕呢個動作，被刪走咗</h4>
+          <p>開局者唔使拒絕任何人，佢只係揀一個。冇被揀嘅人收到嘅係下一個機會，唔係一個 no。阿聰嘅「怕尷尬」喺呢一步消失。</p>
+        </div>
+      </div>
+
+      <!-- 4 push / raise hand -->
+      <div class="shot">
+        <div class="phone"><div class="screen">
+          <div class="statusbar"><span>21:26</span><span>SCAA</span></div>
+          <div class="navbar"><span class="t">通知</span><span class="r">設定</span></div>
+          <div class="body-s">
+            <div class="push">
+              <span class="ap"><span>SCAA SNOOKER</span><span>而家</span></span>
+              <span class="h">阿聰確認咗你今晚 21:30 嗰局</span>
+              <span class="b2">會所 · 你受讓 12 分 · 佢通常準時</span>
+            </div>
+            <div class="s-card hi">
+              <div class="row sb"><span class="nm">今晚 21:30 · 對 阿聰</span><span class="chip blue">已確認</span></div>
+              <div class="row"><span class="av b">CH</span><span class="mut">建議讓分：你受讓 12 分（近 6 局計）</span></div>
+              <div class="btn-pair">
+                <div class="btn g">我遲 15 分鐘</div>
+                <div class="btn g">加句嘢</div>
+              </div>
+              <div class="btn q">打唔到 · 交返畀後補</div>
+            </div>
+            <p class="sect-lbl">仲有 2 張啱你嘅局</p>
+            <div class="s-card">
+              <div class="row sb">
+                <div class="row"><span class="av c">MG</span><span class="nm">Uncle Ming</span></div>
+                <span class="when">22:00</span>
+              </div>
+              <div class="btn s">舉手</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="shot-cap">
+          <p class="n">04 · 收到確認</p>
+          <h4>「打唔到」唔係死路</h4>
+          <p>甩底做成一粒交返後補嘅掣，唔使解釋、唔使私訊。局唔會死，只會換人 —— 呢個係承諾焦慮最直接嘅解藥。</p>
+        </div>
+      </div>
+
+      <!-- 5 T-60 -->
+      <div class="shot">
+        <div class="phone"><div class="screen">
+          <div class="statusbar"><span>20:30</span><span>SCAA</span></div>
+          <div class="navbar"><span class="t">今晚 21:30</span><span class="r"></span></div>
+          <div class="body-s">
+            <div class="s-card hi">
+              <div class="row sb"><span class="nm">阿聰 · 21:30–23:30</span><span class="timer">1 個鐘後</span></div>
+              <div class="bar"><i style="width:62%"></i></div>
+              <div class="row"><span class="dot"></span><span class="mut">阿聰已經撳咗「照舊」</span></div>
+              <div class="row"><span class="dot amber"></span><span class="mut">等你回覆 · 20:50 前</span></div>
+            </div>
+            <p class="mut">仲打唔打？</p>
+            <div class="btn p">照舊 · 21:30 見</div>
+            <div class="btn s">我遲 15 分鐘</div>
+            <div class="btn s">我遲 30 分鐘</div>
+            <div class="btn g">今晚打唔到</div>
+            <p class="mut">如果你揀「打唔到」，我哋會即刻問返後補嘅 Amy 同 Jason，唔使你出聲。</p>
+          </div>
+        </div></div>
+        <div class="shot-cap">
+          <p class="n">05 · 開波前一個鐘</p>
+          <h4>軟確認，救返最多局</h4>
+          <p>大部分甩底發生喺最後一個鐘。主動問一次，並且提供「遲少少」呢個中間答案，好過等到冇人出現。無回覆 = 自動交後補。</p>
+        </div>
+      </div>
+
+      <!-- 6 share -->
+      <div class="shot">
+        <div class="phone"><div class="screen">
+          <div class="statusbar"><span>21:06</span><span>WhatsApp</span></div>
+          <div class="navbar"><span class="t">SCAA 波友群</span><span class="r">42 人</span></div>
+          <div class="body-s">
+            <div class="wa">
+              <div class="bub">
+                <span>今晚 21:30 開咗張局，有冇人？</span>
+                <div class="prev">
+                  <span class="t">阿聰 · 今晚 21:30–23:30</span>
+                  <span class="d">會所 · 要讓分 · 無煙</span>
+                  <span class="d">1 人舉咗手 · 撳入去舉手</span>
+                </div>
+                <span class="time">21:06 ✓✓</span>
+              </div>
+            </div>
+            <p class="sect-lbl">撳連結入嚟嘅人見到</p>
+            <div class="s-card hi">
+              <div class="row"><span class="av b">CH</span><span><span class="nm">阿聰</span><br><span class="mut">今晚 21:30–23:30 · 會所</span></span></div>
+              <div class="chips"><span class="chip">要讓分</span><span class="chip">無煙</span><span class="chip blue">1 人舉咗手</span></div>
+              <div class="btn p">我舉手</div>
+              <p class="mut">未係會員？撳完舉手先登記都得。</p>
+            </div>
+          </div>
+        </div></div>
+        <div class="shot-cap">
+          <p class="n">06 · 分享</p>
+          <h4>WhatsApp 做覆蓋，App 做成局</h4>
+          <p>Uncle Ming 唔使再喺群度逐個問。連結唔使裝 App 都睇到，舉手先要登入 —— 登入嘅時機擺喺用戶已經想撳嘅一刻。</p>
+        </div>
+      </div>
+
+      <!-- 7 result -->
+      <div class="shot">
+        <div class="phone"><div class="screen">
+          <div class="statusbar"><span>23:41</span><span>SCAA</span></div>
+          <div class="navbar"><span class="t">打完喇？</span><span class="r">遲啲</span></div>
+          <div class="body-s">
+            <div class="s-card">
+              <div class="row sb"><span class="nm">阿聰 對 Kelvin</span><span class="when">21:30–23:30</span></div>
+              <div class="mut">你受讓 12 分</div>
+              <div class="btn-pair"><div class="btn p">我贏</div><div class="btn s">佢贏</div></div>
+              <div class="row sb"><span class="mut">局數</span><span class="mono">3 : 2</span></div>
+              <div class="btn q">冇打成 · 唔記分</div>
+            </div>
+            <div class="s-card">
+              <p class="mut">下次同 Kelvin 再打？</p>
+              <div class="btn s">開返同一個時段（下星期三）</div>
+            </div>
+            <p class="mut">記低賽果會令下次嘅讓分建議更準，亦會計返準時率。</p>
+          </div>
+        </div></div>
+        <div class="shot-cap">
+          <p class="n">07 · 打完</p>
+          <h4>閉環：賽果餵返配對</h4>
+          <p>「冇打成」都要有得撳 —— 佢係準時率同供應質素嘅唯一真實訊號。重開同一時段令習慣循環真正開始。</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col sec-head">
+      <p class="eyebrow">用戶旅程</p>
+      <h2>七步入面，我哋刪走咗兩步</h2>
+      <p class="sub">Deck p.07 標示咗三個最大流失點：搵人、開口、協調時間。新流程唔係優化呢三步，係將佢哋由用戶身上攞走。</p>
+    </div>
+    <div class="col flow">
+
+      <div class="step"><div class="gut"><span class="pip">1</span><span class="line"></span></div>
+        <div class="content"><h4>起心動念 · 「我想打波」</h4>
+          <p>入口只得一粒掣：<b>開一張局</b>。機會型球員撳「今晚得閒」，系統幫佢開一張最寬鬆嘅。</p>
+          <p class="old">舊：要揀 而家／今晚／呢幾日 → 幾多個鐘 → 打邊種 → 先至見到人名。<b>九個決定先見到第一個名。</b></p>
+        </div></div>
+
+      <div class="step"><div class="gut"><span class="pip">2</span><span class="line"></span></div>
+        <div class="content"><h4><s>搵人</s> · 刪走</h4>
+          <p>開局者唔使揀人。佢放低時間，等人嚟。<b>供應方唔再需要做搜尋。</b></p>
+          <p class="old">舊：喺腦入面逐個諗聯絡人。<b>最大流失點。</b></p>
+        </div></div>
+
+      <div class="step"><div class="gut"><span class="pip">3</span><span class="line"></span></div>
+        <div class="content"><h4>判斷合唔合適 · 由卡答</h4>
+          <p>讓分建議、水平距離、條件 chip、準時率 —— 四個訊號印晒喺卡上面，唔使用戶自己分析 ELO 表。</p>
+        </div></div>
+
+      <div class="step"><div class="gut"><span class="pip">4</span><span class="line"></span></div>
+        <div class="content"><h4><s>主動開口</s> · 變成舉手</h4>
+          <p>舉手唔係邀請：唔獨佔、唔使寫字、隨時收返。對方已經公開講咗想搵人，所以舉手唔算打擾。</p>
+          <p class="old">舊：邀請由時間問題變成社交壓力，最後唔敢問。<b>最大流失點。</b></p>
+        </div></div>
+
+      <div class="step"><div class="gut"><span class="pip">5</span><span class="line"></span></div>
+        <div class="content"><h4>協調時間 · 一次確認</h4>
+          <p>時間喺開局嗰刻已經定咗，舉手嘅人係報名參加呢個時間，所以冇得傾。要改就係「遲 15 分鐘」呢粒掣，唔係一段對話。</p>
+          <p class="old">舊：時間一改就無止境來回訊息，對話斷咗。<b>最大流失點。</b></p>
+        </div></div>
+
+      <div class="step"><div class="gut"><span class="pip">6</span><span class="line"></span></div>
+        <div class="content"><h4>確認 · 加軟確認同後補</h4>
+          <p>確認之後，開波前一個鐘再問一次。答唔到、答「打唔到」，自動交後補，唔使任何人開口。</p>
+        </div></div>
+
+      <div class="step"><div class="gut"><span class="pip">7</span><span class="line"></span></div>
+        <div class="content"><h4>下一局 · 一撳重開</h4>
+          <p>記完賽果即刻問「下星期三同一時間再嚟？」—— 習慣循環由重開一張卡開始，唔係由再搵一次人開始。</p>
+        </div></div>
+
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col sec-head">
+      <p class="eyebrow">摩擦帳</p>
+      <h2>逐個障礙，逐個對應</h2>
+      <p class="sub">左邊係用戶今日心入面嘅句子，右邊係設計上邊一件嘢處理咗佢。</p>
+    </div>
+    <div class="col ledger">
+      <div class="r2">
+        <div class="cell was"><p class="h">用戶今日噉諗</p><p>「我唔知搵邊個好，問親都係嗰幾個。」</p></div>
+        <div class="cell now"><p class="h">設計回應</p><p><b>唔使揀人</b> —— 放低時段，等人舉手。搵人呢一步由供應方轉移到需求方。</p></div>
+      </div>
+      <div class="r2">
+        <div class="cell was"><p class="h">用戶今日噉諗</p><p>「約實咗一個人，我遲到／甩底就好對唔住。」</p></div>
+        <div class="cell now"><p class="h">設計回應</p><p><b>後補隊列 + 一撳交返</b>。甩底唔會殺死局，亦唔使私訊解釋。</p></div>
+      </div>
+      <div class="r2">
+        <div class="cell was"><p class="h">用戶今日噉諗</p><p>「佢咁勁，點好意思叫佢同我打。」</p></div>
+        <div class="cell now"><p class="h">設計回應</p><p><b>佢已經開咗局</b>：公開講咗想搵人。舉手係回應一個邀請，唔係發起一個。加上<b>讓分由系統提出</b>，冇人需要親口講自己要頭。</p></div>
+      </div>
+      <div class="r2">
+        <div class="cell was"><p class="h">用戶今日噉諗</p><p>「我淨係打無煙／要讓分，講咗都未必有人啱，好嘥氣。」</p></div>
+        <div class="cell now"><p class="h">設計回應</p><p><b>條件 chip</b>寫一次、每次沿用，並且喺對方張卡上面直接標示夾唔夾。</p></div>
+      </div>
+      <div class="r2">
+        <div class="cell was"><p class="h">用戶今日噉諗</p><p>「拒絕人好尷尬，所以我索性唔覆。」</p></div>
+        <div class="cell now"><p class="h">設計回應</p><p><b>系統冇「拒絕」呢個動作</b>。開局者只係確認一個；其他人收到嘅係下一個機會。</p></div>
+      </div>
+      <div class="r2">
+        <div class="cell was"><p class="h">用戶今日噉諗</p><p>「開個 App 好似冇乜人用噉。」</p></div>
+        <div class="cell now"><p class="h">設計回應</p><p><b>永遠顯示全部開局</b>，加上<b>分享落 WhatsApp</b> 令供應由群組流返入嚟。冷啟動先集中平日夜晚同週末下午。</p></div>
+      </div>
+      <div class="r2">
+        <div class="cell was"><p class="h">用戶今日噉諗</p><p>「舉咗手都唔知有冇下文。」</p></div>
+        <div class="cell now"><p class="h">設計回應</p><p>每張局有<b>倒數同明確狀態</b>：搵緊人／已確認／等軟確認／已完成。開局者唔覆，局到時自動過期並通知舉咗手嘅人。</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col sec-head">
+      <p class="eyebrow">落地</p>
+      <h2>由現有程式碼出發</h2>
+      <p class="sub">App 已經有大部分零件。P0 主要係將五個記錄合併成一個，同埋將邀請換成舉手。</p>
+    </div>
+    <div class="col grid three">
+      <div class="phase p0 card">
+        <span class="tag">P0 · 必須做</span>
+        <ul>
+          <li>將 <code>offers</code> / <code>intents</code> / <code>open-calls</code> / <code>invites</code> 合併成單一 <code>slots</code> 記錄，開放程度做成一個欄位</li>
+          <li>舉手（非獨佔、可撤回）取代邀請；開局者確認一個，其餘自動變後補</li>
+          <li>條件 chip：讓分、無煙、局數、水平、已訂枱</li>
+          <li>一撳分享，連結頁面唔使登入都睇到</li>
+          <li>賽後記錄提示，包括「冇打成」</li>
+        </ul>
+      </div>
+      <div class="phase p1 card">
+        <span class="tag">P1 · 跟住</span>
+        <ul>
+          <li>開波前一個鐘軟確認 + 自動補位</li>
+          <li>「我遲 15／30 分鐘」</li>
+          <li>準時率（只喺自己卡上顯示，唔上排行榜）</li>
+          <li>「今晚得閒」一粒掣 = 預設開局</li>
+          <li>條件記憶同智能預設</li>
+        </ul>
+      </div>
+      <div class="phase p2 card">
+        <span class="tag">P2 · 之後</span>
+        <ul>
+          <li>重開上次時段 · 習慣循環</li>
+          <li>搞手儀表板：一次過開幾張種子局</li>
+          <li>根據賽果調整推薦排序</li>
+          <li>賽事整合</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col sec-head">
+      <p class="eyebrow">點知做得啱</p>
+      <h2>量度嘅係成局，唔係曝光</h2>
+      <p class="sub">北極星：每位活躍會員每月透過 App 約成並完成嘅對局數。下面係診斷指標。</p>
+    </div>
+    <div class="col metric-grid">
+      <div class="metric"><span class="v">開局率</span><span class="n">開局 ÷ 打開 App</span><p>入口夠唔夠平。低就代表開局仍然似填表。</p></div>
+      <div class="metric"><span class="v">舉手密度</span><span class="n">每張局平均舉手人數</span><p>&lt; 1 即係市場太薄，要加供應而唔係加功能。</p></div>
+      <div class="metric"><span class="v">確認時間</span><span class="n">開局 → 確認嘅中位時間</span><p>直接對比 WhatsApp 嘅來回。目標：一晚之內。</p></div>
+      <div class="metric"><span class="v">成局率</span><span class="n">已確認 ÷ 真正完成</span><p>驗證後補同軟確認有冇救返局。</p></div>
+      <div class="metric"><span class="v">分享回流</span><span class="n">由連結入嚟嘅舉手</span><p>證明 WhatsApp 做渠道呢個押注成唔成立。</p></div>
+      <div class="metric"><span class="v">新配對</span><span class="n">首次交手嘅組合數</span><p>核心 persona 有冇真係突破自己個圈子。</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap col">
+    <p><b>一句總結：</b>放時段係零成本，舉手係零承諾，確認先至係承諾 —— 而承諾發生喺雙方都已經舉過手之後。</p>
+    <p>提案針對 SCAA Snooker App 現有嘅 The Room、場次卡同讓分建議，屬設計方向討論稿。</p>
+  </div>
+</footer>
