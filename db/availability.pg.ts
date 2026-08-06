@@ -43,11 +43,12 @@ async function ensureSchema(){
     });
     await sql`CREATE INDEX IF NOT EXISTS availability_slots_active_range_idx ON availability_slots (start_at, end_at) WHERE cancelled_at IS NULL`;
     await sql`CREATE INDEX IF NOT EXISTS availability_slots_player_active_idx ON availability_slots (player_id, start_at) WHERE cancelled_at IS NULL`;
-    /* The board: every open post, club-wide, oldest exclusion first. Narrow on purpose — `posted`
-       rows only, nothing still filled, nothing cancelled or past — because this index exists for the
-       one query that lists what a member can still raise a hand on. */
+    /* The board: every post still taking hands, club-wide. Narrow on purpose — `posted` rows only,
+       nothing closed, cancelled or past — because this index exists for the one query that lists
+       what a member can still raise a hand on. Note it no longer excludes filled slots: taking
+       somebody does not close a table. */
     await sql`CREATE INDEX IF NOT EXISTS availability_slots_board_idx ON availability_slots (start_at)
-      WHERE posted=true AND cancelled_at IS NULL AND filled_by IS NULL`;
+      WHERE posted=true AND cancelled_at IS NULL AND closed_at IS NULL`;
   })().catch(error=>{schemaReady=null;throw error;});
   return schemaReady;
 }
@@ -185,6 +186,9 @@ export type FillRule = "first"|"review";
 export type PostedSlot = Session & {
   fillRule:FillRule; conditions:SlotConditions;
   filledBy:string|null; filledAt:string|null; result:"pending"|"played"|"missed";
+  /** 夠喇 · 唔再收 — the only thing besides cancelling or the clock that stops a slot taking hands.
+      Being filled does not: see `boardSlots`. */
+  closedAt:string|null;
 };
 
 function readConditions(value:unknown):SlotConditions {
@@ -202,12 +206,14 @@ function readConditions(value:unknown):SlotConditions {
 function postedSlot(row:any):PostedSlot {
   return {...session(row),fillRule:row.fillRule==="review"?"review":"first",conditions:readConditions(row.conditions),
     filledBy:row.filledBy??null,filledAt:row.filledAt?new Date(row.filledAt).toISOString():null,
+    closedAt:row.closedAt?new Date(row.closedAt).toISOString():null,
     result:row.result==="played"||row.result==="missed"?row.result:"pending"};
 }
 
 const POSTED_COLUMNS=`id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",
   created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",venue,note,
-  fill_rule AS "fillRule",conditions,filled_by AS "filledBy",filled_at AS "filledAt",result`;
+  fill_rule AS "fillRule",conditions,filled_by AS "filledBy",filled_at AS "filledAt",result,
+  closed_at AS "closedAt"`;
 
 /** Post one: a session with a fill rule and conditions attached from the moment it exists, not
     bolted on after. Overlap is refused for the same reason `createSession` refuses it — two open
@@ -237,9 +243,20 @@ export async function myPostedSlots(playerId:string,sinceHours=12):Promise<Poste
   return rows.map(postedSlot);
 }
 
-/** The board: every other member's open post, soonest first. No hand count travels with these rows —
-    that is the entire point. A member reads time, venue and conditions, and either raises a hand or
-    does not; what anyone else has done is never part of the decision. */
+/** The board: every post still taking hands, soonest first.
+ *
+ *  Two changes from the first version of this query, and they are the same change twice. It used to
+ *  exclude filled slots, so taking one person emptied the table; and it deliberately carried no hand
+ *  count, on the reasoning that what others had done should not sway anyone.
+ *
+ *  Both proved too strong. A slot that took somebody is often *more* worth joining, not less — three
+ *  round one table is a normal club night. And a card showing 「3 人舉咗手」 and a card showing
+ *  nothing are not the same object to somebody deciding whether to bother: withholding the number
+ *  does not make the board neutral, it makes it look dead, which is the exact problem the club has.
+ *  So counts travel with every row (attached by the caller via `handSummaries`); *names* of people
+ *  still waiting never do.
+ *
+ *  `excludePlayerId` is empty for a signed-out reader, who gets the whole board — see the API. */
 export type BoardSlot = PostedSlot & {player:{id:string;name:string;short:string;rating:number;colour:string|null;avatar:string|null}};
 
 export async function boardSlots(excludePlayerId:string,limit=40):Promise<BoardSlot[]>{
@@ -247,9 +264,10 @@ export async function boardSlots(excludePlayerId:string,limit=40):Promise<BoardS
   const rows=await sql<any[]>`SELECT s.id,s.player_id AS "playerId",s.start_at AS "startAt",s.end_at AS "endAt",
       s.created_at AS "createdAt",s.updated_at AS "updatedAt",s.cancelled_at AS "cancelledAt",s.venue,s.note,
       s.fill_rule AS "fillRule",s.conditions,s.filled_by AS "filledBy",s.filled_at AS "filledAt",s.result,
+      s.closed_at AS "closedAt",
       p.id AS "posterId",p.name,p.short,p.rating::float8 AS rating,p.colour,p.avatar
     FROM availability_slots s JOIN state_players p ON p.id=s.player_id
-    WHERE s.posted=true AND s.cancelled_at IS NULL AND s.filled_by IS NULL AND s.end_at > now() AND p.active=true
+    WHERE s.posted=true AND s.cancelled_at IS NULL AND s.closed_at IS NULL AND s.end_at > now() AND p.active=true
       AND s.player_id != ${excludePlayerId}
     ORDER BY s.start_at LIMIT ${limit}`;
   return rows.map(row=>({...postedSlot(row),
@@ -261,7 +279,7 @@ export async function boardSlots(excludePlayerId:string,limit=40):Promise<BoardS
 export async function boardOpenCount():Promise<number>{
   await ensureSchema(); const sql=getSql();
   const [row]=await sql<{count:string}[]>`SELECT count(DISTINCT player_id)::text AS count FROM availability_slots
-    WHERE posted=true AND cancelled_at IS NULL AND filled_by IS NULL AND end_at > now()`;
+    WHERE posted=true AND cancelled_at IS NULL AND closed_at IS NULL AND end_at > now()`;
   return Number(row?.count??0);
 }
 
@@ -271,7 +289,7 @@ export async function boardOpenCount():Promise<number>{
 export async function sharedSlot(id:string):Promise<(PostedSlot&{player:{id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null}})|null>{
   await ensureSchema(); const sql=getSql();
   const [row]=await sql<any[]>`SELECT ${sql.unsafe(POSTED_COLUMNS)} FROM availability_slots
-    WHERE id=${id} AND posted=true AND cancelled_at IS NULL AND filled_by IS NULL AND end_at > now()`;
+    WHERE id=${id} AND posted=true AND cancelled_at IS NULL AND closed_at IS NULL AND end_at > now()`;
   if(!row)return null;
   const [player]=await sql<any[]>`SELECT id,name,short,rating::float8 AS rating,colour,avatar FROM state_players WHERE id=${row.playerId} AND active=true`;
   if(!player)return null;
