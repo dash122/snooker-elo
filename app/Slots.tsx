@@ -116,43 +116,6 @@ function Composer({onCreate,onClose,busy,error}:{
   </div>;
 }
 
-/* --- Board row ----------------------------------------------------------- */
-
-function BoardRow({entry,raisedByMe,canAct,busy,onRaise,onRetract}:{
-  entry:BoardSlot; raisedByMe:boolean; canAct:boolean; busy:boolean; onRaise:()=>void; onRetract:()=>void;
-}){
-  const chips=conditionChips(entry.conditions);
-  /* Never "0 人舉手" — that is a verdict, not a status. An empty slot is in fact the best one on the
-     board to raise a hand on (no competition, and on a 第一個就算 slot it settles on the spot), so it
-     says so. */
-  const line=handsLine({hands:entry.hands,mine:false,iRaised:raisedByMe,
-    fillRule:entry.fillRule,createdAt:entry.createdAt});
-  /* `.mm-row` is the app's one row shape — a person, a time, some buttons — and this is exactly
-     that, so it does not get a private layout. The hand count goes in the row's reason slot (`em`),
-     which is the one line the system allows to carry a tint. */
-  return <li className={`mm-row${entry.iAccepted?" is-offer":""}`}>
-    <PlayerBadge player={entry.player}/>
-    <span className="mm-row-copy">
-      <b>{entry.player.name}</b>
-      <small>ELO {Math.round(entry.player.rating)} · {when(entry)}{entry.venue?` · ${entry.venue}`:""}</small>
-      {chips.length>0&&<span className="sl-chips is-inline">{chips.map(chip=><i key={chip}>{chip}</i>)}</span>}
-      <em>{line}</em>
-      {/* Who is already coming, named. Nobody still waiting is. */}
-      {entry.acceptedPlayers.length>0&&<span className="sl-faces">
-        {entry.acceptedPlayers.slice(0,4).map(player=><PlayerBadge key={player.id} player={player}/>)}
-        <small>{entry.acceptedPlayers.map(player=>player.name).join("、")} 會嚟</small>
-      </span>}
-    </span>
-    <span className="mm-row-actions">
-      {entry.iAccepted
-        ? <span className="sl-taken">已經收咗你</span>
-        : raisedByMe
-          ? <button type="button" className="secondary" disabled={busy} onClick={onRetract}>收返</button>
-          : canAct&&<button type="button" className="primary" disabled={busy} onClick={onRaise}>舉手</button>}
-    </span>
-  </li>;
-}
-
 /* --- Hand-off card --------------------------------------------------------- */
 
 function HandoffCard({slot,opponent,onResult,busy,showWho=true}:{
@@ -304,10 +267,119 @@ function HandsTray({hands,busyId,onRetract,onRetractAll,onResult}:{
   </section>;
 }
 
-/* --- The tab ---------------------------------------------------------------- */
+/* --- The redesigned marketplace -------------------------------------------- */
 
-export function Slots({signedIn,onRecord,onChanged}:{
+type SlotMode="find"|"mine";
+type DayFilter="tonight"|"tomorrow"|"weekend";
+type SessionFilter="all"|"handicap"|"levelOnly"|"tableBooked";
+type AvailabilityWindow={startAt:string;endAt:string};
+
+const dateOf=(iso:string)=>hkDate(new Date(iso));
+const weekendDates=(today=hkDate())=>{
+  const weekday=new Date(`${today}T12:00:00+08:00`).getUTCDay();
+  const daysUntilSaturday=weekday===0?6:6-weekday;
+  const saturday=addDaysHongKong(today,daysUntilSaturday);
+  return [saturday,addDaysHongKong(saturday,1)];
+};
+const dayMatches=(iso:string,filter:DayFilter)=>{
+  const today=hkDate(),value=dateOf(iso);
+  if(filter==="tonight")return value===today;
+  if(filter==="tomorrow")return value===addDaysHongKong(today,1);
+  return weekendDates(today).includes(value);
+};
+const durationLabel=(minutes:number)=>{
+  const rounded=Math.max(0,Math.round(minutes));
+  const hours=Math.floor(rounded/60),rest=rounded%60;
+  return hours?`${hours} 小時${rest?` ${rest} 分鐘`:""}`:`${rest} 分鐘`;
+};
+const overlapMinutes=(slot:AvailabilityWindow,windows:AvailabilityWindow[])=>windows.reduce((total,window)=>{
+  const start=Math.max(Date.parse(slot.startAt),Date.parse(window.startAt));
+  const end=Math.min(Date.parse(slot.endAt),Date.parse(window.endAt));
+  return total+(end>start?(end-start)/60_000:0);
+},0);
+
+function AvailabilityStatus({count,onManage}:{count:number;onManage?:()=>void}){
+  return <div className={`sl-availability-status${count?" is-live":""}`}>
+    <span className="sl-live-dot" aria-hidden="true"/>
+    <span className="sl-availability-copy"><b>{count?"你的空檔已公開":"未公開你的空檔"}</b>
+      <small>{count?`其他球手可以喺 ${count} 個時段搵到你` : "公開時間，別人先知道幾時可以約你"}</small></span>
+    {onManage&&<button type="button" onClick={onManage}>{count?"查看":"公開"}<span aria-hidden="true">›</span></button>}
+  </div>;
+}
+
+function SessionCard({entry,featured,overlap,canAct,busy,onRaise,onRetract,onResult}: {
+  entry:BoardSlot; featured?:boolean; overlap:number; canAct:boolean; busy:boolean;
+  onRaise:()=>void; onRetract:()=>void; onResult:(result:"played"|"missed")=>void;
+}){
+  const chips=conditionChips(entry.conditions);
+  const accepted=entry.acceptedPlayers;
+  const status=slotStatus(entry);
+  const interest=entry.hands.total===0
+    ? "等緊第一位球友"
+    : accepted.length>0
+      ? `${accepted.length} 位已加入${entry.hands.waiting>0?` · ${entry.hands.waiting} 人有興趣`:""}`
+      : `${entry.hands.total} 人有興趣`;
+  const fit=overlap>0?`與你的空檔重疊 ${durationLabel(overlap)}`:"公開球局 · 有位就加入";
+  return <article className={`sl-session-card${featured?" is-featured":""}${entry.iAccepted?" is-accepted":""}`}>
+    {featured&&<div className="sl-session-art" aria-hidden="true">
+      <span className="sl-art-star">✦</span><span className="sl-art-ball sl-art-ball-red"/><span className="sl-art-ball sl-art-ball-white"/>
+      <span className="sl-art-line"/>
+    </div>}
+    <div className="sl-session-body">
+      <div className="sl-session-topline"><span className="sl-session-label">{featured?"最適合你":"公開球局"}</span>
+        {entry.iAccepted&&<span className="sl-session-state is-confirmed">已收你</span>}
+      </div>
+      <h4>{when(entry)}</h4>
+      <p className="sl-session-place"><span aria-hidden="true">⌖</span>{entry.venue||"SCAA 會所"}<i>·</i>{entry.player.name} 發起</p>
+      <div className="sl-session-people">
+        <span className="sl-session-avatars" aria-hidden="true">
+          {accepted.slice(0,3).map(player=><PlayerBadge key={player.id} player={player}/>)}
+          {!accepted.length&&<PlayerBadge player={entry.player}/>}
+        </span>
+        <span>{accepted.length?accepted.map(player=>player.name).join("、"):interest}</span>
+      </div>
+      <div className={`sl-session-fit${overlap>0?" is-match":""}`}><span aria-hidden="true">◷</span><b>{fit}</b></div>
+      {chips.length>0&&<div className="sl-session-chips">{chips.map(chip=><span key={chip}>{chip}</span>)}</div>}
+      <div className="sl-session-action">
+        {entry.iAccepted
+          ? <span className="sl-session-confirmed">已經收咗你，準備開波</span>
+          : entry.iRaised
+            ? <button type="button" className="secondary" disabled={busy} onClick={onRetract}>已申請 · 收回</button>
+            : canAct
+              ? <button type="button" className="primary" disabled={busy} onClick={onRaise}>申請加入 <span aria-hidden="true">→</span></button>
+              : <a className="sl-session-login" href="/login">登入後申請加入 <span aria-hidden="true">→</span></a>}
+      </div>
+      {entry.iAccepted&&(status==="filled"||status==="toRecord"||status==="done")&&<HandoffCard
+        slot={entry} opponent={entry.player} onResult={onResult} busy={busy} showWho={false}/>}
+    </div>
+  </article>;
+}
+
+function MatchmakingEmpty({signedIn,tonightCount,onCreate,onManage}:{signedIn:boolean;tonightCount:number;onCreate:()=>void;onManage?:()=>void}){
+  return <section className="sl-cold-start">
+    <div className="sl-cold-start-mark" aria-hidden="true"><span>＋</span></div>
+    <div className="sl-cold-start-copy"><p className="sl-eyebrow">今晚的球會</p>
+      <h3>暫時未有適合你的球局</h3>
+      <p>{tonightCount>0?`今晚有 ${tonightCount} 位球友想打。開一場，其他人就可以加入。`:"做第一個開局的人，讓其他球手有局可以加入。"}</p>
+    </div>
+    {signedIn&&<div className="sl-cold-start-actions">
+      <button type="button" className="primary" onClick={onCreate}>＋ 開局約人</button>
+      {onManage&&<button type="button" className="secondary" onClick={onManage}>公開我的空檔 <span aria-hidden="true">→</span></button>}
+    </div>}
+    {!signedIn&&<a className="sl-session-login" href="/login">登入後開局 <span aria-hidden="true">→</span></a>}
+  </section>;
+}
+
+function RecruitmentIntro({onCreate}:{onCreate:()=>void}){
+  return <section className="sl-recruitment-intro">
+    <div><p className="sl-eyebrow">我的招募</p><h2>讓對的人找到你。</h2><p>開一場具體時間嘅球局，其他球手可以直接申請加入。</p></div>
+    <button type="button" className="primary" onClick={onCreate}>＋ 開局約人</button>
+  </section>;
+}
+
+export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availability=[],onManageAvailability}: {
   signedIn:boolean; onRecord:(opponentId:string,playedOn:string)=>void; onChanged:()=>void;
+  availabilityCount?:number; availability?:AvailabilityWindow[]; onManageAvailability?:()=>void;
 }){
   const [data,setData]=useState<Board|null>(null);
   const [composing,setComposing]=useState(false);
@@ -315,6 +387,10 @@ export function Slots({signedIn,onRecord,onChanged}:{
   const [busyId,setBusyId]=useState<string|null>(null);
   const [error,setError]=useState("");
   const [toast,setToast]=useState("");
+  const [mode,setMode]=useState<SlotMode>("find");
+  const [dayFilter,setDayFilter]=useState<DayFilter>("tonight");
+  const [sessionFilter,setSessionFilter]=useState<SessionFilter>("all");
+  const [filterOpen,setFilterOpen]=useState(false);
 
   const load=useCallback(async()=>{
     try{
@@ -332,11 +408,6 @@ export function Slots({signedIn,onRecord,onChanged}:{
     const id=window.setInterval(()=>{if(document.visibilityState==="visible")void load()},45_000);
     return ()=>window.clearInterval(id);
   },[load,signedIn]);
-
-  const wantTonight=async()=>{
-    try{await fetch("/api/intents",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kind:"standby"})})}
-    finally{await load()}
-  };
 
   const create=async(input:{startAt:string;endAt:string;venue:string;fillRule:FillRule;conditions:SlotConditions})=>{
     setBusy(true);setError("");
@@ -420,68 +491,82 @@ export function Slots({signedIn,onRecord,onChanged}:{
   if(data===null)return <div className="availability-skeleton" aria-hidden="true"/>;
 
   const canAct=Boolean(data.canAct);
-  const myRaisedIds=new Set((data.hands??[]).filter(hand=>!hand.accepted).map(hand=>hand.slotId));
   const mine=visiblePostedSlots(sortPostedSlots(data.mine)) as MineSlot[];
 
-  const boardHands=data.board.reduce((total,slot)=>total+slot.hands.total,0);
-  const board=<section className="availability-card mm-card sl-board" aria-label="大家開緊嘅局">
-    <header className="mm-head">
-      <div><h3>大家開緊嘅局</h3>
-        <small>{boardHands>0?`${boardHands} 人舉咗手`:"舉手唔使開口，隨時可以收返"}</small></div>
-      {data.board.length>0&&<div className="mm-head-aside"><span className="mm-count">{data.board.length}</span></div>}
-    </header>
-    {data.board.length
-      ? <ul className="mm-rows">{data.board.map(entry=>
-          <BoardRow key={entry.id} entry={entry} raisedByMe={myRaisedIds.has(entry.id)} canAct={canAct}
-            busy={busyId===entry.id}
-            onRaise={()=>void raise(entry.id)} onRetract={()=>void retract(entry.id)}/>)}</ul>
-      : <p className="mm-note">而家未有人開局。開一張，等下一個人見到。</p>}
-  </section>;
+  const dayOptions:[DayFilter,string][]=[["tonight","今晚"],["tomorrow","明天"],["weekend","週末"]];
+  const filteredBoard=data.board.filter(entry=>{
+    const matchesDate=dayMatches(entry.startAt,dayFilter);
+    const matchesFilter=sessionFilter==="all"||Boolean(entry.conditions[sessionFilter]);
+    return matchesDate&&matchesFilter;
+  }).sort((a,b)=>{
+    const aOverlap=overlapMinutes(a,availability),bOverlap=overlapMinutes(b,availability);
+    return bOverlap-aOverlap||a.startAt.localeCompare(b.startAt);
+  });
+  const matchedBoard=availability.length?filteredBoard.filter(entry=>overlapMinutes(entry,availability)>0):[];
+  const featured=matchedBoard[0]??null;
+  const otherBoard=featured?filteredBoard.filter(entry=>entry.id!==featured.id):filteredBoard;
+  const countFor=(filter:DayFilter)=>data.board.filter(entry=>dayMatches(entry.startAt,filter)).length;
+  const changeMode=(next:SlotMode)=>{setMode(next);setFilterOpen(false)};
+  const createSession=()=>{setError("");setComposing(true)};
+  const renderSession=(entry:BoardSlot,featuredCard=false)=><SessionCard key={entry.id} entry={entry}
+    featured={featuredCard} overlap={overlapMinutes(entry,availability)} canAct={canAct} busy={busyId===entry.id}
+    onRaise={()=>void raise(entry.id)} onRetract={()=>void retract(entry.id)}
+    onResult={value=>void result(entry.id,value,entry.player.id,entry.startAt)}/>;
+  const mineCards=mine.map(item=><MineCard key={item.id} item={item} busyId={busyId}
+    onAccept={playerId=>void accept(item.id,playerId)}
+    onAcceptAll={()=>void acceptAll(item.id)}
+    onStopTaking={()=>void stopTaking(item.id)}
+    onCancel={()=>void cancel(item.id)}
+    onResult={value=>void result(item.id,value,item.filledBy,item.startAt)}
+    onShare={()=>share(item.id)}/>);
 
-  /* Signed out: the whole board, and nothing pretending to be actionable. No login wall, no blur,
-     no modal — the line at the bottom says what signing in *adds*, not what it unlocks. */
-  if(!signedIn)return <>
-    {board}
-    <section className="availability-card mm-card">
-      <p className="mm-note">睇邊個開緊局唔使登入。登入之後就可以開局同舉手。</p>
-    </section>
-  </>;
+  return <div className="sl-marketplace">
+    {signedIn&&<div className="sl-mode-switch" role="tablist" aria-label="約戰模式">
+      <button type="button" role="tab" aria-selected={mode==="find"} className={mode==="find"?"active":""} onClick={()=>changeMode("find")}>找球局{data.board.length>0&&<i>{data.board.length}</i>}</button>
+      <button type="button" role="tab" aria-selected={mode==="mine"} className={mode==="mine"?"active":""} onClick={()=>changeMode("mine")}>我的招募{mine.length>0&&<i>{mine.length}</i>}</button>
+    </div>}
+    {signedIn&&<AvailabilityStatus count={availabilityCount} onManage={onManageAvailability}/>}
 
-  return <>
-    {/* The one zone that starts the whole flow, so it gets the screen's only 52px button and the
-        only tinted panel. Everything below it is neutral until it needs something. */}
-    <section className="availability-card mm-card is-idle sl-open">
-      <p className="sl-open-line">{(data.wantTonight??0)>0
-        ? <>今晚 <b>{data.wantTonight}</b> 個人想打，得 <b>{data.openCount??0}</b> 個開咗局。</>
-        : <>而家未有人開局 — 做第一個。</>}</p>
-      {(data.waitingForMe??0)>0&&<p className="sl-open-sub">有 <b>{data.waitingForMe}</b> 個人等緊你開局。</p>}
-      <button type="button" className="primary sl-primary" onClick={()=>setComposing(true)}>開一張局</button>
-      {/* Was 「我都想打，但未定得幾時」, whose only effect was to increment a counter we look at —
-          so nobody pressed it twice. The wording now names what the presser gets. */}
-      <button type="button" className="more sl-wide-link" onClick={()=>void wantTonight()}>未開得局？ 有局就 send 我</button>
-    </section>
+    {mode==="find"&&<>
+      <div className="sl-date-filter-row">
+        <div className="sl-day-chips" role="tablist" aria-label="選擇日期">
+          {dayOptions.map(([value,label])=><button key={value} type="button" role="tab" aria-selected={dayFilter===value}
+            className={dayFilter===value?"active":""} onClick={()=>setDayFilter(value)}><b>{label}</b><small>{countFor(value)} 場</small></button>)}
+        </div>
+        <button type="button" className={`sl-filter-button${filterOpen?" is-open":""}`} aria-expanded={filterOpen} onClick={()=>setFilterOpen(value=>!value)}><span aria-hidden="true">☷</span>篩選</button>
+      </div>
+      {filterOpen&&<div className="sl-filter-panel" role="group" aria-label="球局篩選">
+        <span>我想搵</span>
+        {([["all","全部"],["levelOnly","程度相近"],["handicap","接受讓分"],["tableBooked","已訂枱"]] as [SessionFilter,string][]).map(([value,label])=><button key={value} type="button" aria-pressed={sessionFilter===value} className={sessionFilter===value?"active":""} onClick={()=>setSessionFilter(value)}>{label}</button>)}
+      </div>}
+      {featured&&<section className="sl-market-section" aria-labelledby="best-session-title">
+        <header className="sl-market-section-head"><div><p className="sl-eyebrow">MATCH FOR YOU</p><h3 id="best-session-title">最適合你</h3></div><span>{matchedBoard.length} 場</span></header>
+        {renderSession(featured,true)}
+      </section>}
+      <section className="sl-market-section" aria-labelledby="public-sessions-title">
+        <header className="sl-market-section-head"><div><p className="sl-eyebrow">OPEN SESSIONS</p><h3 id="public-sessions-title">{featured?"其他公開球局":"公開球局"}</h3></div><span>{otherBoard.length} 場</span></header>
+        {otherBoard.length>0
+          ? <div className="sl-session-list">{otherBoard.map(entry=>renderSession(entry))}</div>
+          : !featured&&<MatchmakingEmpty signedIn={signedIn} tonightCount={data.wantTonight??0} onCreate={createSession} onManage={onManageAvailability}/>}
+      </section>
+      {signedIn&&<HandsTray hands={data.hands??[]} busyId={busyId} onRetract={id=>void retract(id)} onRetractAll={()=>void retractAll()}
+        onResult={(id,value,opponentId,startAt)=>void result(id,value,opponentId,startAt)}/>}
+      {signedIn&&<section className="sl-bottom-cta"><div><b>想自己揀時間？</b><span>開一場球局，等其他球手申請加入。</span></div><button type="button" className="primary" onClick={createSession}>開局約人 <span aria-hidden="true">→</span></button></section>}
+    </>}
 
-    {/* Pinned above the board, not filed into a section of its own: this club fits its whole
-        evening on one screen, and splitting four cards into two lists of two makes both look empty.
-        What differs is the card, not the section. */}
-    {mine.length>0&&<section className="sl-mine-list" aria-label="你嘅局">
-      {mine.map(item=><MineCard key={item.id} item={item} busyId={busyId}
-        onAccept={playerId=>void accept(item.id,playerId)}
-        onAcceptAll={()=>void acceptAll(item.id)}
-        onStopTaking={()=>void stopTaking(item.id)}
-        onCancel={()=>void cancel(item.id)}
-        onResult={value=>void result(item.id,value,item.filledBy,item.startAt)}
-        onShare={()=>share(item.id)}/>)}
-    </section>}
-
-    <HandsTray hands={data.hands??[]} busyId={busyId} onRetract={id=>void retract(id)} onRetractAll={()=>void retractAll()}
-      onResult={(id,value,opponentId,startAt)=>void result(id,value,opponentId,startAt)}/>
-
-    {board}
+    {mode==="mine"&&signedIn&&<>
+      <RecruitmentIntro onCreate={createSession}/>
+      {(data.waitingForMe??0)>0&&<section className="sl-demand-card"><span className="sl-live-dot" aria-hidden="true"/><div><b>有 {data.waitingForMe} 位球友等緊你開局</b><small>開一場具體時間，佢哋就可以申請加入。</small></div><button type="button" onClick={createSession}>開局 <span aria-hidden="true">→</span></button></section>}
+      <section className="sl-market-section sl-my-sessions" aria-labelledby="my-sessions-title">
+        <header className="sl-market-section-head"><div><p className="sl-eyebrow">YOUR SESSIONS</p><h3 id="my-sessions-title">我的公開球局</h3></div><span>{mine.length} 場</span></header>
+        {mine.length>0?<div className="sl-mine-list">{mineCards}</div>:<div className="sl-personal-empty"><b>你仲未開局</b><span>選一段具體時間，其他球手先知道可以加入你。</span><button type="button" className="primary" onClick={createSession}>＋ 開第一場</button></div>}
+      </section>
+      <section className="sl-tonight-summary"><div><p className="sl-eyebrow">CLUB PULSE</p><b>今晚有人想打嗎？</b><small>{(data.wantTonight??0)>0?`有 ${data.wantTonight} 位球友已表示想打`:"而家未有人表示今晚想打"}</small></div><span><strong>{data.openCount??0}</strong><small>公開中</small></span><button type="button" className="more" onClick={()=>{changeMode("find");setDayFilter("tonight")}}>搵球局 <span aria-hidden="true">→</span></button></section>
+    </>}
 
     {error&&!composing&&<p className="availability-form-error" role="alert">{error}</p>}
     {toast&&<p key={toast} className="availability-notice" role="status">{toast}</p>}
 
     {composing&&<Composer busy={busy} error={error} onClose={()=>{setComposing(false);setError("")}} onCreate={create}/>}
-  </>;
+  </div>;
 }
