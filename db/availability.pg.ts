@@ -36,6 +36,13 @@ async function ensureSchema(){
       await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS filled_by text REFERENCES state_players(id)`;
       await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS filled_at timestamptz`;
       await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS result text NOT NULL DEFAULT 'pending'`;
+      /* 夠喇 · 唔再收. This column belongs to *this* bootstrap even though only `db/slot-hands.pg.ts`
+         writes it, because this file both reads it (POSTED_COLUMNS, `boardSlots`) and builds an
+         index whose predicate names it. Adding it from the other module meant every query here
+         depended on whichever module happened to be touched first in a given process — and the
+         index below, created in this same function, referenced a column that did not exist yet.
+         A column read here is created here. */
+      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS closed_at timestamptz`;
       await tx`ALTER TABLE availability_slots DROP CONSTRAINT IF EXISTS availability_slots_fill_rule_check`;
       await tx`ALTER TABLE availability_slots ADD CONSTRAINT availability_slots_fill_rule_check CHECK (fill_rule IN ('first','review'))`;
       await tx`ALTER TABLE availability_slots DROP CONSTRAINT IF EXISTS availability_slots_result_check`;
