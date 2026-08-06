@@ -3,8 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import { PlayerBadge } from "./UiBits";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant } from "../lib/availability";
-import { conditionChips, handoffMessage, shareMessage, slotStatus, sortPostedSlots, visiblePostedSlots,
-  whatsappShareUrl, type FillRule, type SlotConditions } from "../lib/slots";
+import { conditionChips, handoffMessage, handsLine, shareMessage, slotStatus, sortPostedSlots,
+  takeActionLabel, visiblePostedSlots, whatsappShareUrl,
+  type FillRule, type HandsView, type SlotConditions } from "../lib/slots";
 
 /* --- 開局卡 -------------------------------------------------------------
  *
@@ -14,22 +15,30 @@ import { conditionChips, handoffMessage, shareMessage, slotStatus, sortPostedSlo
  * the moment two people can reach each other, so the largest button on a filled card opens
  * WhatsApp）.
  *
- * Nothing here reads a name off a public list before a slot is filled. The board carries no hand
- * count. A `review`-rule slot's pending hands are fetched only for its own poster, by the API, not
- * filtered client-side — there is no payload to leak in the first place. */
+ * Two rules govern what a card may say. **Counts are public** — every row shows how many hands are
+ * up, because 「3 人舉咗手」 and a row saying nothing are different objects to somebody deciding
+ * whether to bother, and a board that hides interest manufactures the silence that stops anyone
+ * posting. **Names of people still waiting are not** — that is the part that would let somebody work
+ * out they were passed over, and it is fetched only for a slot's own poster, by the API, never
+ * filtered client-side, so there is no payload to leak in the first place. Accepted names are
+ * public: an accepted player is the reason the next member joins.
+ *
+ * And no card ever prints 「0 人舉手」. See `handsLine`. */
 
 type Player={id:string;name:string;short?:string|null;rating:number;colour?:string|null;avatar?:string|null};
 type PostedSlot={
-  id:string;playerId:string;startAt:string;endAt:string;venue:string;note:string;
+  id:string;playerId:string;startAt:string;endAt:string;venue:string;note:string;createdAt:string;
   fillRule:FillRule;conditions:SlotConditions;filledBy:string|null;filledAt:string|null;result:"pending"|"played"|"missed";
-  cancelledAt?:string|null;
+  cancelledAt?:string|null;closedAt?:string|null;
 };
-type BoardSlot=PostedSlot&{player:Player};
-type PendingHand={playerId:string;raisedAt:string;player:Player};
-type MineSlot=PostedSlot&{filler:Player|null;hands:PendingHand[]};
-type MyHand={slotId:string;raisedAt:string;slot:PostedSlot&{player:Player}};
+/** Counts and accepted names travel with every board row; `hands` on a MineSlot is the waiting list
+    with names, and only ever reaches its own poster. */
+type BoardSlot=PostedSlot&{player:Player;mine:boolean;hands:HandsView;acceptedPlayers:Player[];iRaised:boolean;iAccepted:boolean};
+type PendingHand={playerId:string;raisedAt:string;state:"raised"|"accepted";player:Player};
+type MineSlot=PostedSlot&{mine:true;filler:Player|null;hands:PendingHand[];counts:HandsView;acceptedPlayers:Player[]};
+type MyHand={slotId:string;raisedAt:string;accepted:boolean;slot:PostedSlot&{player:Player}};
 type Board={
-  signedIn:boolean; board:BoardSlot[]; mine:MineSlot[]; hands:MyHand[];
+  signedIn:boolean; canAct?:boolean; board:BoardSlot[]; mine:MineSlot[]; hands:MyHand[];
   waitingForMe?:number; wantTonight?:number; openCount?:number;
 };
 
@@ -79,15 +88,21 @@ function Composer({onCreate,onClose,busy,error}:{
         </div>
       </div>
 
+      {/* Note what is not asked: how many people. That number cannot be answered honestly before
+          anybody has turned up, and once hands can be taken in bulk it never has to be — so there
+          is no capacity field, and no 單挑/開枱 mode to pick between. The only switch is whether the
+          poster wants to look first. */}
       <div className="sl-field">
-        <span className="sl-label">點填呢張局</span>
-        <div className="seg" role="group" aria-label="點填呢張局">
+        <span className="sl-label">要唔要自己揀</span>
+        <div className="seg" role="group" aria-label="要唔要自己揀">
           <span className={fillRule==="first"?"on":""} role="button" tabIndex={0} aria-pressed={fillRule==="first"}
-            onClick={()=>setFillRule("first")}>先舉先得</span>
+            onClick={()=>setFillRule("first")}>第一個就算</span>
           <span className={fillRule==="review"?"on":""} role="button" tabIndex={0} aria-pressed={fillRule==="review"}
             onClick={()=>setFillRule("review")}>我想睇下先</span>
         </div>
-        <p className="sl-hint">{fillRule==="first"?"第一個舉手嘅人就成事，唔使你揀。":"舉手名單淨係你自己見到，你隨時可以揀一個。"}</p>
+        <p className="sl-hint">{fillRule==="first"
+          ?"第一個舉手嘅人就即刻成事。之後仲有人舉手，你想收幾多個都得。"
+          :"舉手名單淨係你自己見到。收一個、收幾個、定全部收，到時先算。"}</p>
       </div>
 
       {error&&<p className="availability-form-error" role="alert">{error}</p>}
@@ -101,20 +116,32 @@ function Composer({onCreate,onClose,busy,error}:{
 
 /* --- Board row ----------------------------------------------------------- */
 
-function BoardRow({entry,raisedByMe,busy,onRaise,onRetract}:{
-  entry:BoardSlot; raisedByMe:boolean; busy:boolean; onRaise:()=>void; onRetract:()=>void;
+function BoardRow({entry,raisedByMe,canAct,busy,onRaise,onRetract}:{
+  entry:BoardSlot; raisedByMe:boolean; canAct:boolean; busy:boolean; onRaise:()=>void; onRetract:()=>void;
 }){
   const chips=conditionChips(entry.conditions);
+  /* Never "0 人舉手" — that is a verdict, not a status. An empty slot is in fact the best one on the
+     board to raise a hand on (no competition, and on a 第一個就算 slot it settles on the spot), so it
+     says so. */
+  const line=handsLine({hands:entry.hands,mine:false,iRaised:raisedByMe,
+    fillRule:entry.fillRule,createdAt:entry.createdAt});
   return <li className="sl-row">
     <PlayerBadge player={entry.player}/>
     <span className="sl-row-copy">
       <b>{entry.player.name}</b>
       <small>ELO {Math.round(entry.player.rating)} · {when(entry)}{entry.venue?` · ${entry.venue}`:""}</small>
       {chips.length>0&&<span className="sl-chips sl-chips-compact">{chips.map(chip=><i key={chip}>{chip}</i>)}</span>}
+      <small className="sl-hands-line">{line}</small>
+      {/* Who is already coming, named. Nobody still waiting is. */}
+      {entry.acceptedPlayers.length>0&&<span className="sl-faces">
+        {entry.acceptedPlayers.slice(0,4).map(player=><PlayerBadge key={player.id} player={player}/>)}
+      </span>}
     </span>
-    {raisedByMe
-      ? <button type="button" className="secondary" disabled={busy} onClick={onRetract}>已舉手 · 收返</button>
-      : <button type="button" className="primary" disabled={busy} onClick={onRaise}>舉手</button>}
+    {entry.iAccepted
+      ? <span className="sl-taken">已經收咗你</span>
+      : raisedByMe
+        ? <button type="button" className="secondary" disabled={busy} onClick={onRetract}>已舉手 · 收返</button>
+        : canAct&&<button type="button" className="primary" disabled={busy} onClick={onRaise}>舉手</button>}
   </li>;
 }
 
@@ -144,32 +171,56 @@ function HandoffCard({slot,opponent,onResult,busy}:{
 
 /* --- My posted slots ------------------------------------------------------- */
 
-function MineCard({item,busyId,onPick,onCancel,onResult,onShare}:{
+function MineCard({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onResult,onShare}:{
   item:MineSlot; busyId:string|null;
-  onPick:(playerId:string)=>void; onCancel:()=>void; onResult:(result:"played"|"missed")=>void; onShare:()=>void;
+  onAccept:(playerId:string)=>void; onAcceptAll:()=>void; onStopTaking:()=>void;
+  onCancel:()=>void; onResult:(result:"played"|"missed")=>void; onShare:()=>void;
 }){
   const status=slotStatus(item);
+  const waiting=item.hands.filter(hand=>hand.state==="raised");
+  const accepted=item.hands.filter(hand=>hand.state==="accepted");
+  const takeAll=takeActionLabel(item.counts);
+  const taking=!item.closedAt&&status!=="expired"&&status!=="done";
   return <article className={`ses-card sl-mine is-${status}`}>
     <header className="ses-head">
       <div><b>{when(item)}</b>{item.venue&&<small>{item.venue}</small>}</div>
-      {status==="open"&&<button type="button" className="ses-drop" aria-label="取消呢張局" onClick={onCancel}>✕</button>}
+      {/* One tap, no reason field. A cancellation that has to be justified is one members avoid
+          making, and the dead card they leave up instead is worse for everyone waiting on it. */}
+      {taking&&<button type="button" className="ses-drop" aria-label="取消呢張局" onClick={onCancel}>✕</button>}
     </header>
     {conditionChips(item.conditions).length>0&&<div className="sl-chips">{conditionChips(item.conditions).map(chip=><span key={chip} className="sl-chip">{chip}</span>)}</div>}
 
-    {status==="open"&&item.fillRule==="first"&&<p className="sl-muted">先舉先得 · 第一個舉手嘅人就成事</p>}
+    {/* Elapsed time, never "0 人舉手" — the number nobody needs to see at the exact moment they are
+        most likely to delete the post and never make another one. */}
+    {taking&&<p className="sl-hands-line">{handsLine({hands:item.counts,mine:true,iRaised:false,
+      fillRule:item.fillRule,createdAt:item.createdAt})}</p>}
 
-    {status==="open"&&item.fillRule==="review"&&(item.hands.length
-      ? <div className="sl-hands">
-          <p className="sl-kick">得你一個見到 · {item.hands.length} 人舉咗手</p>
-          {item.hands.map(hand=><div className="hand" key={hand.playerId}>
-            <PlayerBadge player={hand.player}/>
-            <span className="grow"><b>{hand.player.name}</b><small>ELO {Math.round(hand.player.rating)}</small></span>
-            <button type="button" className="mini" disabled={busyId===hand.playerId} onClick={()=>onPick(hand.playerId)}>確認</button>
-          </div>)}
-        </div>
-      : <p className="sl-muted">仲未有人舉手。</p>)}
+    {accepted.length>0&&<div className="sl-hands">
+      <p className="sl-kick">已經收咗 · {accepted.length} 人</p>
+      {accepted.map(hand=><div className="hand" key={hand.playerId}>
+        <PlayerBadge player={hand.player}/>
+        <span className="grow"><b>{hand.player.name}</b><small>ELO {Math.round(hand.player.rating)}</small></span>
+      </div>)}
+    </div>}
 
-    {(status==="open")&&<button type="button" className="secondary full" onClick={onShare}>分享落 WhatsApp</button>}
+    {taking&&waiting.length>0&&<div className="sl-hands">
+      <p className="sl-kick">舉緊手 · {waiting.length} 人<small>得你一個見到呢個名單</small></p>
+      {waiting.map(hand=><div className="hand" key={hand.playerId}>
+        <PlayerBadge player={hand.player}/>
+        <span className="grow"><b>{hand.player.name}</b><small>ELO {Math.round(hand.player.rating)}</small></span>
+        <button type="button" className="mini" disabled={busyId===hand.playerId} onClick={()=>onAccept(hand.playerId)}>收</button>
+      </div>)}
+      {/* The one button this whole change exists for. Being made to read three names and confirm one
+          is what stops people posting again; taking everybody is not a bulk shortcut, it is the
+          default that means nobody was turned down. */}
+      {takeAll&&<button type="button" className="primary full" disabled={Boolean(busyId)} onClick={onAcceptAll}>{takeAll}</button>}
+    </div>}
+
+    {taking&&<button type="button" className="secondary full" onClick={onShare}>分享落 WhatsApp</button>}
+    {/* Distinct from cancelling: the evening still happens, it just stops taking people. Whoever is
+        still waiting sees a slot that filled — the same thing they would have seen had the poster
+        never opened the list. */}
+    {taking&&item.counts.accepted>0&&<button type="button" className="more" disabled={Boolean(busyId)} onClick={onStopTaking}>夠喇 · 唔再收</button>}
 
     {(status==="filled"||status==="toRecord"||status==="done")&&
       <HandoffCard slot={item} opponent={item.filler} onResult={onResult} busy={busyId===item.id}/>}
@@ -184,10 +235,13 @@ function HandsTray({hands,busyId,onRetract,onRetractAll,onResult}:{
   onResult:(slotId:string,result:"played"|"missed",opponentId:string,startAt:string)=>void;
 }){
   if(!hands.length)return null;
-  const open=hands.filter(hand=>slotStatus(hand.slot)==="open");
-  const filled=hands.filter(hand=>slotStatus(hand.slot)!=="open");
+  /* Split on *my* acceptance, not on the slot's status. A slot that took somebody else is still one
+     I am waiting on — showing me a hand-off card for it would tell me I have a game I do not have,
+     and showing it as lost would tell me about a competition I am not supposed to see. */
+  const open=hands.filter(hand=>!hand.accepted);
+  const filled=hands.filter(hand=>hand.accepted);
   return <section className="availability-card mm-card sl-hands-tray" aria-label="你舉咗嘅手">
-    <header className="mm-head"><div><h3>你舉咗嘅手</h3><small>{open.length>0?`${open.length} 張 · 最多夾一張`:"未過"}</small></div>
+    <header className="mm-head"><div><h3>你舉咗嘅手</h3><small>{open.length>0?`${open.length} 張 · 舉幾多張都得`:"未過"}</small></div>
       {open.length>1&&<button type="button" className="more" onClick={onRetractAll}>今晚唔得 · 全部收返</button>}</header>
     {open.map(hand=><div className="sl-row" key={hand.slotId}>
       <PlayerBadge player={hand.slot.player}/>
@@ -222,8 +276,10 @@ export function Slots({signedIn,onRecord,onChanged}:{
     }catch{/* a failed poll leaves the last cards on screen rather than blanking the tab */}
   },[]);
 
+  /* Loads for everyone, signed in or not. "Is anybody playing tonight" is the question this screen
+     is most often opened with, and the one it would be perverse to charge an account for — a club
+     that looks empty to a visitor stays empty. */
   useEffect(()=>{
-    if(!signedIn){setData({signedIn:false,board:[],mine:[],hands:[]});return}
     void load();
     const id=window.setInterval(()=>{if(document.visibilityState==="visible")void load()},45_000);
     return ()=>window.clearInterval(id);
@@ -265,7 +321,7 @@ export function Slots({signedIn,onRecord,onChanged}:{
     finally{setBusyId(null)}
   };
   const retractAll=async()=>{
-    const open=(data?.hands??[]).filter(hand=>slotStatus(hand.slot)==="open");
+    const open=(data?.hands??[]).filter(hand=>!hand.accepted);
     if(!open.length)return;
     const startAt=open.reduce((min,hand)=>hand.slot.startAt<min?hand.slot.startAt:min,open[0].slot.startAt);
     const endAt=open.reduce((max,hand)=>hand.slot.endAt>max?hand.slot.endAt:max,open[0].slot.endAt);
@@ -277,9 +333,21 @@ export function Slots({signedIn,onRecord,onChanged}:{
     try{await patch(id,{action:"cancel"});await load();onChanged()}
     finally{setBusyId(null)}
   };
-  const pick=async(id:string,playerId:string)=>{
+  const accept=async(id:string,playerId:string)=>{
     setBusyId(playerId);
-    try{await patch(id,{action:"pick",playerId});await load();onChanged()}
+    try{await patch(id,{action:"accept",playerId});await load();onChanged()}
+    finally{setBusyId(null)}
+  };
+  /** 全部收. Not a bulk convenience — it is the default that means nobody was turned down, so it is
+      one request rather than a loop the poster could half-finish. */
+  const acceptAll=async(id:string)=>{
+    setBusyId(id);
+    try{await patch(id,{action:"accept-all"});await load();onChanged()}
+    finally{setBusyId(null)}
+  };
+  const stopTaking=async(id:string)=>{
+    setBusyId(id);
+    try{await patch(id,{action:"close"});await load();onChanged()}
     finally{setBusyId(null)}
   };
   /** `opponentId` is supplied by the caller rather than looked up here, because which side of the
@@ -301,15 +369,32 @@ export function Slots({signedIn,onRecord,onChanged}:{
     else{void navigator.clipboard?.writeText(text);setToast("已複製分享文字")}
   };
 
-  if(!signedIn)return <section className="availability-card mm-card">
-    <h2 className="ses-signin">登入後即可開局</h2>
-    <p className="mm-note">連結球員檔案，就可以開局、舉手同約戰。</p>
-  </section>;
-
   if(data===null)return <div className="availability-skeleton" aria-hidden="true"/>;
 
-  const myRaisedIds=new Set((data.hands??[]).filter(hand=>slotStatus(hand.slot)==="open").map(hand=>hand.slotId));
-  const mine=visiblePostedSlots(sortPostedSlots(data.mine));
+  const canAct=Boolean(data.canAct);
+  const myRaisedIds=new Set((data.hands??[]).filter(hand=>!hand.accepted).map(hand=>hand.slotId));
+  const mine=visiblePostedSlots(sortPostedSlots(data.mine)) as MineSlot[];
+
+  const board=<section className="availability-card mm-card sl-board" aria-label="大家開緊嘅局">
+    <header className="mk-head"><h3>大家開緊嘅局</h3>
+      <small>{data.board.length} 張{(()=>{const hands=data.board.reduce((total,slot)=>total+slot.hands.total,0);
+        return hands>0?` · ${hands} 人舉咗手`:""})()}</small></header>
+    {data.board.length
+      ? <ul className="sl-list">{data.board.map(entry=>
+          <BoardRow key={entry.id} entry={entry} raisedByMe={myRaisedIds.has(entry.id)} canAct={canAct}
+            busy={busyId===entry.id}
+            onRaise={()=>void raise(entry.id)} onRetract={()=>void retract(entry.id)}/>)}</ul>
+      : <p className="mm-note">而家未有人開局。開一張，等下一個人見到。</p>}
+  </section>;
+
+  /* Signed out: the whole board, and nothing pretending to be actionable. No login wall, no blur,
+     no modal — the line at the bottom says what signing in *adds*, not what it unlocks. */
+  if(!signedIn)return <>
+    {board}
+    <section className="availability-card mm-card">
+      <p className="mm-note">睇邊個開緊局唔使登入。登入之後就可以開局同舉手。</p>
+    </section>
+  </>;
 
   return <>
     <section className="availability-card mm-card sl-demand">
@@ -318,14 +403,21 @@ export function Slots({signedIn,onRecord,onChanged}:{
         : <>而家未有人話想打 — 做第一個。</>}</p>
       <div className="btn-row">
         <button type="button" className="primary" onClick={()=>setComposing(true)}>開一張局</button>
-        <button type="button" className="secondary" onClick={()=>void wantTonight()}>我都想打，但未定得幾時</button>
+        {/* Was 「我都想打，但未定得幾時」, whose only effect was to increment a counter we look at —
+            so nobody pressed it twice. The wording now names what the presser gets. */}
+        <button type="button" className="secondary" onClick={()=>void wantTonight()}>有局就 send 我</button>
       </div>
       {(data.waitingForMe??0)>0&&<p className="sl-muted">有 <b>{data.waitingForMe}</b> 個人等緊你開局。</p>}
     </section>
 
+    {/* Pinned above the board, not filed into a section of its own: this club fits its whole
+        evening on one screen, and splitting four cards into two lists of two makes both look empty.
+        What differs is the card, not the section. */}
     {mine.length>0&&<section className="ses-list" aria-label="你嘅局">
       {mine.map(item=><MineCard key={item.id} item={item} busyId={busyId}
-        onPick={playerId=>void pick(item.id,playerId)}
+        onAccept={playerId=>void accept(item.id,playerId)}
+        onAcceptAll={()=>void acceptAll(item.id)}
+        onStopTaking={()=>void stopTaking(item.id)}
         onCancel={()=>void cancel(item.id)}
         onResult={value=>void result(item.id,value,item.filledBy,item.startAt)}
         onShare={()=>share(item.id)}/>)}
@@ -334,14 +426,7 @@ export function Slots({signedIn,onRecord,onChanged}:{
     <HandsTray hands={data.hands??[]} busyId={busyId} onRetract={id=>void retract(id)} onRetractAll={()=>void retractAll()}
       onResult={(id,value,opponentId,startAt)=>void result(id,value,opponentId,startAt)}/>
 
-    <section className="availability-card mm-card sl-board" aria-label="大家開緊嘅局">
-      <header className="mk-head"><h3>大家開緊嘅局</h3><small>{data.board.length} 張</small></header>
-      {data.board.length
-        ? <ul className="sl-list">{data.board.map(entry=>
-            <BoardRow key={entry.id} entry={entry} raisedByMe={myRaisedIds.has(entry.id)} busy={busyId===entry.id}
-              onRaise={()=>void raise(entry.id)} onRetract={()=>void retract(entry.id)}/>)}</ul>
-        : <p className="mm-note">而家未有人開局。開一張，等下一個人見到。</p>}
-    </section>
+    {board}
 
     {error&&!composing&&<p className="availability-form-error" role="alert">{error}</p>}
     {toast&&<p key={toast} className="availability-notice" role="status">{toast}</p>}

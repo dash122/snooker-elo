@@ -1,6 +1,6 @@
 import { requireMember } from "../../../../db/auth";
 import { cancelAvailability, playerProfiles, postedSlotById, recordSlotResult } from "../../../../db/availability";
-import { pickHand, raiseHand, retractHand, retractHandsInWindow } from "../../../../db/slot-hands";
+import { acceptHands, closeSlot, raiseHand, retractHand, retractHandsInWindow } from "../../../../db/slot-hands";
 import { announceSlotFilled } from "../../../../db/slot-actions";
 
 export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){
@@ -8,11 +8,13 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   if(!member?.statePlayerId)return Response.json({error:"A linked member account is required"},{status:403});
   const me=member.statePlayerId;
   const {id}=await params;
-  const body=await request.json() as {action?:unknown;playerId?:unknown;result?:unknown;startAt?:unknown;endAt?:unknown};
+  const body=await request.json() as {action?:unknown;playerId?:unknown;playerIds?:unknown;result?:unknown;startAt?:unknown;endAt?:unknown};
 
   if(body.action==="raise"){
     const outcome=await raiseHand(me,id);
-    if(outcome.tooLate)return Response.json({error:"呢張局唔喺度喇 — 可能啱啱夾咗，或者已經過期。"},{status:409});
+    /* No longer "somebody beat you to it" — a slot cannot be taken out from under a hand now that it
+       has no seat count. This only fires when the poster closed or cancelled it, or it expired. */
+    if(outcome.tooLate)return Response.json({error:"呢張局唔收人喇 — 開局嗰位收夠咗，或者已經過期。"},{status:409});
     if(outcome.filled&&outcome.slot)await announceSlotFilled(outcome.slot).catch(()=>{});
     return Response.json({raised:outcome.raised,filled:outcome.filled});
   }
@@ -31,14 +33,28 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
     return Response.json({retracted:count});
   }
 
-  /* Owner-only, and only meaningful on a `review` slot: pick a name from a list nobody else could
-     ever have seen. */
-  if(body.action==="pick"){
-    if(typeof body.playerId!=="string")return Response.json({error:"Choose who to pick"},{status:400});
-    const filled=await pickHand(me,id,body.playerId);
-    if(!filled)return Response.json({error:"呢個人冇舉手，或者局已經夾咗。"},{status:409});
-    await announceSlotFilled(filled).catch(()=>{});
-    return Response.json({slot:filled});
+  /* Owner-only: take one hand, or every hand up. `pick` is kept as an alias so a client cached
+     mid-deploy still does the thing its button says.
+
+     Everyone taken hears the same thing whether they were the only one or one of four. The members
+     not taken hear nothing at all — which is the whole reason there is no rejection to leak. */
+  if(body.action==="accept"||body.action==="pick"||body.action==="accept-all"){
+    const chosen=body.action==="accept-all"?"all" as const
+      :typeof body.playerId==="string"?[body.playerId]
+      :Array.isArray(body.playerIds)?body.playerIds.map(String):[];
+    const result=await acceptHands(me,id,chosen);
+    if(!result)return Response.json({error:"搵唔到呢張局"},{status:404});
+    if(!result.accepted.length)return Response.json({error:"佢冇舉手，或者已經收咗。"},{status:409});
+    if(result.filled)await announceSlotFilled(result.filled).catch(()=>{});
+    return Response.json({accepted:result.accepted.length,slot:result.filled});
+  }
+
+  /* 夠喇 · 唔再收. Distinct from cancelling: the evening still happens, it just stops taking people.
+     Whoever is still waiting sees a slot that filled — the same thing they would have seen if the
+     poster had never opened the list. */
+  if(body.action==="close"){
+    const ok=await closeSlot(me,id);
+    return ok?Response.json({ok:true}):Response.json({error:"搵唔到呢張局"},{status:404});
   }
 
   /* Either participant reports whether a filled slot was actually played — the one thing that must

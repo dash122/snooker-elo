@@ -3735,7 +3735,7 @@ span.sl-chip{padding:4px 10px;font-size:.72rem}
   color:var(--muted);cursor:pointer}
 .sl-composer .seg span.on{background:#fff;color:var(--ink);font-weight:700;box-shadow:var(--shadow)}
 
-/* Board rows — every other member's open post, no hand count attached. */
+/* Board rows — every post still taking hands, with the count on every one of them. */
 .sl-board{margin-top:14px}
 .sl-list{list-style:none;margin:0;padding:0;display:grid;gap:9px}
 .sl-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--line);
@@ -3744,6 +3744,17 @@ span.sl-chip{padding:4px 10px;font-size:.72rem}
 .sl-row-copy b{display:block;font-size:.86rem}
 .sl-row-copy small{display:block;font-size:.72rem;color:var(--muted);margin-top:1px}
 .sl-row button{min-height:38px;padding:0 14px;border-radius:10px;font-size:.78rem;flex:none}
+/* The count line. Public on every card — a row reading 「3 人舉咗手」 and a row saying
+   nothing are different objects to whoever reads it next, and a board that hides
+   interest manufactures the silence that stops anyone posting. Never "0": see
+   `handsLine`, which turns an empty slot into elapsed time for its poster and into
+   an invitation for everybody else. */
+.sl-hands-line{margin:3px 0 0;font-size:.72rem;font-weight:700;color:var(--green)}
+/* Who is already coming, named. Nobody still waiting ever is. */
+.sl-faces{display:flex;margin-top:5px}
+.sl-faces .player-badge{width:22px;height:22px;font-size:.6rem;margin-left:-6px;box-shadow:0 0 0 2px #fbfaf8}
+.sl-faces .player-badge:first-child{margin-left:0}
+.sl-taken{font-size:.74rem;font-weight:700;color:var(--green);flex:none}
 
 /* A poster's own slot. */
 .sl-mine{margin-top:0}
@@ -3754,6 +3765,11 @@ span.sl-chip{padding:4px 10px;font-size:.72rem}
 .sl-hands .hand small{display:block;font-size:.72rem;color:var(--muted)}
 .sl-hands .hand .mini{min-height:32px;padding:0 12px;border-radius:9px;font-size:.75rem;
   background:var(--green);color:#fff;border:0;font-weight:700}
+/* 全部收 sits below the list and outranks the per-name 收 buttons on purpose: being made
+   to read three names and confirm one is what stops people posting again. */
+.sl-hands .primary.full{margin-top:4px}
+.sl-hands .sl-kick small{float:right;text-transform:none;letter-spacing:0;font-weight:600;
+  color:var(--muted);filter:none}
 
 /* The hand-off card — what a filled slot becomes once the app's job is done. */
 .sl-handoff{display:grid;gap:9px;margin-top:9px}
