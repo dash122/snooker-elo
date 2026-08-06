@@ -49,7 +49,9 @@ export default function SlotPreview({id,slot,signedIn}:{id:string;slot:SharedSlo
               <PlayerBadge player={slot.player}/>
               <span><b>{slot.player.name}</b><small>ELO {Math.round(slot.player.rating)}</small></span>
             </div>
-            <h1>{when(slot)}{slot.venue?` · ${slot.venue}`:""}</h1>
+            {/* The time is one token, never broken across lines — a card that reads
+                「今晚 21:30–」 / 「23:30 · 會所」 makes a reader check twice. */}
+            <h1><span className="share-when">{when(slot)}</span>{slot.venue&&<em>{slot.venue}</em>}</h1>
             {conditionChips(slot.conditions).length>0&&<div className="share-chips">
               {conditionChips(slot.conditions).map(chip=><span key={chip} className="share-chip">{chip}</span>)}
             </div>}

@@ -79,7 +79,7 @@ function Composer({onCreate,onClose,busy,error}:{
         <input type="text" maxLength={60} value={venue} placeholder="例如：已訂 3 號枱" onChange={event=>setVenue(event.target.value)}/></label>
 
       <div className="sl-field">
-        <span className="sl-label">想打一場點樣嘅局 · 可以唔揀</span>
+        <span className="sl-label">想打一場點樣嘅局 <em>可以唔揀</em></span>
         <div className="sl-chips">
           <button type="button" className={conditions.handicap?"sl-chip on":"sl-chip"} aria-pressed={Boolean(conditions.handicap)} onClick={()=>toggle("handicap")}>要讓分</button>
           <button type="button" className={conditions.noSmoking?"sl-chip on":"sl-chip"} aria-pressed={Boolean(conditions.noSmoking)} onClick={()=>toggle("noSmoking")}>無煙</button>
@@ -94,11 +94,13 @@ function Composer({onCreate,onClose,busy,error}:{
           poster wants to look first. */}
       <div className="sl-field">
         <span className="sl-label">要唔要自己揀</span>
-        <div className="seg" role="group" aria-label="要唔要自己揀">
-          <span className={fillRule==="first"?"on":""} role="button" tabIndex={0} aria-pressed={fillRule==="first"}
-            onClick={()=>setFillRule("first")}>第一個就算</span>
-          <span className={fillRule==="review"?"on":""} role="button" tabIndex={0} aria-pressed={fillRule==="review"}
-            onClick={()=>setFillRule("review")}>我想睇下先</span>
+        {/* Real buttons rather than click-handled spans: keyboard, screen readers and a proper
+            44px tap target all come free, and none of them did before. */}
+        <div className="sl-seg" role="group" aria-label="要唔要自己揀">
+          <button type="button" className={fillRule==="first"?"on":""} aria-pressed={fillRule==="first"}
+            onClick={()=>setFillRule("first")}>第一個就算</button>
+          <button type="button" className={fillRule==="review"?"on":""} aria-pressed={fillRule==="review"}
+            onClick={()=>setFillRule("review")}>我想睇下先</button>
         </div>
         <p className="sl-hint">{fillRule==="first"
           ?"第一個舉手嘅人就即刻成事。之後仲有人舉手，你想收幾多個都得。"
@@ -106,7 +108,7 @@ function Composer({onCreate,onClose,busy,error}:{
       </div>
 
       {error&&<p className="availability-form-error" role="alert">{error}</p>}
-      <button type="button" className="primary full" disabled={busy} onClick={()=>{
+      <button type="button" className="primary sl-primary" disabled={busy} onClick={()=>{
         const endDate=end<=start?addDaysHongKong(date,1):date;
         onCreate({startAt:hongKongInstant(date,start),endAt:hongKongInstant(endDate,end),venue,fillRule,conditions});
       }}>{busy?"開緊…":`開 ${start}–${end}`}</button>
@@ -125,47 +127,63 @@ function BoardRow({entry,raisedByMe,canAct,busy,onRaise,onRetract}:{
      says so. */
   const line=handsLine({hands:entry.hands,mine:false,iRaised:raisedByMe,
     fillRule:entry.fillRule,createdAt:entry.createdAt});
-  return <li className="sl-row">
+  /* `.mm-row` is the app's one row shape — a person, a time, some buttons — and this is exactly
+     that, so it does not get a private layout. The hand count goes in the row's reason slot (`em`),
+     which is the one line the system allows to carry a tint. */
+  return <li className={`mm-row${entry.iAccepted?" is-offer":""}`}>
     <PlayerBadge player={entry.player}/>
-    <span className="sl-row-copy">
+    <span className="mm-row-copy">
       <b>{entry.player.name}</b>
       <small>ELO {Math.round(entry.player.rating)} · {when(entry)}{entry.venue?` · ${entry.venue}`:""}</small>
-      {chips.length>0&&<span className="sl-chips sl-chips-compact">{chips.map(chip=><i key={chip}>{chip}</i>)}</span>}
-      <small className="sl-hands-line">{line}</small>
+      {chips.length>0&&<span className="sl-chips is-inline">{chips.map(chip=><i key={chip}>{chip}</i>)}</span>}
+      <em>{line}</em>
       {/* Who is already coming, named. Nobody still waiting is. */}
       {entry.acceptedPlayers.length>0&&<span className="sl-faces">
         {entry.acceptedPlayers.slice(0,4).map(player=><PlayerBadge key={player.id} player={player}/>)}
+        <small>{entry.acceptedPlayers.map(player=>player.name).join("、")} 會嚟</small>
       </span>}
     </span>
-    {entry.iAccepted
-      ? <span className="sl-taken">已經收咗你</span>
-      : raisedByMe
-        ? <button type="button" className="secondary" disabled={busy} onClick={onRetract}>已舉手 · 收返</button>
-        : canAct&&<button type="button" className="primary" disabled={busy} onClick={onRaise}>舉手</button>}
+    <span className="mm-row-actions">
+      {entry.iAccepted
+        ? <span className="sl-taken">已經收咗你</span>
+        : raisedByMe
+          ? <button type="button" className="secondary" disabled={busy} onClick={onRetract}>收返</button>
+          : canAct&&<button type="button" className="primary" disabled={busy} onClick={onRaise}>舉手</button>}
+    </span>
   </li>;
 }
 
 /* --- Hand-off card --------------------------------------------------------- */
 
-function HandoffCard({slot,opponent,onResult,busy}:{
+function HandoffCard({slot,opponent,onResult,busy,showWho=true}:{
   slot:PostedSlot; opponent:Player|null; onResult:(result:"played"|"missed")=>void; busy:boolean;
+  /** Suppressed when the card already lists the accepted players directly above — naming the same
+      person twice in one card reads as two different people until you look twice. */
+  showWho?:boolean;
 }){
   const status=slotStatus(slot);
   const text=opponent?handoffMessage({venue:slot.venue,whenLabel:when(slot)}):"";
+  /* The app's job ends here, so the WhatsApp link is the one thing with primary weight — bigger than
+     anything above it, and the only full-width control in the card. */
   return <div className="sl-handoff">
-    {opponent&&<div className="sl-who"><PlayerBadge player={opponent}/><span><b>{opponent.name}</b><small>ELO {Math.round(opponent.rating)}</small></span></div>}
-    <div className="sl-meta"><span>{when(slot)}</span>{slot.venue&&<span>{slot.venue}</span>}</div>
+    {showWho&&opponent&&<div className="next-up">
+      <PlayerBadge player={opponent}/>
+      <span className="next-up-copy"><b>{opponent.name}</b>
+        <small>ELO {Math.round(opponent.rating)} · {when(slot)}{slot.venue?` · ${slot.venue}`:""}</small></span>
+    </div>}
     {conditionChips(slot.conditions).length>0&&<div className="sl-chips">{conditionChips(slot.conditions).map(chip=><span key={chip} className="sl-chip">{chip}</span>)}</div>}
     {(status==="filled")&&<>
-      <a className="primary full" href={whatsappShareUrl(text)} target="_blank" rel="noreferrer">WhatsApp {opponent?.name??"佢"}</a>
-      <button type="button" className="secondary full" onClick={()=>void navigator.clipboard?.writeText(text)}>複製聯絡文字</button>
+      <a className="primary sl-primary" href={whatsappShareUrl(text)} target="_blank" rel="noreferrer">WhatsApp {opponent?.name??"佢"}</a>
+      <button type="button" className="more sl-wide-link" onClick={()=>void navigator.clipboard?.writeText(text)}>複製聯絡文字</button>
     </>}
     {status==="toRecord"&&<>
       <p className="sl-kick">打完喇？</p>
-      <div className="btn-row"><button type="button" className="primary" disabled={busy} onClick={()=>onResult("played")}>打咗</button>
-        <button type="button" className="secondary" disabled={busy} onClick={()=>onResult("missed")}>冇打成</button></div>
+      <div className="sl-two">
+        <button type="button" className="primary" disabled={busy} onClick={()=>onResult("played")}>打咗</button>
+        <button type="button" className="secondary" disabled={busy} onClick={()=>onResult("missed")}>冇打成</button>
+      </div>
     </>}
-    {status==="done"&&<p className="sl-muted">{slot.result==="played"?"打咗喇，記得去記分。":"呢一節冇約成。"}</p>}
+    {status==="done"&&<p className="sl-status is-quiet">{slot.result==="played"?"打咗喇，記得去記分。":"呢一節冇約成。"}</p>}
   </div>;
 }
 
@@ -181,49 +199,69 @@ function MineCard({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onResu
   const accepted=item.hands.filter(hand=>hand.state==="accepted");
   const takeAll=takeActionLabel(item.counts);
   const taking=!item.closedAt&&status!=="expired"&&status!=="done";
-  return <article className={`ses-card sl-mine is-${status}`}>
-    <header className="ses-head">
-      <div><b>{when(item)}</b>{item.venue&&<small>{item.venue}</small>}</div>
-      {/* One tap, no reason field. A cancellation that has to be justified is one members avoid
-          making, and the dead card they leave up instead is worse for everyone waiting on it. */}
-      {taking&&<button type="button" className="ses-drop" aria-label="取消呢張局" onClick={onCancel}>✕</button>}
+  /* Accent follows the app's rule — amber only when the member has something to do (hands waiting
+     on their own slot), green only once somebody is confirmed. Neutral otherwise. An accent spent on
+     every card is decoration pretending to be information. */
+  const tone=taking&&waiting.length>0?" is-attention":accepted.length>0?" is-confirmed":"";
+  return <article className={`availability-card mm-card sl-mine is-${status}${tone}`}>
+    <header className="mm-head">
+      <div>
+        <h3>{when(item)}</h3>
+        <small>{item.venue||"未講枱位"}{item.closedAt?" · 已經唔收人":""}</small>
+      </div>
+      <div className="mm-head-aside">
+        {item.counts.total>0&&<span className="mm-count">{item.counts.total}</span>}
+        {/* One tap, no reason field. A cancellation that has to be justified is one members avoid
+            making, and the dead card they leave up instead is worse for everyone waiting on it. */}
+        {taking&&<button type="button" className="sl-drop" aria-label="取消呢張局" onClick={onCancel}>✕</button>}
+      </div>
     </header>
     {conditionChips(item.conditions).length>0&&<div className="sl-chips">{conditionChips(item.conditions).map(chip=><span key={chip} className="sl-chip">{chip}</span>)}</div>}
 
     {/* Elapsed time, never "0 人舉手" — the number nobody needs to see at the exact moment they are
         most likely to delete the post and never make another one. */}
-    {taking&&<p className="sl-hands-line">{handsLine({hands:item.counts,mine:true,iRaised:false,
+    {taking&&<p className="sl-status">{handsLine({hands:item.counts,mine:true,iRaised:false,
       fillRule:item.fillRule,createdAt:item.createdAt})}</p>}
 
-    {accepted.length>0&&<div className="sl-hands">
+    {accepted.length>0&&<>
       <p className="sl-kick">已經收咗 · {accepted.length} 人</p>
-      {accepted.map(hand=><div className="hand" key={hand.playerId}>
-        <PlayerBadge player={hand.player}/>
-        <span className="grow"><b>{hand.player.name}</b><small>ELO {Math.round(hand.player.rating)}</small></span>
-      </div>)}
-    </div>}
+      <ul className="mm-rows">
+        {accepted.map(hand=><li className="mm-row is-offer" key={hand.playerId}>
+          <PlayerBadge player={hand.player}/>
+          <span className="mm-row-copy"><b>{hand.player.name}</b><small>ELO {Math.round(hand.player.rating)}</small></span>
+        </li>)}
+      </ul>
+    </>}
 
-    {taking&&waiting.length>0&&<div className="sl-hands">
-      <p className="sl-kick">舉緊手 · {waiting.length} 人<small>得你一個見到呢個名單</small></p>
-      {waiting.map(hand=><div className="hand" key={hand.playerId}>
-        <PlayerBadge player={hand.player}/>
-        <span className="grow"><b>{hand.player.name}</b><small>ELO {Math.round(hand.player.rating)}</small></span>
-        <button type="button" className="mini" disabled={busyId===hand.playerId} onClick={()=>onAccept(hand.playerId)}>收</button>
-      </div>)}
+    {taking&&waiting.length>0&&<>
+      <p className="sl-kick">舉緊手 · {waiting.length} 人<small>得你一個見到</small></p>
+      <ul className="mm-rows">
+        {waiting.map(hand=><li className="mm-row" key={hand.playerId}>
+          <PlayerBadge player={hand.player}/>
+          <span className="mm-row-copy"><b>{hand.player.name}</b><small>ELO {Math.round(hand.player.rating)}</small></span>
+          <span className="mm-row-actions">
+            <button type="button" className="secondary" disabled={busyId===hand.playerId}
+              onClick={()=>onAccept(hand.playerId)}>收</button>
+          </span>
+        </li>)}
+      </ul>
       {/* The one button this whole change exists for. Being made to read three names and confirm one
           is what stops people posting again; taking everybody is not a bulk shortcut, it is the
-          default that means nobody was turned down. */}
-      {takeAll&&<button type="button" className="primary full" disabled={Boolean(busyId)} onClick={onAcceptAll}>{takeAll}</button>}
-    </div>}
-
-    {taking&&<button type="button" className="secondary full" onClick={onShare}>分享落 WhatsApp</button>}
-    {/* Distinct from cancelling: the evening still happens, it just stops taking people. Whoever is
-        still waiting sees a slot that filled — the same thing they would have seen had the poster
-        never opened the list. */}
-    {taking&&item.counts.accepted>0&&<button type="button" className="more" disabled={Boolean(busyId)} onClick={onStopTaking}>夠喇 · 唔再收</button>}
+          default that means nobody was turned down — so it gets the zone's primary weight. */}
+      {takeAll&&<button type="button" className="primary sl-primary" disabled={Boolean(busyId)} onClick={onAcceptAll}>{takeAll}</button>}
+    </>}
 
     {(status==="filled"||status==="toRecord"||status==="done")&&
-      <HandoffCard slot={item} opponent={item.filler} onResult={onResult} busy={busyId===item.id}/>}
+      <HandoffCard slot={item} opponent={item.filler} onResult={onResult} busy={busyId===item.id}
+        showWho={accepted.length===0}/>}
+
+    {taking&&<div className="sl-card-foot">
+      <button type="button" className="secondary sl-wide" onClick={onShare}>分享落 WhatsApp</button>
+      {/* Distinct from cancelling: the evening still happens, it just stops taking people. Whoever is
+          still waiting sees a slot that filled — the same thing they would have seen had the poster
+          never opened the list. */}
+      {item.counts.accepted>0&&<button type="button" className="more" disabled={Boolean(busyId)} onClick={onStopTaking}>夠喇 · 唔再收</button>}
+    </div>}
   </article>;
 }
 
@@ -241,13 +279,23 @@ function HandsTray({hands,busyId,onRetract,onRetractAll,onResult}:{
   const open=hands.filter(hand=>!hand.accepted);
   const filled=hands.filter(hand=>hand.accepted);
   return <section className="availability-card mm-card sl-hands-tray" aria-label="你舉咗嘅手">
-    <header className="mm-head"><div><h3>你舉咗嘅手</h3><small>{open.length>0?`${open.length} 張 · 舉幾多張都得`:"未過"}</small></div>
-      {open.length>1&&<button type="button" className="more" onClick={onRetractAll}>今晚唔得 · 全部收返</button>}</header>
-    {open.map(hand=><div className="sl-row" key={hand.slotId}>
-      <PlayerBadge player={hand.slot.player}/>
-      <span className="sl-row-copy"><b>{hand.slot.player.name}</b><small>{when(hand.slot)}{hand.slot.venue?` · ${hand.slot.venue}`:""}</small></span>
-      <button type="button" className="secondary" disabled={busyId===hand.slotId} onClick={()=>onRetract(hand.slotId)}>收返</button>
-    </div>)}
+    <header className="mm-head">
+      <div><h3>你舉咗嘅手</h3><small>舉幾多張都得，隨時可以收返</small></div>
+      <div className="mm-head-aside">
+        {open.length>0&&<span className="mm-count">{open.length}</span>}
+        {open.length>1&&<button type="button" className="more" onClick={onRetractAll}>全部收返</button>}
+      </div>
+    </header>
+    <ul className="mm-rows">
+      {open.map(hand=><li className="mm-row" key={hand.slotId}>
+        <PlayerBadge player={hand.slot.player}/>
+        <span className="mm-row-copy"><b>{hand.slot.player.name}</b>
+          <small>{when(hand.slot)}{hand.slot.venue?` · ${hand.slot.venue}`:""}</small></span>
+        <span className="mm-row-actions">
+          <button type="button" className="secondary" disabled={busyId===hand.slotId} onClick={()=>onRetract(hand.slotId)}>收返</button>
+        </span>
+      </li>)}
+    </ul>
     {filled.map(hand=><div className="sl-mine-hand" key={hand.slotId}>
       <HandoffCard slot={hand.slot} opponent={hand.slot.player}
         onResult={result=>onResult(hand.slotId,result,hand.slot.player.id,hand.slot.startAt)}
@@ -375,12 +423,15 @@ export function Slots({signedIn,onRecord,onChanged}:{
   const myRaisedIds=new Set((data.hands??[]).filter(hand=>!hand.accepted).map(hand=>hand.slotId));
   const mine=visiblePostedSlots(sortPostedSlots(data.mine)) as MineSlot[];
 
+  const boardHands=data.board.reduce((total,slot)=>total+slot.hands.total,0);
   const board=<section className="availability-card mm-card sl-board" aria-label="大家開緊嘅局">
-    <header className="mk-head"><h3>大家開緊嘅局</h3>
-      <small>{data.board.length} 張{(()=>{const hands=data.board.reduce((total,slot)=>total+slot.hands.total,0);
-        return hands>0?` · ${hands} 人舉咗手`:""})()}</small></header>
+    <header className="mm-head">
+      <div><h3>大家開緊嘅局</h3>
+        <small>{boardHands>0?`${boardHands} 人舉咗手`:"舉手唔使開口，隨時可以收返"}</small></div>
+      {data.board.length>0&&<div className="mm-head-aside"><span className="mm-count">{data.board.length}</span></div>}
+    </header>
     {data.board.length
-      ? <ul className="sl-list">{data.board.map(entry=>
+      ? <ul className="mm-rows">{data.board.map(entry=>
           <BoardRow key={entry.id} entry={entry} raisedByMe={myRaisedIds.has(entry.id)} canAct={canAct}
             busy={busyId===entry.id}
             onRaise={()=>void raise(entry.id)} onRetract={()=>void retract(entry.id)}/>)}</ul>
@@ -397,23 +448,23 @@ export function Slots({signedIn,onRecord,onChanged}:{
   </>;
 
   return <>
-    <section className="availability-card mm-card sl-demand">
-      <p>{(data.wantTonight??0)>0
-        ? <>今晚 <b>{data.wantTonight}</b> 個人話想打，得 <b>{data.openCount??0}</b> 個開咗局。</>
-        : <>而家未有人話想打 — 做第一個。</>}</p>
-      <div className="btn-row">
-        <button type="button" className="primary" onClick={()=>setComposing(true)}>開一張局</button>
-        {/* Was 「我都想打，但未定得幾時」, whose only effect was to increment a counter we look at —
-            so nobody pressed it twice. The wording now names what the presser gets. */}
-        <button type="button" className="secondary" onClick={()=>void wantTonight()}>有局就 send 我</button>
-      </div>
-      {(data.waitingForMe??0)>0&&<p className="sl-muted">有 <b>{data.waitingForMe}</b> 個人等緊你開局。</p>}
+    {/* The one zone that starts the whole flow, so it gets the screen's only 52px button and the
+        only tinted panel. Everything below it is neutral until it needs something. */}
+    <section className="availability-card mm-card is-idle sl-open">
+      <p className="sl-open-line">{(data.wantTonight??0)>0
+        ? <>今晚 <b>{data.wantTonight}</b> 個人想打，得 <b>{data.openCount??0}</b> 個開咗局。</>
+        : <>而家未有人開局 — 做第一個。</>}</p>
+      {(data.waitingForMe??0)>0&&<p className="sl-open-sub">有 <b>{data.waitingForMe}</b> 個人等緊你開局。</p>}
+      <button type="button" className="primary sl-primary" onClick={()=>setComposing(true)}>開一張局</button>
+      {/* Was 「我都想打，但未定得幾時」, whose only effect was to increment a counter we look at —
+          so nobody pressed it twice. The wording now names what the presser gets. */}
+      <button type="button" className="more sl-wide-link" onClick={()=>void wantTonight()}>未開得局？ 有局就 send 我</button>
     </section>
 
     {/* Pinned above the board, not filed into a section of its own: this club fits its whole
         evening on one screen, and splitting four cards into two lists of two makes both look empty.
         What differs is the card, not the section. */}
-    {mine.length>0&&<section className="ses-list" aria-label="你嘅局">
+    {mine.length>0&&<section className="sl-mine-list" aria-label="你嘅局">
       {mine.map(item=><MineCard key={item.id} item={item} busyId={busyId}
         onAccept={playerId=>void accept(item.id,playerId)}
         onAcceptAll={()=>void acceptAll(item.id)}
