@@ -68,7 +68,7 @@ export function cupShareMessage(name:string,state:CupShareState,url:string):stri
     ?[`🏆 ${name} 開始報名喇`,
       state.openPlaces>0?`仲有 ${state.openPlaces} 個位 · 已有 ${state.entrants} 人報名`:`已有 ${state.entrants} 人報名`,
       `${state.deadline} 截止，截止後即刻抽籤。`,
-      "上去報名，一齊爭盃 👇"]
+      "立即報名參加比賽 👇"]
     :state.status==="done"
     ?[`🏆 ${name} 完滿結束`,`冠軍：${state.championName}`,"完整對陣圖同賽果喺呢度 👇"]
     :state.status==="short"
