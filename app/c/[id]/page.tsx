@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { getCurrentMember } from "../../../db/auth";
 import { getState } from "../../../db/state";
 import { cupShareDescription, cupShareState, cupShareTitle, cupShareUrl } from "../../../lib/cup-share";
-import { bracketShape, buildBracket, currentRoundLabel, roundLabel, signupsClosed, type CupMatchLike, type TournamentLike } from "../../../lib/tournament";
+import { buildBracket, currentRoundLabel, roundLabel, signupsClosed, type CupMatchLike, type TournamentLike } from "../../../lib/tournament";
 import CupShareView, { type SharedCup } from "./CupShareView";
 
 export const dynamic = "force-dynamic";
@@ -26,9 +26,7 @@ async function load(id:string){
   const entrants=tournament.signups?.length??0;
   const share=cupShareState({
     signupDeadline:tournament.signupDeadline,entrants,closed,
-    /* While recruiting the size is the bracket the current field *would* fill, which is what makes
-       "仲有 3 個位" true; once closed it is the real one, and 0 means the cup never drew. */
-    bracketSize:closed?bracket?.size??0:bracketShape(Math.max(entrants,2)).size,
+    drew:Boolean(bracket?.size),
     roundName:currentRoundLabel(bracket),
     championName:bracket?.champion?player(bracket.champion)?.name:"",
   });

@@ -8,7 +8,7 @@ import { registerServiceWorker } from "./push-client";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
 import { cupShareMessage, cupShareState, cupShareUrl, whatsappLink } from "../lib/cup-share";
-import { bracketShape, buildBracket, currentRoundLabel, drawOrder, opponentIn, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
+import { buildBracket, currentRoundLabel, drawOrder, opponentIn, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 
 type Player = {
   id: string; name: string; short: string; handicap: number | null; rating: number; colour?: string; avatar?: string | null;
@@ -1439,7 +1439,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     const itemBracket=buildBracket<Match>(item,data.matches);
     const state=cupShareState({
       signupDeadline:item.signupDeadline,entrants:item.signups?.length??0,closed:signupsClosed(item),
-      bracketSize:signupsClosed(item)?itemBracket.size:bracketShape(Math.max(item.signups?.length??0,2)).size,
+      drew:Boolean(itemBracket.size),
       roundName:currentRoundLabel(itemBracket),
       championName:itemBracket.champion?name(itemBracket.champion):"",
     });
