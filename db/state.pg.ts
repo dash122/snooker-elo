@@ -3,7 +3,8 @@ import { getSql } from "./sql";
 
 type Player = { id:string; name:string; short:string; handicap:number|null; rating:number; colour?:string; avatar?:string|null; initialRating:number; active:boolean; wins:number; losses:number; draws:number; framesWon:number; framesLost:number; lastChange:number; form:string[] };
 type Match = { id:string; a:string; b:string; a2?:string; b2?:string; mode?:string; teamAName?:string; teamBName?:string; scoreA:number; scoreB:number; playedOn:string; entryMode?:("match"|"aggregate"); frameEvidence?:number; performanceScore?:number; evidenceWeight?:number; handicapAdjustment?:number; overHandicapElo?:number; overHandicapMultiplier?:number; highBreaks?:{playerId:string;value:number}[]; actual:number; giver:string|null; official:number|null; extra:number; expectedA:number; beforeA:number; beforeB:number; beforeA2?:number; beforeB2?:number; afterA:number; afterB:number; afterA2?:number; afterB2?:number; deltaA:number; marginMultiplier?:number; status:("confirmed"|"void"); createdAt:string; tournamentId?:string; tournamentRound?:number; tournamentMatchIndex?:number };
-type Tournament = { id:string; name:string; handicapMode:"suggested"|"none"; signupDeadline:string; createdAt:string; createdBy?:string; signups:string[] };
+type Walkover = { round:number; index:number; winner:string; reason?:string };
+type Tournament = { id:string; name:string; handicapMode:"suggested"|"none"; signupDeadline:string; createdAt:string; createdBy?:string; signups:string[]; draw?:string[]|null; drawnAt?:string|null; walkovers?:Walkover[]|null };
 type State = { players:Player[]; matches:Match[]; tournaments:Tournament[]; settings:Record<string, unknown>; audits:{id:string;text:string;at:string}[] };
 type SnapshotEntity = { entityType: "player"|"match"|"settings"|"tournament"|"audit"; entityId: string; position: number; payload: unknown };
 
@@ -131,6 +132,12 @@ export function ensureStateSchema() {
       await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS tournament_id text REFERENCES state_tournaments(id) ON DELETE SET NULL`;
       await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS tournament_round integer`;
       await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS tournament_match_index integer`;
+      // The frozen draw and any walkovers. Without these columns the fields round-tripped through
+      // the client but were dropped on save, so a cup could never actually be *drawn*: every client
+      // that opened it saw an undrawn cup, re-ran the draw endpoint, and re-notified every entrant.
+      await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS draw jsonb`;
+      await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS drawn_at timestamptz`;
+      await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS walkovers jsonb`;
     });
   })().catch(error => { schemaReady = null; throw error; });
   return schemaReady;
@@ -142,7 +149,7 @@ export async function getState(): Promise<string | null> {
   const [players, matches, tournaments, settings, audits] = await Promise.all([
     sql<Player[]>`SELECT id, name, short, handicap::float8 AS handicap, rating::float8 AS rating, colour, avatar, initial_rating::float8 AS "initialRating", active, wins, losses, draws, frames_won AS "framesWon", frames_lost AS "framesLost", last_change::float8 AS "lastChange", form FROM state_players ORDER BY name`,
     sql<Match[]>`SELECT id, player_a AS a, player_b AS b, player_a2 AS a2, player_b2 AS b2, mode, team_a_name AS "teamAName", team_b_name AS "teamBName", score_a AS "scoreA", score_b AS "scoreB", to_char(played_on, 'YYYY-MM-DD') AS "playedOn", entry_mode AS "entryMode", frame_evidence::float8 AS "frameEvidence", performance_score::float8 AS "performanceScore", evidence_weight::float8 AS "evidenceWeight", handicap_adjustment::float8 AS "handicapAdjustment", over_handicap_elo::float8 AS "overHandicapElo", over_handicap_multiplier::float8 AS "overHandicapMultiplier", high_breaks AS "highBreaks", actual::float8 AS actual, giver, official::float8 AS official, extra::float8 AS extra, expected_a::float8 AS "expectedA", before_a::float8 AS "beforeA", before_b::float8 AS "beforeB", before_a2::float8 AS "beforeA2", before_b2::float8 AS "beforeB2", after_a::float8 AS "afterA", after_b::float8 AS "afterB", after_a2::float8 AS "afterA2", after_b2::float8 AS "afterB2", delta_a::float8 AS "deltaA", margin_multiplier::float8 AS "marginMultiplier", tournament_id AS "tournamentId", tournament_round AS "tournamentRound", tournament_match_index AS "tournamentMatchIndex", status, created_at AS "createdAt" FROM state_matches ORDER BY played_on, created_at, id`,
-    sql<Tournament[]>`SELECT id, name, handicap_mode AS "handicapMode", to_char(signup_deadline AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD"T"HH24:MI') AS "signupDeadline", created_at AS "createdAt", created_by AS "createdBy", signups FROM state_tournaments ORDER BY created_at DESC`,
+    sql<Tournament[]>`SELECT id, name, handicap_mode AS "handicapMode", to_char(signup_deadline AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD"T"HH24:MI') AS "signupDeadline", created_at AS "createdAt", created_by AS "createdBy", signups, draw, drawn_at AS "drawnAt", walkovers FROM state_tournaments ORDER BY created_at DESC`,
     sql<{data:Record<string, unknown>}[]>`SELECT data FROM state_settings WHERE id = true`,
     sql<{id:string;text:string;at:string}[]>`SELECT id, text, occurred_at AS at FROM state_audits ORDER BY occurred_at DESC, id DESC`,
   ]);
@@ -238,9 +245,9 @@ export async function putState(data: string) {
     }
 
     if (state.tournaments.length) {
-      const rows = state.tournaments.map(t => ({ id: t.id, name: t.name, handicap_mode: t.handicapMode, signup_deadline: t.signupDeadline.length === 16 ? `${t.signupDeadline}:00+08:00` : t.signupDeadline, created_at: t.createdAt, created_by: t.createdBy ?? null, signups: tx.json(t.signups) }));
+      const rows = state.tournaments.map(t => ({ id: t.id, name: t.name, handicap_mode: t.handicapMode, signup_deadline: t.signupDeadline.length === 16 ? `${t.signupDeadline}:00+08:00` : t.signupDeadline, created_at: t.createdAt, created_by: t.createdBy ?? null, signups: tx.json(t.signups), draw: t.draw?.length ? tx.json(t.draw) : null, drawn_at: t.drawnAt ?? null, walkovers: t.walkovers?.length ? tx.json(t.walkovers) : null }));
       await tx`INSERT INTO state_tournaments ${tx(rows)}
-        ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by,signups=excluded.signups`;
+        ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by,signups=excluded.signups,draw=excluded.draw,drawn_at=excluded.drawn_at,walkovers=excluded.walkovers`;
     }
     await tx`DELETE FROM state_tournaments WHERE NOT (id = ANY(${tournamentIds}::text[]))`;
     if (state.audits.length) {

@@ -174,3 +174,11 @@ export function firstRoundPairings(tournament:TournamentLike,now=Date.now()):{pl
     slot.b?{playerId:slot.b,opponentId:slot.a,index:slot.index}:null,
   ].filter((entry):entry is {playerId:string;opponentId:string;index:number}=>entry!=null));
 }
+
+/** The round a cup has reached — the live one, or the final once everything is settled. Lives here
+    rather than in the share copy so the wording module stays free of bracket maths. */
+export function currentRoundLabel(bracket:Bracket|null|undefined):string {
+  if(!bracket?.rounds)return "";
+  const live=bracket.slots.find(slot=>slot.state==="ready"||slot.state==="waiting");
+  return roundLabel(live?.round??bracket.rounds,bracket.rounds);
+}
