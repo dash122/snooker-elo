@@ -81,6 +81,9 @@ test("the WhatsApp message ends with the bare url on its own line", () => {
   assert.equal(lines.filter(line => line.includes("http")).length, 1);
   assert.match(message, /🏆 南華會週年會友盃/);
   assert.match(message, /仲有 3 個位/);
+  // The call to action is the last line before the link, and it asks for the one thing this share
+  // exists to get: an entry.
+  assert.equal(lines.at(-2), "立即報名參加比賽 👇");
 });
 
 test("share urls are absolute and tolerate a trailing slash on the origin", () => {
