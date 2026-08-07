@@ -166,6 +166,54 @@ export function playerEliminated(bracket:Bracket,playerId:string|undefined):bool
   return involved.every(slot=>slot.settled&&slot.winner!==playerId);
 }
 
+export type SwapResult = {ok:true;tournament:TournamentLike;kind:"swap"|"substitute"}|{ok:false;error:string};
+
+/** Move a player in or out of a frozen draw, without re-running it.
+ *
+ *  Two things an admin actually asks for, and they are the same edit seen from either end: two
+ *  entrants trading boxes, or a no-show being replaced by a reserve. Both are position surgery on
+ *  `draw` — never a recompute, because `computeDraw` is seeded by the sign-up list and re-running it
+ *  after a withdrawal re-pairs everyone who has already been told who they are playing.
+ *
+ *  Refused once a side has a result: a played match names its two players, so moving one of them out
+ *  of the box would leave the bracket disagreeing with the scorecard. Walkovers declared for a
+ *  player who is leaving go with them — `buildBracket` ignores a stale one anyway, but leaving it
+ *  behind would hand the tie back if that player ever returned. */
+export function swapPlayer(
+  tournament:TournamentLike,
+  outgoingId:string,
+  incomingId:string,
+  matches:CupMatchLike[]=[],
+):SwapResult {
+  if(!outgoingId||!incomingId)return {ok:false,error:"需要兩名球員"};
+  if(outgoingId===incomingId)return {ok:false,error:"不能與自己對調"};
+  const draw=drawOrder(tournament);
+  const outgoingAt=draw.indexOf(outgoingId);
+  if(outgoingAt<0)return {ok:false,error:"該球員不在籤表內"};
+  const incomingAt=draw.indexOf(incomingId);
+
+  const played=cupMatches(matches,tournament.id);
+  const hasResult=(playerId:string)=>played.some(match=>match.a===playerId||match.b===playerId);
+  if(hasResult(outgoingId))return {ok:false,error:"該球員已有賽果，不能更換"};
+  if(incomingAt>=0&&hasResult(incomingId))return {ok:false,error:"該球員已有賽果，不能更換"};
+
+  const next=[...draw];
+  if(incomingAt>=0){ next[outgoingAt]=incomingId; next[incomingAt]=outgoingId; }
+  else next[outgoingAt]=incomingId;
+
+  const signups=[...new Set(tournament.signups??[])];
+  const nextSignups=incomingAt>=0?signups:signups.map(id=>id===outgoingId?incomingId:id);
+  /* A reserve who never signed up still has to appear in the roster the rest of the app counts. */
+  if(incomingAt<0&&!nextSignups.includes(incomingId))nextSignups.push(incomingId);
+
+  const walkovers=(tournament.walkovers??[]).filter(item=>incomingAt>=0||item.winner!==outgoingId);
+  return {
+    ok:true,
+    kind:incomingAt>=0?"swap":"substitute",
+    tournament:{...tournament,signups:nextSignups,draw:next,...(tournament.walkovers?{walkovers}:{})},
+  };
+}
+
 /** First-round pairings by player, for the "you were drawn against X" notification. */
 export function firstRoundPairings(tournament:TournamentLike,now=Date.now()):{playerId:string;opponentId:string;index:number}[] {
   const bracket=buildBracket(tournament,[],{now});

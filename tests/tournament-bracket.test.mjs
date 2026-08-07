@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bracketShape, buildBracket, computeDraw, firstRoundPairings, playerEliminated, playerSlot, roundLabel, signupsClosed } from "../lib/tournament.ts";
+import { bracketShape, buildBracket, computeDraw, firstRoundPairings, playerEliminated, opponentIn, playerSlot, roundLabel, signupsClosed, swapPlayer } from "../lib/tournament.ts";
 
 const PAST = "2020-01-01T00:00";
 const FUTURE = "2999-01-01T00:00";
@@ -129,4 +129,45 @@ test("first-round pairings name each entrant's own opponent, byes included", () 
   assert.equal(pairings.length, 3);
   assert.equal(pairings.find(entry => entry.playerId === "p1").opponentId, "p2");
   assert.equal(pairings.find(entry => entry.playerId === "p3").opponentId, "");
+});
+
+test("swapping two entrants trades their boxes and leaves the rest of the draw alone", () => {
+  const drawn = cup({ signups: ["p1", "p2", "p3", "p4"], draw: ["p1", "p2", "p3", "p4"] });
+  const swapped = swapPlayer(drawn, "p1", "p4");
+  assert.equal(swapped.ok, true);
+  assert.equal(swapped.kind, "swap");
+  assert.deepEqual(swapped.tournament.draw, ["p4", "p2", "p3", "p1"]);
+  assert.deepEqual(swapped.tournament.signups, ["p1", "p2", "p3", "p4"]);
+  const bracket = buildBracket(swapped.tournament, []);
+  assert.equal(opponentIn(playerSlot(bracket, "p4"), "p4"), "p2");
+});
+
+test("substituting a reserve keeps the box and adds them to the roster", () => {
+  const drawn = cup({ draw: ["p1", "p2", "p3", "p4"], walkovers: [{ round: 1, index: 1, winner: "p1" }] });
+  const swapped = swapPlayer(drawn, "p1", "p9");
+  assert.equal(swapped.ok, true);
+  assert.equal(swapped.kind, "substitute");
+  assert.deepEqual(swapped.tournament.draw, ["p9", "p2", "p3", "p4"]);
+  assert.deepEqual(swapped.tournament.signups, ["p9", "p2", "p3", "p4"]);
+  assert.deepEqual(swapped.tournament.walkovers, []);
+});
+
+test("a swap on an undrawn but closed cup freezes the order it would have drawn", () => {
+  const closed = cup({ signups: ["p1", "p2", "p3", "p4"] });
+  const order = computeDraw(closed);
+  const swapped = swapPlayer(closed, order[0], order[3]);
+  assert.equal(swapped.ok, true);
+  assert.deepEqual(swapped.tournament.draw, [order[3], order[1], order[2], order[0]]);
+});
+
+test("swaps are refused for unknown, self-paired or already-played entrants", () => {
+  const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
+  assert.equal(swapPlayer(drawn, "p9", "p1").ok, false);
+  assert.equal(swapPlayer(drawn, "p1", "p1").ok, false);
+  assert.equal(swapPlayer(drawn, "p1", "").ok, false);
+  const withResult = swapPlayer(drawn, "p1", "p9", [result(1, 1, "p1", "p2", 3, 0)]);
+  assert.equal(withResult.ok, false);
+  assert.equal(withResult.error, "該球員已有賽果，不能更換");
+  assert.equal(swapPlayer(drawn, "p3", "p1", [result(1, 1, "p1", "p2", 3, 0)]).ok, false);
+  assert.equal(swapPlayer(drawn, "p3", "p9", [result(1, 1, "p1", "p2", 3, 0)]).ok, true);
 });
