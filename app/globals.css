@@ -4261,3 +4261,56 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
   .cup-mytie-player .player-badge{width:2.5rem;height:2.5rem}
   .cup-tie-actions .cup-btn{flex:1 1 100%}
 }
+
+/* --- The bracket, at a glance --------------------------------------------
+   Drawn on the club's cloth so it reads as the showpiece it is. Sized in
+   fractions, never fixed columns: three rounds or four, 320px or 720px, the
+   whole tree fits the width — because the moment it needs a horizontal
+   scrollbar it stops being an overview and becomes a second, worse tree. */
+.cup-mini{position:relative;overflow:hidden;padding:.875rem;border-radius:var(--radius-lg);
+  background:radial-gradient(circle at 15% 85%,rgba(90,169,119,.3),transparent 45%),
+    linear-gradient(145deg,#0f4037,#0b2d29 70%,#123d37);
+  box-shadow:0 14px 30px rgba(11,45,41,.18)}
+.cup-mini::before{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(158deg,transparent 0 18px,rgba(179,224,192,.07) 19px 20px)}
+.cup-mini-rail{position:relative;display:flex;gap:.5rem;margin-bottom:.625rem}
+.cup-mini-rail span{flex:1;color:#8faea5;font-size:.625rem;font-weight:800;letter-spacing:.06em;text-align:center}
+.cup-mini-rail span.active{color:#f0c977}
+.cup-mini-tree{position:relative;display:flex;align-items:stretch;gap:.5rem}
+.cup-mini-round{display:flex;flex-direction:column;justify-content:space-around;gap:.375rem;flex:1 1 0;min-width:0}
+.cup-mini-crown{display:grid;justify-items:center;align-content:center;gap:.25rem;flex:0 0 auto;padding-left:.25rem}
+.cup-mini-crown span{font-size:1rem;line-height:1}
+.cup-mini-crown .player-badge{width:1.75rem;height:1.75rem;border:2px solid #f0c977;font-size:.5625rem}
+.cup-mini-node{position:relative;display:grid;gap:2px;min-width:0;padding:.25rem;border:1px solid rgba(255,255,255,.14);
+  border-radius:.625rem;background:rgba(255,255,255,.06)}
+.cup-mini-node:disabled{visibility:hidden}
+.cup-mini-node.in-round{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.24)}
+.cup-mini-node.mine{border-color:#f0c977;box-shadow:0 0 0 2px rgba(240,201,119,.28)}
+/* Stubs on both sides, as on the desktop tree: at this size they carry the "this feeds that"
+   reading without any of the pixel measuring a true elbow would need. */
+.cup-mini-round:not(.final) .cup-mini-node::after{content:"";position:absolute;top:50%;left:100%;
+  width:.5rem;height:0;border-top:1px solid rgba(179,224,192,.28)}
+.cup-mini-round:not(:first-child) .cup-mini-node::before{content:"";position:absolute;top:50%;right:100%;
+  width:.5rem;height:0;border-top:1px solid rgba(179,224,192,.28)}
+.cup-mini-seat{display:flex;align-items:center;justify-content:space-between;gap:.25rem;min-width:0;
+  padding:.125rem;border-radius:.5rem}
+.cup-mini-seat .player-badge{width:1.5rem;height:1.5rem;flex:0 0 auto;font-size:.5rem}
+.cup-mini-seat.vacant i{display:block;width:1.5rem;height:1.5rem;flex:0 0 auto;border:1px dashed rgba(179,224,192,.4);
+  border-radius:50%}
+.cup-mini-seat em{flex:0 0 auto;padding-right:.125rem;color:#cfe2da;font-size:.6875rem;font-style:normal;
+  font-weight:800;font-variant-numeric:tabular-nums}
+.cup-mini-seat.won{background:rgba(240,201,119,.16)}
+.cup-mini-seat.won .player-badge{box-shadow:0 0 0 2px #f0c977}
+.cup-mini-seat.won em{color:#f0c977}
+.cup-tie.focus{border-color:#f0c977;box-shadow:0 0 0 3px rgba(240,201,119,.3);animation:cup-tie-flash 1.4s ease}
+@keyframes cup-tie-flash{0%{background:#fdf7e6}100%{background:var(--paper)}}
+@media(min-width:900px){
+  /* The full tree is back on screen, so the overview would be saying the same thing twice. */
+  .cup-mini{display:none}
+}
+@media(max-width:400px){
+  .cup-mini{padding:.625rem}
+  .cup-mini-tree{gap:.375rem}
+  .cup-mini-seat .player-badge,.cup-mini-seat i{width:1.25rem;height:1.25rem;font-size:.4375rem}
+  .cup-mini-seat em{font-size:.625rem}
+}
