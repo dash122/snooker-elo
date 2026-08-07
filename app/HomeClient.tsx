@@ -7,6 +7,7 @@ import { TonightStrip, actionableCount, useMatchmakingSummary } from "./Matchmak
 import { registerServiceWorker } from "./push-client";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
+import { buildBracket, opponentIn, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 
 type Player = {
   id: string; name: string; short: string; handicap: number | null; rating: number; colour?: string; avatar?: string | null;
@@ -63,6 +64,10 @@ type Tournament = {
   createdAt: string;
   createdBy?: string;
   signups: string[];
+  /** Written once by POST /api/tournaments/[id]/draw; absent until sign-ups close. */
+  draw?: string[];
+  drawnAt?: string;
+  walkovers?: Walkover[];
 };
 type CalibrationPoint = { estimate:number; usableMatches:number; at:string };
 type Calibration = { rawEstimate:number; estimate:number; lower:number; upper:number; curvatureEstimate?:number; curvatureLower?:number; curvatureUpper?:number; usableMatches:number; handicapLevels:number; confidence:string; updatedAt:string; history?:CalibrationPoint[] };
@@ -446,7 +451,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const [recordMenuOpen,setRecordMenuOpen] = useState(false);
   const [pullDistance,setPullDistance] = useState(0);
   const [refreshing,setRefreshing] = useState(false);
-  const [draft,setDraft] = useState({mode:"1v1" as MatchMode,teamAName:"Team A",teamBName:"Team B",a:"",b:"",a2:"",b2:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[] as {playerId:string;value:number}[],tournamentId:"",tournamentRound:1,tournamentMatchIndex:1});
+  const [draft,setDraft] = useState({mode:"1v1" as MatchMode,teamAName:"Team A",teamBName:"Team B",a:"",b:"",a2:"",b2:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[] as {playerId:string;value:number}[],tournamentId:"",tournamentRound:1,tournamentMatchIndex:1,cupSlotLocked:false});
   const [playerForm,setPlayerForm] = useState({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});
   const ownPlayerId=user?.statePlayerId;
   /* The badge is the whole reason matchmaking stops being invisible: it runs in the app shell, so a
@@ -459,12 +464,22 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   /* Notifications deep-link to /?tab=availability, and the click handler navigates an already-open
      tab there, so the parameter has to be honoured on mount and on subsequent navigations alike. */
   useEffect(()=>{
-    const wanted=new URLSearchParams(window.location.search).get("tab");
+    const search=new URLSearchParams(window.location.search);
+    const wanted=search.get("tab");
     if(wanted&&["leaderboard","matches","availability","players","settings"].includes(wanted))setTab(wanted);
+    /* The draw notification deep-links to the bracket itself, not merely to 比賽 — landing on the
+       match history after being told who you drew is a dead end. */
+    if(search.get("view")==="cup")setMatchesView("cup");
   },[]);
   const isAdmin=user?.role==="admin";
   const [tournamentForm,setTournamentForm] = useState<{name:string;handicapMode:"suggested"|"none";signupDeadline:string}>({name:"",handicapMode:"suggested",signupDeadline:`${today}T23:59`});
   const canManageMatch=(match:Match)=>Boolean(isAdmin||ownPlayerId&&isParticipant(match,ownPlayerId));
+  /* A drawn cup tie is a thing the club is waiting on you for, exactly like an unanswered invite —
+     so it gets a badge on 比賽 rather than living behind two taps and a dropdown. */
+  const cupBadge=useMemo(()=>!ownPlayerId?0:data.tournaments.reduce((count,tournament)=>{
+    if(!signupsClosed(tournament))return count;
+    return count+(playerSlot(buildBracket<Match>(tournament,data.matches),ownPlayerId)?.state==="ready"?1:0);
+  },0),[data.tournaments,data.matches,ownPlayerId]);
 
   useEffect(()=>{
     const local = localStorage.getItem("scaa-draft");
@@ -632,7 +647,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       const fresh=await response.json();
       setData(fresh);
       localStorage.removeItem("scaa-draft");
-      setDraft({mode:"1v1",teamAName:"Team A",teamBName:"Team B",a:"",b:"",a2:"",b2:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[],tournamentId:"",tournamentRound:1,tournamentMatchIndex:1});
+      setDraft({mode:"1v1",teamAName:"Team A",teamBName:"Team B",a:"",b:"",a2:"",b2:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[],tournamentId:"",tournamentRound:1,tournamentMatchIndex:1,cupSlotLocked:false});
       setToast("所有共用資料已清除並重設。");
     }catch{setToast("重設失敗，資料沒有被清除。請稍後再試。");}
     finally{setSaving(false);setUndoSnapshot(null);if(toastTimer.current)clearTimeout(toastTimer.current);toastTimer.current=setTimeout(()=>setToast(""),3200);}
@@ -729,7 +744,10 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     setEditingMatch(m);
     setDraft({
       mode:m.mode??"1v1",teamAName:m.teamAName?.trim()||"Team A",teamBName:m.teamBName?.trim()||"Team B",a:m.a,b:m.b,a2:m.a2??"",b2:m.b2??"",scoreA:m.scoreA,scoreB:m.scoreB,
-      date:m.playedOn,giver:m.actual>0?m.a:m.actual<0?m.b:"",points:Math.abs(m.actual),highBreaks:m.highBreaks??[],tournamentId:m.tournamentId??"",tournamentRound:m.tournamentRound??1,tournamentMatchIndex:m.tournamentMatchIndex??1
+      date:m.playedOn,giver:m.actual>0?m.a:m.actual<0?m.b:"",points:Math.abs(m.actual),highBreaks:m.highBreaks??[],tournamentId:m.tournamentId??"",tournamentRound:m.tournamentRound??1,tournamentMatchIndex:m.tournamentMatchIndex??1,
+      // Editing an existing cup result must not offer to re-pick the pairing either: the box it
+      // belongs to is already decided.
+      cupSlotLocked:m.mode==="cup"
     });
     setModal("match");
   }
@@ -746,7 +764,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     setDraft({
       mode,teamAName:"Team A",teamBName:"Team B",a:first,b:second,
       a2:mode==="2v2"?rest[0]?.id??"":"",b2:mode==="2v2"?rest[1]?.id??"":"",
-      scoreA:0,scoreB:0,date:playedOn??today,giver:"",points:0,highBreaks:[],tournamentId:"",tournamentRound:1,tournamentMatchIndex:1
+      scoreA:0,scoreB:0,date:playedOn??today,giver:"",points:0,highBreaks:[],tournamentId:"",tournamentRound:1,tournamentMatchIndex:1,cupSlotLocked:false
     });
     setModal("match");
   }
@@ -810,6 +828,36 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     persist({...snapshot,audits:[{id:crypto.randomUUID(),text:"復原已刪除的賽事；還原評分及近況",at:new Date().toISOString()},...snapshot.audits]},"已復原賽事，ELO 及統計已還原。");
   }
 
+  /* Recording from the bracket box rather than from a blank form. The round and match index travel
+     with the tap, so they can no longer disagree with the tie the member was looking at — and the
+     pairing is locked in the form, because a cup slot's two players are not a choice. */
+  function recordCupSlot(tournament:Tournament,slot:BracketSlot<Match>){
+    if(!user){setModal("signIn");return;}
+    if(!isAdmin&&ownPlayerId!==slot.a&&ownPlayerId!==slot.b){setToast("你只能記錄自己參與的盃賽場次。");return;}
+    setRecordMenuOpen(false);
+    setEditingMatch(null);
+    /* The member enters their own score first, so their own name leads. The bracket reads scores by
+       player id rather than by side, so leading with either player is safe. */
+    const first=ownPlayerId===slot.b?slot.b:slot.a,second=first===slot.a?slot.b:slot.a;
+    setDraft(current=>({...current,mode:"cup",teamAName:"Team A",teamBName:"Team B",a:first,b:second,a2:"",b2:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[],
+      tournamentId:tournament.id,tournamentRound:slot.round,tournamentMatchIndex:slot.index,cupSlotLocked:true}));
+    setModal("match");
+  }
+  const arrangeCupMatch=(opponentId:string)=>{if(opponentId)jumpToPlayerAvailability(opponentId,today)};
+  /* A tie nobody ever plays used to have exactly one remedy: invent a score. A walkover advances the
+     bracket without fabricating a result — no frames, no ELO, and reversible. */
+  function declareWalkover(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string){
+    if(!isAdmin){setToast("只有管理員可以判定晉級。");return;}
+    const playerName=(id:string)=>data.players.find(player=>player.id===id)?.name??"該球員";
+    if(winnerId&&!confirm(`判定「${playerName(winnerId)}」因對手棄權晉級？不會產生賽果，亦不影響 ELO。`))return;
+    const others=(tournament.walkovers??[]).filter(item=>!(item.round===slot.round&&item.index===slot.index));
+    const walkovers:Walkover[]=winnerId?[...others,{round:slot.round,index:slot.index,winner:winnerId}]:others;
+    const tournaments=data.tournaments.map(item=>item.id===tournament.id?{...item,walkovers}:item);
+    const text=winnerId?`判定晉級：${tournament.name} 第 ${slot.round} 輪第 ${slot.index} 場 — ${playerName(winnerId)}`:`取消判定晉級：${tournament.name} 第 ${slot.round} 輪第 ${slot.index} 場`;
+    const next={...data,tournaments,audits:[{id:crypto.randomUUID(),text,at:new Date().toISOString()},...data.audits]};
+    setData(next);persist(next,winnerId?"已判定晉級。":"已取消判定晉級。",data);
+  }
+
   /* Signing up for a cup belongs to 比賽, not 約戰 — entering a competition and pitching a friendly
      are different jobs. Lifted out of the matchmaking tab's props so the cup bracket and the
      per-slot shortcut can both call the same thing. */
@@ -823,6 +871,8 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
         setData(next);persist(next,(nextTournaments.find(t=>t.id===tournamentId)?.signups||[]).includes(ownPlayerId)?"已報名會友盃。":"已取消報名會友盃。",snapshot);
   };
 
+  const navBadge=(id:string)=>id==="availability"?matchmakingBadge:id==="matches"?cupBadge:0;
+
   return <><style>{`.read-only .card-tools,.read-only .hero.small > .primary{display:none}`}</style><div className={`shell${user?"":" read-only"}`}>
     <div className={`pull-refresh${refreshing?" spinning":""}`} style={{height:refreshing?PULL_THRESHOLD:pullDistance,opacity:refreshing||pullDistance>0?1:0}} aria-hidden="true">
       <span/>
@@ -830,7 +880,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     <aside className="side">
       <div className="brand"><span>S</span><div><b>SCAA</b><small>Snooker ELO</small></div></div>
       <nav>{[["leaderboard","排行榜"],["matches","比賽"],["availability","約戰"],["players","球員"],["settings","設定"]].map(([id,label])=>
-        <button key={id} className={tab===id?"active":""} onClick={()=>goTab(id)}><i><NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/>{id==="availability"&&matchmakingBadge>0&&<b className="nav-badge" aria-hidden="true">{matchmakingBadge>9?"9+":matchmakingBadge}</b>}</i>{label}{id==="availability"&&matchmakingBadge>0&&<span className="sr-only">，{matchmakingBadge} 項待處理</span>}</button>)}</nav>
+        <button key={id} className={tab===id?"active":""} onClick={()=>goTab(id)}><i><NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/>{navBadge(id)>0&&<b className="nav-badge" aria-hidden="true">{navBadge(id)>9?"9+":navBadge(id)}</b>}</i>{label}{navBadge(id)>0&&<span className="sr-only">，{navBadge(id)} 項待處理</span>}</button>)}</nav>
       <div className="public-note"><b>{user?"會員模式":"公開瀏覽"}</b><span>{user?"已登入，可更新球會資料":"登入會員後即可記錄比賽"}</span></div>
     </aside>
     <main>
@@ -839,7 +889,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
           behind a tab, so "is anyone playing tonight?" was unanswerable without going to look. */}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
-      {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setTournamentForm({name:"",handicapMode:"suggested",signupDeadline:`${today}T23:59`});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setTournamentForm({name:tournament.name,handicapMode:tournament.handicapMode,signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament}/>}
+      {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setTournamentForm({name:"",handicapMode:"suggested",signupDeadline:`${today}T23:59`});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setTournamentForm({name:tournament.name,handicapMode:tournament.handicapMode,signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onRefresh={refreshData}/>}
       {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} tournaments={data.tournaments} provisionalGames={data.settings.provisionalGames} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecordMatch={(opponentId,date)=>newMatch("1v1",opponentId,date)} onActivity={refreshMatchmaking} onSignUpTournament={signUpTournament}/>} 
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
@@ -854,9 +904,9 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     </div>
     <nav className="bottom" aria-label="主導覽">{[["leaderboard","排行榜"],["matches","比賽"],["record","記錄"],["availability","約戰"],["players","球員"]].map(([id,label])=>
       <button key={id} className={`${id==="record"?"bottom-record":tab===id?"active":""}${id==="record"&&recordMenuOpen?" menu-open":""}`} aria-current={tab===id?"page":undefined} aria-expanded={id==="record"?recordMenuOpen:undefined} aria-haspopup={id==="record"?"menu":undefined} onClick={()=>id==="record"?setRecordMenuOpen(open=>!open):goTab(id)}>
-        <i>{id==="record"?"＋":<NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/>}{id==="availability"&&matchmakingBadge>0&&<b className="nav-badge" aria-hidden="true">{matchmakingBadge>9?"9+":matchmakingBadge}</b>}</i>
+        <i>{id==="record"?"＋":<NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/>}{navBadge(id)>0&&<b className="nav-badge" aria-hidden="true">{navBadge(id)>9?"9+":navBadge(id)}</b>}</i>
         <small>{label}</small>
-        {id==="availability"&&matchmakingBadge>0&&<span className="sr-only">，{matchmakingBadge} 項待處理</span>}
+        {navBadge(id)>0&&<span className="sr-only">，{navBadge(id)} 項待處理</span>}
       </button>)}</nav>
     {modal&&<div className="backdrop" onMouseDown={e=>e.target===e.currentTarget&&closeModal()}>
       {/* `.close` is a sibling of `.sheet`, not a child: `.sheet` is the scrolling box, and a
@@ -875,7 +925,14 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
               if(!tournamentForm.name.trim()){setToast("請輸入盃賽名稱。");return}
               const id=editingTournament?.id??crypto.randomUUID();
               const now=new Date().toISOString();
-              const tournament: Tournament = {id,name:tournamentForm.name.trim(),handicapMode:tournamentForm.handicapMode,signupDeadline:tournamentForm.signupDeadline,createdAt:editingTournament?.createdAt??now,createdBy:editingTournament?.createdBy??ownPlayerId,signups:editingTournament?.signups??[]};
+              /* Pushing the deadline back into the future is how an admin reopens sign-ups, and a
+                 draw made against the old roster cannot survive that: it would pair people who are
+                 no longer the field. Clearing it here lets the freeze happen again, once, when the
+                 new deadline passes. Recorded results are left alone — deleting them is the ✕. */
+              const reopening=Boolean(editingTournament?.draw?.length)&&!signupsClosed({signupDeadline:tournamentForm.signupDeadline});
+              if(reopening&&!confirm(`「${tournamentForm.name.trim()}」已經抽籤。重新開放報名會清除現有籤表，截止後重新抽籤（已記錄的賽果會保留）。繼續？`))return;
+              const tournament: Tournament = {id,name:tournamentForm.name.trim(),handicapMode:tournamentForm.handicapMode,signupDeadline:tournamentForm.signupDeadline,createdAt:editingTournament?.createdAt??now,createdBy:editingTournament?.createdBy??ownPlayerId,signups:editingTournament?.signups??[],
+                draw:reopening?undefined:editingTournament?.draw,drawnAt:reopening?undefined:editingTournament?.drawnAt,walkovers:reopening?undefined:editingTournament?.walkovers};
               const tournaments = editingTournament? data.tournaments.map(t=>t.id===id?tournament:t) : [tournament,...data.tournaments];
               const next={...data,tournaments,audits:[{id:crypto.randomUUID(),text:`${editingTournament?"更新":"建立"} 盃賽：${tournament.name}`,at:now},...data.audits]};
               setEditingTournament(null);setModal(null);setToast(editingTournament?"盃賽已更新。":"盃賽已建立。");setData(next);persist(next,editingTournament?"盃賽已更新。":"盃賽已建立。",data);
@@ -883,6 +940,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
               <label>盃賽名稱<input type="text" value={tournamentForm.name} onChange={e=>setTournamentForm({...tournamentForm,name:e.target.value})} required/></label>
               <label>讓分模式<select value={tournamentForm.handicapMode} onChange={e=>setTournamentForm({...tournamentForm,handicapMode:e.target.value as "suggested"|"none"})}><option value="suggested">建議讓分（系統會自動套用建議）</option><option value="none">不設讓分</option></select></label>
               <label>報名截止日期及時間<input type="datetime-local" value={tournamentForm.signupDeadline} onChange={e=>setTournamentForm({...tournamentForm,signupDeadline:e.target.value})} required/></label>
+              {Boolean(editingTournament?.draw?.length)&&<p className="mm-note">此盃賽已抽籤（{editingTournament?.draw?.length} 人）。將截止時間改到未來即可重新開放報名，並在新截止時間後重新抽籤。</p>}
               <div className="sheet-actions"><button className="primary" type="submit">儲存盃賽</button><button type="button" className="secondary" onClick={()=>{setModal(null);setEditingTournament(null)}}>取消</button></div>
             </form>
           </div>}
@@ -1084,7 +1142,7 @@ const monthGroupLabel=(month:string)=>{
   return `${y}年${m}月`;
 };
 
-function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,setPair,highlight,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onPlayer:(player:Player)=>void;view:"history"|"calendar"|"cup";setView:(view:"history"|"calendar"|"cup")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void;highlight:string|null;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string)=>void}) {
+function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,setPair,highlight,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament,onRecordSlot,onArrange,onWalkover,onRefresh}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onPlayer:(player:Player)=>void;view:"history"|"calendar"|"cup";setView:(view:"history"|"calendar"|"cup")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void;highlight:string|null;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string)=>void;onRecordSlot:(tournament:Tournament,slot:BracketSlot<Match>)=>void;onArrange:(opponentId:string)=>void;onWalkover:(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string)=>void;onRefresh:()=>void}) {
   const [sortBy,setSortBy]=useState<"playedOn"|"createdAt">("playedOn");
   const [monthOpen,setMonthOpen]=useState<Record<string,boolean>>({});
   const [sortDirection,setSortDirection]=useState<"desc"|"asc">("desc");
@@ -1204,7 +1262,7 @@ function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,s
   const newestMonth=groups.reduce((latest,group)=>group.key>latest?group.key:latest,"");
   return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽記錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
     <div className="match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button><button role="tab" aria-selected={view==="cup"} className={view==="cup"?"active":""} onClick={()=>setView("cup")}>盃賽紀錄</button></div>
-    {view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament}/> : <>
+    {view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament} onRecordSlot={onRecordSlot} onArrange={onArrange} onWalkover={onWalkover} onRefresh={onRefresh}/> : <>
     <section className="match-filter-toolbar" aria-label="篩選及排序比賽記錄">
       <div className="match-filter-control player-control">
         <span className="match-filter-label">球員</span>
@@ -1260,83 +1318,136 @@ function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,s
     })}</div></>}</>;
 }
 
-function CupBracketView({data,selectedTournament,setSelectedTournament,canManageMatch,onEdit,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament}:{data:AppState;selectedTournament:string;setSelectedTournament:(id:string)=>void;canManageMatch:(match:Match)=>boolean;onEdit:(match:Match)=>void;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string)=>void}){
+function tournamentStatusLabel(tournament:Tournament,matches:Match[]){
+  if(!signupsClosed(tournament))return "報名中";
+  const bracket=buildBracket(tournament,matches);
+  if(!bracket.size)return "人數不足";
+  return bracket.champion?"已完成":"進行中";
+}
+
+/* Everything after the deadline used to be a poster: the bracket appeared, and the only way to move
+   it forward was to leave, open 記錄, and retype the round and match number of the box you had just
+   been looking at. The cup view now owns the whole life of a cup — your own tie, recording it from
+   the box itself, and the admin levers for the ties that never get played. */
+function CupBracketView({data,selectedTournament,setSelectedTournament,canManageMatch,onEdit,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament,onRecordSlot,onArrange,onWalkover,onRefresh}:{data:AppState;selectedTournament:string;setSelectedTournament:(id:string)=>void;canManageMatch:(match:Match)=>boolean;onEdit:(match:Match)=>void;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string)=>void;onRecordSlot:(tournament:Tournament,slot:BracketSlot<Match>)=>void;onArrange:(opponentId:string)=>void;onWalkover:(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string)=>void;onRefresh:()=>void}){
   const recentTournaments=[...data.tournaments].sort((left,right)=>right.createdAt.localeCompare(left.createdAt)).slice(0,3);
   const tournament=data.tournaments.find(item=>item.id===selectedTournament);
-  const tournamentMatches=data.matches.filter(match=>match.mode==="cup"&&match.tournamentId===selectedTournament&&match.status==="confirmed");
-  const deadline=tournament?.signupDeadline?new Date(`${tournament.signupDeadline.length===10?tournament.signupDeadline+"T23:59":tournament.signupDeadline}:00+08:00`):null;
-  const deadlinePassed=Boolean(deadline&&!Number.isNaN(deadline.getTime())&&deadline.getTime()<=Date.now());
+  const deadlinePassed=Boolean(tournament&&signupsClosed(tournament));
+  const drawn=Boolean(tournament?.draw?.length);
   const signedUp=Boolean(ownPlayerId&&(tournament?.signups||[]).includes(ownPlayerId));
   const name=(id:string)=>data.players.find(player=>player.id===id)?.name??"待定";
-  const hash=(value:string)=>{let result=2166136261;for(const character of value){result^=character.charCodeAt(0);result=Math.imul(result,16777619)}return result>>>0;};
-  const draw=deadlinePassed&&tournament?[...(tournament.signups??[])].sort((left,right)=>hash(`${tournament.id}:${left}`)-hash(`${tournament.id}:${right}`) ):[];
-  const bracketSize=draw.length>0?2**Math.ceil(Math.log2(Math.max(2,draw.length))):0;
-  const totalRounds=bracketSize?Math.max(1,Math.log2(bracketSize)):0;
-  const matchBySlot=(round:number,index:number)=>tournamentMatches.find(match=>(match.tournamentRound??1)===round&&(match.tournamentMatchIndex??1)===index);
-  const winner=(match:Match|undefined)=>match?(match.scoreA>match.scoreB?match.a:match.scoreB>match.scoreA?match.b:""):"";
-  const participants=(round:number,index:number):[string,string]=>{
-    if(round===1)return [draw[(index-1)*2]??"",draw[(index-1)*2+1]??""];
-    const first=participants(round-1,(index-1)*2+1),second=participants(round-1,(index-1)*2+2);
-    const firstMatch=matchBySlot(round-1,(index-1)*2+1),secondMatch=matchBySlot(round-1,(index-1)*2+2);
-    return [winner(firstMatch)||(!first[1]?first[0]:""),winner(secondMatch)||(!second[1]?second[0]:"")];
-  };
-  const roundLabel=(round:number,total:number)=>{const remaining=total-round;return remaining<=0?"決賽":remaining===1?"四強":remaining===2?"八強":`${2**(remaining+1)}強`;};
-  const projectedBracketSize=(tournament?.signups?.length??0)>0?2**Math.ceil(Math.log2(Math.max(2,tournament!.signups.length))):0;
-  const projectedRounds=projectedBracketSize?Math.max(1,Math.log2(projectedBracketSize)):0;
+  const bracket=useMemo(()=>tournament?buildBracket<Match>(tournament,data.matches):null,[tournament,data.matches]);
+  const mySlot=bracket?playerSlot(bracket,ownPlayerId):undefined;
+  const eliminated=bracket?playerEliminated(bracket,ownPlayerId):false;
+  const champion=bracket?.champion??"";
+  const projected=(tournament?.signups?.length??0)>=2?buildBracket<Match>({...tournament!,signupDeadline:"1970-01-01",draw:tournament!.signups},[]):null;
+
+  /* The draw is frozen server-side, and whichever member opens the cup first after the deadline is
+     what triggers it — no cron, no admin ceremony. The ref keeps a re-render from firing a second
+     request; the route itself is idempotent, so a genuine race just gets the same draw back. */
+  const drawRequested=useRef<string>("");
+  useEffect(()=>{
+    if(!tournament||!deadlinePassed||drawn||(tournament.signups?.length??0)<2)return;
+    if(drawRequested.current===tournament.id)return;
+    drawRequested.current=tournament.id;
+    fetch(`/api/tournaments/${tournament.id}/draw`,{method:"POST"})
+      .then(response=>{if(response.ok)onRefresh()})
+      .catch(()=>{});
+  },[tournament,deadlinePassed,drawn,onRefresh]);
+
   const controls=(item:Tournament)=><span className="card-tools"><button type="button" className="card-tool" aria-label={`編輯 ${item.name}`} onClick={()=>onEditTournament(item)}>✎</button><button type="button" className="card-tool danger" aria-label={`刪除 ${item.name}`} onClick={()=>onDeleteTournament(item)}>✕</button></span>;
-  const itemDeadlinePassed=(item:Tournament)=>{const d=item.signupDeadline?new Date(`${item.signupDeadline.length===10?item.signupDeadline+"T23:59":item.signupDeadline}:00+08:00`):null;return Boolean(d&&!Number.isNaN(d.getTime())&&d.getTime()<=Date.now());};
-  if(!selectedTournament)return <section className="bracket-view"><div className="bracket-header"><label>選擇盃賽<select value="" onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}</div><div className="recent-tournaments"><h3>最近盃賽</h3>{recentTournaments.length===0?<p className="mm-note">尚未建立盃賽。</p>:recentTournaments.map(item=>{const open=!itemDeadlinePassed(item),itemSignedUp=Boolean(ownPlayerId&&item.signups.includes(ownPlayerId));return <article className="recent-tournament-row" key={item.id}><button type="button" className="recent-tournament-open" onClick={()=>setSelectedTournament(item.id)}><span><b>{item.name}</b><small>{item.signups.length} 人報名 · 報名截止 {item.signupDeadline.replace("T"," ")}</small></span></button>{open&&(ownPlayerId?<button type="button" className={itemSignedUp?"secondary":"primary"} onClick={()=>onSignUpTournament(item.id)}>{itemSignedUp?"取消報名":"報名"}</button>:<a className="secondary" href="/login">登入後報名</a>)}{isAdmin&&controls(item)}</article>;})}</div></section>;
+
+  if(!selectedTournament)return <section className="bracket-view"><div className="bracket-header"><label>選擇盃賽<select value="" onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}</div><div className="recent-tournaments"><h3>最近盃賽</h3>{recentTournaments.length===0?<p className="mm-note">尚未建立盃賽。</p>:recentTournaments.map(item=>{
+    const open=!signupsClosed(item),itemSignedUp=Boolean(ownPlayerId&&item.signups.includes(ownPlayerId));
+    const status=tournamentStatusLabel(item,data.matches);
+    const itemBracket=buildBracket<Match>(item,data.matches);
+    const itemSlot=playerSlot(itemBracket,ownPlayerId);
+    return <article className="recent-tournament-row" key={item.id}>
+      <button type="button" className="recent-tournament-open" onClick={()=>setSelectedTournament(item.id)}><span><b>{item.name} <span className={`cup-status ${status==="報名中"?"open":status==="進行中"?"live":""}`}>{status}</span></b><small>{item.signups.length} 人報名 · {open?`報名截止 ${item.signupDeadline.replace("T"," ")}`:itemBracket.champion?`冠軍 ${name(itemBracket.champion)}`:itemSlot?`輪到你：對 ${itemSlot.state==="ready"?name(opponentIn(itemSlot,ownPlayerId)):"待定"}`:"賽事進行中"}</small></span></button>
+      {open&&(ownPlayerId?<button type="button" className={itemSignedUp?"secondary":"primary"} onClick={()=>onSignUpTournament(item.id)}>{itemSignedUp?"取消報名":"報名"}</button>:<a className="secondary" href="/login">登入後報名</a>)}
+      {isAdmin&&controls(item)}
+    </article>;
+  })}</div></section>;
   if(!tournament)return null;
-  return <section className="bracket-view"><div className="bracket-header"><div><label>選擇盃賽<select value={selectedTournament} onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><small>{tournament.signups.length} 人報名 · 報名截止 {tournament.signupDeadline.replace("T"," ")}</small></div><div className="bracket-actions">{isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}{isAdmin&&controls(tournament)}</div></div>
+  return <section className="bracket-view"><div className="bracket-header"><div><label>選擇盃賽<select value={selectedTournament} onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><small>{tournament.signups.length} 人報名 · {deadlinePassed?`報名已於 ${tournament.signupDeadline.replace("T"," ")} 截止`:`報名截止 ${tournament.signupDeadline.replace("T"," ")}`}</small></div><div className="bracket-actions">{isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}{isAdmin&&controls(tournament)}</div></div>
     {!deadlinePassed?<div className="bracket-body">
       {/* Entering a cup is a competition decision, so it sits with the bracket it leads to rather
           than in 約戰, where it competed for attention with arranging tonight's frame. */}
       <p className="mm-note">報名截止後會按報名名單抽籤並建立賽事對陣。</p>
       <div className="cup-signup-row">
-        <span><b>{(tournament?.signups||[]).length} 人已報名</b><small>報名截止 {tournament?.signupDeadline.replace("T"," ")}</small></span>
+        <span><b>{(tournament.signups||[]).length} 人已報名</b><small>報名截止 {tournament.signupDeadline.replace("T"," ")}</small></span>
         {ownPlayerId
           ?<button type="button" className={signedUp?"secondary":"primary"} onClick={()=>onSignUpTournament(selectedTournament)}>{signedUp?"取消報名":"報名"}</button>
           :<a className="secondary" href="/login">登入後報名</a>}
       </div>
-      {projectedBracketSize>=2?<TournamentBracketChart totalRounds={projectedRounds} bracketSize={projectedBracketSize} roundLabel={roundLabel} participants={()=>["",""]} matchBySlot={()=>undefined} winner={()=>""} name={name} canManageMatch={canManageMatch} onEdit={onEdit} started={false}/>:<p className="mm-note">報名人數不足兩人，暫未能預覽對陣圖。</p>}
-    </div>:draw.length<2?<div className="bracket-body"><p className="mm-note">報名人數不足兩人，未能建立賽事。</p></div>:<TournamentBracketChart totalRounds={totalRounds} bracketSize={bracketSize} roundLabel={roundLabel} participants={participants} matchBySlot={matchBySlot} winner={winner} name={name} canManageMatch={canManageMatch} onEdit={onEdit} started/>}
+      {projected?<TournamentBracketChart bracket={projected} preview name={name} ownPlayerId={ownPlayerId} isAdmin={isAdmin} canManageMatch={canManageMatch} onEdit={onEdit} onRecordSlot={()=>{}} onWalkover={()=>{}}/>:<p className="mm-note">報名人數不足兩人，暫未能預覽對陣圖。</p>}
+    </div>:!bracket||!bracket.size?<div className="bracket-body"><p className="mm-note">報名人數不足兩人，未能建立賽事。{isAdmin&&" 可編輯盃賽並延後報名截止時間，重新開放報名。"}</p></div>:<div className="bracket-body">
+      {/* The order shown before the freeze lands is the order the freeze will produce, so this is a
+          status line over a real bracket, not a spinner over an empty one. */}
+      {!drawn&&ownPlayerId&&<p className="mm-note">正在抽籤…</p>}
+      {champion?<div className="cup-champion" role="status"><span aria-hidden="true">🏆</span><div><small>{tournament.name} 冠軍</small><b>{name(champion)}</b></div></div>
+        :mySlot?<div className={`cup-my-match${mySlot.state==="ready"?" ready":""}`}>
+          <div className="cup-my-match-head"><small>{roundLabel(mySlot.round,bracket.rounds)} · 第 {mySlot.index} 場</small><b>{mySlot.state==="ready"?`你對 ${name(opponentIn(mySlot,ownPlayerId))}`:"等待對手產生"}</b></div>
+          {mySlot.state==="ready"
+            ?<div className="cup-my-match-actions">
+              <button type="button" className="primary" onClick={()=>onRecordSlot(tournament,mySlot)}>記錄賽果</button>
+              <button type="button" className="secondary" onClick={()=>onArrange(opponentIn(mySlot,ownPlayerId))}>約時間</button>
+            </div>
+            :<small className="mm-note">對手要等上一圈賽果出咗先定到。</small>}
+        </div>
+        :eliminated?<p className="mm-note">你在今屆已止步；可繼續睇餘下賽程。</p>
+        :ownPlayerId&&!tournament.signups.includes(ownPlayerId)?<p className="mm-note">你未有報名今屆盃賽。</p>:null}
+      <TournamentBracketChart bracket={bracket} name={name} ownPlayerId={ownPlayerId} isAdmin={isAdmin} canManageMatch={canManageMatch} onEdit={onEdit} onRecordSlot={slot=>onRecordSlot(tournament,slot)} onWalkover={(slot,winnerId)=>onWalkover(tournament,slot,winnerId)}/>
+    </div>}
   </section>;
+}
+
+/* The recorder's own name leads the form, so the match's A side is not necessarily the box's top
+   line. Read each score by player id and the two can never drift apart. */
+function scoreFor(match:Match,playerId:string){
+  return match.a===playerId?match.scoreA:match.b===playerId?match.scoreB:"";
 }
 
 // A horizontal, left-to-right bracket tree: each round is a column of match
 // boxes vertically centred against the pair feeding it, using the flex
 // "stretch + space-around" trick so pairing lines up correctly without
 // needing to measure pixel positions in JS.
-function TournamentBracketChart({totalRounds,bracketSize,roundLabel,participants,matchBySlot,winner,name,canManageMatch,onEdit,started}:{
-  totalRounds:number;
-  bracketSize:number;
-  roundLabel:(round:number,total:number)=>string;
-  participants:(round:number,index:number)=>[string,string];
-  matchBySlot:(round:number,index:number)=>Match|undefined;
-  winner:(match:Match|undefined)=>string;
+function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManageMatch,onEdit,onRecordSlot,onWalkover,preview=false}:{
+  bracket:Bracket<Match>;
   name:(id:string)=>string;
+  ownPlayerId?:string;
+  isAdmin:boolean;
   canManageMatch:(match:Match)=>boolean;
   onEdit:(match:Match)=>void;
-  started:boolean;
+  onRecordSlot:(slot:BracketSlot<Match>)=>void;
+  onWalkover:(slot:BracketSlot<Match>,winnerId:string)=>void;
+  preview?:boolean;
 }){
   return <div className="bracket-chart" role="group" aria-label="賽事對陣圖">
-    {Array.from({length:totalRounds},(_,roundIndex)=>{
-      const round=roundIndex+1,count=bracketSize/(2**round);
-      return <div className={`bracket-round${round===totalRounds?" final":""}`} key={round}>
-        <h3 className="bracket-round-title">{roundLabel(round,totalRounds)}</h3>
+    {Array.from({length:bracket.rounds},(_,roundIndex)=>{
+      const round=roundIndex+1;
+      return <div className={`bracket-round${round===bracket.rounds?" final":""}`} key={round}>
+        <h3 className="bracket-round-title">{roundLabel(round,bracket.rounds)}</h3>
         <div className="bracket-round-matches">
-          {Array.from({length:count},(_,slotIndex)=>{
-            const index=slotIndex+1;
-            const match=started?matchBySlot(round,index):undefined;
-            const [first,second]=started?participants(round,index):["",""];
-            const firstName=first?name(first):"待定",secondName=second?name(second):"待定";
-            const win=winner(match);
-            const bye=started&&Boolean((first&&!second)||(!first&&second));
-            return <div className={`bracket-match${match?" played":""}`} key={`${round}-${index}`}>
-              <div className={`bracket-slot${win&&win===first?" winner":""}${!first?" tbd":""}`}><span>{firstName}</span>{match&&<b>{match.scoreA}</b>}</div>
-              <div className={`bracket-slot${win&&win===second?" winner":""}${!second?" tbd":""}`}><span>{secondName}</span>{match&&<b>{match.scoreB}</b>}</div>
-              {bye&&<small className="bracket-bye">輪空晉級</small>}
+          {bracket.slots.filter(slot=>slot.round===round).map(slot=>{
+            const {a:first,b:second,match,winner}=slot;
+            const firstName=preview||!first?"待定":name(first);
+            const secondName=preview||!second?"待定":name(second);
+            const mine=Boolean(ownPlayerId&&!preview&&(first===ownPlayerId||second===ownPlayerId));
+            /* Recording is offered to the two players in the box and to an admin. Coming from the
+               box means the round and match number are carried, not typed — the class of mistake
+               that used to file a quarter-final result as a first-round one. */
+            const canRecord=!preview&&slot.state==="ready"&&Boolean(isAdmin||mine);
+            return <div className={`bracket-match ${slot.state}${mine?" mine":""}`} key={`${round}-${slot.index}`}>
+              <div className={`bracket-slot${winner&&winner===first?" winner":""}${!first||preview?" tbd":""}`}><span>{firstName}</span>{match&&<b>{scoreFor(match,first)}</b>}</div>
+              <div className={`bracket-slot${winner&&winner===second?" winner":""}${!second||preview?" tbd":""}`}><span>{secondName}</span>{match&&<b>{scoreFor(match,second)}</b>}</div>
+              {slot.state==="bye"&&<small className="bracket-bye">輪空晉級</small>}
+              {slot.state==="walkover"&&<small className="bracket-bye">{name(slot.winner)} 因對手棄權晉級</small>}
+              {slot.state==="waiting"&&<small className="bracket-bye">等待上一圈賽果</small>}
+              {canRecord&&<button type="button" className="primary bracket-record" onClick={()=>onRecordSlot(slot)}>記錄賽果</button>}
               {match&&canManageMatch(match)&&<button type="button" className="more bracket-edit" onClick={()=>onEdit(match)}>編輯賽果</button>}
+              {isAdmin&&!preview&&slot.state==="ready"&&<div className="bracket-walkover"><small>判定晉級</small><span>{[first,second].map(id=><button type="button" key={id} className="more" onClick={()=>onWalkover(slot,id)}>{name(id)}</button>)}</span></div>}
+              {isAdmin&&!preview&&slot.state==="walkover"&&<button type="button" className="more bracket-edit" onClick={()=>onWalkover(slot,"")}>取消判定</button>}
             </div>;
           })}
         </div>
@@ -1680,13 +1791,13 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   const a2=isTeamMode?data.players.find(player=>player.id===draft.a2):undefined;
   const b2=isTeamMode?data.players.find(player=>player.id===draft.b2):undefined;
   const tournament=data.tournaments.find(t=>t.id===draft.tournamentId);
-  const cupMatches=data.matches.filter(match=>match.mode==="cup"&&match.tournamentId===draft.tournamentId&&match.status==="confirmed");
   const tournamentHandicap=isCupMode&&tournament?.handicapMode==="suggested";
-  const tournamentDeadline=tournament?.signupDeadline;
-  const tournamentDeadlineDate=tournamentDeadline?new Date(`${tournamentDeadline.length===10?tournamentDeadline+"T23:59":tournamentDeadline}:00+08:00`):null;
-  const cupDeadlinePassed=Boolean(tournamentDeadlineDate&&!Number.isNaN(tournamentDeadlineDate.getTime())&&tournamentDeadlineDate.getTime()<=Date.now());
-  const cupHash=(value:string)=>{let result=2166136261;for(const character of value){result^=character.charCodeAt(0);result=Math.imul(result,16777619)}return result>>>0;};
-  const cupDraw=isCupMode&&tournament&&cupDeadlinePassed?[...(tournament.signups??[])].sort((left,right)=>cupHash(`${tournament.id}:${left}`)-cupHash(`${tournament.id}:${right}`)):[];
+  /* Locked when the form was opened from a bracket box: the pairing, round and match number came
+     from the tie itself, so there is nothing here to choose and no way to file the result against
+     the wrong slot. */
+  const cupSlotLocked=Boolean(isCupMode&&draft.cupSlotLocked);
+  const cupBracket=useMemo(()=>isCupMode&&tournament?buildBracket<Match>(tournament,data.matches):null,[isCupMode,tournament,data.matches]);
+  const cupSlot=cupBracket?slotAt(cupBracket,Number(draft.tournamentRound),Number(draft.tournamentMatchIndex)):undefined;
   const tournamentLabel=tournament?.name||"未選擇盃賽";
   const playersForA=players.filter(p=>p.id!==draft.b&&p.id!==draft.b2&&p.id!==draft.a2);
   const playersForB=players.filter(p=>p.id!==draft.a&&p.id!==draft.a2&&p.id!==draft.b2);
@@ -1700,41 +1811,20 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   const pickB=(id:string)=>{update("b",id);if(id&&!draft.a)setOpenASignal(s=>s+1);if(id&&!draft.b2&&draft.mode==="2v2")setOpenB2Signal(s=>s+1)};
   const pickA2=(id:string)=>{update("a2",id);if(id&&!draft.b2)setOpenB2Signal(s=>s+1)};
   const pickB2=(id:string)=>{update("b2",id);if(id&&!draft.a2)setOpenA2Signal(s=>s+1)};
-  const cupSlotPlayers=(round:number,index:number):[string,string]=>{
-    if(round===1)return [cupDraw[(index-1)*2]??"",cupDraw[(index-1)*2+1]??""];
-    const previous=(slot:number)=>cupMatches.find(match=>(match.tournamentRound??1)===round-1&&(match.tournamentMatchIndex??1)===slot);
-    const winner=(match:Match|undefined)=>match?match.scoreA>match.scoreB?match.a:match.scoreB>match.scoreA?match.b:"":"";
-    return [winner(previous((index-1)*2+1)),winner(previous((index-1)*2+2))];
-  };
-  const cupSlots=useMemo(()=>{
-    if(!isCupMode||!tournament)return [] as {round:number;index:number;a:string;b:string;played:boolean}[];
-    const size=2**Math.ceil(Math.log2(Math.max(2,cupDraw.length))),rounds=Math.max(1,Math.log2(size));
-    return Array.from({length:rounds},(_,roundIndex)=>Array.from({length:Math.max(1,size/(2**(roundIndex+1)))},(_,index)=>{
-      const round=roundIndex+1,[first,second]=cupSlotPlayers(round,index+1);
-      return {round,index:index+1,a:first,b:second,played:cupMatches.some(match=>(match.tournamentRound??1)===round&&(match.tournamentMatchIndex??1)===index+1)};
-    })).flat();
-  },[isCupMode,tournament,cupMatches,cupDraw]);
+  /* Picking a player is picking their outstanding tie: there is only ever one box a member is due
+     to play in, so the opponent, round and index all follow from the name. */
   const pickCupPlayer=(id:string)=>{
-    const slot=cupSlots.find(candidate=>!candidate.played&&candidate.a&&candidate.b&&(candidate.a===id||candidate.b===id));
-    update("a",id);update("b",slot?(slot.a===id?slot.b:slot.a):"");
+    const slot=cupBracket?playerSlot(cupBracket,id):undefined;
+    update("a",id);update("b",slot&&slot.state==="ready"?opponentIn(slot,id):"");
     if(slot){update("tournamentRound",slot.round);update("tournamentMatchIndex",slot.index);}
   };
   const chooseCupTournament=(id:string)=>{
     update("tournamentId",id);
+    update("cupSlotLocked",false);
     const nextTournament=data.tournaments.find(item=>item.id===id);
-    const nextMatches=data.matches.filter(match=>match.mode==="cup"&&match.tournamentId===id&&match.status==="confirmed");
-    const nextDeadline=nextTournament?.signupDeadline?new Date(`${nextTournament.signupDeadline.length===10?nextTournament.signupDeadline+"T23:59":nextTournament.signupDeadline}:00+08:00`):null;
-    const nextDeadlinePassed=Boolean(nextDeadline&&!Number.isNaN(nextDeadline.getTime())&&nextDeadline.getTime()<=Date.now());
-    const nextDraw=nextTournament&&nextDeadlinePassed?[...(nextTournament.signups??[])].sort((left,right)=>cupHash(`${nextTournament.id}:${left}`)-cupHash(`${nextTournament.id}:${right}`)):[];
-    const size=2**Math.ceil(Math.log2(Math.max(2,nextDraw.length))),rounds=Math.max(1,Math.log2(size));
-    const winner=(match:Match|undefined)=>match?match.scoreA>match.scoreB?match.a:match.scoreB>match.scoreA?match.b:"":"";
-    for(let round=1;round<=rounds;round++)for(let index=1;index<=Math.max(1,size/(2**round));index++){
-      if(nextMatches.some(match=>(match.tournamentRound??1)===round&&(match.tournamentMatchIndex??1)===index))continue;
-      const previous=(slot:number)=>nextMatches.find(match=>(match.tournamentRound??1)===round-1&&(match.tournamentMatchIndex??1)===slot);
-      const first=round===1?nextDraw[(index-1)*2]??"":winner(previous((index-1)*2+1)),second=round===1?nextDraw[(index-1)*2+1]??"":winner(previous((index-1)*2+2));
-      if(first&&second){update("a",first);update("b",second);update("tournamentRound",round);update("tournamentMatchIndex",index);return;}
-    }
-    update("a","");update("b","");
+    const nextSlot=nextTournament?buildBracket<Match>(nextTournament,data.matches).slots.find(slot=>slot.state==="ready"):undefined;
+    update("a",nextSlot?.a??"");update("b",nextSlot?.b??"");
+    if(nextSlot){update("tournamentRound",nextSlot.round);update("tournamentMatchIndex",nextSlot.index);}
   };
 
   const addBreak=(playerId:string)=>{
@@ -1794,12 +1884,13 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   return <div className="match-form"><div className="match-form-head"><div className="match-title-row"><h2 className="accent">{editing?"編輯比賽":"記錄比賽"}</h2><div className="match-date-chip"><span aria-hidden="true">{dateLabel}<i aria-hidden="true">›</i></span><input aria-label={`比賽日期，目前為${dateLabel}`} type="date" value={draft.date} onChange={e=>update("date",e.target.value)} onClick={e=>{const input=e.currentTarget;if(typeof input.showPicker==="function")input.showPicker()}}/></div></div></div>
     {editing&&<p className="sub">{draft.mode==="2v2"?"潮拍娛樂賽只會更新這筆歷史記錄，不會重播或改變 ELO。":"儲存後會按日期重播全部賽事，重建雙方及後續 ELO。"}</p>}
     {data.players.length<2&&<p className="warning">請先新增至少兩位活躍球員。</p>}
-    {isCupMode && <div className="tournament-selector tournament-selector-first">
+    {isCupMode&&!cupSlotLocked && <div className="tournament-selector tournament-selector-first">
       <label>盃賽<select value={draft.tournamentId||""} onChange={e=>chooseCupTournament(e.target.value)}>
         <option value="">選擇盃賽</option>
         {data.tournaments.map(t=> <option key={t.id} value={t.id}>{t.name}{t.signupDeadline?` · 截止 ${t.signupDeadline.replace("T"," ")}`:""}</option>)}
       </select></label>
     </div>}
+    {cupSlotLocked&&<div className="cup-slot-banner"><small>{tournamentLabel}</small><b>{cupBracket?`${roundLabel(Number(draft.tournamentRound),cupBracket.rounds)} · 第 ${draft.tournamentMatchIndex} 場`:`第 ${draft.tournamentRound} 輪第 ${draft.tournamentMatchIndex} 場`}</b><span>對陣及場次由賽事對陣圖帶入，不可更改。</span></div>}
     <section className="match-players" aria-labelledby="match-players-title"><h3 id="match-players-title" className="visually-hidden">選擇球員</h3>
       {isTeamMode&&<div className="team-name-grid"><label><span>Team A 隊名</span><input type="text" maxLength={40} value={draft.teamAName??""} placeholder="Team A" onChange={event=>update("teamAName",event.target.value)}/></label><b aria-hidden="true">對</b><label><span>Team B 隊名</span><input type="text" maxLength={40} value={draft.teamBName??""} placeholder="Team B" onChange={event=>update("teamBName",event.target.value)}/></label></div>}
       {!isTeamMode&&!isCupMode&&<div className="matchup-card">
@@ -1809,7 +1900,13 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
         <div className="matchup-slot"><PlayerCombobox players={playersForB} value={draft.b} onChange={pickB} placeholder="選擇球員" ariaLabel="球員 B" autoOpenSignal={openBSignal}
           renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO / ${Math.round(suggestedHandicap(selected,data))} 分`:"—"}</small></span></button>}/></div>
       </div>}
-      {isCupMode&&<div className="matchup-card cup-matchup-card">
+      {isCupMode&&cupSlotLocked&&<div className="matchup-card cup-matchup-card locked">
+        {[a,b].map((player,side)=><Fragment key={side}>
+          {side===1&&<span className="matchup-vs" aria-hidden="true">對</span>}
+          <div className="matchup-slot derived-opponent"><span className="matchup-trigger"><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={player??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{player?.name??"待定"}</b><small>{player?`${Math.round(player.rating)} ELO`:"—"}</small></span></span></div>
+        </Fragment>)}
+      </div>}
+      {isCupMode&&!cupSlotLocked&&<div className="matchup-card cup-matchup-card">
         <div className="matchup-slot"><PlayerCombobox players={players} value={draft.a} onChange={pickCupPlayer} placeholder="選擇球員" ariaLabel="選擇球員" autoOpenSignal={openASignal}
           renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??"選擇球員"}</b><small>{selected?`${Math.round(selected.rating)} ELO` : "未完成盃賽場次"}</small></span></button>}/></div>
         <span className="matchup-vs" aria-hidden="true">對</span>
@@ -1831,8 +1928,12 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
         </div>
       </div>}
     </section>
-    {isCupMode && <div className="tournament-stage"><label>輪次<input type="number" min={1} value={draft.tournamentRound||1} onChange={e=>update("tournamentRound",Math.max(1,Number(e.target.value)||1))}/></label>
+    {/* Typing a round and a match number by hand is how a quarter-final result used to get filed as
+        a first-round one. The numbers stay visible when the form was opened from a box, but they are
+        the box's — only a hand-built entry (no bracket to tap) can still set them. */}
+    {isCupMode&&!cupSlotLocked && <div className="tournament-stage"><label>輪次<input type="number" min={1} value={draft.tournamentRound||1} onChange={e=>update("tournamentRound",Math.max(1,Number(e.target.value)||1))}/></label>
       <label>場次<input type="number" min={1} value={draft.tournamentMatchIndex||1} onChange={e=>update("tournamentMatchIndex",Math.max(1,Number(e.target.value)||1))}/></label></div>}
+    {isCupMode&&cupSlot&&cupSlot.state==="played"&&!editing&&<p className="warning">此場次已有賽果，儲存會另建一筆記錄；請改用對陣圖上的「編輯賽果」。</p>}
     <section className="quick-handicap" aria-labelledby="handicap-title"><h3 id="handicap-title">讓分 <small>{handicapLabel}</small></h3>
       {isCupMode
         ? <div className="tournament-handicap-note"><b>盃賽模式</b><span>{tournament ? (tournament.handicapMode==="suggested" ? `自動套用建議讓分：每局 ${fairPoints} 分` : "此盃賽不設讓分") : "未選擇盃賽"}</span></div>

@@ -3552,6 +3552,37 @@ input,select,textarea{font-size:var(--fs-body)}
 .cup-signup-row button,.cup-signup-row a{min-height:var(--control-md);padding:0 1rem;border-radius:.625rem;
   font-size:var(--fs-sm);font-weight:700;display:inline-flex;align-items:center;text-decoration:none}
 
+/* --- Cup: from poster to flow --------------------------------------------
+   Everything below exists because a drawn bracket used to be read-only. The
+   member's own tie is the one card that must survive a glance, so it is the
+   only thing in the view with fill; the boxes stay quiet until one of them is
+   actually yours or actually playable. */
+.cup-my-match{display:grid;gap:.625rem;margin:.75rem 0;padding:.875rem;border:1px solid var(--line);border-radius:.875rem;background:var(--paper)}
+.cup-my-match.ready{border-color:#9fcbb5;background:#f1f8f2}
+.cup-my-match-head small{display:block;font-size:.6875rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
+.cup-my-match-head b{display:block;margin-top:.25rem;font-size:1.0625rem}
+.cup-my-match-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+.cup-my-match-actions button{min-height:var(--control-md);padding:0 1.125rem;border-radius:.625rem;font-size:var(--fs-sm);font-weight:800}
+.cup-champion{display:flex;align-items:center;gap:.75rem;margin:.75rem 0;padding:.875rem 1rem;border:1px solid #e2c275;border-radius:.875rem;background:#fdf7e6}
+.cup-champion span{font-size:1.75rem;line-height:1}
+.cup-champion small{display:block;font-size:.6875rem;color:#9a6d1d;font-weight:700}
+.cup-champion b{display:block;margin-top:.125rem;font-size:1.25rem}
+.cup-status{display:inline-block;margin-left:.375rem;padding:.0625rem .375rem;border-radius:.375rem;background:var(--line);color:var(--muted);font-size:.625rem;font-weight:800;vertical-align:middle}
+.cup-status.open{background:#eaf3ff;color:#2b6cb0}
+.cup-status.live{background:#f1f8f2;color:var(--green)}
+.bracket-match.mine{outline:2px solid var(--green);outline-offset:2px}
+.bracket-match.ready{border-color:#c9d6cf}
+.bracket-record{display:block;margin-top:.375rem;width:100%;height:2rem;min-height:2rem;padding:0;font-size:.6875rem;border-radius:.5rem}
+.bracket-walkover{margin-top:.375rem;padding-top:.375rem;border-top:1px dashed var(--line)}
+.bracket-walkover small{display:block;color:var(--muted);font-size:.625rem;text-align:center}
+.bracket-walkover span{display:flex;gap:.25rem;margin-top:.25rem}
+.bracket-walkover button{flex:1;height:1.75rem;min-height:1.75rem;padding:0 .25rem;font-size:.625rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cup-slot-banner{margin-bottom:.75rem;padding:.75rem .875rem;border:1px solid var(--line);border-radius:.75rem;background:var(--paper)}
+.cup-slot-banner small{display:block;font-size:.6875rem;color:var(--muted);font-weight:700}
+.cup-slot-banner b{display:block;margin-top:.125rem;font-size:1rem}
+.cup-slot-banner span{display:block;margin-top:.25rem;font-size:.6875rem;color:var(--muted)}
+.cup-matchup-card.locked .matchup-trigger{cursor:default}
+
 /* --- The Room -------------------------------------------------------------
    Everybody looking for a game, as one board. Visually quieter than the
    PlayableCard stream beneath it on purpose: this is a list to scan, not three
