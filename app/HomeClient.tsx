@@ -432,7 +432,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const [availabilityDirty,setAvailabilityDirty] = useState(false);
   const [leavingAvailability,setLeavingAvailability] = useState<string|null>(null);
   const [jumpToAvailability,setJumpToAvailability] = useState<{playerId:string;date:string}|null>(null);
-  const [matchesView,setMatchesView] = useState<"history"|"calendar"|"cup">("history");
+  const [matchesView,setMatchesView] = useState<"history"|"calendar"|"cup"|"matrix">("history");
   const [headToHead,setHeadToHead] = useState({a:"",b:""});
   const [highlightMatch,setHighlightMatch] = useState<string|null>(null);
   // localStorage can't be read during render without a hydration mismatch, so
@@ -1187,7 +1187,137 @@ const monthGroupLabel=(month:string)=>{
   return `${y}年${m}月`;
 };
 
-function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,setPair,highlight,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament,onRecordSlot,onArrange,onWalkover,onEditRoster,onRefresh}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onPlayer:(player:Player)=>void;view:"history"|"calendar"|"cup";setView:(view:"history"|"calendar"|"cup")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void;highlight:string|null;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string)=>void;onRecordSlot:(tournament:Tournament,slot:BracketSlot<Match>)=>void;onArrange:(opponentId:string)=>void;onWalkover:(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string)=>void;onEditRoster:(tournament:Tournament,outgoingId:string,incomingId:string)=>void;onRefresh:()=>void}) {
+/* Every pair that has ever met, keyed by the two ids in a stable order, so a
+   meeting counts the same whichever way round it was recorded. Only 1v1 counts
+   here — that is exactly what the head-to-head hero on 賽事記錄 tallies, and a
+   cell that disagreed with the screen it opens would be worse than no cell. */
+type H2HRecord={wins:Record<string,number>;draws:number;frames:Record<string,number>;total:number;last:string};
+function headToHeadIndex(matches:Match[]){
+  const index=new Map<string,H2HRecord>();
+  for(const match of matches){
+    if(match.status!=="confirmed"||isEntertainmentMode(match.mode)||matchMode(match)!=="1v1")continue;
+    const [first,second]=[match.a,match.b].sort();
+    if(!first||!second||first===second)continue;
+    const key=`${first}|${second}`;
+    const record=index.get(key)??{wins:{[first]:0,[second]:0},draws:0,frames:{[first]:0,[second]:0},total:0,last:""};
+    const scoreFirst=match.a===first?match.scoreA:match.scoreB;
+    const scoreSecond=match.a===first?match.scoreB:match.scoreA;
+    record.frames[first]+=scoreFirst;
+    record.frames[second]+=scoreSecond;
+    if(scoreFirst>scoreSecond)record.wins[first]++;else if(scoreSecond>scoreFirst)record.wins[second]++;else record.draws++;
+    record.total++;
+    if(match.playedOn>record.last)record.last=match.playedOn;
+    index.set(key,record);
+  }
+  return index;
+}
+const h2hKey=(first:string,second:string)=>[first,second].sort().join("|");
+
+/* The club kept asking "how do I stand against everyone?" and the only answer
+   was to pick opponents one at a time in the filter bar. This is the index for
+   that: every cell is a tap through to the existing head-to-head view, which
+   stays the one place a rivalry is read in full.
+
+   Phone-first, so the *list* is the primary shape — one focused player, one row
+   per opponent, no horizontal scrolling and full-width tap targets. The grid is
+   the same data for anyone with the width for it, and is reachable on a phone
+   too (it scrolls sideways under a pinned name column). */
+function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayerId?:string;onOpenPair:(first:string,second:string)=>void}){
+  const index=useMemo(()=>headToHeadIndex(data.matches),[data.matches]);
+  // Only players who have actually met somebody: an all-players grid is mostly
+  // empty cells, and empty cells are the enemy of a readable matrix.
+  const players=useMemo(()=>{
+    const met=new Set<string>();
+    for(const key of index.keys()){const [first,second]=key.split("|");met.add(first);met.add(second)}
+    return data.players.filter(player=>met.has(player.id)).sort((left,right)=>right.rating-left.rating||left.name.localeCompare(right.name,"zh-HK"));
+  },[data.players,index]);
+  const [mode,setMode]=useState<"list"|"grid">("list");
+  const [focusId,setFocusId]=useState("");
+  const focus=players.find(player=>player.id===focusId)
+    ??players.find(player=>player.id===ownPlayerId)
+    ??players[0];
+  const rows=useMemo(()=>{
+    if(!focus)return [];
+    return players
+      .filter(player=>player.id!==focus.id)
+      .map(opponent=>({opponent,record:index.get(h2hKey(focus.id,opponent.id))}))
+      .filter((row):row is {opponent:Player;record:H2HRecord}=>Boolean(row.record))
+      .sort((left,right)=>right.record.total-left.record.total||right.record.last.localeCompare(left.record.last));
+  },[players,index,focus]);
+  const totals=rows.reduce((sum,row)=>{
+    sum.played+=row.record.total;
+    sum.wins+=row.record.wins[focus!.id];
+    sum.losses+=row.record.total-row.record.wins[focus!.id]-row.record.draws;
+    return sum;
+  },{played:0,wins:0,losses:0});
+  if(!focus)return <Empty text="尚未有對賽記錄" sub="記錄第一場 1v1 比賽後，球員之間的對賽矩陣會顯示在這裡。"/>;
+  const shareOf=(record:H2HRecord,id:string)=>Math.round((record.wins[id]+record.draws/2)/Math.max(1,record.total)*100);
+  return <section className="h2h-matrix" aria-label="對賽矩陣">
+    <div className="h2h-matrix-toolbar">
+      <div className="h2h-matrix-focus">
+        <span className="match-filter-label">球員</span>
+        <PlayerCombobox players={players} value={focus.id} onChange={id=>{if(id)setFocusId(id)}} placeholder="選擇球員" ariaLabel="對賽矩陣主角球員"/>
+      </div>
+      <div className="h2h-matrix-modes" role="group" aria-label="對賽矩陣顯示方式">
+        <button type="button" className={mode==="list"?"active":""} aria-pressed={mode==="list"} onClick={()=>setMode("list")}>清單</button>
+        <button type="button" className={mode==="grid"?"active":""} aria-pressed={mode==="grid"} onClick={()=>setMode("grid")}>全隊網格</button>
+      </div>
+    </div>
+    {mode==="list"?<>
+      <div className="h2h-matrix-summary">
+        <div><small>對手</small><b>{rows.length}</b></div>
+        <div><small>對賽場數</small><b>{totals.played}</b></div>
+        <div><small>勝負</small><b>{totals.wins}<em>–</em>{totals.losses}</b></div>
+      </div>
+      {rows.length===0
+        ? <Empty text="這位球員未有 1v1 對賽記錄" sub="記錄一場 1v1 比賽後，對手就會在這裡出現。"/>
+        : <ul className="h2h-matrix-rows">{rows.map(({opponent,record})=>{
+            const share=shareOf(record,focus.id);
+            const losses=record.total-record.wins[focus.id]-record.draws;
+            return <li key={opponent.id}>
+              <button type="button" onClick={()=>onOpenPair(focus.id,opponent.id)} aria-label={`查看 ${focus.name} 對 ${opponent.name} 的對賽紀錄，${record.wins[focus.id]} 勝 ${losses} 負`}>
+                <PlayerBadge player={opponent}/>
+                <span className="h2h-matrix-row-main">
+                  <b>{opponent.name}</b>
+                  <small>{record.total} 場 · 局數 {record.frames[focus.id]}–{record.frames[opponent.id]} · 最近 {record.last||"—"}</small>
+                  <i className="h2h-matrix-bar" aria-hidden="true"><em style={{width:`${share}%`,background:fadeHex(avatarHex(focus.colour),share<50?.38:1)}}/></i>
+                </span>
+                <span className={`h2h-matrix-score ${share>50?"ahead":share<50?"behind":"level"}`}>
+                  <b>{record.wins[focus.id]}<em>–</em>{losses}</b>
+                  {record.draws>0&&<small>{record.draws} 和</small>}
+                </span>
+              </button>
+            </li>;
+          })}</ul>}
+    </>:<>
+      <p className="h2h-matrix-hint">橫行為該球員的勝負，向右捲動可看更多對手。</p>
+      <div className="h2h-matrix-scroll">
+        <table className="h2h-matrix-grid">
+          <caption className="sr-only">球員之間的 1v1 對賽勝負矩陣，橫行球員對直行球員</caption>
+          <thead><tr><th scope="col"><span className="sr-only">球員</span></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
+          <tbody>{players.map(row=><tr key={row.id} className={row.id===focus.id?"focused":""}>
+            <th scope="row"><span className="h2h-matrix-rowhead"><PlayerBadge player={row}/><span>{row.short||row.name}</span></span></th>
+            {players.map(column=>{
+              if(column.id===row.id)return <td key={column.id} className="self" aria-label="同一位球員">—</td>;
+              const record=index.get(h2hKey(row.id,column.id));
+              if(!record)return <td key={column.id} className="none" aria-label={`${row.name} 與 ${column.name} 未曾交手`}>·</td>;
+              const share=shareOf(record,row.id);
+              const losses=record.total-record.wins[row.id]-record.draws;
+              return <td key={column.id} className={share>50?"ahead":share<50?"behind":"level"}>
+                <button type="button" onClick={()=>onOpenPair(row.id,column.id)} aria-label={`${row.name} 對 ${column.name}：${record.wins[row.id]} 勝 ${losses} 負，共 ${record.total} 場`}>
+                  <b>{record.wins[row.id]}<em>–</em>{losses}</b>
+                </button>
+              </td>;
+            })}
+          </tr>)}</tbody>
+        </table>
+      </div>
+      <div className="h2h-matrix-legend"><span><i className="ahead"/>領先</span><span><i className="level"/>均勢</span><span><i className="behind"/>落後</span><span><i className="none"/>未交手</span></div>
+    </>}
+  </section>;
+}
+
+function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,setPair,highlight,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament,onRecordSlot,onArrange,onWalkover,onEditRoster,onRefresh}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onPlayer:(player:Player)=>void;view:"history"|"calendar"|"cup"|"matrix";setView:(view:"history"|"calendar"|"cup"|"matrix")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void;highlight:string|null;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string)=>void;onRecordSlot:(tournament:Tournament,slot:BracketSlot<Match>)=>void;onArrange:(opponentId:string)=>void;onWalkover:(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string)=>void;onEditRoster:(tournament:Tournament,outgoingId:string,incomingId:string)=>void;onRefresh:()=>void}) {
   const [sortBy,setSortBy]=useState<"playedOn"|"createdAt">("playedOn");
   const [monthOpen,setMonthOpen]=useState<Record<string,boolean>>({});
   const [sortDirection,setSortDirection]=useState<"desc"|"asc">("desc");
@@ -1306,8 +1436,8 @@ function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,s
   },[matches,comparing]);
   const newestMonth=groups.reduce((latest,group)=>group.key>latest?group.key:latest,"");
   return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽記錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
-    <div className="match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button><button role="tab" aria-selected={view==="cup"} className={view==="cup"?"active":""} onClick={()=>setView("cup")}>盃賽紀錄</button></div>
-    {view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament} onRecordSlot={onRecordSlot} onArrange={onArrange} onWalkover={onWalkover} onEditRoster={onEditRoster} onRefresh={onRefresh}/> : <>
+    <div className="match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button><button role="tab" aria-selected={view==="matrix"} className={view==="matrix"?"active":""} onClick={()=>setView("matrix")}>對賽矩陣</button><button role="tab" aria-selected={view==="cup"} className={view==="cup"?"active":""} onClick={()=>setView("cup")}>盃賽紀錄</button></div>
+    {view==="matrix"?<HeadToHeadMatrix data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{setPair({a:first,b:second});setModeFilter("all");setView("history")}}/> : view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament} onRecordSlot={onRecordSlot} onArrange={onArrange} onWalkover={onWalkover} onEditRoster={onEditRoster} onRefresh={onRefresh}/> : <>
     <section className="match-filter-toolbar" aria-label="篩選及排序比賽記錄">
       <div className="match-filter-control player-control">
         <span className="match-filter-label">球員</span>
