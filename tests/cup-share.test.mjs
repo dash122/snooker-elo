@@ -1,17 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { cupShareDescription, cupShareMessage, cupShareState, cupShareTitle, cupShareUrl, whatsappLink } from "../lib/cup-share.ts";
-import { bracketShape, buildBracket, currentRoundLabel } from "../lib/tournament.ts";
+import { buildBracket, currentRoundLabel } from "../lib/tournament.ts";
 
 /* Wired exactly as the two real callers wire it — the share page for its meta tags and the app for
    its compose link — so a change in either bracket maths or copy shows up here. */
 const shareFor = (cup, matches = [], closed = false, championName = "") => {
   const bracket = closed ? buildBracket(cup, matches) : null;
-  const entrants = cup.signups.length;
   return cupShareState({
-    signupDeadline: cup.signupDeadline, entrants, closed,
-    bracketSize: closed ? bracket?.size ?? 0 : bracketShape(Math.max(entrants, 2)).size,
-    roundName: currentRoundLabel(bracket), championName,
+    signupDeadline: cup.signupDeadline, entrants: cup.signups.length, closed,
+    drew: Boolean(bracket?.size), roundName: currentRoundLabel(bracket), championName,
   });
 };
 
@@ -22,21 +20,24 @@ const cup = (overrides = {}) => ({
 
 const recruiting = shareFor(cup());
 
-test("while recruiting, the pitch is places left and the deadline", () => {
-  // Five entrants round up to an eight-slot bracket, so three places are genuinely open.
+test("while recruiting, the pitch is entries so far and the deadline", () => {
   assert.equal(recruiting.status, "signup");
-  assert.equal(recruiting.openPlaces, 3);
   assert.equal(cupShareTitle("南華會週年會友盃", recruiting), "南華會週年會友盃 · 報名中");
   const description = cupShareDescription(recruiting);
-  assert.match(description, /仲有 3 個位/);
+  assert.match(description, /名額有限/);
   assert.match(description, /已有 5 人報名/);
   assert.match(description, /2026-08-20 23:59 截止/);
 });
 
-test("a full bracket does not advertise phantom places", () => {
-  const state = shareFor(cup({ signups: ["p1", "p2", "p3", "p4"] }));
-  assert.equal(state.openPlaces, 0);
-  assert.doesNotMatch(cupShareDescription(state), /個位/);
+test("no cup declares a number of places, so none is ever quoted", () => {
+  // The bracket rounding up to the next power of two is not a capacity the club set — quoting it as
+  // "3 places left" invented a number nobody chose. 名額有限 is the true claim at any field size.
+  for (const signups of [["p1", "p2"], ["p1", "p2", "p3"], ["p1", "p2", "p3", "p4"]]) {
+    const state = shareFor(cup({ signups }));
+    const copy = `${cupShareDescription(state)} ${cupShareMessage("盃", state, "https://x/c/1")}`;
+    assert.doesNotMatch(copy, /個位|個名額|剩低|仲有 \d/);
+    assert.match(copy, /名額有限/);
+  }
 });
 
 test("a running cup leads with the round it has reached", () => {
@@ -80,7 +81,7 @@ test("the WhatsApp message ends with the bare url on its own line", () => {
   assert.equal(lines.at(-1), url);
   assert.equal(lines.filter(line => line.includes("http")).length, 1);
   assert.match(message, /🏆 南華會週年會友盃/);
-  assert.match(message, /仲有 3 個位/);
+  assert.match(message, /名額有限 · 已有 5 人報名/);
   // The call to action is the last line before the link, and it asks for the one thing this share
   // exists to get: an entry.
   assert.equal(lines.at(-2), "立即報名參加比賽 👇");

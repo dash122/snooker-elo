@@ -12,8 +12,6 @@
 export type CupShareState = {
   status:"signup"|"live"|"done"|"short";
   entrants:number;
-  /** Only while recruiting: places left before the bracket rounds up to the next power of two. */
-  openPlaces:number;
   deadline:string;
   roundName:string;
   championName:string;
@@ -23,8 +21,8 @@ export type CupShareInput = {
   signupDeadline:string;
   entrants:number;
   closed:boolean;
-  /** 0 when the cup never had enough entrants to draw. */
-  bracketSize:number;
+  /** False when the cup closed without enough entrants to draw a bracket. */
+  drew:boolean;
   roundName:string;
   championName?:string;
 };
@@ -33,9 +31,8 @@ const dateText=(value:string)=>value.replace("T"," ").slice(0,16);
 
 export function cupShareState(input:CupShareInput):CupShareState {
   return {
-    status:!input.closed?"signup":!input.bracketSize?"short":input.championName?"done":"live",
+    status:!input.closed?"signup":!input.drew?"short":input.championName?"done":"live",
     entrants:input.entrants,
-    openPlaces:Math.max(0,input.bracketSize-input.entrants),
     deadline:dateText(input.signupDeadline),
     roundName:input.roundName,
     championName:input.championName??"",
@@ -52,10 +49,10 @@ export function cupShareTitle(name:string,state:CupShareState):string {
 }
 
 export function cupShareDescription(state:CupShareState):string {
-  if(state.status==="signup"){
-    const places=state.openPlaces>0?`仲有 ${state.openPlaces} 個位 · `:"";
-    return `${places}已有 ${state.entrants} 人報名，${state.deadline} 截止。撳入去報名，睇對陣同賽果。`;
-  }
+  /* A cup has no declared capacity — the bracket simply rounds up to the next power of two — so a
+     specific "3 places left" was a number the club never actually set. 名額有限 says the true thing:
+     entries close, and the field is finite. */
+  if(state.status==="signup")return `名額有限 · 已有 ${state.entrants} 人報名，${state.deadline} 截止。撳入去報名，睇對陣同賽果。`;
   if(state.status==="done")return `${state.entrants} 人參賽，冠軍 ${state.championName}。撳入去睇完整對陣圖同賽果。`;
   if(state.status==="short")return "今屆報名人數不足，未能開賽。";
   return `${state.entrants} 人參賽，打到${state.roundName}。撳入去睇對陣圖、賽果同下一場。`;
@@ -66,7 +63,7 @@ export function cupShareDescription(state:CupShareState):string {
 export function cupShareMessage(name:string,state:CupShareState,url:string):string {
   const lead=state.status==="signup"
     ?[`🏆 ${name} 開始報名喇`,
-      state.openPlaces>0?`仲有 ${state.openPlaces} 個位 · 已有 ${state.entrants} 人報名`:`已有 ${state.entrants} 人報名`,
+      `名額有限 · 已有 ${state.entrants} 人報名`,
       `${state.deadline} 截止，截止後即刻抽籤。`,
       "立即報名參加比賽 👇"]
     :state.status==="done"
