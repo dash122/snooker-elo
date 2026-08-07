@@ -86,3 +86,48 @@ test("member cannot save unrelated cup match",()=>{
   });
   assert.equal(memberCanWrite(current,next,"p1"),false);
 });
+
+test("member cannot write the frozen draw",()=>{
+  const current=baseState();
+  const next=baseState();
+  next.tournaments[0].draw=["p1","p2"];
+  next.tournaments[0].drawnAt="2026-08-20T16:00:00.000Z";
+  assert.equal(memberCanWrite(current,next,"p1"),false);
+});
+
+test("member cannot reshuffle an existing draw",()=>{
+  const current=baseState();
+  current.tournaments[0].draw=["p1","p2"];
+  const next=baseState();
+  next.tournaments[0].draw=["p2","p1"];
+  assert.equal(memberCanWrite(current,next,"p1"),false);
+});
+
+test("member cannot declare a walkover",()=>{
+  const current=baseState();
+  current.tournaments[0].draw=["p1","p2"];
+  const next=baseState();
+  next.tournaments[0].draw=["p1","p2"];
+  next.tournaments[0].walkovers=[{round:1,index:1,winner:"p1"}];
+  assert.equal(memberCanWrite(current,next,"p1"),false);
+});
+
+test("member cannot enter or leave a cup once it is drawn",()=>{
+  const current=baseState();
+  current.tournaments[0].draw=["p1","p2"];
+  const joining=baseState();
+  joining.tournaments[0].draw=["p1","p2"];
+  joining.tournaments[0].signups=["p1","p2"];
+  assert.equal(memberCanWrite(current,joining,"p2"),false);
+  const leaving=baseState();
+  leaving.tournaments[0].draw=["p1","p2"];
+  leaving.tournaments[0].signups=[];
+  assert.equal(memberCanWrite(current,leaving,"p1"),false);
+});
+
+test("an undrawn cup still accepts a member's own signup",()=>{
+  const current=baseState();
+  const next=baseState();
+  next.tournaments[0].signups=["p1","p2"];
+  assert.equal(memberCanWrite(current,next,"p2"),true);
+});

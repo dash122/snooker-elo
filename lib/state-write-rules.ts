@@ -36,13 +36,22 @@ export function memberCanWrite(current: any, next: any, playerId?: string) {
     const beforeTournament = beforeTournaments.get(id);
     const afterTournament = afterTournaments.get(id);
     if (!afterTournament) return false;
-    const beforeCore = JSON.stringify({ id: beforeTournament.id, name: beforeTournament.name, handicapMode: beforeTournament.handicapMode, signupDeadline: beforeTournament.signupDeadline, createdAt: beforeTournament.createdAt, createdBy: beforeTournament.createdBy });
-    const afterCore = JSON.stringify({ id: afterTournament.id, name: afterTournament.name, handicapMode: afterTournament.handicapMode, signupDeadline: afterTournament.signupDeadline, createdAt: afterTournament.createdAt, createdBy: afterTournament.createdBy });
+    // The draw and any walkovers are the bracket's spine: once frozen they decide who plays whom and
+    // who advances without playing. Neither is ever a member's to write — the draw is written by
+    // POST /api/tournaments/[id]/draw under the state lock, walkovers by an admin — so both belong
+    // in the core comparison rather than being left as unlisted fields a member write could carry.
+    const core = (tournament: any) => JSON.stringify({ id: tournament.id, name: tournament.name, handicapMode: tournament.handicapMode, signupDeadline: tournament.signupDeadline, createdAt: tournament.createdAt, createdBy: tournament.createdBy, draw: tournament.draw ?? null, drawnAt: tournament.drawnAt ?? null, walkovers: tournament.walkovers ?? null });
+    const beforeCore = core(beforeTournament);
+    const afterCore = core(afterTournament);
     if (beforeCore !== afterCore) return false;
     const beforeSignups = new Set(beforeTournament.signups ?? []);
     const afterSignups = new Set(afterTournament.signups ?? []);
     if (beforeSignups.size !== afterSignups.size) {
       if (!playerId) return false;
+      // Entering after the draw would mean a name in the roster that no box in the bracket knows
+      // about. Withdrawing after it is worse: it silently deletes a tie someone else is waiting on.
+      // Either way, once the cup is drawn the roster is closed to members.
+      if (beforeTournament.draw?.length) return false;
       const changedIds = [...new Set([...(beforeSignups ?? []), ...(afterSignups ?? [])])].filter((value) => beforeSignups.has(value) !== afterSignups.has(value));
       if (changedIds.length !== 1 || changedIds[0] !== playerId) return false;
     } else {

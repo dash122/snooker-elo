@@ -85,3 +85,16 @@ export function slotWatcherPosted(by:string,slot:Interval,venue?:string|null):No
 export function slotFilled(other:string,slot:Interval,venue?:string|null):NotificationMessage {
   return {channel:"offer",title:`同 ${other} 夾到今晚呢局`,body:withVenue(`${when(slot)} · 撳入去交換聯絡方法`,venue),tag:`slot:${other}`,urgency:urgencyFor(slot),ttl:untilSlot(slot)};
 }
+
+/** The cup draw landed. Sent once per entrant, naming only their own first-round tie: a member does
+    not need the whole bracket pushed at them, they need to know who to go and beat. Reuses the
+    `result` channel — like a result reminder, this is the club telling you a game now exists that
+    only you can go and play. */
+export function cupDrawn(cupName:string,opponent:string|null,roundName:string):NotificationMessage {
+  return {
+    channel:"result",
+    title:`${cupName} 抽籤結果出咗`,
+    body:opponent?`${roundName}：你對 ${opponent} — 撳入去約時間、打完記低賽果。`:`${roundName}：你輪空，直接晉級下一圈。`,
+    tag:`cup-draw:${cupName}`,url:"/?tab=matches&view=cup",urgency:"normal",
+  };
+}
