@@ -3494,46 +3494,6 @@ input,select,textarea{font-size:var(--fs-body)}
   .tonight-strip{padding:12px 14px}
 }
 
-/* Cup bracket + tournament quick actions */
-.bracket-view{display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--paper)}
-.bracket-chart{display:flex;align-items:stretch;gap:36px;margin-top:14px;padding-bottom:6px;overflow-x:auto}
-.bracket-round{display:flex;flex-direction:column;justify-content:space-around;gap:16px;min-width:190px;flex:0 0 auto}
-.bracket-round-title{margin:0 0 10px;font-size:13px;font-weight:800;color:var(--muted);text-align:center;text-transform:uppercase;letter-spacing:.02em}
-.bracket-round-matches{display:flex;flex-direction:column;justify-content:space-around;flex:1;gap:16px}
-.bracket-match{position:relative;display:grid;gap:1px;padding:2px;border:1px solid var(--line);border-radius:10px;background:var(--line)}
-.bracket-match.played{border-color:#9fcbb5}
-.bracket-round:not(.final) .bracket-match::after{content:"";position:absolute;top:50%;left:100%;width:18px;height:0;border-top:2px solid var(--line)}
-.bracket-round:not(:first-child) .bracket-match::before{content:"";position:absolute;top:50%;right:100%;width:18px;height:0;border-top:2px solid var(--line)}
-.bracket-slot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:#fff;font-size:13px;font-weight:700}
-.bracket-slot:first-child{border-radius:8px 8px 0 0}
-.bracket-slot:last-child{border-radius:0 0 8px 8px}
-.bracket-slot span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bracket-slot.tbd span{color:var(--muted);font-weight:600}
-.bracket-slot.winner{background:#f1f8f2;color:var(--green)}
-.bracket-slot.winner span{font-weight:800}
-.bracket-slot b{color:var(--green);font-size:13px}
-.bracket-bye{display:block;margin-top:4px;color:var(--muted);font-size:10px;text-align:center}
-.bracket-edit.more{display:block;margin-top:6px;width:100%;height:32px;min-height:32px;font-size:11px}
-@media (max-width:640px){.bracket-chart{gap:24px}.bracket-round{min-width:150px}}
-.bracket-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.bracket-header>div{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}.bracket-actions{align-items:center!important}.bracket-actions button{min-height:40px}.cup-matchup-card .derived-opponent{opacity:.88}.cup-matchup-card .derived-opponent .matchup-trigger{cursor:default}.tournament-directory{padding:24px}.tournament-directory header h2{margin:0;font-size:24px}.tournament-directory header small{display:block;margin-top:4px;color:var(--muted);font-size:12px}.tournament-directory-list{display:grid;gap:10px;margin-top:20px}.tournament-directory-item{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 18px;border:1px solid var(--line);border-radius:14px;background:#fff}.tournament-directory-item.signed{border-color:#9fcbb5;background:#f1f8f2}.tournament-directory-item b,.tournament-directory-item small,.tournament-directory-item span{display:block}.tournament-directory-item b{font-size:16px}.tournament-directory-item small{margin-top:4px;color:#9a6d1d;font-size:11px}.tournament-directory-item span{margin-top:3px;color:var(--muted);font-size:11px}.tournament-directory-item a{display:grid;place-items:center;text-decoration:none;min-height:42px;padding:0 14px;border:1px solid var(--line);border-radius:11px;color:var(--ink);font-weight:800;font-size:12px;white-space:nowrap}
-.bracket-actions{display:flex;align-items:center;gap:8px}.bracket-actions button{height:40px;min-height:40px;line-height:1;white-space:nowrap}.recent-tournaments{display:grid;gap:10px;margin-top:4px}.recent-tournaments h3{margin:4px 0;font-size:16px}.recent-tournament-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff}.recent-tournament-row>.primary,.recent-tournament-row>.secondary,.recent-tournament-row>a.secondary{flex:none;min-height:36px;height:36px;padding:0 14px;white-space:nowrap}.recent-tournament-open{flex:1;padding:2px;border:0;background:transparent;text-align:left;cursor:pointer}.recent-tournament-open span,.recent-tournament-open b,.recent-tournament-open small{display:block}.recent-tournament-open b{font-size:14px}.recent-tournament-open small{margin-top:4px;color:var(--muted);font-size:11px}.cup-match-list{display:grid;gap:18px}.cup-round-list{display:grid;gap:8px}.cup-round-list h3{margin:0;font-size:16px}.cup-match-row{display:grid;grid-template-columns:78px minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff}.cup-match-row.played{border-color:#9fcbb5;background:#f5faf6}.cup-match-number{font-size:12px;font-weight:800;color:var(--muted)}.cup-match-players{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:10px}.cup-match-players b:last-child{text-align:right}.cup-match-players span{font-weight:800;color:var(--green);white-space:nowrap}.cup-match-row>small{color:var(--muted);font-size:11px}.cup-match-row .more{height:36px;min-height:36px;white-space:nowrap}
-.bracket-header label{display:grid;gap:6px;font-size:12px;font-weight:700;color:var(--muted)}
-.bracket-header select{min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
-.bracket-header small{font-size:12px;color:var(--muted)}
-.cup-tree{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(240px,1fr);gap:12px;overflow:auto;padding-bottom:4px}
-.cup-round{display:grid;gap:8px;align-content:start}
-.cup-round h4{margin:0;font-size:14px}
-.cup-round-slots{display:grid;gap:8px}
-.cup-node{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
-.cup-node small{font-size:11px;color:var(--muted)}
-.cup-node.empty{border-style:dashed;background:#fbfcfa}
-.cup-node.empty b{font-size:13px;color:var(--muted)}
-.cup-node.empty span{font-size:11px;color:var(--muted)}
-.cup-score{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px}
-.cup-score b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cup-score b:last-child{text-align:right}
-.cup-score span{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
 
 .tournament-quick-actions .quick-action-chips{display:flex;gap:8px;flex-wrap:wrap}
 .quick-action-chip{min-height:38px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink);font-size:12px;font-weight:700}
@@ -3543,45 +3503,6 @@ input,select,textarea{font-size:var(--fs-body)}
 .tournament-selector label{display:grid;gap:6px;font-size:12px;font-weight:700;color:var(--muted)}
 .tournament-selector select,.tournament-selector input{min-height:44px;padding:0 11px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
 .tournament-stage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-
-/* Cup sign-up, now beside the bracket it leads to rather than in the matchmaking tab. */
-.cup-signup-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;
-  margin-top:.75rem;padding:.75rem .875rem;border:1px solid var(--line);border-radius:.75rem;background:var(--paper)}
-.cup-signup-row b{display:block;font-size:var(--fs-body)}
-.cup-signup-row small{display:block;font-size:.6875rem;color:var(--muted);margin-top:.125rem}
-.cup-signup-row button,.cup-signup-row a{min-height:var(--control-md);padding:0 1rem;border-radius:.625rem;
-  font-size:var(--fs-sm);font-weight:700;display:inline-flex;align-items:center;text-decoration:none}
-
-/* --- Cup: from poster to flow --------------------------------------------
-   Everything below exists because a drawn bracket used to be read-only. The
-   member's own tie is the one card that must survive a glance, so it is the
-   only thing in the view with fill; the boxes stay quiet until one of them is
-   actually yours or actually playable. */
-.cup-my-match{display:grid;gap:.625rem;margin:.75rem 0;padding:.875rem;border:1px solid var(--line);border-radius:.875rem;background:var(--paper)}
-.cup-my-match.ready{border-color:#9fcbb5;background:#f1f8f2}
-.cup-my-match-head small{display:block;font-size:.6875rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
-.cup-my-match-head b{display:block;margin-top:.25rem;font-size:1.0625rem}
-.cup-my-match-actions{display:flex;gap:.5rem;flex-wrap:wrap}
-.cup-my-match-actions button{min-height:var(--control-md);padding:0 1.125rem;border-radius:.625rem;font-size:var(--fs-sm);font-weight:800}
-.cup-champion{display:flex;align-items:center;gap:.75rem;margin:.75rem 0;padding:.875rem 1rem;border:1px solid #e2c275;border-radius:.875rem;background:#fdf7e6}
-.cup-champion span{font-size:1.75rem;line-height:1}
-.cup-champion small{display:block;font-size:.6875rem;color:#9a6d1d;font-weight:700}
-.cup-champion b{display:block;margin-top:.125rem;font-size:1.25rem}
-.cup-status{display:inline-block;margin-left:.375rem;padding:.0625rem .375rem;border-radius:.375rem;background:var(--line);color:var(--muted);font-size:.625rem;font-weight:800;vertical-align:middle}
-.cup-status.open{background:#eaf3ff;color:#2b6cb0}
-.cup-status.live{background:#f1f8f2;color:var(--green)}
-.bracket-match.mine{outline:2px solid var(--green);outline-offset:2px}
-.bracket-match.ready{border-color:#c9d6cf}
-.bracket-record{display:block;margin-top:.375rem;width:100%;height:2rem;min-height:2rem;padding:0;font-size:.6875rem;border-radius:.5rem}
-.bracket-walkover{margin-top:.375rem;padding-top:.375rem;border-top:1px dashed var(--line)}
-.bracket-walkover small{display:block;color:var(--muted);font-size:.625rem;text-align:center}
-.bracket-walkover span{display:flex;gap:.25rem;margin-top:.25rem}
-.bracket-walkover button{flex:1;height:1.75rem;min-height:1.75rem;padding:0 .25rem;font-size:.625rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cup-slot-banner{margin-bottom:.75rem;padding:.75rem .875rem;border:1px solid var(--line);border-radius:.75rem;background:var(--paper)}
-.cup-slot-banner small{display:block;font-size:.6875rem;color:var(--muted);font-weight:700}
-.cup-slot-banner b{display:block;margin-top:.125rem;font-size:1rem}
-.cup-slot-banner span{display:block;margin-top:.25rem;font-size:.6875rem;color:var(--muted)}
-.cup-matchup-card.locked .matchup-trigger{cursor:default}
 
 /* --- The Room -------------------------------------------------------------
    Everybody looking for a game, as one board. Visually quieter than the
@@ -4071,4 +3992,272 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
   .sl-session-fit{margin-top:10px;padding-inline:8px}
   .sl-session-fit>span{font-size:16px}
   .sl-session-fit b{font-size:10px}
+}
+
+/* ==========================================================================
+   Cup — phone-first
+   A knockout bracket is the one screen in this app that genuinely cannot be
+   drawn the same way at 360px and at 1280px: the tree is wide by definition.
+   So the tree is the wide-screen representation only, and the phone gets the
+   thing a phone is good at — one round at a time, as a list of ties with real
+   faces on them. Every horizontal run below is either wrapped or given its
+   own `overflow` box; nothing is allowed to push the page sideways.
+   ========================================================================== */
+.cup{display:grid;gap:.875rem;width:100%;min-width:0}
+.cup *{min-width:0}
+
+/* --- Shared furniture ----------------------------------------------------- */
+.cup-btn{display:inline-flex;align-items:center;justify-content:center;gap:.375rem;
+  min-height:var(--control-md);padding:0 1rem;border:1px solid transparent;border-radius:var(--radius-md);
+  font-size:var(--fs-sm);font-weight:800;text-decoration:none;white-space:nowrap}
+.cup-btn.primary{background:var(--green);color:#fff;box-shadow:0 6px 16px rgba(18,61,55,.18)}
+.cup-btn.primary:active{transform:translateY(1px)}
+.cup-btn.ghost{border-color:var(--line);background:#fff;color:var(--ink)}
+.cup-btn.sm{min-height:2.375rem;padding:0 .75rem;font-size:var(--fs-caption)}
+.cup-btn>span{font-size:1.125rem;font-weight:400;line-height:1}
+.cup-chip{display:inline-flex;align-items:center;min-height:1.5rem;padding:0 .5rem;border-radius:999px;
+  font-size:var(--fs-label);font-weight:800;letter-spacing:.02em}
+.cup-chip.is-signup{background:#eaf1ff;color:#2b5fa8}
+.cup-chip.is-live{background:#e6f4ea;color:#27704e}
+.cup-chip.is-done{background:#f7ecd4;color:#8a6a22}
+.cup-chip.is-short{background:#f0f1ee;color:var(--muted)}
+.cup-note{margin:0;padding:.75rem .875rem;border:1px dashed #cfd8d1;border-radius:var(--radius-md);
+  background:#fafbf8;color:var(--muted);font-size:var(--fs-sm);line-height:1.55}
+.cup-admin{display:flex;flex:0 0 auto;gap:.25rem}
+.cup-admin-btn{display:grid;place-items:center;width:2rem;height:2rem;border:1px solid var(--line);
+  border-radius:.625rem;background:#fff;color:var(--muted);font-size:var(--fs-caption);line-height:1}
+.cup-admin-btn.danger{color:var(--red)}
+.cup-avatars{display:flex;align-items:center;flex:0 0 auto}
+.cup-avatars .player-badge{width:1.75rem;height:1.75rem;margin-left:-.3rem;border:2px solid var(--paper);font-size:.5625rem}
+.cup-avatars .player-badge:first-child{margin-left:0}
+.cup-avatars i{display:grid;place-items:center;min-width:1.75rem;height:1.75rem;margin-left:-.3rem;padding:0 .25rem;
+  border:2px solid var(--paper);border-radius:50%;background:#e4e9e3;color:var(--muted);
+  font-size:.5625rem;font-style:normal;font-weight:800}
+
+/* --- The plate ------------------------------------------------------------
+   One decorative element, reused at two sizes. A cup should not look like a
+   settings row, and this is the cheapest possible way to say "competition". */
+.cup-art{position:relative;overflow:hidden;isolation:isolate;
+  background:radial-gradient(circle at 18% 82%,rgba(90,169,119,.35),transparent 40%),
+    linear-gradient(145deg,#0f4037,#0b2d29 68%,#123d37)}
+.cup-art.gold{background:radial-gradient(circle at 18% 82%,rgba(244,207,135,.4),transparent 42%),
+  linear-gradient(145deg,#2e2718,#1a1a12 70%,#3a2f18)}
+.cup-art::before{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(158deg,transparent 0 18px,rgba(179,224,192,.08) 19px 20px)}
+.cup-art-cup{position:absolute;top:.625rem;left:.75rem;z-index:1;font-size:1.5rem;line-height:1;
+  filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}
+.cup-art-ball{position:absolute;z-index:1;display:block;border-radius:50%;
+  box-shadow:inset -5px -6px 8px rgba(0,0,0,.3),inset 5px 4px 5px rgba(255,255,255,.35),0 8px 12px rgba(0,0,0,.28)}
+.cup-art-ball.red{width:2.75rem;height:2.75rem;right:1rem;top:38%;
+  background:radial-gradient(circle at 34% 28%,#ffd1be 0 8%,#b34837 18%,#7e2825 100%)}
+.cup-art-ball.white{width:2rem;height:2rem;left:1.1rem;bottom:18%;
+  background:radial-gradient(circle at 32% 25%,#fff 0 8%,#eee8d9 26%,#bcb8a8 100%)}
+.cup-art-arc{position:absolute;left:-1.5rem;right:-1.5rem;bottom:16%;height:4rem;
+  border:2px solid rgba(193,232,201,.2);border-radius:50%;transform:rotate(-18deg)}
+
+/* --- Directory ------------------------------------------------------------ */
+.cup-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:.875rem;flex-wrap:wrap}
+.cup-intro h2{margin:0;color:var(--deep);font-size:1.75rem;letter-spacing:-.04em;line-height:1.05}
+.cup-intro p:last-child{margin:.375rem 0 0;color:var(--muted);font-size:var(--fs-sm);line-height:1.5}
+.cup-intro .primary{flex:0 0 auto;min-height:var(--control-md);padding:0 1rem;border-radius:var(--radius-md);font-size:var(--fs-sm)}
+.cup-list{display:grid;gap:.75rem}
+.cup-card{display:grid;grid-template-columns:5.25rem minmax(0,1fr);overflow:hidden;
+  border:1px solid #dedfd8;border-radius:var(--radius-lg);background:var(--paper);
+  box-shadow:0 12px 28px rgba(18,61,55,.07)}
+.cup-card.is-live{border-color:#c2d8c8}
+.cup-card.is-done{border-color:#e6d5ab}
+.cup-card .cup-art{min-height:100%}
+.cup-card-body{display:grid;align-content:start;gap:.5rem;padding:.875rem}
+.cup-card-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.cup-card-body h3{margin:0;color:var(--deep);font-size:var(--fs-lead);letter-spacing:-.02em;line-height:1.25}
+.cup-card-line{margin:0;color:var(--muted);font-size:var(--fs-caption);line-height:1.45}
+.cup-card-people{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-size:var(--fs-caption);font-weight:700}
+.cup-card-actions{display:grid;gap:.5rem;margin-top:.125rem}
+.cup-card-actions>*{width:100%}
+
+/* --- Detail banner -------------------------------------------------------- */
+.cup-back{justify-self:start;display:inline-flex;align-items:center;gap:.375rem;min-height:2.5rem;
+  padding:0 .25rem;border:0;background:transparent;color:var(--green);font-size:var(--fs-sm);font-weight:800}
+.cup-back span{font-size:1.125rem;line-height:1}
+/* `header{height:74px;display:flex}` is the app-bar rule and applies to every <header> on the page,
+   so the banner has to opt out explicitly or it collapses to bar height and stacks its own content. */
+.cup-banner{position:relative;display:block;height:auto;overflow:hidden;border-radius:var(--radius-lg);
+  background:linear-gradient(135deg,var(--deep),#185149);color:#fff;box-shadow:0 14px 30px rgba(11,45,41,.18)}
+.cup-banner.is-done{background:linear-gradient(135deg,#2c2417,#4a3a1c)}
+/* The plate is a backdrop here, not a column, so it needs a scrim: without one the white ball drifts
+   under the stat tiles at desktop widths and the headline loses its contrast. */
+.cup-banner>.cup-art{position:absolute;inset:0;opacity:.6}
+.cup-banner>.cup-art::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(100deg,var(--deep) 22%,rgba(11,45,41,.72) 52%,transparent 88%)}
+/* On a phone the banner is all content and no spare canvas, so the props come off entirely and the
+   cloth texture carries it; the balls return only once there is empty width to put them in. */
+.cup-banner>.cup-art .cup-art-cup,.cup-banner>.cup-art .cup-art-ball{display:none}
+@media(min-width:768px){
+  .cup-banner>.cup-art .cup-art-cup{display:block;top:auto;left:auto;right:1.25rem;bottom:2.25rem;font-size:2.25rem;opacity:.9}
+  .cup-banner>.cup-art .cup-art-ball.red{display:block;top:auto;bottom:2.5rem;right:6rem}
+}
+.cup-banner-body{position:relative;z-index:1;display:grid;gap:.625rem;padding:1rem}
+.cup-banner h2{margin:0;font-size:1.625rem;letter-spacing:-.04em;line-height:1.1}
+.cup-banner-body>p{margin:0;color:#bdd3cb;font-size:var(--fs-caption)}
+.cup-banner .cup-admin-btn{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff}
+.cup-banner-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem;
+  margin-top:.125rem;padding-top:.75rem;border-top:1px solid rgba(240,201,119,.28)}
+.cup-banner-stats div{padding:.5rem .375rem;border-radius:var(--radius-sm);background:rgba(255,255,255,.1);text-align:center}
+.cup-banner-stats b{display:block;font-size:1.125rem;line-height:1.2;font-variant-numeric:tabular-nums}
+.cup-banner-stats b i{font-size:var(--fs-caption);font-style:normal;color:#a9c5bc}
+.cup-banner-stats small{display:block;margin-top:.125rem;color:#a9c5bc;font-size:.625rem;font-weight:800}
+.cup-progress{height:.375rem;border-radius:999px;background:rgba(255,255,255,.16);overflow:hidden}
+.cup-progress i{display:block;height:100%;border-radius:999px;background:#f0c977;transition:width .4s ease}
+
+/* --- Sign-up state -------------------------------------------------------- */
+.cup-signup{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;
+  padding:.875rem;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--paper)}
+.cup-signup.in{border-color:#bcd5c8;background:#f1f8f3}
+.cup-signup>div{flex:1 1 12rem}
+.cup-signup b{display:block;font-size:var(--fs-body)}
+.cup-signup small{display:block;margin-top:.125rem;color:var(--muted);font-size:var(--fs-caption);line-height:1.45}
+.cup-signup .cup-btn{flex:0 0 auto}
+.cup-roster{padding:.875rem;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--paper)}
+.cup-roster h3{display:flex;align-items:center;gap:.375rem;margin:0 0 .625rem;font-size:var(--fs-body)}
+.cup-roster h3 span{min-width:1.375rem;padding:0 .375rem;border-radius:999px;background:#e8eee9;
+  color:var(--green);font-size:var(--fs-label);font-weight:800;text-align:center}
+.cup-roster ul{display:grid;grid-template-columns:repeat(auto-fill,minmax(8.5rem,1fr));gap:.5rem;margin:0;padding:0;list-style:none}
+.cup-roster li{display:flex;align-items:center;gap:.5rem;min-width:0}
+.cup-roster li b{overflow:hidden;font-size:var(--fs-sm);font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.cup-roster .player-badge{width:1.75rem;height:1.75rem;flex:0 0 auto;font-size:.5625rem}
+
+/* --- Your own tie: the one card that must survive a glance ---------------- */
+.cup-mytie{padding:1rem;border:1px solid #cfe0d5;border-radius:var(--radius-lg);
+  background:linear-gradient(150deg,#fbfdfa,#eef6f0);box-shadow:0 10px 26px rgba(18,61,55,.08)}
+.cup-mytie.ready{border-color:#9fcbb5}
+.cup-mytie .sl-eyebrow{margin:0 0 .75rem}
+.cup-mytie-vs{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;
+  gap:.5rem;max-width:30rem}
+.cup-mytie-player{display:grid;justify-items:center;gap:.25rem;min-width:0;text-align:center}
+.cup-mytie-player .player-badge{width:3rem;height:3rem;border-radius:var(--radius-md);font-size:var(--fs-sm)}
+.cup-mytie-player b{max-width:100%;overflow:hidden;font-size:var(--fs-body);text-overflow:ellipsis;white-space:nowrap}
+.cup-mytie-player small{color:var(--muted);font-size:var(--fs-label);font-weight:700}
+.cup-mytie-mark{display:grid;place-items:center;width:2.25rem;height:2.25rem;border-radius:50%;
+  background:var(--green);color:#f0c977;font-size:.625rem;font-weight:900;letter-spacing:.04em}
+.cup-mytie-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;margin-top:1rem}
+.cup-mytie-actions .cup-btn{width:100%;min-height:var(--control-lg)}
+.cup-mytie-wait{margin:.875rem 0 0;color:var(--muted);font-size:var(--fs-caption);text-align:center}
+.cup-champion{display:flex;align-items:center;gap:.75rem;padding:1rem;border:1px solid #e2c275;
+  border-radius:var(--radius-lg);background:linear-gradient(135deg,#fdf7e6,#f7ecd0);box-shadow:0 10px 26px rgba(154,109,29,.12)}
+.cup-champion>span{flex:0 0 auto;font-size:2rem;line-height:1}
+.cup-champion>div{flex:1;min-width:0}
+.cup-champion small{display:block;color:#9a6d1d;font-size:var(--fs-label);font-weight:800}
+.cup-champion b{display:block;margin-top:.125rem;overflow:hidden;font-size:1.375rem;letter-spacing:-.02em;
+  text-overflow:ellipsis;white-space:nowrap}
+.cup-champion .player-badge{width:3rem;height:3rem;flex:0 0 auto;border-radius:var(--radius-md);font-size:var(--fs-sm)}
+
+/* --- Rounds: the phone's answer to a bracket tree ------------------------- */
+/* Scrolls inside itself rather than bleeding past the container: a negative margin here would make
+   the whole cup column horizontally scrollable, which is how a page starts drifting sideways. */
+.cup-rounds{display:flex;gap:.375rem;overflow-x:auto;padding:.125rem;
+  scrollbar-width:none;scroll-snap-type:x proximity}
+.cup-rounds::-webkit-scrollbar{display:none}
+.cup-rounds button{flex:1 0 auto;display:grid;justify-items:center;gap:.125rem;min-width:4.5rem;min-height:var(--control-md);
+  padding:.375rem .625rem;border:1px solid var(--line);border-radius:var(--radius-md);background:var(--paper);
+  color:var(--muted);scroll-snap-align:start}
+.cup-rounds button b{font-size:var(--fs-sm);font-weight:800;color:var(--ink)}
+.cup-rounds button small{font-size:.625rem;font-weight:700;font-variant-numeric:tabular-nums}
+.cup-rounds button.active{border-color:var(--green);background:var(--green);box-shadow:0 6px 14px rgba(18,61,55,.16)}
+.cup-rounds button.active b{color:#fff}
+.cup-rounds button.active small{color:#cfe2da}
+.cup-ties{display:grid;gap:.625rem;margin:0;padding:0;list-style:none}
+.cup-tie{display:grid;gap:.375rem;padding:.75rem .875rem;border:1px solid var(--line);
+  border-radius:var(--radius-md);background:var(--paper)}
+.cup-tie.played,.cup-tie.walkover,.cup-tie.bye{border-color:#cfe0d5;background:#f7fbf8}
+.cup-tie.ready{border-color:#c2d0c6;box-shadow:0 6px 16px rgba(18,61,55,.06)}
+.cup-tie.mine{border-color:var(--green);box-shadow:0 8px 20px rgba(18,61,55,.12)}
+.cup-tie-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.cup-tie-no{color:var(--muted);font-size:var(--fs-label);font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.cup-tie-mine{padding:.0625rem .375rem;border-radius:999px;background:var(--green);color:#fff;
+  font-size:.625rem;font-weight:800}
+.cup-tie-side{display:flex;align-items:center;gap:.5rem;min-width:0;padding:.375rem .5rem;
+  border-radius:var(--radius-sm);background:#fff}
+.cup-tie-side .player-badge{width:1.875rem;height:1.875rem;flex:0 0 auto;font-size:.5625rem}
+.cup-tie-side b{flex:1;overflow:hidden;font-size:var(--fs-sm);text-overflow:ellipsis;white-space:nowrap}
+.cup-tie-side em{flex:0 0 auto;font-size:var(--fs-lead);font-style:normal;font-weight:800;
+  color:var(--muted);font-variant-numeric:tabular-nums}
+.cup-tie-side i{flex:0 0 auto;font-style:normal;color:var(--green);font-weight:800}
+.cup-tie-side.won{background:#eaf4ec}
+.cup-tie-side.won b{font-weight:800;color:var(--green)}
+.cup-tie-side.won em{color:var(--green)}
+.cup-tie-side.tbd b{color:var(--muted);font-weight:600}
+.cup-tie-note{margin:.125rem 0 0;color:var(--muted);font-size:var(--fs-caption)}
+.cup-tie-actions{display:flex;gap:.375rem;flex-wrap:wrap}
+.cup-tie-actions:empty{display:none}
+.cup-tie-actions .cup-btn{flex:1 1 7rem}
+
+.cup-empty{display:grid;justify-items:center;gap:.25rem;padding:2rem 1.25rem;border:1px dashed #cbd5cd;
+  border-radius:var(--radius-lg);background:#fafbf8;text-align:center}
+.cup-empty>span{font-size:2rem;line-height:1}
+.cup-empty b{color:var(--deep);font-size:var(--fs-lead)}
+.cup-empty p{margin:0;color:var(--muted);font-size:var(--fs-sm);line-height:1.55}
+
+/* --- The tree, for screens that can actually hold one --------------------- */
+.cup-tree{display:none}
+.bracket-chart{display:flex;align-items:stretch;gap:2.25rem;padding-bottom:.375rem;overflow-x:auto}
+.bracket-round{display:flex;flex-direction:column;justify-content:space-around;gap:1rem;min-width:12rem;flex:0 0 auto}
+.bracket-round-title{margin:0 0 .625rem;color:var(--muted);font-size:var(--fs-label);font-weight:800;
+  letter-spacing:.08em;text-align:center;text-transform:uppercase}
+.bracket-round-matches{display:flex;flex-direction:column;justify-content:space-around;flex:1;gap:1rem}
+.bracket-match{position:relative;display:grid;gap:1px;padding:2px;border:1px solid var(--line);
+  border-radius:var(--radius-sm);background:var(--line)}
+.bracket-match.played,.bracket-match.walkover,.bracket-match.bye{border-color:#9fcbb5}
+.bracket-match.mine{outline:2px solid var(--green);outline-offset:2px}
+.bracket-round:not(.final) .bracket-match::after{content:"";position:absolute;top:50%;left:100%;width:1.125rem;height:0;border-top:2px solid var(--line)}
+.bracket-round:not(:first-child) .bracket-match::before{content:"";position:absolute;top:50%;right:100%;width:1.125rem;height:0;border-top:2px solid var(--line)}
+.bracket-slot{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.5rem .625rem;
+  background:#fff;font-size:var(--fs-sm);font-weight:700}
+.bracket-slot:first-child{border-radius:8px 8px 0 0}
+.bracket-slot:last-child{border-radius:0 0 8px 8px}
+.bracket-slot span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bracket-slot.tbd span{color:var(--muted);font-weight:600}
+.bracket-slot.winner{background:#f1f8f2;color:var(--green)}
+.bracket-slot.winner span{font-weight:800}
+.bracket-slot b{color:var(--green);font-size:var(--fs-sm)}
+.bracket-bye{display:block;margin-top:.25rem;color:var(--muted);font-size:.625rem;text-align:center}
+.bracket-record{display:block;width:100%;margin-top:.375rem;min-height:2rem;height:2rem;padding:0;
+  border-radius:.5rem;font-size:var(--fs-label)}
+.bracket-edit.more{display:block;width:100%;margin-top:.375rem;height:2rem;min-height:2rem;font-size:var(--fs-label)}
+.bracket-walkover{margin-top:.375rem;padding-top:.375rem;border-top:1px dashed var(--line)}
+.bracket-walkover small{display:block;color:var(--muted);font-size:.625rem;text-align:center}
+.bracket-walkover span{display:flex;gap:.25rem;margin-top:.25rem}
+.bracket-walkover button{flex:1;min-width:0;height:1.75rem;min-height:1.75rem;padding:0 .25rem;
+  overflow:hidden;font-size:.625rem;text-overflow:ellipsis;white-space:nowrap}
+
+/* --- Cup entry inside the match sheet ------------------------------------- */
+.cup-slot-banner{padding:.75rem .875rem;border:1px solid #cfe0d5;border-radius:var(--radius-md);
+  background:linear-gradient(150deg,#fbfdfa,#eef6f0)}
+.cup-slot-banner small{display:block;color:var(--muted);font-size:var(--fs-label);font-weight:800}
+.cup-slot-banner b{display:block;margin-top:.125rem;font-size:var(--fs-lead)}
+.cup-slot-banner span{display:block;margin-top:.25rem;color:var(--muted);font-size:var(--fs-caption)}
+.cup-matchup-card.locked .matchup-trigger{cursor:default}
+
+@media(min-width:900px){
+  .cup{gap:1.125rem}
+  .cup-list{grid-template-columns:repeat(auto-fill,minmax(21rem,1fr))}
+  .cup-card{grid-template-columns:7rem minmax(0,1fr)}
+  .cup-card-body{padding:1.125rem}
+  .cup-banner-body{padding:1.5rem}
+  .cup-banner h2{font-size:2rem}
+  .cup-banner-stats{max-width:26rem}
+  .cup-mytie-actions{grid-template-columns:repeat(2,minmax(0,12rem))}
+  /* Below this width the tree either overflows the page or crushes names to
+     two characters, so the round list is not a fallback — it is the design. */
+  .cup-tree{display:block;padding:1rem;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--paper)}
+  .cup-rounds,.cup-ties{display:none}
+}
+@media(max-width:400px){
+  .cup-card{grid-template-columns:4rem minmax(0,1fr)}
+  .cup-card-body{padding:.75rem}
+  .cup-art-ball.red{width:2rem;height:2rem;right:.5rem}
+  .cup-art-ball.white{width:1.5rem;height:1.5rem;left:.55rem}
+  .cup-banner h2{font-size:1.375rem}
+  .cup-banner-stats b{font-size:1rem}
+  .cup-mytie-player .player-badge{width:2.5rem;height:2.5rem}
+  .cup-tie-actions .cup-btn{flex:1 1 100%}
 }

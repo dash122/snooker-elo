@@ -1318,29 +1318,52 @@ function Matches({data,canManageMatch,onEdit,onVoid,onPlayer,view,setView,pair,s
     })}</div></>}</>;
 }
 
-function tournamentStatusLabel(tournament:Tournament,matches:Match[]){
-  if(!signupsClosed(tournament))return "報名中";
-  const bracket=buildBracket(tournament,matches);
-  if(!bracket.size)return "人數不足";
-  return bracket.champion?"已完成":"進行中";
+type CupStatus="signup"|"live"|"done"|"short";
+function cupStatus(tournament:Tournament,matches:Match[]):CupStatus{
+  if(!signupsClosed(tournament))return "signup";
+  const bracket=buildBracket<Match>(tournament,matches);
+  if(!bracket.size)return "short";
+  return bracket.champion?"done":"live";
+}
+const CUP_STATUS_LABEL:Record<CupStatus,string>={signup:"報名中",live:"進行中",done:"已完成",short:"人數不足"};
+
+/* The trophy plate every cup card and banner wears. Pure decoration — an empty bracket used to look
+   identical to a live one, and a competition should not look like a spreadsheet. */
+function CupArt({tone="dark"}:{tone?:"dark"|"gold"}){
+  return <div className={`cup-art ${tone}`} aria-hidden="true">
+    <span className="cup-art-cup">🏆</span>
+    <i className="cup-art-ball red"/><i className="cup-art-ball white"/><i className="cup-art-arc"/>
+  </div>;
 }
 
 /* Everything after the deadline used to be a poster: the bracket appeared, and the only way to move
    it forward was to leave, open 記錄, and retype the round and match number of the box you had just
    been looking at. The cup view now owns the whole life of a cup — your own tie, recording it from
-   the box itself, and the admin levers for the ties that never get played. */
+   the box itself, and the admin levers for the ties that never get played.
+
+   Laid out phone-first: a horizontal bracket tree cannot fit 360px without either overflowing its
+   container or shrinking names to nothing, so the tree is the *desktop* representation and the
+   round-by-round list below is the primary one. Both read the same bracket. */
 function CupBracketView({data,selectedTournament,setSelectedTournament,canManageMatch,onEdit,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament,onRecordSlot,onArrange,onWalkover,onRefresh}:{data:AppState;selectedTournament:string;setSelectedTournament:(id:string)=>void;canManageMatch:(match:Match)=>boolean;onEdit:(match:Match)=>void;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string)=>void;onRecordSlot:(tournament:Tournament,slot:BracketSlot<Match>)=>void;onArrange:(opponentId:string)=>void;onWalkover:(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string)=>void;onRefresh:()=>void}){
-  const recentTournaments=[...data.tournaments].sort((left,right)=>right.createdAt.localeCompare(left.createdAt)).slice(0,3);
   const tournament=data.tournaments.find(item=>item.id===selectedTournament);
+  const player=(id:string)=>data.players.find(item=>item.id===id);
+  const name=(id:string)=>player(id)?.name??"待定";
+  const deadlineText=(value:string)=>value.replace("T"," ");
   const deadlinePassed=Boolean(tournament&&signupsClosed(tournament));
   const drawn=Boolean(tournament?.draw?.length);
   const signedUp=Boolean(ownPlayerId&&(tournament?.signups||[]).includes(ownPlayerId));
-  const name=(id:string)=>data.players.find(player=>player.id===id)?.name??"待定";
   const bracket=useMemo(()=>tournament?buildBracket<Match>(tournament,data.matches):null,[tournament,data.matches]);
   const mySlot=bracket?playerSlot(bracket,ownPlayerId):undefined;
   const eliminated=bracket?playerEliminated(bracket,ownPlayerId):false;
   const champion=bracket?.champion??"";
-  const projected=(tournament?.signups?.length??0)>=2?buildBracket<Match>({...tournament!,signupDeadline:"1970-01-01",draw:tournament!.signups},[]):null;
+  const [openRound,setOpenRound]=useState(1);
+  /* Follow the competition rather than reset to 八強 every visit: the round worth reading is the one
+     still being played — or the member's own, if they are in it. */
+  useEffect(()=>{
+    if(!bracket?.rounds)return;
+    const live=bracket.slots.find(slot=>slot.state==="ready"||slot.state==="waiting");
+    setOpenRound(mySlot?.round??live?.round??bracket.rounds);
+  },[bracket,mySlot]);
 
   /* The draw is frozen server-side, and whichever member opens the cup first after the deadline is
      what triggers it — no cron, no admin ceremony. The ref keeps a re-render from firing a second
@@ -1355,50 +1378,145 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       .catch(()=>{});
   },[tournament,deadlinePassed,drawn,onRefresh]);
 
-  const controls=(item:Tournament)=><span className="card-tools"><button type="button" className="card-tool" aria-label={`編輯 ${item.name}`} onClick={()=>onEditTournament(item)}>✎</button><button type="button" className="card-tool danger" aria-label={`刪除 ${item.name}`} onClick={()=>onDeleteTournament(item)}>✕</button></span>;
+  const controls=(item:Tournament)=><span className="cup-admin"><button type="button" className="cup-admin-btn" aria-label={`編輯 ${item.name}`} onClick={()=>onEditTournament(item)}>✎</button><button type="button" className="cup-admin-btn danger" aria-label={`刪除 ${item.name}`} onClick={()=>onDeleteTournament(item)}>✕</button></span>;
+  const avatarStack=(ids:string[])=><span className="cup-avatars">{ids.slice(0,5).map(id=><PlayerBadge key={id} player={player(id)??{short:"?"}}/>)}{ids.length>5&&<i>+{ids.length-5}</i>}</span>;
 
-  if(!selectedTournament)return <section className="bracket-view"><div className="bracket-header"><label>選擇盃賽<select value="" onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>{isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}</div><div className="recent-tournaments"><h3>最近盃賽</h3>{recentTournaments.length===0?<p className="mm-note">尚未建立盃賽。</p>:recentTournaments.map(item=>{
-    const open=!signupsClosed(item),itemSignedUp=Boolean(ownPlayerId&&item.signups.includes(ownPlayerId));
-    const status=tournamentStatusLabel(item,data.matches);
-    const itemBracket=buildBracket<Match>(item,data.matches);
-    const itemSlot=playerSlot(itemBracket,ownPlayerId);
-    return <article className="recent-tournament-row" key={item.id}>
-      <button type="button" className="recent-tournament-open" onClick={()=>setSelectedTournament(item.id)}><span><b>{item.name} <span className={`cup-status ${status==="報名中"?"open":status==="進行中"?"live":""}`}>{status}</span></b><small>{item.signups.length} 人報名 · {open?`報名截止 ${item.signupDeadline.replace("T"," ")}`:itemBracket.champion?`冠軍 ${name(itemBracket.champion)}`:itemSlot?`輪到你：對 ${itemSlot.state==="ready"?name(opponentIn(itemSlot,ownPlayerId)):"待定"}`:"賽事進行中"}</small></span></button>
-      {open&&(ownPlayerId?<button type="button" className={itemSignedUp?"secondary":"primary"} onClick={()=>onSignUpTournament(item.id)}>{itemSignedUp?"取消報名":"報名"}</button>:<a className="secondary" href="/login">登入後報名</a>)}
-      {isAdmin&&controls(item)}
-    </article>;
-  })}</div></section>;
+  if(!selectedTournament){
+    const cups=[...data.tournaments].sort((left,right)=>right.createdAt.localeCompare(left.createdAt));
+    return <section className="cup">
+      <div className="cup-intro">
+        <div><p className="sl-eyebrow">SCAA 會友盃</p><h2>盃賽</h2><p>報名、抽籤、對陣同賽果，一頁睇晒。</p></div>
+        {isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}
+      </div>
+      {cups.length===0?<div className="cup-empty"><span aria-hidden="true">🏆</span><b>尚未有盃賽</b><p>{isAdmin?"建立第一個會友盃，球員即可報名。":"管理員建立盃賽後，你就可以在這裡報名。"}</p></div>
+      :<div className="cup-list">{cups.map(item=>{
+        const status=cupStatus(item,data.matches),itemBracket=buildBracket<Match>(item,data.matches);
+        const itemSlot=playerSlot(itemBracket,ownPlayerId),itemSignedUp=Boolean(ownPlayerId&&item.signups.includes(ownPlayerId));
+        const line=status==="signup"?`報名截止 ${deadlineText(item.signupDeadline)}`
+          :status==="done"?`冠軍 ${name(itemBracket.champion)}`
+          :status==="short"?"報名人數不足兩人"
+          :itemSlot?`輪到你：${itemSlot.state==="ready"?`對 ${name(opponentIn(itemSlot,ownPlayerId))}`:"等待對手"}`
+          :"賽事進行中";
+        return <article className={`cup-card is-${status}`} key={item.id}>
+          <CupArt tone={status==="done"?"gold":"dark"}/>
+          <div className="cup-card-body">
+            <div className="cup-card-top"><span className={`cup-chip is-${status}`}>{CUP_STATUS_LABEL[status]}</span>{isAdmin&&controls(item)}</div>
+            <h3>{item.name}</h3>
+            <p className="cup-card-line">{line}</p>
+            <div className="cup-card-people">{item.signups.length>0&&avatarStack(item.signups)}<span>{item.signups.length} 人報名</span></div>
+            <div className="cup-card-actions">
+              {status==="signup"&&(ownPlayerId
+                ?<button type="button" className={itemSignedUp?"cup-btn ghost":"cup-btn primary"} onClick={()=>onSignUpTournament(item.id)}>{itemSignedUp?"取消報名":"立即報名"}</button>
+                :<a className="cup-btn primary" href="/login">登入後報名</a>)}
+              <button type="button" className={`cup-btn ${status==="signup"?"ghost":"primary"}`} onClick={()=>setSelectedTournament(item.id)}>{status==="signup"?"睇對陣預覽":"睇賽程"}<span aria-hidden="true">›</span></button>
+            </div>
+          </div>
+        </article>;
+      })}</div>}
+    </section>;
+  }
   if(!tournament)return null;
-  return <section className="bracket-view"><div className="bracket-header"><div><label>選擇盃賽<select value={selectedTournament} onChange={event=>setSelectedTournament(event.target.value)}><option value="">選擇盃賽</option>{data.tournaments.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><small>{tournament.signups.length} 人報名 · {deadlinePassed?`報名已於 ${tournament.signupDeadline.replace("T"," ")} 截止`:`報名截止 ${tournament.signupDeadline.replace("T"," ")}`}</small></div><div className="bracket-actions">{isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}{isAdmin&&controls(tournament)}</div></div>
-    {!deadlinePassed?<div className="bracket-body">
+
+  const status=cupStatus(tournament,data.matches);
+  const total=bracket?bracket.slots.filter(slot=>slot.state!=="dead").length:0;
+  const settled=bracket?bracket.slots.filter(slot=>slot.settled&&slot.state!=="dead").length:0;
+  const stage=bracket?.slots.find(slot=>slot.state==="ready"||slot.state==="waiting");
+
+  const tieRow=(slot:BracketSlot<Match>)=>{
+    const mine=Boolean(ownPlayerId&&(slot.a===ownPlayerId||slot.b===ownPlayerId));
+    const canRecord=slot.state==="ready"&&Boolean(isAdmin||mine);
+    const note=slot.state==="bye"?`${name(slot.winner)} 輪空晉級`
+      :slot.state==="walkover"?`${name(slot.winner)} 因對手棄權晉級`
+      :slot.state==="waiting"?"等待上一圈賽果"
+      :slot.state==="tbd"?"對陣待定"
+      :slot.state==="ready"?"未開賽":"";
+    return <li className={`cup-tie ${slot.state}${mine?" mine":""}`} key={`${slot.round}-${slot.index}`}>
+      <div className="cup-tie-head"><span className="cup-tie-no">第 {slot.index} 場</span>{mine&&<span className="cup-tie-mine">你的賽事</span>}</div>
+      {([slot.a,slot.b] as const).map((id,side)=>{
+        const won=Boolean(slot.winner&&slot.winner===id);
+        return <div className={`cup-tie-side${won?" won":""}${id?"":" tbd"}`} key={side}>
+          <PlayerBadge player={player(id)??{short:"?"}}/>
+          <b>{id?name(id):"待定"}</b>
+          {slot.match&&id?<em>{scoreFor(slot.match,id)}</em>:won?<i aria-hidden="true">✓</i>:null}
+        </div>;
+      })}
+      {note&&<p className="cup-tie-note">{note}</p>}
+      <div className="cup-tie-actions">
+        {canRecord&&<button type="button" className="cup-btn primary sm" onClick={()=>onRecordSlot(tournament,slot)}>記錄賽果</button>}
+        {canRecord&&mine&&<button type="button" className="cup-btn ghost sm" onClick={()=>onArrange(opponentIn(slot,ownPlayerId))}>約時間</button>}
+        {slot.match&&canManageMatch(slot.match)&&<button type="button" className="cup-btn ghost sm" onClick={()=>onEdit(slot.match!)}>編輯賽果</button>}
+        {isAdmin&&slot.state==="ready"&&[slot.a,slot.b].map(id=><button type="button" key={id} className="cup-btn ghost sm" onClick={()=>onWalkover(tournament,slot,id)}>判 {name(id)} 晉級</button>)}
+        {isAdmin&&slot.state==="walkover"&&<button type="button" className="cup-btn ghost sm" onClick={()=>onWalkover(tournament,slot,"")}>取消判定</button>}
+      </div>
+    </li>;
+  };
+
+  return <section className="cup">
+    <button type="button" className="cup-back" onClick={()=>setSelectedTournament("")}><span aria-hidden="true">‹</span> 所有盃賽</button>
+    <header className={`cup-banner is-${status}`}>
+      <CupArt tone={status==="done"?"gold":"dark"}/>
+      <div className="cup-banner-body">
+        <div className="cup-card-top"><span className={`cup-chip is-${status}`}>{CUP_STATUS_LABEL[status]}</span>{isAdmin&&controls(tournament)}</div>
+        <h2>{tournament.name}</h2>
+        <p>{deadlinePassed?`報名已於 ${deadlineText(tournament.signupDeadline)} 截止`:`報名截止 ${deadlineText(tournament.signupDeadline)}`}</p>
+        <div className="cup-banner-stats">
+          <div><b>{tournament.signups.length}</b><small>參賽</small></div>
+          <div><b>{settled}<i>/{total||"—"}</i></b><small>已定勝負</small></div>
+          <div><b>{champion?"完賽":stage&&bracket?roundLabel(stage.round,bracket.rounds):"待抽籤"}</b><small>階段</small></div>
+        </div>
+        {total>0&&<div className="cup-progress" role="img" aria-label={`賽程進度 ${settled} / ${total}`}><i style={{width:`${Math.round(settled/total*100)}%`}}/></div>}
+      </div>
+    </header>
+
+    {!deadlinePassed?<>
       {/* Entering a cup is a competition decision, so it sits with the bracket it leads to rather
           than in 約戰, where it competed for attention with arranging tonight's frame. */}
-      <p className="mm-note">報名截止後會按報名名單抽籤並建立賽事對陣。</p>
-      <div className="cup-signup-row">
-        <span><b>{(tournament.signups||[]).length} 人已報名</b><small>報名截止 {tournament.signupDeadline.replace("T"," ")}</small></span>
+      <div className={`cup-signup${signedUp?" in":""}`}>
+        <div><b>{signedUp?"你已報名":"報名參加"}</b><small>{signedUp?"截止後會自動抽籤，並通知你首圈對手。":"截止後按報名名單抽籤並建立對陣。"}</small></div>
         {ownPlayerId
-          ?<button type="button" className={signedUp?"secondary":"primary"} onClick={()=>onSignUpTournament(selectedTournament)}>{signedUp?"取消報名":"報名"}</button>
-          :<a className="secondary" href="/login">登入後報名</a>}
+          ?<button type="button" className={signedUp?"cup-btn ghost":"cup-btn primary"} onClick={()=>onSignUpTournament(selectedTournament)}>{signedUp?"取消報名":"立即報名"}</button>
+          :<a className="cup-btn primary" href="/login">登入後報名</a>}
       </div>
-      {projected?<TournamentBracketChart bracket={projected} preview name={name} ownPlayerId={ownPlayerId} isAdmin={isAdmin} canManageMatch={canManageMatch} onEdit={onEdit} onRecordSlot={()=>{}} onWalkover={()=>{}}/>:<p className="mm-note">報名人數不足兩人，暫未能預覽對陣圖。</p>}
-    </div>:!bracket||!bracket.size?<div className="bracket-body"><p className="mm-note">報名人數不足兩人，未能建立賽事。{isAdmin&&" 可編輯盃賽並延後報名截止時間，重新開放報名。"}</p></div>:<div className="bracket-body">
-      {/* The order shown before the freeze lands is the order the freeze will produce, so this is a
-          status line over a real bracket, not a spinner over an empty one. */}
-      {!drawn&&ownPlayerId&&<p className="mm-note">正在抽籤…</p>}
-      {champion?<div className="cup-champion" role="status"><span aria-hidden="true">🏆</span><div><small>{tournament.name} 冠軍</small><b>{name(champion)}</b></div></div>
-        :mySlot?<div className={`cup-my-match${mySlot.state==="ready"?" ready":""}`}>
-          <div className="cup-my-match-head"><small>{roundLabel(mySlot.round,bracket.rounds)} · 第 {mySlot.index} 場</small><b>{mySlot.state==="ready"?`你對 ${name(opponentIn(mySlot,ownPlayerId))}`:"等待對手產生"}</b></div>
-          {mySlot.state==="ready"
-            ?<div className="cup-my-match-actions">
-              <button type="button" className="primary" onClick={()=>onRecordSlot(tournament,mySlot)}>記錄賽果</button>
-              <button type="button" className="secondary" onClick={()=>onArrange(opponentIn(mySlot,ownPlayerId))}>約時間</button>
+      {tournament.signups.length>0&&<div className="cup-roster"><h3>報名名單 <span>{tournament.signups.length}</span></h3><ul>{tournament.signups.map(id=><li key={id}><PlayerBadge player={player(id)??{short:"?"}}/><b>{name(id)}</b></li>)}</ul></div>}
+    </>:!bracket||!bracket.size?<div className="cup-empty"><span aria-hidden="true">🎱</span><b>報名人數不足兩人</b><p>{isAdmin?"可編輯盃賽並延後報名截止時間，重新開放報名。":"今屆未能開賽。"}</p></div>:<>
+      {!drawn&&ownPlayerId&&<p className="cup-note">正在抽籤…</p>}
+      {champion?<article className="cup-champion">
+        <span aria-hidden="true">🏆</span>
+        <div><small>{tournament.name} 冠軍</small><b>{name(champion)}</b></div>
+        <PlayerBadge player={player(champion)??{short:"?"}}/>
+      </article>
+      :mySlot?<article className={`cup-mytie${mySlot.state==="ready"?" ready":""}`}>
+        <p className="sl-eyebrow">{roundLabel(mySlot.round,bracket.rounds)} · 第 {mySlot.index} 場</p>
+        <div className="cup-mytie-vs">
+          {([ownPlayerId!,opponentIn(mySlot,ownPlayerId)] as const).map((id,side)=><Fragment key={side}>
+            {side===1&&<span className="cup-mytie-mark" aria-hidden="true">VS</span>}
+            <div className="cup-mytie-player">
+              <PlayerBadge player={player(id)??{short:"?"}}/>
+              <b>{side===0?"你":id?name(id):"待定"}</b>
+              <small>{id&&player(id)?`${Math.round(player(id)!.rating)} ELO`:"未定"}</small>
             </div>
-            :<small className="mm-note">對手要等上一圈賽果出咗先定到。</small>}
+          </Fragment>)}
         </div>
-        :eliminated?<p className="mm-note">你在今屆已止步；可繼續睇餘下賽程。</p>
-        :ownPlayerId&&!tournament.signups.includes(ownPlayerId)?<p className="mm-note">你未有報名今屆盃賽。</p>:null}
-      <TournamentBracketChart bracket={bracket} name={name} ownPlayerId={ownPlayerId} isAdmin={isAdmin} canManageMatch={canManageMatch} onEdit={onEdit} onRecordSlot={slot=>onRecordSlot(tournament,slot)} onWalkover={(slot,winnerId)=>onWalkover(tournament,slot,winnerId)}/>
-    </div>}
+        {mySlot.state==="ready"
+          ?<div className="cup-mytie-actions"><button type="button" className="cup-btn primary" onClick={()=>onRecordSlot(tournament,mySlot)}>記錄賽果</button><button type="button" className="cup-btn ghost" onClick={()=>onArrange(opponentIn(mySlot,ownPlayerId))}>約時間</button></div>
+          :<p className="cup-mytie-wait">對手要等上一圈賽果出咗先定到。</p>}
+      </article>
+      :eliminated?<p className="cup-note">你在今屆已止步；可繼續睇餘下賽程。</p>
+      :ownPlayerId&&!tournament.signups.includes(ownPlayerId)?<p className="cup-note">你未有報名今屆盃賽。</p>:null}
+
+      <nav className="cup-rounds" aria-label="選擇輪次">{Array.from({length:bracket.rounds},(_,index)=>{
+        const round=index+1,done=bracket.slots.filter(slot=>slot.round===round&&slot.settled&&slot.state!=="dead").length;
+        const count=bracket.slots.filter(slot=>slot.round===round&&slot.state!=="dead").length;
+        return <button type="button" key={round} className={round===openRound?"active":""} aria-current={round===openRound?"true":undefined} onClick={()=>setOpenRound(round)}>
+          <b>{roundLabel(round,bracket.rounds)}</b><small>{done}/{count}</small>
+        </button>;
+      })}</nav>
+      <ol className="cup-ties">{bracket.slots.filter(slot=>slot.round===openRound&&slot.state!=="dead").map(tieRow)}</ol>
+
+      {/* The tree is the wide-screen luxury: it shows the whole path at once, which is exactly the
+          thing that cannot survive a 360px viewport. */}
+      <div className="cup-tree"><TournamentBracketChart bracket={bracket} name={name} ownPlayerId={ownPlayerId} isAdmin={isAdmin} canManageMatch={canManageMatch} onEdit={onEdit} onRecordSlot={slot=>onRecordSlot(tournament,slot)} onWalkover={(slot,winnerId)=>onWalkover(tournament,slot,winnerId)}/></div>
+    </>}
   </section>;
 }
 
@@ -1412,7 +1530,7 @@ function scoreFor(match:Match,playerId:string){
 // boxes vertically centred against the pair feeding it, using the flex
 // "stretch + space-around" trick so pairing lines up correctly without
 // needing to measure pixel positions in JS.
-function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManageMatch,onEdit,onRecordSlot,onWalkover,preview=false}:{
+function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManageMatch,onEdit,onRecordSlot,onWalkover}:{
   bracket:Bracket<Match>;
   name:(id:string)=>string;
   ownPlayerId?:string;
@@ -1421,7 +1539,6 @@ function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManageMatch
   onEdit:(match:Match)=>void;
   onRecordSlot:(slot:BracketSlot<Match>)=>void;
   onWalkover:(slot:BracketSlot<Match>,winnerId:string)=>void;
-  preview?:boolean;
 }){
   return <div className="bracket-chart" role="group" aria-label="賽事對陣圖">
     {Array.from({length:bracket.rounds},(_,roundIndex)=>{
@@ -1431,23 +1548,21 @@ function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManageMatch
         <div className="bracket-round-matches">
           {bracket.slots.filter(slot=>slot.round===round).map(slot=>{
             const {a:first,b:second,match,winner}=slot;
-            const firstName=preview||!first?"待定":name(first);
-            const secondName=preview||!second?"待定":name(second);
-            const mine=Boolean(ownPlayerId&&!preview&&(first===ownPlayerId||second===ownPlayerId));
+            const mine=Boolean(ownPlayerId&&(first===ownPlayerId||second===ownPlayerId));
             /* Recording is offered to the two players in the box and to an admin. Coming from the
                box means the round and match number are carried, not typed — the class of mistake
                that used to file a quarter-final result as a first-round one. */
-            const canRecord=!preview&&slot.state==="ready"&&Boolean(isAdmin||mine);
+            const canRecord=slot.state==="ready"&&Boolean(isAdmin||mine);
             return <div className={`bracket-match ${slot.state}${mine?" mine":""}`} key={`${round}-${slot.index}`}>
-              <div className={`bracket-slot${winner&&winner===first?" winner":""}${!first||preview?" tbd":""}`}><span>{firstName}</span>{match&&<b>{scoreFor(match,first)}</b>}</div>
-              <div className={`bracket-slot${winner&&winner===second?" winner":""}${!second||preview?" tbd":""}`}><span>{secondName}</span>{match&&<b>{scoreFor(match,second)}</b>}</div>
+              <div className={`bracket-slot${winner&&winner===first?" winner":""}${!first?" tbd":""}`}><span>{first?name(first):"待定"}</span>{match&&<b>{scoreFor(match,first)}</b>}</div>
+              <div className={`bracket-slot${winner&&winner===second?" winner":""}${!second?" tbd":""}`}><span>{second?name(second):"待定"}</span>{match&&<b>{scoreFor(match,second)}</b>}</div>
               {slot.state==="bye"&&<small className="bracket-bye">輪空晉級</small>}
               {slot.state==="walkover"&&<small className="bracket-bye">{name(slot.winner)} 因對手棄權晉級</small>}
               {slot.state==="waiting"&&<small className="bracket-bye">等待上一圈賽果</small>}
               {canRecord&&<button type="button" className="primary bracket-record" onClick={()=>onRecordSlot(slot)}>記錄賽果</button>}
               {match&&canManageMatch(match)&&<button type="button" className="more bracket-edit" onClick={()=>onEdit(match)}>編輯賽果</button>}
-              {isAdmin&&!preview&&slot.state==="ready"&&<div className="bracket-walkover"><small>判定晉級</small><span>{[first,second].map(id=><button type="button" key={id} className="more" onClick={()=>onWalkover(slot,id)}>{name(id)}</button>)}</span></div>}
-              {isAdmin&&!preview&&slot.state==="walkover"&&<button type="button" className="more bracket-edit" onClick={()=>onWalkover(slot,"")}>取消判定</button>}
+              {isAdmin&&slot.state==="ready"&&<div className="bracket-walkover"><small>判定晉級</small><span>{[first,second].map(id=><button type="button" key={id} className="more" onClick={()=>onWalkover(slot,id)}>{name(id)}</button>)}</span></div>}
+              {isAdmin&&slot.state==="walkover"&&<button type="button" className="more bracket-edit" onClick={()=>onWalkover(slot,"")}>取消判定</button>}
             </div>;
           })}
         </div>
