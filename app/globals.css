@@ -4127,6 +4127,16 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
 .cup-roster li{display:flex;align-items:center;gap:.5rem;min-width:0}
 .cup-roster li b{overflow:hidden;font-size:var(--fs-sm);font-weight:700;text-overflow:ellipsis;white-space:nowrap}
 .cup-roster .player-badge{width:1.75rem;height:1.75rem;flex:0 0 auto;font-size:.5625rem}
+/* The admin's replace control rides in the roster row itself: the name and the swap are the same
+   decision, so putting the picker anywhere else would mean matching them up by eye. */
+.cup-roster-edit{width:1.75rem;min-width:1.75rem;height:1.75rem;flex:0 0 auto;margin-left:auto;padding:0;
+  border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--paper);
+  color:var(--muted);font-size:var(--fs-label);text-align:center;cursor:pointer;appearance:none}
+.cup-roster-edit:hover{border-color:var(--green);color:var(--green)}
+.cup-roster-add{display:flex;align-items:center;gap:.5rem;margin-top:.75rem;padding-top:.75rem;
+  border-top:1px solid var(--line);color:var(--muted);font-size:var(--fs-caption);font-weight:700}
+.cup-roster-add select{flex:1 1 auto;min-width:0;min-height:var(--control-sm,2rem);padding:0 .5rem;
+  border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--paper);font-size:var(--fs-sm)}
 
 /* --- Your own tie: the one card that must survive a glance ---------------- */
 .cup-mytie{padding:1rem;border:1px solid #cfe0d5;border-radius:var(--radius-lg);
