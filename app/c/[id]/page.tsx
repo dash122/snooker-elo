@@ -79,7 +79,9 @@ export default async function SharedCupPage({params}:{params:Promise<{id:string}
     rounds:bracket?Array.from({length:bracket.rounds},(_,index)=>({
       round:index+1,
       name:roundLabel(index+1,bracket.rounds),
-      ties:bracket.slots.filter(slot=>slot.round===index+1&&slot.state!=="dead").map(slot=>({
+      /* Dead slots are kept, not filtered: the chart needs them to hold the tree's shape, and the
+         tie list below drops them itself. */
+      ties:bracket.slots.filter(slot=>slot.round===index+1).map(slot=>({
         index:slot.index,state:slot.state,
         playedOn:slot.match?.playedOn??"",
         sides:[slot.a,slot.b].map(playerId=>({
