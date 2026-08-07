@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import CupBracketChart, { type BracketChartData } from "../../CupBracketChart";
 import { PlayerBadge } from "../../UiBits";
 import { cupShareMessage, whatsappLink, type CupShareState } from "../../../lib/cup-share";
 
@@ -32,6 +33,16 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
   </div></main>;
 
   const {share}=cup;
+  const chart:BracketChartData|null=cup.rounds.length?{
+    rounds:cup.rounds.map(round=>({round:round.round,name:round.name,
+      nodes:round.ties.map(tie=>({index:tie.index,state:tie.state,
+        seats:tie.sides.map(side=>({player:side.player,score:side.score,won:side.won}))}))})),
+    champion:cup.champion,
+  }:null;
+  /* Light the round actually being played, so a reader's eye lands on the live part of the tree
+     rather than on the first column, which is usually finished. */
+  const liveRound=cup.rounds.find(round=>round.ties.some(tie=>tie.state==="ready"||tie.state==="waiting"))?.round
+    ??cup.rounds.at(-1)?.round;
   const message=cupShareMessage(cup.name,share,url);
   const shareOut=async()=>{
     /* The native sheet is the right surface on a phone — it lists WhatsApp first for most members —
@@ -79,9 +90,13 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
       <ul>{cup.roster.map(entry=><li key={entry.id}><PlayerBadge player={entry}/><b>{entry.name}</b></li>)}</ul>
     </section>}
 
-    {cup.rounds.map(round=><section className="cup-share-round" key={round.round}>
+    {/* The same chart the app draws. A reader who followed the link came to see the bracket, and a
+        list of ties is not a bracket. */}
+    {chart&&<CupBracketChart chart={chart} activeRound={liveRound}/>}
+
+    {cup.rounds.filter(round=>round.ties.some(tie=>tie.state!=="dead")).map(round=><section className="cup-share-round" key={round.round}>
       <h3>{round.name}</h3>
-      <ol className="cup-ties">{round.ties.map(tie=><li className={`cup-tie ${tie.state}`} key={tie.index}>
+      <ol className="cup-ties">{round.ties.filter(tie=>tie.state!=="dead").map(tie=><li className={`cup-tie ${tie.state}`} key={tie.index}>
         <div className="cup-tie-head"><span className="cup-tie-no">第 {tie.index} 場</span>
           {tie.playedOn&&<time className="cup-tie-date" dateTime={tie.playedOn}>{tie.playedOn}</time>}</div>
         {tie.sides.map((side,index)=><div className={`cup-tie-side${side.won?" won":""}${side.player?"":" tbd"}`} key={index}>

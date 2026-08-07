@@ -4193,7 +4193,9 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
 .cup-tie-side b{flex:1;overflow:hidden;font-size:var(--fs-sm);text-overflow:ellipsis;white-space:nowrap}
 .cup-tie-side em{flex:0 0 auto;font-size:var(--fs-lead);font-style:normal;font-weight:800;
   color:var(--muted);font-variant-numeric:tabular-nums}
-.cup-tie-side i{flex:0 0 auto;font-style:normal;color:var(--green);font-weight:800}
+/* `PlayerBadge` renders an <i>, so an unqualified `i` rule here painted every avatar's initials
+   green on green — invisible. Only the ✓ advancement mark is meant to be green. */
+.cup-tie-side i:not(.player-badge){flex:0 0 auto;font-style:normal;color:var(--green);font-weight:800}
 .cup-tie-side.won{background:#eaf4ec}
 .cup-tie-side.won b{font-weight:800;color:var(--green)}
 .cup-tie-side.won em{color:var(--green)}
@@ -4261,7 +4263,9 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
   /* Below this width the tree either overflows the page or crushes names to
      two characters, so the round list is not a fallback — it is the design. */
   .cup-tree{display:block;padding:1rem;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--paper)}
-  .cup-rounds,.cup-ties{display:none}
+  /* Scoped to the app, like the overview above: the share page has no full tree to replace them
+     with, so its round rail and tie cards are the only detail a reader gets at any width. */
+  .cup>.cup-rounds,.cup>.cup-ties{display:none}
 }
 @media(max-width:400px){
   .cup-card{grid-template-columns:4rem minmax(0,1fr)}
@@ -4317,8 +4321,10 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
 .cup-tie.focus{border-color:#f0c977;box-shadow:0 0 0 3px rgba(240,201,119,.3);animation:cup-tie-flash 1.4s ease}
 @keyframes cup-tie-flash{0%{background:#fdf7e6}100%{background:var(--paper)}}
 @media(min-width:900px){
-  /* The full tree is back on screen, so the overview would be saying the same thing twice. */
-  .cup-mini{display:none}
+  /* In the app the full tree is back on screen at this width, so the overview would say the same
+     thing twice. The share page has no full tree — it is the only bracket a reader gets — so the
+     rule is scoped to the app rather than to the component. */
+  .cup>.cup-mini{display:none}
 }
 @media(max-width:400px){
   .cup-mini{padding:.625rem}

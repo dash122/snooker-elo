@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { CalibrationTrend, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import Availability from "./Availability";
+import CupBracketChart, { type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
 import { registerServiceWorker } from "./push-client";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
@@ -1400,6 +1401,26 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   const mySlot=bracket?playerSlot(bracket,ownPlayerId):undefined;
   const eliminated=bracket?playerEliminated(bracket,ownPlayerId):false;
   const champion=bracket?.champion??"";
+  /* Flattened for the shared chart, which the public share page renders from its own serialised
+     data — the drawing lives in one component, and each side hands it seats. */
+  const chart=useMemo<BracketChartData|null>(()=>{
+    if(!bracket?.rounds)return null;
+    return {
+      rounds:Array.from({length:bracket.rounds},(_,index)=>({
+        round:index+1,name:roundLabel(index+1,bracket.rounds),
+        nodes:bracket.slots.filter(slot=>slot.round===index+1).map(slot=>({
+          index:slot.index,state:slot.state,
+          mine:Boolean(ownPlayerId&&(slot.a===ownPlayerId||slot.b===ownPlayerId)),
+          seats:[slot.a,slot.b].map(id=>({
+            player:id?player(id)??{short:"?"}:null,
+            score:slot.match&&id?Number(scoreFor(slot.match,id)):null,
+            won:Boolean(slot.winner&&slot.winner===id),
+          })),
+        })),
+      })),
+      champion:bracket.champion?player(bracket.champion)??{short:"?"}:null,
+    };
+  },[bracket,ownPlayerId,data.players]);
   const [openRound,setOpenRound]=useState(1);
   /* Tapping a node in the overview has to *land* somewhere, or the map is just decoration: it opens
      that round and scrolls its card into view, flashing it so the eye finds it after the jump. */
@@ -1619,8 +1640,8 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       :eliminated?<p className="cup-note">你在今屆已止步；可繼續睇餘下賽程。</p>
       :ownPlayerId&&!tournament.signups.includes(ownPlayerId)?<p className="cup-note">你未有報名今屆盃賽。</p>:null}
 
-      <CupMiniBracket bracket={bracket} players={player} ownPlayerId={ownPlayerId} activeRound={openRound}
-        onPick={slot=>{setOpenRound(slot.round);setFocusTie(`${slot.round}-${slot.index}`)}}/>
+      {chart&&<CupBracketChart chart={chart} activeRound={openRound}
+        onPick={(round,index)=>{setOpenRound(round);setFocusTie(`${round}-${index}`)}}/>}
       <nav className="cup-rounds" aria-label="選擇輪次">{Array.from({length:bracket.rounds},(_,index)=>{
         const round=index+1,done=bracket.slots.filter(slot=>slot.round===round&&slot.settled&&slot.state!=="dead").length;
         const count=bracket.slots.filter(slot=>slot.round===round&&slot.state!=="dead").length;
@@ -1632,56 +1653,10 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       {isAdmin&&rosterPanel}
 
       {/* The full tree — names, scores and controls in every box — needs width the phone does not
-          have; there, CupMiniBracket carries the shape and the cards carry the detail. */}
+          have; there, CupBracketChart carries the shape and the cards carry the detail. */}
       <div className="cup-tree"><TournamentBracketChart bracket={bracket} name={name} ownPlayerId={ownPlayerId} isAdmin={isAdmin} canManageMatch={canManageMatch} onEdit={onEdit} onRecordSlot={slot=>onRecordSlot(tournament,slot)} onWalkover={(slot,winnerId)=>onWalkover(tournament,slot,winnerId)}/></div>
     </>}
   </section>;
-}
-
-/* The bracket, at a glance, on a phone.
- *
- *  A knockout tree is the one graphic that makes a cup feel like a cup, and dropping it below 900px
- *  cost the phone the whole picture. The fix is not to shrink the desktop tree — names would go to
- *  two characters and the tap targets with them — but to split the job: this draws the *shape* with
- *  faces and scores only, sized to fit any width, and tapping a node drops you onto that tie's full
- *  card below. Overview and detail, rather than one drawing trying to be both. */
-function CupMiniBracket({bracket,players,ownPlayerId,onPick,activeRound}:{
-  bracket:Bracket<Match>;
-  players:(id:string)=>Player|undefined;
-  ownPlayerId?:string;
-  onPick:(slot:BracketSlot<Match>)=>void;
-  activeRound:number;
-}){
-  return <div className="cup-mini" role="group" aria-label="賽事對陣圖">
-    <div className="cup-mini-rail" aria-hidden="true">{Array.from({length:bracket.rounds},(_,index)=>
-      <span key={index} className={index+1===activeRound?"active":""}>{roundLabel(index+1,bracket.rounds)}</span>)}</div>
-    <div className="cup-mini-tree">
-      {Array.from({length:bracket.rounds},(_,roundIndex)=>{
-        const round=roundIndex+1;
-        return <div className={`cup-mini-round${round===bracket.rounds?" final":""}`} key={round}>
-          {bracket.slots.filter(slot=>slot.round===round).map(slot=>{
-            const mine=Boolean(ownPlayerId&&(slot.a===ownPlayerId||slot.b===ownPlayerId));
-            const dead=slot.state==="dead";
-            return <button type="button" key={slot.index} disabled={dead}
-              className={`cup-mini-node ${slot.state}${mine?" mine":""}${round===activeRound?" in-round":""}`}
-              aria-label={`${roundLabel(round,bracket.rounds)} 第 ${slot.index} 場`}
-              onClick={()=>onPick(slot)}>
-              {([slot.a,slot.b] as const).map((id,side)=>{
-                const won=Boolean(slot.winner&&slot.winner===id);
-                /* An empty seat is drawn as a hollow ring rather than a grey avatar: "nobody yet"
-                   and "a player whose colour happens to be grey" must not look the same. */
-                return <span className={`cup-mini-seat${won?" won":""}${id?"":" vacant"}`} key={side}>
-                  {id?<PlayerBadge player={players(id)??{short:"?"}}/>:<i aria-hidden="true"/>}
-                  {slot.match&&id?<em>{scoreFor(slot.match,id)}</em>:null}
-                </span>;
-              })}
-            </button>;
-          })}
-        </div>;
-      })}
-      {bracket.champion&&<div className="cup-mini-crown"><span aria-hidden="true">🏆</span><PlayerBadge player={players(bracket.champion)??{short:"?"}}/></div>}
-    </div>
-  </div>;
 }
 
 /* The recorder's own name leads the form, so the match's A side is not necessarily the box's top
