@@ -7,7 +7,8 @@ import { TonightStrip, actionableCount, useMatchmakingSummary } from "./Matchmak
 import { registerServiceWorker } from "./push-client";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
-import { buildBracket, opponentIn, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
+import { cupShareMessage, cupShareState, cupShareUrl, whatsappLink } from "../lib/cup-share";
+import { bracketShape, buildBracket, currentRoundLabel, opponentIn, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 
 type Player = {
   id: string; name: string; short: string; handicap: number | null; rating: number; colour?: string; avatar?: string | null;
@@ -1388,6 +1389,27 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       .catch(()=>{});
   },[tournament,deadlinePassed,drawn,onRefresh]);
 
+  /* Sharing a cup is the app's best word-of-mouth moment: the link lands in the club's WhatsApp
+     group, where most of the members who have never opened the app already are. The native sheet
+     goes first on a phone (WhatsApp is the first row for most of them), wa.me is the desktop path. */
+  const shareCup=async(item:Tournament)=>{
+    const itemBracket=buildBracket<Match>(item,data.matches);
+    const state=cupShareState({
+      signupDeadline:item.signupDeadline,entrants:item.signups?.length??0,closed:signupsClosed(item),
+      bracketSize:signupsClosed(item)?itemBracket.size:bracketShape(Math.max(item.signups?.length??0,2)).size,
+      roundName:currentRoundLabel(itemBracket),
+      championName:itemBracket.champion?name(itemBracket.champion):"",
+    });
+    const url=cupShareUrl(window.location.origin,item.id);
+    const message=cupShareMessage(item.name,state,url);
+    if(navigator.share){
+      try{ await navigator.share({title:item.name,text:message}); return; }catch{ /* dismissed */ }
+    }
+    window.open(whatsappLink(message),"_blank","noopener");
+  };
+  const shareButton=(item:Tournament,className="cup-btn ghost")=>
+    <button type="button" className={className} onClick={()=>void shareCup(item)}>分享<span aria-hidden="true">↗</span></button>;
+
   const controls=(item:Tournament)=><span className="cup-admin"><button type="button" className="cup-admin-btn" aria-label={`編輯 ${item.name}`} onClick={()=>onEditTournament(item)}>✎</button><button type="button" className="cup-admin-btn danger" aria-label={`刪除 ${item.name}`} onClick={()=>onDeleteTournament(item)}>✕</button></span>;
   const avatarStack=(ids:string[])=><span className="cup-avatars">{ids.slice(0,5).map(id=><PlayerBadge key={id} player={player(id)??{short:"?"}}/>)}{ids.length>5&&<i>+{ids.length-5}</i>}</span>;
 
@@ -1419,6 +1441,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
                 ?<button type="button" className={itemSignedUp?"cup-btn ghost":"cup-btn primary"} onClick={()=>onSignUpTournament(item.id)}>{itemSignedUp?"取消報名":"立即報名"}</button>
                 :<a className="cup-btn primary" href="/login">登入後報名</a>)}
               <button type="button" className={`cup-btn ${status==="signup"?"ghost":"primary"}`} onClick={()=>setSelectedTournament(item.id)}>{status==="signup"?"睇對陣預覽":"睇賽程"}<span aria-hidden="true">›</span></button>
+              {shareButton(item,"cup-btn ghost")}
             </div>
           </div>
         </article>;
@@ -1442,7 +1465,11 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       :slot.state==="ready"?"未開賽":"";
     const key=`${slot.round}-${slot.index}`;
     return <li id={`cup-tie-${key}`} className={`cup-tie ${slot.state}${mine?" mine":""}${focusTie===key?" focus":""}`} key={key}>
-      <div className="cup-tie-head"><span className="cup-tie-no">第 {slot.index} 場</span>{mine&&<span className="cup-tie-mine">你的賽事</span>}</div>
+      {/* A cup runs over weeks, so "who won" without "when" leaves the bracket undated — the one
+          question a member asks of a finished tie after the fact. */}
+      <div className="cup-tie-head"><span className="cup-tie-no">第 {slot.index} 場</span>
+        {slot.match&&<time className="cup-tie-date" dateTime={slot.match.playedOn}>{slot.match.playedOn}</time>}
+        {mine&&<span className="cup-tie-mine">你的賽事</span>}</div>
       {([slot.a,slot.b] as const).map((id,side)=>{
         const won=Boolean(slot.winner&&slot.winner===id);
         return <div className={`cup-tie-side${won?" won":""}${id?"":" tbd"}`} key={side}>
@@ -1478,6 +1505,11 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         {total>0&&<div className="cup-progress" role="img" aria-label={`賽程進度 ${settled} / ${total}`}><i style={{width:`${Math.round(settled/total*100)}%`}}/></div>}
       </div>
     </header>
+
+    <div className="cup-share-row">
+      <div><b>{status==="signup"?"叫多幾個人嚟報名":"分享賽程同賽果"}</b><small>連結任何人都開得到，唔使登入都睇到對陣同賽果。</small></div>
+      {shareButton(tournament,"cup-btn primary")}
+    </div>
 
     {!deadlinePassed?<>
       {/* Entering a cup is a competition decision, so it sits with the bracket it leads to rather
@@ -1615,6 +1647,7 @@ function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManageMatch
             return <div className={`bracket-match ${slot.state}${mine?" mine":""}`} key={`${round}-${slot.index}`}>
               <div className={`bracket-slot${winner&&winner===first?" winner":""}${!first?" tbd":""}`}><span>{first?name(first):"待定"}</span>{match&&<b>{scoreFor(match,first)}</b>}</div>
               <div className={`bracket-slot${winner&&winner===second?" winner":""}${!second?" tbd":""}`}><span>{second?name(second):"待定"}</span>{match&&<b>{scoreFor(match,second)}</b>}</div>
+              {match&&<time className="bracket-date" dateTime={match.playedOn}>{match.playedOn}</time>}
               {slot.state==="bye"&&<small className="bracket-bye">輪空晉級</small>}
               {slot.state==="walkover"&&<small className="bracket-bye">{name(slot.winner)} 因對手棄權晉級</small>}
               {slot.state==="waiting"&&<small className="bracket-bye">等待上一圈賽果</small>}
