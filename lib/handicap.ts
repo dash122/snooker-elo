@@ -94,3 +94,34 @@ export function handicapSentence(input:{
   const record=headToHead(input.matches,input.me,input.them);
   return {...proposal,evidence:record.label,played:record.played};
 }
+
+/* --- One player's number, said to the whole club ----------------------------
+ *
+ * `proposeHandicap` above answers "what should *we two* play off". This answers the other question
+ * the club asks constantly — "how much is *he* worth" — which is what the leaderboard's 建議評分
+ * column has always shown and what a shared cup roster has to show, since a reader deciding whether
+ * to enter is really asking whether the field is beatable.
+ *
+ * Moved here out of `HomeClient` when the shared cup page needed the same number: a roster that
+ * quoted a different 建議讓分 from the leaderboard would be worse than a roster quoting none. */
+
+export type RatedPlayer = { rating:number; handicap?:number|null };
+
+/** The club's centre of gravity. Falls back to the configured starting rating for an empty club,
+    where a mean of nothing would otherwise be zero and every handicap absurd. */
+export function clubMeanRating(players:RatedPlayer[],start:number):number {
+  return players.length?players.reduce((sum,player)=>sum+player.rating,0)/players.length:start;
+}
+
+/** Where the club has pinned its own scale. Handicaps are only meaningful relative to the numbers
+    the club already uses, so the curve is anchored on the average of the official ones. */
+export function officialHandicapAnchor(players:RatedPlayer[]):number {
+  const official=players.map(player=>player.handicap).filter((value):value is number=>value!=null);
+  return official.length?official.reduce((sum,value)=>sum+value,0)/official.length:0;
+}
+
+export function suggestedHandicap(player:RatedPlayer,players:RatedPlayer[],
+  settings:HandicapSettings&{start:number}):number {
+  return roundToEven(officialHandicapAnchor(players)
+    -eloToHandicap(player.rating-clubMeanRating(players,settings.start),settings));
+}

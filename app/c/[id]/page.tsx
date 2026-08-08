@@ -38,15 +38,19 @@ export default async function SharedCupPage({params}:{params:Promise<{id:string}
   const {id}=await params;
   const [member,data,site]=await Promise.all([getCurrentMember(),loadCupShare(id),shareOrigin()]);
   if(!data)return <CupShareView cup={null} url="" signedIn={false}/>;
-  const {tournament,bracket,share,player}=data;
+  const {tournament,bracket,share,player,standing,tieHandicap}=data;
   const name=(playerId:string)=>player(playerId)?.name??"待定";
   const badge=(playerId:string)=>{
     const found=player(playerId);
-    return {id:playerId,name:found?.name??"",short:found?.short??"?",colour:found?.colour??null,avatar:found?.avatar??null};
+    return {id:playerId,name:found?.name??"",short:found?.short??"?",colour:found?.colour??null,
+      avatar:found?.avatar??null,...standing(playerId)};
   };
   const cup:SharedCup={
     id,name:tournament.name,share,
     roster:(tournament.signups??[]).map(badge),
+    /* Named on the cup, not on each tie: the mode is a property of the competition, and repeating
+       「建議讓分」 on sixteen rows would say it fifteen times too often. */
+    handicapMode:tournament.handicapMode==="none"?"none":"suggested",
     rounds:bracket?Array.from({length:bracket.rounds},(_,index)=>({
       round:index+1,
       name:roundLabel(index+1,bracket.rounds),
@@ -55,6 +59,7 @@ export default async function SharedCupPage({params}:{params:Promise<{id:string}
       ties:bracket.slots.filter(slot=>slot.round===index+1).map(slot=>({
         index:slot.index,state:slot.state,
         playedOn:slot.match?.playedOn??"",
+        handicap:slot.a&&slot.b?tieHandicap(slot.a,slot.b):"",
         sides:[slot.a,slot.b].map(playerId=>({
           player:playerId?badge(playerId):null,
           score:slot.match&&playerId?(slot.match.a===playerId?slot.match.scoreA:slot.match.b===playerId?slot.match.scoreB:null):null,

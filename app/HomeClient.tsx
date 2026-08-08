@@ -10,8 +10,10 @@ import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } 
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
 import { ShareGlyph } from "./ShareSheet";
+import CupShareButtons from "./CupShareButtons";
+import { suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
 import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
-import { recordStoryCard, resultStoryCard } from "../lib/story-card";
+import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story-card";
 import ShareSheet from "./ShareSheet";
 import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 
@@ -105,15 +107,10 @@ function roundToEven(value:number) {
   const rounded=Math.round(value/2)*2;
   return Object.is(rounded,-0)?0:rounded;
 }
-function clubMeanRating(data:AppState) {
-  return data.players.length?data.players.reduce((sum,x)=>sum+x.rating,0)/data.players.length:data.settings.start;
-}
-function officialHandicapAnchor(data:AppState) {
-  const official=data.players.map(x=>x.handicap).filter((x):x is number=>x!=null);
-  return official.length?official.reduce((sum,x)=>sum+x,0)/official.length:0;
-}
+/* A thin wrapper over `lib/handicap`, which owns the arithmetic so the leaderboard, the cup roster
+   and the shared cup page can never quote three different 建議讓分 for the same player. */
 function suggestedHandicap(p: Player,data: AppState) {
-  return roundToEven(officialHandicapAnchor(data)-eloToHandicap(p.rating-clubMeanRating(data),data.settings));
+  return clubSuggestedHandicap(p,data.players,data.settings);
 }
 function recentFramesPerMatch(p:Player,data:AppState,count:number) {
   const matches=[...data.matches].filter(m=>m.status==="confirmed"&&!isEntertainmentMode(m.mode)&&isParticipant(m,p.id)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
@@ -1769,6 +1766,12 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
 
   const shareState=shareStateOf(tournament);
   const shareUrgency=cupUrgency(shareState);
+  /* The faces on the Instagram card. A viewer recognising one person they play with is the whole
+     argument for entering, so the roster travels with the story rather than just a count. */
+  const storyPerson=(id:string):StoryPerson=>{
+    const found=player(id);
+    return {name:found?.name??"",short:found?.short??"?",colour:found?.colour??null,avatar:found?.avatar??null};
+  };
   return <section className="cup">
     <button type="button" className="cup-back" onClick={()=>setSelectedTournament("")}><span aria-hidden="true">‹</span> 所有盃賽</button>
     <header className={`cup-banner is-${status}`}>
@@ -1793,7 +1796,10 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         <b>{status==="signup"?`叫多幾個會友嚟報名${shareUrgency.label?`｜${shareUrgency.label}`:""}`:"分享賽程同賽果"}</b>
         <small>{cupShareCta(shareState).hint}</small>
       </div>
-      {shareButton(tournament,"cup-btn primary")}
+      <CupShareButtons name={tournament.name} state={shareState}
+        url={typeof window==="undefined"?"":cupShareUrl(window.location.origin,tournament.id)}
+        entrants={rosterIds.map(storyPerson)}
+        champion={champion?storyPerson(champion):null} tone="primary"/>
     </div>
 
     {!deadlinePassed?<>

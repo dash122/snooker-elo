@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cupOgImageUrl, cupShareCta, cupShareDescription, cupShareMessage, cupShareState, cupShareTitle, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share.ts";
 import { cupOgCard, cupOgGlyphs, cupOgNameLayout } from "../lib/cup-og.ts";
+import { clubMeanRating, officialHandicapAnchor, proposeHandicap, suggestedHandicap } from "../lib/handicap.ts";
 import { buildBracket, currentRoundLabel } from "../lib/tournament.ts";
 
 /* Wired exactly as the two real callers wire it — the share page for its meta tags and the app for
@@ -164,4 +165,50 @@ test("the wa.me link carries the message intact", () => {
   const link = whatsappLink(message);
   assert.ok(link.startsWith("https://wa.me/?text="));
   assert.equal(decodeURIComponent(link.slice("https://wa.me/?text=".length)), message);
+});
+
+/* --- The numbers a shared roster carries -----------------------------------
+ *
+ * `suggestedHandicap` moved out of `HomeClient` when the public cup page needed it. The point of
+ * moving it was that a roster quoting a different 建議讓分 from the leaderboard is worse than a
+ * roster quoting none, so these lock the arithmetic rather than the wording. */
+
+const settings = { conversion: 1, curvature: 1.25, handicapSoftCap: 800, start: 1500 };
+const club = [
+  { rating: 1700, handicap: 40 },
+  { rating: 1500, handicap: 60 },
+  { rating: 1300, handicap: 80 },
+];
+
+test("the club's own scale anchors every suggested handicap", () => {
+  // The anchor is the average official handicap (60), and the player sitting at the club's mean
+  // rating gets exactly it — the curve only ever describes distance from the middle.
+  assert.equal(officialHandicapAnchor(club), 60);
+  assert.equal(clubMeanRating(club, settings.start), 1500);
+  assert.equal(suggestedHandicap({ rating: 1500 }, club, settings), 60);
+});
+
+test("a stronger player is quoted a lower handicap, a weaker one a higher", () => {
+  const strong = suggestedHandicap({ rating: 1700 }, club, settings);
+  const weak = suggestedHandicap({ rating: 1300 }, club, settings);
+  assert.ok(strong < 60, `expected ${strong} below the anchor`);
+  assert.ok(weak > 60, `expected ${weak} above the anchor`);
+  // Snooker handicaps are given in even points, on the leaderboard and on a shared roster alike.
+  for (const value of [strong, weak]) assert.equal(Math.abs(value % 2), 0);
+});
+
+test("an empty club falls back to the configured start rather than a mean of nothing", () => {
+  // Without the fallback the mean is 0, every rating reads as 1500 points clear of the field, and
+  // the first cup the club ever shares quotes absurd handicaps to everyone who opens the link.
+  assert.equal(clubMeanRating([], settings.start), 1500);
+  assert.equal(officialHandicapAnchor([]), 0);
+});
+
+test("a tie quotes the terms the two sides actually play off", () => {
+  assert.equal(proposeHandicap(1500, 1500, settings).points, 0);
+  assert.equal(proposeHandicap(1500, 1500, settings).direction, "level");
+  const giving = proposeHandicap(1700, 1300, settings);
+  assert.ok(giving.points > 0);
+  const receiving = proposeHandicap(1300, 1700, settings);
+  assert.equal(receiving.points, -giving.points);
 });

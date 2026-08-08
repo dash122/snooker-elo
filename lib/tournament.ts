@@ -17,6 +17,9 @@ export type TournamentLike = {
       reason the bracket stops reshuffling itself every time the roster is edited afterwards. */
   draw?:string[];
   drawnAt?:string;
+  /** Whether the cup plays off the club's suggested handicap or level. Read by anything that quotes
+      a tie's terms — a handicap printed beside a level cup's tie is a number nobody plays to. */
+  handicapMode?:"suggested"|"none";
   walkovers?:Walkover[];
 };
 
