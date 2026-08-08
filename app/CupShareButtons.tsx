@@ -5,7 +5,7 @@ import { avatarHex } from "./avatar-colours";
 import { ShareGlyph } from "./ShareSheet";
 import { shareStory, shareText } from "./story-image";
 import { cupShareCta, cupShareMessage, type CupShareState } from "../lib/cup-share";
-import { cupStoryCard, cupStorySvg, type StoryPerson } from "../lib/story-card";
+import { cupStoryCard, cupStorySvg, type StoryBracketRound, type StoryPerson } from "../lib/story-card";
 
 /** The two ways a cup leaves the app, side by side.
  *
@@ -24,12 +24,14 @@ import { cupStoryCard, cupStorySvg, type StoryPerson } from "../lib/story-card";
  *  design allows, and the moment the card is shared the URL goes onto the clipboard, so the poster's
  *  next action in Instagram — add link sticker, paste — is one tap and no typing. The note says so,
  *  because a member who does not know the clipboard is loaded will not think to paste. */
-export default function CupShareButtons({ name, state, url, entrants, champion, tone = "ghost" }: {
+export default function CupShareButtons({ name, state, url, entrants, champion, bracket = [], tone = "ghost" }: {
   name: string;
   state: CupShareState;
   url: string;
   entrants: StoryPerson[];
   champion: StoryPerson | null;
+  /** The whole tree, drawn on the story once the cup is finished. Ignored before then. */
+  bracket?: StoryBracketRound[];
   /** The WhatsApp button's weight. The cup page leads with it; the app's row already has a primary. */
   tone?: "primary" | "ghost";
 }) {
@@ -47,7 +49,7 @@ export default function CupShareButtons({ name, state, url, entrants, champion, 
        and a clipboard write from a backgrounded document is rejected. */
     let copied = false;
     try { await navigator.clipboard.writeText(url); copied = true; } catch { /* no clipboard */ }
-    const svg = cupStorySvg(cupStoryCard(name, state, url, entrants, champion), avatarHex);
+    const svg = cupStorySvg(cupStoryCard(name, state, url, entrants, champion, bracket), avatarHex);
     const outcome = await shareStory(svg, { filename: "scaa-cup.png", title: name, text: `${name}\n${url}` });
     setBusy(false);
     if (outcome === "failed") { setNote("圖片整唔到，請再試一次。"); return; }

@@ -79,6 +79,16 @@ export type RecordStoryCard = {
   url: string;
 };
 
+/** The bracket, flattened for the story card.
+ *
+ *  Deliberately thinner than the app's `Bracket` or the chart's `ChartRound`: a story card cannot be
+ *  tapped, so a tie is only ever two names, two scores and which one went through. `dead` marks a
+ *  slot that a non-power-of-two field never plays — it keeps its place in the column so the tree's
+ *  shape stays honest, and draws as nothing. */
+export type StoryBracketSeat = { name: string; score: number | null; won: boolean };
+export type StoryBracketTie = { seats: StoryBracketSeat[]; dead?: boolean };
+export type StoryBracketRound = { name: string; ties: StoryBracketTie[] };
+
 export type CupStoryCard = {
   kind: "cup";
   name: string;
@@ -95,6 +105,8 @@ export type CupStoryCard = {
   entrants: StoryPerson[];
   entrantsMore: number;
   champion: StoryPerson | null;
+  /** Drawn only on a finished cup, where the whole tree is the story. Empty otherwise. */
+  bracket: StoryBracketRound[];
   cta: string;
   url: string;
 };
@@ -401,6 +413,190 @@ export function recordStorySvg(card: RecordStoryCard, hex: (colour: string | nul
   return svgDocument(parts.join(""));
 }
 
+/** The whole knockout tree, drawn to fit a box.
+ *
+ *  Every dimension is derived from the box and the size of the field, so the same routine draws a
+ *  four-player cup and a thirty-two-player one without a magic number changing hands. The first
+ *  round is the crowded one, so it sets the card height and every other column inherits it — a tree
+ *  whose rows change size between columns reads as two drawings sharing a frame.
+ *
+ *  The elbows are the point. A column of scores is a table; a table with elbows is a bracket, and a
+ *  bracket is the picture that says "this is a competition someone won". */
+function bracketPanel(rounds: StoryBracketRound[], x: number, y: number, width: number, height: number): string {
+  const columns = rounds.length;
+  if (!columns) return "";
+  const gap = columns > 4 ? 20 : 28;
+  const columnWidth = (width - gap * (columns - 1)) / columns;
+  const headerHeight = 38;
+  const widest = Math.max(...rounds.map(round => round.ties.length));
+  /* A four-player cup must not be drawn as two cards a quarter of a frame apart just because the box
+     it was given is the box a sixteen-player cup needs. The tree takes the room it wants, up to the
+     room it has, and sits in the middle of the rest. */
+  const room = height - headerHeight;
+  const bodyHeight = Math.min(room, widest * (Math.max(44, Math.min(88, room / widest - 12)) + 26));
+  const bodyY = y + headerHeight + (room - bodyHeight) / 2;
+  /* The first round is the crowded one and sets the base. Later columns then grow — capped, and
+     never past their own slot — because a bracket's rounds are not equal: the final is the tie the
+     card is about, and a tree where it is the same 48px row as a first-round scoreline throws that
+     away. The growth is gentle enough to read as hierarchy rather than as four different drawings. */
+  const baseHeight = Math.max(44, Math.min(88, bodyHeight / widest - 12));
+  const slotOf = (index: number) => bodyHeight / rounds[index].ties.length;
+  const heightOf = (index: number) => Math.min(baseHeight * (1 + index * 0.24), slotOf(index) - 12, 104);
+
+  const columnX = (index: number) => x + index * (columnWidth + gap);
+  /* Where a tie's card sits: its slot's centre, so the pairs a column feeds stay vertically
+     symmetrical about the tie they feed. */
+  const centreOf = (round: number, tie: number) => {
+    const slot = bodyHeight / rounds[round].ties.length;
+    return bodyY + slot * tie + slot / 2;
+  };
+
+  const parts: string[] = [
+    text("賽 事 對 陣", x + width / 2, bodyY - 56, { size: 26, anchor: "middle", opacity: 0.42, weight: 700, spacing: 8 }),
+  ];
+
+  rounds.forEach((round, index) => {
+    /* Pinned to the tree, not to the box: when a small draw centres itself the labels come with it
+       rather than floating alone at the top of an empty panel. */
+    parts.push(text(ellipsize(round.name, 24, columnWidth), columnX(index) + columnWidth / 2, bodyY - 16,
+      { size: 24, fill: GOLD_DIM, weight: 800, anchor: "middle", spacing: 2 }));
+  });
+
+  /* Elbows first, so a card always paints over the line that reaches it. */
+  rounds.slice(0, -1).forEach((round, index) => {
+    const midX = columnX(index) + columnWidth + gap / 2;
+    const rightX = columnX(index) + columnWidth;
+    const nextX = columnX(index + 1);
+    for (let child = 0; child < rounds[index + 1].ties.length; child += 1) {
+      const feeders = [round.ties[child * 2], round.ties[child * 2 + 1]];
+      const live = feeders
+        .map((tie, side) => ({ tie, y: centreOf(index, child * 2 + side) }))
+        .filter(entry => entry.tie && !entry.tie.dead);
+      if (!live.length) continue;
+      const line = (d: string) =>
+        `<path d="${d}" fill="none" stroke="rgba(179,224,192,.3)" stroke-width="2"/>`;
+      for (const entry of live) parts.push(line(`M ${rightX} ${entry.y} H ${midX}`));
+      if (live.length === 2) parts.push(line(`M ${midX} ${live[0].y} V ${live[1].y}`));
+      parts.push(line(`M ${midX} ${centreOf(index + 1, child)} H ${nextX}`));
+    }
+  });
+
+  rounds.forEach((round, index) => {
+    round.ties.forEach((tie, position) => {
+      if (tie.dead) return;
+      const left = columnX(index);
+      const cardHeight = heightOf(index);
+      const seatHeight = (cardHeight - 10) / 2;
+      const nameSize = Math.max(15, Math.min(30, Math.round(seatHeight * 0.66)));
+      const scoreSize = nameSize + 2;
+      const pad = Math.max(11, columnWidth * 0.06);
+      const nameWidth = columnWidth - pad * 2 - scoreSize * 1.4;
+      const top = centreOf(index, position) - cardHeight / 2;
+      const decided = tie.seats.some(seat => seat.won);
+      parts.push(`<rect x="${left}" y="${top}" width="${columnWidth}" height="${cardHeight}" rx="${Math.min(18, cardHeight / 3)}"`
+        + ` fill="rgba(255,255,255,.055)" stroke="rgba(255,255,255,.12)" stroke-width="2"/>`);
+      tie.seats.forEach((seat, side) => {
+        const rowTop = top + 5 + seatHeight * side;
+        const baseline = rowTop + seatHeight / 2 + nameSize * 0.36;
+        if (seat.won) {
+          parts.push(`<rect x="${left}" y="${rowTop}" width="${columnWidth}" height="${seatHeight}"`
+            + ` rx="${Math.min(12, seatHeight / 2)}" fill="rgba(232,194,106,.13)"/>`);
+          parts.push(`<rect x="${left}" y="${rowTop + 2}" width="5" height="${seatHeight - 4}" rx="2.5" fill="${GOLD}"/>`);
+        }
+        parts.push(text(ellipsize(seat.name, nameSize, nameWidth), left + pad, baseline, {
+          size: nameSize, weight: seat.won ? 800 : 600,
+          fill: seat.won ? GOLD : INK, opacity: seat.won ? 1 : decided ? 0.52 : 0.8,
+        }));
+        if (seat.score != null) {
+          parts.push(text(String(seat.score), left + columnWidth - pad, baseline, {
+            size: scoreSize, weight: 800, anchor: "end",
+            fill: seat.won ? GOLD : INK, opacity: seat.won ? 1 : 0.5,
+          }));
+        }
+      });
+      /* The hairline between the two sides, inset so it reads as a divider rather than a border. */
+      const midY = top + 5 + seatHeight;
+      parts.push(`<line x1="${left + pad}" y1="${midY}" x2="${left + columnWidth - pad}" y2="${midY}"`
+        + ` stroke="rgba(255,255,255,.09)" stroke-width="1.5"/>`);
+    });
+  });
+
+  return parts.join("");
+}
+
+/** The finished cup: the winner, and the road they took.
+ *
+ *  A completed competition is the one cup card that is not asking for anything — nobody can enter it
+ *  now — so it stops being a poster and becomes a result. That changes what it owes the viewer. The
+ *  champion is the headline and gets the frame's whole upper third: a lit plinth, the trophy, the
+ *  face at portrait size. Underneath it, the bracket, because "who won" is only half the claim — the
+ *  other half is that they beat five people to do it, and a tree says that in one glance where a
+ *  sentence would need a paragraph. */
+function cupDoneSvg(card: CupStoryCard, hex: (colour: string | null) => string): string {
+  const parts: string[] = [
+    `<defs>
+      <radialGradient id="crownglow" cx="0.5" cy="0.5" r="0.5">
+        <stop offset="0" stop-color="${GOLD}" stop-opacity="0.3"/>
+        <stop offset="0.55" stop-color="${GOLD}" stop-opacity="0.09"/>
+        <stop offset="1" stop-color="${GOLD}" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="plinth" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${GOLD}" stop-opacity="0.5"/>
+        <stop offset="1" stop-color="${GOLD}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>`,
+    wordmark(card.statusLabel),
+  ];
+
+  const nameSize = fitSize(card.name, 62, 38, 860);
+  parts.push(text(ellipsize(card.name, nameSize, 880), STORY_WIDTH / 2, 322, {
+    size: nameSize, weight: 900, anchor: "middle",
+  }));
+
+  const champion = card.champion;
+  const heroY = 530;
+  parts.push(`<circle cx="${STORY_WIDTH / 2}" cy="${heroY}" r="300" fill="url(#crownglow)"/>`);
+  parts.push(trophy(STORY_WIDTH / 2, 390, 3.1, GOLD));
+  parts.push(text("冠 軍", STORY_WIDTH / 2, 456, { size: 32, fill: GOLD_DIM, weight: 800, anchor: "middle", spacing: 14 }));
+
+  if (champion) {
+    parts.push(`<circle cx="${STORY_WIDTH / 2}" cy="${heroY}" r="120" fill="none" stroke="rgba(232,194,106,.34)" stroke-width="2"/>`);
+    parts.push(badge(champion, STORY_WIDTH / 2, heroY, 100, hex(champion.colour)));
+    const size = fitSize(champion.name, 82, 44, 840);
+    parts.push(text(ellipsize(champion.name, size, 860), STORY_WIDTH / 2, heroY + 182, {
+      size, weight: 900, fill: GOLD, anchor: "middle",
+    }));
+  }
+
+  /* The plinth: a hairline that fades out at both ends, so the champion stands on something without
+     a hard rule cutting the frame in two. */
+  parts.push(`<rect x="${STORY_WIDTH / 2 - 290}" y="${heroY + 218}" width="580" height="3" fill="url(#plinth)"/>`);
+  parts.push(text(`${card.headline} 人參賽`, STORY_WIDTH / 2, heroY + 266, {
+    size: 30, anchor: "middle", opacity: 0.6, spacing: 3,
+  }));
+
+  /* Everything between the plinth and the link belongs to the tree, and it is a lot of the frame on
+     purpose: a champion with no bracket under them is a claim, and a champion with one is a record. */
+  const panelTop = 872;
+  const panelHeight = 1396 - panelTop;
+  if (card.bracket.length) parts.push(bracketPanel(card.bracket, 56, panelTop, STORY_WIDTH - 112, panelHeight));
+
+  parts.push(text(card.cta, STORY_WIDTH / 2, 1452, { size: 42, weight: 800, anchor: "middle" }));
+  const host = card.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const linkSize = fitSize(host, 38, 24, 800);
+  parts.push(`<rect x="100" y="1496" width="${STORY_WIDTH - 200}" height="116" rx="58"`
+    + ` fill="rgba(232,194,106,.12)" stroke="${GOLD}" stroke-width="3"/>`);
+  parts.push(text(ellipsize(host, linkSize, 800), STORY_WIDTH / 2, 1496 + 58 + linkSize * 0.36, {
+    size: linkSize, weight: 800, fill: GOLD, anchor: "middle",
+  }));
+  parts.push(text("開連結貼紙貼上，或者照打呢條網址", STORY_WIDTH / 2, SAFE_BOTTOM - 12, {
+    size: 30, anchor: "middle", opacity: 0.55,
+  }));
+
+  parts.push(balls());
+  return svgDocument(parts.join(""));
+}
+
 /** The cup, as a story.
  *
  *  Its job is different from the other two. A result card reports something that already happened to
@@ -413,6 +609,9 @@ export function recordStorySvg(card: RecordStoryCard, hex: (colour: string | nul
  *  poster can drop it into a link sticker with one paste. Everything above it exists to make that
  *  worth doing: the cup's name, the clock, and how many are already in. */
 export function cupStorySvg(card: CupStoryCard, hex: (colour: string | null) => string): string {
+  /* A finished cup is a different card entirely — see `cupDoneSvg`. It keeps the same wordmark,
+     palette and link button, so the two read as one family rather than two apps. */
+  if (card.status === "done" && card.champion) return cupDoneSvg(card, hex);
   const parts: string[] = [wordmark(card.statusLabel)];
 
   const nameSize = fitSize(card.name, 96, 52, 880);
@@ -490,7 +689,7 @@ export function storySvg(card: StoryCard, hex: (colour: string | null) => string
 /** The story card a cup becomes. Every number on it comes from the same `CupShareState` the WhatsApp
     message and the link poster read, so the three can never quote a different field or deadline. */
 export function cupStoryCard(name: string, state: CupShareState, url: string,
-  entrants: StoryPerson[], champion: StoryPerson | null): CupStoryCard {
+  entrants: StoryPerson[], champion: StoryPerson | null, bracket: StoryBracketRound[] = []): CupStoryCard {
   const statusLabel = state.status === "signup" ? "報名中" : state.status === "live" ? "進行中"
     : state.status === "done" ? "已完成" : "未能開賽";
   const recruiting = state.status === "signup";
@@ -507,6 +706,9 @@ export function cupStoryCard(name: string, state: CupShareState, url: string,
     entrants: state.status === "done" ? [] : entrants,
     entrantsMore: state.status === "done" ? 0 : Math.max(0, state.entrants - entrants.length),
     champion: state.status === "done" ? champion : null,
+    /* Only the finished card draws the tree. A cup still being played would be showing a bracket
+       that is half 待定, which flatters nobody and dates the moment it is posted. */
+    bracket: state.status === "done" ? bracket : [],
     cta: recruiting ? "撳呢條連結即刻報名" : "撳呢條連結睇對陣同賽果",
     url,
   };

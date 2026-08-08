@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import CupBracketChart, { type BracketChartData } from "../../CupBracketChart";
+import CupBracketChart, { storyBracket, type BracketChartData } from "../../CupBracketChart";
 import { PlayerBadge } from "../../UiBits";
 import type { StoryPerson } from "../../../lib/story-card";
 import { cupShareCta, cupUrgency, type CupShareState } from "../../../lib/cup-share";
@@ -41,7 +41,7 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
   const {share}=cup;
   const chart:BracketChartData|null=cup.rounds.length?{
     rounds:cup.rounds.map(round=>({round:round.round,name:round.name,
-      nodes:round.ties.map(tie=>({index:tie.index,state:tie.state,
+      nodes:round.ties.map(tie=>({index:tie.index,state:tie.state,date:tie.playedOn,
         seats:tie.sides.map(side=>({player:side.player,score:side.score,won:side.won}))}))})),
     champion:cup.champion,
   }:null;
@@ -83,7 +83,8 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
         and on the feed this cup needs to reach. So they get the same two buttons the member who sent
         it had, not a weaker version. */}
     <CupShareButtons name={cup.name} state={share} url={url}
-      entrants={cup.roster.map(person)} champion={cup.champion?person(cup.champion):null}/>
+      entrants={cup.roster.map(person)} champion={cup.champion?person(cup.champion):null}
+      bracket={chart?storyBracket(chart):[]}/>
 
     {cup.champion&&<article className="cup-champion">
       <span aria-hidden="true">🏆</span>

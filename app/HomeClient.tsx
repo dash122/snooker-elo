@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { CalibrationTrend, CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import Availability from "./Availability";
-import CupBracketChart, { type BracketChartData } from "./CupBracketChart";
+import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
 import { registerServiceWorker } from "./push-client";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
@@ -1581,6 +1581,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         nodes:bracket.slots.filter(slot=>slot.round===index+1).map(slot=>({
           index:slot.index,state:slot.state,
           mine:Boolean(ownPlayerId&&(slot.a===ownPlayerId||slot.b===ownPlayerId)),
+          date:slot.match?.playedOn??"",
           seats:[slot.a,slot.b].map(id=>({
             player:id?player(id)??{short:"?"}:null,
             score:slot.match&&id?Number(scoreFor(slot.match,id)):null,
@@ -1799,7 +1800,8 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       <CupShareButtons name={tournament.name} state={shareState}
         url={typeof window==="undefined"?"":cupShareUrl(window.location.origin,tournament.id)}
         entrants={rosterIds.map(storyPerson)}
-        champion={champion?storyPerson(champion):null} tone="primary"/>
+        champion={champion?storyPerson(champion):null}
+        bracket={chart?storyBracket(chart):[]} tone="primary"/>
     </div>
 
     {!deadlinePassed?<>
