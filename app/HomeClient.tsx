@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { CalibrationTrend, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
+import { CalibrationTrend, CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import Availability from "./Availability";
 import CupBracketChart, { type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
@@ -1910,17 +1910,6 @@ function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManageMatch
  *
  *  One derivation for every surface: the share sheet, the story card and the match card's own badge
  *  all call it, so a tie can never be a semi-final in one place and unlabelled in another. */
-/** The same trophy the story card draws, at chip size — an emoji would render as a different mark
-    in the app than in the exported image, and the two are meant to read as one system. */
-function CupMark(){
-  return <svg className="cup-mark" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-    <path d="M4.5 3h11v3.5a5.5 5.5 0 0 1-11 0Z"/>
-    <path d="M4.5 3.8C2.4 3.8 2.4 8.2 4.9 8" fill="none" stroke="currentColor" strokeWidth="1.4"/>
-    <path d="M15.5 3.8c2.1 0 2.1 4.4-.4 4.2" fill="none" stroke="currentColor" strokeWidth="1.4"/>
-    <rect x="8.8" y="11.6" width="2.4" height="2.6"/><rect x="6" y="14" width="8" height="1.9" rx=".9"/>
-  </svg>;
-}
-
 function cupFor(match:Match,data:AppState){
   if(!match.tournamentId)return null;
   const tournament=data.tournaments.find(item=>item.id===match.tournamentId);
