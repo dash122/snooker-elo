@@ -4570,3 +4570,47 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
   .match-share-side em{font-size:2rem}
   .record-share-stats{grid-template-columns:1fr 1fr}
 }
+
+/* --------------------------------------------------------------------------
+   A cup tie, marked as one
+   A semi-final that reads exactly like a Tuesday night frame is a result the
+   app has failed to dress. The treatment is deliberately two light things
+   rather than one heavy one: a gold edge on the board, which does the finding
+   when a member scrolls the history for the game they remember, and a chip
+   naming the round, which does the telling. Neither costs a row, and neither
+   competes with the scoreline — the score is still what the card is for.
+   -------------------------------------------------------------------------- */
+.match.is-cup .match-board{box-shadow:inset 3px 0 0 var(--gold)}
+.match.is-cup .match-board .match-when{padding-left:.15rem}
+
+.match-cup-badge{display:inline-flex;align-items:center;gap:.3rem;min-width:0;max-width:13rem;
+  padding:.2rem .5rem;border:1px solid rgba(232,194,106,.42);border-radius:999px;
+  background:rgba(232,194,106,.14);color:#f0d091;font-size:.62rem;font-weight:800;line-height:1.35}
+/* The round is the fact worth reading, so it keeps full contrast and never truncates; the cup's own
+   name is context and gives way first on a narrow phone. */
+.match-cup-badge>b{flex:0 0 auto;color:#ffe7b4}
+.match-cup-badge>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-weight:700;opacity:.82}
+.cup-mark{flex:0 0 auto;width:.8rem;height:.8rem;fill:currentColor}
+
+/* The ribbon on the shared result page: the round in the break between two
+   hairlines, matching the story card's own header so the page and the image a
+   reader arrived from read as one thing. */
+.cup-ribbon{display:flex;align-items:center;justify-content:center;gap:.7rem;margin:.1rem 0 .2rem;
+  color:#a97828}
+.cup-ribbon:before,.cup-ribbon:after{content:"";flex:0 1 4.5rem;height:1px;background:currentColor;
+  opacity:.5}
+.cup-ribbon>span{display:inline-flex;align-items:center;gap:.35rem;font-size:var(--fs-label);
+  font-weight:800;letter-spacing:.08em;white-space:nowrap}
+.cup-ribbon .cup-mark{width:.9rem;height:.9rem}
+
+/* On a phone the card's top row also carries the date, the ELO pill and the tools, and the cup name
+   is what tips it onto a second row — making every cup tie a row taller than an ordinary game, which
+   is exactly the visual weight this treatment is trying to avoid. So the name gives way and the
+   round stays: the gold edge says "competition", the round says which stage, and the cup's full name
+   is one tap away on the card itself. A cup whose round could not be named keeps its name, since
+   dropping that would leave a chip containing nothing but a trophy. */
+@media(max-width:520px){
+  .match-cup-badge.has-round>span{display:none}
+  .match-cup-badge{max-width:none}
+}

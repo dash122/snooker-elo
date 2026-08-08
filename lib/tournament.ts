@@ -90,6 +90,18 @@ export function roundLabel(round:number,total:number):string {
   return remaining<=0?"決賽":remaining===1?"四強":remaining===2?"八強":`${2**(remaining+1)}強`;
 }
 
+/** The round a recorded cup match belongs to, in words — "八強", "準決賽", "決賽".
+ *
+ *  Derived from the entrant count and the round stored on the match, so it costs no bracket build:
+ *  a history list drawing a hundred cards must not rebuild a bracket for each one. An out-of-range
+ *  round returns nothing rather than a wrong label; a cup tie whose stage cannot be named is still a
+ *  cup tie, and the surfaces fall back to the cup's name alone. */
+export function matchRoundLabel(entrants:number,round:number|undefined|null):string {
+  const {rounds}=bracketShape(entrants);
+  if(!rounds||!round||round<1||round>rounds)return "";
+  return roundLabel(round,rounds);
+}
+
 function matchWinner(match:CupMatchLike|undefined):string {
   if(!match)return "";
   return match.scoreA>match.scoreB?match.a:match.scoreB>match.scoreA?match.b:"";

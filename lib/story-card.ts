@@ -27,6 +27,8 @@ const SAFE_BOTTOM = 1680;
     break — so that the eye lands there first and nowhere else. */
 const GOLD = "#e8c26a";
 const GOLD_DIM = "#b98f3e";
+/** Reserved for the one fact on a card that outranks the club's own name — currently the cup round. */
+const GOLD_BRIGHT = "#f7e3b5";
 const INK = "#ffffff";
 
 const FONT = "'PingFang HK','Hiragino Sans CJK TC','Noto Sans CJK HK','Microsoft JhengHei','Heiti TC',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif";
@@ -43,6 +45,8 @@ export type ResultStoryCard = {
   kind: "result";
   /** 盃賽名, or 潮拍 2v2 / 球會對局. */
   occasion: string;
+  /** "準決賽" and the like; empty for anything that is not a cup tie. */
+  cupRound: string;
   playedOn: string;
   sides: { person: StoryPerson; score: number; won: boolean; members: string[] }[];
   drawn: boolean;
@@ -184,10 +188,49 @@ function frame(): string {
   <rect x="40" y="40" width="${STORY_WIDTH - 80}" height="${STORY_HEIGHT - 80}" rx="56" fill="none" stroke="url(#edge)" stroke-width="2"/>`;
 }
 
-/** Club mark, top of the safe area. */
-function wordmark(): string {
-  return text("SCAA SNOOKER", STORY_WIDTH / 2, SAFE_TOP, { size: 34, fill: GOLD, weight: 800, anchor: "middle", spacing: 12 })
-    + `<line x1="${STORY_WIDTH / 2 - 90}" y1="${SAFE_TOP + 34}" x2="${STORY_WIDTH / 2 + 90}" y2="${SAFE_TOP + 34}" stroke="${GOLD_DIM}" stroke-opacity="0.7" stroke-width="2"/>`;
+/** A small trophy, drawn rather than typed. An emoji would depend on whichever colour emoji font the
+    rasterising browser happens to have, which is exactly the kind of dependency the rest of this
+    module refuses; a path renders identically everywhere and takes the card's own gold. */
+function trophy(cx: number, cy: number, scale: number, fill: string): string {
+  const u = (value: number) => value * scale;
+  return `<g fill="${fill}">`
+    + `<path d="M ${cx - u(7.5)} ${cy - u(8)} H ${cx + u(7.5)} V ${cy - u(4)}`
+    + ` A ${u(7.5)} ${u(7.5)} 0 0 1 ${cx - u(7.5)} ${cy - u(4)} Z"/>`
+    + `<rect x="${cx - u(1.8)}" y="${cy + u(3.2)}" width="${u(3.6)}" height="${u(3.3)}"/>`
+    + `<rect x="${cx - u(6)}" y="${cy + u(6.5)}" width="${u(12)}" height="${u(2.4)}" rx="${u(1.2)}"/>`
+    + `<g fill="none" stroke="${fill}" stroke-width="${u(1.5)}">`
+    + `<path d="M ${cx - u(7.5)} ${cy - u(7)} C ${cx - u(13)} ${cy - u(7)} ${cx - u(13)} ${cy - u(0.5)} ${cx - u(7.5)} ${cy - u(1.5)}"/>`
+    + `<path d="M ${cx + u(7.5)} ${cy - u(7)} C ${cx + u(13)} ${cy - u(7)} ${cx + u(13)} ${cy - u(0.5)} ${cx + u(7.5)} ${cy - u(1.5)}"/>`
+    + `</g></g>`;
+}
+
+/** Club mark, top of the safe area.
+ *
+ *  A cup tie swaps the plain rule under the wordmark for a ribbon carrying the round — the trophy
+ *  and "準決賽" sitting in the break between two hairlines. It marks the card as a competition at a
+ *  glance and costs no vertical space at all, which is the point: the story's job is the score, and
+ *  a banner announcing the competition above it would push the thing people came for down the
+ *  frame. */
+function wordmark(round = ""): string {
+  const mark = text("SCAA SNOOKER", STORY_WIDTH / 2, SAFE_TOP, { size: 34, fill: GOLD, weight: 800, anchor: "middle", spacing: 12 });
+  const ruleY = SAFE_TOP + 34;
+  const rule = (from: number, to: number) =>
+    `<line x1="${from}" y1="${ruleY}" x2="${to}" y2="${ruleY}" stroke="${GOLD_DIM}" stroke-opacity="0.7" stroke-width="2"/>`;
+  if (!round) return mark + rule(STORY_WIDTH / 2 - 90, STORY_WIDTH / 2 + 90);
+
+  /* Brighter than the wordmark above it, and the same size. The club's name is boilerplate on every
+     card ever exported; the round is the news on this one, so between the two small gold lines the
+     eye should land on the ribbon. Making it *brighter* rather than *bigger* buys that without
+     inflating the header into a banner. */
+  const size = 32, badge = 34, gap = 13;
+  const label = ellipsize(round, size, 320);
+  const groupWidth = badge + gap + textWidth(label, size);
+  const left = STORY_WIDTH / 2 - groupWidth / 2;
+  return mark
+    + rule(left - 130, left - 28)
+    + rule(left + groupWidth + 28, left + groupWidth + 130)
+    + trophy(left + badge / 2, ruleY, 1.3, GOLD_BRIGHT)
+    + text(label, left + badge + gap, ruleY + size * 0.36, { size, fill: GOLD_BRIGHT, weight: 800, spacing: 3 });
 }
 
 /** Loose object balls, bottom corners. Purely decoration, and deliberately below the safe area:
@@ -217,7 +260,7 @@ function svgDocument(body: string): string {
 export function resultStorySvg(card: ResultStoryCard, hex: (colour: string | null) => string): string {
   const boardY = 480, boardHeight = 620, rowGap = 280;
   const rows = [boardY + 170, boardY + 170 + rowGap];
-  const parts: string[] = [wordmark()];
+  const parts: string[] = [wordmark(card.cupRound)];
 
   parts.push(text(ellipsize(card.occasion, 44, 900), STORY_WIDTH / 2, 350, { size: 44, weight: 700, anchor: "middle", opacity: 0.92 }));
   parts.push(text(card.playedOn, STORY_WIDTH / 2, 408, { size: 30, anchor: "middle", opacity: 0.5 }));
@@ -399,7 +442,10 @@ export function shareBannerSvg(kind: "match" | "record"): string {
 export function resultStoryCard(state: MatchShareState, url: string): ResultStoryCard {
   return {
     kind: "result",
-    occasion: state.kind === "cup" ? state.cupName : state.kind === "fun" ? "潮拍 2v2 · 不計 ELO" : "球會對局",
+    /* The cup's own name stays the headline and the round rides in the ribbon above it, so the two
+       never compete for the same line — 「南華會週年會友盃 · 準決賽」 on one row shrinks both. */
+    occasion: state.kind === "cup" ? state.cup!.name : state.kind === "fun" ? "潮拍 2v2 · 不計 ELO" : "球會對局",
+    cupRound: state.cup?.round ?? "",
     playedOn: state.playedOn,
     sides: [state.left, state.right].map(side => ({
       person: { name: side.name, short: side.short, colour: side.colour, avatar: side.avatar },

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   describeMatch, handicapText, matchShareDescription, matchShareMessage, matchShareTitle,
-  matchShareUrl, playerShareUrl, recordShareDescription, recordShareMessage, recordShareTitle,
+  cupText, matchShareUrl, playerShareUrl, recordShareDescription, recordShareMessage, recordShareTitle,
   shareLoser, shareScoreline, shareWinner,
 } from "../lib/match-share.ts";
 
@@ -57,11 +57,40 @@ test("a friendly 2v2 quotes no ELO swing, because none was applied", () => {
   assert.doesNotMatch(copy, /ELO ±\d/);
 });
 
+const cup = (round = "準決賽") => ({ name: "南華會週年會友盃", round });
+
 test("a cup match is announced as the cup, not as a club game", () => {
-  const state = describeMatch(match(), players, "南華會週年會友盃");
+  const state = describeMatch(match(), players, cup());
   assert.equal(state.kind, "cup");
-  assert.match(matchShareDescription(state), /南華會週年會友盃/);
+  assert.deepEqual(state.cup, { name: "南華會週年會友盃", round: "準決賽" });
+  assert.match(matchShareDescription(state), /南華會週年會友盃 · 準決賽/);
+});
+
+test("the round leads the cup's own name, because the round is what stops the scroll", () => {
+  const message = matchShareMessage(describeMatch(match(), players, cup()), "https://x/m/1");
+  assert.match(message, /^🏆 準決賽 · 南華會週年會友盃$/m);
+});
+
+test("a cup tie whose stage cannot be named still says which cup it was", () => {
+  // matchRoundLabel returns nothing for an out-of-range round rather than inventing a wrong one, so
+  // every surface has to survive a cup with no round.
+  const state = describeMatch(match(), players, cup(""));
+  assert.equal(state.kind, "cup");
+  assert.equal(cupText(state.cup), "南華會週年會友盃");
   assert.match(matchShareMessage(state, "https://x/m/1"), /🏆 南華會週年會友盃/);
+  assert.match(matchShareDescription(state), /南華會週年會友盃/);
+  assert.doesNotMatch(matchShareDescription(state), /· ·|undefined/);
+});
+
+test("a friendly 2v2 is never dressed as a cup tie, whatever is attached to it", () => {
+  const state = describeMatch(match({ mode: "2v2", a2: "p3", b2: "p4", highBreaks: [] }), players, cup());
+  assert.equal(state.kind, "fun");
+  assert.equal(state.cup, null);
+});
+
+test("an ordinary club game carries no competition at all", () => {
+  assert.equal(describeMatch(match(), players).cup, null);
+  assert.equal(cupText(null), "");
 });
 
 test("the handicap is phrased the way the app's own match card phrases it", () => {

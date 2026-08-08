@@ -24,10 +24,17 @@ export type ShareSide = {
   members: string[];
 };
 
+/** The competition a match belonged to, and how far into it the match was.
+ *
+ *  The round is carried separately from the name because it is the part that earns the share. "會友盃"
+ *  is a fixture; "會友盃 準決賽" is a story — and a semi-final that reads exactly like a Tuesday night
+ *  frame is a result the app has failed to dress. */
+export type ShareCup = { name: string; round: string };
+
 export type MatchShareState = {
-  /** `cup` carries a competition name, `fun` is the 2v2 that never touches ELO, `rated` is the rest. */
+  /** `cup` carries a competition, `fun` is the 2v2 that never touches ELO, `rated` is the rest. */
   kind: "rated" | "fun" | "cup";
-  cupName: string;
+  cup: ShareCup | null;
   left: ShareSide;
   right: ShareSide;
   playedOn: string;
@@ -40,7 +47,7 @@ export type MatchShareState = {
 
 export type MatchShareInput = {
   mode?: string;
-  cupName?: string;
+  cup?: ShareCup | null;
   left: ShareSide;
   right: ShareSide;
   playedOn: string;
@@ -50,10 +57,15 @@ export type MatchShareInput = {
 };
 
 export function matchShareState(input: MatchShareInput): MatchShareState {
-  const kind = input.mode === "2v2" ? "fun" : input.cupName ? "cup" : "rated";
+  /* A friendly 2v2 is never a cup tie even if one is somehow attached, so the competition is
+     resolved first and the kind follows from it rather than the other way round. */
+  const cup = input.mode !== "2v2" && input.cup?.name
+    ? { name: input.cup.name, round: input.cup.round }
+    : null;
+  const kind = input.mode === "2v2" ? "fun" : cup ? "cup" : "rated";
   return {
     kind,
-    cupName: input.cupName ?? "",
+    cup,
     left: input.left,
     right: input.right,
     playedOn: input.playedOn,
@@ -88,8 +100,15 @@ export function matchShareTitle(state: MatchShareState): string {
   return `${state.left.name} ${shareScoreline(state)} ${state.right.name}`;
 }
 
+/** The competition in words: the cup and the stage it had reached, which is the whole reason a cup
+    result travels further than a club one. */
+export function cupText(cup: ShareCup | null): string {
+  if (!cup) return "";
+  return cup.round ? `${cup.name} · ${cup.round}` : cup.name;
+}
+
 export function matchShareDescription(state: MatchShareState): string {
-  const where = state.kind === "cup" ? state.cupName : state.kind === "fun" ? "潮拍 2v2" : "球會對局";
+  const where = state.kind === "cup" ? cupText(state.cup) : state.kind === "fun" ? "潮拍 2v2" : "球會對局";
   const top = state.breaks[0];
   const parts = [`${where} · ${state.playedOn}`];
   if (state.drawn) parts.push("打成平手");
@@ -102,7 +121,10 @@ export function matchShareDescription(state: MatchShareState): string {
 /** The text a member sends. Ends with the bare URL on its own line: WhatsApp only renders the link
     preview when the URL is the last thing in the message, and the preview is what does the work. */
 export function matchShareMessage(state: MatchShareState, url: string): string {
-  const head = state.kind === "cup" ? `🏆 ${state.cupName}` : state.kind === "fun" ? "🎱 潮拍 2v2" : "🎱 球會對局";
+  /* The round leads the cup's own name: "準決賽" is the fact that makes somebody in a group chat
+     stop scrolling, and a semi-final announced as just another fixture wastes it. */
+  const head = state.kind === "cup" ? `🏆 ${state.cup!.round || state.cup!.name}${state.cup!.round ? ` · ${state.cup!.name}` : ""}`
+    : state.kind === "fun" ? "🎱 潮拍 2v2" : "🎱 球會對局";
   const lines = [head];
   if (state.drawn) lines.push(`${state.left.name} ${shareScoreline(state)} ${state.right.name} — 打成平手`);
   else lines.push(`${shareWinner(state)!.name} ${shareScoreline(state)} ${shareLoser(state)!.name}`);
@@ -177,7 +199,7 @@ export function handicapText(points: number, leftLabel: string, rightLabel: stri
     the story card, and the public page's meta tags. Structurally typed on purpose — the app's `Match`
     and the state JSON the share page parses are the same shape, and neither should have to import
     the other's declaration to be described. */
-export function describeMatch(match: ShareMatchLike, players: SharePlayerLike[], cupName = ""): MatchShareState {
+export function describeMatch(match: ShareMatchLike, players: SharePlayerLike[], cup: ShareCup | null = null): MatchShareState {
   const find = (id: string) => players.find(player => player.id === id);
   const label = (id: string) => find(id)?.name ?? "已移除球員";
   const team = (mode: "A" | "B") => (mode === "A" ? [match.a, match.a2] : [match.b, match.b2])
@@ -203,7 +225,7 @@ export function describeMatch(match: ShareMatchLike, players: SharePlayerLike[],
   };
   const left = side("A"), right = side("B");
   return matchShareState({
-    mode: match.mode, cupName,
+    mode: match.mode, cup,
     left, right,
     playedOn: match.playedOn,
     eloDelta: match.deltaA,

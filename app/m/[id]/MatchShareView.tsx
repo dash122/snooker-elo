@@ -7,6 +7,16 @@ import type { ResultStoryCard } from "../../../lib/story-card";
 
 const OCCASION: Record<MatchShareState["kind"], string> = { cup: "會友盃", fun: "潮拍 2v2", rated: "球會對局" };
 
+/** The same trophy the story card draws, so the page and the exported image share one mark. */
+function CupMark() {
+  return <svg className="cup-mark" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path d="M4.5 3h11v3.5a5.5 5.5 0 0 1-11 0Z" />
+    <path d="M4.5 3.8C2.4 3.8 2.4 8.2 4.9 8" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M15.5 3.8c2.1 0 2.1 4.4-.4 4.2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    <rect x="8.8" y="11.6" width="2.4" height="2.6" /><rect x="6" y="14" width="8" height="1.9" rx=".9" />
+  </svg>;
+}
+
 /** The page behind a shared result.
  *
  *  Readable by anyone the link reaches — the club's WhatsApp group included — before they have an
@@ -27,11 +37,14 @@ export default function MatchShareView({ share, card, message, url, signedIn }: 
   </div></main>;
 
   const sides = [share.left, share.right];
-  const occasion = share.kind === "cup" ? share.cupName : OCCASION[share.kind];
+  const occasion = share.cup ? share.cup.name : OCCASION[share.kind];
 
   return <main className="cup-share-page match-share-page">
     <div className="match-share-hero">
       <p className="share-kicker">SCAA Snooker · {OCCASION[share.kind]}</p>
+      {/* The round rides above the cup's name in a hairline ribbon, the same shape the story card
+          uses, so the page and the image a reader may have arrived from read as one thing. */}
+      {share.cup?.round && <p className="cup-ribbon"><span><CupMark />{share.cup.round}</span></p>}
       <h1>{occasion}</h1>
       <p className="match-share-date"><time dateTime={share.playedOn}>{share.playedOn}</time></p>
     </div>
