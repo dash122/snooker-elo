@@ -11,6 +11,7 @@ The interface is currently written for Traditional Chinese (Hong Kong), while th
 - Records frame scores, handicap points, high breaks, expected result, rating movement, and the evidence used by the calculation.
 - Uses a handicap-aware ELO model: frame score contributes evidence, ratings are zero-sum, provisional players use a different K-factor, extreme handicaps are soft-capped, and winning beyond the expected handicap can receive an explicit performance multiplier.
 - Replays confirmed match history whenever player details or ELO settings change, so current ratings remain reproducible.
+- Lets a player share any result in one tap, to WhatsApp as a link with a live preview, or to Instagram as a 1080×1920 story card drawn from the match itself; a player's own record (rank, ELO, form, best break) shares the same two ways. Both land on a page anyone can read without an account.
 - Runs the club's matchmaking: a one-tap "I'm free now" that publishes availability, opens a table to the club and asks the best-matched opponents at once; mutual match offers where neither side learns the other declined; directed invites with counter-proposals; open calls; recurring weekly availability; and a post-match result prompt.
 - Notifies members of invites, offers, open calls and results by web push, with an optional email fallback, so matchmaking reaches people who do not have the app open.
 - Supports member registration, login, sessions, linked member/player profiles, account settings, password changes, and account deactivation.
@@ -89,6 +90,15 @@ npm run lint         # run ESLint
 npm run db:generate  # generate Drizzle migrations after schema changes
 ```
 
+To regenerate the link-preview banners in `public/` after changing their design in
+`lib/story-card.ts` (needs Playwright's Chromium: `npx playwright install chromium`):
+
+```bash
+node --experimental-strip-types scripts/render-share-images.mjs
+```
+
+The Instagram story cards are drawn in the browser from the same module and need no build step.
+
 ## Seeding exported state
 
 To import a JSON state export into PostgreSQL:
@@ -103,6 +113,7 @@ The JSON must contain the app's state shape: `players`, `matches`, `settings`, a
 
 ```text
 app/                 Pages, UI, auth flows, and API routes
+                     including the public share pages /m/<match>, /p/<player>, /c/<cup>, /s/<slot>
 db/                  PostgreSQL state and member/auth access
 supabase/migrations/ Explicit database migrations
 scripts/              Data import helpers

@@ -4452,3 +4452,121 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
   .h2h-matrix-grid tbody th,.h2h-matrix-grid thead th:first-child{width:10rem;min-width:10rem}
   .h2h-matrix-grid thead th,.h2h-matrix-grid tbody td{min-width:3.5rem}
 }
+
+/* ==========================================================================
+   Sharing a result
+   Two destinations, two different acts: WhatsApp tells the group (text plus a
+   link that opens the app), Instagram shows everyone (a picture that carries
+   the club's name and address inside it). The sheet shows the story card at
+   full bleed rather than describing it — a member deciding whether to post
+   something to their own account is entitled to see exactly what it looks
+   like first.
+   ========================================================================== */
+
+/* The share affordance on a match card. It is not an admin tool, so it does not
+   inherit the tools' hover-only dimming: a clubmate posting your win is worth
+   as much as you posting it, and they can't act on what they can't see. */
+.card-tool.share{color:#a97828}
+.card-tool.share:hover{background:#fdf3e0;color:#8a5f14}
+.match:hover .card-tool.share{color:#a97828}
+
+.share-sheet-shell .sheet{padding-top:1.75rem}
+.share-sheet .kicker{margin-bottom:.25rem}
+.share-sheet h2{margin:0}
+.share-sheet .sub{margin:.5rem 0 1.1rem}
+
+/* Fixed 9:16 so the preview is the story's real proportions, and capped by
+   viewport height so the buttons under it never fall below the fold on a
+   phone — the preview is the argument, but the buttons are the point. */
+.story-preview{width:min(15rem,62%);margin:0 auto 1.25rem;aspect-ratio:9/16;
+  border-radius:var(--radius-md);overflow:hidden;background:#0a3125;
+  border:1px solid rgba(0,0,0,.12);box-shadow:0 14px 34px rgba(10,49,37,.28)}
+.story-preview img{display:block;width:100%;height:100%;object-fit:contain}
+
+.share-actions{display:grid;gap:.6rem}
+.share-btn{display:flex;align-items:center;gap:.85rem;width:100%;min-height:var(--control-lg);
+  padding:.75rem 1rem;border:1px solid var(--line);border-radius:var(--radius-md);
+  background:var(--paper);color:var(--ink);text-align:left;transition:transform .14s,box-shadow .14s,border-color .14s}
+.share-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(18,61,55,.12)}
+.share-btn:disabled{opacity:.6;transform:none;box-shadow:none}
+.share-btn span{display:block;min-width:0;flex:1}
+.share-btn b{display:block;font-size:var(--fs-body);font-weight:800}
+.share-btn small{display:block;margin-top:.1rem;font-size:var(--fs-caption);color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share-glyph{flex:0 0 auto;display:grid;place-items:center;width:2.75rem;height:2.75rem;
+  border-radius:var(--radius-sm);color:white}
+.share-glyph svg{width:1.5rem;height:1.5rem}
+.share-btn.whatsapp{border-color:rgba(37,145,80,.35)}
+.share-btn.whatsapp .share-glyph{background:#25a35a}
+/* Instagram's own gradient is theirs; this is the app's read of it — enough to
+   be recognisable at a glance without wearing somebody else's logo. */
+.share-btn.instagram{border-color:rgba(174,60,132,.32)}
+.share-btn.instagram .share-glyph{background:linear-gradient(135deg,#f2ae42,#d3376b 48%,#7b34c4)}
+.share-btn.plain .share-glyph{background:#e9ece7;color:var(--muted)}
+
+.share-sheet-note{margin:.9rem 0 0;font-size:var(--fs-caption);line-height:1.6;color:var(--green);
+  background:#eef4ee;border-radius:var(--radius-sm);padding:.6rem .75rem}
+.share-sheet-foot{margin:.9rem 0 0;font-size:var(--fs-label);color:var(--muted);text-align:center}
+
+/* The public pages behind a shared link. Same doorway job as the cup page, so
+   they borrow its width, padding and safe-area handling. */
+/* Plain divs, not <header>: the global `header{height:74px;display:flex}` page rule would turn
+   these stacked heroes into a row and clamp their height. `display:block` states the intent so a
+   future <header> here fails visibly rather than subtly. */
+.match-share-hero,.record-share-hero{display:block;height:auto;text-align:center;padding:.5rem 0 1.25rem}
+.match-share-hero h1,.record-share-hero h1{margin:.35rem 0 .5rem;font-size:var(--fs-h2);
+  letter-spacing:-.02em;text-wrap:balance}
+.match-share-date{margin:0;font-size:var(--fs-caption);color:var(--muted);font-variant-numeric:tabular-nums}
+
+.match-share-board{position:relative;display:grid;gap:.5rem;background:var(--paper);
+  border:1px solid var(--line);border-radius:var(--radius-lg);padding:1.1rem;box-shadow:var(--shadow)}
+.match-share-side{display:flex;align-items:center;gap:.85rem;padding:.55rem .25rem;border-radius:var(--radius-md)}
+.match-share-side .player-badge{flex:0 0 auto;width:2.9rem;height:2.9rem;border-radius:50%}
+.match-share-who{flex:1;min-width:0}
+.match-share-who b{display:block;font-size:var(--fs-body);font-weight:800;overflow-wrap:anywhere}
+.match-share-who small{display:block;margin-top:.1rem;font-size:var(--fs-caption);color:var(--muted)}
+.match-share-side em{flex:0 0 auto;font-style:normal;font-size:2.4rem;font-weight:800;line-height:1;
+  color:#b2bbb6;font-variant-numeric:tabular-nums}
+/* The winner is the reason the card exists, so it gets the one accent colour and
+   a rule down its edge; every other row is deliberately quieter. */
+.match-share-side.won{background:#fdf7ea;box-shadow:inset 3px 0 0 var(--gold)}
+.match-share-side.won em,.match-share-side.won .match-share-who b{color:#9a6e24}
+.match-share-vs{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:.15rem .7rem;
+  font-size:var(--fs-label);font-weight:800;color:var(--muted)}
+.match-share-chips,.record-share-chips{justify-content:center;margin:1rem 0 .25rem}
+.share-chip.gold{border-color:rgba(212,166,75,.5);background:#fdf7ea;color:#8a5f14;font-weight:700}
+
+.record-share-hero .player-badge{width:5rem;height:5rem;border-radius:50%;margin:0 auto;font-size:1.4rem}
+.record-share-chips{margin:.75rem 0 1rem}
+.record-share-elo{margin:0}
+.record-share-elo small{display:block;font-size:var(--fs-label);color:var(--muted);letter-spacing:.1em}
+.record-share-elo b{display:block;margin-top:.15rem;font-size:3.4rem;line-height:1;font-weight:800;
+  color:#9a6e24;font-variant-numeric:tabular-nums}
+.record-share-stats{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.5rem}
+.record-share-stats div{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-md);
+  padding:.85rem 1rem;box-shadow:var(--shadow)}
+.record-share-stats small{display:block;font-size:var(--fs-label);color:var(--muted)}
+.record-share-stats b{display:block;margin-top:.25rem;font-size:var(--fs-h3);font-weight:800;
+  font-variant-numeric:tabular-nums}
+.record-share-form{display:flex;align-items:center;justify-content:center;gap:.65rem;margin-top:1rem}
+.record-share-form small{font-size:var(--fs-label);color:var(--muted)}
+
+/* Re-sharing, from the page a share landed on. The reader of a forwarded result
+   is exactly the person most likely to forward it again, so the second hop is
+   one tap from where the first one landed — set apart, but not buried. */
+.match-share-resend{margin-top:1.5rem;background:var(--paper);border:1px solid var(--line);
+  border-radius:var(--radius-lg);padding:1.25rem;box-shadow:var(--shadow)}
+.match-share-resend .share-sheet h2{font-size:var(--fs-h3)}
+
+/* The profile's own share, in the hero next to the rating. */
+.profile-share{display:inline-flex;align-items:center;gap:.35rem;min-height:2rem;padding:0 .75rem;
+  border:1px solid rgba(212,166,75,.5);border-radius:999px;background:#fdf7ea;color:#8a5f14;
+  font-size:var(--fs-label);font-weight:800}
+.profile-share:hover{background:#f9edd3}
+
+@media(max-width:520px){
+  .story-preview{width:min(12rem,54%)}
+  .match-share-side em{font-size:2rem}
+  .record-share-stats{grid-template-columns:1fr 1fr}
+}
