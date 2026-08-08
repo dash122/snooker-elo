@@ -2,8 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   BANNER_HEIGHT, BANNER_WIDTH, STORY_HEIGHT, STORY_WIDTH,
+  cupStoryCard, cupStorySvg,
   ellipsize, escapeXml, fitSize, recordStoryCard, resultStoryCard, shareBannerSvg, storySvg, textWidth,
 } from "../lib/story-card.ts";
+import { cupShareState } from "../lib/cup-share.ts";
 import { describeMatch, honourText } from "../lib/match-share.ts";
 
 const hex = () => "#155e52";
@@ -172,4 +174,60 @@ test("the link-preview banner is Open Graph's frame and names which share it is"
 
 test("escaping covers every character that can end an attribute or a tag", () => {
   assert.equal(escapeXml(`<&>"'`), "&lt;&amp;&gt;&quot;&apos;");
+});
+
+
+/* --- The cup story ---------------------------------------------------------
+ *
+ * Instagram gives a web app no way to attach a link sticker, so the URL has to survive as *drawn
+ * text* on the card. Everything below is really one assertion said four ways: a viewer who cannot
+ * tap anything must still be able to read where to go. */
+
+const NOW = Date.parse("2026-08-15T12:00");
+const cupPerson = name => ({ name, short: name.slice(0, 2), colour: "#2b5fa8", avatar: null });
+const cupState = (overrides = {}) => cupShareState({
+  signupDeadline: "2026-08-20T23:59", entrants: 12, closed: false, drew: false, roundName: "", now: NOW, ...overrides,
+});
+
+test("a recruiting cup story leads with the cup, the clock and the field", () => {
+  const card = cupStoryCard("南華會週年會友盃", cupState(), "https://scaa.example/c/t1",
+    ["陳大文", "李小明"].map(cupPerson), null);
+  assert.equal(card.status, "signup");
+  assert.equal(card.urgency, "仲有 5 日截止");
+  assert.equal(card.headline, "12");
+  assert.match(card.cta, /報名/);
+  // Two faces are drawn and the other ten are counted, rather than a row of twelve at thumbnail size.
+  assert.equal(card.entrantsMore, 10);
+});
+
+test("the url is drawn on the card, because Instagram will not make it tappable", () => {
+  const url = "https://scaa.example/c/t1";
+  const svg = cupStorySvg(cupStoryCard("南華會週年會友盃", cupState(), url, [cupPerson("陳大文")], null), hex);
+  // The host, not the scheme — a story viewer retypes what they can read.
+  assert.ok(svg.includes("scaa.example/c/t1"));
+  assert.ok(svg.includes("南華會週年會友盃"));
+  assert.ok(svg.includes("仲有 5 日截止"));
+  // And the instruction that turns a drawn link into a tappable one, which only the poster can do.
+  assert.match(svg, /連結貼紙/);
+  assert.ok(svg.startsWith("<svg"));
+  assert.ok(svg.includes(`width="${STORY_WIDTH}"`) && svg.includes(`height="${STORY_HEIGHT}"`));
+});
+
+test("a cup with no clock left to quote does not invent one", () => {
+  // 「報名開放中」 is the status, not news; on the card it would sit under a pill already saying 報名中.
+  const early = cupStoryCard("盃", cupState({ signupDeadline: "2026-09-30T23:59" }), "https://x/c/1", [], null);
+  assert.equal(early.urgency, "");
+  const finished = cupStoryCard("盃", cupState({
+    signupDeadline: "2020-01-01T00:00", closed: true, drew: true, roundName: "決賽", championName: "陳大文",
+  }), "https://x/c/1", [cupPerson("陳大文")], cupPerson("陳大文"));
+  assert.equal(finished.urgency, "");
+  assert.equal(finished.status, "done");
+  assert.equal(finished.champion.name, "陳大文");
+  // A finished cup shows its winner, not the entry list it no longer wants.
+  assert.deepEqual(finished.entrants, []);
+});
+
+test("storySvg dispatches a cup card to the cup drawing", () => {
+  const card = cupStoryCard("盃", cupState(), "https://x/c/1", [], null);
+  assert.equal(storySvg(card, hex), cupStorySvg(card, hex));
 });

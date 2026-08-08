@@ -3,15 +3,20 @@ import Link from "next/link";
 import { useState } from "react";
 import CupBracketChart, { type BracketChartData } from "../../CupBracketChart";
 import { PlayerBadge } from "../../UiBits";
-import { cupShareCta, cupShareMessage, cupUrgency, whatsappLink, type CupShareState } from "../../../lib/cup-share";
-import { ShareGlyph } from "../../ShareSheet";
+import type { StoryPerson } from "../../../lib/story-card";
+import { cupShareCta, cupUrgency, type CupShareState } from "../../../lib/cup-share";
+import CupShareButtons from "../../CupShareButtons";
 
-type Badge = { id:string; name:string; short:string; colour?:string|null; avatar?:string|null };
+type Badge = { id:string; name:string; short:string; colour?:string|null; avatar?:string|null;
+  /** Null for a player the club has never rated — printed as 未評分 rather than as a zero. */
+  rating?:number|null; handicap?:number|null };
 type Side = { player:Badge|null; score:number|null; won:boolean };
-type Tie = { index:number; state:string; playedOn:string; sides:Side[]; note:string };
+type Tie = { index:number; state:string; playedOn:string; sides:Side[]; note:string;
+  /** 「讓 6 分」 or 「平手」 for this pairing, empty in a cup that plays level. */
+  handicap:string };
 
 export type SharedCup = {
-  id:string; name:string; share:CupShareState;
+  id:string; name:string; share:CupShareState; handicapMode:"suggested"|"none";
   roster:Badge[];
   rounds:{round:number;name:string;ties:Tie[]}[];
   champion:Badge|null;
@@ -44,19 +49,11 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
      rather than on the first column, which is usually finished. */
   const liveRound=cup.rounds.find(round=>round.ties.some(tie=>tie.state==="ready"||tie.state==="waiting"))?.round
     ??cup.rounds.at(-1)?.round;
-  const message=cupShareMessage(cup.name,share,url);
   const cta=cupShareCta(share);
   const urgency=cupUrgency(share);
-  const shareOut=async()=>{
-    /* The native sheet is the right surface on a phone — it lists WhatsApp first for most members —
-       and the wa.me link is the desktop fallback rather than a second-class path. */
-    if(typeof navigator!=="undefined"&&navigator.share){
-      try{ await navigator.share({title:cup.name,text:message}); return; }catch{ /* dismissed */ }
-    }
-    window.open(whatsappLink(message),"_blank","noopener");
-  };
+  const person=(entry:Badge):StoryPerson=>({name:entry.name,short:entry.short,colour:entry.colour??null,avatar:entry.avatar??null});
   const copy=async()=>{
-    try{ await navigator.clipboard.writeText(url||message);setCopied(true);setTimeout(()=>setCopied(false),1800); }catch{}
+    try{ await navigator.clipboard.writeText(url);setCopied(true);setTimeout(()=>setCopied(false),1800); }catch{}
   };
 
   return <main className="cup-share-page">
@@ -79,13 +76,14 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
       {share.status==="signup"
         ?<Link className="cup-btn primary" href={signedIn?"/?tab=matches&view=cup":"/login?mode=signup"}>{signedIn?"入去報名":"註冊並報名"}</Link>
         :<Link className="cup-btn primary" href="/?tab=matches&view=cup">開啟 App 睇全部</Link>}
-      {/* The reader of a shared link is the club's best recruiter: they are already in the group
-          chat this cup needs to reach. So the button names WhatsApp and names the outcome. */}
-      <button type="button" className="cup-btn ghost wa-btn" onClick={()=>void shareOut()}>
-        <ShareGlyph kind="whatsapp"/><span>{cta.label}</span>
-      </button>
-      <button type="button" className="cup-btn ghost" onClick={()=>void copy()}>{copied?"已複製連結":"複製連結"}</button>
+      <button type="button" className="cup-btn ghost cup-share-copy" onClick={()=>void copy()}>{copied?"已複製連結":"複製連結"}</button>
     </div>
+
+    {/* The reader of a shared link is the club's best recruiter: they are already in the group chat
+        and on the feed this cup needs to reach. So they get the same two buttons the member who sent
+        it had, not a weaker version. */}
+    <CupShareButtons name={cup.name} state={share} url={url}
+      entrants={cup.roster.map(person)} champion={cup.champion?person(cup.champion):null}/>
 
     {cup.champion&&<article className="cup-champion">
       <span aria-hidden="true">🏆</span>
@@ -93,9 +91,22 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
       <PlayerBadge player={cup.champion}/>
     </article>}
 
+    {/* The roster carries ELO and the club's suggested handicap, because a reader deciding whether to
+        enter is really asking whether this field is beatable — and 「陳大文、李小明、…」 answers that
+        only for someone who already knows every name. With the handicap beside it, a weaker player
+        can see the terms they would actually play off rather than the gap they would give away. */}
     {cup.roster.length>0&&<section className="cup-roster">
       <h3>{share.status==="signup"?"報名名單":"參賽名單"} <span>{cup.roster.length}</span></h3>
-      <ul>{cup.roster.map(entry=><li key={entry.id}><PlayerBadge player={entry}/><b>{entry.name}</b></li>)}</ul>
+      <ul className="rated">{cup.roster.map(entry=><li key={entry.id}>
+        <PlayerBadge player={entry}/><b>{entry.name}</b>
+        <span className="cup-roster-stat">
+          {entry.rating!=null?<><i>ELO</i>{entry.rating}</>:<em>未評分</em>}
+          {entry.handicap!=null&&cup.handicapMode==="suggested"&&<><i>建議讓分</i>{entry.handicap}</>}
+        </span>
+      </li>)}</ul>
+      <p className="cup-roster-note">{cup.handicapMode==="suggested"
+        ?"建議讓分由球會 ELO 計出，本盃賽每場自動套用。"
+        :"本盃賽不設讓分，所有對局平手打。"}</p>
     </section>}
 
     {/* The same chart the app draws. A reader who followed the link came to see the bracket, and a
@@ -106,6 +117,7 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
       <h3>{round.name}</h3>
       <ol className="cup-ties">{round.ties.filter(tie=>tie.state!=="dead").map(tie=><li className={`cup-tie ${tie.state}`} key={tie.index}>
         <div className="cup-tie-head"><span className="cup-tie-no">第 {tie.index} 場</span>
+          {tie.handicap&&<span className="cup-tie-handicap">{tie.handicap}</span>}
           {tie.playedOn&&<time className="cup-tie-date" dateTime={tie.playedOn}>{tie.playedOn}</time>}</div>
         {tie.sides.map((side,index)=><div className={`cup-tie-side${side.won?" won":""}${side.player?"":" tbd"}`} key={index}>
           <PlayerBadge player={side.player??{short:"?"}}/>

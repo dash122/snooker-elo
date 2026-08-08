@@ -19,6 +19,7 @@
 /* Type-only, deliberately. Every module under lib/ stays independently loadable — it is what lets
    the tests import them directly and the build treat them as leaves — so the honour's *wording*
    stays in the copy module and arrives here already written. */
+import type { CupShareState } from "./cup-share";
 import type { MatchShareState, RecordShareState } from "./match-share";
 
 export const STORY_WIDTH = 1080;
@@ -78,7 +79,27 @@ export type RecordStoryCard = {
   url: string;
 };
 
-export type StoryCard = ResultStoryCard | RecordStoryCard;
+export type CupStoryCard = {
+  kind: "cup";
+  name: string;
+  status: "signup" | "live" | "done" | "short";
+  /** 報名中 / 進行中 / 已完成 / 未能開賽 — rides in the wordmark's ribbon. */
+  statusLabel: string;
+  /** The clock, empty once entries have closed. */
+  urgency: string;
+  hot: boolean;
+  /** The one big number: entries so far, or the size of the field once it is running. */
+  headline: string;
+  headlineLabel: string;
+  deadline: string;
+  entrants: StoryPerson[];
+  entrantsMore: number;
+  champion: StoryPerson | null;
+  cta: string;
+  url: string;
+};
+
+export type StoryCard = ResultStoryCard | RecordStoryCard | CupStoryCard;
 
 export function escapeXml(value: string): string {
   return value.replace(/[&<>"']/g, character =>
@@ -380,8 +401,115 @@ export function recordStorySvg(card: RecordStoryCard, hex: (colour: string | nul
   return svgDocument(parts.join(""));
 }
 
+/** The cup, as a story.
+ *
+ *  Its job is different from the other two. A result card reports something that already happened to
+ *  people who know the players; this one is a poster asking a stranger to enter a competition, and
+ *  the only thing standing between a viewer and that entry is a URL they have to reach by hand.
+ *
+ *  Instagram gives a web app no way to attach a tappable link to a story — the share sheet hands it
+ *  an image and nothing else — so the URL is drawn as the largest thing in the bottom third, framed
+ *  like the button it cannot be, and the app copies it to the clipboard at the same moment so the
+ *  poster can drop it into a link sticker with one paste. Everything above it exists to make that
+ *  worth doing: the cup's name, the clock, and how many are already in. */
+export function cupStorySvg(card: CupStoryCard, hex: (colour: string | null) => string): string {
+  const parts: string[] = [wordmark(card.statusLabel)];
+
+  const nameSize = fitSize(card.name, 96, 52, 880);
+  parts.push(text(ellipsize(card.name, nameSize, 900), STORY_WIDTH / 2, 430, {
+    size: nameSize, weight: 900, anchor: "middle",
+  }));
+
+  /* The clock, alone on its line and in alarm red when the deadline is close. It is the only reason
+     a viewer would act today rather than never, so nothing shares the line with it. */
+  if (card.urgency) {
+    const size = 40, width = textWidth(card.urgency, size) + 88, height = 92;
+    const x = STORY_WIDTH / 2 - width / 2;
+    parts.push(`<rect x="${x}" y="490" width="${width}" height="${height}" rx="${height / 2}"`
+      + ` fill="${card.hot ? "#ff6b5a" : "rgba(232,194,106,.14)"}"`
+      + ` stroke="${card.hot ? "#ff6b5a" : "rgba(232,194,106,.5)"}" stroke-width="2"/>`);
+    parts.push(text(card.urgency, STORY_WIDTH / 2, 490 + height / 2 + size * 0.36, {
+      size, weight: 900, anchor: "middle", fill: card.hot ? "#2a0906" : GOLD,
+    }));
+  }
+
+  parts.push(`<rect x="76" y="650" width="${STORY_WIDTH - 152}" height="360" rx="46"`
+    + ` fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.11)" stroke-width="2"/>`);
+  parts.push(text(card.headlineLabel, STORY_WIDTH / 2, 730, { size: 32, anchor: "middle", opacity: 0.55, spacing: 4 }));
+  parts.push(text(card.headline, STORY_WIDTH / 2, 890, { size: 176, weight: 800, fill: GOLD, anchor: "middle" }));
+  if (card.deadline) parts.push(text(card.deadline, STORY_WIDTH / 2, 960, { size: 32, anchor: "middle", opacity: 0.62 }));
+
+  /* Faces, not a list of names. A viewer scrolling past recognises somebody they play with far
+     faster than they read a roster, and recognising one person is the whole argument for entering. */
+  if (card.entrants.length) {
+    const radius = 52, gap = 22;
+    const shown = card.entrants.slice(0, 7);
+    const total = shown.length * radius * 2 + (shown.length - 1) * gap + (card.entrantsMore > 0 ? radius * 2 + gap : 0);
+    let cursor = STORY_WIDTH / 2 - total / 2 + radius;
+    for (const person of shown) {
+      parts.push(badge(person, cursor, 1190, radius, hex(person.colour)));
+      cursor += radius * 2 + gap;
+    }
+    if (card.entrantsMore > 0) {
+      parts.push(`<circle cx="${cursor}" cy="1190" r="${radius}" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.2)" stroke-width="2"/>`);
+      parts.push(text(`+${card.entrantsMore}`, cursor, 1208, { size: 38, weight: 800, anchor: "middle", opacity: 0.8 }));
+    }
+  }
+
+  if (card.champion) {
+    parts.push(text("冠軍", STORY_WIDTH / 2, 1080, { size: 32, anchor: "middle", opacity: 0.55, spacing: 4 }));
+    parts.push(badge(card.champion, STORY_WIDTH / 2, 1180, 82, hex(card.champion.colour)));
+    parts.push(text(ellipsize(card.champion.name, 52, 800), STORY_WIDTH / 2, 1320, {
+      size: 52, weight: 800, fill: GOLD, anchor: "middle",
+    }));
+  }
+
+  /* The link, drawn as the button Instagram will not let it be. */
+  parts.push(text(card.cta, STORY_WIDTH / 2, 1450, { size: 44, weight: 800, anchor: "middle" }));
+  const host = card.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const linkSize = fitSize(host, 38, 24, 800);
+  parts.push(`<rect x="100" y="1500" width="${STORY_WIDTH - 200}" height="120" rx="60"`
+    + ` fill="rgba(232,194,106,.12)" stroke="${GOLD}" stroke-width="3"/>`);
+  parts.push(text(ellipsize(host, linkSize, 800), STORY_WIDTH / 2, 1500 + 60 + linkSize * 0.36, {
+    size: linkSize, weight: 800, fill: GOLD, anchor: "middle",
+  }));
+  parts.push(text("開連結貼紙貼上，或者照打呢條網址", STORY_WIDTH / 2, SAFE_BOTTOM - 8, {
+    size: 30, anchor: "middle", opacity: 0.55,
+  }));
+
+  parts.push(balls());
+  return svgDocument(parts.join(""));
+}
+
 export function storySvg(card: StoryCard, hex: (colour: string | null) => string): string {
-  return card.kind === "result" ? resultStorySvg(card, hex) : recordStorySvg(card, hex);
+  return card.kind === "result" ? resultStorySvg(card, hex)
+    : card.kind === "cup" ? cupStorySvg(card, hex)
+    : recordStorySvg(card, hex);
+}
+
+/** The story card a cup becomes. Every number on it comes from the same `CupShareState` the WhatsApp
+    message and the link poster read, so the three can never quote a different field or deadline. */
+export function cupStoryCard(name: string, state: CupShareState, url: string,
+  entrants: StoryPerson[], champion: StoryPerson | null): CupStoryCard {
+  const statusLabel = state.status === "signup" ? "報名中" : state.status === "live" ? "進行中"
+    : state.status === "done" ? "已完成" : "未能開賽";
+  const recruiting = state.status === "signup";
+  return {
+    kind: "cup",
+    name, status: state.status, statusLabel,
+    urgency: recruiting && state.urgency.label !== "報名開放中" ? state.urgency.label : "",
+    hot: state.urgency.hot,
+    headline: String(state.entrants),
+    headlineLabel: recruiting ? "已報名人數"
+      : state.status === "live" ? `${state.roundName} · 參賽人數`
+      : state.status === "done" ? "參賽人數" : "報名人數",
+    deadline: recruiting ? `${state.deadline} 截止，截止即刻抽籤` : "",
+    entrants: state.status === "done" ? [] : entrants,
+    entrantsMore: state.status === "done" ? 0 : Math.max(0, state.entrants - entrants.length),
+    champion: state.status === "done" ? champion : null,
+    cta: recruiting ? "撳呢條連結即刻報名" : "撳呢條連結睇對陣同賽果",
+    url,
+  };
 }
 
 export const BANNER_WIDTH = 1200;
