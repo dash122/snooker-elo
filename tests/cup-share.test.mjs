@@ -1,15 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cupShareDescription, cupShareMessage, cupShareState, cupShareTitle, cupShareUrl, whatsappLink } from "../lib/cup-share.ts";
+import { cupOgImageUrl, cupShareCta, cupShareDescription, cupShareMessage, cupShareState, cupShareTitle, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share.ts";
+import { cupOgCard, cupOgGlyphs, cupOgNameLayout } from "../lib/cup-og.ts";
 import { buildBracket, currentRoundLabel } from "../lib/tournament.ts";
 
 /* Wired exactly as the two real callers wire it — the share page for its meta tags and the app for
    its compose link — so a change in either bracket maths or copy shows up here. */
-const shareFor = (cup, matches = [], closed = false, championName = "") => {
+const NOW = Date.parse("2026-08-15T12:00");
+
+const shareFor = (cup, matches = [], closed = false, championName = "", now = NOW) => {
   const bracket = closed ? buildBracket(cup, matches) : null;
   return cupShareState({
     signupDeadline: cup.signupDeadline, entrants: cup.signups.length, closed,
-    drew: Boolean(bracket?.size), roundName: currentRoundLabel(bracket), championName,
+    drew: Boolean(bracket?.size), roundName: currentRoundLabel(bracket), championName, now,
   });
 };
 
@@ -26,7 +29,23 @@ test("while recruiting, the pitch is entries so far and the deadline", () => {
   const description = cupShareDescription(recruiting);
   assert.match(description, /名額有限/);
   assert.match(description, /已有 5 人報名/);
-  assert.match(description, /2026-08-20 23:59 截止/);
+  // Five days out, so the clock leads the description rather than a static "entries are open".
+  assert.equal(recruiting.daysLeft, 5);
+  assert.match(description, /仲有 5 日截止/);
+});
+
+test("the clock gets louder as the deadline nears, and never invents one", () => {
+  const at = iso => shareFor(cup(), [], false, "", Date.parse(iso));
+  assert.deepEqual(cupUrgency(at("2026-08-01T12:00")), { label: "報名開放中", hot: false });
+  assert.deepEqual(cupUrgency(at("2026-08-14T12:00")), { label: "仲有 6 日截止", hot: false });
+  assert.deepEqual(cupUrgency(at("2026-08-18T12:00")), { label: "仲有 2 日截止", hot: true });
+  assert.deepEqual(cupUrgency(at("2026-08-19T12:00")), { label: "仲有 1 日截止", hot: true });
+  assert.deepEqual(cupUrgency(at("2026-08-20T20:00")), { label: "今日最後召集", hot: true });
+  // Only a recruiting cup has a clock — a finished one quoting a deadline would be a lie.
+  const done = shareFor(cup({ signupDeadline: "2020-01-01T00:00", signups: ["p1", "p2"], draw: ["p1", "p2"] }),
+    [{ id: "m1", a: "p1", b: "p2", scoreA: 4, scoreB: 0, mode: "cup", status: "confirmed",
+       tournamentId: "t1", tournamentRound: 1, tournamentMatchIndex: 1 }], true, "陳大文");
+  assert.equal(cupUrgency(done).label, "");
 });
 
 test("no cup declares a number of places, so none is ever quoted", () => {
@@ -35,7 +54,8 @@ test("no cup declares a number of places, so none is ever quoted", () => {
   for (const signups of [["p1", "p2"], ["p1", "p2", "p3"], ["p1", "p2", "p3", "p4"]]) {
     const state = shareFor(cup({ signups }));
     const copy = `${cupShareDescription(state)} ${cupShareMessage("盃", state, "https://x/c/1")}`;
-    assert.doesNotMatch(copy, /個位|個名額|剩低|仲有 \d/);
+    // The clock ("仲有 3 日") is a fact the club set; a count of places is not.
+    assert.doesNotMatch(copy, /個位|個名額|剩低|仲有 \d+ 個/);
     assert.match(copy, /名額有限/);
   }
 });
@@ -80,11 +100,58 @@ test("the WhatsApp message ends with the bare url on its own line", () => {
   const lines = message.split("\n");
   assert.equal(lines.at(-1), url);
   assert.equal(lines.filter(line => line.includes("http")).length, 1);
-  assert.match(message, /🏆 南華會週年會友盃/);
-  assert.match(message, /名額有限 · 已有 5 人報名/);
+  // The cup's own name is the first thing on the first line — in a group chat that is the string a
+  // member recognises, not the app's name.
+  assert.ok(lines[0].startsWith("🏆 南華會週年會友盃"));
+  assert.match(lines[0], /仲有 5 日截止/);
+  assert.match(message, /已有 5 位會友報名/);
+  // Four lines and no more: WhatsApp collapses a longer message behind 「閱讀更多」, which hides the ask.
+  assert.equal(lines.length, 5);
   // The call to action is the last line before the link, and it asks for the one thing this share
   // exists to get: an entry.
-  assert.equal(lines.at(-2), "立即報名參加比賽 👇");
+  assert.equal(lines.at(-2), "撳個連結就報到名 👇");
+});
+
+test("the share button names WhatsApp, and names recruiting while entries are open", () => {
+  const cta = cupShareCta(recruiting);
+  assert.match(cta.label, /WhatsApp/);
+  assert.match(cta.label, /報名/);
+  for (const state of ["live", "done", "short"]) {
+    assert.match(cupShareCta({ ...recruiting, status: state }).label, /WhatsApp/);
+  }
+});
+
+test("the preview image url changes whenever the facts drawn on it change", () => {
+  // WhatsApp caches a link preview per image URL, so a poster whose URL never moved would show the
+  // group yesterday's entry count for as long as the cup ran.
+  const first = cupOgImageUrl("https://scaa.example/", "t1", recruiting);
+  assert.match(first, /^https:\/\/scaa\.example\/api\/cup-og\/t1\?v=/);
+  const later = cupOgImageUrl("https://scaa.example", "t1", { ...recruiting, entrants: 6 });
+  assert.notEqual(first, later);
+});
+
+test("the poster leads with this cup's name, its clock and its crowd", () => {
+  const card = cupOgCard("南華會週年會友盃", recruiting);
+  assert.equal(card.name, "南華會週年會友盃");
+  assert.equal(card.status, "報名中");
+  assert.equal(card.urgency, "仲有 5 日截止");
+  assert.match(card.standfirst, /已有 5 位會友報名/);
+  assert.match(card.cta, /報名/);
+  // Every glyph the card draws has to be in the subset request, or it rasterises as a blank box.
+  const glyphs = cupOgGlyphs(card);
+  for (const character of card.name + card.urgency + card.cta + card.status) {
+    assert.ok(glyphs.includes(character), `missing glyph ${character}`);
+  }
+  assert.equal(glyphs.length, new Set(glyphs).size);
+});
+
+test("a long cup name gives up type size before it gives up letters", () => {
+  const short = cupOgNameLayout("會友盃");
+  assert.deepEqual(short.lines, ["會友盃"]);
+  assert.equal(short.size, 104);
+  const long = cupOgNameLayout("南華會週年會友盃紀念賽第十二屆");
+  assert.ok(long.size < short.size);
+  assert.equal(long.lines.join(""), "南華會週年會友盃紀念賽第十二屆");
 });
 
 test("share urls are absolute and tolerate a trailing slash on the origin", () => {
