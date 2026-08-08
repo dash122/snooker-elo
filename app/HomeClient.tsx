@@ -1689,7 +1689,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
               {status==="signup"&&(ownPlayerId
                 ?<button type="button" className={itemSignedUp?"cup-btn ghost":"cup-btn primary"} onClick={()=>onSignUpTournament(item.id)}>{itemSignedUp?"取消報名":"立即報名"}</button>
                 :<a className="cup-btn primary" href="/login">登入後報名</a>)}
-              <button type="button" className={`cup-btn ${status==="signup"?"ghost":"primary"}`} onClick={()=>setSelectedTournament(item.id)}>{status==="signup"?"睇對陣預覽":"睇賽程"}<span aria-hidden="true">›</span></button>
+              <button type="button" className={`cup-btn ${status==="signup"?"ghost":"primary"}`} onClick={()=>setSelectedTournament(item.id)}>{status==="signup"?"睇對陣預覽":"睇賽程"}<span className="cup-btn-mark" aria-hidden="true">›</span></button>
               {shareButton(item,"cup-btn ghost",true)}
             </div>
           </div>

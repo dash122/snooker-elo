@@ -4014,7 +4014,10 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
 .cup-btn.primary:active{transform:translateY(1px)}
 .cup-btn.ghost{border-color:var(--line);background:#fff;color:var(--ink)}
 .cup-btn.sm{min-height:2.375rem;padding:0 .75rem;font-size:var(--fs-caption)}
-.cup-btn>span{font-size:1.125rem;font-weight:400;line-height:1}
+/* The decorative glyph a cup button can carry — a chevron, an arrow — is bigger and lighter than the
+   label beside it. Scoped to its own class rather than to `> span`, which caught any label a button
+   wrapped in an element and quietly dropped it to 18px/400 next to its 800-weight neighbours. */
+.cup-btn .cup-btn-mark{font-size:1.125rem;font-weight:400;line-height:1}
 .cup-chip{display:inline-flex;align-items:center;min-height:1.5rem;padding:0 .5rem;border-radius:999px;
   font-size:var(--fs-label);font-weight:800;letter-spacing:.02em}
 .cup-chip.is-signup{background:#eaf1ff;color:#2b5fa8}
@@ -4351,9 +4354,10 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
 
 /* A button whose whole point is that the tap ends in WhatsApp says so twice: the mark, and the
    word. The glyph is the app's own hand — see .share-glyph — not WhatsApp's logo. */
-.wa-btn{display:inline-flex;align-items:center;gap:.5rem;justify-content:center}
-.wa-btn .share-glyph{width:1.35rem;height:1.35rem;border-radius:50%;background:#25a35a;color:#fff}
-.wa-btn .share-glyph svg{width:.95rem;height:.95rem}
+/* Layout, size and weight all come from `.cup-btn`; this adds the mark and nothing else, so the
+   button sits in a row with its neighbours rather than beside them. */
+.wa-btn .share-glyph{flex:0 0 auto;width:1.25rem;height:1.25rem;border-radius:50%;background:#25a35a;color:#fff}
+.wa-btn .share-glyph svg{width:.875rem;height:.875rem}
 .wa-btn.primary .share-glyph{background:rgba(255,255,255,.22)}
 
 /* The clock on a recruiting cup. Gold while there is time, alarm-red in the last three days —
