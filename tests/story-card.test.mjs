@@ -227,6 +227,66 @@ test("a cup with no clock left to quote does not invent one", () => {
   assert.deepEqual(finished.entrants, []);
 });
 
+/* --- The finished cup ------------------------------------------------------
+ *
+ * A completed competition is not a poster, so the card stops recruiting: the champion is the
+ * headline and the tree under them is the evidence. */
+
+const finishedState = () => cupState({
+  signupDeadline: "2026-06-01T23:59", closed: true, drew: true, roundName: "決賽", championName: "陳大文",
+});
+const tree = [
+  { name: "準決賽", ties: [
+    { seats: [{ name: "陳大文", score: 4, won: true }, { name: "李小強", score: 3, won: false }] },
+    { seats: [{ name: "黃志明", score: 4, won: true }, { name: "何家豪", score: 1, won: false }] },
+  ] },
+  { name: "決賽", ties: [
+    { seats: [{ name: "陳大文", score: 4, won: true }, { name: "黃志明", score: 2, won: false }] },
+  ] },
+];
+
+test("a finished cup carries its bracket, and an unfinished one does not", () => {
+  const done = cupStoryCard("盃", finishedState(), "https://x/c/1", [], cupPerson("陳大文"), tree);
+  assert.equal(done.bracket, tree);
+  // Still recruiting: the tree would be half 待定, and it dates the moment it is posted.
+  const live = cupStoryCard("盃", cupState(), "https://x/c/1", [], null, tree);
+  assert.deepEqual(live.bracket, []);
+});
+
+test("the finished card draws the champion and every tie that produced them", () => {
+  const svg = cupStorySvg(
+    cupStoryCard("南華會週年會友盃", finishedState(), "https://x/c/1", [], cupPerson("陳大文"), tree), hex);
+  assert.ok(svg.includes("冠 軍"));
+  assert.ok(svg.includes("賽 事 對 陣"));
+  for (const name of ["陳大文", "李小強", "黃志明", "何家豪"]) assert.ok(svg.includes(name), name);
+  for (const round of ["準決賽", "決賽"]) assert.ok(svg.includes(round), round);
+  // The entrant count survives as a line under the winner rather than as the card's big number.
+  assert.ok(svg.includes("12 人參賽"));
+  // Nothing is drawn outside the frame — a story card that overflows is a story card that is cropped.
+  const coordinates = [...svg.matchAll(/ (?:x|cx)="(-?[\d.]+)"/g)].map(match => Number(match[1]));
+  assert.ok(Math.min(...coordinates) >= -340 && Math.max(...coordinates) <= STORY_WIDTH + 340);
+});
+
+test("a dead slot in an odd-sized draw is left blank rather than drawn as a tie", () => {
+  const odd = [
+    { name: "準決賽", ties: [
+      { seats: [{ name: "陳大文", score: 4, won: true }, { name: "李小強", score: 2, won: false }] },
+      { dead: true, seats: [{ name: "待定", score: null, won: false }, { name: "待定", score: null, won: false }] },
+    ] },
+    { name: "決賽", ties: [
+      { seats: [{ name: "陳大文", score: 4, won: true }, { name: "黃志明", score: 3, won: false }] },
+    ] },
+  ];
+  const svg = cupStorySvg(
+    cupStoryCard("盃", finishedState(), "https://x/c/1", [], cupPerson("陳大文"), odd), hex);
+  assert.ok(!svg.includes("待定"));
+});
+
+test("a finished cup with no champion on record keeps the recruiting layout rather than an empty plinth", () => {
+  const svg = cupStorySvg(cupStoryCard("盃", finishedState(), "https://x/c/1", [], null, tree), hex);
+  assert.ok(!svg.includes("冠 軍"));
+});
+
 test("storySvg dispatches a cup card to the cup drawing", () => {
   const card = cupStoryCard("盃", cupState(), "https://x/c/1", [], null);
   assert.equal(storySvg(card, hex), cupStorySvg(card, hex));
