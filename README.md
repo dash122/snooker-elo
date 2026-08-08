@@ -20,6 +20,7 @@ The interface is currently written for Traditional Chinese (Hong Kong), while th
 - Notifies members of invites, offers, open calls and results by web push, with an optional email fallback, so matchmaking reaches people who do not have the app open.
 - Supports member registration, login, sessions, linked member/player profiles, account settings, password changes, and account deactivation.
 - Provides an admin area for member management, player-account linking, player creation, ELO settings, data reset, and audit history.
+- Lets any signed-in member tally a session's table fee (波鐘計數機) per player, kept separate from match/ELO records — entries can be typed in or seeded by uploading a whiteboard photo for optional OCR review before saving.
 
 ## Permissions
 
@@ -61,6 +62,16 @@ VAPID_SUBJECT=mailto:you@example.com
 ```
 
 Web push is implemented directly against `node:crypto` (RFC 8291 payload encryption, RFC 8292 VAPID), so it adds no dependencies. With the keys unset, every notification call is an inert no-op.
+
+### Table-fee photo OCR (optional)
+
+The 波鐘計數機 counter can read a whiteboard photo and pre-fill player/amount rows for review. Set an Anthropic API key to enable it:
+
+```text
+ANTHROPIC_API_KEY=...
+```
+
+Without it, uploading a photo tells the member OCR isn't configured and they fill the rows in by hand instead.
 
 An email fallback reaches members whose devices push cannot deliver to. Set either a Resend key or your own relay endpoint; with neither set, no mail is sent:
 

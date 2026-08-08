@@ -4716,3 +4716,23 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
 /* On a record page the ribbon sits above the avatar, so it needs the gap the
    result page's hero gets from the kicker above it. */
 .record-share-hero .cup-ribbon{margin-bottom:.9rem}
+
+/* 波鐘計數機 — a standalone fee-tally sheet, styled like the other sheet forms
+   (tournament-form, settings) but with its own list/row treatment. */
+.fee-counter .secondary{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:11px;min-height:44px;padding:0 14px;font-weight:700}
+.fee-counter .secondary.full{width:100%;margin-top:14px}
+.fee-counter .danger{border:1px solid #c9695f;background:#fff0ed;color:#9d3f37;border-radius:11px;min-height:44px;padding:0 14px;font-weight:800}
+.fee-counter .danger:hover{background:#9d3f37;border-color:#9d3f37;color:white}
+.fee-counter .sheet-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+.fee-counter .sheet-actions>button{flex:1;min-width:100px}
+.fee-session-list{display:grid;gap:9px;margin-top:16px}
+.fee-session-row{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;border:1px solid var(--line);background:var(--paper);border-radius:14px;padding:12px 14px}
+.fee-session-row-title{font-weight:800;font-size:13px}
+.fee-session-row-meta{font-size:11px;color:var(--muted)}
+.fee-session-row-by{font-size:10px;color:#a97828}
+.fee-entry-list{display:grid;gap:8px;margin-top:14px}
+.fee-entry-row{display:grid;grid-template-columns:1fr 100px 34px;gap:8px;align-items:center}
+.fee-entry-row input[type="text"],.fee-entry-row input[type="number"]{min-height:44px;border:1px solid var(--line);border-radius:11px;padding:8px 11px;background:white;color:var(--ink);width:100%}
+.fee-entry-remove{border:0;background:transparent;color:var(--red);font-size:20px;line-height:1;min-height:44px}
+.fee-photo-upload{margin-top:14px}
+.fee-total{font-weight:800;font-size:15px;margin-top:16px;text-align:right}
