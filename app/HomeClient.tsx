@@ -15,6 +15,7 @@ import { suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
 import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
 import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story-card";
 import ShareSheet from "./ShareSheet";
+import FeeCounter from "./FeeCounter";
 import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 
 type Player = {
@@ -440,7 +441,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   // the restore lands in an effect — which means the writer must skip its own
   // first run or it would persist the pre-restore default over the real value.
   const focusRestored = useRef(false);
-  const [modal,setModal] = useState<"match"|"player"|"settings"|"detail"|"deleteMatch"|"tournament"|"signIn"|"share"|null>(null);
+  const [modal,setModal] = useState<"match"|"player"|"settings"|"detail"|"deleteMatch"|"tournament"|"signIn"|"share"|"fees"|null>(null);
   const [detail,setDetail] = useState<Player|null>(null);
   /* What the share sheet is about. Held as the subject rather than as a built card so the card is
      rebuilt from live state — a result edited while the sheet is open must not be shared stale. */
@@ -807,6 +808,12 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     persist(next,"球員已永久刪除。");
   }
 
+  function openFeeCounter(){
+    setRecordMenuOpen(false);
+    if(!user){setModal("signIn");return;}
+    setModal("fees");
+  }
+
   function closeModal(){ setModal(null); setDeletingMatch(null); setShareTarget(null); }
 
   /* Everything the share sheet needs, derived from live state at render time. Both surfaces — the
@@ -985,6 +992,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={()=>newMatch("1v1")}><i>1v1</i><span><b>正式 1v1</b><small>賽果會改變實際 ELO 與球員統計</small></span></button>
       <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={()=>newMatch("2v2")}><i>2v2</i><span><b>潮拍 2v2</b><small>純娛樂模式，不影響目前 ELO 與統計</small></span></button>
       <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={()=>newMatch("cup")}><i>會友盃</i><span><b>會友盃記錄</b><small>選擇盃賽場次並儲存，不可手動設定讓分</small></span></button>
+      <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={openFeeCounter}><i>波鐘</i><span><b>波鐘計數機</b><small>記錄桌費，與比賽、ELO 無關</small></span></button>
     </div>
     <nav className="bottom" aria-label="主導覽">{[["leaderboard","排行榜"],["matches","比賽"],["record","記錄"],["availability","約戰"],["players","球員"]].map(([id,label])=>
       <button key={id} className={`${id==="record"?"bottom-record":tab===id?"active":""}${id==="record"&&recordMenuOpen?" menu-open":""}`} aria-current={tab===id?"page":undefined} aria-expanded={id==="record"?recordMenuOpen:undefined} aria-haspopup={id==="record"?"menu":undefined} onClick={()=>id==="record"?setRecordMenuOpen(open=>!open):goTab(id)}>
@@ -1034,6 +1042,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
           {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
           {modal==="share"&&sharePayload&&<ShareSheet card={sharePayload.card} message={sharePayload.message} url={sharePayload.url} title={sharePayload.title}/>}
+          {modal==="fees"&&user&&<FeeCounter currentEmail={user.email} isAdmin={isAdmin} onClose={closeModal}/>}
         </section>
       </div>
     </div>}
