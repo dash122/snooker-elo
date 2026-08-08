@@ -136,6 +136,25 @@ export function matchShareMessage(state: MatchShareState, url: string): string {
   return `${lines.join("\n")}\n${url}`;
 }
 
+/** A cup finish worth a badge. Structurally typed so this module keeps its distance from the
+    bracket maths that works it out. */
+export type ShareHonour = { name: string; place: "champion" | "runnerUp" };
+
+/** The one line a record gives to a player's cup history.
+ *
+ *  Titles always win over finals: a player with a trophy does not want to be introduced by the year
+ *  they lost one. A single honour is named — the cup's own name is the boast — while several
+ *  collapse to a count, because three cup names in a row on a story card is a paragraph, and a
+ *  paragraph is not a badge. Runner-up appears only in the absence of any title, which is the
+ *  honest reading of "best finish". */
+export function honourText(honours: ShareHonour[]): string {
+  const titles = honours.filter(item => item.place === "champion");
+  const best = titles.length ? titles : honours.filter(item => item.place === "runnerUp");
+  if (!best.length) return "";
+  const place = titles.length ? "冠軍" : "亞軍";
+  return best.length === 1 ? `${best[0].name} ${place}` : `盃賽${place} ×${best.length}`;
+}
+
 export type RecordShareState = {
   name: string;
   short: string;
@@ -154,6 +173,8 @@ export type RecordShareState = {
   form: string[];
   /** Rating movement over the window the profile shows; may be negative. */
   swing: number;
+  /** Cup finishes worth a badge, newest cup first. */
+  honours: ShareHonour[];
 };
 
 export function recordShareTitle(state: RecordShareState): string {
@@ -161,7 +182,11 @@ export function recordShareTitle(state: RecordShareState): string {
 }
 
 export function recordShareDescription(state: RecordShareState): string {
-  const parts = [state.rank > 0 ? `球會排名 #${state.rank}` : "球會成員", `ELO ${state.rating}`,
+  const honour = honourText(state.honours);
+  /* A title outranks a rank: a rank is this month, a cup is forever, and it is the first thing a
+     reader who has never met this person should be told. */
+  const parts = [...(honour ? [`🏆 ${honour}`] : []),
+    state.rank > 0 ? `球會排名 #${state.rank}` : "球會成員", `ELO ${state.rating}`,
     `${state.played} 場 ${state.wins}勝${state.losses}負${state.draws}和`,
     `局數勝率 ${Math.round(state.frameRate * 100)}%`];
   if (state.highestBreak > 0) parts.push(`最高單桿 ${state.highestBreak}`);
@@ -169,7 +194,9 @@ export function recordShareDescription(state: RecordShareState): string {
 }
 
 export function recordShareMessage(state: RecordShareState, url: string): string {
+  const honour = honourText(state.honours);
   const lines = [`🎱 ${state.name} 嘅球會紀錄`];
+  if (honour) lines.push(`🏆 ${honour}`);
   if (state.rank > 0) lines.push(`排名 #${state.rank} · ELO ${state.rating}${state.provisional ? "（臨時）" : ""}`);
   else lines.push(`ELO ${state.rating}${state.provisional ? "（臨時）" : ""}`);
   lines.push(`${state.played} 場 · ${state.wins}勝${state.losses}負${state.draws}和 · 局數勝率 ${Math.round(state.frameRate * 100)}%`);

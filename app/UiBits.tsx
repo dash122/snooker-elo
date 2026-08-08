@@ -131,6 +131,21 @@ export function Scoreline({left,right,scoreLeft,scoreRight,eloLeft,eloRight,onLe
   </div>;
 }
 
+/** The club's trophy mark, at whatever size its container gives it.
+ *
+ *  Drawn rather than typed, and defined once. An emoji would render as whichever colour emoji font
+ *  the device happens to carry — and, worse, as a different mark in the app than in the story card
+ *  the app exports, which rasterises its own path. The match card's cup badge, the share pages'
+ *  ribbon and the profile's honour chip are meant to read as one system, so they take one mark. */
+export function CupMark({className="cup-mark"}:{className?:string}) {
+  return <svg className={className} viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path d="M4.5 3h11v3.5a5.5 5.5 0 0 1-11 0Z"/>
+    <path d="M4.5 3.8C2.4 3.8 2.4 8.2 4.9 8" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+    <path d="M15.5 3.8c2.1 0 2.1 4.4-.4 4.2" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+    <rect x="8.8" y="11.6" width="2.4" height="2.6"/><rect x="6" y="14" width="8" height="1.9" rx=".9"/>
+  </svg>;
+}
+
 export function SortControls({sort,dir,onSort}:{sort:SortKey;dir:"asc"|"desc";onSort:(key:SortKey)=>void}) {
   return <div className="sort-controls"><label><span className="sort-controls-label">排序</span><select value={sort} onChange={event=>onSort(event.target.value as SortKey)}>{(Object.keys(sortLabels) as SortKey[]).map(key=><option key={key} value={key}>{sortLabels[key]}</option>)}</select></label><button aria-label={dir==="asc"?"目前升序，切換為降序":"目前降序，切換為升序"} onClick={()=>onSort(sort)}>{dir==="asc"?"↑":"↓"}<span className="sort-controls-dir-label">{dir==="asc"?" 升序":" 降序"}</span></button></div>;
 }

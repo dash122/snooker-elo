@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
-import { PlayerBadge } from "../../UiBits";
+import { CupMark, PlayerBadge } from "../../UiBits";
 import ShareSheet from "../../ShareSheet";
-import type { RecordShareState } from "../../../lib/match-share";
+import { honourText, type RecordShareState } from "../../../lib/match-share";
 import type { RecordStoryCard } from "../../../lib/story-card";
 
 /** The page behind a shared player record.
@@ -21,6 +21,7 @@ export default function RecordShareView({ share, card, message, url, signedIn }:
     <Link className="primary full share-cta" href="/">開啟 SCAA Snooker</Link>
   </div></main>;
 
+  const honour = honourText(share.honours);
   const stats = [
     { label: "場數", value: String(share.played) },
     { label: "勝／負／和", value: `${share.wins}/${share.losses}/${share.draws}` },
@@ -30,6 +31,9 @@ export default function RecordShareView({ share, card, message, url, signedIn }:
 
   return <main className="cup-share-page record-share-page">
     <div className="record-share-hero">
+      {/* Above the name, not beside it: a cup is the first thing a stranger arriving from a story
+          should be told about this person, and the same ribbon the result page uses says it. */}
+      {honour && <p className="cup-ribbon"><span><CupMark />{honour}</span></p>}
       <PlayerBadge player={{ short: share.short, colour: share.colour, avatar: share.avatar }} />
       <h1>{share.name}</h1>
       <div className="share-chips record-share-chips">

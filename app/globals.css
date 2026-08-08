@@ -4630,3 +4630,14 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
   .match-cup-badge.has-round>span{display:none}
   .match-cup-badge{max-width:none}
 }
+
+/* The honour chip in a profile's identity row. Gold against the hero's dark
+   green, the same mark and the same palette as the cup ribbon and the match
+   card's badge — one system, three sizes. */
+.profile-chip.honour{display:inline-flex;align-items:center;gap:.3rem;
+  border-color:rgba(232,194,106,.45);background:rgba(232,194,106,.16);color:#ffe7b4}
+.profile-chip.honour .cup-mark{width:.85rem;height:.85rem}
+
+/* On a record page the ribbon sits above the avatar, so it needs the gap the
+   result page's hero gets from the kicker above it. */
+.record-share-hero .cup-ribbon{margin-bottom:.9rem}
