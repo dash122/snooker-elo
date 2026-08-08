@@ -16,6 +16,9 @@
  *  export outright — so avatars are embedded only when they are already data URIs, and a player
  *  without one gets their initials on their own colour, exactly as the app draws them. */
 
+/* Type-only, deliberately. Every module under lib/ stays independently loadable — it is what lets
+   the tests import them directly and the build treat them as leaves — so the honour's *wording*
+   stays in the copy module and arrives here already written. */
 import type { MatchShareState, RecordShareState } from "./match-share";
 
 export const STORY_WIDTH = 1080;
@@ -59,6 +62,8 @@ export type ResultStoryCard = {
 export type RecordStoryCard = {
   kind: "record";
   person: StoryPerson;
+  /** "南華會週年會友盃 冠軍" and the like; empty for a player with no cup finish worth a badge. */
+  honour: string;
   rank: number;
   rating: number;
   provisional: boolean;
@@ -206,24 +211,24 @@ function trophy(cx: number, cy: number, scale: number, fill: string): string {
 
 /** Club mark, top of the safe area.
  *
- *  A cup tie swaps the plain rule under the wordmark for a ribbon carrying the round — the trophy
- *  and "準決賽" sitting in the break between two hairlines. It marks the card as a competition at a
- *  glance and costs no vertical space at all, which is the point: the story's job is the score, and
- *  a banner announcing the competition above it would push the thing people came for down the
- *  frame. */
-function wordmark(round = ""): string {
+ *  Given a ribbon label, the plain rule under the wordmark becomes a ribbon instead — the trophy and
+ *  the label sitting in the break between two hairlines. One slot, one meaning: *the distinction
+ *  this card carries*. On a result that is the round it was played at; on a record it is the cup the
+ *  player won. It costs no vertical space at all, which is the point: the card's job is the score or
+ *  the rating, and a banner above it would push the thing people came for down the frame. */
+function wordmark(ribbon = ""): string {
   const mark = text("SCAA SNOOKER", STORY_WIDTH / 2, SAFE_TOP, { size: 34, fill: GOLD, weight: 800, anchor: "middle", spacing: 12 });
   const ruleY = SAFE_TOP + 34;
   const rule = (from: number, to: number) =>
     `<line x1="${from}" y1="${ruleY}" x2="${to}" y2="${ruleY}" stroke="${GOLD_DIM}" stroke-opacity="0.7" stroke-width="2"/>`;
-  if (!round) return mark + rule(STORY_WIDTH / 2 - 90, STORY_WIDTH / 2 + 90);
+  if (!ribbon) return mark + rule(STORY_WIDTH / 2 - 90, STORY_WIDTH / 2 + 90);
 
   /* Brighter than the wordmark above it, and the same size. The club's name is boilerplate on every
      card ever exported; the round is the news on this one, so between the two small gold lines the
      eye should land on the ribbon. Making it *brighter* rather than *bigger* buys that without
      inflating the header into a banner. */
   const size = 32, badge = 34, gap = 13;
-  const label = ellipsize(round, size, 320);
+  const label = ellipsize(ribbon, size, 460);
   const groupWidth = badge + gap + textWidth(label, size);
   const left = STORY_WIDTH / 2 - groupWidth / 2;
   return mark
@@ -321,7 +326,7 @@ export function resultStorySvg(card: ResultStoryCard, hex: (colour: string | nul
 /** The player's standing. What a member posts when there is no fresh result to show — and the card
     most likely to be seen by someone who has never played at the club. */
 export function recordStorySvg(card: RecordStoryCard, hex: (colour: string | null) => string): string {
-  const parts: string[] = [wordmark()];
+  const parts: string[] = [wordmark(card.honour)];
 
   parts.push(badge(card.person, STORY_WIDTH / 2, 440, 112, hex(card.person.colour)));
   const recordNameSize = fitSize(card.person.name, 66, 40, 880);
@@ -461,10 +466,13 @@ export function resultStoryCard(state: MatchShareState, url: string): ResultStor
   };
 }
 
-export function recordStoryCard(state: RecordShareState, url: string): RecordStoryCard {
+export function recordStoryCard(state: RecordShareState, url: string, honour = ""): RecordStoryCard {
   return {
     kind: "record",
     person: { name: state.name, short: state.short, colour: state.colour, avatar: state.avatar },
+    /* The same ribbon a cup tie wears, carrying the same kind of claim: this card is about someone
+       who did something the rating alone does not say. Written by the caller — see the import note. */
+    honour,
     rank: state.rank,
     rating: state.rating,
     provisional: state.provisional,

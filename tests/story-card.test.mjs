@@ -4,7 +4,7 @@ import {
   BANNER_HEIGHT, BANNER_WIDTH, STORY_HEIGHT, STORY_WIDTH,
   ellipsize, escapeXml, fitSize, recordStoryCard, resultStoryCard, shareBannerSvg, storySvg, textWidth,
 } from "../lib/story-card.ts";
-import { describeMatch } from "../lib/match-share.ts";
+import { describeMatch, honourText } from "../lib/match-share.ts";
 
 const hex = () => "#155e52";
 
@@ -19,11 +19,13 @@ const state = (overrides = {}) => describeMatch({
 
 const resultSvg = (overrides = {}) => storySvg(resultStoryCard(state(overrides), "https://x.hk/m/1"), hex);
 
+/* Wired the way the real callers wire it: the honour's wording comes from the copy module and is
+   handed to the card, so a change to either shows up here. */
 const record = (overrides = {}) => recordStoryCard({
   name: "陳大文", short: "CTM", colour: "wine", avatar: null, rank: 3, rating: 1642,
   provisional: false, played: 48, wins: 29, losses: 16, draws: 3, frameRate: 0.583,
-  highestBreak: 102, form: ["W", "W", "L", "W", "D"], swing: 34, ...overrides,
-}, "https://x.hk/p/p1");
+  highestBreak: 102, form: ["W", "W", "L", "W", "D"], swing: 34, honours: [], ...overrides,
+}, "https://x.hk/p/p1", honourText(overrides.honours ?? []));
 
 test("a story card is Instagram's frame, exactly", () => {
   const svg = resultSvg();
@@ -78,6 +80,16 @@ test("a cup tie with no nameable round falls back to the plain rule, not an empt
   const svg = resultSvg({ cup: { name: "南華會週年會友盃", round: "" } });
   assert.equal((svg.match(/<line[^>]*y1="244"/g) ?? []).length, 1);
   assert.match(svg, /南華會週年會友盃/);
+});
+
+test("a champion wears the ribbon a cup tie wears, in the same slot", () => {
+  // One slot, one meaning: the distinction this card carries. On a result that is the round; on a
+  // record it is the cup — and neither costs the card any height.
+  const svg = storySvg(record({ honours: [{ name: "南華會週年會友盃", place: "champion" }] }), hex);
+  assert.equal((svg.match(/<line[^>]*y1="244"/g) ?? []).length, 2);
+  assert.match(svg, /南華會週年會友盃 冠軍/);
+  // A player with no cup history keeps the plain rule rather than an empty ribbon.
+  assert.equal((storySvg(record(), hex).match(/<line[^>]*y1="244"/g) ?? []).length, 1);
 });
 
 test("a friendly 2v2 is labelled as one and shows no ELO swing", () => {

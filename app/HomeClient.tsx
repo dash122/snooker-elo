@@ -10,10 +10,10 @@ import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } 
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
 import { ShareGlyph } from "./ShareSheet";
-import { describeMatch, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
+import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
 import { recordStoryCard, resultStoryCard } from "../lib/story-card";
 import ShareSheet from "./ShareSheet";
-import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
+import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 
 type Player = {
   id: string; name: string; short: string; handicap: number | null; rating: number; colour?: string; avatar?: string | null;
@@ -838,9 +838,10 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       highestBreak:highestBreak(player,data)??0,
       form:player.form.slice(0,5),
       swing:Math.round(recentDeltaDays(player,data,10)),
+      honours:playerHonours(data.tournaments,data.matches,player.id),
     };
     const url=playerShareUrl(origin,player.id);
-    return {card:recordStoryCard(state,url),message:recordShareMessage(state,url),url,title:recordShareTitle(state)};
+    return {card:recordStoryCard(state,url,honourText(state.honours)),message:recordShareMessage(state,url),url,title:recordShareTitle(state)};
   },[shareTarget,data,ranked]);
 
   function shareMatch(match:Match){ setShareTarget({kind:"match",id:match.id}); setModal("share"); }
@@ -2630,6 +2631,10 @@ function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOppone
 function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFindOpponent,onShare}:{player:Player;rank:number;data:AppState;onCompare:(opponent:Player)=>void;onViewAllMatches:()=>void;onMatch:(matchId:string)=>void;onFindOpponent:(playerId:string,date:string)=>void;onShare:()=>void}) { const g=games(player),related=data.matches.filter(m=>m.a===player.id||m.b===player.id),suggested=suggestedHandicap(player,data),series=playerSeries(player,data),trendPoints=playerTrendPoints(player,data),high=Math.max(...series),low=Math.min(...series);const provisional=g<data.settings.provisionalGames;
   const frameTrend=recentFramesPerMatch(player,data,5);
   const highestBreak=data.matches.filter(m=>m.status==="confirmed").flatMap(m=>(m.highBreaks??[]).filter(item=>item.playerId===player.id).map(item=>item.value)).reduce((max,value)=>Math.max(max,value),0);
+  /* Memoised where the neighbouring stats are not: those are single passes over the match list,
+     while this builds a bracket per cup the player entered, and the profile re-renders on every
+     slot fetch and chart hover. */
+  const honour=useMemo(()=>honourText(playerHonours(data.tournaments,data.matches,player.id)),[data.tournaments,data.matches,player.id]);
   /* One hero, then a single `.profile-body` grid: every section below is a `.profile-section`, so the
      gaps, surfaces and heads come from one place rather than from each section's own margins. */
   /* A plain div, not a <header>: the global `header{height:62px}` page rule would clamp this and
@@ -2639,6 +2644,9 @@ function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFin
     <div className="profile-identity">
       <h2>{player.name}</h2>
       <div className="profile-chips"><span className="profile-chip">排名 #{rank||"—"}</span><span className={`profile-chip${provisional?" provisional":""}`}>{provisional?"臨時 ELO":"正式 ELO"}</span><span className="profile-chip">{g} 場</span>
+        {/* A cup finish is the one thing on this profile the leaderboard can never show, so it sits
+            in the identity row with the rank rather than in a section below the fold. */}
+        {honour&&<span className="profile-chip honour"><CupMark/>{honour}</span>}
         {/* A profile is the other half of the share story: on a quiet week there is no fresh result
             to post, but a rating and a rank are always worth showing — and a card carrying the
             club's name into somebody's Instagram does the same job either way. It rides in the chip

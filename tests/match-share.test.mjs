@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   describeMatch, handicapText, matchShareDescription, matchShareMessage, matchShareTitle,
-  cupText, matchShareUrl, playerShareUrl, recordShareDescription, recordShareMessage, recordShareTitle,
+  cupText, honourText, matchShareUrl, playerShareUrl, recordShareDescription, recordShareMessage, recordShareTitle,
   shareLoser, shareScoreline, shareWinner,
 } from "../lib/match-share.ts";
 
@@ -134,7 +134,40 @@ test("a deleted player is named rather than left blank", () => {
 const record = (overrides = {}) => ({
   name: "陳大文", short: "CTM", colour: "wine", avatar: null, rank: 3, rating: 1642,
   provisional: false, played: 48, wins: 29, losses: 16, draws: 3, frameRate: 0.583,
-  highestBreak: 102, form: ["W", "W", "L"], swing: 34, ...overrides,
+  highestBreak: 102, form: ["W", "W", "L"], swing: 34, honours: [], ...overrides,
+});
+
+const champion = (name = "南華會週年會友盃") => ({ name, place: "champion" });
+const runnerUp = (name = "南華會週年會友盃") => ({ name, place: "runnerUp" });
+
+test("one honour is named; several collapse to a count", () => {
+  // The cup's own name is the boast when there is one of it. Three cup names in a row is a
+  // paragraph, and a paragraph is not a badge.
+  assert.equal(honourText([champion()]), "南華會週年會友盃 冠軍");
+  assert.equal(honourText([champion(), champion("春季賽")]), "盃賽冠軍 ×2");
+  assert.equal(honourText([]), "");
+});
+
+test("a title always outranks a final, however many finals were lost", () => {
+  // A player with a trophy does not want to be introduced by the year they lost one.
+  assert.equal(honourText([runnerUp("春季賽"), champion(), runnerUp("秋季賽")]), "南華會週年會友盃 冠軍");
+});
+
+test("runner-up shows only in the absence of any title", () => {
+  assert.equal(honourText([runnerUp()]), "南華會週年會友盃 亞軍");
+  assert.equal(honourText([runnerUp(), runnerUp("春季賽")]), "盃賽亞軍 ×2");
+});
+
+test("a title leads the record's pitch, ahead of the rank", () => {
+  // A rank is this month; a cup is forever, and it is the first thing a stranger should be told.
+  const description = recordShareDescription(record({ honours: [champion()] }));
+  assert.ok(description.indexOf("南華會週年會友盃 冠軍") < description.indexOf("球會排名"), description);
+  assert.match(recordShareMessage(record({ honours: [champion()] }), "https://x/p/1"), /🏆 南華會週年會友盃 冠軍/);
+});
+
+test("a player with no cup history is never given an empty badge", () => {
+  const copy = `${recordShareDescription(record())} ${recordShareMessage(record(), "https://x/p/1")}`;
+  assert.doesNotMatch(copy, /🏆|冠軍|亞軍/);
 });
 
 test("a record share leads with the rating and keeps the rank honest", () => {

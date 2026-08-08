@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { getCurrentMember } from "../../../db/auth";
 import { getState } from "../../../db/state";
-import { playerShareUrl, recordShareDescription, recordShareMessage, recordShareTitle, type RecordShareState } from "../../../lib/match-share";
+import { honourText, playerShareUrl, recordShareDescription, recordShareMessage, recordShareTitle, type RecordShareState } from "../../../lib/match-share";
 import { recordStoryCard } from "../../../lib/story-card";
+import { playerHonours, type TournamentLike } from "../../../lib/tournament";
 import { shareOrigin } from "../../share-origin";
 import RecordShareView from "./RecordShareView";
 
@@ -12,11 +13,15 @@ type StoredPlayer = {
   id: string; name: string; short?: string | null; colour?: string | null; avatar?: string | null;
   rating: number; wins: number; losses: number; draws: number; framesWon: number; framesLost: number; form?: string[];
 };
+/* Carries the frame scores and cup fields as well as the rating ones: the honours badge is decided
+   by who won the final, which is bracket maths over the same match rows. */
 type StoredMatch = {
-  a: string; b: string; a2?: string; b2?: string; mode?: string; status?: string;
+  id?: string; a: string; b: string; a2?: string; b2?: string; mode?: string; status?: string;
+  scoreA: number; scoreB: number;
+  tournamentId?: string; tournamentRound?: number; tournamentMatchIndex?: number;
   playedOn?: string; createdAt?: string; deltaA: number; highBreaks?: { playerId: string; value: number }[];
 };
-type State = { players?: StoredPlayer[]; matches?: StoredMatch[]; settings?: { provisionalGames?: number } };
+type State = { players?: StoredPlayer[]; matches?: StoredMatch[]; tournaments?: TournamentLike[]; settings?: { provisionalGames?: number } };
 
 const played = (player: StoredPlayer) => player.wins + player.losses + player.draws;
 
@@ -58,6 +63,7 @@ async function load(id: string): Promise<{ share: RecordShareState } | null> {
       highestBreak: breaks.length ? Math.max(...breaks) : 0,
       form: (player.form ?? []).slice(0, 5),
       swing: Math.round(recentSwing(id, matches)),
+      honours: playerHonours(state.tournaments ?? [], matches, id),
     },
   };
 }
@@ -88,7 +94,7 @@ export default async function SharedRecordPage({ params }: { params: Promise<{ i
   const url = site ? playerShareUrl(site, id) : "";
   return <RecordShareView
     share={data.share}
-    card={recordStoryCard(data.share, url)}
+    card={recordStoryCard(data.share, url, honourText(data.share.honours))}
     message={recordShareMessage(data.share, url)}
     url={url}
     signedIn={Boolean(member?.statePlayerId)} />;

@@ -237,6 +237,40 @@ export function firstRoundPairings(tournament:TournamentLike,now=Date.now()):{pl
 
 /** The round a cup has reached — the live one, or the final once everything is settled. Lives here
     rather than in the share copy so the wording module stays free of bracket maths. */
+/** A cup a player finished at the very top of, or one step from it. */
+export type Honour = { tournamentId:string; name:string; place:"champion"|"runnerUp" };
+
+/** A player's cup honours, newest cup first.
+ *
+ *  Only the two places worth a badge. Third is not a place in a knockout — the two beaten
+ *  semi-finalists are indistinguishable without a play-off the club has never held — so claiming one
+ *  would be inventing a result, and a badge that overstates is worse than no badge.
+ *
+ *  Runner-up is carried because the surfaces choose to show it only when a player has no title yet.
+ *  Someone who reached a final and lost it has done something the leaderboard cannot show, and a
+ *  profile that says nothing about it is a profile that forgets the club's own history. */
+export function playerHonours<M extends CupMatchLike>(
+  tournaments:TournamentLike[],matches:M[],playerId:string,options:{now?:number}={}
+):Honour[] {
+  if(!playerId)return [];
+  const honours:Honour[]=[];
+  for(const tournament of tournaments){
+    if(!tournament.signups?.includes(playerId))continue;
+    const bracket=buildBracket(tournament,matches,options);
+    if(!bracket.champion)continue;
+    if(bracket.champion===playerId){
+      honours.push({tournamentId:tournament.id,name:tournament.name,place:"champion"});
+      continue;
+    }
+    /* The final is the only slot in the last round, and its loser is the runner-up. A bye into an
+       unplayed final leaves the other seat empty, in which case there is no runner-up to name. */
+    const final=slotAt(bracket,bracket.rounds,1);
+    const loser=final?(final.a===bracket.champion?final.b:final.a):"";
+    if(loser===playerId)honours.push({tournamentId:tournament.id,name:tournament.name,place:"runnerUp"});
+  }
+  return honours;
+}
+
 export function currentRoundLabel(bracket:Bracket|null|undefined):string {
   if(!bracket?.rounds)return "";
   const live=bracket.slots.find(slot=>slot.state==="ready"||slot.state==="waiting");

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bracketShape, buildBracket, computeDraw, firstRoundPairings, playerEliminated, opponentIn, playerSlot, roundLabel, signupsClosed, swapPlayer } from "../lib/tournament.ts";
+import { bracketShape, buildBracket, computeDraw, firstRoundPairings, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, roundLabel, signupsClosed, swapPlayer } from "../lib/tournament.ts";
 
 const PAST = "2020-01-01T00:00";
 const FUTURE = "2999-01-01T00:00";
@@ -170,4 +170,59 @@ test("swaps are refused for unknown, self-paired or already-played entrants", ()
   assert.equal(withResult.error, "該球員已有賽果，不能更換");
   assert.equal(swapPlayer(drawn, "p3", "p1", [result(1, 1, "p1", "p2", 3, 0)]).ok, false);
   assert.equal(swapPlayer(drawn, "p3", "p9", [result(1, 1, "p1", "p2", 3, 0)]).ok, true);
+});
+
+/* Honours — who a cup finish belongs to, and who it does not. */
+
+const finished = () => ({
+  cup: cup({ draw: ["p1", "p2", "p3", "p4"] }),
+  matches: [result(1, 1, "p1", "p2", 3, 1), result(1, 2, "p3", "p4", 0, 3), result(2, 1, "p4", "p1", 4, 2)],
+});
+
+test("the champion gets the title and the beaten finalist gets the final", () => {
+  const { cup: t, matches } = finished();
+  assert.deepEqual(playerHonours([t], matches, "p4"), [{ tournamentId: "t1", name: "會友盃", place: "champion" }]);
+  assert.deepEqual(playerHonours([t], matches, "p1"), [{ tournamentId: "t1", name: "會友盃", place: "runnerUp" }]);
+});
+
+test("a beaten semi-finalist gets nothing, because third is not a place in a knockout", () => {
+  // The two losing semi-finalists are indistinguishable without a play-off the club has never held,
+  // so awarding either one would be inventing a result.
+  const { cup: t, matches } = finished();
+  assert.deepEqual(playerHonours([t], matches, "p2"), []);
+  assert.deepEqual(playerHonours([t], matches, "p3"), []);
+});
+
+test("an unfinished cup awards nothing to anybody", () => {
+  const t = cup({ draw: ["p1", "p2", "p3", "p4"] });
+  const semisOnly = [result(1, 1, "p1", "p2", 3, 1), result(1, 2, "p3", "p4", 0, 3)];
+  for (const player of ["p1", "p2", "p3", "p4"]) {
+    assert.deepEqual(playerHonours([t], semisOnly, player), []);
+  }
+});
+
+test("honours only count cups the player actually entered", () => {
+  const { cup: t, matches } = finished();
+  assert.deepEqual(playerHonours([t], matches, "p9"), []);
+  assert.deepEqual(playerHonours([t], matches, ""), []);
+});
+
+test("titles accumulate across cups", () => {
+  const first = cup({ draw: ["p1", "p2", "p3", "p4"] });
+  const second = { ...cup({ id: "t2", name: "春季賽", draw: ["p1", "p2", "p3", "p4"] }) };
+  const played = id => [result(1, 1, "p1", "p2", 3, 1), result(1, 2, "p3", "p4", 0, 3), result(2, 1, "p4", "p1", 4, 2)]
+    .map(match => ({ ...match, tournamentId: id }));
+  const honours = playerHonours([first, second], [...played("t1"), ...played("t2")], "p4");
+  assert.equal(honours.length, 2);
+  assert.ok(honours.every(item => item.place === "champion"));
+  assert.deepEqual(honours.map(item => item.name), ["會友盃", "春季賽"]);
+});
+
+test("a match's round is named without building a bracket, and an impossible round names nothing", () => {
+  assert.equal(matchRoundLabel(4, 1), "四強");
+  assert.equal(matchRoundLabel(4, 2), "決賽");
+  assert.equal(matchRoundLabel(8, 1), "八強");
+  assert.equal(matchRoundLabel(5, 1), "八強");
+  for (const bad of [0, 4, null, undefined]) assert.equal(matchRoundLabel(4, bad), "");
+  assert.equal(matchRoundLabel(1, 1), "");
 });

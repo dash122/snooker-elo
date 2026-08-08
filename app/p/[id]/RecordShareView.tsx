@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { PlayerBadge } from "../../UiBits";
 import ShareSheet from "../../ShareSheet";
-import type { RecordShareState } from "../../../lib/match-share";
+import { honourText, type RecordShareState } from "../../../lib/match-share";
 import type { RecordStoryCard } from "../../../lib/story-card";
 
 /** The page behind a shared player record.
@@ -11,6 +11,16 @@ import type { RecordStoryCard } from "../../../lib/story-card";
  *  still worth showing — and this is the page a stranger lands on when a member's story card sends
  *  them somewhere. So the call to action is the club's, not the app's: the visitor is invited to
  *  join and play this person, which is the only thing they could possibly want from here. */
+/** The same trophy the story card draws, so the page and the exported image share one mark. */
+function CupMark() {
+  return <svg className="cup-mark" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path d="M4.5 3h11v3.5a5.5 5.5 0 0 1-11 0Z" />
+    <path d="M4.5 3.8C2.4 3.8 2.4 8.2 4.9 8" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    <path d="M15.5 3.8c2.1 0 2.1 4.4-.4 4.2" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    <rect x="8.8" y="11.6" width="2.4" height="2.6" /><rect x="6" y="14" width="8" height="1.9" rx=".9" />
+  </svg>;
+}
+
 export default function RecordShareView({ share, card, message, url, signedIn }: {
   share: RecordShareState | null; card: RecordStoryCard | null; message: string; url: string; signedIn: boolean;
 }) {
@@ -21,6 +31,7 @@ export default function RecordShareView({ share, card, message, url, signedIn }:
     <Link className="primary full share-cta" href="/">開啟 SCAA Snooker</Link>
   </div></main>;
 
+  const honour = honourText(share.honours);
   const stats = [
     { label: "場數", value: String(share.played) },
     { label: "勝／負／和", value: `${share.wins}/${share.losses}/${share.draws}` },
@@ -30,6 +41,9 @@ export default function RecordShareView({ share, card, message, url, signedIn }:
 
   return <main className="cup-share-page record-share-page">
     <div className="record-share-hero">
+      {/* Above the name, not beside it: a cup is the first thing a stranger arriving from a story
+          should be told about this person, and the same ribbon the result page uses says it. */}
+      {honour && <p className="cup-ribbon"><span><CupMark />{honour}</span></p>}
       <PlayerBadge player={{ short: share.short, colour: share.colour, avatar: share.avatar }} />
       <h1>{share.name}</h1>
       <div className="share-chips record-share-chips">
