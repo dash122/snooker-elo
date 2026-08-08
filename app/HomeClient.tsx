@@ -12,7 +12,7 @@ import { cupShareMessage, cupShareState, cupShareUrl, whatsappLink } from "../li
 import { describeMatch, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
 import { recordStoryCard, resultStoryCard } from "../lib/story-card";
 import ShareSheet from "./ShareSheet";
-import { buildBracket, currentRoundLabel, drawOrder, opponentIn, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
+import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 
 type Player = {
   id: string; name: string; short: string; handicap: number | null; rating: number; colour?: string; avatar?: string | null;
@@ -820,8 +820,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     if(shareTarget.kind==="match"){
       const match=data.matches.find(item=>item.id===shareTarget.id);
       if(!match)return null;
-      const cupName=match.tournamentId?data.tournaments.find(item=>item.id===match.tournamentId)?.name??"":"";
-      const state=describeMatch(match,data.players,cupName);
+      const state=describeMatch(match,data.players,cupFor(match,data));
       const url=matchShareUrl(origin,match.id);
       return {card:resultStoryCard(state,url),message:matchShareMessage(state,url),url,title:matchShareTitle(state)};
     }
@@ -1886,6 +1885,28 @@ function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManageMatch
 // Collapsed by default: who played, the score, and each player's own ELO
 // swing — the facts a user scans for. Edit/delete controls and the deeper
 // math (before→after, predicted ratio, handicap detail) stay one tap away.
+/** The competition a match belonged to, named and staged, or null for an ordinary club game.
+ *
+ *  One derivation for every surface: the share sheet, the story card and the match card's own badge
+ *  all call it, so a tie can never be a semi-final in one place and unlabelled in another. */
+/** The same trophy the story card draws, at chip size — an emoji would render as a different mark
+    in the app than in the exported image, and the two are meant to read as one system. */
+function CupMark(){
+  return <svg className="cup-mark" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path d="M4.5 3h11v3.5a5.5 5.5 0 0 1-11 0Z"/>
+    <path d="M4.5 3.8C2.4 3.8 2.4 8.2 4.9 8" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+    <path d="M15.5 3.8c2.1 0 2.1 4.4-.4 4.2" fill="none" stroke="currentColor" strokeWidth="1.4"/>
+    <rect x="8.8" y="11.6" width="2.4" height="2.6"/><rect x="6" y="14" width="8" height="1.9" rx=".9"/>
+  </svg>;
+}
+
+function cupFor(match:Match,data:AppState){
+  if(!match.tournamentId)return null;
+  const tournament=data.tournaments.find(item=>item.id===match.tournamentId);
+  if(!tournament)return null;
+  return {name:tournament.name,round:matchRoundLabel(tournament.signups?.length??0,match.tournamentRound)};
+}
+
 function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,highlighted=false}:{data:AppState;match:Match;canManage:boolean;name:(id:string)=>string;onPlayer:(id:string)=>void;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onShare:(m:Match)=>void;highlighted?:boolean}) {
   const [open,setOpen]=useState(false);
   // Scrolling to the card beats trusting it to be at the top: a backdated
@@ -1912,8 +1933,13 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
     actual>0?`${leftLabel} 每局讓 ${rightLabel} ${actual} 分`
     :actual<0?`${rightLabel} 每局讓 ${leftLabel} ${Math.abs(actual)} 分`
     :"不設讓分";
-  return <article ref={card} className={`match ${m.status}${isEntertainmentMode(m.mode)?" entertainment":""}${highlighted?" just-saved":""}`}>
-    <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time>{isEntertainmentMode(m.mode)?<small className="match-entertainment-badge">潮拍 2v2 · 不計 ELO</small>:<small className="match-net-elo" aria-label={`ELO ${Math.round(Math.abs(m.deltaA))}`}>ELO {Math.round(Math.abs(m.deltaA))}</small>}{highlighted&&<span className="pill just-saved-pill">剛剛記錄</span>}{m.status==="void"&&<span className="pill">已作廢</span>}{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
+  /* A cup tie used to be indistinguishable from a Tuesday night frame in this list, which is the
+     one place a member scrolls looking for the game they remember. It gets a gold edge on the board
+     and a chip naming the round — the edge does the finding, the chip does the telling, and neither
+     costs a row. */
+  const cup=cupFor(m,data);
+  return <article ref={card} className={`match ${m.status}${isEntertainmentMode(m.mode)?" entertainment":""}${cup?" is-cup":""}${highlighted?" just-saved":""}`}>
+    <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time>{cup&&<small className={`match-cup-badge${cup.round?" has-round":""}`} title={cup.round?`${cup.name} · ${cup.round}`:cup.name}><CupMark/>{cup.round&&<b>{cup.round}</b>}<span>{cup.name}</span></small>}{isEntertainmentMode(m.mode)?<small className="match-entertainment-badge">潮拍 2v2 · 不計 ELO</small>:<small className="match-net-elo" aria-label={`ELO ${Math.round(Math.abs(m.deltaA))}`}>ELO {Math.round(Math.abs(m.deltaA))}</small>}{highlighted&&<span className="pill just-saved-pill">剛剛記錄</span>}{m.status==="void"&&<span className="pill">已作廢</span>}{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
       {/* Sharing sits with the card's own tools rather than behind the expander: the urge to show a
           result off lasts about as long as the walk back to the table, and a share hidden one tap
           down is a share that does not happen. Offered to every reader, not only to whoever may

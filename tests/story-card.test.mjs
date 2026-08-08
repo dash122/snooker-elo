@@ -15,7 +15,7 @@ const players = [
 const state = (overrides = {}) => describeMatch({
   a: "p1", b: "p2", scoreA: 4, scoreB: 2, playedOn: "2026-08-08",
   actual: -4, deltaA: 18.4, highBreaks: [{ playerId: "p1", value: 87 }], ...overrides,
-}, players, overrides.cupName ?? "");
+}, players, overrides.cup ?? null);
 
 const resultSvg = (overrides = {}) => storySvg(resultStoryCard(state(overrides), "https://x.hk/m/1"), hex);
 
@@ -45,6 +45,39 @@ test("the facts on the card are the facts in the share state", () => {
   for (const fact of ["陳大文", "李小強", ">4<", ">2<", "2026-08-08", "87", "ELO ±18"]) {
     assert.ok(svg.includes(fact), `missing ${fact}`);
   }
+});
+
+const CUP = { name: "南華會週年會友盃", round: "準決賽" };
+
+test("a cup tie wears the ribbon; a club game keeps the plain rule", () => {
+  const cupSvg = resultSvg({ cup: CUP });
+  const plain = resultSvg();
+  // The ribbon is two hairlines with the round in the break, so a cup card has two rules where an
+  // ordinary one has a single centred rule — and the ribbon adds no height to the header.
+  assert.equal((cupSvg.match(/<line[^>]*y1="244"/g) ?? []).length, 2);
+  assert.equal((plain.match(/<line[^>]*y1="244"/g) ?? []).length, 1);
+  assert.match(cupSvg, /準決賽/);
+});
+
+test("the cup's name headlines the card and the round stays in the ribbon", () => {
+  // Both on one line would shrink both. The name goes where 球會對局 goes; the round does not.
+  const svg = resultSvg({ cup: CUP });
+  assert.match(svg, /y="350"[^>]*>南華會週年會友盃</);
+  assert.doesNotMatch(svg, /南華會週年會友盃 · 準決賽/);
+});
+
+test("the trophy is drawn, never typed", () => {
+  // An emoji would depend on whichever colour emoji font the rasterising browser has; a path does
+  // not. The story card and the banners must contain no emoji at all.
+  for (const svg of [resultSvg({ cup: CUP }), resultSvg(), storySvg(record(), hex), shareBannerSvg("match")]) {
+    assert.doesNotMatch(svg, /\p{Extended_Pictographic}/u);
+  }
+});
+
+test("a cup tie with no nameable round falls back to the plain rule, not an empty ribbon", () => {
+  const svg = resultSvg({ cup: { name: "南華會週年會友盃", round: "" } });
+  assert.equal((svg.match(/<line[^>]*y1="244"/g) ?? []).length, 1);
+  assert.match(svg, /南華會週年會友盃/);
 });
 
 test("a friendly 2v2 is labelled as one and shows no ELO swing", () => {

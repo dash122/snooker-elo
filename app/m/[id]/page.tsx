@@ -3,13 +3,14 @@ import { getCurrentMember } from "../../../db/auth";
 import { getState } from "../../../db/state";
 import { describeMatch, matchShareDescription, matchShareMessage, matchShareTitle, matchShareUrl, type ShareMatchLike, type SharePlayerLike } from "../../../lib/match-share";
 import { resultStoryCard } from "../../../lib/story-card";
+import { matchRoundLabel } from "../../../lib/tournament";
 import { shareOrigin } from "../../share-origin";
 import MatchShareView from "./MatchShareView";
 
 export const dynamic = "force-dynamic";
 
-type StoredMatch = ShareMatchLike & { id: string; status?: string; tournamentId?: string };
-type State = { players?: SharePlayerLike[]; matches?: StoredMatch[]; tournaments?: { id: string; name: string }[] };
+type StoredMatch = ShareMatchLike & { id: string; status?: string; tournamentId?: string; tournamentRound?: number };
+type State = { players?: SharePlayerLike[]; matches?: StoredMatch[]; tournaments?: { id: string; name: string; signups?: string[] }[] };
 
 /** Everything the page and its meta tags need, read once.
  *
@@ -22,10 +23,16 @@ async function load(id: string) {
   try { state = JSON.parse(raw) as State; } catch { return null; }
   const match = (state.matches ?? []).find(item => item.id === id);
   if (!match || match.status === "void") return null;
-  const cupName = match.tournamentId
-    ? (state.tournaments ?? []).find(item => item.id === match.tournamentId)?.name ?? ""
-    : "";
-  return { share: describeMatch(match, state.players ?? [], cupName) };
+  const tournament = match.tournamentId
+    ? (state.tournaments ?? []).find(item => item.id === match.tournamentId)
+    : undefined;
+  /* The round is derived from the entrant count rather than stored on the match, exactly as the app
+     derives it, so a cup whose roster was edited relabels its ties instead of contradicting the
+     bracket. */
+  const cup = tournament
+    ? { name: tournament.name, round: matchRoundLabel(tournament.signups?.length ?? 0, match.tournamentRound) }
+    : null;
+  return { share: describeMatch(match, state.players ?? [], cup) };
 }
 
 /** The link preview is the pitch. A result pasted into the club's WhatsApp group reaches members who
