@@ -8,7 +8,8 @@ import { TonightStrip, actionableCount, useMatchmakingSummary } from "./Matchmak
 import { registerServiceWorker } from "./push-client";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
-import { cupShareMessage, cupShareState, cupShareUrl, whatsappLink } from "../lib/cup-share";
+import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
+import { ShareGlyph } from "./ShareSheet";
 import { describeMatch, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
 import { recordStoryCard, resultStoryCard } from "../lib/story-card";
 import ShareSheet from "./ShareSheet";
@@ -1627,14 +1628,17 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   /* Sharing a cup is the app's best word-of-mouth moment: the link lands in the club's WhatsApp
      group, where most of the members who have never opened the app already are. The native sheet
      goes first on a phone (WhatsApp is the first row for most of them), wa.me is the desktop path. */
-  const shareCup=async(item:Tournament)=>{
+  const shareStateOf=(item:Tournament)=>{
     const itemBracket=buildBracket<Match>(item,data.matches);
-    const state=cupShareState({
+    return cupShareState({
       signupDeadline:item.signupDeadline,entrants:item.signups?.length??0,closed:signupsClosed(item),
       drew:Boolean(itemBracket.size),
       roundName:currentRoundLabel(itemBracket),
       championName:itemBracket.champion?name(itemBracket.champion):"",
     });
+  };
+  const shareCup=async(item:Tournament)=>{
+    const state=shareStateOf(item);
     const url=cupShareUrl(window.location.origin,item.id);
     const message=cupShareMessage(item.name,state,url);
     if(navigator.share){
@@ -1642,8 +1646,17 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     }
     window.open(whatsappLink(message),"_blank","noopener");
   };
-  const shareButton=(item:Tournament,className="cup-btn ghost")=>
-    <button type="button" className={className} onClick={()=>void shareCup(item)}>分享<span aria-hidden="true">↗</span></button>;
+  /* Named for where the tap lands and what it is for. 「分享」 described the mechanism; while a cup is
+     recruiting the button's actual job is to put another member in the draw, and a button that says
+     so is pressed by people who would not have pressed the other one. */
+  const shareButton=(item:Tournament,className="cup-btn ghost",compact=false)=>{
+    const state=shareStateOf(item);
+    const cta=cupShareCta(state);
+    return <button type="button" className={`${className} wa-btn`} onClick={()=>void shareCup(item)} aria-label={cta.label}>
+      <ShareGlyph kind="whatsapp"/>
+      <span>{compact?(state.status==="signup"?"叫人報名":"分享"):cta.label}</span>
+    </button>;
+  };
 
   const controls=(item:Tournament)=><span className="cup-admin"><button type="button" className="cup-admin-btn" aria-label={`編輯 ${item.name}`} onClick={()=>onEditTournament(item)}>✎</button><button type="button" className="cup-admin-btn danger" aria-label={`刪除 ${item.name}`} onClick={()=>onDeleteTournament(item)}>✕</button></span>;
   const avatarStack=(ids:string[])=><span className="cup-avatars">{ids.slice(0,5).map(id=><PlayerBadge key={id} player={player(id)??{short:"?"}}/>)}{ids.length>5&&<i>+{ids.length-5}</i>}</span>;
@@ -1676,7 +1689,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
                 ?<button type="button" className={itemSignedUp?"cup-btn ghost":"cup-btn primary"} onClick={()=>onSignUpTournament(item.id)}>{itemSignedUp?"取消報名":"立即報名"}</button>
                 :<a className="cup-btn primary" href="/login">登入後報名</a>)}
               <button type="button" className={`cup-btn ${status==="signup"?"ghost":"primary"}`} onClick={()=>setSelectedTournament(item.id)}>{status==="signup"?"睇對陣預覽":"睇賽程"}<span aria-hidden="true">›</span></button>
-              {shareButton(item,"cup-btn ghost")}
+              {shareButton(item,"cup-btn ghost",true)}
             </div>
           </div>
         </article>;
@@ -1753,6 +1766,8 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     </li>;
   };
 
+  const shareState=shareStateOf(tournament);
+  const shareUrgency=cupUrgency(shareState);
   return <section className="cup">
     <button type="button" className="cup-back" onClick={()=>setSelectedTournament("")}><span aria-hidden="true">‹</span> 所有盃賽</button>
     <header className={`cup-banner is-${status}`}>
@@ -1770,8 +1785,13 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       </div>
     </header>
 
-    <div className="cup-share-row">
-      <div><b>{status==="signup"?"叫多幾個人嚟報名":"分享賽程同賽果"}</b><small>連結任何人都開得到，唔使登入都睇到對陣同賽果。</small></div>
+    {/* Recruiting is the one state where sharing is not a nicety — a cup with four entrants is a
+        worse cup — so the ask is loud, states the clock, and names WhatsApp rather than 「分享」. */}
+    <div className={`cup-share-row${status==="signup"?" recruiting":""}`}>
+      <div>
+        <b>{status==="signup"?`叫多幾個會友嚟報名${shareUrgency.label?`｜${shareUrgency.label}`:""}`:"分享賽程同賽果"}</b>
+        <small>{cupShareCta(shareState).hint}</small>
+      </div>
       {shareButton(tournament,"cup-btn primary")}
     </div>
 

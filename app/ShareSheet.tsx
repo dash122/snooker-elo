@@ -75,7 +75,7 @@ export default function ShareSheet({ card, message, url, title }: { card: StoryC
 
 /* Drawn rather than lettered: the two brands' own marks are theirs, and a plain glyph in the app's
    own hand says "this goes to WhatsApp" without borrowing anyone's logo. */
-function ShareGlyph({ kind }: { kind: "whatsapp" | "instagram" | "link" }) {
+export function ShareGlyph({ kind }: { kind: "whatsapp" | "instagram" | "link" }) {
   if (kind === "whatsapp") return <i className="share-glyph" aria-hidden="true">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20.5l1.7-5.2A8.5 8.5 0 1 1 21 11.5Z" />

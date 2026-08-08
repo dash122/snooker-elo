@@ -4345,6 +4345,22 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
 .cup-share-row b{display:block;font-size:var(--fs-body)}
 .cup-share-row small{display:block;margin-top:.125rem;color:var(--muted);font-size:var(--fs-caption);line-height:1.45}
 .cup-share-row .cup-btn{flex:0 0 auto}
+/* While entries are open, this row is the recruiting ask rather than a courtesy — it gets the
+   green the rest of the app reserves for WhatsApp, so the eye finds it before the roster. */
+.cup-share-row.recruiting{border-color:rgba(37,163,90,.42);background:linear-gradient(135deg,#f2fbf5,#fdfaf1)}
+
+/* A button whose whole point is that the tap ends in WhatsApp says so twice: the mark, and the
+   word. The glyph is the app's own hand — see .share-glyph — not WhatsApp's logo. */
+.wa-btn{display:inline-flex;align-items:center;gap:.5rem;justify-content:center}
+.wa-btn .share-glyph{width:1.35rem;height:1.35rem;border-radius:50%;background:#25a35a;color:#fff}
+.wa-btn .share-glyph svg{width:.95rem;height:.95rem}
+.wa-btn.primary .share-glyph{background:rgba(255,255,255,.22)}
+
+/* The clock on a recruiting cup. Gold while there is time, alarm-red in the last three days —
+   the one place in the app allowed to shout, because after the deadline there is no way in. */
+.cup-urgency{display:inline-flex;align-items:center;padding:.125rem .5rem;border-radius:999px;
+  font-size:var(--fs-caption);font-weight:700;background:rgba(232,194,106,.22);color:#f2dfae}
+.cup-urgency.hot{background:#ff6b5a;color:#2a0906}
 
 /* The guest landing page behind a shared link: same components as the app, without the chrome a
    reader who has never signed in has no use for. */

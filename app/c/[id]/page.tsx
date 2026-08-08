@@ -1,56 +1,34 @@
 import type { Metadata } from "next";
 import { getCurrentMember } from "../../../db/auth";
-import { getState } from "../../../db/state";
-import { cupShareDescription, cupShareState, cupShareTitle, cupShareUrl } from "../../../lib/cup-share";
-import { buildBracket, currentRoundLabel, roundLabel, signupsClosed, type CupMatchLike, type TournamentLike } from "../../../lib/tournament";
+import { cupOgImageUrl, cupShareDescription, cupShareTitle, cupShareUrl } from "../../../lib/cup-share";
+import { roundLabel } from "../../../lib/tournament";
+import { loadCupShare } from "../../cup-share-data";
 import { shareOrigin } from "../../share-origin";
 import CupShareView, { type SharedCup } from "./CupShareView";
 
 export const dynamic = "force-dynamic";
 
-type Player = { id:string; name:string; short?:string|null; rating?:number; colour?:string|null; avatar?:string|null };
-type CupMatch = CupMatchLike & { playedOn?:string };
-type State = { players?:Player[]; matches?:CupMatch[]; tournaments?:TournamentLike[] };
-
-/** Everything the page and its meta tags need, read once. */
-async function load(id:string){
-  const raw=await getState().catch(()=>null);
-  if(!raw)return null;
-  let state:State;
-  try{ state=JSON.parse(raw) as State; }catch{ return null; }
-  const tournament=(state.tournaments??[]).find(item=>item.id===id);
-  if(!tournament)return null;
-  const closed=signupsClosed(tournament);
-  const bracket=closed?buildBracket<CupMatch>(tournament,state.matches??[]):null;
-  const player=(playerId:string)=>(state.players??[]).find(item=>item.id===playerId);
-  const entrants=tournament.signups?.length??0;
-  const share=cupShareState({
-    signupDeadline:tournament.signupDeadline,entrants,closed,
-    drew:Boolean(bracket?.size),
-    roundName:currentRoundLabel(bracket),
-    championName:bracket?.champion?player(bracket.champion)?.name:"",
-  });
-  return {tournament,bracket,share,player,players:state.players??[]};
-}
-
 /** The link preview *is* the pitch. A cup pasted into the club's WhatsApp group reaches members who
-    have never opened the app, so the tags are built from the cup's live state — places left and the
-    deadline while recruiting, the round or the champion once it is running. */
+    have never opened the app, so all three tags — title, description and the poster above them — are
+    built from the cup's live state: the clock and the crowd while recruiting, the round or the
+    champion once it is running. */
 export async function generateMetadata({params}:{params:Promise<{id:string}>}):Promise<Metadata> {
   const {id}=await params;
-  const data=await load(id);
+  const data=await loadCupShare(id);
   const site=await shareOrigin();
   if(!data)return {title:"搵唔到呢個盃賽｜SCAA Snooker",robots:{index:false}};
   const title=cupShareTitle(data.tournament.name,data.share);
   const description=cupShareDescription(data.share);
   const url=site?cupShareUrl(site,id):undefined;
-  const image=site?`${site}/cup-share.jpg`:"/cup-share.jpg";
+  /* Per cup, not one banner for all of them: the poster carries this cup's name, its clock and its
+     entry count, which is the whole reason a preview earns a second of anyone's attention. */
+  const image=site?cupOgImageUrl(site,id,data.share):"/cup-share.jpg";
   return {
     title,description,
     /* WhatsApp reads Open Graph and nothing else; Telegram and iMessage follow the same tags, and the
        Twitter card keeps a summary_large_image rather than falling back to a bare link. */
     openGraph:{title,description,url,type:"website",siteName:"SCAA Snooker",locale:"zh_HK",
-      images:[{url:image,width:1200,height:630,alt:"SCAA Snooker 球會賽事"}]},
+      images:[{url:image,width:1200,height:630,alt:`${data.tournament.name}｜SCAA Snooker 會友盃`}]},
     twitter:{card:"summary_large_image",title,description,images:[image]},
     alternates:url?{canonical:url}:undefined,
   };
@@ -58,7 +36,7 @@ export async function generateMetadata({params}:{params:Promise<{id:string}>}):P
 
 export default async function SharedCupPage({params}:{params:Promise<{id:string}>}){
   const {id}=await params;
-  const [member,data,site]=await Promise.all([getCurrentMember(),load(id),shareOrigin()]);
+  const [member,data,site]=await Promise.all([getCurrentMember(),loadCupShare(id),shareOrigin()]);
   if(!data)return <CupShareView cup={null} url="" signedIn={false}/>;
   const {tournament,bracket,share,player}=data;
   const name=(playerId:string)=>player(playerId)?.name??"待定";

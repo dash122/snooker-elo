@@ -3,7 +3,8 @@ import Link from "next/link";
 import { useState } from "react";
 import CupBracketChart, { type BracketChartData } from "../../CupBracketChart";
 import { PlayerBadge } from "../../UiBits";
-import { cupShareMessage, whatsappLink, type CupShareState } from "../../../lib/cup-share";
+import { cupShareCta, cupShareMessage, cupUrgency, whatsappLink, type CupShareState } from "../../../lib/cup-share";
+import { ShareGlyph } from "../../ShareSheet";
 
 type Badge = { id:string; name:string; short:string; colour?:string|null; avatar?:string|null };
 type Side = { player:Badge|null; score:number|null; won:boolean };
@@ -44,6 +45,8 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
   const liveRound=cup.rounds.find(round=>round.ties.some(tie=>tie.state==="ready"||tie.state==="waiting"))?.round
     ??cup.rounds.at(-1)?.round;
   const message=cupShareMessage(cup.name,share,url);
+  const cta=cupShareCta(share);
+  const urgency=cupUrgency(share);
   const shareOut=async()=>{
     /* The native sheet is the right surface on a phone — it lists WhatsApp first for most members —
        and the wa.me link is the desktop fallback rather than a second-class path. */
@@ -65,6 +68,7 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
         <p className="share-kicker">SCAA Snooker · 會友盃</p>
         <h1>{cup.name}</h1>
         <p className="cup-share-status"><span className={`cup-chip is-${share.status}`}>{STATUS_LABEL[share.status]}</span>
+          {urgency.label&&share.status==="signup"&&<span className={`cup-urgency${urgency.hot?" hot":""}`}>{urgency.label}</span>}
           <span>{share.status==="signup"?`${share.entrants} 人報名 · ${share.deadline} 截止`
             :share.status==="done"?`${share.entrants} 人參賽 · 冠軍 ${cup.champion?.name??""}`
             :share.status==="short"?"報名人數不足":`${share.entrants} 人參賽 · 打到${share.roundName}`}</span></p>
@@ -75,7 +79,11 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
       {share.status==="signup"
         ?<Link className="cup-btn primary" href={signedIn?"/?tab=matches&view=cup":"/login?mode=signup"}>{signedIn?"入去報名":"註冊並報名"}</Link>
         :<Link className="cup-btn primary" href="/?tab=matches&view=cup">開啟 App 睇全部</Link>}
-      <button type="button" className="cup-btn ghost" onClick={()=>void shareOut()}>分享畀朋友</button>
+      {/* The reader of a shared link is the club's best recruiter: they are already in the group
+          chat this cup needs to reach. So the button names WhatsApp and names the outcome. */}
+      <button type="button" className="cup-btn ghost wa-btn" onClick={()=>void shareOut()}>
+        <ShareGlyph kind="whatsapp"/><span>{cta.label}</span>
+      </button>
       <button type="button" className="cup-btn ghost" onClick={()=>void copy()}>{copied?"已複製連結":"複製連結"}</button>
     </div>
 
@@ -108,6 +116,6 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
       </li>)}</ol>
     </section>)}
 
-    <p className="share-foot">未係會員都睇到呢頁 — SCAA Snooker 嘅盃賽連結。</p>
+    <p className="share-foot">{cta.hint}</p>
   </main>;
 }
