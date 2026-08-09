@@ -780,7 +780,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   owed:queueItems.length,upcoming:confirmedMatches.length,intent:myIntent,pendingAsks,
  }),[queueItems.length,confirmedMatches.length,myIntent,pendingAsks]);
  return <section className="availability-page">
-<section className="hero small availability-hero"><div><p className="kicker">SCAA MATCHMAKING</p><h1>今晚，打場好波。</h1><p>加入現成球局，或者公開時間等合適球友回應。</p></div><span className="availability-hero-mark" aria-hidden="true"><i/><i/><i/><i/><i/><i/></span></section>
+<section className="hero small availability-hero"><div><p className="kicker">SCAA MATCHMAKING</p><h1>約戰</h1><p>搵一場啱你嘅球局，或者開一場等人加入。</p></div></section>
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
 {!editor&&<>
 {/* STATE · OWED — somebody is waiting on this member. Nothing else belongs on screen: everything
