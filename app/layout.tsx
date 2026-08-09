@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./styles/tokens.css";
 import "./styles/foundation.css";
 import "./styles/components.css";
+import "./styles/core-ranking.css";
 import "./styles/matchmaking.css";
 import "./globals.css";
 
