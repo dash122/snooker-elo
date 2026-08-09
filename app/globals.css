@@ -4835,3 +4835,190 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
 .availability-page .free-now-button,.availability-page .sl-primary,.availability-page .ses-go{background:linear-gradient(110deg,#d9ae60,#bd8939);border-color:rgba(255,255,255,.28);color:#132f29;box-shadow:0 .8rem 1.8rem rgba(128,85,21,.2),inset 0 1px rgba(255,255,255,.45)}
 .availability-page .free-now-button:hover,.availability-page .sl-primary:hover,.availability-page .ses-go:hover{background:linear-gradient(110deg,#e1ba70,#c89545);color:#102b26;box-shadow:0 1rem 2.2rem rgba(128,85,21,.24),inset 0 1px rgba(255,255,255,.5)}
 .availability-page .free-now-durations button.active,.availability-page .venue-chips button.active{background:linear-gradient(135deg,#134f43,#0c3c33);border-color:#0f4a3f;color:#fff;box-shadow:0 .35rem .85rem rgba(11,65,54,.18),inset 0 1px rgba(255,255,255,.12)}
+
+/* ==========================================================================
+   MOBILE-FIRST PRODUCT CONTRACT
+   ==========================================================================
+   The app grew feature by feature and several later desktop rules were able to
+   override earlier phone rules. This final layer owns viewport geometry for the
+   whole product. Wide data visualisations may scroll inside their own rail; the
+   document itself never becomes wider than the device. */
+html,body{width:100%;max-width:100%;overflow-x:clip}
+body{min-width:0}
+img,video,canvas,svg{max-width:100%}
+button,input,select,textarea{min-width:0;max-width:100%}
+.shell,.shell>main,.shell>main>*,.availability-page,.account-page,.admin-page,
+.auth-experience,.share-page,.cup-share-page{min-width:0;max-width:100%}
+.shell>main{width:auto}
+.shell>main>section,.shell>main>nav,.shell>main>div{min-width:0}
+main.auth-page,main.auth-experience,main.account-page,main.share-page{margin-left:0;width:100%}
+
+/* Extend the dark-brand / warm-functional rhythm beyond matchmaking. Every
+   primary app view now opens with the same precise, luminous green surface. */
+.shell>main>.hero:not(.availability-hero){position:relative;isolation:isolate;overflow:hidden;
+  margin:0 0 var(--space-block);padding:clamp(1.5rem,3.5vw,2.5rem);
+  border:1px solid rgba(255,255,255,.1);border-radius:var(--radius-lg);color:#f6f7f2;
+  background:radial-gradient(28rem 15rem at 88% 18%,rgba(78,151,123,.28),transparent 68%),
+    linear-gradient(130deg,#082a25,#104c40);
+  box-shadow:0 1.3rem 3.25rem rgba(5,34,29,.2),inset 0 1px rgba(255,255,255,.1)}
+.shell>main>.hero:not(.availability-hero)::after{content:"";position:absolute;z-index:-1;
+  right:-5rem;top:-7rem;width:18rem;height:18rem;border:1px solid rgba(232,199,127,.16);
+  border-radius:50%;box-shadow:0 0 0 3rem rgba(255,255,255,.018)}
+.shell>main>.hero:not(.availability-hero) .kicker{color:var(--gold-light)}
+.shell>main>.hero:not(.availability-hero) h1{color:#fff}
+.shell>main>.hero:not(.availability-hero) p:not(.kicker){color:#b7cbc4}
+.shell>main>.hero:not(.availability-hero) .podium-stats span{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.07)}
+.shell>main>.hero:not(.availability-hero) .podium-stats small{color:#afc7bf}
+.shell>main>.hero:not(.availability-hero) .hero-action{background:linear-gradient(110deg,#ddb467,#bd8939);color:#122f29}
+
+/* The same premium material hierarchy is shared by every functional page. */
+.home-view-panel,.table-card,.match,.player-card,.setting,.audit,.chart-card,.trend-card,
+.detail-chart,.calendar-panel,.match-filter-toolbar,.account-panel,.auth-card,.admin-card,
+.share-card,.match-share-board,.match-share-resend,.record-share-stats>div{
+  border-color:rgba(20,65,57,.1);background:linear-gradient(145deg,rgba(255,254,250,.98),rgba(248,247,241,.98));
+  box-shadow:var(--shadow),inset 0 1px rgba(255,255,255,.9)}
+
+/* Wide comparison artefacts own their overflow. Their parent page does not. */
+.availability-grid-scroll,.h2h-matrix-scroll,.bracket-chart,.cup-tree{max-width:100%;overscroll-behavior-inline:contain}
+
+@media(max-width:820px){
+  .shell{width:100%;max-width:100vw;overflow-x:clip}
+  .shell>main{width:100%;max-width:100vw;margin:0;padding-inline:var(--page-gutter);
+    padding-bottom:calc(6.75rem + env(safe-area-inset-bottom));overflow-x:clip}
+  .shell>main>header{width:100%;min-width:0;gap:.5rem}
+  .mobile-brand{flex:0 1 auto;min-width:0;white-space:nowrap}
+  .account-actions{flex:0 1 auto;min-width:0;max-width:72%;justify-content:flex-end}
+  .account-link{min-width:0;max-width:min(8rem,36vw);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .account-link.sign-in{max-width:5.5rem}
+
+  .shell>main>.hero:not(.availability-hero){margin-inline:calc(-1 * var(--page-gutter));
+    margin-bottom:0;padding:1.6rem var(--page-gutter) 1.8rem;border-width:1px 0 0;border-radius:0;
+    box-shadow:0 1rem 2.5rem rgba(5,34,29,.18)}
+  .shell>main>.hero.small:not(.availability-hero){min-height:9.5rem;align-items:flex-end}
+  .shell>main>.hero:not(.availability-hero) h1{font-size:clamp(2.2rem,11vw,3rem)}
+  .shell>main>.hero:not(.availability-hero) p:not(.kicker){max-width:30rem;font-size:var(--fs-sm)}
+
+  /* Full-width sticky rails are grids, not content-width flex rows. This keeps
+     all labels visible at 320px without allowing the page to pan sideways. */
+  .home-view-nav,main>.match-view-toggle,.availability-tabs{
+    display:grid;width:calc(100% + var(--page-gutter) + var(--page-gutter));max-width:none;
+    margin-inline:calc(-1 * var(--page-gutter));padding-inline:var(--page-gutter);
+    overflow:hidden;overscroll-behavior:none}
+  .home-view-nav{grid-template-columns:repeat(3,minmax(0,1fr))}
+  main>.match-view-toggle{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .availability-tabs{display:flex}
+  .home-view-nav button,.availability-tabs button,main>.match-view-toggle button{
+    width:100%;min-width:0;padding-inline:.35rem;font-size:clamp(.62rem,2.8vw,.78rem);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  main>.match-view-toggle button.active::after{right:.35rem;left:.35rem}
+
+  /* Leaderboard: four tracks must fit the content rail, including 320px
+     devices. Form dots and rating yield before the player's name does. */
+  .table-card{width:100%;max-width:100%;padding-inline:.35rem;overflow:hidden}
+  .row-head-mobile,.row{width:100%;max-width:100%;
+    grid-template-columns:1.55rem minmax(0,1fr) minmax(3.4rem,4.15rem) minmax(2.8rem,3.35rem);
+    gap:.25rem;padding-inline:.2rem}
+  .row>.form{width:auto;min-width:0;max-width:4.15rem;gap:2px}
+  .row>.form i{min-width:0;max-width:.875rem}
+  .row .elo{min-width:0;overflow:hidden}
+  .row .elo b,.row .elo small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row>.person{gap:.45rem}
+  .row>.person>b{overflow:hidden;overflow-wrap:normal;text-overflow:ellipsis;white-space:nowrap}
+  .row>.person>b>small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* Toolbars stack by decision rather than turning into horizontally scrolling
+     desktop rows. */
+  .filters,.player-toolbar,.players-toolbar,.match-filter-toolbar,.match-filter-dates{
+    width:100%;max-width:100%;overflow:visible}
+  .filters{display:grid;grid-template-columns:minmax(0,1fr)}
+  .filters input,.filters select{width:100%;min-width:0}
+  .player-toolbar{display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch}
+  .player-toolbar .toolbar-search,.player-toolbar .sort-controls{width:100%;max-width:none;min-width:0;flex:none}
+  .players-toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto}
+  .match-filter-toolbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding:.55rem}
+  .match-filter-control.player-control{grid-column:1/-1}
+  .match-filter-toolbar .match-player-picker{max-width:100%;flex-wrap:wrap}
+
+  .player-grid,.settings-grid,.visual-grid,.recent-chart-grid{grid-template-columns:minmax(0,1fr)}
+  .player-card,.match,.setting,.audit,.home-view-panel{max-width:100%}
+  .player-main,.player-card-foot,.match>div:first-child,.section-title,.home-panel-head{min-width:0}
+  .sparkline{width:min(5.5rem,28vw)}
+
+  /* Sheets use the visual viewport and never retain a desktop minimum. */
+  .backdrop,.invite-backdrop{max-width:100vw;overflow:hidden}
+  .sheet-shell,.sheet,.invite-sheet{width:100%;max-width:100%;min-width:0}
+  .sheet{max-height:calc(100dvh - env(safe-area-inset-top));overflow-x:hidden}
+  .two,.entry-mode,.team-name-grid{grid-template-columns:minmax(0,1fr)}
+  .score-input{width:100%;gap:.5rem}
+  .score-input label{width:auto;min-width:0;flex:1}
+  .preview{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+  /* Standalone account, admin and shared-link routes follow the same viewport
+     gutter and surface rules as the main shell. */
+  .account-page,.auth-page,.share-page,.cup-share-page{width:100%;max-width:100%;margin-left:0}
+  .account-page,.auth-page{padding-inline:var(--page-gutter)}
+  .account-page>*{width:100%;max-width:100%}
+  .account-topbar{min-width:0}
+  .account-topbar-links{max-width:100%;scrollbar-width:none}
+  .account-topbar-links::-webkit-scrollbar{display:none}
+  .account-identity{width:100%;max-width:100%}
+  .account-identity>div{min-width:0}
+  .account-identity h1,.account-handle{overflow-wrap:anywhere}
+  .account-hero-metrics{width:100%;min-width:0;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .account-layout,.account-column,.account-panel,.account-stat-grid{min-width:0;max-width:100%}
+  .admin-card{width:100%;max-width:100%;overflow:hidden}
+  .admin-create,.admin-edit{grid-template-columns:minmax(0,1fr)}
+  .admin-create button,.admin-field-wide,.admin-field-group,.admin-edit-actions{grid-column:1}
+  .admin-unlinked-row,.member-list>details>summary{max-width:100%}
+  .admin-row-id,.admin-row-tags,.admin-link{min-width:0;max-width:100%}
+  .admin-link{width:100%}
+  .admin-link .player-combobox{width:100%;min-width:0}
+  .admin-player-list{grid-template-columns:minmax(0,1fr)}
+  .share-page{padding-inline:var(--page-gutter)}
+  .share-card{width:100%;max-width:26.25rem}
+  .cup-share-page{width:min(34rem,100%);padding-inline:var(--page-gutter)}
+  .cup-share-page>*{min-width:0;max-width:100%}
+  .share-when{white-space:normal;text-wrap:balance}
+  .match-share-side,.cup-tie-side,.cup-roster li{min-width:0}
+  .match-share-who,.cup-tie-side b,.cup-roster li>b{min-width:0;overflow:hidden;text-overflow:ellipsis}
+}
+
+@media(max-width:480px){
+  .bottom{width:100vw;max-width:100vw;justify-content:space-between}
+  .bottom button{flex:1 1 0;min-width:0;padding-inline:.15rem}
+  .bottom small{font-size:.58rem;white-space:nowrap}
+  .record-speed-dial{width:calc(100vw - var(--page-gutter) - var(--page-gutter))}
+  .record-speed-dial button{grid-template-columns:2.75rem minmax(0,1fr);gap:.7rem}
+  .record-speed-dial button>i{width:2.75rem;height:2.75rem}
+  .record-speed-dial span{min-width:0}
+  .record-speed-dial small{overflow-wrap:anywhere}
+  .empty{padding:2.5rem 1rem}
+  .row>.person>.player-badge{display:none}
+  .row>.person{gap:0}
+  .match-filter-toolbar{grid-template-columns:minmax(0,1fr)}
+  .match-filter-control,.match-filter-control.player-control{grid-column:1}
+  .match-filter-dates{grid-template-columns:minmax(0,1fr)}
+  .match-filter-dates>button{grid-column:1}
+  .account-summary-row,.account-form-actions,.account-danger-actions,.admin-edit-actions,
+  .cup-share-actions{min-width:0}
+  .account-summary-row{align-items:flex-start;flex-direction:column}
+  .account-summary-email{width:100%;max-width:100%}
+  .admin-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .admin-chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .admin-chip{width:100%;min-width:0;padding-inline:.4rem}
+  .record-share-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .match-share-board,.match-share-resend,.share-card{padding:1rem}
+  .match-share-side{gap:.6rem}
+  .match-share-side .player-badge{width:2.4rem;height:2.4rem}
+  .match-share-side em{font-size:1.75rem}
+}
+
+@media(max-width:350px){
+  :root{--page-gutter:.75rem}
+  .mobile-brand span{display:none}
+  .account-link.sign-in{max-width:4.75rem;padding-inline:.45rem}
+  .home-view-nav button,.availability-tabs button,main>.match-view-toggle button{font-size:.59rem}
+  .row-head-mobile,.row{grid-template-columns:1.35rem minmax(0,1fr) 3.15rem 2.65rem}
+  .row>.form i:nth-child(n+4){display:none}
+  .account-hero-metrics,.account-stat-grid,.admin-stats,.record-share-stats{grid-template-columns:minmax(0,1fr)}
+}

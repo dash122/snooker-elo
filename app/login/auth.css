@@ -76,3 +76,28 @@
   .auth-panel-inner{padding-top:0}
   .auth-panel h2{font-size:2rem}
 }
+
+/* The authentication route is loaded after globals.css, so it carries its own
+   final viewport contract instead of depending on cascade order. */
+html,body{width:100%;max-width:100%;overflow-x:clip}
+.auth-experience,.auth-panel,.auth-panel-inner,.auth-main-form{min-width:0;max-width:100%}
+.auth-experience{margin-left:0;width:100%}
+.auth-main-form input,.auth-main-form select,.auth-submit{width:100%;min-width:0;max-width:100%}
+
+@media(max-width:840px){
+  .auth-experience{display:block;min-height:100dvh}
+  .auth-panel{width:100%;min-height:100dvh;padding:
+    max(1rem,env(safe-area-inset-top)) var(--page-gutter)
+    max(2rem,env(safe-area-inset-bottom));place-items:start center}
+  .auth-panel-inner{width:100%;max-width:30rem;margin-inline:auto}
+  .auth-tabs{grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .auth-switch{flex-wrap:wrap;text-align:center}
+  .auth-welcome-card{width:100%;max-width:30rem;padding:clamp(1.25rem,6vw,2rem)}
+}
+
+@media(max-width:360px){
+  .auth-panel{padding-inline:.75rem}
+  .auth-mobile-brand{margin-bottom:1.5rem}
+  .auth-tabs{margin-bottom:1.5rem}
+  .auth-panel h2{font-size:1.8rem}
+}
