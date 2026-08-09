@@ -1,4 +1,4 @@
-@layer reset, tokens, base, layout, components, utilities, legacy, feature;
+@layer reset, tokens, base, layout, components, utilities, legacy;
 @layer base {
   html,body{width:100%;max-width:100%;overflow-x:clip}
   html,body{background:var(--ds-canvas-functional)}
