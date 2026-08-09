@@ -16,6 +16,8 @@ import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchSha
 import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story-card";
 import ShareSheet from "./ShareSheet";
 import FeeCounter from "./FeeCounter";
+import { AppShell } from "./components/shell/AppShell";
+import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
 import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 
 type Player = {
@@ -964,16 +966,11 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
 
   const navBadge=(id:string)=>id==="availability"?matchmakingBadge:id==="matches"?cupBadge:0;
 
-  return <><style>{`.read-only .card-tools,.read-only .hero.small > .primary{display:none}`}</style><div className={`shell${user?"":" read-only"}`}>
+  return <><style>{`.read-only .card-tools,.read-only .hero.small > .primary{display:none}`}</style><AppShell signedIn={Boolean(user)}>
     <div className={`pull-refresh${refreshing?" spinning":""}`} style={{height:refreshing?PULL_THRESHOLD:pullDistance,opacity:refreshing||pullDistance>0?1:0}} aria-hidden="true">
       <span/>
     </div>
-    <aside className="side">
-      <div className="brand"><span>S</span><div><b>SCAA</b><small>Snooker ELO</small></div></div>
-      <nav>{[["leaderboard","排行榜"],["matches","比賽"],["availability","約戰"],["players","球員"],["settings","設定"]].map(([id,label])=>
-        <button key={id} className={tab===id?"active":""} onClick={()=>goTab(id)}><i><NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/>{navBadge(id)>0&&<b className="nav-badge" aria-hidden="true">{navBadge(id)>9?"9+":navBadge(id)}</b>}</i>{label}{navBadge(id)>0&&<span className="sr-only">，{navBadge(id)} 項待處理</span>}</button>)}</nav>
-      <div className="public-note"><b>{user?"會員模式":"公開瀏覽"}</b><span>{user?"已登入，可更新球會資料":"登入會員後即可記錄比賽"}</span></div>
-    </aside>
+    <DesktopNavigation active={tab as Destination} onNavigate={goTab} badge={navBadge} signedIn={Boolean(user)}/>
     <main>
       <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       {/* The club's pulse, on the screen members actually open. Matchmaking used to live entirely
@@ -994,12 +991,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={()=>newMatch("cup")}><i>會友盃</i><span><b>會友盃記錄</b><small>選擇盃賽場次並儲存，不可手動設定讓分</small></span></button>
       <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={openFeeCounter}><i>波鐘</i><span><b>波鐘計數機</b><small>記錄桌費，與比賽、ELO 無關</small></span></button>
     </div>
-    <nav className="bottom" aria-label="主導覽">{[["leaderboard","排行榜"],["matches","比賽"],["record","記錄"],["availability","約戰"],["players","球員"]].map(([id,label])=>
-      <button key={id} className={`${id==="record"?"bottom-record":tab===id?"active":""}${id==="record"&&recordMenuOpen?" menu-open":""}`} aria-current={tab===id?"page":undefined} aria-expanded={id==="record"?recordMenuOpen:undefined} aria-haspopup={id==="record"?"menu":undefined} onClick={()=>id==="record"?setRecordMenuOpen(open=>!open):goTab(id)}>
-        <i>{id==="record"?"＋":<NavIcon id={id as "leaderboard"|"matches"|"availability"|"players"|"settings"} active={tab===id}/>}{navBadge(id)>0&&<b className="nav-badge" aria-hidden="true">{navBadge(id)>9?"9+":navBadge(id)}</b>}</i>
-        <small>{label}</small>
-        {navBadge(id)>0&&<span className="sr-only">，{navBadge(id)} 項待處理</span>}
-      </button>)}</nav>
+    <MobileBottomNav active={tab as Destination} onNavigate={goTab} onRecord={()=>setRecordMenuOpen(open=>!open)} recordOpen={recordMenuOpen} badge={navBadge}/>
     {modal&&<div className="backdrop" onMouseDown={e=>e.target===e.currentTarget&&closeModal()}>
       {/* `.close` is a sibling of `.sheet`, not a child: `.sheet` is the scrolling box, and a
           descendant can never sit outside it or straddle its edge without being clipped by that
@@ -1048,7 +1040,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     </div>}
     {leavingAvailability&&<div className="availability-dialog-backdrop" onMouseDown={()=>setLeavingAvailability(null)}><section className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby="leave-availability-title" onMouseDown={e=>e.stopPropagation()}><small>未儲存的變更</small><h2 id="leave-availability-title">離開後變更會消失</h2><p>你在「可配對」的時段變更尚未儲存，離開這一頁後不會保留。</p><div><button className="secondary" onClick={()=>setLeavingAvailability(null)}>留在此頁</button><button className="danger" onClick={()=>{const next=leavingAvailability;setLeavingAvailability(null);setAvailabilityDirty(false);setHighlightMatch(null);setTab(next)}}>捨棄變更離開</button></div></section></div>}
     {toast&&<div className={`toast${undoSnapshot?" toast-expiring":""}`} role="status"><span>{toast}</span>{undoSnapshot&&<button type="button" onClick={undoDelete}>復原</button>}</div>}
-  </div></>;
+  </AppShell></>;
 }
 
 /**
