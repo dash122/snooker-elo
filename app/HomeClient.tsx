@@ -12,6 +12,7 @@ import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, w
 import { ShareGlyph } from "./ShareSheet";
 import CupShareButtons from "./CupShareButtons";
 import { suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
+import { calculateSnookerElo } from "../lib/snooker-elo";
 import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
 import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story-card";
 import ShareSheet from "./ShareSheet";
@@ -85,7 +86,7 @@ type Settings = { start: number; provisionalGames: number; kProvisional: number;
 type AppState = { players: Player[]; matches: Match[]; tournaments: Tournament[]; settings: Settings; audits: { id: string; text: string; at: string }[] };
 
 const seed: AppState = {
-  settings: { start: 1500, provisionalGames: 10, kProvisional: 40, kRated: 24, conversion: 8, cap: 200, curvature:1.25, handicapSoftCap:800, winnerBonus:.5, overHandicapBoost:.75, overHandicapScale:200, modelVersion:3 },
+  settings: { start: 1500, provisionalGames: 10, kProvisional: 40, kRated: 24, conversion: 8, cap: 200, curvature:1.25, handicapSoftCap:800, winnerBonus:.5, overHandicapBoost:.75, overHandicapScale:200, modelVersion:4 },
   players: [],
   matches: [],
   tournaments: [],
@@ -275,34 +276,13 @@ function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,
   const actual = giverSide === "A" ? points : giverSide === "B" ? -points
     : giver === a.id ? points : giver === b.id ? -points : 0;
   const official = a.handicap == null || b.handicap == null ? null : b.handicap - a.handicap;
-  const extra = actual - (official ?? 0);
-  const adjustment = handicapAdjustment(actual,s);
-  const expectedA = 1/(1+10**(((b.rating+adjustment)-a.rating)/400));
-  const k = games(a)<s.provisionalGames || games(b)<s.provisionalGames ? s.kProvisional : s.kRated;
+  const formula = calculateSnookerElo({ ratingA:a.rating, ratingB:b.rating, handicapA:-actual, framesA:scoreA, framesB:scoreB });
   const totalFrames = scoreA + scoreB;
-  const frameShare = totalFrames ? scoreA/totalFrames : .5;
-  const frameEvidence = Math.min(totalFrames,20);
-  const bonus=s.winnerBonus??.5;
-  const performanceScore=scoreA===scoreB?.5:scoreA>scoreB?(scoreA+bonus)/(totalFrames+bonus):scoreA/(totalFrames+bonus);
-  // Below 4 frames there just isn't much evidence: sqrt(frameEvidence/4) alone
-  // still let a single frame swing a rating almost as hard as a full match, so
-  // scale linearly under 4 frames instead (continuous with the sqrt curve at
-  // frameEvidence===4, unchanged above it).
-  const evidenceWeight=frameEvidence<4?frameEvidence/4:Math.sqrt(frameEvidence/4);
-  const baseDelta=k*evidenceWeight*(performanceScore-expectedA);
-  const ratingDifference=a.rating-b.rating;
-  const performerIsA=performanceScore>.5||(performanceScore===.5&&expectedA<.5);
-  const overHandicapElo=performerIsA
-    ? Math.max(0,adjustment-ratingDifference)
-    : Math.max(0,ratingDifference-adjustment);
-  const performanceMargin=performanceScore===.5?.6:.6+.4*Math.min(1,Math.abs(performanceScore-.5)/.5);
-  // A generous handicap can make an early scratch match look like a lopsided
-  // favourite; don't let a single low-evidence frame collect the full
-  // over-handicap bonus/penalty for that gap — scale it down with the same
-  // evidence weight (uncapped once there's a real match's worth of frames).
-  const overHandicapMultiplier=1+(s.overHandicapBoost??.75)*Math.min(1,evidenceWeight)*(1-Math.exp(-overHandicapElo/(s.overHandicapScale??200)))*performanceMargin;
-  const deltaA=baseDelta*overHandicapMultiplier;
-  return { official,actual,extra,expectedA,deltaA,frameShare,frameEvidence,performanceScore,evidenceWeight,adjustment,overHandicapElo,overHandicapMultiplier };
+  return {
+    official, actual, extra:actual-(official??0), expectedA:formula.probabilityA, deltaA:formula.deltaA,
+    frameShare:totalFrames?scoreA/totalFrames:.5, frameEvidence:totalFrames, performanceScore:formula.performance,
+    evidenceWeight:1, adjustment:-actual, overHandicapElo:0, overHandicapMultiplier:1,
+  };
 }
 function matchProbabilities(frameProbability:number,frames:number){
   if(frames<=0)return {win:0,draw:0,loss:0};
@@ -410,13 +390,10 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
 }
 function upgradeState(raw:AppState){
   const nextRaw = { ...raw, tournaments: raw.tournaments ?? [] };
-  if((nextRaw.settings.modelVersion??1)>=3)return {state:nextRaw,changed:false};
-  let settings:Settings={...nextRaw.settings,curvature:nextRaw.settings.curvature??1.25,handicapSoftCap:nextRaw.settings.handicapSoftCap??800,winnerBonus:nextRaw.settings.winnerBonus??.5,overHandicapBoost:nextRaw.settings.overHandicapBoost??.75,overHandicapScale:nextRaw.settings.overHandicapScale??200,modelVersion:3};
-  settings=recalibrate(settings,nextRaw.matches);
-  let rebuilt=replay(nextRaw.players,nextRaw.matches,settings);
-  settings=recalibrate(settings,rebuilt.matches);
-  rebuilt=replay(nextRaw.players,rebuilt.matches,settings);
-  return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"加入超額讓分表現加乘；完整重播歷史 ELO",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
+  if((nextRaw.settings.modelVersion??1)>=4)return {state:nextRaw,changed:false};
+  const settings:Settings={...nextRaw.settings,modelVersion:4};
+  const rebuilt=replay(nextRaw.players,nextRaw.matches,settings);
+  return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"套用 PDF Snooker Elo 公式；完整重播歷史 ELO",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
 }
 
 const today = new Date().toISOString().slice(0,10);
@@ -1021,7 +998,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
             </form>
           </div>}
           {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} onSave={savePlayer}/>}
-          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,modelVersion:3},rebuilt=replay(data.players,data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"更新 ELO 設定；完整重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已更新，歷史 ELO 已重播。")}}/>}
+          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,modelVersion:4},rebuilt=replay(data.players,data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"更新 ELO 設定；完整重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已更新，歷史 ELO 已重播。")}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
@@ -2428,7 +2405,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
         {breakMessage[b.id]&&<p className="break-encouragement" role="status">{breakMessage[b.id]}</p>}</div>}
       </div>
     </div></section>
-    {preview&&totalFrames>0&&(draft.mode==="2v2"?<section ref={eloPreviewRef} className="elo-preview entertainment-preview"><b>潮拍娛樂模式</b><p>本場只記錄隊伍、讓分與比分；四位球員的目前 ELO、勝負、局數及近況均不會改變。</p></section>:<section ref={eloPreviewRef} className="elo-preview"><div><span><small>{a.name}</small><b className={preview.deltaA>=0?"positive":"negative"}>{preview.deltaA>=0?"+":""}{Math.round(preview.deltaA)} ELO</b></span><i aria-hidden="true">↔</i><span className="right"><small>{b.name}</small><b className={preview.deltaA<=0?"positive":"negative"}>{-preview.deltaA>=0?"+":""}{Math.round(-preview.deltaA)} ELO</b></span></div><details><summary>查看計算詳情</summary><p>{probabilities?`A 勝 ${Math.round(probabilities.win*100)}% · 和 ${Math.round(probabilities.draw*100)}% · `:""}表現分 {Math.round(preview.performanceScore*100)}% · 證據權重 ×{preview.evidenceWeight.toFixed(2)} · 讓分等效 {preview.adjustment>=0?"+":""}{Math.round(preview.adjustment)} ELO</p></details></section>)}
+    {preview&&totalFrames>0&&(draft.mode==="2v2"?<section ref={eloPreviewRef} className="elo-preview entertainment-preview"><b>潮拍娛樂模式</b><p>本場只記錄隊伍、讓分與比分；四位球員的目前 ELO、勝負、局數及近況均不會改變。</p></section>:<section ref={eloPreviewRef} className="elo-preview"><div><span><small>{a.name}</small><b className={preview.deltaA>=0?"positive":"negative"}>{preview.deltaA>=0?"+":""}{Math.round(preview.deltaA)} ELO</b></span><i aria-hidden="true">↔</i><span className="right"><small>{b.name}</small><b className={preview.deltaA<=0?"positive":"negative"}>{-preview.deltaA>=0?"+":""}{Math.round(-preview.deltaA)} ELO</b></span></div><details><summary>查看計算詳情</summary><p>{probabilities?`A 勝 ${Math.round(probabilities.win*100)}% · 和 ${Math.round(probabilities.draw*100)}% · `:""}表現分 {preview.performanceScore>=0?"+":""}{Math.round(preview.performanceScore)} · 讓分 H {preview.adjustment>=0?"+":""}{Math.round(preview.adjustment)}</p></details></section>)}
     <div className="match-save">{breakReminder&&<div className="break-save-reminder" role="status"><b>今場有冇值得記低嘅單桿？</b><span><button type="button" onClick={()=>{setBreakReminder(false);setBreakOpen({[a.id]:true,[b.id]:true})}}>返回記錄</button><button type="button" onClick={onSave}>今場沒有，照樣儲存</button></span></div>}<button className="primary full" disabled={!valid||data.players.length<2||saving} aria-busy={saving} onClick={()=>{if(!isTeamMode&&!editing&&(draft.highBreaks??[]).length===0){setBreakReminder(true);return}onSave()}}>{saving?"儲存中…":editing?"儲存變更":"儲存賽果"}<small>{saving?"請稍候":resultLabel}</small></button></div>
   </div>;
 }
