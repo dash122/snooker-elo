@@ -40,3 +40,35 @@ test("zero-frame input is neutral",()=>{
     probabilityA:.5,expectedFramesA:0,scale:0,performance:0,bonus:0,deltaA:0,
   });
 });
+
+test("frameScaleCoefficient and frameScaleBase are configurable",()=>{
+  const custom=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,frameScaleCoefficient:100,frameScaleBase:10});
+  assert.equal(Math.round(custom.scale*10)/10,58.8);
+});
+
+test("performanceTanhDivisor and winBonusMultiplier are configurable",()=>{
+  const result=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,performanceTanhDivisor:6,winBonusMultiplier:1});
+  assert.equal(result.bonus,8);
+});
+
+test("handicapEloScale is configurable",()=>{
+  const wide=calculateSnookerElo({ratingA:1600,ratingB:1500,handicapA:0,framesA:4,framesB:4,handicapEloScale:1000});
+  const narrow=calculateSnookerElo({ratingA:1600,ratingB:1500,handicapA:0,framesA:4,framesB:4,handicapEloScale:500});
+  assert.ok(wide.probabilityA<narrow.probabilityA);
+});
+
+test("a fully-effective fair handicap makes probability exactly even",()=>{
+  const result=calculateSnookerElo({ratingA:1800,ratingB:1500,handicapA:-12,framesA:4,framesB:4,handicapEffectiveness:1});
+  assert.ok(Math.abs(result.probabilityA-.5)<1e-9);
+});
+
+test("reduced handicap effectiveness leaves the stronger player a residual edge",()=>{
+  const result=calculateSnookerElo({ratingA:1800,ratingB:1500,handicapA:-12,framesA:4,framesB:4,handicapEffectiveness:.7});
+  assert.ok(result.probabilityA>.5);
+});
+
+test("a larger ELO gap leaves a larger residual edge at the same effectiveness",()=>{
+  const smallGap=calculateSnookerElo({ratingA:1600,ratingB:1500,handicapA:-4,framesA:4,framesB:4,handicapEffectiveness:.7});
+  const bigGap=calculateSnookerElo({ratingA:1900,ratingB:1500,handicapA:-16,framesA:4,framesB:4,handicapEffectiveness:.7});
+  assert.ok((bigGap.probabilityA-.5)>(smallGap.probabilityA-.5));
+});

@@ -1,15 +1,9 @@
 // Shared write-authorization rules for /api/state and unit tests.
 
-// Rating fields are derived by replaying matches. Compare only editable
-// settings and player profile fields when authorising a member write.
-function settingsForCompare(settings: any) {
-  if (!settings) return settings;
-  const { conversion, curvature, calibration, ...rest } = settings;
-  return rest;
-}
-
+// Rating fields are derived by replaying matches; settings are otherwise fully
+// admin-controlled, so a member write must leave them byte-for-byte identical.
 export function memberCanWrite(current: any, next: any, playerId?: string) {
-  if (!playerId || !current || !next || JSON.stringify(settingsForCompare(current.settings)) !== JSON.stringify(settingsForCompare(next.settings))) return false;
+  if (!playerId || !current || !next || JSON.stringify(current.settings) !== JSON.stringify(next.settings)) return false;
   const currentPlayers = new Map((current.players ?? []).map((player: any) => [player.id, player]));
   const nextPlayers = new Map((next.players ?? []).map((player: any) => [player.id, player]));
   if (currentPlayers.size !== nextPlayers.size || !currentPlayers.has(playerId) || !nextPlayers.has(playerId)) return false;

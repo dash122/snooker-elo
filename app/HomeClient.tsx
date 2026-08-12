@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { CalibrationTrend, CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
+import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import Availability from "./Availability";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
@@ -80,13 +80,36 @@ type Tournament = {
   drawnAt?: string;
   walkovers?: Walkover[];
 };
-type CalibrationPoint = { estimate:number; usableMatches:number; at:string };
-type Calibration = { rawEstimate:number; estimate:number; lower:number; upper:number; curvatureEstimate?:number; curvatureLower?:number; curvatureUpper?:number; usableMatches:number; handicapLevels:number; confidence:string; updatedAt:string; history?:CalibrationPoint[] };
-type Settings = { start: number; provisionalGames: number; conversion: number; curvature?:number; handicapSoftCap?:number; modelVersion?:number; calibration?:Calibration };
+type Settings = {
+  start: number;
+  provisionalGames: number;
+  /** The "150" multiplying the match-length scaling factor S(n). */
+  frameScaleCoefficient: number;
+  /** The "10" in "(n+10)/10" — raising it flattens S(n)'s growth with match length. */
+  frameScaleBase: number;
+  /** The "500" scaling ELO differences (incl. the handicap) into a win probability. */
+  handicapEloScale: number;
+  /** The "25" converting one handicap point into ELO; also the club's 建議讓分 conversion. */
+  handicapPointsToElo: number;
+  /** The "3" dividing over/under-performance inside tanh(). */
+  performanceTanhDivisor: number;
+  /** The "2" in the ±2n win/loss bonus. */
+  winBonusMultiplier: number;
+  /** How much of a handicap's ELO-equivalent offsets the underlying rating gap (0–1). Below 1,
+      even the "fair" suggested handicap leaves the stronger player a residual edge that grows
+      with the ELO gap, instead of forcing every handicapped match to a flat 50/50. */
+  handicapEffectiveness: number;
+  modelVersion?: number;
+};
 type AppState = { players: Player[]; matches: Match[]; tournaments: Tournament[]; settings: Settings; audits: { id: string; text: string; at: string }[] };
 
 const seed: AppState = {
-  settings: { start: 1500, provisionalGames:10, conversion: 8, curvature:1.25, handicapSoftCap:800, modelVersion:5 },
+  settings: {
+    start: 1500, provisionalGames:10,
+    frameScaleCoefficient:100, frameScaleBase:10, handicapEloScale:500, handicapPointsToElo:25,
+    performanceTanhDivisor:3, winBonusMultiplier:2, handicapEffectiveness:.7,
+    modelVersion:6,
+  },
   players: [],
   matches: [],
   tournaments: [],
@@ -95,7 +118,7 @@ const seed: AppState = {
 
 function games(p: Player) { return p.wins + p.losses + p.draws; }
 function eloToHandicap(eloDifference:number,s:Settings){
-  return eloDifference/25;
+  return eloDifference/s.handicapPointsToElo;
 }
 function roundToNearestInteger(value:number) {
   const rounded=Math.round(value);
@@ -267,7 +290,13 @@ function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,
   const actual = giverSide === "A" ? points : giverSide === "B" ? -points
     : giver === a.id ? points : giver === b.id ? -points : 0;
   const official = a.handicap == null || b.handicap == null ? null : b.handicap - a.handicap;
-  const formula = calculateSnookerElo({ ratingA:a.rating, ratingB:b.rating, handicapA:-actual, framesA:scoreA, framesB:scoreB });
+  const formula = calculateSnookerElo({
+    ratingA:a.rating, ratingB:b.rating, handicapA:-actual, framesA:scoreA, framesB:scoreB,
+    handicapEloScale:s.handicapEloScale, handicapPointsToElo:s.handicapPointsToElo,
+    handicapEffectiveness:s.handicapEffectiveness, frameScaleCoefficient:s.frameScaleCoefficient,
+    frameScaleBase:s.frameScaleBase, performanceTanhDivisor:s.performanceTanhDivisor,
+    winBonusMultiplier:s.winBonusMultiplier,
+  });
   const totalFrames = scoreA + scoreB;
   return {
     official, actual, extra:actual-(official??0), expectedA:formula.probabilityA, deltaA:formula.deltaA,
@@ -345,11 +374,23 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
 }
 function upgradeState(raw:AppState){
   const nextRaw = { ...raw, tournaments: raw.tournaments ?? [] };
-  if((nextRaw.settings.modelVersion??1)>=5)return {state:nextRaw,changed:false};
+  if((nextRaw.settings.modelVersion??1)>=6)return {state:nextRaw,changed:false};
   const players=nextRaw.players.map(player=>({...player,initialRating:1500,rating:1500}));
-  const settings:Settings={...nextRaw.settings,start:1500,modelVersion:5};
+  const stale=nextRaw.settings as Partial<Settings>;
+  const settings:Settings={
+    start:1500,
+    provisionalGames:stale.provisionalGames??10,
+    frameScaleCoefficient:stale.frameScaleCoefficient??100,
+    frameScaleBase:stale.frameScaleBase??10,
+    handicapEloScale:stale.handicapEloScale??500,
+    handicapPointsToElo:stale.handicapPointsToElo??25,
+    performanceTanhDivisor:stale.performanceTanhDivisor??3,
+    winBonusMultiplier:stale.winBonusMultiplier??2,
+    handicapEffectiveness:stale.handicapEffectiveness??.7,
+    modelVersion:6,
+  };
   const rebuilt=replay(players,nextRaw.matches,settings);
-  return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"移除舊評分系統；以 1500 起始並套用 PDF Snooker Elo 公式",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
+  return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"移除舊評分系統；以 1500 起始並套用可調整參數的 PDF Snooker Elo 公式",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
 }
 
 const today = new Date().toISOString().slice(0,10);
@@ -954,7 +995,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
             </form>
           </div>}
           {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} onSave={savePlayer}/>}
-          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,start:1500,modelVersion:5},rebuilt=replay(data.players.map(player=>({...player,initialRating:1500})),data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"確認 PDF Snooker Elo 公式；以 1500 起始並重播歷史評分",at:new Date().toISOString()},...data.audits]},"PDF Elo 已套用，歷史評分已從 1500 重播。")}}/>}
+          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,start:1500,modelVersion:6},rebuilt=replay(data.players.map(player=>({...player,initialRating:1500})),data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"調整 PDF Snooker Elo 公式參數；以 1500 起始並重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已套用，歷史評分已從 1500 重播。")}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
@@ -2171,9 +2212,20 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
   </div>;
 }
 
-function SettingsView({data,onReset,canReset}:{data:AppState;onEdit:()=>void;onReset:()=>void;canReset:boolean}) {
-  return <><section className="hero small"><div><p className="kicker">公開設定</p><h1>ELO 設定</h1><p>所有球員由 1500 起步；每場賽果只使用 PDF Snooker Elo 公式重播。</p></div></section>
-    <div className="settings-grid"><div className="setting"><small>起始 ELO</small><b>1500</b></div><div className="setting"><small>評分公式</small><b>PDF Snooker Elo</b></div><div className="setting"><small>讓分尺度</small><b>500</b></div><div className="setting"><small>零和更新</small><b>是</b></div></div>
+function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>void;onReset:()=>void;canReset:boolean}) {
+  const s=data.settings;
+  return <><section className="hero small"><div><p className="kicker">公開設定</p><h1>ELO 設定</h1><p>所有球員由 1500 起步；每場賽果只使用 PDF Snooker Elo 公式重播。以下參數只有管理員可以修改。</p></div><button className="primary" onClick={onEdit}>編輯設定</button></section>
+    <div className="settings-grid">
+      <div className="setting"><small>起始 ELO</small><b>1500</b></div>
+      <div className="setting"><small>局數影響係數（150）</small><b>{s.frameScaleCoefficient}</b></div>
+      <div className="setting"><small>局數基準（10）</small><b>{s.frameScaleBase}</b></div>
+      <div className="setting"><small>讓分 ELO 尺度（500）</small><b>{s.handicapEloScale}</b></div>
+      <div className="setting"><small>每讓 1 分相當於 ELO（25）</small><b>{s.handicapPointsToElo}</b></div>
+      <div className="setting"><small>表現壓縮除數（3）</small><b>{s.performanceTanhDivisor}</b></div>
+      <div className="setting"><small>勝負獎勵倍數（2）</small><b>{s.winBonusMultiplier}</b></div>
+      <div className="setting"><small>讓分有效度</small><b>{Math.round(s.handicapEffectiveness*100)}%</b></div>
+      <div className="setting"><small>零和更新</small><b>是</b></div>
+    </div>
     <section className="audit"><h2>審計記錄</h2>{data.audits.slice(0,12).map(a=><div key={a.id}><span>{a.text}</span><small>{new Date(a.at).toLocaleString("zh-HK")}</small></div>)}</section>
     {canReset&&<section className="danger-zone"><div><h2>清除並重設資料</h2><p>永久刪除共用資料庫內所有球員、比賽及審計記錄，並恢復預設 ELO 設定。</p></div><button onClick={onReset}>清除所有資料</button></section>}</>;
 }
@@ -2364,7 +2416,28 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   </div>;
 }
 
-function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) { return <><p className="kicker">公開管理</p><h2>PDF Snooker Elo 設定</h2><p className="warning">起始 ELO 固定為 1500。評分公式、局數縮放、表現壓縮及勝負獎勵均完全依照 PDF 規格。</p><button className="primary full" onClick={()=>onSave({...data.settings,start:1500,modelVersion:5})}>套用並重播歷史 ELO</button></>}
+type TunableSettingKey="frameScaleCoefficient"|"frameScaleBase"|"handicapEloScale"|"handicapPointsToElo"|"performanceTanhDivisor"|"winBonusMultiplier"|"handicapEffectiveness";
+function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
+  const [s,setS]=useState<Settings>(data.settings);
+  const field=(key:TunableSettingKey,label:string,hint:string,step=1,min?:number,max?:number)=>
+    <label className="settings-field"><span>{label}</span><input type="number" step={step} min={min} max={max} value={s[key]}
+      onChange={e=>{const value=e.target.value===""?0:Number(e.target.value);setS(current=>({...current,[key]:value}))}}/><small>{hint}</small></label>;
+  return <>
+    <p className="kicker">公開管理</p>
+    <h2>PDF Snooker Elo 公式設定</h2>
+    <p className="warning">起始 ELO 固定為 1500，不能修改。儲存後會以新參數，從 1500 起始完整重播歷史 ELO。</p>
+    <div className="settings-form-grid">
+      {field("frameScaleCoefficient","局數影響係數","S(n) = 係數 × ln((n+基準)/基準)，原值 150。調低可減少局數對 ELO 波幅的影響。",1,0)}
+      {field("frameScaleBase","局數基準","同上公式中的「基準」，原值 10，同時用於 (n+基準) 及 /基準 兩處。",1,1)}
+      {field("handicapEloScale","讓分 ELO 尺度","勝率公式分母，原值 500。數值越大，同樣 ELO 差距對勝率的影響越小。",10,1)}
+      {field("handicapPointsToElo","每讓 1 分相當於 ELO","原值 25，同時決定建議讓分（ELO 差 ÷ 此數值）。",1,1)}
+      {field("performanceTanhDivisor","表現壓縮除數","tanh() 內的除數，原值 3。數值越大，單場表現對 ELO 的影響越平滑。",.5,.5)}
+      {field("winBonusMultiplier","勝負獎勵倍數","勝負獎勵 ±此數值×n，原值 2。",.5,0)}
+      {field("handicapEffectiveness","讓分有效度","0–1。1 即「公平」讓分令勝率剛好一半；低於 1 時，就算讓足建議分數，ELO 差越大，較強的一方仍保留越多優勢，不會完全拉平。",.05,0,1)}
+    </div>
+    <button className="primary full" onClick={()=>onSave({...s,start:1500,provisionalGames:data.settings.provisionalGames,modelVersion:6})}>套用並重播歷史 ELO</button>
+  </>;
+}
 type RivalSnapshot = {
   opponent:Player; wins:number; losses:number; draws:number; matches:number;
   framesWon:number; framesLost:number; frameRate:number;

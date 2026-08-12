@@ -15,15 +15,17 @@
  * actually applied when the score is recorded can never disagree. */
 
 export type HandicapSettings = {
-  conversion:number; curvature?:number; handicapSoftCap?:number;
+  handicapPointsToElo:number;
 };
 
-/** ELO difference → handicap points according to the PDF model. */
-export function eloToHandicap(eloDifference:number,_settings?:HandicapSettings){
-  return eloDifference/25;
+/** ELO difference → handicap points, on the PDF model's linear scale (25 ELO per point, tunable
+    in settings). */
+export function eloToHandicap(eloDifference:number,settings:HandicapSettings){
+  return eloDifference/settings.handicapPointsToElo;
 }
 
-/** Suggestions use whole handicap points. Also normalises `-0`. */
+/** Suggestions are given in whole points. Also normalises `-0`, which would otherwise print as
+    "-0 分" in one branch of every label below. */
 export function roundToNearestInteger(value:number) {
   const rounded=Math.round(value);
   return Object.is(rounded,-0)?0:rounded;

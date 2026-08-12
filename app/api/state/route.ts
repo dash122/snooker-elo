@@ -7,7 +7,7 @@ const defaultState = {
   players: [],
   matches: [],
   tournaments: [],
-  settings: { start: 1500, provisionalGames: 10, conversion: 8, curvature: 1.25, handicapSoftCap: 800, modelVersion: 5 },
+  settings: { start: 1500, provisionalGames: 10, frameScaleCoefficient: 100, frameScaleBase: 10, handicapEloScale: 500, handicapPointsToElo: 25, performanceTanhDivisor: 3, winBonusMultiplier: 2, handicapEffectiveness: .7, modelVersion: 6 },
   audits: [],
 };
 

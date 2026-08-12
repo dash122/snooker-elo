@@ -173,7 +173,7 @@ test("the wa.me link carries the message intact", () => {
  * moving it was that a roster quoting a different 建議讓分 from the leaderboard is worse than a
  * roster quoting none, so these lock the arithmetic rather than the wording. */
 
-const settings = { conversion: 1, curvature: 1.25, handicapSoftCap: 800, start: 1500 };
+const settings = { handicapPointsToElo: 25, start: 1500 };
 const club = [
   { rating: 1700, handicap: 40 },
   { rating: 1500, handicap: 60 },

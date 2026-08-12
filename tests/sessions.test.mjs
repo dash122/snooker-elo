@@ -59,7 +59,7 @@ test("sessions cannot overlap — that is one evening entered twice",()=>{
 
 /* --- The handicap proposal ------------------------------------------------- */
 
-const settings={conversion:8,curvature:1.25,handicapSoftCap:800};
+const settings={handicapPointsToElo:25};
 
 test("the proposal uses 25 ELO per handicap point and reads from my side",()=>{
   const strongerThanMe=proposeHandicap(1400,1700,settings);
