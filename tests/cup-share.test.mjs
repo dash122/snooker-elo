@@ -191,10 +191,10 @@ test("the club's own scale anchors every suggested handicap", () => {
 test("a stronger player is quoted a lower handicap, a weaker one a higher", () => {
   const strong = suggestedHandicap({ rating: 1700 }, club, settings);
   const weak = suggestedHandicap({ rating: 1300 }, club, settings);
-  assert.ok(strong < 60, `expected ${strong} below the anchor`);
-  assert.ok(weak > 60, `expected ${weak} above the anchor`);
-  // Snooker handicaps are given in even points, on the leaderboard and on a shared roster alike.
-  for (const value of [strong, weak]) assert.equal(Math.abs(value % 2), 0);
+  assert.equal(strong, 52);
+  assert.equal(weak, 68);
+  assert.equal(strong, Math.round(60 - (1700 - 1500) / 25));
+  assert.equal(weak, Math.round(60 - (1300 - 1500) / 25));
 });
 
 test("an empty club falls back to the configured start rather than a mean of nothing", () => {

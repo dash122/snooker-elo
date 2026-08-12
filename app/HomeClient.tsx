@@ -95,13 +95,10 @@ const seed: AppState = {
 
 function games(p: Player) { return p.wins + p.losses + p.draws; }
 function eloToHandicap(eloDifference:number,s:Settings){
-  if(!eloDifference)return 0;
-  const ceiling=s.handicapSoftCap??800,clamped=Math.min(Math.abs(eloDifference),ceiling*.995);
-  const raw=ceiling*Math.atanh(clamped/ceiling);
-  return Math.sign(eloDifference)*10*(raw/(Math.max(.01,s.conversion)*10))**(1/(s.curvature??1.25));
+  return eloDifference/25;
 }
-function roundToEven(value:number) {
-  const rounded=Math.round(value/2)*2;
+function roundToNearestInteger(value:number) {
+  const rounded=Math.round(value);
   return Object.is(rounded,-0)?0:rounded;
 }
 /* A thin wrapper over `lib/handicap`, which owns the arithmetic so the leaderboard, the cup roster
@@ -262,7 +259,7 @@ function breakChartPoints(player:Player,data:AppState,mode:BreakChartMode):Break
 /** "我讓他 X 分" / "他讓我 X 分" — the same fair-handicap conversion the match form uses, read as a verdict about `me` vs. `p` rather than as a giver/points pair to apply. */
 function handicapVerdict(me:Player,p:Player,s:Settings){
   const eloDifference=me.rating-p.rating;
-  const points=roundToEven(eloToHandicap(eloDifference,s));
+  const points=roundToNearestInteger(eloToHandicap(eloDifference,s));
   const base=points===0?"平手":points>0?`建議我讓 ${points} 分`:`建議他讓 ${Math.abs(points)} 分`;
   return points!==0&&Math.abs(eloDifference)<30?`${base} · 勢均力敵`:base;
 }
@@ -1874,7 +1871,7 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
   const rightLabel = isEntertainmentMode(m.mode) ? teamLabel(m,data,"B") : name(m.b);
   const preMatchLeftElo=m.beforeA2==null?m.beforeA:(m.beforeA+m.beforeA2)/2;
   const preMatchRightElo=m.beforeB2==null?m.beforeB:(m.beforeB+m.beforeB2)/2;
-  const recommendedActual=matchMode(m)==="2v2"?Math.round(eloToHandicap(preMatchLeftElo-preMatchRightElo,data.settings)):roundToEven(eloToHandicap(preMatchLeftElo-preMatchRightElo,data.settings));
+  const recommendedActual=Math.round(eloToHandicap(preMatchLeftElo-preMatchRightElo,data.settings));
   const handicapText=(actual:number)=>
     actual>0?`${leftLabel} 每局讓 ${rightLabel} ${actual} 分`
     :actual<0?`${rightLabel} 每局讓 ${leftLabel} ${Math.abs(actual)} 分`
@@ -2245,7 +2242,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   const teamEloDifference=draft.mode==="2v2"&&a2&&b2?roundedTeamEloDifference([a,a2],[b,b2]):a.rating-b.rating;
   const teamAHandicap=isTeamMode&&a2?Math.round((suggestedHandicap(a,data)+suggestedHandicap(a2,data))/2):null;
   const teamBHandicap=isTeamMode&&b2?Math.round((suggestedHandicap(b,data)+suggestedHandicap(b2,data))/2):null;
-  const fairActual=preview?(isTeamMode&&teamAHandicap!=null&&teamBHandicap!=null?teamBHandicap-teamAHandicap:roundToEven(eloToHandicap(teamEloDifference,data.settings))):null;
+  const fairActual=preview?(isTeamMode&&teamAHandicap!=null&&teamBHandicap!=null?teamBHandicap-teamAHandicap:Math.round(eloToHandicap(teamEloDifference,data.settings))):null;
   const probabilities=preview?matchProbabilities(preview.expectedA,+draft.scoreA+ +draft.scoreB):null;
   const applyFair=()=>{
     if(fairActual==null)return;
