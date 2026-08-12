@@ -82,11 +82,11 @@ type Tournament = {
 };
 type CalibrationPoint = { estimate:number; usableMatches:number; at:string };
 type Calibration = { rawEstimate:number; estimate:number; lower:number; upper:number; curvatureEstimate?:number; curvatureLower?:number; curvatureUpper?:number; usableMatches:number; handicapLevels:number; confidence:string; updatedAt:string; history?:CalibrationPoint[] };
-type Settings = { start: number; provisionalGames: number; kProvisional: number; kRated: number; conversion: number; cap: number; curvature?:number; handicapSoftCap?:number; winnerBonus?:number; overHandicapBoost?:number; overHandicapScale?:number; modelVersion?:number; calibration?:Calibration };
+type Settings = { start: number; provisionalGames: number; conversion: number; curvature?:number; handicapSoftCap?:number; modelVersion?:number; calibration?:Calibration };
 type AppState = { players: Player[]; matches: Match[]; tournaments: Tournament[]; settings: Settings; audits: { id: string; text: string; at: string }[] };
 
 const seed: AppState = {
-  settings: { start: 1500, provisionalGames: 10, kProvisional: 40, kRated: 24, conversion: 8, cap: 200, curvature:1.25, handicapSoftCap:800, winnerBonus:.5, overHandicapBoost:.75, overHandicapScale:200, modelVersion:4 },
+  settings: { start: 1500, provisionalGames:10, conversion: 8, curvature:1.25, handicapSoftCap:800, modelVersion:5 },
   players: [],
   matches: [],
   tournaments: [],
@@ -94,12 +94,6 @@ const seed: AppState = {
 };
 
 function games(p: Player) { return p.wins + p.losses + p.draws; }
-function handicapAdjustment(points:number,s:Settings,conversion=s.conversion,curvature=s.curvature??1.25){
-  if(!points)return 0;
-  const raw=Math.sign(points)*conversion*10*(Math.abs(points)/10)**curvature;
-  const ceiling=s.handicapSoftCap??800;
-  return ceiling*Math.tanh(raw/ceiling);
-}
 function eloToHandicap(eloDifference:number,s:Settings){
   if(!eloDifference)return 0;
   const ceiling=s.handicapSoftCap??800,clamped=Math.min(Math.abs(eloDifference),ceiling*.995);
@@ -292,42 +286,6 @@ function matchProbabilities(frameProbability:number,frames:number){
   return {win,draw,loss:1-win-draw};
 }
 
-function recalibrate(settings:Settings,matches:Match[]):Settings {
-  const usable=matches.filter(m=>m.status==="confirmed"&&!isEntertainmentMode(m.mode)&&m.actual!==0&&(m.scoreA+m.scoreB)>0&&Number.isFinite(m.beforeA)&&Number.isFinite(m.beforeB));
-  const n=usable.length, prior=8,priorCurve=1.25,currentCurve=settings.curvature??priorCurve;
-  const levels=new Set(usable.map(m=>Math.abs(m.actual))).size;
-  const now=new Date().toISOString();
-  const oldHistory=settings.calibration?.history??[];
-  if(n<10||levels<2) return {...settings,curvature:currentCurve,handicapSoftCap:settings.handicapSoftCap??800,winnerBonus:settings.winnerBonus??.5,overHandicapBoost:settings.overHandicapBoost??.75,overHandicapScale:settings.overHandicapScale??200,calibration:{rawEstimate:prior,estimate:settings.conversion,lower:1,upper:20,curvatureEstimate:currentCurve,curvatureLower:1,curvatureUpper:1.6,usableMatches:n,handicapLevels:levels,confidence:"資料不足",updatedAt:now,history:oldHistory}};
-  let best=prior,bestCurve=priorCurve,bestLoss=Infinity;
-  const losses:{candidate:number;curve:number;loss:number}[]=[];
-  for(let candidate=1;candidate<=20;candidate+=.25){
-    for(let curve=1;curve<=1.6001;curve+=.05){
-      let loss=0,weight=0;
-      for(const m of usable){
-        const adjustment=handicapAdjustment(m.actual,settings,candidate,curve);
-        const predicted=1/(1+10**(((m.beforeB+adjustment)-m.beforeA)/400));
-        const frames=m.scoreA+m.scoreB,actual=m.scoreA/frames,evidence=Math.min(frames,20);
-        loss+=evidence*(predicted-actual)**2;weight+=evidence;
-      }
-      loss/=weight;
-      losses.push({candidate,curve,loss});
-      if(loss<bestLoss){bestLoss=loss;best=candidate;bestCurve=curve;}
-    }
-  }
-  const shrunk=(30*prior+n*best)/(30+n);
-  const estimate=Math.max(1,Math.min(20,settings.conversion+Math.max(-.25,Math.min(.25,shrunk-settings.conversion))));
-  const curveTarget=(60*priorCurve+n*bestCurve)/(60+n);
-  const curvature=Math.max(1,Math.min(1.6,currentCurve+Math.max(-.02,Math.min(.02,curveTarget-currentCurve))));
-  const threshold=bestLoss+Math.max(.0025,bestLoss*.1);
-  const plausible=losses.filter(x=>x.loss<=threshold),rates=plausible.map(x=>x.candidate),curves=plausible.map(x=>x.curve);
-  const lower=Math.min(...rates),upper=Math.max(...rates),curveLower=Math.min(...curves),curveUpper=Math.max(...curves);
-  const confidence=n>=150&&levels>=5?"高":n>=75&&levels>=4?"中":n>=30&&levels>=3?"低":"初步";
-  const rounded=Number(estimate.toFixed(2)),roundedCurve=Number(curvature.toFixed(2));
-  const history=[...oldHistory,{estimate:rounded,usableMatches:n,at:now}].slice(-20);
-  return {...settings,conversion:rounded,curvature:roundedCurve,handicapSoftCap:settings.handicapSoftCap??800,winnerBonus:settings.winnerBonus??.5,overHandicapBoost:settings.overHandicapBoost??.75,overHandicapScale:settings.overHandicapScale??200,calibration:{rawEstimate:Number(best.toFixed(2)),estimate:rounded,lower:Number(lower.toFixed(2)),upper:Number(upper.toFixed(2)),curvatureEstimate:roundedCurve,curvatureLower:Number(curveLower.toFixed(2)),curvatureUpper:Number(curveUpper.toFixed(2)),usableMatches:n,handicapLevels:levels,confidence,updatedAt:now,history}};
-}
-
 function replay(players:Player[],matches:Match[],settings:Settings) {
   const rebuilt=players.map(p=>({...p,rating:p.initialRating,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[] as string[]}));
   const byId=new Map(rebuilt.map(p=>[p.id,p]));
@@ -390,10 +348,11 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
 }
 function upgradeState(raw:AppState){
   const nextRaw = { ...raw, tournaments: raw.tournaments ?? [] };
-  if((nextRaw.settings.modelVersion??1)>=4)return {state:nextRaw,changed:false};
-  const settings:Settings={...nextRaw.settings,modelVersion:4};
-  const rebuilt=replay(nextRaw.players,nextRaw.matches,settings);
-  return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"套用 PDF Snooker Elo 公式；完整重播歷史 ELO",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
+  if((nextRaw.settings.modelVersion??1)>=5)return {state:nextRaw,changed:false};
+  const players=nextRaw.players.map(player=>({...player,initialRating:1500,rating:1500}));
+  const settings:Settings={...nextRaw.settings,start:1500,modelVersion:5};
+  const rebuilt=replay(players,nextRaw.matches,settings);
+  return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"移除舊評分系統；以 1500 起始並套用 PDF Snooker Elo 公式",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
 }
 
 const today = new Date().toISOString().slice(0,10);
@@ -643,7 +602,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     if(!confirm(`確定刪除「${tournament.name}」？盃賽及其已記錄賽事都會永久刪除。`))return;
     const matches=data.matches.filter(match=>match.tournamentId!==tournament.id);
     const base={...data,tournaments:data.tournaments.filter(item=>item.id!==tournament.id),matches,audits:[{id:crypto.randomUUID(),text:`刪除盃賽：${tournament.name}`,at:new Date().toISOString()},...data.audits]};
-    const settings=recalibrate(data.settings,matches),next={...base,settings,...replay(data.players,matches,settings)};
+    const settings=data.settings,next={...base,settings,...replay(data.players,matches,settings)};
     setData(next);persist(next,"盃賽已刪除。",data);
   }
 
@@ -708,7 +667,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     const matches=editingMatch
       ? data.matches.map(existing=>existing.id===editingMatch.id?match:existing)
       : [match,...data.matches];
-    const settings=valid2v2?data.settings:recalibrate(data.settings,matches);
+    const settings=data.settings;
     const rebuilt=replay(data.players,matches,settings);
     const action=editingMatch?"編輯":"記錄";
     const matchLabel=valid2v2?`${teamLabel(match,data,"A")} ${draft.scoreA}–${draft.scoreB} ${teamLabel(match,data,"B")}`:`${a.name} ${draft.scoreA}–${draft.scoreB} ${b.name}`;
@@ -757,9 +716,9 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   function savePlayer(){
     if(!isAdmin&&(!editingPlayer||editingPlayer.id!==ownPlayerId)){setToast("你只能修改自己的球員資料。");return;}
     if(!playerForm.name.trim()||!playerForm.short.trim()){setToast("請輸入顯示名稱及縮寫。");return;}
-    const rating=playerForm.rating?+playerForm.rating:data.settings.start;
+    const rating=1500;
     const p:Player=editingPlayer
-      ? {...editingPlayer,name:playerForm.name.trim(),short:playerForm.short.toUpperCase().slice(0,3),handicap:playerForm.handicap===""?null:+playerForm.handicap,initialRating:rating,colour:playerForm.colour||DEFAULT_AVATAR}
+      ? {...editingPlayer,name:playerForm.name.trim(),short:playerForm.short.toUpperCase().slice(0,3),handicap:playerForm.handicap===""?null:+playerForm.handicap,initialRating:1500,colour:playerForm.colour||DEFAULT_AVATAR}
       : {id:crypto.randomUUID(),name:playerForm.name.trim(),short:playerForm.short.toUpperCase().slice(0,3),colour:playerForm.colour||DEFAULT_AVATAR,
         handicap:playerForm.handicap===""?null:+playerForm.handicap,rating,initialRating:rating,active:true,wins:0,losses:0,draws:0,
         framesWon:0,framesLost:0,lastChange:0,form:[]};
@@ -831,7 +790,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     const snapshot=data;
     const matches=data.matches.filter(x=>x.id!==m.id);
     const entertainment=isEntertainmentMode(m.mode);
-    const settings=entertainment?data.settings:recalibrate(data.settings,matches);
+    const settings=data.settings;
     const rebuilt=replay(data.players,matches,settings);
     const next={...data,settings,...rebuilt,
       audits:[{id:crypto.randomUUID(),text:`永久刪除賽事：${m.id.slice(0,8)}${entertainment?"；娛樂記錄，不影響評分":"；重建評分及近況"}`,at:new Date().toISOString()},...data.audits]};
@@ -998,7 +957,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
             </form>
           </div>}
           {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} onSave={savePlayer}/>}
-          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,modelVersion:4},rebuilt=replay(data.players,data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"更新 ELO 設定；完整重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已更新，歷史 ELO 已重播。")}}/>}
+          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,start:1500,modelVersion:5},rebuilt=replay(data.players.map(player=>({...player,initialRating:1500})),data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"確認 PDF Snooker Elo 公式；以 1500 起始並重播歷史評分",at:new Date().toISOString()},...data.audits]},"PDF Elo 已套用，歷史評分已從 1500 重播。")}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
@@ -2215,11 +2174,9 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
   </div>;
 }
 
-function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>void;onReset:()=>void;canReset:boolean}) {
-  const s=data.settings,c=s.calibration; return <><section className="hero small"><div><p className="kicker">公開設定</p><h1>ELO 設定</h1><p>實際讓分直接影響 ELO；正式讓分只作參考。</p></div><button className="primary" onClick={onEdit}>編輯設定</button></section>
-    <div className="settings-grid"><div className="setting"><small><Term label="起始 ELO" tip="球員加入時的評分起點；個別球員可另行設定，修改後會重播歷史賽果。"/></small><b>{s.start}</b></div><div className="setting"><small><Term label="臨時門檻" tip="球員完成此數量的比賽前會標示為臨時評分，並使用較大的臨時 K 值。"/></small><b>{s.provisionalGames} 場</b></div><div className="setting"><small><Term label="K 值" tip="控制每次賽果令 ELO 改變多少；數值越高，評分調整越快。"/></small><b>{s.kProvisional} / {s.kRated}</b></div><div className="setting"><small><Term label="持續校準換算率" tip="10 分附近每 1 分實際讓分相當於多少 ELO；會按累積賽果逐步重新估算。"/></small><b>{s.conversion} ELO／分</b></div><div className="setting"><small><Term label="讓分曲線" tip="大讓分難度的非線性增幅；1 為線性，數值越高，20、40、100 分的難度上升越快。"/></small><b>{s.curvature??1.25}</b></div><div className="setting"><small><Term label="軟上限" tip="用平滑曲線限制極端讓分的等效 ELO；額外讓分仍有影響，但不會無限增長。"/></small><b>±{s.handicapSoftCap??800} ELO</b></div><div className="setting"><small><Term label="勝者獎勵" tip="勝方加入的虛擬局數；預設半局，使 3–2 略優於 3–3，但不會出現巨大跳升。"/></small><b>{s.winnerBonus??.5} 局</b></div><div className="setting"><small><Term label="超額讓分加乘" tip="球員承受比雙方 ELO 公平線更艱難的讓分，仍打和或勝出時，額外放大其 ELO 回報；不利程度越高，加乘越大。"/></small><b>最高 +{Math.round((s.overHandicapBoost??.75)*100)}%</b></div><div className="setting"><small><Term label="加乘尺度" tip="控制超額讓分加乘增長速度；數值越小，加乘越快接近上限。"/></small><b>{s.overHandicapScale??200} ELO</b></div></div>
-    <section className="calibration-card"><div><p className="kicker">每場自動更新</p><h2><Term label="讓分換算持續學習" tip="每次賽果變動後，同時估計 10 分附近的 ELO 換算率與大讓分的非線性曲線。"/></h2><p>目前每讓 1 分約等於 <b>{s.conversion} ELO</b>，曲線為 <b>{s.curvature??1.25}</b>。系統比較預測與真實局數比例，最多採計每筆 20 局；正式讓分不參與計算。</p>{c?.history&&c.history.length>1&&<small className="calibration-history">最近校準：{c.history.slice(-5).map(x=>x.estimate).join(" → ")} ELO／分</small>}</div><div className="calibration-stats"><span><small><Term label="可用記錄" tip="具備有效局數、賽前 ELO，而且實際讓分不為 0 的記錄數量。"/></small><b>{c?.usableMatches??0}</b></span><span><small><Term label="實際讓分種類" tip="歷史資料出現過多少種不同的非零實際讓分數值；例如 4、8、12 分代表 3 種。"/></small><b>{c?.handicapLevels??0}</b></span><span><small><Term label="信心" tip="按可用記錄數及實際讓分種類評估校準可靠程度。"/></small><b>{c?.confidence??"資料不足"}</b></span><span><small><Term label="換算率範圍" tip="與最佳估算表現接近的一段 ELO／分換算率。"/></small><b>{c?`${c.lower}–${c.upper}`:"—"}</b></span><span><small><Term label="曲線範圍" tip="數據支持的非線性曲線範圍；資料不足時會保持接近 1.25。"/></small><b>{c?.curvatureLower!=null?`${c.curvatureLower}–${c.curvatureUpper}`:"—"}</b></span></div></section>
-    {c?.history&&c.history.length>1&&<CalibrationTrend history={c.history} lower={c.lower} upper={c.upper} conversion={s.conversion} confidence={c.confidence} example={{points:10,elo:Math.round(handicapAdjustment(10,s))}}/>}
+function SettingsView({data,onReset,canReset}:{data:AppState;onEdit:()=>void;onReset:()=>void;canReset:boolean}) {
+  return <><section className="hero small"><div><p className="kicker">公開設定</p><h1>ELO 設定</h1><p>所有球員由 1500 起步；每場賽果只使用 PDF Snooker Elo 公式重播。</p></div></section>
+    <div className="settings-grid"><div className="setting"><small>起始 ELO</small><b>1500</b></div><div className="setting"><small>評分公式</small><b>PDF Snooker Elo</b></div><div className="setting"><small>讓分尺度</small><b>500</b></div><div className="setting"><small>零和更新</small><b>是</b></div></div>
     <section className="audit"><h2>審計記錄</h2>{data.audits.slice(0,12).map(a=><div key={a.id}><span>{a.text}</span><small>{new Date(a.at).toLocaleString("zh-HK")}</small></div>)}</section>
     {canReset&&<section className="danger-zone"><div><h2>清除並重設資料</h2><p>永久刪除共用資料庫內所有球員、比賽及審計記錄，並恢復預設 ELO 設定。</p></div><button onClick={onReset}>清除所有資料</button></section>}</>;
 }
@@ -2410,7 +2367,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   </div>;
 }
 
-function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) { const [s,setS]=useState(data.settings);const field=(k:"start"|"provisionalGames"|"kProvisional"|"kRated"|"conversion"|"curvature"|"handicapSoftCap"|"winnerBonus"|"overHandicapBoost"|"overHandicapScale",label:string,step=1)=><label>{label}<input type="number" step={step} value={s[k]??""} onChange={e=>setS({...s,[k]:+e.target.value})}/></label>;return <><p className="kicker">公開管理</p><h2>編輯 ELO 設定</h2><p className="warning">任何人都可修改。儲存後會以新規則重播全部歷史評分。</p><div className="two">{field("start","起始 ELO")}{field("provisionalGames","臨時門檻")}{field("kProvisional","臨時 K")}{field("kRated","正式 K")}{field("conversion","10 分附近每點換算",.25)}{field("curvature","非線性讓分曲線",.01)}{field("handicapSoftCap","讓分等效 ELO 軟上限")}{field("winnerBonus","勝者虛擬局數",.1)}{field("overHandicapBoost","超額讓分最高加乘",.05)}{field("overHandicapScale","超額讓分加乘尺度")}</div><button className="primary full" onClick={()=>confirm("確定更新並重播全部歷史 ELO？")&&onSave(s)}>儲存並重播</button></>}
+function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) { return <><p className="kicker">公開管理</p><h2>PDF Snooker Elo 設定</h2><p className="warning">起始 ELO 固定為 1500。評分公式、局數縮放、表現壓縮及勝負獎勵均完全依照 PDF 規格。</p><button className="primary full" onClick={()=>onSave({...data.settings,start:1500,modelVersion:5})}>套用並重播歷史 ELO</button></>}
 type RivalSnapshot = {
   opponent:Player; wins:number; losses:number; draws:number; matches:number;
   framesWon:number; framesLost:number; frameRate:number;

@@ -37,7 +37,7 @@ const baseState=()=>({
     createdBy:"p1",
     signups:["p1"],
   }],
-  settings:{ start:1500, provisionalGames:10, kProvisional:40, kRated:24, conversion:8, cap:200, curvature:1.25, handicapSoftCap:800, winnerBonus:.5, overHandicapBoost:.75, overHandicapScale:200, modelVersion:4 },
+  settings:{ start:1500, provisionalGames:10, conversion:8, curvature:1.25, handicapSoftCap:800, modelVersion:5 },
   audits:[],
 });
 

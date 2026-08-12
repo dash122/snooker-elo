@@ -1,10 +1,7 @@
 // Shared write-authorization rules for /api/state and unit tests.
 
-// Saving any 1v1 match recalibrates conversion/curvature and stamps
-// calibration.updatedAt with the current time (see recalibrate() in
-// HomeClient.tsx), so those fields differ on essentially every save. Compare
-// only the knobs an admin actually sets by hand — otherwise no ordinary
-// member could ever save a normal match.
+// Rating fields are derived by replaying matches. Compare only editable
+// settings and player profile fields when authorising a member write.
 function settingsForCompare(settings: any) {
   if (!settings) return settings;
   const { conversion, curvature, calibration, ...rest } = settings;
