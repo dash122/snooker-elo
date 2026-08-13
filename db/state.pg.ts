@@ -167,6 +167,12 @@ export async function putState(data: string) {
   const state = JSON.parse(data) as State;
   const sql = getSql();
   await sql.begin(async tx => {
+    // The database role can have a short lock_timeout configured globally.
+    // State writes are intentionally serialized by the advisory lock below,
+    // so inheriting that timeout turns ordinary overlapping saves into 55P03
+    // failures (most noticeably when changing a match date recalculates later
+    // ratings). Let statement_timeout bound active/waiting work instead.
+    await tx`SET LOCAL lock_timeout = 0`;
     // If the client connection drops mid-transaction, this bounds how long the
     // orphaned session sits idle holding locks before Postgres kills it itself
     // — previously it could sit for 10+ minutes, queueing up every other write.

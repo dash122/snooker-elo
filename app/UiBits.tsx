@@ -18,7 +18,7 @@ export const sortLabels:Record<SortKey,string>={rank:"排名",name:"球員",rati
 export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"availability"|"players"|"settings";active:boolean}) {
   const line={fill:"none",stroke:"currentColor",strokeWidth:1.75,strokeLinecap:"round" as const,strokeLinejoin:"round" as const};
   const activeMark={...line,fill:active?"currentColor":"none"};
-  const svgProps={width:21,height:21,viewBox:"0 0 24 24","aria-hidden":true,focusable:"false"};
+  const svgProps={width:21,height:21,viewBox:"0 0 24 24","aria-hidden":true,focusable:"false" as const};
   switch(id){
     case "leaderboard":return <svg {...svgProps}>
       <path d="M3.5 19.5h17" {...line}/>

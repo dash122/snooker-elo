@@ -7,6 +7,11 @@ export type AvailabilityMember = { id:string; name:string; short:string; rating:
 let schemaReady:Promise<unknown>|null=null;
 export async function ensureAvailabilitySchema(){ return ensureSchema(); }
 async function ensureSchema(){
+  // Schema changes are migration-owned. Even idempotent CREATE/ALTER statements
+  // acquire heavyweight relation locks, so running them on every serverless cold
+  // start can block unrelated state reads and match edits until lock_timeout.
+  return Promise.resolve();
+
   schemaReady??=(async()=>{
     const sql=getSql();
     await sql`CREATE TABLE IF NOT EXISTS availability_slots (
