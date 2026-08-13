@@ -4822,3 +4822,4 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
   .app-page>.page-tabs.home-view-nav button.active span:not(.availability-tab-count)::after{display:none}
 }
 }
+.match-filter-options button{display:flex;align-items:center;justify-content:center}
