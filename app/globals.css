@@ -4080,6 +4080,13 @@ button.sl-chip.on{background:var(--green);color:#fff;border-color:var(--green)}
 .cup-card-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
 .cup-card-body h3{margin:0;color:var(--deep);font-size:var(--fs-lead);letter-spacing:-.02em;line-height:1.25}
 .cup-card-line{margin:0;color:var(--muted);font-size:var(--fs-caption);line-height:1.45}
+.cup-host{display:flex;align-items:center;gap:.45rem;color:var(--muted);font-size:var(--fs-caption);line-height:1.25}
+.cup-host b{color:var(--ink);font-weight:800}
+.cup-host-avatar{display:inline-grid;place-items:center;width:22px;height:22px;flex:none;border-radius:50%;overflow:hidden;background:#e7efe9}
+.cup-host-avatar .player-badge{width:22px;height:22px;font-size:9px}
+.cup-host-banner{margin-top:.15rem;color:#bdd3cb}
+.cup-host-banner b{color:#ffe2a8}
+.cup-host-banner .cup-host-avatar{background:#2c5a50}
 .cup-card-people{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-size:var(--fs-caption);font-weight:700}
 .cup-card-actions{display:grid;gap:.5rem;margin-top:.125rem}
 .cup-card-actions>*{width:100%}

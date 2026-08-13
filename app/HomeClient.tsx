@@ -1651,6 +1651,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
 
   const controls=(item:Tournament)=><span className="cup-admin"><button type="button" className="cup-admin-btn" aria-label={`編輯 ${item.name}`} onClick={()=>onEditTournament(item)}>✎</button><button type="button" className="cup-admin-btn danger" aria-label={`刪除 ${item.name}`} onClick={()=>onDeleteTournament(item)}>✕</button></span>;
   const avatarStack=(ids:string[])=><span className="cup-avatars">{ids.slice(0,5).map(id=><PlayerBadge key={id} player={player(id)??{short:"?"}}/>)}{ids.length>5&&<i>+{ids.length-5}</i>}</span>;
+  const hostLabel=(item:Tournament)=>item.createdBy?name(item.createdBy):"SCAA Club";
 
   if(!selectedTournament){
     const cups=[...data.tournaments].sort((left,right)=>right.createdAt.localeCompare(left.createdAt));
@@ -1674,6 +1675,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
             <div className="cup-card-top"><span className={`cup-chip is-${status}`}>{CUP_STATUS_LABEL[status]}</span>{isAdmin&&controls(item)}</div>
             <h3>{item.name}</h3>
             <p className="cup-card-line">{line}</p>
+            <div className="cup-host"><span className="cup-host-avatar"><PlayerBadge player={player(item.createdBy??"")??{short:"S"}}/></span><span>主辦 <b>{hostLabel(item)}</b></span></div>
             <div className="cup-card-people">{item.signups.length>0&&avatarStack(item.signups)}<span>{item.signups.length} 人報名</span></div>
             <div className="cup-card-actions">
               {status==="signup"&&(ownPlayerId
@@ -1773,6 +1775,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         <div className="cup-card-top"><span className={`cup-chip is-${status}`}>{CUP_STATUS_LABEL[status]}</span>{isAdmin&&controls(tournament)}</div>
         <h2>{tournament.name}</h2>
         <p>{deadlinePassed?`報名已於 ${deadlineText(tournament.signupDeadline)} 截止`:`報名截止 ${deadlineText(tournament.signupDeadline)}`}</p>
+        <div className="cup-host cup-host-banner"><span className="cup-host-avatar"><PlayerBadge player={player(tournament.createdBy??"")??{short:"S"}}/></span><span>主辦 <b>{hostLabel(tournament)}</b></span></div>
         <div className="cup-banner-stats">
           <div><b>{tournament.signups.length}</b><small>參賽</small></div>
           <div><b>{settled}<i>/{total||"—"}</i></b><small>已定勝負</small></div>
