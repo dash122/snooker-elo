@@ -36,6 +36,11 @@ function snapshotEntities(state: State): SnapshotEntity[] {
 
 let schemaReady: Promise<unknown> | null = null;
 export function ensureStateSchema() {
+  // State schema changes are migration-owned. Running the historical bootstrap
+  // below on every serverless cold start took ACCESS EXCLUSIVE locks and could
+  // block all readers (including localhost) for tens of seconds.
+  return Promise.resolve();
+
   schemaReady ??= (async () => {
     const sql = getSql();
     // Serialize concurrent cold starts on a session advisory lock instead of
