@@ -15,23 +15,19 @@
  * actually applied when the score is recorded can never disagree. */
 
 export type HandicapSettings = {
-  conversion:number; curvature?:number; handicapSoftCap?:number;
+  handicapPointsToElo:number;
 };
 
-/** ELO difference → points, on the club's calibrated curve.
-    `tanh`/`atanh` keep the curve from running away at the extremes: a 900-point gap and a 1200-point
-    gap are both "far beyond a fair game", and a linear conversion would propose absurd numbers. */
+/** ELO difference → handicap points, on the PDF model's linear scale (25 ELO per point, tunable
+    in settings). */
 export function eloToHandicap(eloDifference:number,settings:HandicapSettings){
-  if(!eloDifference)return 0;
-  const ceiling=settings.handicapSoftCap??800,clamped=Math.min(Math.abs(eloDifference),ceiling*.995);
-  const raw=ceiling*Math.atanh(clamped/ceiling);
-  return Math.sign(eloDifference)*10*(raw/(Math.max(.01,settings.conversion)*10))**(1/(settings.curvature??1.25));
+  return eloDifference/settings.handicapPointsToElo;
 }
 
-/** Snooker handicaps are given in even points. Also normalises `-0`, which would otherwise print as
+/** Suggestions are given in whole points. Also normalises `-0`, which would otherwise print as
     "-0 分" in one branch of every label below. */
-export function roundToEven(value:number) {
-  const rounded=Math.round(value/2)*2;
+export function roundToNearestInteger(value:number) {
+  const rounded=Math.round(value);
   return Object.is(rounded,-0)?0:rounded;
 }
 
@@ -46,7 +42,7 @@ export type HandicapProposal = {
 
 /** What the two of us should play off, said to me about them. */
 export function proposeHandicap(myRating:number,theirRating:number,settings:HandicapSettings):HandicapProposal {
-  const points=roundToEven(eloToHandicap(myRating-theirRating,settings));
+  const points=roundToNearestInteger(eloToHandicap(myRating-theirRating,settings));
   if(points===0)return {points:0,direction:"level",label:"平手打就啱"};
   return points>0
     ?{points,direction:"give",label:`建議你讓 ${points} 分`}
@@ -122,6 +118,6 @@ export function officialHandicapAnchor(players:RatedPlayer[]):number {
 
 export function suggestedHandicap(player:RatedPlayer,players:RatedPlayer[],
   settings:HandicapSettings&{start:number}):number {
-  return roundToEven(officialHandicapAnchor(players)
+  return roundToNearestInteger(officialHandicapAnchor(players)
     -eloToHandicap(player.rating-clubMeanRating(players,settings.start),settings));
 }

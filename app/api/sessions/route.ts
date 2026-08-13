@@ -33,7 +33,7 @@ const MARKET_LIMIT = 8;
 
 type ClubState={players:{id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null;active:boolean}[];
   matches:{a:string;b:string;scoreA:number;scoreB:number;playedOn:string;status:"confirmed"|"void"}[];
-  settings:{conversion:number;curvature?:number;handicapSoftCap?:number}};
+  settings:{handicapPointsToElo:number}};
 
 async function clubState():Promise<ClubState|null>{
   const raw=await getState();
@@ -55,7 +55,7 @@ export async function GET(){
     ]);
     const players:ClubState["players"]=state?.players??[];
     const matches:ClubState["matches"]=state?.matches??[];
-    const settings:ClubState["settings"]=state?.settings??{conversion:8};
+    const settings:ClubState["settings"]=state?.settings??{handicapPointsToElo:25};
     const myRating=players.find(player=>player.id===me)?.rating??0;
 
     const accepted=[...invites.sent,...invites.received].filter(invite=>invite.status==="accepted");

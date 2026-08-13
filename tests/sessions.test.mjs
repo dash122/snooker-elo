@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { overlapsExisting, sessionLive, sessionStatus, sortSessions, visibleSessions } from "../lib/sessions.ts";
-import { handicapSentence, headToHead, proposeHandicap, roundToEven } from "../lib/handicap.ts";
+import { handicapSentence, headToHead, proposeHandicap, roundToNearestInteger } from "../lib/handicap.ts";
 
 const now=Date.parse("2026-08-01T13:00:00.000Z"); // 21:00 HK
 const s=(id,startAt,endAt,over={})=>({id,startAt,endAt,...over});
@@ -59,13 +59,13 @@ test("sessions cannot overlap — that is one evening entered twice",()=>{
 
 /* --- The handicap proposal ------------------------------------------------- */
 
-const settings={conversion:8,curvature:1.25,handicapSoftCap:800};
+const settings={handicapPointsToElo:25};
 
-test("the proposal is always in even points and reads from my side",()=>{
+test("the proposal uses 25 ELO per handicap point and reads from my side",()=>{
   const strongerThanMe=proposeHandicap(1400,1700,settings);
   assert.equal(strongerThanMe.direction,"receive");
   assert.ok(strongerThanMe.label.startsWith("建議佢讓"));
-  assert.equal(Math.abs(strongerThanMe.points%2),0,"snooker handicaps are given in even points");
+  assert.equal(strongerThanMe.points,-12);
 
   const weakerThanMe=proposeHandicap(1700,1400,settings);
   assert.equal(weakerThanMe.direction,"give");
@@ -74,16 +74,19 @@ test("the proposal is always in even points and reads from my side",()=>{
   assert.deepEqual(proposeHandicap(1500,1500,settings),{points:0,direction:"level",label:"平手打就啱"});
 });
 
-test("a bigger gap proposes more points, but the curve does not run away",()=>{
+test("a bigger gap proposes one point per 25 ELO",()=>{
   const near=proposeHandicap(1500,1600,settings).points;
   const far=proposeHandicap(1500,1900,settings).points;
   const absurd=proposeHandicap(1500,3000,settings).points;
-  assert.ok(Math.abs(far)>Math.abs(near));
-  assert.ok(Math.abs(absurd)<Math.abs(far)*4,"a 1500-point gap is not fifteen times a 100-point one");
+  assert.equal(near,-4);
+  assert.equal(far,-16);
+  assert.equal(absurd,-60);
 });
 
-test("negative zero never reaches a label",()=>{
-  assert.ok(Object.is(roundToEven(-0.4),0),"would otherwise print as -0 分");
+test("suggestions round to the nearest integer",()=>{
+  assert.equal(roundToNearestInteger(2.49),2);
+  assert.equal(roundToNearestInteger(2.5),3);
+  assert.ok(Object.is(roundToNearestInteger(-0.4),0),"would otherwise print as -0 分");
 });
 
 /* --- The evidence behind it ------------------------------------------------ */
