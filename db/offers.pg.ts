@@ -12,6 +12,9 @@ import { AVAILABILITY_GRACE_MINUTES, type MutualOffer } from "../lib/availabilit
 let schemaReady:Promise<unknown>|null=null;
 export async function ensureOfferSchema(){ return ensureSchema(); }
 async function ensureSchema(){
+  // Schema changes are deployment-owned; request-time DDL can block all readers.
+  return Promise.resolve();
+
   schemaReady??=(async()=>{
     const sql=getSql();
     /* The pair is stored in a fixed order (a < b) so that "is there already an offer between these

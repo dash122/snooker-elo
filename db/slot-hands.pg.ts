@@ -26,6 +26,9 @@ import { ensureAvailabilitySchema, fillPostedSlotTx, type PostedSlot } from "./a
 
 let schemaReady:Promise<unknown>|null=null;
 async function ensureSchema(){
+  // Schema changes are deployment-owned; request-time DDL can block all readers.
+  return Promise.resolve();
+
   schemaReady??=(async()=>{
     await ensureAvailabilitySchema();
     const sql=getSql();

@@ -17,6 +17,9 @@ let schemaReady:Promise<unknown>|null=null;
    other's schema bootstrap has already run in this process. */
 export async function ensureInviteSchema(){ return ensureSchema(); }
 async function ensureSchema(){
+  // Schema changes are deployment-owned; request-time DDL can block all readers.
+  return Promise.resolve();
+
   schemaReady??=(async()=>{
     const sql=getSql();
     await sql`CREATE TABLE IF NOT EXISTS match_invites (

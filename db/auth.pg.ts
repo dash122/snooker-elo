@@ -8,6 +8,10 @@ const SESSION_DAYS = 30;
 
 let schemaReady: Promise<unknown> | null = null;
 function ensureAuthSchema() {
+  // Schema changes are deployment-owned. Production requests must never queue
+  // ACCESS EXCLUSIVE locks behind ordinary reads on the members table.
+  return Promise.resolve();
+
   schemaReady ??= (async () => {
     const sql = getSql();
     // Serialize concurrent cold starts on a session advisory lock instead of

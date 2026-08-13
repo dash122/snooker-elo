@@ -24,6 +24,9 @@ export type Presence = { playerId:string; arrivedAt:string; expiresAt:string };
 
 let schemaReady:Promise<unknown>|null=null;
 async function ensureSchema(){
+  // Schema changes are deployment-owned; request-time DDL can block all readers.
+  return Promise.resolve();
+
   schemaReady??=(async()=>{
     const sql=getSql();
     await sql`CREATE TABLE IF NOT EXISTS club_presence (
