@@ -2,11 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { calculateSnookerElo } from "../lib/snooker-elo.ts";
 
-test("matches the PDF example",()=>{
-  const result=calculateSnookerElo({ratingA:1500,ratingB:1550,handicapA:2,framesA:5,framesB:3});
-  assert.equal(result.expectedFramesA,4);
-  assert.equal(Math.round(result.scale*10)/10,88.2);
-  assert.equal(Math.round(result.deltaA*10)/10,44.3);
+test("matches the new PDF worked example",()=>{
+  const result=calculateSnookerElo({ratingA:1600,ratingB:1450,handicapA:-5,framesA:5,framesB:1,repetitionCount:3});
+  assert.equal(Math.round(result.expectedFramesA*100)/100,3.43);
+  assert.equal(Math.round(result.scale*100)/100,111.29);
+  assert.equal(Math.round(result.compressionWidth*1000)/1000,2.887);
+  assert.equal(Math.round(result.repetitionFactor*1000)/1000,.743);
+  assert.equal(Math.round(result.deltaA*100)/100,41.03);
 });
 
 test("handicap increases Player A's expected frames",()=>{
@@ -15,11 +17,11 @@ test("handicap increases Player A's expected frames",()=>{
   assert.ok(receiving.expectedFramesA>level.expectedFramesA);
 });
 
-test("uses match length scaling and a result bonus",()=>{
+test("uses match length scaling without a separate result bonus",()=>{
   const short=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:3,framesB:0});
   const long=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:6,framesB:0});
-  assert.equal(short.bonus,6);
-  assert.equal(long.bonus,12);
+  assert.equal(short.bonus,0);
+  assert.equal(long.bonus,0);
   assert.ok(long.scale>short.scale);
 });
 
@@ -37,18 +39,18 @@ test("reversing the result reverses the rating change",()=>{
 
 test("zero-frame input is neutral",()=>{
   assert.deepEqual(calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:0,framesB:0}),{
-    probabilityA:.5,expectedFramesA:0,scale:0,performance:0,bonus:0,deltaA:0,
+    probabilityA:.5,expectedFramesA:0,scale:0,compressionWidth:3,repetitionFactor:1,performance:0,bonus:0,deltaA:0,
   });
 });
 
-test("frameScaleCoefficient and frameScaleBase are configurable",()=>{
-  const custom=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,frameScaleCoefficient:100,frameScaleBase:10});
-  assert.equal(Math.round(custom.scale*10)/10,58.8);
+test("the logarithmic scaling numerator and denominator are configurable",()=>{
+  const custom=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,frameScaleCoefficient:100,frameScaleNumeratorOffset:15,frameScaleDenominator:10});
+  assert.equal(Math.round(custom.scale*10)/10,83.3);
 });
 
-test("performanceTanhDivisor and winBonusMultiplier are configurable",()=>{
-  const result=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,performanceTanhDivisor:6,winBonusMultiplier:1});
-  assert.equal(result.bonus,8);
+test("adaptive compression width constants are configurable",()=>{
+  const result=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,compressionWidthBase:6,compressionWidthExponent:.2});
+  assert.equal(Math.round(result.compressionWidth*1000)/1000,5.664);
 });
 
 test("handicapEloScale is configurable",()=>{
@@ -71,4 +73,10 @@ test("a larger ELO gap leaves a larger residual edge at the same effectiveness",
   const smallGap=calculateSnookerElo({ratingA:1600,ratingB:1500,handicapA:-4,framesA:4,framesB:4,handicapEffectiveness:.7});
   const bigGap=calculateSnookerElo({ratingA:1900,ratingB:1500,handicapA:-16,framesA:4,framesB:4,handicapEffectiveness:.7});
   assert.ok((bigGap.probabilityA-.5)>(smallGap.probabilityA-.5));
+});
+
+test("repetition decay reduces repeated-match rating changes",()=>{
+  const first=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,repetitionCount:0});
+  const repeated=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,repetitionCount:7});
+  assert.equal(Math.round(repeated.deltaA*100)/100,Math.round(first.deltaA*.5*100)/100);
 });

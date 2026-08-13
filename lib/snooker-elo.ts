@@ -18,18 +18,28 @@ export type SnookerEloInput = {
   handicapEffectiveness?: number;
   /** The "150" multiplying the match-length scaling factor. */
   frameScaleCoefficient?: number;
-  /** The "10" in "(n+10)/10". Raising it flattens the scaling factor's growth with n. */
-  frameScaleBase?: number;
-  /** The "3" dividing the raw over/under-performance inside tanh(). */
-  performanceTanhDivisor?: number;
-  /** The "2" in the win/loss bonus of ±2n. */
-  winBonusMultiplier?: number;
+  /** The "15" added to n in the logarithmic scaling factor. */
+  frameScaleNumeratorOffset?: number;
+  /** The "10" dividing the logarithmic scaling factor. */
+  frameScaleDenominator?: number;
+  /** The "3" multiplying the adaptive compression width. */
+  compressionWidthBase?: number;
+  /** The "0.1" in 10^(-0.1/n). */
+  compressionWidthExponent?: number;
+  /** The "2" in the repetition decay factor 2^(-t/7). */
+  repetitionDecayBase?: number;
+  /** The "7" in the repetition decay factor 2^(-t/7). */
+  repetitionDecayPeriod?: number;
+  /** Number of prior meetings between the players in the preceding 30 days. */
+  repetitionCount?: number;
 };
 
 export type SnookerEloResult = {
   probabilityA: number;
   expectedFramesA: number;
   scale: number;
+  compressionWidth: number;
+  repetitionFactor: number;
   performance: number;
   bonus: number;
   deltaA: number;
@@ -38,25 +48,30 @@ export type SnookerEloResult = {
 export function calculateSnookerElo(input: SnookerEloInput): SnookerEloResult {
   const handicapEloScale = input.handicapEloScale ?? 500;
   const handicapPointsToElo = input.handicapPointsToElo ?? 25;
-  const handicapEffectiveness = input.handicapEffectiveness ?? 1;
+  const handicapEffectiveness = input.handicapEffectiveness ?? .7;
   const frameScaleCoefficient = input.frameScaleCoefficient ?? 150;
-  const frameScaleBase = input.frameScaleBase ?? 10;
-  const performanceTanhDivisor = input.performanceTanhDivisor ?? 3;
-  const winBonusMultiplier = input.winBonusMultiplier ?? 2;
+  const frameScaleNumeratorOffset = input.frameScaleNumeratorOffset ?? 15;
+  const frameScaleDenominator = input.frameScaleDenominator ?? 10;
+  const compressionWidthBase = input.compressionWidthBase ?? 3;
+  const compressionWidthExponent = input.compressionWidthExponent ?? .1;
+  const repetitionDecayBase = input.repetitionDecayBase ?? 2;
+  const repetitionDecayPeriod = input.repetitionDecayPeriod ?? 7;
+  const repetitionCount = Math.max(0, input.repetitionCount ?? 0);
 
   const totalFrames = input.framesA + input.framesB;
   if (totalFrames <= 0) {
-    return { probabilityA: .5, expectedFramesA: 0, scale: 0, performance: 0, bonus: 0, deltaA: 0 };
+    return { probabilityA: .5, expectedFramesA: 0, scale: 0, compressionWidth: compressionWidthBase,
+      repetitionFactor: 1, performance: 0, bonus: 0, deltaA: 0 };
   }
 
   const handicapElo = handicapEffectiveness * handicapPointsToElo * input.handicapA;
   const probabilityA = 1 / (1 + 10 ** (-(input.ratingA - input.ratingB + handicapElo) / handicapEloScale));
   const expectedFramesA = probabilityA * totalFrames;
-  const scale = frameScaleCoefficient * Math.log((totalFrames + frameScaleBase) / frameScaleBase);
-  const performance = scale * Math.tanh((input.framesA - expectedFramesA) / performanceTanhDivisor);
-  const bonus = input.framesA > totalFrames / 2 ? winBonusMultiplier * totalFrames
-    : input.framesA < totalFrames / 2 ? -winBonusMultiplier * totalFrames
-      : 0;
+  const scale = frameScaleCoefficient * Math.log((totalFrames + frameScaleNumeratorOffset) / frameScaleDenominator);
+  const compressionWidth = compressionWidthBase * 10 ** (-compressionWidthExponent / totalFrames);
+  const repetitionFactor = repetitionDecayBase ** (-repetitionCount / repetitionDecayPeriod);
+  const performance = scale * Math.tanh((input.framesA - expectedFramesA) / compressionWidth) * repetitionFactor;
+  const bonus = 0;
 
-  return { probabilityA, expectedFramesA, scale, performance, bonus, deltaA: performance + bonus };
+  return { probabilityA, expectedFramesA, scale, compressionWidth, repetitionFactor, performance, bonus, deltaA: performance };
 }

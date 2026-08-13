@@ -85,16 +85,21 @@ type Settings = {
   provisionalGames: number;
   /** The "150" multiplying the match-length scaling factor S(n). */
   frameScaleCoefficient: number;
-  /** The "10" in "(n+10)/10" — raising it flattens S(n)'s growth with match length. */
-  frameScaleBase: number;
+  /** The "15" added to n in S(n). */
+  frameScaleNumeratorOffset: number;
+  /** The "10" dividing S(n). */
+  frameScaleDenominator: number;
   /** The "500" scaling ELO differences (incl. the handicap) into a win probability. */
   handicapEloScale: number;
   /** The "25" converting one handicap point into ELO; also the club's 建議讓分 conversion. */
   handicapPointsToElo: number;
-  /** The "3" dividing over/under-performance inside tanh(). */
-  performanceTanhDivisor: number;
-  /** The "2" in the ±2n win/loss bonus. */
-  winBonusMultiplier: number;
+  /** The "3" multiplying the adaptive compression width. */
+  compressionWidthBase: number;
+  /** The "0.1" in 10^(-0.1/n). */
+  compressionWidthExponent: number;
+  /** The "2" and "7" in the repetition decay factor 2^(-t/7). */
+  repetitionDecayBase: number;
+  repetitionDecayPeriod: number;
   /** How much of a handicap's ELO-equivalent offsets the underlying rating gap (0–1). Below 1,
       even the "fair" suggested handicap leaves the stronger player a residual edge that grows
       with the ELO gap, instead of forcing every handicapped match to a flat 50/50. */
@@ -106,9 +111,10 @@ type AppState = { players: Player[]; matches: Match[]; tournaments: Tournament[]
 const seed: AppState = {
   settings: {
     start: 1500, provisionalGames:10,
-    frameScaleCoefficient:100, frameScaleBase:10, handicapEloScale:500, handicapPointsToElo:25,
-    performanceTanhDivisor:3, winBonusMultiplier:2, handicapEffectiveness:.7,
-    modelVersion:6,
+    frameScaleCoefficient:150, frameScaleNumeratorOffset:15, frameScaleDenominator:10,
+    handicapEloScale:500, handicapPointsToElo:25, compressionWidthBase:3,
+    compressionWidthExponent:.1, repetitionDecayBase:2, repetitionDecayPeriod:7,
+    handicapEffectiveness:.7, modelVersion:7,
   },
   players: [],
   matches: [],
@@ -286,7 +292,19 @@ function handicapVerdict(me:Player,p:Player,s:Settings){
   const base=points===0?"平手":points>0?`建議我讓 ${points} 分`:`建議他讓 ${Math.abs(points)} 分`;
   return points!==0&&Math.abs(eloDifference)<30?`${base} · 勢均力敵`:base;
 }
-function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings,giverSide?:"A"|"B"|null) {
+function sameMatchup(left:Match,right:Match){
+  const side=(match:Match,which:"A"|"B")=>new Set((which==="A"?[match.a,match.a2]:[match.b,match.b2]).filter((id):id is string=>Boolean(id)));
+  const equal=(first:Set<string>,second:Set<string>)=>first.size===second.size&&[...first].every(id=>second.has(id));
+  return equal(side(left,"A"),side(right,"A"))&&equal(side(left,"B"),side(right,"B"))
+    || equal(side(left,"A"),side(right,"B"))&&equal(side(left,"B"),side(right,"A"));
+}
+function priorMeetings(match:Match,matches:Match[],beforeDate:string,excludeId?:string){
+  const cutoff=new Date(`${beforeDate}T00:00:00Z`).getTime()-30*864e5;
+  return matches.filter(candidate=>candidate.id!==excludeId&&candidate.status==="confirmed"
+    &&sameMatchup(match,candidate)
+    &&new Date(`${candidate.playedOn||candidate.createdAt.slice(0,10)}T00:00:00Z`).getTime()>=cutoff).length;
+}
+function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings,giverSide?:"A"|"B"|null,repetitionCount=0) {
   const actual = giverSide === "A" ? points : giverSide === "B" ? -points
     : giver === a.id ? points : giver === b.id ? -points : 0;
   const official = a.handicap == null || b.handicap == null ? null : b.handicap - a.handicap;
@@ -294,8 +312,10 @@ function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,
     ratingA:a.rating, ratingB:b.rating, handicapA:-actual, framesA:scoreA, framesB:scoreB,
     handicapEloScale:s.handicapEloScale, handicapPointsToElo:s.handicapPointsToElo,
     handicapEffectiveness:s.handicapEffectiveness, frameScaleCoefficient:s.frameScaleCoefficient,
-    frameScaleBase:s.frameScaleBase, performanceTanhDivisor:s.performanceTanhDivisor,
-    winBonusMultiplier:s.winBonusMultiplier,
+    frameScaleNumeratorOffset:s.frameScaleNumeratorOffset, frameScaleDenominator:s.frameScaleDenominator,
+    compressionWidthBase:s.compressionWidthBase, compressionWidthExponent:s.compressionWidthExponent,
+    repetitionDecayBase:s.repetitionDecayBase, repetitionDecayPeriod:s.repetitionDecayPeriod,
+    repetitionCount,
   });
   const totalFrames = scoreA + scoreB;
   return {
@@ -342,7 +362,8 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
     const teamAEntity = a2 ? {id:"teamA",name:teamLabel(m,state,"A"),short:teamLabel(m,state,"A"),handicap:teamHandicap(m,state,"A"),rating:teamRating(m,state,"A"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]} as Player : a;
     const teamBEntity = b2 ? {id:"teamB",name:teamLabel(m,state,"B"),short:teamLabel(m,state,"B"),handicap:teamHandicap(m,state,"B"),rating:teamRating(m,state,"B"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]} as Player : b;
     const giverSide = m.giver && teamA.some(p=>p.id===m.giver) ? "A" : m.giver && teamB.some(p=>p.id===m.giver) ? "B" : undefined;
-    const result=calc(teamAEntity,teamBEntity,m.scoreA,m.scoreB,m.giver,Math.abs(m.actual),settings,giverSide);
+    const repetitionCount=priorMeetings(m,ordered.slice(0,ordered.indexOf(m)),m.playedOn||m.createdAt.slice(0,10));
+    const result=calc(teamAEntity,teamBEntity,m.scoreA,m.scoreB,m.giver,Math.abs(m.actual),settings,giverSide,repetitionCount);
     const resultA=m.scoreA===m.scoreB?"D":m.scoreA>m.scoreB?"W":"L";
     const resultB=resultA==="D"?"D":resultA==="W"?"L":"W";
     const beforeA=teamAEntity.rating,beforeB=teamBEntity.rating;
@@ -374,20 +395,23 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
 }
 function upgradeState(raw:AppState){
   const nextRaw = { ...raw, tournaments: raw.tournaments ?? [] };
-  if((nextRaw.settings.modelVersion??1)>=6)return {state:nextRaw,changed:false};
+  if((nextRaw.settings.modelVersion??1)>=7)return {state:nextRaw,changed:false};
   const players=nextRaw.players.map(player=>({...player,initialRating:1500,rating:1500}));
-  const stale=nextRaw.settings as Partial<Settings>;
+  const stale=nextRaw.settings as Partial<Settings>&{frameScaleBase?:number};
   const settings:Settings={
     start:1500,
     provisionalGames:stale.provisionalGames??10,
-    frameScaleCoefficient:stale.frameScaleCoefficient??100,
-    frameScaleBase:stale.frameScaleBase??10,
+    frameScaleCoefficient:stale.frameScaleCoefficient??150,
+    frameScaleNumeratorOffset:stale.frameScaleNumeratorOffset??15,
+    frameScaleDenominator:stale.frameScaleDenominator??stale.frameScaleBase??10,
     handicapEloScale:stale.handicapEloScale??500,
     handicapPointsToElo:stale.handicapPointsToElo??25,
-    performanceTanhDivisor:stale.performanceTanhDivisor??3,
-    winBonusMultiplier:stale.winBonusMultiplier??2,
+    compressionWidthBase:stale.compressionWidthBase??3,
+    compressionWidthExponent:stale.compressionWidthExponent??.1,
+    repetitionDecayBase:stale.repetitionDecayBase??2,
+    repetitionDecayPeriod:stale.repetitionDecayPeriod??7,
     handicapEffectiveness:stale.handicapEffectiveness??.7,
-    modelVersion:6,
+    modelVersion:7,
   };
   const rebuilt=replay(players,nextRaw.matches,settings);
   return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"移除舊評分系統；以 1500 起始並套用可調整參數的 PDF Snooker Elo 公式",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
@@ -995,7 +1019,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
             </form>
           </div>}
           {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} onSave={savePlayer}/>}
-          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,start:1500,modelVersion:6},rebuilt=replay(data.players.map(player=>({...player,initialRating:1500})),data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"調整 PDF Snooker Elo 公式參數；以 1500 起始並重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已套用，歷史評分已從 1500 重播。")}}/>}
+          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,start:1500,modelVersion:7},rebuilt=replay(data.players.map(player=>({...player,initialRating:1500})),data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"調整 PDF Snooker Elo 公式參數；以 1500 起始並重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已套用，歷史評分已從 1500 重播。")}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
@@ -2218,11 +2242,14 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
     <div className="settings-grid">
       <div className="setting"><small>起始 ELO</small><b>1500</b></div>
       <div className="setting"><small>局數影響係數（150）</small><b>{s.frameScaleCoefficient}</b></div>
-      <div className="setting"><small>局數基準（10）</small><b>{s.frameScaleBase}</b></div>
+      <div className="setting"><small>局數加數（15）</small><b>{s.frameScaleNumeratorOffset}</b></div>
+      <div className="setting"><small>局數除數（10）</small><b>{s.frameScaleDenominator}</b></div>
       <div className="setting"><small>讓分 ELO 尺度（500）</small><b>{s.handicapEloScale}</b></div>
       <div className="setting"><small>每讓 1 分相當於 ELO（25）</small><b>{s.handicapPointsToElo}</b></div>
-      <div className="setting"><small>表現壓縮除數（3）</small><b>{s.performanceTanhDivisor}</b></div>
-      <div className="setting"><small>勝負獎勵倍數（2）</small><b>{s.winBonusMultiplier}</b></div>
+      <div className="setting"><small>壓縮寬度基數（3）</small><b>{s.compressionWidthBase}</b></div>
+      <div className="setting"><small>壓縮寬度指數（0.1）</small><b>{s.compressionWidthExponent}</b></div>
+      <div className="setting"><small>重複衰減底數（2）</small><b>{s.repetitionDecayBase}</b></div>
+      <div className="setting"><small>重複衰減週期（7）</small><b>{s.repetitionDecayPeriod}</b></div>
       <div className="setting"><small>讓分有效度</small><b>{Math.round(s.handicapEffectiveness*100)}%</b></div>
       <div className="setting"><small>零和更新</small><b>是</b></div>
     </div>
@@ -2416,7 +2443,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   </div>;
 }
 
-type TunableSettingKey="frameScaleCoefficient"|"frameScaleBase"|"handicapEloScale"|"handicapPointsToElo"|"performanceTanhDivisor"|"winBonusMultiplier"|"handicapEffectiveness";
+type TunableSettingKey="frameScaleCoefficient"|"frameScaleNumeratorOffset"|"frameScaleDenominator"|"handicapEloScale"|"handicapPointsToElo"|"compressionWidthBase"|"compressionWidthExponent"|"repetitionDecayBase"|"repetitionDecayPeriod"|"handicapEffectiveness";
 function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
   const [s,setS]=useState<Settings>(data.settings);
   const field=(key:TunableSettingKey,label:string,hint:string,step=1,min?:number,max?:number)=>
@@ -2427,15 +2454,18 @@ function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
     <h2>PDF Snooker Elo 公式設定</h2>
     <p className="warning">起始 ELO 固定為 1500，不能修改。儲存後會以新參數，從 1500 起始完整重播歷史 ELO。</p>
     <div className="settings-form-grid">
-      {field("frameScaleCoefficient","局數影響係數","S(n) = 係數 × ln((n+基準)/基準)，原值 150。調低可減少局數對 ELO 波幅的影響。",1,0)}
-      {field("frameScaleBase","局數基準","同上公式中的「基準」，原值 10，同時用於 (n+基準) 及 /基準 兩處。",1,1)}
+      {field("frameScaleCoefficient","局數影響係數","S(n) = 係數 × ln((n+15)/10)，PDF 原值 150。",1,0)}
+      {field("frameScaleNumeratorOffset","局數加數","S(n) 中 n + 此數值，PDF 原值 15。",1,0)}
+      {field("frameScaleDenominator","局數除數","S(n) 的除數，PDF 原值 10。",1,.1)}
       {field("handicapEloScale","讓分 ELO 尺度","勝率公式分母，原值 500。數值越大，同樣 ELO 差距對勝率的影響越小。",10,1)}
       {field("handicapPointsToElo","每讓 1 分相當於 ELO","原值 25，同時決定建議讓分（ELO 差 ÷ 此數值）。",1,1)}
-      {field("performanceTanhDivisor","表現壓縮除數","tanh() 內的除數，原值 3。數值越大，單場表現對 ELO 的影響越平滑。",.5,.5)}
-      {field("winBonusMultiplier","勝負獎勵倍數","勝負獎勵 ±此數值×n，原值 2。",.5,0)}
+      {field("compressionWidthBase","壓縮寬度基數","σ(n) = 基數 × 10^(-指數/n)，PDF 原值 3。",.5,.1)}
+      {field("compressionWidthExponent","壓縮寬度指數","σ(n) 中的指數，PDF 原值 0.1。",.01,0)}
+      {field("repetitionDecayBase","重複衰減底數","M(t) = 底數^(-t/週期)，PDF 原值 2。",.1,1)}
+      {field("repetitionDecayPeriod","重複衰減週期","M(t) 的週期，PDF 原值 7。",.5,.1)}
       {field("handicapEffectiveness","讓分有效度","0–1。1 即「公平」讓分令勝率剛好一半；低於 1 時，就算讓足建議分數，ELO 差越大，較強的一方仍保留越多優勢，不會完全拉平。",.05,0,1)}
     </div>
-    <button className="primary full" onClick={()=>onSave({...s,start:1500,provisionalGames:data.settings.provisionalGames,modelVersion:6})}>套用並重播歷史 ELO</button>
+    <button className="primary full" onClick={()=>onSave({...s,start:1500,provisionalGames:data.settings.provisionalGames,modelVersion:7})}>套用並重播歷史 ELO</button>
   </>;
 }
 type RivalSnapshot = {
