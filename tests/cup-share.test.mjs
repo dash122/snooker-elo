@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cupOgImageUrl, cupShareCta, cupShareDescription, cupShareMessage, cupShareState, cupShareTitle, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share.ts";
 import { cupOgCard, cupOgGlyphs, cupOgNameLayout } from "../lib/cup-og.ts";
-import { clubMeanRating, officialHandicapAnchor, proposeHandicap, suggestedHandicap } from "../lib/handicap.ts";
+import { clubMeanRating, proposeHandicap, suggestedHandicap } from "../lib/handicap.ts";
 import { buildBracket, currentRoundLabel } from "../lib/tournament.ts";
 
 /* Wired exactly as the two real callers wire it — the share page for its meta tags and the app for
@@ -180,10 +180,8 @@ const club = [
   { rating: 1300, handicap: 80 },
 ];
 
-test("the club's own scale anchors every suggested handicap", () => {
-  // The anchor is the average official handicap (60), and the player sitting at the club's mean
-  // rating gets exactly it — the curve only ever describes distance from the middle.
-  assert.equal(officialHandicapAnchor(club), 60);
+test("1500 ELO always starts at the preset suggested handicap", () => {
+  // Official handicaps no longer move the suggested scale; the preset is fixed at 60.
   assert.equal(clubMeanRating(club, settings.start), 1500);
   assert.equal(suggestedHandicap({ rating: 1500 }, club, settings), 60);
 });
@@ -198,10 +196,9 @@ test("a stronger player is quoted a lower handicap, a weaker one a higher", () =
 });
 
 test("an empty club falls back to the configured start rather than a mean of nothing", () => {
-  // Without the fallback the mean is 0, every rating reads as 1500 points clear of the field, and
-  // the first cup the club ever shares quotes absurd handicaps to everyone who opens the link.
+  // The player baseline is configured by start ELO, so the roster is irrelevant even when empty.
   assert.equal(clubMeanRating([], settings.start), 1500);
-  assert.equal(officialHandicapAnchor([]), 0);
+  assert.equal(suggestedHandicap({ rating: 1500 }, [], settings), 60);
 });
 
 test("a tie quotes the terms the two sides actually play off", () => {
