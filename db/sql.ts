@@ -24,7 +24,9 @@ export function getSql() {
     }
     // Supabase's pooled connection runs pgbouncer in transaction mode, which
     // doesn't support named prepared statements — disable them.
-    sqlClient = postgres(url, { ssl: "require", prepare: false });
+    console.log("=== DB URL BEING USED:", url, "===");
+    const isLocal = url.includes("127.0.0.1") || url.includes("localhost");
+    sqlClient = postgres(url, { ssl: isLocal ? false : "require", prepare: false });
   }
   return sqlClient;
 }
