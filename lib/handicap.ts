@@ -109,15 +109,11 @@ export function clubMeanRating(players:RatedPlayer[],start:number):number {
   return players.length?players.reduce((sum,player)=>sum+player.rating,0)/players.length:start;
 }
 
-/** Where the club has pinned its own scale. Handicaps are only meaningful relative to the numbers
-    the club already uses, so the curve is anchored on the average of the official ones. */
-export function officialHandicapAnchor(players:RatedPlayer[]):number {
-  const official=players.map(player=>player.handicap).filter((value):value is number=>value!=null);
-  return official.length?official.reduce((sum,value)=>sum+value,0)/official.length:0;
-}
+/** The club's preset: a player at the starting ELO receives 60 handicap points. */
+export const DEFAULT_SUGGESTED_HANDICAP = 60;
 
-export function suggestedHandicap(player:RatedPlayer,players:RatedPlayer[],
+export function suggestedHandicap(player:RatedPlayer,_players:RatedPlayer[],
   settings:HandicapSettings&{start:number}):number {
-  return roundToNearestInteger(officialHandicapAnchor(players)
-    -eloToHandicap(player.rating-clubMeanRating(players,settings.start),settings));
+  return roundToNearestInteger(DEFAULT_SUGGESTED_HANDICAP
+    -eloToHandicap(player.rating-settings.start,settings));
 }

@@ -7,7 +7,7 @@ const defaultState = {
   players: [],
   matches: [],
   tournaments: [],
-  settings: { start: 1500, provisionalGames: 10, frameScaleCoefficient: 100, frameScaleBase: 10, handicapEloScale: 500, handicapPointsToElo: 25, performanceTanhDivisor: 3, winBonusMultiplier: 2, handicapEffectiveness: .7, modelVersion: 6 },
+  settings: { start: 1500, provisionalGames: 10, frameScaleCoefficient: 150, frameScaleNumeratorOffset: 15, frameScaleDenominator: 10, handicapEloScale: 500, handicapPointsToElo: 25, compressionWidthBase: 3, compressionWidthExponent: .1, repetitionDecayBase: 2, repetitionDecayPeriod: 7, handicapEffectiveness: .7, modelVersion: 7 },
   audits: [],
 };
 
