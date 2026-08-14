@@ -1492,11 +1492,14 @@ function Matches({data,canManageMatch,onEdit,onVoid,onShare,onPlayer,view,setVie
           {focusPlayer&&!opponent&&<PlayerCombobox players={roster.filter(p=>p.id!==focusPlayer)} value="" onChange={setOpponent} placeholder="＋ 比較球員" ariaLabel="選擇比較球員"/>}
         </div>
       </div>
-      <div className="match-filter-control type-control">
+      <div className="match-filter-control type-control sort-control">
         <span className="match-filter-label">類型</span>
-        <div className="match-filter-options" role="group" aria-label="比賽類型">
-          {([['all','全部'],['1v1','1v1'],['2v2','2v2'],['cup','盃賽']] as const).map(([value,label])=><button type="button" key={value} className={modeFilter===value?"active":""} aria-pressed={modeFilter===value} onClick={()=>setModeFilter(value)}>{label}</button>)}
-        </div>
+        <select aria-label="比賽類型" value={modeFilter} onChange={event=>setModeFilter(event.target.value as "all"|MatchMode)}>
+          <option value="all">全部</option>
+          <option value="1v1">1v1</option>
+          <option value="2v2">2v2</option>
+          <option value="cup">盃賽</option>
+        </select>
       </div>
       <div className="match-filter-control sort-control"><span className="match-filter-label">排序</span><div className="match-sort-compact"><select aria-label="排序依據" value={sortBy} onChange={event=>setSortBy(event.target.value as "playedOn"|"createdAt")}><option value="playedOn">比賽日期</option><option value="createdAt">加入日期</option></select><button type="button" aria-label={sortDirection==="desc"?"目前最新至最舊；按下改為最舊至最新":"目前最舊至最新；按下改為最新至最舊"} title={sortDirection==="desc"?"最新至最舊":"最舊至最新"} onClick={()=>setSortDirection(value=>value==="desc"?"asc":"desc")}>{sortDirection==="desc"?"↓":"↑"}</button></div></div>
     </section>
