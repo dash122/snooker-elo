@@ -11,7 +11,7 @@ import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type Av
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
 import { ShareGlyph } from "./ShareSheet";
 import CupShareButtons from "./CupShareButtons";
-import { suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
+import { handicapEloPerPoint, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
 import { calculateSnookerElo } from "../lib/snooker-elo";
 import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
 import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story-card";
@@ -93,6 +93,12 @@ type Settings = {
   handicapEloScale: number;
   /** The "25" converting one handicap point into ELO; also the club's 建議讓分 conversion. */
   handicapPointsToElo: number;
+  /** Minimum ELO represented by one handicap point at high ratings. */
+  handicapMinimumElo: number;
+  /** Additional ELO represented per handicap point at low ratings. */
+  handicapSensitivityRange: number;
+  /** Rating width controlling how quickly sensitivity transitions. */
+  handicapSensitivityWidth: number;
   /** The "3" multiplying the adaptive compression width. */
   compressionWidthBase: number;
   /** The "0.1" in 10^(-0.1/n). */
@@ -112,9 +118,10 @@ const seed: AppState = {
   settings: {
     start: 1500, provisionalGames:10,
     frameScaleCoefficient:150, frameScaleNumeratorOffset:15, frameScaleDenominator:10,
-    handicapEloScale:500, handicapPointsToElo:25, compressionWidthBase:3,
+    handicapEloScale:500, handicapPointsToElo:25, handicapMinimumElo:14,
+    handicapSensitivityRange:32, handicapSensitivityWidth:250, compressionWidthBase:3,
     compressionWidthExponent:.1, repetitionDecayBase:2, repetitionDecayPeriod:7,
-    handicapEffectiveness:.7, modelVersion:7,
+    handicapEffectiveness:.7, modelVersion:8,
   },
   players: [],
   matches: [],
@@ -123,8 +130,8 @@ const seed: AppState = {
 };
 
 function games(p: Player) { return p.wins + p.losses + p.draws; }
-function eloToHandicap(eloDifference:number,s:Settings){
-  return eloDifference/s.handicapPointsToElo;
+function eloToHandicap(eloDifference:number,s:Settings,averageRating:number){
+  return eloDifference/handicapEloPerPoint(averageRating,s);
 }
 function roundToNearestInteger(value:number) {
   const rounded=Math.round(value);
@@ -288,7 +295,7 @@ function breakChartPoints(player:Player,data:AppState,mode:BreakChartMode):Break
 /** "我讓他 X 分" / "他讓我 X 分" — the same fair-handicap conversion the match form uses, read as a verdict about `me` vs. `p` rather than as a giver/points pair to apply. */
 function handicapVerdict(me:Player,p:Player,s:Settings){
   const eloDifference=me.rating-p.rating;
-  const points=roundToNearestInteger(eloToHandicap(eloDifference,s));
+  const points=roundToNearestInteger(eloToHandicap(eloDifference,s,(me.rating+p.rating)/2));
   const base=points===0?"平手":points>0?`建議我讓 ${points} 分`:`建議他讓 ${Math.abs(points)} 分`;
   return points!==0&&Math.abs(eloDifference)<30?`${base} · 勢均力敵`:base;
 }
@@ -395,7 +402,7 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
 }
 function upgradeState(raw:AppState){
   const nextRaw = { ...raw, tournaments: raw.tournaments ?? [] };
-  if((nextRaw.settings.modelVersion??1)>=7)return {state:nextRaw,changed:false};
+  if((nextRaw.settings.modelVersion??1)>=8)return {state:nextRaw,changed:false};
   const players=nextRaw.players.map(player=>({...player,initialRating:1500,rating:1500}));
   const stale=nextRaw.settings as Partial<Settings>&{frameScaleBase?:number};
   const settings:Settings={
@@ -406,12 +413,15 @@ function upgradeState(raw:AppState){
     frameScaleDenominator:stale.frameScaleDenominator??stale.frameScaleBase??10,
     handicapEloScale:stale.handicapEloScale??500,
     handicapPointsToElo:stale.handicapPointsToElo??25,
+    handicapMinimumElo:stale.handicapMinimumElo??14,
+    handicapSensitivityRange:stale.handicapSensitivityRange??32,
+    handicapSensitivityWidth:stale.handicapSensitivityWidth??250,
     compressionWidthBase:stale.compressionWidthBase??3,
     compressionWidthExponent:stale.compressionWidthExponent??.1,
     repetitionDecayBase:stale.repetitionDecayBase??2,
     repetitionDecayPeriod:stale.repetitionDecayPeriod??7,
     handicapEffectiveness:stale.handicapEffectiveness??.7,
-    modelVersion:7,
+    modelVersion:8,
   };
   const rebuilt=replay(players,nextRaw.matches,settings);
   return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"移除舊評分系統；以 1500 起始並套用可調整參數的 PDF Snooker Elo 公式",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
@@ -1019,7 +1029,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
             </form>
           </div>}
           {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} onSave={savePlayer}/>}
-          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,start:1500,modelVersion:7},rebuilt=replay(data.players.map(player=>({...player,initialRating:1500})),data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"調整 PDF Snooker Elo 公式參數；以 1500 起始並重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已套用，歷史評分已從 1500 重播。")}}/>}
+          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,start:1500,modelVersion:8},rebuilt=replay(data.players.map(player=>({...player,initialRating:1500})),data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"調整 PDF Snooker Elo 公式參數；以 1500 起始並重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已套用，歷史評分已從 1500 重播。")}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
@@ -1936,7 +1946,7 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
   const rightLabel = isEntertainmentMode(m.mode) ? teamLabel(m,data,"B") : name(m.b);
   const preMatchLeftElo=m.beforeA2==null?m.beforeA:(m.beforeA+m.beforeA2)/2;
   const preMatchRightElo=m.beforeB2==null?m.beforeB:(m.beforeB+m.beforeB2)/2;
-  const recommendedActual=Math.round(eloToHandicap(preMatchLeftElo-preMatchRightElo,data.settings));
+  const recommendedActual=Math.round(eloToHandicap(preMatchLeftElo-preMatchRightElo,data.settings,(preMatchLeftElo+preMatchRightElo)/2));
   const handicapText=(actual:number)=>
     actual>0?`${leftLabel} 每局讓 ${rightLabel} ${actual} 分`
     :actual<0?`${rightLabel} 每局讓 ${leftLabel} ${Math.abs(actual)} 分`
@@ -2246,6 +2256,9 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
       <div className="setting"><small>局數除數（10）</small><b>{s.frameScaleDenominator}</b></div>
       <div className="setting"><small>讓分 ELO 尺度（500）</small><b>{s.handicapEloScale}</b></div>
       <div className="setting"><small>每讓 1 分相當於 ELO（25）</small><b>{s.handicapPointsToElo}</b></div>
+      <div className="setting"><small>讓分最低 ELO 值（14）</small><b>{s.handicapMinimumElo}</b></div>
+      <div className="setting"><small>讓分敏感度範圍（32）</small><b>{s.handicapSensitivityRange}</b></div>
+      <div className="setting"><small>讓分敏感度寬度（250）</small><b>{s.handicapSensitivityWidth}</b></div>
       <div className="setting"><small>壓縮寬度基數（3）</small><b>{s.compressionWidthBase}</b></div>
       <div className="setting"><small>壓縮寬度指數（0.1）</small><b>{s.compressionWidthExponent}</b></div>
       <div className="setting"><small>重複衰減底數（2）</small><b>{s.repetitionDecayBase}</b></div>
@@ -2321,7 +2334,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   const teamEloDifference=draft.mode==="2v2"&&a2&&b2?roundedTeamEloDifference([a,a2],[b,b2]):a.rating-b.rating;
   const teamAHandicap=isTeamMode&&a2?Math.round((suggestedHandicap(a,data)+suggestedHandicap(a2,data))/2):null;
   const teamBHandicap=isTeamMode&&b2?Math.round((suggestedHandicap(b,data)+suggestedHandicap(b2,data))/2):null;
-  const fairActual=preview?(isTeamMode&&teamAHandicap!=null&&teamBHandicap!=null?teamBHandicap-teamAHandicap:Math.round(eloToHandicap(teamEloDifference,data.settings))):null;
+  const fairActual=preview?(isTeamMode&&teamAHandicap!=null&&teamBHandicap!=null?teamBHandicap-teamAHandicap:Math.round(eloToHandicap(teamEloDifference,data.settings,(a.rating+b.rating)/2))):null;
   const probabilities=preview?matchProbabilities(preview.expectedA,+draft.scoreA+ +draft.scoreB):null;
   const applyFair=()=>{
     if(fairActual==null)return;
@@ -2443,7 +2456,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   </div>;
 }
 
-type TunableSettingKey="frameScaleCoefficient"|"frameScaleNumeratorOffset"|"frameScaleDenominator"|"handicapEloScale"|"handicapPointsToElo"|"compressionWidthBase"|"compressionWidthExponent"|"repetitionDecayBase"|"repetitionDecayPeriod"|"handicapEffectiveness";
+type TunableSettingKey="frameScaleCoefficient"|"frameScaleNumeratorOffset"|"frameScaleDenominator"|"handicapEloScale"|"handicapPointsToElo"|"handicapMinimumElo"|"handicapSensitivityRange"|"handicapSensitivityWidth"|"compressionWidthBase"|"compressionWidthExponent"|"repetitionDecayBase"|"repetitionDecayPeriod"|"handicapEffectiveness";
 function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
   const [s,setS]=useState<Settings>(data.settings);
   const field=(key:TunableSettingKey,label:string,hint:string,step=1,min?:number,max?:number)=>
@@ -2459,13 +2472,16 @@ function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
       {field("frameScaleDenominator","局數除數","S(n) 的除數，PDF 原值 10。",1,.1)}
       {field("handicapEloScale","讓分 ELO 尺度","勝率公式分母，原值 500。數值越大，同樣 ELO 差距對勝率的影響越小。",10,1)}
       {field("handicapPointsToElo","每讓 1 分相當於 ELO","原值 25，同時決定建議讓分（ELO 差 ÷ 此數值）。",1,1)}
+      {field("handicapMinimumElo","讓分最低 ELO 值","高 ELO 區域時，每讓 1 分最少代表的 ELO，原值 14。",1,.1)}
+      {field("handicapSensitivityRange","讓分敏感度範圍","低 ELO 與高 ELO 每讓 1 分的 ELO 差距範圍，原值 32。",1,0)}
+      {field("handicapSensitivityWidth","讓分敏感度寬度","控制敏感度由低至高轉變的速度，原值 250。",1,1)}
       {field("compressionWidthBase","壓縮寬度基數","σ(n) = 基數 × 10^(-指數/n)，PDF 原值 3。",.5,.1)}
       {field("compressionWidthExponent","壓縮寬度指數","σ(n) 中的指數，PDF 原值 0.1。",.01,0)}
       {field("repetitionDecayBase","重複衰減底數","M(t) = 底數^(-t/週期)，PDF 原值 2。",.1,1)}
       {field("repetitionDecayPeriod","重複衰減週期","M(t) 的週期，PDF 原值 7。",.5,.1)}
       {field("handicapEffectiveness","讓分有效度","0–1。1 即「公平」讓分令勝率剛好一半；低於 1 時，就算讓足建議分數，ELO 差越大，較強的一方仍保留越多優勢，不會完全拉平。",.05,0,1)}
     </div>
-    <button className="primary full" onClick={()=>onSave({...s,start:1500,provisionalGames:data.settings.provisionalGames,modelVersion:7})}>套用並重播歷史 ELO</button>
+    <button className="primary full" onClick={()=>onSave({...s,start:1500,provisionalGames:data.settings.provisionalGames,modelVersion:8})}>套用並重播歷史 ELO</button>
   </>;
 }
 type RivalSnapshot = {

@@ -16,12 +16,23 @@
 
 export type HandicapSettings = {
   handicapPointsToElo:number;
+  handicapMinimumElo:number;
+  handicapSensitivityRange:number;
+  handicapSensitivityWidth:number;
 };
 
-/** ELO difference → handicap points, on the PDF model's linear scale (25 ELO per point, tunable
-    in settings). */
-export function eloToHandicap(eloDifference:number,settings:HandicapSettings){
-  return eloDifference/settings.handicapPointsToElo;
+/** ELO points represented by one handicap point at a given rating. The sigmoid makes handicap
+    sensitivity rise through the lower/middle ratings, then flatten toward a safe lower bound. */
+export function handicapEloPerPoint(averageRating:number,settings:HandicapSettings){
+  return settings.handicapMinimumElo
+    +settings.handicapSensitivityRange
+        /(1+Math.exp((averageRating-1500)/settings.handicapSensitivityWidth));
+}
+
+/** ELO difference → handicap points. Pairwise callers should pass the two players' average rating. */
+export function eloToHandicap(eloDifference:number,settings:HandicapSettings,averageRating?:number){
+  const eloPerPoint=averageRating==null?settings.handicapPointsToElo:handicapEloPerPoint(averageRating,settings);
+  return eloDifference/eloPerPoint;
 }
 
 /** Suggestions are given in whole points. Also normalises `-0`, which would otherwise print as
@@ -42,7 +53,7 @@ export type HandicapProposal = {
 
 /** What the two of us should play off, said to me about them. */
 export function proposeHandicap(myRating:number,theirRating:number,settings:HandicapSettings):HandicapProposal {
-  const points=roundToNearestInteger(eloToHandicap(myRating-theirRating,settings));
+  const points=roundToNearestInteger(eloToHandicap(myRating-theirRating,settings,(myRating+theirRating)/2));
   if(points===0)return {points:0,direction:"level",label:"平手打就啱"};
   return points>0
     ?{points,direction:"give",label:`建議你讓 ${points} 分`}
