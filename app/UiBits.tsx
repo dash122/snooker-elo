@@ -10,33 +10,42 @@ export type EloTrendPoint = {
 export const sortLabels:Record<SortKey,string>={rank:"排名",name:"球員",rating:"ELO",change:"近10天ELO變化",form:"近況",official:"正式評分",suggested:"建議評分",games:"場數",winRate:"勝率",frameRate:"局數勝率"};
 
 /**
- * SF Symbols-style tab icon: one consistent stroke weight, filled variant on
- * select. Kept to primitive shapes (rect/circle/path) so every icon in the
- * set reads as the same family instead of mismatched glyph weights.
+ * The primary navigation's five icons share a quiet matchroom vocabulary:
+ * podium, scorecard, calendar slot, roster and rating dial. They stay as
+ * crisp geometry rather than literal snooker illustrations so the set remains
+ * legible at the 20px size used by both desktop and mobile navigation.
  */
 export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"availability"|"players"|"settings";active:boolean}) {
-  const common={fill:active?"currentColor":"none",stroke:"currentColor",strokeWidth:active?0:1.8,strokeLinecap:"round" as const,strokeLinejoin:"round" as const};
+  const line={fill:"none",stroke:"currentColor",strokeWidth:1.75,strokeLinecap:"round" as const,strokeLinejoin:"round" as const};
+  const activeMark={...line,fill:active?"currentColor":"none"};
+  const svgProps={width:21,height:21,viewBox:"0 0 24 24","aria-hidden":true,focusable:"false" as const};
   switch(id){
-    case "leaderboard":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
-      <rect x="4" y="13" width="4" height="7" rx="1" {...common}/>
-      <rect x="10" y="8" width="4" height="12" rx="1" {...common}/>
-      <rect x="16" y="4" width="4" height="16" rx="1" {...common}/>
+    case "leaderboard":return <svg {...svgProps}>
+      <path d="M3.5 19.5h17" {...line}/>
+      <rect x="5" y="12" width="4" height="7.5" rx="1" {...line}/>
+      <rect x="10" y="8" width="4" height="11.5" rx="1" {...line}/>
+      <rect x="15" y="4.5" width="4" height="15" rx="1" {...activeMark}/>
     </svg>;
-    case "matches":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
-      <rect x="3.5" y="5" width="17" height="14" rx="2.5" {...common}/>
-      <path d="M5.5 9h13M12 9v10M7.5 13h2M14.5 13h2M7.5 16h2M14.5 16h2" {...common}/>
+    case "matches":return <svg {...svgProps}>
+      <rect x="3.5" y="5" width="17" height="14" rx="2.5" {...line}/>
+      <path d="M5.5 9h13M12 9v8M6.5 12.5h3M14.5 12.5h3M6.5 16h3M14.5 16h3" {...line}/>
+      <circle cx="8" cy="7" r="1" {...activeMark}/><circle cx="16" cy="7" r="1" {...activeMark}/>
     </svg>;
-    case "availability":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
-      <circle cx="7.5" cy="7" r="2.5" {...common}/><circle cx="16.5" cy="7" r="2.5" {...common}/>
-      <path d="M3.8 18c.3-3 1.6-5 3.7-5s3.4 2 3.7 5M12.8 18c.3-3 1.6-5 3.7-5s3.4 2 3.7 5M10 8.5h4M13 6.5l2 2-2 2" {...common}/>
+    case "availability":return <svg {...svgProps}>
+      <rect x="4" y="5.5" width="16" height="14" rx="2.5" {...line}/>
+      <path d="M8 3.5v4M16 3.5v4M4 9.5h16M8 13h.01M12 13h.01M16 13h.01M8 16.5h.01M12 16.5h.01" {...line}/>
+      <circle cx="16" cy="16.5" r="1.05" {...activeMark}/>
     </svg>;
-    case "players":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
-      <circle cx="12" cy="8" r="3.6" {...common}/>
-      <path d="M5 20c0-3.6 3.1-6.4 7-6.4s7 2.8 7 6.4" {...common}/>
+    case "players":return <svg {...svgProps}>
+      <circle cx="9" cy="8" r="3.1" {...activeMark}/>
+      <path d="M3.5 19.5c.2-3.4 2.3-5.5 5.5-5.5 2.2 0 3.9.9 4.8 2.6" {...line}/>
+      <circle cx="16.5" cy="9" r="2.4" {...line}/>
+      <path d="M13.8 15.3c.8-.8 1.8-1.3 3.1-1.3 2.3 0 3.8 1.8 4.1 5.5" {...line}/>
     </svg>;
-    case "settings":return <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
-      <circle cx="12" cy="12" r="3.2" {...common}/>
-      {[0,60,120,180,240,300].map(deg=><rect key={deg} x="10.8" y="2.6" width="2.4" height="4.6" rx="1" transform={`rotate(${deg} 12 12)`} {...common}/>)}
+    case "settings":return <svg {...svgProps}>
+      <circle cx="12" cy="12" r="4.2" {...line}/>
+      <path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2" {...line}/>
+      <circle cx="12" cy="12" r="1.15" {...activeMark}/>
     </svg>;
   }
 }

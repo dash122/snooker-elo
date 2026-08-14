@@ -35,7 +35,10 @@ const GOLD_DIM = "#b98f3e";
 const GOLD_BRIGHT = "#f7e3b5";
 const INK = "#ffffff";
 
-const FONT = "'PingFang HK','Hiragino Sans CJK TC','Noto Sans CJK HK','Microsoft JhengHei','Heiti TC',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif";
+/* Keep Latin text on a clean grotesk before asking the platform for a Traditional Chinese face.
+   The previous stack started with CJK fonts, which made English numerals and labels feel narrow and
+   oddly weighted in exported story images. */
+const FONT = "-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Helvetica Neue','Segoe UI','PingFang HK','Hiragino Sans CJK TC','Noto Sans CJK HK','Microsoft JhengHei',sans-serif";
 
 export type StoryPerson = {
   name: string;
@@ -351,7 +354,11 @@ export function resultStorySvg(card: ResultStoryCard, hex: (colour: string | nul
     parts.push(text(String(top.value), STORY_WIDTH - 130, 1392, { size: 96, weight: 800, fill: GOLD, anchor: "end" }));
   }
 
-  parts.push(callToAction(card.url));
+  /* The match itself is the share. Keep the footer branded and quiet instead of repeating a URL
+     that is already carried by the share action. */
+  parts.push(text("SCAA SNOOKER  ·  MATCH RESULT", STORY_WIDTH / 2, SAFE_BOTTOM - 34, {
+    size: 24, fill: GOLD_DIM, weight: 700, anchor: "middle", spacing: 4, opacity: 0.8,
+  }));
   parts.push(balls());
   return svgDocument(parts.join(""));
 }
@@ -361,20 +368,26 @@ export function resultStorySvg(card: ResultStoryCard, hex: (colour: string | nul
 export function recordStorySvg(card: RecordStoryCard, hex: (colour: string | null) => string): string {
   const parts: string[] = [wordmark(card.honour)];
 
+  /* A quiet hero panel gives the portrait and rating one visual home, so the card reads as a
+     designed profile poster rather than a vertical list of fields. */
+  parts.push(`<rect x="76" y="300" width="${STORY_WIDTH - 152}" height="720" rx="52" fill="rgba(255,255,255,.045)" stroke="rgba(255,255,255,.12)" stroke-width="2"/>`);
+  parts.push(`<circle cx="${STORY_WIDTH / 2}" cy="440" r="150" fill="rgba(232,194,106,.08)"/>`);
   parts.push(badge(card.person, STORY_WIDTH / 2, 440, 112, hex(card.person.colour)));
   const recordNameSize = fitSize(card.person.name, 66, 40, 880);
-  parts.push(text(ellipsize(card.person.name, recordNameSize, 880), STORY_WIDTH / 2, 630, { size: recordNameSize, weight: 800, anchor: "middle" }));
+  parts.push(text(ellipsize(card.person.name, recordNameSize, 880), STORY_WIDTH / 2, 636, { size: recordNameSize, weight: 800, anchor: "middle" }));
 
   const identity: { label: string; tone?: "plain" | "gold" }[] = [];
   if (card.rank > 0) identity.push({ label: `球會排名 #${card.rank}`, tone: "gold" });
   identity.push({ label: card.provisional ? "臨時 ELO" : "正式 ELO" });
-  parts.push(pillRow(identity, STORY_WIDTH / 2, 668, 30));
+  parts.push(pillRow(identity, STORY_WIDTH / 2, 690, 30));
 
-  parts.push(text("目前 ELO", STORY_WIDTH / 2, 800, { size: 32, anchor: "middle", opacity: 0.55, spacing: 4 }));
-  parts.push(text(String(card.rating), STORY_WIDTH / 2, 950, { size: 176, weight: 800, fill: GOLD, anchor: "middle" }));
+  parts.push(text("目前 ELO", STORY_WIDTH / 2, 814, { size: 30, anchor: "middle", opacity: 0.55, spacing: 4 }));
+  const ratingText = String(card.rating);
+  const ratingSize = fitSize(ratingText, 176, 112, 700);
+  parts.push(text(ratingText, STORY_WIDTH / 2, 954, { size: ratingSize, weight: 800, fill: GOLD, anchor: "middle" }));
   if (card.swing !== 0) {
     const label = `近期 ${card.swing > 0 ? "+" : "−"}${Math.abs(card.swing)}`;
-    parts.push(pillRow([{ label }], STORY_WIDTH / 2, 990, 30));
+    parts.push(pillRow([{ label, tone: card.swing > 0 ? "gold" : "plain" }], STORY_WIDTH / 2, 970, 30));
   }
 
   const cells = [
@@ -408,7 +421,11 @@ export function recordStorySvg(card: RecordStoryCard, hex: (colour: string | nul
     }
   }
 
-  parts.push(callToAction(card.url));
+  /* This is a shareable record snapshot, not a landing-page ad. The player, ELO and form are the
+     complete story; leaving the footer quiet also keeps the exported image useful when reposted. */
+  parts.push(text("SCAA SNOOKER  ·  PLAYER RECORD", STORY_WIDTH / 2, SAFE_BOTTOM - 34, {
+    size: 24, fill: GOLD_DIM, weight: 700, anchor: "middle", spacing: 4, opacity: 0.8,
+  }));
   parts.push(balls());
   return svgDocument(parts.join(""));
 }

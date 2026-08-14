@@ -16,7 +16,7 @@ import { calculateSnookerElo } from "../lib/snooker-elo";
 import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
 import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story-card";
 import ShareSheet from "./ShareSheet";
-import { AppShell } from "./components/shell/AppShell";
+import { AppShell, PageFrame } from "./components/shell/AppShell";
 import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
 import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 
@@ -964,6 +964,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     <DesktopNavigation active={tab as Destination} onNavigate={goTab} badge={navBadge} signedIn={Boolean(user)}/>
     <main>
       <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
+      <PageFrame className={`app-page-${tab}`}>
       {/* The club's pulse, on the screen members actually open. Matchmaking used to live entirely
           behind a tab, so "is anyone playing tonight?" was unanswerable without going to look. */}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
@@ -972,6 +973,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} tournaments={data.tournaments} provisionalGames={data.settings.provisionalGames} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecordMatch={(opponentId,date)=>newMatch("1v1",opponentId,date)} onActivity={refreshMatchmaking} onSignUpTournament={signUpTournament}/>} 
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
+      </PageFrame>
     </main>
     {/* Record sits dead centre as the one thing this app exists to do; the four content tabs split
         evenly around it. 設定 is not a peer of them — it lives with the account controls instead. */}
@@ -1098,7 +1100,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
         <span><b>{total}</b><small>歷來總場數</small></span>
       </div>
     </div><button className="primary hero-action" onClick={onRecord}><span aria-hidden="true">＋</span><b>記錄新賽果</b><small>更新排名與近期狀態</small></button></section>
-    <nav className="home-view-nav" aria-label="首頁內容" role="tablist">
+    <nav className="page-tabs home-view-nav" aria-label="首頁內容" role="tablist">
       <button role="tab" aria-selected={homeView==="ranking"} className={homeView==="ranking"?"active":""} onClick={()=>setHomeView("ranking")}><span>目前排名</span></button>
       <button role="tab" aria-selected={homeView==="breaks"} className={homeView==="breaks"?"active":""} onClick={()=>setHomeView("breaks")}><span>最高單桿紀錄</span></button>
       <button role="tab" aria-selected={homeView==="recent"} className={homeView==="recent"?"active":""} onClick={()=>setHomeView("recent")}><span>近三十日統計</span></button>
@@ -1466,7 +1468,7 @@ function Matches({data,canManageMatch,onEdit,onVoid,onShare,onPlayer,view,setVie
   },[matches,comparing]);
   const newestMonth=groups.reduce((latest,group)=>group.key>latest?group.key:latest,"");
   return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽記錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
-    <div className="match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button><button role="tab" aria-selected={view==="matrix"} className={view==="matrix"?"active":""} onClick={()=>setView("matrix")}>對賽矩陣</button><button role="tab" aria-selected={view==="cup"} className={view==="cup"?"active":""} onClick={()=>setView("cup")}>盃賽紀錄</button></div>
+    <div className="page-tabs match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button><button role="tab" aria-selected={view==="matrix"} className={view==="matrix"?"active":""} onClick={()=>setView("matrix")}>對賽矩陣</button><button role="tab" aria-selected={view==="cup"} className={view==="cup"?"active":""} onClick={()=>setView("cup")}>盃賽紀錄</button></div>
     {view==="matrix"?<HeadToHeadMatrix data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{setPair({a:first,b:second});setModeFilter("all");setView("history")}}/> : view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid} onShare={onShare}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament} onRecordSlot={onRecordSlot} onArrange={onArrange} onWalkover={onWalkover} onEditRoster={onEditRoster} onRefresh={onRefresh}/> : <>
     <section className="match-filter-toolbar" aria-label="篩選及排序比賽記錄">
       <div className="match-filter-control player-control">
@@ -1954,7 +1956,7 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
           edit the card — a clubmate posting your win is worth more than you posting it. A voided
           match is excluded; it is not a result any more. */}
       <span className="card-tools">
-        {m.status!=="void"&&<button className="card-tool share" aria-label={`分享 ${leftLabel} 對 ${rightLabel} 的賽果`} onClick={()=>onShare(m)}>↗</button>}
+        {m.status!=="void"&&<button className="card-tool share" aria-label={`分享 ${leftLabel} 對 ${rightLabel} 的賽果`} onClick={()=>onShare(m)}><ShareGlyph kind="share" /></button>}
         {canManage&&<><button className="card-tool" aria-label={`編輯 ${leftLabel} 對 ${rightLabel} 的賽事`} onClick={()=>onEdit(m)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${leftLabel} 對 ${rightLabel} 的賽事`} onClick={()=>onVoid(m)}>✕</button></>}
       </span></div>
     <Scoreline left={leftLabel} right={rightLabel} onLeftClick={isEntertainmentMode(m.mode)?undefined:()=>onPlayer(m.a)} onRightClick={isEntertainmentMode(m.mode)?undefined:()=>onPlayer(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}
@@ -2674,7 +2676,7 @@ function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFin
             to post, but a rating and a rank are always worth showing — and a card carrying the
             club's name into somebody's Instagram does the same job either way. It rides in the chip
             row rather than as a fourth column of the hero grid, which has three tracks. */}
-        <button type="button" className="profile-share" aria-label={`分享 ${player.name} 的球會紀錄`} onClick={onShare}><span aria-hidden="true">↗</span>分享紀錄</button></div>
+        <button type="button" className="profile-share" aria-label={`分享 ${player.name} 的球會紀錄`} onClick={onShare}><ShareGlyph kind="share" />分享紀錄</button></div>
       <div className="profile-hero-form"><div><small>近期 5 場</small><span className="profile-form-dots">{player.form.slice(0,5).map((result,index)=><i key={`${result}-${index}`} className={result.toLowerCase()}>{result}</i>)}</span></div></div>
     </div>
     <div className="profile-hero-elo"><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div>
