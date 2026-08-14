@@ -10,6 +10,13 @@ export const metadata: Metadata = {
   title: "SCAA Snooker ELO｜讓每一局都推動進步",
   description: "為球會而設的公開 ELO 排名、賽果追蹤與公平讓分建議，讓每場對賽更接近、更有競爭力。",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   appleWebApp: {
     title: "Snooker ELO",
     statusBarStyle: "default",
