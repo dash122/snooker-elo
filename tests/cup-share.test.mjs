@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cupOgImageUrl, cupShareCta, cupShareDescription, cupShareMessage, cupShareState, cupShareTitle, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share.ts";
 import { cupOgCard, cupOgGlyphs, cupOgNameLayout } from "../lib/cup-og.ts";
-import { clubMeanRating, proposeHandicap, suggestedHandicap } from "../lib/handicap.ts";
+import { clubMeanRating, handicapEloPerPoint, proposeHandicap, suggestedHandicap } from "../lib/handicap.ts";
 import { buildBracket, currentRoundLabel } from "../lib/tournament.ts";
 
 /* Wired exactly as the two real callers wire it — the share page for its meta tags and the app for
@@ -173,7 +173,7 @@ test("the wa.me link carries the message intact", () => {
  * moving it was that a roster quoting a different 建議讓分 from the leaderboard is worse than a
  * roster quoting none, so these lock the arithmetic rather than the wording. */
 
-const settings = { handicapPointsToElo: 25, start: 1500 };
+const settings = { handicapPointsToElo: 25, handicapMinimumElo: 14, handicapSensitivityRange: 32, handicapSensitivityWidth: 250, start: 1500 };
 const club = [
   { rating: 1700, handicap: 40 },
   { rating: 1500, handicap: 60 },
@@ -208,4 +208,12 @@ test("a tie quotes the terms the two sides actually play off", () => {
   assert.ok(giving.points > 0);
   const receiving = proposeHandicap(1300, 1700, settings);
   assert.equal(receiving.points, -giving.points);
+});
+
+test("rating-sensitive handicaps grow through the playing range and flatten at high ELO", () => {
+  assert.equal(proposeHandicap(1200, 1000, settings).points, 5);
+  assert.equal(proposeHandicap(2000, 1800, settings).points, 10);
+  assert.equal(proposeHandicap(2700, 2500, settings).points, 14);
+  assert.ok(handicapEloPerPoint(1100, settings)>handicapEloPerPoint(1900, settings));
+  assert.ok(handicapEloPerPoint(1900, settings)-handicapEloPerPoint(2600, settings)>0);
 });

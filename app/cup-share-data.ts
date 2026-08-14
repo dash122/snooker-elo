@@ -19,7 +19,7 @@ type State = { players?:Player[]; matches?:CupMatch[]; tournaments?:TournamentLi
    leaderboard, so the roster carries the two numbers that answer the question they are actually
    asking — "is this field beatable by me" — rather than a list of names they may not recognise.
    Both come from `lib/handicap`, the same source the leaderboard and the match form read. */
-const DEFAULT_SETTINGS:ClubSettings={handicapPointsToElo:25,start:1500};
+const DEFAULT_SETTINGS:ClubSettings={handicapPointsToElo:25,handicapMinimumElo:14,handicapSensitivityRange:32,handicapSensitivityWidth:250,start:1500};
 
 export async function loadCupShare(id:string){
   const raw=await getState().catch(()=>null);

@@ -59,13 +59,13 @@ test("sessions cannot overlap — that is one evening entered twice",()=>{
 
 /* --- The handicap proposal ------------------------------------------------- */
 
-const settings={handicapPointsToElo:25};
+const settings={handicapPointsToElo:25,handicapMinimumElo:14,handicapSensitivityRange:32,handicapSensitivityWidth:250};
 
 test("the proposal uses 25 ELO per handicap point and reads from my side",()=>{
   const strongerThanMe=proposeHandicap(1400,1700,settings);
   assert.equal(strongerThanMe.direction,"receive");
   assert.ok(strongerThanMe.label.startsWith("建議佢讓"));
-  assert.equal(strongerThanMe.points,-12);
+  assert.equal(strongerThanMe.points,-11);
 
   const weakerThanMe=proposeHandicap(1700,1400,settings);
   assert.equal(weakerThanMe.direction,"give");
@@ -79,8 +79,8 @@ test("a bigger gap proposes one point per 25 ELO",()=>{
   const far=proposeHandicap(1500,1900,settings).points;
   const absurd=proposeHandicap(1500,3000,settings).points;
   assert.equal(near,-4);
-  assert.equal(far,-16);
-  assert.equal(absurd,-60);
+  assert.equal(far,-17);
+  assert.equal(absurd,-97);
 });
 
 test("suggestions round to the nearest integer",()=>{
