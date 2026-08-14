@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Championship Shot mark</title>
+  <desc id="description">The SCAA Snooker ELO cue, white, red, black, and championship-crown symbol without an app-icon background.</desc>
+  <path fill="#d6aa59" d="m322 121 12-66 48 39 35-55 28 63 55-31-14 70z"/>
+  <path d="M40 472 178 334" stroke="#d6aa59" stroke-width="28" stroke-linecap="square"/>
+  <path d="m170 342 18-18" stroke="#fffdf8" stroke-width="28"/>
+  <circle cx="218" cy="294" r="43" fill="#fffdf8"/>
+  <circle cx="309" cy="203" r="45" fill="#c6423a"/>
+  <circle cx="400" cy="112" r="49" fill="#041f1b" stroke="#d6aa59" stroke-width="8"/>
+</svg>
