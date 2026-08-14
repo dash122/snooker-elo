@@ -318,6 +318,7 @@ function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,
   const formula = calculateSnookerElo({
     ratingA:a.rating, ratingB:b.rating, handicapA:-actual, framesA:scoreA, framesB:scoreB,
     handicapEloScale:s.handicapEloScale, handicapPointsToElo:s.handicapPointsToElo,
+    handicapEloPerPoint:handicapEloPerPoint((a.rating+b.rating)/2,s),
     handicapEffectiveness:s.handicapEffectiveness, frameScaleCoefficient:s.frameScaleCoefficient,
     frameScaleNumeratorOffset:s.frameScaleNumeratorOffset, frameScaleDenominator:s.frameScaleDenominator,
     compressionWidthBase:s.compressionWidthBase, compressionWidthExponent:s.compressionWidthExponent,
