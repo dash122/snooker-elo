@@ -173,7 +173,7 @@ test("the wa.me link carries the message intact", () => {
  * moving it was that a roster quoting a different 建議讓分 from the leaderboard is worse than a
  * roster quoting none, so these lock the arithmetic rather than the wording. */
 
-const settings = { handicapPointsToElo: 25, handicapMinimumElo: 14, handicapSensitivityRange: 32, handicapSensitivityWidth: 250, start: 1500 };
+const settings = { handicapPointsToElo: 25, handicapMinimumElo: 7, handicapSensitivityRange: 16, handicapSensitivityWidth: 250, start: 1500 };
 const club = [
   { rating: 1700, handicap: 40 },
   { rating: 1500, handicap: 60 },
@@ -211,9 +211,9 @@ test("a tie quotes the terms the two sides actually play off", () => {
 });
 
 test("rating-sensitive handicaps grow through the playing range and flatten at high ELO", () => {
-  assert.equal(proposeHandicap(1200, 1000, settings).points, 5);
-  assert.equal(proposeHandicap(2000, 1800, settings).points, 10);
-  assert.equal(proposeHandicap(2700, 2500, settings).points, 14);
+  assert.equal(proposeHandicap(1200, 1000, settings).points, 10);
+  assert.equal(proposeHandicap(2000, 1800, settings).points, 21);
+  assert.equal(proposeHandicap(2700, 2500, settings).points, 28);
   assert.ok(handicapEloPerPoint(1100, settings)>handicapEloPerPoint(1900, settings));
   assert.ok(handicapEloPerPoint(1900, settings)-handicapEloPerPoint(2600, settings)>0);
 });

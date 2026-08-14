@@ -17,6 +17,12 @@ test("handicap increases Player A's expected frames",()=>{
   assert.ok(receiving.expectedFramesA>level.expectedFramesA);
 });
 
+test("an explicit rating-sensitive handicap conversion takes precedence over 25H",()=>{
+  const dynamic=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:2,handicapEloPerPoint:14,handicapPointsToElo:25,framesA:4,framesB:4});
+  const legacy=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:2,handicapPointsToElo:25,framesA:4,framesB:4});
+  assert.ok(dynamic.expectedFramesA<legacy.expectedFramesA);
+});
+
 test("uses match length scaling without a separate result bonus",()=>{
   const short=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:3,framesB:0});
   const long=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:6,framesB:0});

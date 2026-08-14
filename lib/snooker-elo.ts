@@ -7,9 +7,11 @@ export type SnookerEloInput = {
   /** The "500" in the frame-probability exponent. Larger values compress the probability gap
       produced by a given ELO difference. Defaults to the PDF spec's value. */
   handicapEloScale?: number;
-  /** The "25" converting a handicap point into ELO ("25H"). Also drives the club's suggested
-      handicap (ELO difference ÷ this value) — see `lib/handicap.ts`. */
+    /** Legacy/display conversion. Match callers should pass handicapEloPerPoint from the
+      rating-sensitive handicap curve; this remains as a backward-compatible fallback. */
   handicapPointsToElo?: number;
+  /** ELO value of one applied handicap point for this match. */
+  handicapEloPerPoint?: number;
   /** How much of the handicap's ELO-equivalent actually offsets the underlying rating gap, from 0
       (handicap has no effect on the odds) to 1 (a "fair" handicap makes the match exactly 50/50,
       the PDF's default). Below 1, a bigger ELO gap leaves a proportionally bigger residual edge for
@@ -47,7 +49,7 @@ export type SnookerEloResult = {
 
 export function calculateSnookerElo(input: SnookerEloInput): SnookerEloResult {
   const handicapEloScale = input.handicapEloScale ?? 500;
-  const handicapPointsToElo = input.handicapPointsToElo ?? 25;
+  const handicapEloPerPoint = input.handicapEloPerPoint ?? input.handicapPointsToElo ?? 25;
   const handicapEffectiveness = input.handicapEffectiveness ?? .7;
   const frameScaleCoefficient = input.frameScaleCoefficient ?? 150;
   const frameScaleNumeratorOffset = input.frameScaleNumeratorOffset ?? 15;
@@ -64,7 +66,7 @@ export function calculateSnookerElo(input: SnookerEloInput): SnookerEloResult {
       repetitionFactor: 1, performance: 0, bonus: 0, deltaA: 0 };
   }
 
-  const handicapElo = handicapEffectiveness * handicapPointsToElo * input.handicapA;
+  const handicapElo = handicapEffectiveness * handicapEloPerPoint * input.handicapA;
   const probabilityA = 1 / (1 + 10 ** (-(input.ratingA - input.ratingB + handicapElo) / handicapEloScale));
   const expectedFramesA = probabilityA * totalFrames;
   const scale = frameScaleCoefficient * Math.log((totalFrames + frameScaleNumeratorOffset) / frameScaleDenominator);

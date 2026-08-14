@@ -55,7 +55,7 @@ export async function GET(){
     ]);
     const players:ClubState["players"]=state?.players??[];
     const matches:ClubState["matches"]=state?.matches??[];
-    const settings:ClubState["settings"]={handicapPointsToElo:25,handicapMinimumElo:14,handicapSensitivityRange:32,handicapSensitivityWidth:250,...(state?.settings??{})};
+    const settings:ClubState["settings"]={handicapPointsToElo:25,handicapMinimumElo:7,handicapSensitivityRange:16,handicapSensitivityWidth:250,...(state?.settings??{})};
     const myRating=players.find(player=>player.id===me)?.rating??0;
 
     const accepted=[...invites.sent,...invites.received].filter(invite=>invite.status==="accepted");
