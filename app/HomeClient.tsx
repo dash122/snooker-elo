@@ -91,7 +91,8 @@ type Settings = {
   frameScaleDenominator: number;
   /** The "500" scaling ELO differences (incl. the handicap) into a win probability. */
   handicapEloScale: number;
-  /** The "25" converting one handicap point into ELO; also the club's 建議讓分 conversion. */
+  /** Display-only conversion for the individual 建議讓分 value. Pairwise match ELO uses the
+      rating-sensitive handicap curve below. */
   handicapPointsToElo: number;
   /** Minimum ELO represented by one handicap point at high ratings. */
   handicapMinimumElo: number;
@@ -317,7 +318,7 @@ function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,
   const official = a.handicap == null || b.handicap == null ? null : b.handicap - a.handicap;
   const formula = calculateSnookerElo({
     ratingA:a.rating, ratingB:b.rating, handicapA:-actual, framesA:scoreA, framesB:scoreB,
-    handicapEloScale:s.handicapEloScale, handicapPointsToElo:s.handicapPointsToElo,
+    handicapEloScale:s.handicapEloScale,
     handicapEloPerPoint:handicapEloPerPoint((a.rating+b.rating)/2,s),
     handicapEffectiveness:s.handicapEffectiveness, frameScaleCoefficient:s.frameScaleCoefficient,
     frameScaleNumeratorOffset:s.frameScaleNumeratorOffset, frameScaleDenominator:s.frameScaleDenominator,
@@ -2258,9 +2259,9 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
       <div className="setting"><small>局數加數（15）</small><b>{s.frameScaleNumeratorOffset}</b></div>
       <div className="setting"><small>局數除數（10）</small><b>{s.frameScaleDenominator}</b></div>
       <div className="setting"><small>讓分 ELO 尺度（500）</small><b>{s.handicapEloScale}</b></div>
-      <div className="setting"><small>每讓 1 分相當於 ELO（25）</small><b>{s.handicapPointsToElo}</b></div>
-      <div className="setting"><small>讓分最低 ELO 值（14）</small><b>{s.handicapMinimumElo}</b></div>
-      <div className="setting"><small>讓分敏感度範圍（32）</small><b>{s.handicapSensitivityRange}</b></div>
+      <div className="setting"><small>個人建議讓分換算（只供顯示）</small><b>{s.handicapPointsToElo}</b></div>
+      <div className="setting"><small>讓分最低 ELO 值（7）</small><b>{s.handicapMinimumElo}</b></div>
+      <div className="setting"><small>讓分敏感度範圍（16）</small><b>{s.handicapSensitivityRange}</b></div>
       <div className="setting"><small>讓分敏感度寬度（250）</small><b>{s.handicapSensitivityWidth}</b></div>
       <div className="setting"><small>壓縮寬度基數（3）</small><b>{s.compressionWidthBase}</b></div>
       <div className="setting"><small>壓縮寬度指數（0.1）</small><b>{s.compressionWidthExponent}</b></div>
@@ -2474,7 +2475,7 @@ function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
       {field("frameScaleNumeratorOffset","局數加數","S(n) 中 n + 此數值，PDF 原值 15。",1,0)}
       {field("frameScaleDenominator","局數除數","S(n) 的除數，PDF 原值 10。",1,.1)}
       {field("handicapEloScale","讓分 ELO 尺度","勝率公式分母，原值 500。數值越大，同樣 ELO 差距對勝率的影響越小。",10,1)}
-      {field("handicapPointsToElo","每讓 1 分相當於 ELO","原值 25，同時決定建議讓分（ELO 差 ÷ 此數值）。",1,1)}
+      {field("handicapPointsToElo","個人建議讓分換算（只供顯示）","只影響排行榜上的個人建議讓分，不會影響任何比賽 ELO 變化。原值 25。",1,1)}
       {field("handicapMinimumElo","讓分最低 ELO 值","高 ELO 區域時，每讓 1 分最少代表的 ELO，原值 7。",1,.1)}
       {field("handicapSensitivityRange","讓分敏感度範圍","低 ELO 與高 ELO 每讓 1 分的 ELO 差距範圍，原值 16。",1,0)}
       {field("handicapSensitivityWidth","讓分敏感度寬度","控制敏感度由低至高轉變的速度，原值 250。",1,1)}
