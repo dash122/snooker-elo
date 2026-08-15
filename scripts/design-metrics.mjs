@@ -38,8 +38,11 @@ const fontSizes = matches(allCss, /font-size:\s*[^;}!]+/g).map((d) =>
 );
 const tokenSizes = fontSizes.filter((v) => v.startsWith("var(--fs-"));
 const literalSizes = fontSizes.filter((v) => /^[\d.]+(px|rem|em)$/.test(v));
+// `font-size:0` is the idiom for hiding a letter while keeping it for screen
+// readers (the form-guide dots do this), so it is not illegible text.
 const tinyType = literalSizes.filter((v) => {
   const n = parseFloat(v);
+  if (n === 0) return false;
   return v.endsWith("px") ? n < 11 : n < 0.6875;
 });
 
