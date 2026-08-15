@@ -22,7 +22,68 @@
     --ds-safe-top:env(safe-area-inset-top,0px);--ds-safe-bottom:env(safe-area-inset-bottom,0px);
     --ds-duration-fast:140ms;--ds-duration-standard:220ms;
     --ds-ease-standard:cubic-bezier(.2,.8,.2,1);
+
+    /* --- Layout rail ------------------------------------------------------ */
+    --content-max:80rem;
+    --page-gutter:clamp(2rem,4vw,4rem);
+    --page-top:1.5rem;
+    --space-section:2.5rem;
+    --space-block:1.25rem;
+    --space-card:clamp(1.25rem,2.2vw,1.75rem);
+
+    /* --- Type scale — eight roles ----------------------------------------
+       These are the DESKTOP values. globals.css steps the same names down at
+       the tablet and phone tiers, so a component never needs its own size —
+       it names the role and the scale handles the width. Nothing below
+       --fs-label is legible on a phone. */
+    --fs-label:.75rem;
+    --fs-caption:.8125rem;
+    --fs-sm:.875rem;
+    --fs-body:1rem;
+    --fs-lead:1.125rem;
+    --fs-h3:1.25rem;
+    --fs-stat:1.5rem;
+    --fs-h2:1.625rem;
+
+    /* Two special cases that are constraints, not taste: --fs-input must stay
+       at 16px or iOS Safari zooms the page when a field is focused, and
+       --fs-display-* are the only sizes above --fs-h2, reserved for heroes. */
+    --fs-input:1rem;           /* 16px — every text input, select, textarea */
+    --fs-display:2rem;         /* 32px — hero headings, empty-state glyphs */
+    --fs-display-lg:2.375rem;  /* 38px — the primary ranking hero only */
+
+    /* --- Spacing scale — six steps ---------------------------------------
+       Pick the nearest step. Never split the difference: "just 2px more" is
+       how the codebase reached ~100 distinct padding values. */
+    --sp-1:.25rem;   /* 4px  — icon gaps, chip padding */
+    --sp-2:.5rem;    /* 8px  — tight stacks, inline gaps */
+    --sp-3:.75rem;   /* 12px — control padding, list row gaps */
+    --sp-4:1rem;     /* 16px — card padding, default block gap */
+    --sp-5:1.5rem;   /* 24px — group separation */
+    --sp-6:2rem;     /* 32px — section separation */
+
+    /* --- Control sizing — one ladder, real tap targets -------------------- */
+    --control-sm:2.25rem;  /* 36px — inline chips, toggles (pointer devices only) */
+    --control-md:2.75rem;  /* 44px — the standard tap target */
+    --control-lg:3.125rem; /* 50px — primary commitment actions */
+
+    --radius-sm:.75rem;
+    --radius-md:1rem;
+    --radius-lg:1.25rem;
   }
+
+  /* --- Breakpoints — three tiers, and only these three -------------------
+     Custom properties cannot be used inside a media query, so these stay as
+     literal values. The stylelint rule is what keeps the list at three.
+
+       phone           max-width: 599px
+       tablet          max-width: 820px   (mobile nav boundary)
+       desktop         min-width: 821px
+       narrow desktop  max-width: 1180px
+
+     A component changes layout at a tier boundary, never at a width picked to
+     suit that one component. That is what stops different cards on the same
+     phone reflowing at different widths. */
   @media(max-width:820px){:root{--ds-space-page:1.125rem}}
-  @media(max-width:480px){:root{--ds-space-page:.875rem}}
+  @media(max-width:599px){:root{--ds-space-page:.875rem}}
 }

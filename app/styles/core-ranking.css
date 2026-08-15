@@ -37,7 +37,7 @@
   .detail-stats>*,.player-stats>*,.player-detail-stats>*{background:var(--ds-surface-secondary);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);padding:.85rem;min-width:0}
 
   /* Match recording: one-hand first, clear score hierarchy, no desktop form compression. */
-  .match-form,.record-form{display:grid;gap:1rem}.match-form input,.match-form select,.record-form input,.record-form select{min-height:2.85rem;font-size:1rem}
+  .match-form,.record-form{display:grid;gap:1rem}.match-form input,.match-form select,.record-form input,.record-form select{min-height:2.85rem;font-size:var(--fs-input)}
   .score-inputs,.score-fields,.match-score-input{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:.65rem;align-items:center}
   .score-inputs input,.score-fields input,.match-score-input input{text-align:center;font-size:clamp(1.5rem,8vw,2.4rem);font-weight:800;font-variant-numeric:tabular-nums}
   .elo-preview,.match-preview{background:linear-gradient(145deg,var(--ds-canvas-brand),var(--ds-surface-featured));color:var(--ds-text-on-brand);border:1px solid var(--ds-inverse-border);border-radius:var(--ds-radius-card);padding:1rem}.elo-preview small,.match-preview small{color:var(--ds-text-on-brand-secondary)}
@@ -49,8 +49,8 @@
     .table-head{display:none}.table-card{border-radius:var(--ds-radius-control)}
     .row-head-mobile{display:grid}.player-row{min-width:0}.player-row>*{min-width:0}
   }
-  @media(max-width:480px){
-    .hero:not(.small){padding:1.1rem;border-radius:1.15rem}.hero:not(.small) h1{font-size:2.35rem}.hero .podium-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem}.hero .podium-stats span{min-width:0}.hero .podium-stats b{font-size:1.25rem}.hero .podium-stats small{font-size:.68rem}
+  @media(max-width:599px){
+    .hero:not(.small){padding:1.1rem;border-radius:1.15rem}.hero:not(.small) h1{font-size:var(--fs-display-lg)}.hero .podium-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem}.hero .podium-stats span{min-width:0}.hero .podium-stats b{font-size:var(--fs-h3)}.hero .podium-stats small{font-size:var(--fs-label)}
     .home-view-panel{padding:.8rem}.podium-section{padding:.6rem}.podium-card{grid-template-columns:auto auto minmax(0,1fr);}.podium-card>b{grid-column:3}.podium-card .form,.podium-card small{grid-column:3/-1}.score-inputs,.score-fields,.match-score-input{gap:.35rem}
   }
 }

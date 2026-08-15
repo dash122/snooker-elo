@@ -1,16 +1,55 @@
 {
-  "_comment": "No hand-typed color codes. All color must come from a token (var(--...)) or, inside app/styles/tokens.css, a literal that defines one. Existing files still carry pre-policy debt — see the audit report for the sweep plan — so this is enforced going forward via `npm run lint:css` rather than wired into `npm run lint` yet. Once the Phase 2 literal sweep lands, wire lint:css into the main lint script and CI.",
+  "_comment": "Two policies with different jobs. COLOUR is pre-existing debt being swept page by page, so it reports as a warning: the count should fall every time anyone touches a stylesheet, but it does not block. TYPE and BREAKPOINTS are enforced as errors, because they are clean as of the phase 01/02 work and must stay that way. `npm run lint:css` therefore exits 0 today and can gate CI — a new hard-coded font size or a 23rd breakpoint is what breaks the build.",
   "rules": {
-    "color-no-hex": true,
-    "function-disallowed-list": ["rgb", "rgba", "hsl", "hsla"]
+    "color-no-hex": [true, {
+      "severity": "warning",
+      "message": "No hand-typed colours. Use a token from app/styles/tokens.css."
+    }],
+    "function-disallowed-list": [["rgb", "rgba", "hsl", "hsla"], {
+      "severity": "warning"
+    }],
+    "declaration-property-value-allowed-list": [
+      {
+        "font-size": [
+          "/^var\\(--fs-(label|caption|sm|body|lead|h3|stat|h2|input|display|display-lg)\\)$/",
+          "inherit",
+          "/^clamp\\(/"
+        ]
+      },
+      {
+        "message": "Use a --fs-* token from app/styles/tokens.css, not a literal size. See docs/design-system.md."
+      }
+    ],
+    "media-feature-name-value-allowed-list": [
+      {
+        "max-width": ["599px", "820px", "1180px"],
+        "min-width": ["821px"]
+      },
+      {
+        "message": "Only three breakpoints exist: 599px (phone), 820px (tablet), 1180px (narrow desktop), min-821px (desktop). See docs/design-system.md."
+      }
+    ]
   },
   "overrides": [
     {
+      "_comment": "tokens.css is where the palette is DEFINED, so literals are correct here and nowhere else. Permanent.",
       "files": ["app/styles/tokens.css"],
       "rules": {
         "color-no-hex": null,
         "function-disallowed-list": null
       }
+    },
+    {
+      "_comment": "THE EXEMPTION LIST for the type rule. These files predate the design system. This array may only ever get shorter: as each page is migrated out of globals.css, delete its entry. When it is empty, the migration is finished. Never add to it.",
+      "files": [
+        "app/globals.css",
+        "app/login/auth.css",
+        "app/elo-guide/guide.css"
+      ],
+      "rules": {
+        "declaration-property-value-allowed-list": null
+      }
     }
-  ]
+  ],
+  "ignoreFiles": ["dist/**", ".next/**", "node_modules/**", ".claude/**", "build/**"]
 }
