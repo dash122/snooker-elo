@@ -42,9 +42,10 @@ Landing-page heroes that must scale with the viewport may use `clamp()` — that
 
 Pick the nearest step. Never split the difference — "just 2px more" is how we got 100+ padding values.
 
-## Breakpoints — three tiers, and only three
+## Breakpoints — four tiers, and only four
 
 ```css
+@media (max-width: 380px)  { }  /* narrow phone — iPhone SE and similar */
 @media (max-width: 599px)  { }  /* phone   — single column */
 @media (max-width: 820px)  { }  /* tablet  — mobile nav, roomier */
 @media (min-width: 821px)  { }  /* desktop — side nav */
@@ -54,6 +55,15 @@ Pick the nearest step. Never split the difference — "just 2px more" is how we 
 Stylelint rejects any other width. A component changes layout at a **tier boundary**, never at a
 width chosen to suit that one component. This is what stops "different cards reflow at different
 widths on the same phone".
+
+**Use the narrow-phone tier sparingly.** It exists because 320–375px screens genuinely run out of
+room — it is where things get dropped or stacked that stay visible on a normal phone. Reach for it
+only when content actually does not fit; it is not a general "make it a bit smaller" tier.
+
+> The first version of this system had three tiers and folded the old 360/380px rules into 599px.
+> That hid the leaderboard avatar on every phone rather than just the smallest ones, because
+> `.person>i{display:none}` had been scoped to `max-width:360px`. Widening a breakpoint widens
+> every rule inside it — check what a block actually does before merging it upward.
 
 Custom properties can't be used inside a media query, so these stay as literal numbers — the
 lint rule is what keeps the list at three, not the token file.

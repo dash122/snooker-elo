@@ -22,11 +22,11 @@
     ],
     "media-feature-name-value-allowed-list": [
       {
-        "max-width": ["599px", "820px", "1180px"],
+        "max-width": ["380px", "599px", "820px", "1180px"],
         "min-width": ["821px"]
       },
       {
-        "message": "Only three breakpoints exist: 599px (phone), 820px (tablet), 1180px (narrow desktop), min-821px (desktop). See docs/design-system.md."
+        "message": "Only four breakpoints exist: 380px (narrow phone), 599px (phone), 820px (tablet), 1180px (narrow desktop), min-821px (desktop). See docs/design-system.md."
       }
     ]
   },
