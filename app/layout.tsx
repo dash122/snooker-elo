@@ -5,6 +5,7 @@ import "./styles/components.css";
 import "./styles/core-ranking.css";
 import "./styles/matchmaking.css";
 import "./globals.css";
+import { AddToHomeScreen } from "./components/AddToHomeScreen";
 
 export const metadata: Metadata = {
   title: "SCAA Snooker ELO｜讓每一局都推動進步",
@@ -32,5 +33,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}) {
-  return <html lang="zh-Hant"><body>{children}</body></html>;
+  return <html lang="zh-Hant"><body>{children}<AddToHomeScreen/></body></html>;
 }
