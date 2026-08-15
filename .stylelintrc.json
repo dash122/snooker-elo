@@ -1,0 +1,16 @@
+{
+  "_comment": "No hand-typed color codes. All color must come from a token (var(--...)) or, inside app/styles/tokens.css, a literal that defines one. Existing files still carry pre-policy debt — see the audit report for the sweep plan — so this is enforced going forward via `npm run lint:css` rather than wired into `npm run lint` yet. Once the Phase 2 literal sweep lands, wire lint:css into the main lint script and CI.",
+  "rules": {
+    "color-no-hex": true,
+    "function-disallowed-list": ["rgb", "rgba", "hsl", "hsla"]
+  },
+  "overrides": [
+    {
+      "files": ["app/styles/tokens.css"],
+      "rules": {
+        "color-no-hex": null,
+        "function-disallowed-list": null
+      }
+    }
+  ]
+}
