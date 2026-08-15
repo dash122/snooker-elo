@@ -22,9 +22,16 @@ export function getSql() {
         "No Postgres connection string found. Set POSTGRES_URL (Vercel's Supabase integration sets this automatically)."
       );
     }
-    // Supabase's pooled connection runs pgbouncer in transaction mode, which
-    // doesn't support named prepared statements — disable them.
-    console.log("=== DB URL BEING USED:", url, "===");
+    // Which database this process is talking to is worth knowing at startup,
+    // but the connection string carries the password in userinfo — logging it
+    // whole leaks the credential into hosting and CI logs. Host and database
+    // name answer "am I pointed at prod?" without exposing anything.
+    try {
+      const { host, pathname } = new URL(url);
+      console.log(`Postgres: ${host}${pathname}`);
+    } catch {
+      console.log("Postgres: connection string set (unparseable, not logged)");
+    }
     const isLocal = url.includes("127.0.0.1") || url.includes("localhost");
     sqlClient = postgres(url, { ssl: isLocal ? false : "require", prepare: false });
   }
