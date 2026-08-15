@@ -58,7 +58,7 @@ const globals = read(join(ROOT, "app", "globals.css"));
 const rows = [
   ["不同字級數值種類", unique(literalSizes).length, 0, "寫死的字級應全數改用代幣"],
   ["字級走代幣比例", `${Math.round((tokenSizes.length / fontSizes.length) * 100)}%`, "100%", ""],
-  ["不同斷點數", breakpoints.length, 4, "599 / 820 / 1180 / min-821"],
+  ["不同斷點數", breakpoints.length, 5, "380 / 599 / 820 / 1180 / min-821"],
   ["!important 次數", matches(globals, /!important/g).length, 0, ""],
   ["寫死色碼數 (種類)", unique(matches(allCss, /#[0-9a-fA-F]{3,8}\b/g)).length, "< 20", ""],
   ["globals.css 行數", globals.split("\n").length, "< 500", ""],
