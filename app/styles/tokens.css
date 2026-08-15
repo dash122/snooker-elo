@@ -1,14 +1,14 @@
 @layer tokens {
   :root {
     color-scheme: light;
-    --ds-canvas-brand:#082d27;--ds-canvas-brand-deep:#041f1b;
-    --ds-canvas-functional:#f3f1e9;--ds-canvas-muted:#e9ece6;
-    --ds-surface-primary:#fffdf8;--ds-surface-secondary:#f7f6ef;
+    --ds-canvas-brand:#082c27;--ds-canvas-brand-deep:#041f1b;
+    --ds-canvas-functional:#f4f3ed;--ds-canvas-muted:#e9ece6;
+    --ds-surface-primary:#fffefa;--ds-surface-secondary:#f7f6ef;
     --ds-surface-raised:#fff;--ds-surface-featured:#0d443a;--ds-surface-inverse:#092d28;
-    --ds-text-primary:#142e29;--ds-text-secondary:#5f716c;--ds-text-tertiary:#82908c;
+    --ds-text-primary:#132521;--ds-text-secondary:#63736e;--ds-text-tertiary:#82908c;
     --ds-text-on-brand:#f9f7ee;--ds-text-on-accent:#153128;
     --ds-border-subtle:rgba(20,65,57,.12);--ds-border-strong:rgba(20,65,57,.24);
-    --ds-accent-primary:#d6aa59;--ds-accent-primary-hover:#e1b96f;--ds-focus:#e2b15a;
+    --ds-accent-primary:#d5a94d;--ds-accent-primary-hover:#e1b96f;--ds-focus:#e4b452;
     --ds-accent-shadow:rgba(151,103,31,.18);--ds-selected-shadow:rgba(9,47,40,.08);
     --ds-overlay:rgba(3,25,21,.7);--ds-featured-glow:rgba(77,155,126,.25);
     --ds-hero-glow:rgba(85,165,134,.25);--ds-inverse-border:rgba(255,255,255,.12);
