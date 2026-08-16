@@ -23,6 +23,9 @@
     --ds-border-muted:#cbd5cd;--ds-chart-primary:#1d6a5e;
     --ds-icon-muted:#a9c5bd;--ds-text-quaternary:#b3bdb8;--ds-text-muted-teal:#8faea5;
     --ds-text-inactive:#9aa7a2;--ds-border-hover:#b9c6bf;--ds-accent-text:#9a6e24;
+    --ds-chart-fill:#d6e7df;--ds-positive-soft:#bfe6a6;--ds-danger-wash:#fbecea;
+    --ds-signup-wash:#eaf1ff;--ds-signup-text:#2b5fa8;--ds-accent-pale:#f7e3b5;
+    --ds-chart-positive:#3b9b72;--ds-chart-negative:#cc6c62;
     --ds-radius-control:.75rem;--ds-radius-card:1.25rem;--ds-radius-sheet:1.5rem;
     --ds-shadow-resting:0 12px 36px rgba(9,47,40,.08);
     --ds-shadow-floating:0 24px 70px rgba(5,34,29,.22);
