@@ -118,7 +118,7 @@ the live scoreboard. As of the last commit on `main`:
 | `!important` | 100 | 85 | 0 |
 | `globals.css` lines | 4,825 | 1,794 | < 500 |
 | Type-migration-debt files | 3 | 1 | 0 |
-| Distinct hex colours | 605 | 404 | < 20 |
+| Distinct hex colours | 605 | 424 | < 20 |
 
 Done: home view, player profile sheet, the sub-11px floor across match/H2H/matchmaking/cup
 (slices 1-3 of "phase 03"), the `.sl-eyebrow` specificity fix, slice 4 (every remaining literal
@@ -204,6 +204,25 @@ separate palette, per the closed exemption decision above, not the app's `--ds-*
 `color-no-hex` warnings: 612 → 565. Verified against a live preview: every new/merged token
 resolves to its expected hex, no console/lint errors, no overflow.
 
+**Colour pass 3 (frequency-2 tier) — and a correction.** Went through all 43 hex values used
+exactly twice. About half turned out to be gradient stops for genuinely decorative one-off elements
+(snooker-ball radial gradients, share-button glyphs, medal badges) or an external brand colour
+(WhatsApp's green) — correctly **not** tokenized, since naming those would be abstraction for its
+own sake rather than fixing an inconsistency. The other half were real reuse. New tokens:
+`--ds-chart-fill`, `--ds-positive-soft`, `--ds-danger-wash`, `--ds-signup-wash`/`-text` (the cup
+signup chip — a blue that doesn't exist anywhere else in the palette), `--ds-accent-pale`,
+`--ds-chart-positive`/`-negative` (momentum-chart bars). Eight more values merged into existing
+tokens where the role matched closely. `elo-guide/guide.css`-scoped: `--guide-mist`.
+`color-no-hex` warnings: 565 → 532. Distinct hex colours: 432 → 424.
+
+*Correction:* the previous version of this doc (and the artifact) reported "432 → 404" for pass 2,
+using a custom script that excluded `tokens.css` from the count — different from what
+`npm run design:metrics` measures, and not comparable to the 605/574/503/432 lineage used
+everywhere else. Re-running `design:metrics` directly against that commit confirmed the real number
+was still 432; pass 2 hadn't actually moved the official metric (each merge target was already a
+token, so the distinct-species count doesn't shift the same way a *new* token's first use does).
+The number directly above (424) is confirmed against `design:metrics` itself.
+
 **Media-query-scoped font sizes, first cut.** Rather than a blanket sweep, computed what each
 breakpoint tier's tokens *actually* resolve to (from the tier redefinitions in `globals.css` itself,
 not the docs table) and only replaced a literal where it's an exact match — 24 of ~90 remaining
@@ -215,11 +234,15 @@ not something this edit introduced; the edit has zero rendered effect in those t
 real fix in the ones where the edited rule does win. Token adoption: 65% → 67%.
 
 Not done, in rough priority order:
-1. **~400 hard-coded hex colours still remain** (down from 605 across two passes). What's left is a
-   long tail — 339 of the 404 remaining distinct values are used exactly once, and a good number of
-   those look like intentionally distinct decorative colours (snooker-ball gradients, medal colours)
-   rather than design-system violations. Continuing past this point has diminishing returns: each one
-   still needs a context read, but an increasing fraction won't turn out to deserve a token at all.
+1. **424 hard-coded hex colours still remain** per `design:metrics` (down from 605 across three
+   passes). What's left is a long tail: counting usages only (i.e. excluding each token's own
+   definition in `tokens.css` — a different, smaller count than the 424 headline number, done here
+   only to characterize the shape of what's left, not to replace the official metric), there are 389
+   distinct values still used somewhere, and 354 of those are used exactly once. A good number of
+   those look like intentionally distinct decorative colours (snooker-ball gradients, medal colours,
+   the WhatsApp brand green) rather than design-system violations — pass 3 already found and correctly
+   skipped several of these. Continuing past this point has diminishing returns: each one still needs
+   a context read, but an increasing fraction won't turn out to deserve a token at all.
 2. **Token adoption is at 67%, not 100%** — most of what's left *inside* `@media` blocks is the
    harder case flagged before: hand-computed tablet/phone step-downs (11.2px, 12.48px, 13.44px...)
    that don't land exactly on any tier's token value, or one-off heading/icon/score-display sizes
