@@ -800,3 +800,27 @@ PLAYER CARD-adjacent, shares no selectors with any of the five moved above) and 
 sit physically between the moved content and the next real heading (`PLAYER CARD` at line 656) but
 were never part of the "Match entry" mislabelling; leaving them matches the existing findings for
 those selectors rather than re-litigating them.
+
+## Follow-up: fixed the `.elo-preview` cascade-layer conflict
+
+Acted on the dead-code finding two entries up. `app/styles/core-ranking.css`'s `@layer components`
+block declared `.elo-preview,.match-preview{background:...;color:...;border:...;border-radius:var(--ds-radius-card);padding:var(--sp-4)}`.
+`app/styles/match-entry-form.css` (where match-entry content now lives, moved out of `globals.css`
+in the previous slice) declares an unlayered `.elo-preview{margin-top:...;padding:...;border-radius:var(--radius-lg);background:var(--me-elo-preview-bg)}`.
+Checked property-by-property, same as the `.mm-card` fix: `background`, `border-radius`, and `padding`
+are declared on both, at different values, so per cascade-layer rules the unlayered
+`match-entry-form.css` declaration always wins those three — dead code in `core-ranking.css`. `color`
+and `border`, however, are only set by the layered rule; `match-entry-form.css` never touches them for
+`.elo-preview`, so those two stayed live.
+
+Split the compound selector so `.elo-preview` only keeps the properties it actually needs:
+`.elo-preview,.match-preview{color:...;border:...}` stayed shared (both live), while `background`/
+`border-radius`/`padding` moved into a `.match-preview`-only rule (unchanged for `.match-preview`,
+which has no other declaration anywhere and needs all five properties). `.elo-preview`'s dead
+`background`/`border-radius`/`padding` were dropped rather than kept as an unreachable rule.
+
+This is a **zero-visual-change fix**: `.elo-preview`'s `background`/`border-radius`/`padding` were
+already fully governed by `match-entry-form.css` before this change (the layered values could never
+win), and its `color`/`border` are preserved exactly as before via the shared rule. `.match-preview`
+is untouched — same five properties, same values, same file. Build and `lint:css` stay clean at 0
+errors / 518 warnings, same baseline as before this change.
