@@ -55,7 +55,8 @@
       "files": [
         "app/globals.css",
         "app/styles/cup.css",
-        "app/styles/bottom-nav.css"
+        "app/styles/bottom-nav.css",
+        "app/styles/home.css"
       ],
       "rules": {
         "declaration-property-value-allowed-list": null

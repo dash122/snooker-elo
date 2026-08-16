@@ -453,6 +453,65 @@ it's now a closed decision — see "The exemption list" above. It stays permanen
 split into its own `.stylelintrc.json` override block so it's no longer conflated with
 `globals.css`'s shrinking migration-debt list.
 
+## Split the home-dashboard views out of globals.css (2026-08-16)
+
+Followed the cup.css/calibration.css/bottom-nav.css method: grep every candidate selector against
+the rest of `globals.css` and every already-split file first, move only what's verified unique to
+the home dashboard (`app/HomeClient.tsx`), leave the rest documented in place.
+
+This section turned out far more entangled than the earlier three — `.recent-*` is a generic enough
+prefix that it collides with real reuse, and the `home-view-*` family is actively targeted by a
+newer cascade-layer file, not just legacy globals.css:
+
+- **`.trend-overview`/`.trend-plot`/`.trend-line`/`.trend-point`/`.trend-tooltip`/`.trend-grid`/
+  `.trend-area`/`.trend-guide`/`.trend-scale`/`.trend-help`** (the whole `InteractiveEloChart`
+  component's styles) — **not moved**. `InteractiveEloChart` is imported by both
+  `app/HomeClient.tsx` *and* `app/account/page.tsx` (the player-profile ELO chart), confirmed via
+  grep of every `UiBits.tsx` import site. This is exactly the cross-page "recent matches widget"
+  collision the previous pass flagged as a risk to check for.
+- **`.home-view-nav`/`.home-view-panel`/`.home-panel-head`/`.ranking-scope-toggle`** — **not
+  moved**. `app/styles/core-ranking.css` (a `@layer components` file from an earlier phase) already
+  defines its own rules for these exact selectors as a deliberate cascade-layer override of the
+  legacy globals.css versions. Relocating the globals.css side into a new file risks changing which
+  declaration wins if the new file's import position doesn't exactly track this relationship, so it
+  stays put rather than risk that interaction. `.players-dock` sits in the same `@media(max-width:820px)`
+  block as `.home-view-nav`'s mobile rules and was left alongside it for the same reason (entangled
+  with a selector that must stay, not itself flagged as unsafe).
+
+What *was* safe to move: the `RecentMatches` component's rendering (`.recent-match-grid`,
+`.recent-result*`, `.recent-form-empty`, `.recent-form-action*` — confirmed used only from
+`HomeClient.tsx`, never `UiBits.tsx`'s other consumers) and the entire "last 30 days" dashboard
+block (`.recent-stats-panel`, `.recent-stat-metrics`, `.recent-focus-grid`, `.recent-detail-grid`,
+`.recent-trend-card`, `.recent-week-bars`/`-chart`, `.recent-chart-grid`/`-card`/`-legend`,
+`.recent-donut*`, `.recent-balance-*`, `.recent-progress`, `.break-records-panel`, and
+`.ranking-panel .ranking-scope-toggle` — the descendant selector only, not the base
+`.ranking-scope-toggle` rule that core-ranking.css also targets). These selectors were scattered
+across ~18 separate locations in the file rather than one contiguous heading (unlike the cup/
+calibration sections), interleaved with the `home-view-*`/`trend-*` selectors that had to stay and,
+in a few spots, with unrelated components' `@media` blocks (e.g. a lone `.recent-match-grid` rule
+living inside a `.player-card.rich` narrow-screen block). Each of the 18 fragments was extracted by
+exact-substring match against the original file and verified to occur exactly once before removal,
+so nothing was moved by eyeballing line numbers on this file's dense, largely-minified lines.
+
+Two real override chains had to be preserved across the split: `.recent-result>strong`'s structural
+rule (`font-size:19px`, moved) is later overridden by a still-in-globals.css grouped typography rule
+(`font-size:var(--fs-lead)`) and by a 599px media-query rule (`font-size:var(--fs-body)`); similarly
+`.recent-chart-card h3`'s `font-size:1.06rem` (moved) is overridden by a later grouped rule
+(`font-size:var(--fs-h3)`). Both require the moved rule to still come *before* the surviving
+globals.css rule in cascade order — the same requirement cup.css/calibration.css had, and the
+opposite of bottom-nav.css's — so `app/styles/home.css` imports before `app/globals.css` in
+`app/layout.tsx` (after `calibration.css`, before `globals.css`), not after it.
+
+`app/globals.css`: 1,373 → 1,370 lines (the file is dense/near-minified in this region, so most of
+the ~17.9KB moved came out of a handful of very long lines rather than whole lines — line count
+barely moves even though a meaningful amount of markup did). New `app/styles/home.css`: 44 lines.
+Added to the same shrinking type-migration exemption list as cup.css/bottom-nav.css (un-migrated
+literal font sizes like `19px`, `1.75rem`, `.78rem`). `npm run build` and `npm run lint:css` both
+clean at the 518-warning/0-error baseline; grepped `app/globals.css` afterward to confirm no
+structural selector from the moved set was left duplicated (only the `--me-recent-*` token
+*definitions* it still supplies, and one unrelated `.recent-form-empty` mention inside a shared
+grouped font-size rule, remain — both expected and correct).
+
 Each slice in the git history follows the same pattern and is safe to copy: retarget hard-coded
 sizes onto tokens, verify at 320/375/393px by measuring computed styles (not by eyeballing),
 diff against the previous CSS rather than only checking internal consistency, then

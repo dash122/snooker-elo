@@ -6,6 +6,7 @@ import "./styles/core-ranking.css";
 import "./styles/matchmaking.css";
 import "./styles/cup.css";
 import "./styles/calibration.css";
+import "./styles/home.css";
 import "./globals.css";
 import "./styles/bottom-nav.css";
 import { AddToHomeScreen } from "./components/AddToHomeScreen";
