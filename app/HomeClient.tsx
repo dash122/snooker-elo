@@ -19,6 +19,7 @@ import ShareSheet from "./ShareSheet";
 import { AppShell, PageFrame } from "./components/shell/AppShell";
 import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
 import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
+import { StatTile } from "./components/ui/Primitives";
 
 type Player = {
   id: string; name: string; short: string; handicap: number | null; rating: number; colour?: string; avatar?: string | null;
@@ -2705,9 +2706,9 @@ function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFin
   <div className="profile-body">
     {/* Current ELO already leads the hero above, so it isn't repeated here. */}
     <div className="profile-stats profile-progress">
-      <div><small>ELO 建議評分</small><b>{suggested==null?"未提供":Math.round(suggested)}</b></div>
-      <div><small>正式讓分評分</small><b>{player.handicap??"未提供"}</b></div>
-      <div><small>勝／負／和</small><b>{player.wins}/{player.losses}/{player.draws}</b></div>
+      <StatTile label="ELO 建議評分" value={suggested==null?"未提供":Math.round(suggested)} />
+      <StatTile label="正式讓分評分" value={player.handicap??"未提供"} />
+      <StatTile label="勝／負／和" value={`${player.wins}/${player.losses}/${player.draws}`} />
       <div>
         <small>近 5 場局均得分</small>
         <b className={frameTrend.prior!=null&&frameTrend.recent!=null&&frameTrend.recent>frameTrend.prior?"positive":undefined}>{frameTrend.recent!=null?`${frameTrend.recent.toFixed(1)} 局`:"—"}</b>

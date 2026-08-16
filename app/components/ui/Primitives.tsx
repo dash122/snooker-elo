@@ -9,3 +9,4 @@ export function FormField({label,hint,error,children}:{label:string;hint?:string
 export function EmptyState({title,description,action}:{title:string;description:string;action?:ReactNode}){return <div className="ds-empty"><span aria-hidden="true">◇</span><h3>{title}</h3><p>{description}</p>{action}</div>}
 export function InlineNotice({tone="info",title,children}:{tone?:"info"|"success"|"warning"|"danger";title:string;children:ReactNode}){return <div className={`ds-notice ds-notice--${tone}`} role={tone==="danger"?"alert":"status"}><b>{title}</b><span>{children}</span></div>}
 export function Skeleton({width="100%",height="1rem"}:{width?:string;height?:string}){return <span className="ds-skeleton" aria-hidden="true" style={{width,height}}/>}
+export function StatTile({label,value,className=""}:{label:ReactNode;value:ReactNode;className?:string}){return <div className={`ds-stat-tile ${className}`.trim()}><small>{label}</small><b>{value}</b></div>}

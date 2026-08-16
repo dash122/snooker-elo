@@ -7,6 +7,7 @@ import { avatarHex } from "../avatar-colours";
 import AccountForms from "./AccountForms";
 import MatchHistory, { type MatchRecord } from "./MatchHistory";
 import { deriveInitials, resolveInitials } from "../api/account/validate";
+import { StatTile } from "../components/ui/Primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -197,12 +198,12 @@ export default async function AccountPage() {
         <section className="account-panel account-stat-panel">
           <div className="account-panel-head"><div><p className="kicker">{zh.highlights}</p><h2>成績一覽</h2></div></div>
           <div className="account-stat-grid">
-            <div><small>{zh.record}</small><b>{player.wins}/{player.losses}/{player.draws}</b></div>
-            <div><small>{zh.games}</small><b>{games}</b></div>
-            <div><small>{zh.frames}</small><b>{frameRate}%</b></div>
-            <div><small>{zh.handicap}</small><b>{player.handicap ?? "—"}</b></div>
-            <div><small>{zh.start}</small><b>{Math.round(player.initialRating ?? player.rating)}</b></div>
-            <div><small>{zh.peak}</small><b>{Math.round(peak)}</b></div>
+            <StatTile label={zh.record} value={`${player.wins}/${player.losses}/${player.draws}`} />
+            <StatTile label={zh.games} value={games} />
+            <StatTile label={zh.frames} value={`${frameRate}%`} />
+            <StatTile label={zh.handicap} value={player.handicap ?? "—"} />
+            <StatTile label={zh.start} value={Math.round(player.initialRating ?? player.rating)} />
+            <StatTile label={zh.peak} value={Math.round(peak)} />
           </div>
           <ul className="account-highlights">
             <li><span>{zh.bestBreak}</span><b>{bestBreak ?? "—"}</b></li>

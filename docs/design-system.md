@@ -517,6 +517,45 @@ sizes onto tokens, verify at 320/375/393px by measuring computed styles (not by 
 diff against the previous CSS rather than only checking internal consistency, then
 `npm run design:metrics` to confirm the numbers moved the right way before committing.
 
+## Phase 04: growing the shared component layer (2026-08-16)
+
+Phase-4's plan item 2 flagged that 32 `ds-*` classes cover only ~2% of the app's className
+mounts — almost everything is still hand-rolled per page. Rather than invent components
+speculatively, this pass grepped real pages for markup that's already duplicated near-identically
+in 2+ places and promoted only what was actually found reused.
+
+**`StatTile`** (`app/components/ui/Primitives.tsx`) — a label-over-value grid cell
+(`<small>label</small><b>value</b>`). Three pages had hand-rolled the exact same two-node shape
+inside their own stat-grid container: `app/admin/page.tsx` (`.admin-stats`, including its
+conditional `warn` tone), `app/account/page.tsx` (`.account-stat-grid`), and `app/HomeClient.tsx`
+(`.profile-stats.profile-progress`, the first three cells — the remaining three carry extra
+sub-content specific to that page and were left as-is rather than force-fit). Adopted at all three
+call sites, replacing ~14 duplicated `<div><small>…</small><b>…</b></div>` blocks.
+
+Deliberately conservative on styling: each of those three grids already fully styles its `>div`
+children through page-specific CSS (`.admin-stats>div`, `.account-stat-grid>div`, `.profile-stats
+b`, etc.), all more specific than a bare `.ds-stat-tile` class selector, so the component's own
+CSS in `app/styles/components.css` (built from `--fs-*`/`--sp-*`/`--ds-*` tokens) only supplies a
+sane standalone default for the gallery — it does not and cannot override any adopted page's
+existing look, which is what keeps this a zero-visual-risk extraction. The `warn` tone at the admin
+call site keeps its original bare `warn` class (not a `ds-stat-tile--warn` variant) for the same
+reason: that class name is what the existing `.admin-stats>div.warn` selector matches, and
+renaming it would have required new CSS that duplicates, rather than reuses, the existing rule.
+
+Considered and rejected: a `SectionHeading` component for the "kicker + h2/h3 (+ optional
+paragraph)" pattern, which shows up ~36 times across the app. The two-node shape is genuinely
+repeated, but unlike `StatTile` the surrounding pages don't just add layout around it — several
+(`.account-panel-head .kicker`, `.profile-section-head .kicker`/`h3`) redeclare the kicker's own
+margin and the heading's own color/size with selectors of comparable or higher specificity than a
+component-level class would need to carry a sensible default. Giving the wrapper any non-trivial
+CSS of its own risked double-applying spacing or fighting an existing rule depending on cascade
+order — a real risk given how many different `.kicker` redeclarations already exist across
+`globals.css`'s layered and unlayered blocks. Rather than ship an extraction that isn't provably
+zero-visual-risk, left this one for a future pass with screenshot verification available.
+
+Added to `app/ui-gallery/GalleryClient.tsx` under a new "Stat tiles" section, including the `warn`
+tone.
+
 ## Splitting globals.css by feature — second slice: calibration (2026-08-16)
 
 Went through the candidates the first slice deferred (match entry, account/auth, admin, home,
