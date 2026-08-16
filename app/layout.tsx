@@ -12,6 +12,7 @@ import "./styles/calendar.css";
 import "./styles/member-auth.css";
 import "./styles/admin-roster.css";
 import "./styles/member-dashboard.css";
+import "./styles/players-tab.css";
 import "./globals.css";
 import "./styles/bottom-nav.css";
 import { AddToHomeScreen } from "./components/AddToHomeScreen";
