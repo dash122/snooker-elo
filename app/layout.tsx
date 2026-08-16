@@ -4,6 +4,7 @@ import "./styles/foundation.css";
 import "./styles/components.css";
 import "./styles/core-ranking.css";
 import "./styles/matchmaking.css";
+import "./styles/cup.css";
 import "./globals.css";
 import { AddToHomeScreen } from "./components/AddToHomeScreen";
 

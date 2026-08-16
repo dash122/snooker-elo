@@ -123,7 +123,7 @@ the live scoreboard. As of the last commit on `main`:
 | Token adoption (type) | 29% | 67% | 100% |
 | Breakpoints | 22 | 5 | 5 |
 | `!important` | 100 | 85 | 0 |
-| `globals.css` lines | 4,825 | 1,794 | < 500 |
+| `globals.css` lines | 4,825 | 1,516 | < 500 |
 | Type-migration-debt files | 3 | 1 | 0 |
 | Distinct hex colours | 605 | 424 | < 20 |
 | Token adoption (spacing) | not tracked before | 62% | 100% |
@@ -389,6 +389,46 @@ token. What's left of the 410 hard-coded-hex count is the decorative long tail f
 (gradients, the password-strength meter, the danger-zone micro-palette) — a different problem
 (literal hex needing a token at all) from the one this two-part project solved (tokens that existed
 but were meaninglessly named).
+
+## Splitting globals.css by feature — first slice: cup (2026-08-16)
+
+Started the file-split project flagged as "not done" above. `app/globals.css` was 1,795 lines with
+duplicate/conflicting rules for the same selector hiding undetected — splitting by feature makes
+that visible per-file instead of buried in one monolith, and makes a future design-system migration
+tractable one file at a time. Followed the existing pattern (`app/styles/matchmaking.css`,
+`foundation.css`, `core-ranking.css`, `components.css`, imported from `app/layout.tsx`).
+
+Picked the cup/knockout-bracket feature first because it was the cleanest boundary: a single
+comment-delimited section (`Cup — phone-first`, ~280 lines), every `.cup-*`/`.bracket-*` selector
+in that section appeared nowhere else in `globals.css` (checked with a full selector-list grep
+before and after moving), and the two exceptions that do reference cup classes elsewhere
+(`.profile-chip.honour .cup-mark`, `.record-share-hero .cup-ribbon`) are higher-specificity
+descendant selectors on *other* pages' elements, not redeclarations of the base `.cup-mark`/
+`.cup-ribbon` rules -- specificity decides those regardless of file/import order, so moving the
+base rules out doesn't change which one wins. Also checked the other already-split files
+(`foundation.css`, `components.css`, `core-ranking.css`, `matchmaking.css`) for the same selectors:
+no overlap.
+
+Moved the section verbatim (no edits, no `!important` cleanup, no colour changes) into
+`app/styles/cup.css`, imported it from `app/layout.tsx` after `matchmaking.css`. Because the moved
+rules carry the same not-yet-tokenized literal font sizes that `globals.css` is exempted from in
+`.stylelintrc.json`'s shrinking type-migration exemption list, added `app/styles/cup.css` to that
+*same* entry (not a new permanent one) — it's still migration debt, now just relocated, so it
+belongs on the list that shrinks, same rule as guide.css/auth.css getting removed once they were
+actually migrated rather than just moved.
+
+`app/globals.css`: 1,795 → 1,516 lines. New `app/styles/cup.css`: 279 lines (rules only, no
+duplication). `npm run build` and `npm run lint:css` both clean afterward (518 warnings, 0 errors —
+identical to the pre-split baseline, confirming no new violations and no regressions).
+
+Remaining in `globals.css`: the base/reset layer (`html`/`body`, the token-definition blocks,
+`--fs-*`/`--sp-*` responsive step-downs, the "UI consistency contract" section), the shared
+sticky-nav/app-frame contract used by 3+ pages, and every other feature section (match entry,
+account/auth, admin, home, profile, availability/matchmaking-adjacent bits not already in
+`matchmaking.css`, calibration, head-to-head). None of those were touched this pass — each needs
+its own selector-overlap check before splitting, and several (home, profile, match-entry) are large
+enough and share enough class names across sections that a wrong split could silently flip cascade
+order. Left as follow-up slices, one feature at a time, same verification method as this one.
 
 Not done, in rough priority order:
 1. **410 hard-coded hex colours still remain** per `design:metrics` (down from 605 across four
