@@ -1,5 +1,5 @@
 .auth-experience{min-height:100svh;display:grid;grid-template-columns:minmax(340px,.92fr) minmax(520px,1.08fr);background:var(--ds-canvas-functional);color:var(--ink)}
-.auth-story{position:relative;display:flex;min-height:100svh;flex-direction:column;justify-content:space-between;padding:46px clamp(38px,6vw,92px);overflow:hidden;background:radial-gradient(circle at 84% 14%,rgba(214,170,84,.26),transparent 30%),linear-gradient(145deg,#123d37,var(--ds-canvas-brand) 64%,#062620);color:var(--ds-canvas-functional)}
+.auth-story{position:relative;display:flex;min-height:100svh;flex-direction:column;justify-content:space-between;padding:46px clamp(38px,6vw,92px);overflow:hidden;background:radial-gradient(circle at 84% 14%,rgba(214,170,84,.26),transparent 30%),linear-gradient(145deg,var(--ds-surface-featured),var(--ds-canvas-brand) 64%,#062620);color:var(--ds-canvas-functional)}
 .auth-story:after{content:"";position:absolute;right:-110px;bottom:-145px;width:430px;height:430px;border:1px solid rgba(255,255,255,.1);border-radius:50%;box-shadow:0 0 0 55px rgba(255,255,255,.025),0 0 0 110px rgba(255,255,255,.018)}
 .auth-brand-light{position:relative;z-index:1;color:var(--ds-text-on-danger)}
 .auth-story>div{position:relative;z-index:1;max-width:540px;margin:70px 0}
@@ -13,9 +13,9 @@
 .auth-panel{display:grid;min-height:100svh;place-items:center;padding:48px clamp(28px,7vw,110px)}
 .auth-panel-inner{width:min(100%,480px)}
 .auth-mobile-brand{display:none}
-.auth-tabs{display:grid;grid-template-columns:1fr 1fr;margin:0 0 46px;padding:4px;border:1px solid #d6dad5;border-radius:14px;background:var(--ds-canvas-muted)}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;margin:0 0 46px;padding:4px;border:1px solid var(--line);border-radius:14px;background:var(--ds-canvas-muted)}
 .auth-tabs a{display:grid;min-height:44px;place-items:center;border-radius:10px;color:#6f746f;font-weight:800;text-decoration:none}
-.auth-tabs a[aria-current=page]{background:var(--ds-text-on-danger);color:#123d37;box-shadow:0 5px 18px rgba(13,48,39,.09)}
+.auth-tabs a[aria-current=page]{background:var(--ds-text-on-danger);color:var(--ds-surface-featured);box-shadow:0 5px 18px rgba(13,48,39,.09)}
 .auth-panel .kicker{color:#98701d}
 .auth-panel h2{margin:7px 0 10px;font-size:clamp(32px,4vw,48px);letter-spacing:-.04em}
 .auth-intro{margin:0 0 28px;color:var(--ds-text-secondary);line-height:1.65}
