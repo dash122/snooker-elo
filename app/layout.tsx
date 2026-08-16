@@ -15,6 +15,7 @@ import "./styles/member-dashboard.css";
 import "./styles/players-tab.css";
 import "./globals.css";
 import "./styles/bottom-nav.css";
+import "./styles/ranking-table-mobile.css";
 import { AddToHomeScreen } from "./components/AddToHomeScreen";
 
 export const metadata: Metadata = {
