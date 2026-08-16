@@ -824,3 +824,115 @@ already fully governed by `match-entry-form.css` before this change (the layered
 win), and its `color`/`border` are preserved exactly as before via the shared rule. `.match-preview`
 is untouched — same five properties, same values, same file. Build and `lint:css` stay clean at 0
 errors / 518 warnings, same baseline as before this change.
+
+## Splitting globals.css by feature — fifth pass: untangling PLAYER CARD (2026-08-16)
+
+Read the whole PLAYER CARD section closely (`app/globals.css`, was lines 613-885) rather than
+re-attempting the flat move earlier passes correctly refused to do. Per its own heading it should
+have been just the profile sheet; in fact it interleaves seven distinct concerns: the profile-sheet
+hero/section/stats/rivalry/slots primitives, the grid-tile compressed card (`.player-card.rich`), a
+generic modal-sheet close button used by *every* sheet (not just the profile one), the entertainment
+(2v2) match-entry variant, the players-tab roster, a phone-only ranking-table override, the
+matchmaking-status/invite-inbox surface, and a generic "material + motion polish" utility block. Two
+of the seven checked out clean; the rest are genuinely entangled and are documented below rather than
+moved on a rushed read.
+
+**A structural finding that changes how every future split should be reasoned about.** Before
+trusting any selector-overlap grep, checked how `globals.css` actually nests with a real parser
+(`postcss.parse`), not just visual reading of the dense source. Result: essentially the *entire file*
+— everything from line 2 to line 1311, i.e. every section this whole splitting project has been
+reading, including PLAYER CARD, MATCHMAKING, and the "UI consistency contract" — sits inside one
+`@layer legacy { ... }` at-rule. Only the `@import` (line 1) and one trailing leftover rule
+(`.match-filter-options button`, itself accidentally outside the layer) are not. None of the ten
+already-split files (`cup.css`, `calibration.css`, `home.css`, `match-entry-form.css`, `calendar.css`,
+`member-auth.css`, `admin-roster.css`, `member-dashboard.css`, `bottom-nav.css`, plus the two split
+this pass) declare `@layer` at all — they're unlayered. Per the cascade-layers spec, **unlayered
+rules always beat rules in any named layer, unconditionally, regardless of source/import order**.
+That means every prior split's careful "import before globals.css" vs "import after globals.css"
+reasoning (cup/calibration/home/match-entry-form before; bottom-nav after, because its own comment
+said its rule had to stay physically last) was already cascade-safe by construction — an unlayered
+file wins over whatever's left in `@layer legacy` either way. None of that reasoning was *wrong*
+(every decision it produced still renders correctly), just more conservative than the layer math
+required. Verified this didn't strand a latent bug: reran `build`/`lint:css` clean throughout, and
+none of the prior splits' import positions were touched by this discovery. **Practical takeaway for
+future slices:** import position relative to `globals.css` only matters for a conflict between *two
+already-split* (both unlayered) files — never for a conflict with content still inside `globals.css`,
+since that content is always in `@layer legacy` and will always lose to an unlayered file regardless
+of where it's imported. This also explains, precisely, why the `.mm-card` finding two entries above
+came out the way it did: globals.css's `.mm-card` isn't "unlayered" as that entry assumed — it's in
+`@layer legacy`, which was declared *after* `matchmaking.css`'s `@layer components` in the import
+order, so `@layer legacy` still outranks it by ordinary named-layer priority. The conclusion of that
+finding stands; the mechanism was mis-described.
+
+**Split 1: the players-tab roster** (`.players-view`, `.players-self-*`, `.players-toolbar`,
+`.players-search`, `.players-chip*`, `.players-list-*`, `.players-add-btn`, `.players-empty`,
+`.players-rows`, `.players-row*`, `.players-tag*`, `.players-verdict*`, `.players-expand-*`, plus
+their two narrow-screen media rules) → `app/styles/players-tab.css`. Zero selector overlap anywhere
+else in the codebase — grepped the rest of `globals.css` and every `app/styles/*.css` file plus
+`guide.css`/`auth.css` before moving. The only two remaining `globals.css` mentions of `.players-view`
+are additive compound selectors in the shared frame/consistency-contract rules (`.h2h-summary,
+.match-list,...,.players-view,...` and `.app-page>.players-view`), not redeclarations of the base
+rule — same pattern as every prior split's documented exceptions. `.players-dock`, which sits nearby
+in the source but is a different, already-documented entanglement (paired with `.home-view-nav`'s
+mobile block from the home-dashboard split), was correctly left where it is. 190 lines moved.
+
+**Split 2: the ranking-table phone override** (`@media(max-width:820px){ .ranking-panel,
+.ranking-panel .table-card, .row-head-mobile, .row, .rank, .person, .row>.form... }`, the block whose
+own comment calls it "the single source of truth on phones") → `app/styles/ranking-table-mobile.css`.
+Checked `core-ranking.css`'s equivalent `.row-head-mobile{display:grid}` specifically because the task
+flagged that file as a likely conflict source: it's declared inside `@layer components`, so per the
+structural finding above this unlayered block always wins regardless of the move, and the two rules
+don't even collide on the same property (`display` vs `grid-template-columns`/`column-gap`) so there
+was never a real fight there. Checked every other selector in the moved block against later
+`globals.css` content that also touches `.table-card`/`.person`/`.rank` (the material-polish block and
+the "UI consistency contract" grouped rules) — all additive, different properties, no collision.
+Imported after `globals.css` (same position as `bottom-nav.css`) purely to preserve the block's own
+stated intent of staying last, even though — per the structural finding — it would win from either
+import position. 13 lines moved (a small block; most of its bulk is the `!important`-guarded grid
+columns, already order-independent).
+
+**Left un-split, with the specific overlaps found:**
+- **Profile-sheet core** (`.profile-head`, `.profile-hero-elo`, `.profile-chips`, `.profile-body`,
+  `.profile-section*`, `.profile-stats`, `.rating-compare`, `.rivalry-*`, `.slot-*`,
+  `.player-card.rich`, `.player-main`, `.player-card-foot`, plus "Player profile finish"
+  `.profile-hero-form`/`.profile-form-dots`/`.profile-snapshot-*`) and the **generic modal-sheet close
+  button** (`.sheet-shell`, `.close`, including its `.match-entry-sheet` variant) are both internally
+  clean (zero overlap against any `app/styles/*.css` file) but collide, property-by-property, with
+  *other* content still inside `globals.css`'s own `@layer legacy`: grouped typography rules later in
+  the file redeclare `font-size` on `.player-main h3`/`.player-main p b`, and the file's early base
+  ruleset (still inside the same layer) declares its own `.profile-head`, `.profile-stats`, and
+  `.close` with different values for the same properties (`.close`'s `position`/`top`/`right` in
+  particular). Per the structural finding above, moving these to an unlayered file is still *safe* —
+  an unlayered file wins over anything left in `@layer legacy` regardless of which declaration
+  currently wins internally — but confirming that the currently-winning declaration (the PLAYER CARD
+  one) really is the one intended to win, for every one of these collisions, needs the same
+  property-by-property check the `.mm-card` finding used, repeated for several selectors across ~150
+  lines. Not completed to that bar this pass — left as the next candidate, now meaningfully lower-risk
+  than it looked before this pass because the "import position" half of the risk is gone.
+- **Entertainment/team-name-grid** (`.entertainment-*`, `.match-entertainment-badge`,
+  `.match-row-entertainment`, `.match.entertainment`, `.team-name-grid`) — the 2v2 match-entry variant.
+  Zero overlap found against `app/styles/*.css` on a first grep pass, and it's a strong candidate for
+  merging into `match-entry-form.css` rather than its own file, but wasn't re-verified property-by-
+  property against that file's contents (which also touches `.match`/`.scoreline-elo`-adjacent
+  selectors) in the time available.
+- **Matchmaking status / invite inbox** (`.availability-page`, `.availability-grid-*`,
+  `.matchmaking-status-*`, `.invite-*`, `.follow-up-card`, `.open-call-*`, the `.home-view-nav` mobile
+  override, `.pull-refresh`) — heavily entangled, as expected from the bottom-nav and MATCHMAKING
+  findings two entries back: `matchmaking.css` alone has 21 hits against this selector set,
+  `core-ranking.css` 2 more (`.home-view-nav`, already flagged as a deliberate cascade override in the
+  home-dashboard split). Left in place.
+- **Material + motion polish** (`.shell`, the `.table-card,.match,.player-card,...` shared box-shadow
+  rule, the `.primary,.secondary,.danger,...` transition rule, the `@keyframes snooker-settle`
+  entrance animation, `prefers-reduced-motion` guards) — the most broadly-reused selector group in the
+  section by design (it exists to apply one shared treatment across many features' components), so it
+  has real overlap in six different already-split files (`admin-roster.css`, `components.css`,
+  `core-ranking.css`, `cup.css`, `match-entry-form.css`, `matchmaking.css`) plus dense internal reuse
+  in `globals.css` itself. Genuinely foundation-shaped (this is exactly the kind of generic utility
+  `docs/design-system.md`'s own home-dashboard entry flagged as a `foundation.css` candidate), but
+  moving it means checking every one of those six files' overlapping selectors for property-level
+  collisions first — not attempted this pass.
+
+`app/globals.css`: 1,326 → 1,311 lines (again mostly dense single lines, so the ~9.4KB moved barely
+dents the line count). `npm run build` and `npm run lint:css` both clean throughout (518 warnings, 0
+errors — unchanged from baseline); grepped every moved selector afterward to confirm no stray
+base-rule duplicate was left in `globals.css`, only the documented additive exceptions above.
