@@ -719,3 +719,84 @@ type-migration exemption list in `.stylelintrc.json` that `cup.css` is on — mi
 relocated, not newly created. Grepped every moved `.bottom`/`.bottom-record` selector afterward to
 confirm no duplicate was left behind in `globals.css` (only the three pre-existing, intentionally
 overridden `.bottom` declarations remain, as documented above).
+
+## Splitting globals.css by feature — fourth slice: untangling "Match entry" (2026-08-16)
+
+Went back into "Match entry" (the largest still-unsplit `/* ===...=== */` heading — actually spans
+`globals.css` lines 399-655, not the ~162 lines an earlier pass estimated) and read the whole thing
+closely before moving anything. The heading undersold it just like Bottom navigation and PLAYER CARD
+did: it bundles five real sub-features (the entry form itself, a calendar widget, member-auth/admin
+bootstrap chrome, the admin roster, and the member `/account` dashboard) plus, further down past line
+443, `.player-badge`, `.badge-preview`, a stray `.bottom` exception and `.availability-page` — those
+last four are already-documented entanglements from the PLAYER CARD/MATCHMAKING/bottom-nav passes and
+were left exactly where they are.
+
+Verified selector-uniqueness for each of the five sub-features the same way as cup/calibration/home
+(grep every selector against the rest of `globals.css` and every already-split file — `cup.css`,
+`calibration.css`, `bottom-nav.css`, `home.css`, `matchmaking.css`, `foundation.css`, `components.css`,
+`core-ranking.css`, `guide.css`, `auth.css`) before moving anything. All five checked out clean:
+
+- **Match-entry form** (`.match-form`, `.matchup-*`, `.match-date-chip`, `.score-panel`,
+  `.scoreboard-entry`, `.score-row`/`-value`, `.break-*`, `.quick-handicap`, `.handicap-segment`,
+  `.custom-handicap`, `.elo-preview`, `.match-save`, `.player-combobox*`) → `app/styles/match-entry-form.css`.
+- **Calendar widget** (`.calendar-*`) → `app/styles/calendar.css`.
+- **Member auth / admin bootstrap chrome** (`.account-actions`, `.account-link`, `.auth-page`,
+  `.auth-card`, `.auth-brand`, `.auth-primary`, `.auth-buttons`, `.auth-note`, `.member-avatar`,
+  `.member-details`, `.auth-form`, `.form-error`/`-success`, `.bootstrap-note`, `.admin-panel-link`) →
+  `app/styles/member-auth.css`.
+- **Admin roster** (`.admin-page`, `.admin-card`, `.admin-create/-edit/-delete`, `.admin-stats`,
+  `.admin-attention`, `.admin-player-list`, `.admin-section*`, `.admin-directory-controls`,
+  `.admin-search`, `.admin-chip*`, `.admin-empty`, `.member-list`, `.admin-row-*`, `.admin-avatar`,
+  `.admin-tag*`, `.admin-field-*`, `.admin-link`) → `app/styles/admin-roster.css`.
+- **Member dashboard** (`.account-player-card`, `.account-form*`, `.account-summary-*`,
+  `.link-trigger*`, `.avatar-picker*`, `.field-error`, `.field-hint`, `.account-danger*`,
+  `.account-page`, `.account-topbar*`, `.account-hero*`, `.account-identity`, `.account-handle`,
+  `.account-chip*`, `.account-layout`, `.account-column`, `.account-panel*`, `.account-stat-grid`,
+  `.account-highlights`, `.account-settings*`, `.account-unlinked`, `.match-history-*`, `.match-row*`) →
+  `app/styles/member-dashboard.css`.
+
+**Auth duplicate, checked and NOT a bug.** Per the task's specific ask: `.field-error` is declared in
+both the moved `member-dashboard.css` (`color`/`font-size`/`font-weight`) and the existing
+`app/login/auth.css` (`display`/`margin-top`/`color`/`font-size`/`font-weight`) — same bare selector,
+overlapping properties, unlayered in both files. Unlike the `.mm-card` case this isn't dead code: the
+two files are never loaded on the same page. `auth.css` only loads via `app/login/layout.tsx` (the
+`/login`/`/register` routes' `SignupForm.tsx`), while the moved rule is used by `AccountForms.tsx` on
+`/account`, a route that never imports `auth.css`. Both declarations are live, each on its own page —
+confirmed by grepping every `field-error` usage site in `.tsx` files. No fix needed or made.
+
+**A second overlap found and left as a follow-up, not fixed this pass.** `.elo-preview` (moved into
+`match-entry-form.css`) is also declared in `app/styles/core-ranking.css`'s `@layer components` block
+(`background`/`border-radius`/`padding`, shared with `.match-preview`). Per cascade-layer rules the
+unlayered `globals.css`/`match-entry-form.css` declaration always wins those three properties over the
+layered one — the same dead-code shape as the `.mm-card` finding two slices ago. Moving the base rule
+into its own file doesn't change this (layer beats source order regardless of import position), so it
+was safe to move, but *fixing* the dead layered declaration in `core-ranking.css` is a separate,
+`.mm-card`-shaped follow-up this pass didn't attempt, to keep the auth check (the thing the task asked
+for) and the split itself as the two things actually verified end-to-end.
+
+**Cascade safety re the "UI consistency contract" section.** Several of the moved base selectors
+(`.account-page`, `.auth-page`, `.admin-card`, `.calendar-view`, `.account-panel`, `.account-layout`,
+`.match-history-more`, `.admin-attention`, and their `@media(max-width:820px)` twins) are also touched
+by a later grouped block in `globals.css` (~line 900, the "Account and administration use the same
+outer rail..." comment) that overrides specific properties (mostly `padding`) on the same selectors.
+That block stays in `globals.css`, later in source than all five new files' `@import`s (added *before*
+`globals.css` in `app/layout.tsx`, same position as `cup.css`/`calibration.css`/`home.css`) — so it
+keeps winning exactly as before, unaffected by the move. Same pattern as the cup split's `.cup-mark`
+exception and the calibration split's `.calibration-trend` box-shadow exception.
+
+Moved all five verbatim (no `!important` cleanup, no value edits). `app/globals.css`: 1,370 → 1,326
+lines (again mostly very dense single lines, so ~44KB moved barely dents the line count — same effect
+noted in the home.css split). Each new file carries the section's un-migrated literal font sizes
+(`.75rem`, `.8rem`, `1.25rem`, `2.25rem`, etc.), so all five were added to the same shrinking
+type-migration exemption list in `.stylelintrc.json` that `cup.css`/`bottom-nav.css`/`home.css` are on.
+`npm run build` and `npm run lint:css` both clean afterward (518 warnings, 0 errors — unchanged from
+baseline); grepped every moved selector prefix afterward to confirm the only survivors in `globals.css`
+are the expected additive/overriding compound-selector rules from the UI-consistency-contract block,
+not stray base-rule duplicates.
+
+**Left in place, as before:** `.player-badge`/`.badge-preview`/`.colour-field` (a different feature,
+PLAYER CARD-adjacent, shares no selectors with any of the five moved above) and `.availability-page`
+(matchmaking-adjacent, already flagged as overlapping `matchmaking.css` in the bottom-nav slice) — both
+sit physically between the moved content and the next real heading (`PLAYER CARD` at line 656) but
+were never part of the "Match entry" mislabelling; leaving them matches the existing findings for
+those selectors rather than re-litigating them.

@@ -56,7 +56,12 @@
         "app/globals.css",
         "app/styles/cup.css",
         "app/styles/bottom-nav.css",
-        "app/styles/home.css"
+        "app/styles/home.css",
+        "app/styles/match-entry-form.css",
+        "app/styles/calendar.css",
+        "app/styles/member-auth.css",
+        "app/styles/admin-roster.css",
+        "app/styles/member-dashboard.css"
       ],
       "rules": {
         "declaration-property-value-allowed-list": null
