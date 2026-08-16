@@ -32,12 +32,12 @@
     "declaration-property-value-disallowed-list": [
       {
         "/^(padding|margin|gap|row-gap|column-gap)(-(top|bottom|left|right|inline|block|inline-start|inline-end))?$/": [
-          "/(^|\\s)(4px|\\.25rem|8px|\\.5rem|12px|\\.75rem|16px|1rem|24px|1\\.5rem|32px|2rem)(\\s|$)/"
+          "/(^|\\s)(4px|\\.25rem|6px|\\.375rem|8px|\\.5rem|10px|\\.625rem|12px|\\.75rem|14px|\\.875rem|16px|1rem|20px|1\\.25rem|24px|1\\.5rem|28px|1\\.75rem|32px|2rem)(\\s|$)/"
         ]
       },
       {
         "severity": "warning",
-        "message": "This value exactly matches a --sp-* spacing token -- use var(--sp-1..6) from app/styles/tokens.css instead of the literal. See docs/design-system.md."
+        "message": "This value exactly matches a --sp-* spacing token -- use var(--sp-1, --sp-1-5, --sp-2, --sp-2-5, --sp-3, --sp-3-5, --sp-4, --sp-4-5, --sp-5, --sp-5-5, or --sp-6) from app/styles/tokens.css instead of the literal. See docs/design-system.md."
       }
     ]
   },

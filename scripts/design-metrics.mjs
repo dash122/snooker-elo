@@ -64,8 +64,9 @@ const spacingValues = spacingDeclarations.flatMap((v) =>
 const spacingTokenValues = spacingValues.filter((v) => v.startsWith("var(--sp-"));
 const spacingLiteralValues = spacingValues.filter((v) => /^[\d.]+(px|rem)$/.test(v));
 const ON_SCALE = new Set([
-  "4px", ".25rem", "8px", ".5rem", "12px", ".75rem",
-  "16px", "1rem", "24px", "1.5rem", "32px", "2rem",
+  "4px", ".25rem", "6px", ".375rem", "8px", ".5rem", "10px", ".625rem",
+  "12px", ".75rem", "14px", ".875rem", "16px", "1rem", "20px", "1.25rem",
+  "24px", "1.5rem", "28px", "1.75rem", "32px", "2rem",
 ]);
 const spacingOffScale = spacingLiteralValues.filter((v) => !ON_SCALE.has(v));
 

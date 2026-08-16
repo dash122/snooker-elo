@@ -64,15 +64,29 @@
     --fs-display:2rem;         /* 32px — hero headings, empty-state glyphs */
     --fs-display-lg:2.375rem;  /* 38px — the primary ranking hero only */
 
-    /* --- Spacing scale — six steps ---------------------------------------
+    /* --- Spacing scale -----------------------------------------------------
        Pick the nearest step. Never split the difference: "just 2px more" is
-       how the codebase reached ~100 distinct padding values. */
-    --sp-1:.25rem;   /* 4px  — icon gaps, chip padding */
-    --sp-2:.5rem;    /* 8px  — tight stacks, inline gaps */
-    --sp-3:.75rem;   /* 12px — control padding, list row gaps */
-    --sp-4:1rem;     /* 16px — card padding, default block gap */
-    --sp-5:1.5rem;   /* 24px — group separation */
-    --sp-6:2rem;     /* 32px — section separation */
+       how the codebase reached ~100 distinct padding values.
+
+       The five --sp-N-5 half-steps below were added during the phase-03
+       spacing standardisation after finding that 6/10/14/20/28px were each
+       used consistently across dozens of unrelated components (63-169
+       occurrences each) -- not drift, a real de-facto scale the original
+       styling already had. Added them rather than force-rounding genuinely
+       intentional values, the same call made for --fs-input earlier. Every
+       *other* off-scale value (7px, 9px, 11px, 13px, 15px...) rounds into
+       this 11-step scale instead of getting its own token. */
+    --sp-1:.25rem;    /* 4px  — icon gaps, chip padding */
+    --sp-1-5:.375rem; /* 6px  — tight icon-to-label gaps */
+    --sp-2:.5rem;     /* 8px  — tight stacks, inline gaps */
+    --sp-2-5:.625rem; /* 10px — table-row/card padding, filter gaps */
+    --sp-3:.75rem;    /* 12px — control padding, list row gaps */
+    --sp-3-5:.875rem; /* 14px — toast/card padding, chart gaps */
+    --sp-4:1rem;      /* 16px — card padding, default block gap */
+    --sp-4-5:1.25rem; /* 20px — section sub-headings, wider card padding */
+    --sp-5:1.5rem;    /* 24px — group separation */
+    --sp-5-5:1.75rem; /* 28px — larger group separation */
+    --sp-6:2rem;      /* 32px — section separation */
 
     /* --- Control sizing — one ladder, real tap targets -------------------- */
     --control-sm:2.25rem;  /* 36px — inline chips, toggles (pointer devices only) */
