@@ -556,6 +556,67 @@ zero-visual-risk, left this one for a future pass with screenshot verification a
 Added to `app/ui-gallery/GalleryClient.tsx` under a new "Stat tiles" section, including the `warn`
 tone.
 
+## Phase 04, continued: the other two named candidates, and what was actually found (2026-08-16)
+
+Phase-4's plan named two more candidates: "filter row / toolbar" and "player row". Grepped every
+`filter`/`toolbar`/`chip`/`avatar`/`person` className across `app/**/*.tsx` and read each hit
+against its neighbours before extracting anything.
+
+**Player row: not extracted.** `PlayerBadge` (`app/UiBits.tsx`) already is the shared piece here —
+the avatar itself is not duplicated, it's reused 59 times. What looked like a repeated "row" wrapper
+around it (`.person`, `.rivalry-person`, `.recent-focus-person`, `.matchup-player-info`) turned out
+to differ in actual child shape at every site: `.person` nests `<b><small>` with a conditional
+provisional/official suffix, `.recent-focus-person` is a flat `<b><em>`, `.matchup-player-info` is
+`<b><small>` with different content, `.rivalry-person` adds a third `<small>` label node before the
+name. These aren't the same two-node shape with different text (the `StatTile` case) — they're
+different numbers and roles of children, so a shared wrapper would need enough conditional slots to
+stop being simpler than the status quo. Left alone.
+
+**Filter row / toolbar: not extracted.** The row-of-toggle-buttons shape repeats often
+(`.match-history-filters`, `.sl-mode-switch`, `.sl-day-chips`, `.players-chips`,
+`.h2h-matrix-modes`, `.admin-chips`), and a `SegmentedControl` primitive already exists in
+`Primitives.tsx` with exactly this role=tablist shape. But checking each site against it surfaced
+real, not cosmetic, divergence: `.h2h-matrix-modes`/`.admin-chips` use `role="group"` +
+`aria-pressed` (a toggle-group semantic), while the rest use `role="tablist"` + `aria-selected` (a
+tab semantic) — not interchangeable without changing what the control announces to a screen reader.
+More decisively, the pages that *do* share the tablist/aria-selected semantic style their active
+state off a page-authored `.active` class on the button
+(`.sl-day-chips button.active`/`.match-history-filters button[class="active"]`-style rules), while
+`SegmentedControl`'s own CSS keys off `button[aria-selected=true]` and ships its own opinionated
+background/border/shadow. Adopting it at any of these sites would mean the page's existing
+`.active`-keyed rule stops matching (no such class is rendered) while `SegmentedControl`'s unrelated
+visual design silently takes over — the exact kind of un-verifiable override the `StatTile` pass
+avoided with `SectionHeading`. Left every one of these as page-owned markup.
+
+**`ChipRow` — extracted.** While checking `.sl-chips`/`.share-chip` occurrences turned up during
+the filter-row grep, found a genuine duplicate one level down: `app/Slots.tsx` has the identical
+block `conditionChips(x).length>0 && <div className="sl-chips">{conditionChips(x).map(chip=><span
+key={chip} className="sl-chip">{chip}</span>)}</div>` copy-pasted twice in the same file (the posted
+slot card and the "my slots" card), and `app/s/[id]/SlotPreview.tsx` has the same shape again under
+`.share-chips`/`.share-chip`. Confirmed it's the same design, not just similar markup, by diffing the
+CSS: `.sl-chip` and `.share-chip`'s base (non-`.gold`, non-`button`) rules in `app/globals.css` are
+byte-identical property lists (border/background/color/border-radius/padding/font-size/font-weight).
+Extracted `ChipRow({items,className})` into `Primitives.tsx` — renders a `ds-chip-row` of `ds-chip`
+pills from a `string[]`, or nothing if empty (folding in the `.length>0 &&` guard every call site
+repeated). Adopted at all three call sites, replacing 3 duplicated blocks; each drops its old
+`sl-chips`/`share-chips` wrapper entirely rather than layering the new class alongside, since
+`ds-chip`'s CSS carries the *exact* same values, not new tokens with a similar look, so there's
+nothing left for the old rule to contribute. Not touched: `.share-chip.gold` chips in
+`RecordShareView.tsx`/`MatchShareView.tsx` build each chip's content individually (rank/ELO
+delta/break, with a `gold` modifier) rather than mapping a plain string array, and `.sl-session-chips`
+uses its own distinct gold/cream palette for a different kind of badge — neither is the same shape as
+`conditionChips()`'s plain pill list, so neither was folded in.
+
+Because `--line`/`--mm-chip-surface` (the exact values `.sl-chip`/`.share-chip` already used) don't
+have byte-identical `--ds-*` equivalents in `tokens.css`, `ds-chip`'s CSS reuses those existing
+custom properties directly rather than route through a new `--ds-*` alias — matching them exactly
+was judged more important here than adding a token purely to satisfy the naming convention, since a
+near-but-not-identical `--ds-*` colour would have been a real (if tiny) visual change on an
+extraction whose whole premise is zero visual risk. `--ds-text-secondary` was used for the text
+colour since it's confirmed identical to the legacy `--muted` alias already in play at both sites.
+
+Added to `app/ui-gallery/GalleryClient.tsx` under a new "Chip row" section.
+
 ## Splitting globals.css by feature — second slice: calibration (2026-08-16)
 
 Went through the candidates the first slice deferred (match entry, account/auth, admin, home,
