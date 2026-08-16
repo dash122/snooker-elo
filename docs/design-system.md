@@ -41,6 +41,8 @@ Landing-page heroes that must scale with the viewport may use `clamp()` — that
 `--sp-1` 4px · `--sp-2` 8px · `--sp-3` 12px · `--sp-4` 16px · `--sp-5` 24px · `--sp-6` 32px
 
 Pick the nearest step. Never split the difference — "just 2px more" is how we got 100+ padding values.
+`stylelint` warns (not yet blocks) if a `padding`/`margin`/`gap` declaration uses a literal value that
+exactly matches one of these six numbers instead of the token — same maturity model as colour.
 
 ## Breakpoints — four tiers, and only four
 
@@ -113,12 +115,14 @@ the live scoreboard. As of the last commit on `main`:
 | Metric | Then | Now | Target |
 | --- | --- | --- | --- |
 | Sub-11px declarations | 270 | 1 | 0 |
-| Token adoption | 29% | 67% | 100% |
+| Token adoption (type) | 29% | 67% | 100% |
 | Breakpoints | 22 | 5 | 5 |
 | `!important` | 100 | 85 | 0 |
 | `globals.css` lines | 4,825 | 1,794 | < 500 |
 | Type-migration-debt files | 3 | 1 | 0 |
 | Distinct hex colours | 605 | 424 | < 20 |
+| Token adoption (spacing) | not tracked before | 24% | 100% |
+| Off-scale spacing literals that should've been tokens | not tracked before | 0 | 0 |
 
 Done: home view, player profile sheet, the sub-11px floor across match/H2H/matchmaking/cup
 (slices 1-3 of "phase 03"), the `.sl-eyebrow` specificity fix, slice 4 (every remaining literal
@@ -233,8 +237,47 @@ same-specificity rule elsewhere in the file was already winning — which is the
 not something this edit introduced; the edit has zero rendered effect in those two cases and is a
 real fix in the ones where the edited rule does win. Token adoption: 65% → 67%.
 
+## New front: spacing (2026-08-16)
+
+Padding, margin, and gap had never been touched — a 6-step scale (`--sp-1`..`--sp-6` =
+4/8/12/16/24/32px) has existed in `tokens.css` since phase 01, but nothing enforced or migrated it.
+2,271 literal spacing declarations exist across the codebase (116 distinct values); before checking
+closely this read like "the type/colour work just hasn't reached spacing yet," but it's really its
+own gap — spacing was never part of the phase 01 guardrails the way font-size and breakpoints were.
+
+**809 of those 2,271 occurrences (36%) are literal `px`/`rem` values that exactly equal one of the
+six scale steps.** Retargeted all of them onto `var(--sp-1..6)`, including inside multi-value
+shorthand (`padding:12px 8px` → `padding:var(--sp-3) var(--sp-2)` — only the matching sub-values
+change) and preserving `!important`. This is zero-visual-risk by construction: `--sp-*` tokens have
+no media-query redefinitions (checked directly, unlike the `--fs-*` bug fixed earlier), and `rem`
+now resolves consistently everywhere since the root font-size fix, so a literal already equal to a
+token's value renders pixel-identical after the swap. Verified against a live preview across
+home/login/elo-guide at 599/1280px: no horizontal overflow, 0 console errors.
+
+Also added tracking so this can't silently regress: a new warning-severity stylelint rule
+(`declaration-property-value-disallowed-list`) flags any future spacing literal that exactly matches
+a `--sp-*` step, mirroring `color-no-hex`'s maturity model — and two new `design:metrics` rows,
+spacing token adoption (24%) and a regression tripwire for exact-scale literals (currently 0,
+confirming the sweep above was complete).
+
+**On "decorative one-offs" — checked, not skipped.** Before leaving colour pass 3's decorative
+colours alone, went back and checked whether they're actually the *same* UI element redefined
+independently in multiple places with drift (which would mean they should be standardized) rather
+than genuine one-offs. They're not: the snooker-ball gradient, the medal-tier washes, and the
+Instagram share-button gradient are each defined exactly once in the codebase, and two are external
+brand-colour constraints (WhatsApp's actual green, Instagram's actual gradient) that shouldn't be
+redesigned regardless. The real standardization gap the "many different standards" feeling was
+picking up on was spacing, not these.
+
 Not done, in rough priority order:
-1. **424 hard-coded hex colours still remain** per `design:metrics` (down from 605 across three
+1. **The other ~1,460 spacing declarations don't land exactly on the 6-step scale** and are the real
+   remaining work — this is the spacing equivalent of the harder media-query font-size case: each one
+   needs a judgment call (round 10px to 8 or 12? does 18px deserve a 7th step, or round to 16?) plus
+   visual QA, not a mechanical sweep. Very small values (1-2px) are likely optical nudges (e.g.
+   aligning an icon with a text baseline) that don't belong on the spacing scale at all and shouldn't
+   be forced onto it. This is the next thing to tackle to move spacing token adoption meaningfully
+   past 24%.
+2. **424 hard-coded hex colours still remain** per `design:metrics` (down from 605 across three
    passes). What's left is a long tail: counting usages only (i.e. excluding each token's own
    definition in `tokens.css` — a different, smaller count than the 424 headline number, done here
    only to characterize the shape of what's left, not to replace the official metric), there are 389
@@ -243,12 +286,12 @@ Not done, in rough priority order:
    the WhatsApp brand green) rather than design-system violations — pass 3 already found and correctly
    skipped several of these. Continuing past this point has diminishing returns: each one still needs
    a context read, but an increasing fraction won't turn out to deserve a token at all.
-2. **Token adoption is at 67%, not 100%** — most of what's left *inside* `@media` blocks is the
+3. **Type token adoption is at 67%, not 100%** — most of what's left *inside* `@media` blocks is the
    harder case flagged before: hand-computed tablet/phone step-downs (11.2px, 12.48px, 13.44px...)
    that don't land exactly on any tier's token value, or one-off heading/icon/score-display sizes
    that don't match a text-role token at all. These need visual judgment per declaration, not just
    the exact-match check that handled the first 24.
-3. `globals.css` is still 1,794 lines — no page has been fully extracted into its own file yet, so
+4. `globals.css` is still 1,794 lines — no page has been fully extracted into its own file yet, so
    the file stays on the stylelint exemption list. Not strictly required for consistency (tokens +
    lint enforce that regardless of file layout) — it's a lower-priority cleanup for the `!important`
    / dead-rule readability problem specifically (see the `.person b` / `.bottom button` finding above
