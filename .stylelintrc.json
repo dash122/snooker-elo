@@ -62,7 +62,8 @@
         "app/styles/member-auth.css",
         "app/styles/admin-roster.css",
         "app/styles/member-dashboard.css",
-        "app/styles/players-tab.css"
+        "app/styles/players-tab.css",
+        "app/styles/modal-sheet.css"
       ],
       "rules": {
         "declaration-property-value-allowed-list": null

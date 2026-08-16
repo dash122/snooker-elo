@@ -13,6 +13,7 @@ import "./styles/member-auth.css";
 import "./styles/admin-roster.css";
 import "./styles/member-dashboard.css";
 import "./styles/players-tab.css";
+import "./styles/modal-sheet.css";
 import "./globals.css";
 import "./styles/bottom-nav.css";
 import "./styles/ranking-table-mobile.css";
