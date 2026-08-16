@@ -14,6 +14,14 @@
     --ds-hero-glow:rgba(85,165,134,.25);--ds-inverse-border:rgba(255,255,255,.12);
     --ds-text-on-danger:#fff;--ds-text-on-brand-secondary:#bdd0c9;
     --ds-success:#247d5d;--ds-warning:#a66f1d;--ds-danger:#ad5149;--ds-info:#356e83;
+    /* Named during the phase-03 colour consolidation: each replaces a hex value
+       that was reused 6+ times across the codebase for the same visual role
+       (not a value close enough to merge into an existing token above). */
+    --ds-success-wash:#eef6f0;--ds-success-wash-border:#cfe0d5;
+    --ds-warning-wash:#fff2d3;--ds-warning-wash-text:#8b5910;
+    --ds-highlight-wash:#fdf7e6;--ds-accent-soft:#f0d091;
+    --ds-border-muted:#cbd5cd;--ds-chart-primary:#1d6a5e;
+    --ds-icon-muted:#a9c5bd;--ds-text-quaternary:#b3bdb8;--ds-text-muted-teal:#8faea5;
     --ds-radius-control:.75rem;--ds-radius-card:1.25rem;--ds-radius-sheet:1.5rem;
     --ds-shadow-resting:0 12px 36px rgba(9,47,40,.08);
     --ds-shadow-floating:0 24px 70px rgba(5,34,29,.22);
