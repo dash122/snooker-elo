@@ -113,12 +113,12 @@ the live scoreboard. As of the last commit on `main`:
 | Metric | Then | Now | Target |
 | --- | --- | --- | --- |
 | Sub-11px declarations | 270 | 1 | 0 |
-| Token adoption | 29% | 65% | 100% |
+| Token adoption | 29% | 67% | 100% |
 | Breakpoints | 22 | 5 | 5 |
 | `!important` | 100 | 85 | 0 |
 | `globals.css` lines | 4,825 | 1,794 | < 500 |
 | Type-migration-debt files | 3 | 1 | 0 |
-| Distinct hex colours | 605 | 432 | < 20 |
+| Distinct hex colours | 605 | 404 | < 20 |
 
 Done: home view, player profile sheet, the sub-11px floor across match/H2H/matchmaking/cup
 (slices 1-3 of "phase 03"), the `.sl-eyebrow` specificity fix, slice 4 (every remaining literal
@@ -192,29 +192,47 @@ ones touched today. Fixed by pinning `html` to a fixed `16px` (matching `--fs-bo
 value, so zero visual change at desktop). Verified via `getComputedStyle()`: `--fs-label` now
 resolves to exactly 11px at 375px and 12px at 1280px, matching the table.
 
+**Colour pass 2 (frequency tier 3-9).** Continued the pass-4 methodology (read each colour's actual
+selector context, then merge into an existing/near token or name a new one) one tier further down
+the frequency list: `--ds-text-inactive`, `--ds-border-hover`, `--ds-accent-text` named as new
+tokens; `#e8f1ec`/`#123d37`/`#d6dad5`/`#e7e5dc`/`#c9ccc5` merged into existing/near tokens (same
+design intent, small drift, same reasoning as the `#c3d8d2`/`#27704e` cases from pass 4). Also
+found and fixed pure internal drift inside `elo-guide/guide.css`: it already defines `--guide-blue`
+but two rules were re-typing that exact hex as a literal instead of using the file's own token —
+zero-risk fix — and added `--guide-teal-muted` for a colour reused 3× within that file (its own
+separate palette, per the closed exemption decision above, not the app's `--ds-*` system).
+`color-no-hex` warnings: 612 → 565. Verified against a live preview: every new/merged token
+resolves to its expected hex, no console/lint errors, no overflow.
+
+**Media-query-scoped font sizes, first cut.** Rather than a blanket sweep, computed what each
+breakpoint tier's tokens *actually* resolve to (from the tier redefinitions in `globals.css` itself,
+not the docs table) and only replaced a literal where it's an exact match — 24 of ~90 remaining
+media-scoped literals qualified. Two of the converted declarations (`.person b`, `.bottom button`)
+turned out to already be dead code before this change — a higher-specificity or later
+same-specificity rule elsewhere in the file was already winning — which is the pre-existing
+"multiple overlapping rules for the same selector" problem (root cause #2 in the original audit),
+not something this edit introduced; the edit has zero rendered effect in those two cases and is a
+real fix in the ones where the edited rule does win. Token adoption: 65% → 67%.
+
 Not done, in rough priority order:
-1. **~420 hard-coded hex colours still remain** (down from 605; the 10 new tokens named in pass 4
-   don't move the distinct-species count, see above). What's left after four passes is a genuinely
-   flatter tail — mostly one-off decorative colours and `elo-guide/guide.css`'s own `--guide-*`
-   definitions — plus whatever's below the "used 4+ times" cutoff pass 4 applied. Continuing means
-   working down that frequency list further, each one needing the same judgment-call-plus-context-read
-   as pass 4, or accepting a lower frequency cutoff isn't worth a named token and leaving it literal.
-2. **Token adoption is at 65%, not 100%** — 121 flat literal sizes (12–26px, no existing responsive
-   behaviour) were retargeted onto tokens, plus the 4 `input,select,textarea{font-size:16px}`
-   literals inside media blocks (an unambiguous case: retargeted onto `--fs-input`, the token that
-   exists specifically for that role and never steps down). Most of what's left *inside* `@media`
-   blocks is harder: hand-computed tablet/phone step-downs (11.2px, 12.48px, 13.44px...) that mirror
-   the token scale's own responsive steps, or one-off heading/icon/score-display sizes that don't
-   cleanly match a text-role token at all. Replacing those needs a per-declaration check against what
-   that breakpoint's token actually resolves to (not just "does the number look close"), so it's
-   page-by-page visual QA rather than a blanket regex.
+1. **~400 hard-coded hex colours still remain** (down from 605 across two passes). What's left is a
+   long tail — 339 of the 404 remaining distinct values are used exactly once, and a good number of
+   those look like intentionally distinct decorative colours (snooker-ball gradients, medal colours)
+   rather than design-system violations. Continuing past this point has diminishing returns: each one
+   still needs a context read, but an increasing fraction won't turn out to deserve a token at all.
+2. **Token adoption is at 67%, not 100%** — most of what's left *inside* `@media` blocks is the
+   harder case flagged before: hand-computed tablet/phone step-downs (11.2px, 12.48px, 13.44px...)
+   that don't land exactly on any tier's token value, or one-off heading/icon/score-display sizes
+   that don't match a text-role token at all. These need visual judgment per declaration, not just
+   the exact-match check that handled the first 24.
 3. `globals.css` is still 1,794 lines — no page has been fully extracted into its own file yet, so
    the file stays on the stylelint exemption list. Not strictly required for consistency (tokens +
    lint enforce that regardless of file layout) — it's a lower-priority cleanup for the `!important`
-   / dead-rule readability problem specifically, not the colour/type standardization problem. Still
-   worth doing eventually; just after the colour and type work above.
+   / dead-rule readability problem specifically (see the `.person b` / `.bottom button` finding above
+   for a live example of that problem), not the colour/type standardization problem. Still worth
+   doing eventually; just after the colour and type work above.
 
-**Resolved:** `elo-guide/guide.css`'s exemption status was an open TODO as of the previous session;
+**Resolved:** `elo-guide/guide.css`'s exemption status was an open TODO as of an earlier session;
 it's now a closed decision — see "The exemption list" above. It stays permanently exempt by design,
 split into its own `.stylelintrc.json` override block so it's no longer conflated with
 `globals.css`'s shrinking migration-debt list.
