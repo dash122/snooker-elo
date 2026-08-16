@@ -274,6 +274,34 @@ brand-colour constraints (WhatsApp's actual green, Instagram's actual gradient) 
 redesigned regardless. The real standardization gap the "many different standards" feeling was
 picking up on was spacing, not these.
 
+## Naming the numbered colour tokens (2026-08-16)
+
+Colour passes 1-4 tokenized every hex value, but `--me-c01`..`--me-c169`, `--pc-c01`..`--pc-c55`,
+and `--mm-c01`..`--mm-c53` (277 vars total, defined near the top of `globals.css`) were auto-generated
+placeholder names carrying zero meaning — no one could tell what `--pc-c53` was for without grepping
+every usage site. Technically tokenized, but useless for a future design-system migration: you can't
+safely retarget "the profile card's positive-accent colour" if you don't know whether three unrelated
+things happen to share its numbered name.
+
+Went through each one by reading its actual usage selectors (not guessing from the hex value):
+
+- **8 were exact-hex duplicates of an existing `--ds-*` token** — `--me-c60`/`--ds-chart-primary`,
+  `--me-c103`/`--ds-chart-positive`, `--me-c104`/`--ds-chart-negative`, `--me-c125`/`--ds-success-wash`,
+  `--me-c126`/`--ds-warning-wash-text`, `--me-c127`/`--ds-warning-wash`, `--mm-c09`/`--ds-border-hover`,
+  `--pc-c07`/`--ds-text-inactive`. Replaced every usage site with the canonical `--ds-*` token and
+  deleted the numbered definitions rather than keeping a duplicate name for the same colour.
+- **All 52 `--mm-c*` vars renamed to semantic names** matching the `--mm-*` page-scoped convention
+  already used elsewhere (`--mm-confirmed`, `--mm-handicap-text`, `--mm-tonight-dot`,
+  `--mm-signed-surface`, `--mm-room-action-border`, etc.) — one name per distinct role, none of them
+  reused across unrelated selectors.
+
+That leaves the `--me-c*` (163 remaining) and `--pc-c*` (54 remaining) groups still numbered — same
+technique applies but the match-entry surface is much larger and needs the same care (checking for
+vars reused across unrelated selectors before naming them) rather than a rushed pass; left as the next
+front rather than renaming those under time pressure and risking a wrong semantic name baked into 163
+call sites. Build and `lint:css` stayed clean throughout (no new warnings), and every rename was
+verified with a follow-up grep for the old numbered name to catch stray references before committing.
+
 **Spacing scale expansion and rounding pass.** Before rounding the ~1,460 off-scale declarations,
 checked the two most common values (10px, 14px — 169 and 120 occurrences) for the same reason the
 colour work checks context first: are these genuinely reused values, or drift? They're real — used
