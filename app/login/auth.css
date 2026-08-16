@@ -38,7 +38,7 @@
 .auth-submit{min-height:54px;margin-top:var(--sp-1-5);border-radius:12px}
 .auth-submit:disabled{opacity:.5;cursor:not-allowed}
 .auth-switch{display:flex;justify-content:center;gap:var(--sp-2);margin:var(--sp-5) 0 0;color:#6c7c78}
-.auth-switch a,.auth-back{color:#1e5b4b;font-weight:800}
+.auth-switch a,.auth-back{color:var(--green);font-weight:800}
 .auth-back{display:block;margin-top:34px;text-align:center;text-decoration:none}
 .auth-welcome-card{width:min(92%,480px);margin:auto;padding:44px;border:1px solid var(--line);border-radius:22px;background:var(--ds-text-on-danger);box-shadow:0 28px 80px rgba(24,50,42,.1)}
 @media(max-width:820px){.auth-experience{grid-template-columns:1fr}.auth-story{display:none}.auth-panel{padding:var(--sp-5-5) var(--sp-4-5) 46px}.auth-mobile-brand{display:block;margin-bottom:var(--sp-6);color:var(--deep);font-size:var(--fs-h3);font-weight:900;text-decoration:none}.auth-mobile-brand span{color:var(--gold);font-weight:700}.auth-tabs{margin-bottom:34px}}

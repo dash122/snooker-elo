@@ -299,16 +299,38 @@ deliberately excluded above — confirmed by re-running the frequency count afte
 ~127 occurrences are ≤2px (hairline/optical nudges), ~67 are >32px (bespoke larger layout values).
 Nothing was skipped by oversight.
 
+**Colour pass 4 (frequency-1 tail).** Went through the once-used hex values. Filtered first to the
+subset that's actually an *active* `color-no-hex` violation (most of the frequency-1 tail turned out
+to already be sitting behind either a `tokens.css`-style named custom property, or the large block of
+mechanically-extracted `--me-cNN`/`--mm-cNN`/`--pc-cNN` numbered custom properties in `globals.css`
+that a much earlier pass created — each already wrapped in `var(...)` at its use site and disabled
+for lint inside its own `stylelint-disable color-no-hex -- token source (...)` block, the same pattern
+`tokens.css` itself uses. Those aren't literal-hex violations to fix, they're already-tokenized, just
+under generic rather than semantic names — a separate, larger renaming project, not this pass's job).
+That left 73 genuine once-used literal-hex warnings. For each, read the actual selector and checked
+for a same-role sibling rule (e.g. `.move.down` already used `var(--red)`, so `.move.up` at a
+16.5-RGB-unit green is the matching half of that pair, not a guess) before merging — 14 merged onto
+existing tokens (`--ds-success`, `--ds-danger`/`var(--red)`, `--ds-success-wash-border`,
+`--ds-chart-negative`, `--ds-text-inactive`, `--ds-text-secondary`, `--ds-text-tertiary`,
+`--ds-border-muted`, `--ds-accent-text`, and the legacy `var(--green)` alias), all within an 8-17 RGB
+distance of their target. No new tokens were named this round — nothing recurred conceptually often
+enough to justify one; every candidate was a single, already-adjacent use.
+
+The remaining ~55 once-used values split the way the earlier passes predicted: bespoke gradient stops
+(nav sidebar background, cup-art trophy plate, positive/negative bar chart 2-stop gradients, the hero
+button's ball-yellow hover shade), a self-contained 4-step password-strength meter (each step
+intentionally its own colour), and a `.danger-zone` micro-palette (border/heading/button text) that's
+internally consistent within that one section but numerically 20-34 RGB units from `--ds-danger` --
+close enough to *look* related, not close enough to trust as the same colour without visual
+confirmation this pass didn't have tooling for, so left alone rather than force a merge on a "kind of
+close" read. `color-no-hex` warnings: 532 → 518. Distinct hex colours: 424 → 410.
+
 Not done, in rough priority order:
-1. **424 hard-coded hex colours still remain** per `design:metrics` (down from 605 across three
-   passes). What's left is a long tail: counting usages only (i.e. excluding each token's own
-   definition in `tokens.css` — a different, smaller count than the 424 headline number, done here
-   only to characterize the shape of what's left, not to replace the official metric), there are 389
-   distinct values still used somewhere, and 354 of those are used exactly once. A good number of
-   those look like intentionally distinct decorative colours (snooker-ball gradients, medal colours,
-   the WhatsApp brand green) rather than design-system violations — pass 3 already found and correctly
-   skipped several of these. Continuing past this point has diminishing returns: each one still needs
-   a context read, but an increasing fraction won't turn out to deserve a token at all.
+1. **410 hard-coded hex colours still remain** per `design:metrics` (down from 605 across four
+   passes). What's left is dominated by the decorative long tail described above, plus the numbered
+   `--me-c`/`--mm-c`/`--pc-c` custom-property block in `globals.css` -- already token-shaped (no
+   literal hex at the use site, lint-clean) but generically named, so renaming them to something
+   semantic is a real project of its own rather than a follow-up to this pass.
 2. **Type token adoption is at 67%, not 100%** — most of what's left *inside* `@media` blocks is the
    harder case flagged before: hand-computed tablet/phone step-downs (11.2px, 12.48px, 13.44px...)
    that don't land exactly on any tier's token value, or one-off heading/icon/score-display sizes
