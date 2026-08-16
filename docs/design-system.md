@@ -122,7 +122,7 @@ the live scoreboard. As of the last commit on `main`:
 | Sub-11px declarations | 270 | 1 | 0 |
 | Token adoption (type) | 29% | 67% | 100% |
 | Breakpoints | 22 | 5 | 5 |
-| `!important` | 100 | 85 | 0 |
+| `!important` | 100 | 23 | 0 |
 | `globals.css` lines | 4,825 | 1,232 | < 500 |
 | Type-migration-debt files | 3 | 1 | 0 |
 | Distinct hex colours | 605 | 424 | < 20 |
@@ -1024,3 +1024,67 @@ Same conclusion as every prior slice: the structural finding meaningfully de-ris
 winning its property collisions today — it does not de-risk moves that collide with content in
 *another named layer* (`matchmaking.css`/`core-ranking.css`'s `@layer components`), which still needs
 the original, more conservative layer-order verification.
+
+## `!important` cleanup, post-split (2026-08-16)
+
+Recounted `!important` the same way as the task's own recount: raw `grep -o '!important'` per file
+(the number the earlier passes tracked), across every CSS file, not just `globals.css`. Post-split
+starting point: 59 (`globals.css` 22, `match-entry-form.css` 14, `ranking-table-mobile.css` 11,
+`foundation.css` 4, `matchmaking.css` 2, `home.css` 1, `players-tab.css`/`modal-sheet.css` 1/4 —
+some of that count is `!important` *mentioned inside a comment*, not a live declaration; a
+comment-stripped recount put the real starting figure at 53). Confirmed `npm run build` and
+`npm run lint:css` clean at the existing 518-warning/0-error baseline before touching anything.
+
+Went file by file, and for every occurrence grepped the same selector/property across `globals.css`
+and every `app/styles/*.css` file before touching it, same bar as every split pass above:
+
+- **Dead by "nothing else styles this at all."** `.positive`/`.negative` color, `.dual-rating small`
+  color, `.recent-close-card:before` background (`home.css`) — grepped the whole codebase for each
+  selector; zero competing declarations anywhere, so the `!important` was never resolving a fight.
+- **Dead by "a same-specificity rule right after it already wins."** `.dual-rating small` font-size
+  (duplicates an earlier grouped rule for the exact same token value), `.term-tip` font-size/
+  font-weight (an earlier below-floor `11px` rule already loses to this file's later declaration by
+  ordinary source order — the token value is identical either way), the two `input,select,textarea`
+  font-size overrides at `@media(max-width:820px)` (both duplicate a *later* same-condition rule that
+  resolves to the exact same computed value — `--fs-input` never steps and `--fs-lead` is pinned to
+  `1rem` at that exact tier), `.score-input input` font-size (duplicates the base rule's identical
+  value), and the `.match-filter-toolbar` phone font-size overrides (their desktop-tier base rule sits
+  earlier in the same selector list at identical specificity).
+- **Dead by the `@layer legacy` structural finding** (documented in the PLAYER CARD entry above):
+  `match-entry-form.css`'s 14 occurrences (`.match-date-chip input`'s UA-style reset and
+  `.score-value`'s base + phone re-declaration) and `ranking-table-mobile.css`'s 9 all live in
+  unlayered files that are either the sole file touching that selector or the *last* unlayered import
+  in `app/layout.tsx` — so they already won unconditionally over anything left in `globals.css`'s
+  `@layer legacy` or `core-ranking.css`'s `@layer components`, regardless of `!important`.
+  `ranking-table-mobile.css`'s own header comment predates this finding (it reasoned about import
+  order instead), so it was rewritten to point at the real mechanism.
+
+**Left in place, with why:**
+- `foundation.css`'s 4 (`prefers-reduced-motion`) and `globals.css`'s 4 reduced-motion occurrences —
+  genuine accessibility escape hatches, explicitly exempted by the task brief.
+- `globals.css`'s `@supports(-webkit-touch-callout:none){input,select,textarea{font-size:var(--fs-sm)!important}}`
+  — this one *does* determine real behavior (an iOS-Safari-only rule competing with a later,
+  non-`@supports`, non-important rule for the same property); understanding whether `--fs-sm` here is
+  intentional or a stale below-the-`--fs-input`-floor mistake needs a live iOS check this pass didn't
+  have, so left alone rather than guessed at.
+- `globals.css`'s `.term-tip{color:var(--ds-text-on-danger)!important}` — checked and found this
+  currently makes `.calibration-card .term-tip{color:white}` (a higher-specificity descendant rule)
+  unreachable, the same dead-code shape as the `.mm-card`/`.elo-preview` findings, just not acted on:
+  fixing it means deciding which color is *supposed* to win inside a calibration card, a design call
+  outside this pass's scope, so it's reported here rather than guessed at.
+- `matchmaking.css`'s 2 (`.composer-times,.availability-form-actions,.sheet-actions` grid override at
+  a narrow breakpoint) — a genuine cross-layer case: `matchmaking.css` is `@layer components`,
+  declared earlier in `app/layout.tsx` than `globals.css`'s `@layer legacy`, so per named-layer
+  priority (earlier-declared layer loses) `globals.css`'s competing `.composer-times` rule at the same
+  breakpoint would otherwise win regardless of specificity or source order. Real escape hatch, kept.
+- `modal-sheet.css`'s 3 (`.close` width/height/min-height) — already documented in its own file
+  comment as resolving a same-specificity, same-layer sibling-rule fight; re-verified that reasoning
+  still holds and left it as-is rather than duplicate the existing writeup.
+
+Verified `npm run build` and `npm run lint:css` after every file (each committed and pushed
+separately): stayed at the 518-warning/0-error baseline throughout, no regressions.
+**`!important` count (raw, matching the task's counting method): 59 → 23** (comment-stripped/real
+declaration count: 53 → 17). Remaining 23 are the accessibility guard (8, reduced-motion),
+the iOS `@supports` case and the `.term-tip` cascade finding (2, flagged above, not fixed), the
+`matchmaking.css` cross-layer escape hatch (2), the `modal-sheet.css` sibling-rule fight (3), and
+comment-only mentions of the word `!important` left over in explanatory prose (8, harmless).
