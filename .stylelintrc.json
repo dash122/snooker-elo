@@ -43,7 +43,6 @@
       "_comment": "THE EXEMPTION LIST for the type rule. These files predate the design system. This array may only ever get shorter: as each page is migrated out of globals.css, delete its entry. When it is empty, the migration is finished. Never add to it.",
       "files": [
         "app/globals.css",
-        "app/login/auth.css",
         "app/elo-guide/guide.css"
       ],
       "rules": {
