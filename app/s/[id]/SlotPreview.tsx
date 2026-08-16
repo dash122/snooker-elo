@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { PlayerBadge } from "../../UiBits";
+import { ChipRow } from "../../components/ui/Primitives";
 import { hkClock, hkDate, hkDayLabel, addDaysHongKong } from "../../../lib/availability";
 import { conditionChips, type SlotConditions } from "../../../lib/slots";
 
@@ -52,9 +53,7 @@ export default function SlotPreview({id,slot,signedIn}:{id:string;slot:SharedSlo
             {/* The time is one token, never broken across lines — a card that reads
                 「今晚 21:30–」 / 「23:30 · 會所」 makes a reader check twice. */}
             <h1><span className="share-when">{when(slot)}</span>{slot.venue&&<em>{slot.venue}</em>}</h1>
-            {conditionChips(slot.conditions).length>0&&<div className="share-chips">
-              {conditionChips(slot.conditions).map(chip=><span key={chip} className="share-chip">{chip}</span>)}
-            </div>}
+            <ChipRow items={conditionChips(slot.conditions)}/>
             {raised
               ? <p className="share-done">已經舉手！開局嗰個確認咗會即刻話你知。</p>
               : signedIn

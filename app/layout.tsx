@@ -4,7 +4,20 @@ import "./styles/foundation.css";
 import "./styles/components.css";
 import "./styles/core-ranking.css";
 import "./styles/matchmaking.css";
+import "./styles/cup.css";
+import "./styles/calibration.css";
+import "./styles/home.css";
+import "./styles/match-entry-form.css";
+import "./styles/calendar.css";
+import "./styles/member-auth.css";
+import "./styles/admin-roster.css";
+import "./styles/member-dashboard.css";
+import "./styles/players-tab.css";
+import "./styles/modal-sheet.css";
+import "./styles/matchmaking-status.css";
 import "./globals.css";
+import "./styles/bottom-nav.css";
+import "./styles/ranking-table-mobile.css";
 import { AddToHomeScreen } from "./components/AddToHomeScreen";
 
 export const metadata: Metadata = {

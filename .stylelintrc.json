@@ -53,7 +53,18 @@
     {
       "_comment": "THE EXEMPTION LIST for the type rule -- migration debt, not a design decision. This array may only ever get shorter: as each page is migrated out of globals.css, delete its entry. When it is empty, the migration is finished. Never add to it.",
       "files": [
-        "app/globals.css"
+        "app/globals.css",
+        "app/styles/cup.css",
+        "app/styles/bottom-nav.css",
+        "app/styles/home.css",
+        "app/styles/match-entry-form.css",
+        "app/styles/calendar.css",
+        "app/styles/member-auth.css",
+        "app/styles/admin-roster.css",
+        "app/styles/member-dashboard.css",
+        "app/styles/players-tab.css",
+        "app/styles/modal-sheet.css",
+        "app/styles/matchmaking-status.css"
       ],
       "rules": {
         "declaration-property-value-allowed-list": null

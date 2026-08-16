@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { PlayerBadge } from "./UiBits";
+import { ChipRow } from "./components/ui/Primitives";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant } from "../lib/availability";
 import { conditionChips, handoffMessage, handsLine, shareMessage, slotStatus, sortPostedSlots,
@@ -134,7 +135,7 @@ function HandoffCard({slot,opponent,onResult,busy,showWho=true}:{
       <span className="next-up-copy"><b>{opponent.name}</b>
         <small>ELO {Math.round(opponent.rating)} · {when(slot)}{slot.venue?` · ${slot.venue}`:""}</small></span>
     </div>}
-    {conditionChips(slot.conditions).length>0&&<div className="sl-chips">{conditionChips(slot.conditions).map(chip=><span key={chip} className="sl-chip">{chip}</span>)}</div>}
+    <ChipRow items={conditionChips(slot.conditions)}/>
     {(status==="filled")&&<>
       <a className="primary sl-primary" href={whatsappShareUrl(text)} target="_blank" rel="noreferrer">WhatsApp {opponent?.name??"佢"}</a>
       <button type="button" className="more sl-wide-link" onClick={()=>void navigator.clipboard?.writeText(text)}>複製聯絡文字</button>
@@ -179,7 +180,7 @@ function MineCard({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onResu
         {taking&&<button type="button" className="sl-drop" aria-label="取消呢張局" onClick={onCancel}>✕</button>}
       </div>
     </header>
-    {conditionChips(item.conditions).length>0&&<div className="sl-chips">{conditionChips(item.conditions).map(chip=><span key={chip} className="sl-chip">{chip}</span>)}</div>}
+    <ChipRow items={conditionChips(item.conditions)}/>
 
     {/* Elapsed time, never "0 人舉手" — the number nobody needs to see at the exact moment they are
         most likely to delete the post and never make another one. */}

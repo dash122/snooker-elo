@@ -1,0 +1,280 @@
+/* ==========================================================================
+   Cup — phone-first
+   A knockout bracket is the one screen in this app that genuinely cannot be
+   drawn the same way at 360px and at 1280px: the tree is wide by definition.
+   So the tree is the wide-screen representation only, and the phone gets the
+   thing a phone is good at — one round at a time, as a list of ties with real
+   faces on them. Every horizontal run below is either wrapped or given its
+   own `overflow` box; nothing is allowed to push the page sideways.
+   ========================================================================== */
+.cup{display:grid;gap:var(--sp-3-5);width:100%;min-width:0}.cup *{min-width:0}/* --- Shared furniture ----------------------------------------------------- */
+.cup-btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1-5);
+  min-height:var(--control-md);padding:0 var(--sp-4);border:1px solid transparent;border-radius:var(--radius-md);
+  font-size:var(--fs-sm);font-weight:800;text-decoration:none;white-space:nowrap}.cup-btn.primary{background:var(--green);color:var(--ds-text-on-danger);box-shadow:0 6px 16px rgba(18,61,55,.18)}.cup-btn.primary:active{transform:translateY(1px)}.cup-btn.ghost{border-color:var(--line);background:var(--ds-text-on-danger);color:var(--ink)}.cup-btn.sm{min-height:2.375rem;padding:0 var(--sp-3);font-size:var(--fs-caption)}/* The decorative glyph a cup button can carry — a chevron, an arrow — is bigger and lighter than the
+   label beside it. Scoped to its own class rather than to `> span`, which caught any label a button
+   wrapped in an element and quietly dropped it to 18px/400 next to its 800-weight neighbours. */
+.cup-btn .cup-btn-mark{font-size:1.125rem;font-weight:400;line-height:1}.cup-chip{display:inline-flex;align-items:center;min-height:1.5rem;padding:0 var(--sp-2);border-radius:999px;
+  font-size:var(--fs-label);font-weight:800;letter-spacing:.02em}.cup-chip.is-signup{background:var(--ds-signup-wash);color:var(--ds-signup-text)}.cup-chip.is-live{background:var(--ds-success-wash);color:var(--ds-success)}.cup-chip.is-done{background:#f7ecd0;color:#8a6a22}.cup-chip.is-short{background:var(--ds-canvas-functional);color:var(--muted)}.cup-note{margin:0;padding:var(--sp-3) var(--sp-3-5);border:1px dashed var(--ds-border-muted);border-radius:var(--radius-md);
+  background:var(--ds-surface-primary);color:var(--muted);font-size:var(--fs-sm);line-height:1.55}.cup-admin{display:flex;flex:0 0 auto;gap:var(--sp-1)}/* `.danger` carries a global `min-height:var(--control-md)`, which silently made every ✕ delete
+   button 44px tall next to its 32px ✎ twin. Icon buttons pin both dimensions so the pair matches. */
+.cup-admin-btn{display:grid;place-items:center;width:2rem;height:2rem;min-height:2rem;border:1px solid var(--line);
+  border-radius:.625rem;background:var(--ds-text-on-danger);color:var(--muted);font-size:var(--fs-caption);line-height:1}.cup-admin-btn.danger{color:var(--red)}.cup-avatars{display:flex;align-items:center;flex:0 0 auto}.cup-avatars .player-badge{width:1.75rem;height:1.75rem;margin-left:-.3rem;border:2px solid var(--paper);font-size:var(--fs-label)}.cup-avatars .player-badge:first-child{margin-left:0}.cup-avatars i{display:grid;place-items:center;min-width:1.75rem;height:1.75rem;margin-left:-.3rem;padding:0 var(--sp-1);
+  border:2px solid var(--paper);border-radius:50%;background:var(--ds-canvas-muted);color:var(--muted);
+  font-size:var(--fs-label);font-style:normal;font-weight:800}/* --- The plate ------------------------------------------------------------
+   One decorative element, reused at two sizes. A cup should not look like a
+   settings row, and this is the cheapest possible way to say "competition". */
+.cup-art{position:relative;overflow:hidden;isolation:isolate;
+  background:radial-gradient(circle at 18% 82%,rgba(90,169,119,.35),transparent 40%),
+    linear-gradient(145deg,var(--ds-surface-featured),var(--ds-surface-inverse) 68%,var(--ds-surface-featured))}.cup-art.gold{background:radial-gradient(circle at 18% 82%,rgba(244,207,135,.4),transparent 42%),
+  linear-gradient(145deg,#2c2417,#1a1a12 70%,#3a2f18)}.cup-art::before{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(158deg,transparent 0 18px,rgba(179,224,192,.08) 19px 20px)}.cup-art-cup{position:absolute;top:.625rem;left:.75rem;z-index:1;font-size:1.5rem;line-height:1;
+  filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}.cup-art-ball{position:absolute;z-index:1;display:block;border-radius:50%;
+  box-shadow:inset -5px -6px 8px rgba(0,0,0,.3),inset 5px 4px 5px rgba(255,255,255,.35),0 8px 12px rgba(0,0,0,.28)}.cup-art-ball.red{width:2.75rem;height:2.75rem;right:1rem;top:38%;
+  background:radial-gradient(circle at 34% 28%,#ffd1be 0 8%,#b34837 18%,#7e2825 100%)}.cup-art-ball.white{width:2rem;height:2rem;left:1.1rem;bottom:18%;
+  background:radial-gradient(circle at 32% 25%,var(--ds-text-on-danger) 0 8%,#eee8d9 26%,#bcb8a8 100%)}.cup-art-arc{position:absolute;left:-1.5rem;right:-1.5rem;bottom:16%;height:4rem;
+  border:2px solid rgba(193,232,201,.2);border-radius:50%;transform:rotate(-18deg)}/* --- Directory ------------------------------------------------------------ */
+.cup-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-3-5);flex-wrap:wrap}.cup-intro h2{margin:0;color:var(--deep);font-size:1.75rem;letter-spacing:-.04em;line-height:1.05}.cup-intro p:last-child{margin:var(--sp-1-5) 0 0;color:var(--muted);font-size:var(--fs-sm);line-height:1.5}.cup-intro .primary{flex:0 0 auto;min-height:var(--control-md);padding:0 var(--sp-4);border-radius:var(--radius-md);font-size:var(--fs-sm)}.cup-list{display:grid;gap:var(--sp-3)}.cup-card{display:grid;grid-template-columns:5.25rem minmax(0,1fr);overflow:hidden;
+  border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--paper);
+  box-shadow:0 12px 28px rgba(18,61,55,.07)}.cup-card.is-live{border-color:var(--ds-border-muted)}.cup-card.is-done{border-color:#e6d5ab}.cup-card .cup-art{min-height:100%}.cup-card-body{display:grid;align-content:start;gap:var(--sp-2);padding:var(--sp-3-5)}.cup-card-top{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2)}.cup-card-body h3{margin:0;color:var(--deep);font-size:var(--fs-lead);letter-spacing:-.02em;line-height:1.25}.cup-card-line{margin:0;color:var(--muted);font-size:var(--fs-caption);line-height:1.45}.cup-card-people{display:flex;align-items:center;gap:var(--sp-2);color:var(--muted);font-size:var(--fs-caption);font-weight:700}.cup-card-actions{display:grid;gap:var(--sp-2);margin-top:.125rem}.cup-card-actions>*{width:100%}/* --- Detail banner -------------------------------------------------------- */
+.cup-back{justify-self:start;display:inline-flex;align-items:center;gap:var(--sp-1-5);min-height:2.5rem;
+  padding:0 var(--sp-1);border:0;background:transparent;color:var(--green);font-size:var(--fs-sm);font-weight:800}.cup-back span{font-size:1.125rem;line-height:1}/* `header{height:74px;display:flex}` is the app-bar rule and applies to every <header> on the page,
+   so the banner has to opt out explicitly or it collapses to bar height and stacks its own content. */
+.cup-banner{position:relative;display:block;height:auto;overflow:hidden;border-radius:var(--radius-lg);
+  background:linear-gradient(135deg,var(--deep),var(--green-hover));color:var(--ds-text-on-danger);box-shadow:0 14px 30px rgba(11,45,41,.18)}.cup-banner.is-done{background:linear-gradient(135deg,#2c2417,#4a3a1c)}/* The plate is a backdrop here, not a column, so it needs a scrim: without one the white ball drifts
+   under the stat tiles at desktop widths and the headline loses its contrast. */
+.cup-banner>.cup-art{position:absolute;inset:0;opacity:.6}.cup-banner>.cup-art::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(100deg,var(--deep) 22%,rgba(11,45,41,.72) 52%,transparent 88%)}/* On a phone the banner is all content and no spare canvas, so the props come off entirely and the
+   cloth texture carries it; the balls return only once there is empty width to put them in. */
+.cup-banner>.cup-art .cup-art-cup,.cup-banner>.cup-art .cup-art-ball{display:none}
+@media(min-width:821px){.cup-banner>.cup-art .cup-art-cup{display:block;top:auto;left:auto;right:1.25rem;bottom:2.25rem;font-size:2.25rem;opacity:.9}.cup-banner>.cup-art .cup-art-ball.red{display:block;top:auto;bottom:2.5rem;right:6rem}
+}.cup-banner-body{position:relative;z-index:1;display:grid;gap:var(--sp-2-5);padding:var(--sp-4)}.cup-banner h2{margin:0;font-size:1.625rem;letter-spacing:-.04em;line-height:1.1}.cup-banner-body>p{margin:0;color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption)}.cup-banner .cup-admin-btn{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:var(--ds-text-on-danger)}.cup-banner-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-2);
+  margin-top:.125rem;padding-top:var(--sp-3);border-top:1px solid rgba(240,201,119,.28)}.cup-banner-stats div{padding:var(--sp-2) var(--sp-1-5);border-radius:var(--radius-sm);background:rgba(255,255,255,.1);text-align:center}.cup-banner-stats b{display:block;font-size:1.125rem;line-height:1.2;font-variant-numeric:tabular-nums}.cup-banner-stats b i{font-size:var(--fs-caption);font-style:normal;color:var(--ds-icon-muted)}.cup-banner-stats small{display:block;margin-top:.125rem;color:var(--ds-icon-muted);font-size:var(--fs-label);font-weight:800}.cup-progress{height:.375rem;border-radius:999px;background:rgba(255,255,255,.16);overflow:hidden}.cup-progress i{display:block;height:100%;border-radius:999px;background:var(--gold-on-dark);transition:width .4s ease}/* --- Sign-up state -------------------------------------------------------- */
+.cup-signup{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap;
+  padding:var(--sp-3-5);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--paper)}.cup-signup.in{border-color:var(--ds-text-on-brand-secondary);background:var(--ds-success-wash)}.cup-signup>div{flex:1 1 12rem}.cup-signup b{display:block;font-size:var(--fs-body)}.cup-signup small{display:block;margin-top:.125rem;color:var(--muted);font-size:var(--fs-caption);line-height:1.45}.cup-signup .cup-btn{flex:0 0 auto}.cup-roster{padding:var(--sp-3-5);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--paper)}.cup-roster h3{display:flex;align-items:center;gap:var(--sp-1-5);margin:0 0 var(--sp-2-5);font-size:var(--fs-body)}.cup-roster h3 span{min-width:1.375rem;padding:0 var(--sp-1-5);border-radius:999px;background:var(--ds-canvas-muted);
+  color:var(--green);font-size:var(--fs-label);font-weight:800;text-align:center}.cup-roster ul{display:grid;grid-template-columns:repeat(auto-fill,minmax(8.5rem,1fr));gap:var(--sp-2);margin:0;padding:0;list-style:none}.cup-roster li{display:flex;align-items:center;gap:var(--sp-2);min-width:0}.cup-roster li b{overflow:hidden;font-size:var(--fs-sm);font-weight:700;text-overflow:ellipsis;white-space:nowrap}.cup-roster .player-badge{width:1.75rem;height:1.75rem;flex:0 0 auto;font-size:var(--fs-label)}/* The shared page's roster carries numbers, so its rows are two lines rather than one and the grid
+   gives them the room. The name still leads; the numbers sit under it, quiet, in the muted grey the
+   rest of the app uses for supporting figures. */
+.cup-roster ul.rated{grid-template-columns:repeat(auto-fill,minmax(11rem,1fr));gap:var(--sp-2-5)}.cup-roster ul.rated li{flex-wrap:wrap}.cup-roster-stat{display:flex;flex-wrap:wrap;gap:.125rem var(--sp-2);width:100%;padding-left:2.25rem;
+  color:var(--muted);font-size:var(--fs-label);font-variant-numeric:tabular-nums}.cup-roster-stat i{margin-right:var(--sp-1);font-style:normal;opacity:.7}.cup-roster-stat em{font-style:normal;opacity:.7}.cup-roster-note{margin:var(--sp-3) 0 0;padding-top:var(--sp-3);border-top:1px solid var(--line);
+  color:var(--muted);font-size:var(--fs-caption);line-height:1.5}/* The terms of one tie, beside its number — the same 讓分 the cup will actually apply. */
+.cup-tie-handicap{padding:0 var(--sp-1-5);border-radius:999px;background:var(--ds-signup-wash);color:var(--ds-signup-text);
+  font-size:var(--fs-label);font-weight:800}/* The admin's replace control rides in the roster row itself: the name and the swap are the same
+   decision, so putting the picker anywhere else would mean matching them up by eye. */
+.cup-roster-edit{width:1.75rem;min-width:1.75rem;height:1.75rem;flex:0 0 auto;margin-left:auto;padding:0;
+  border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--paper);
+  color:var(--muted);font-size:var(--fs-label);text-align:center;cursor:pointer;appearance:none}.cup-roster-edit:hover{border-color:var(--green);color:var(--green)}.cup-roster-add{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-3);padding-top:var(--sp-3);
+  border-top:1px solid var(--line);color:var(--muted);font-size:var(--fs-caption);font-weight:700}.cup-roster-add select{flex:1 1 auto;min-width:0;min-height:var(--control-sm,2rem);padding:0 var(--sp-2);
+  border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--paper);font-size:var(--fs-sm)}/* --- Your own tie: the one card that must survive a glance ---------------- */
+.cup-mytie{padding:var(--sp-4);border:1px solid var(--ds-success-wash-border);border-radius:var(--radius-lg);
+  background:linear-gradient(150deg,var(--ds-surface-primary),var(--ds-success-wash));box-shadow:0 10px 26px rgba(18,61,55,.08)}.cup-mytie.ready{border-color:#9fcbb5}.cup-mytie .sl-eyebrow{margin:0 0 var(--sp-3)}.cup-mytie-vs{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;
+  gap:var(--sp-2);max-width:30rem}.cup-mytie-player{display:grid;justify-items:center;gap:var(--sp-1);min-width:0;text-align:center}.cup-mytie-player .player-badge{width:3rem;height:3rem;border-radius:var(--radius-md);font-size:var(--fs-sm)}.cup-mytie-player b{max-width:100%;overflow:hidden;font-size:var(--fs-body);text-overflow:ellipsis;white-space:nowrap}.cup-mytie-player small{color:var(--muted);font-size:var(--fs-label);font-weight:700}.cup-mytie-mark{display:grid;place-items:center;width:2.25rem;height:2.25rem;border-radius:50%;
+  background:var(--green);color:var(--gold-on-dark);font-size:var(--fs-label);font-weight:900;letter-spacing:.04em}.cup-mytie-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2);margin-top:var(--sp-4)}.cup-mytie-actions .cup-btn{width:100%;min-height:var(--control-lg)}.cup-mytie-wait{margin:var(--sp-3-5) 0 0;color:var(--muted);font-size:var(--fs-caption);text-align:center}.cup-champion{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4);border:1px solid #e2c275;
+  border-radius:var(--radius-lg);background:linear-gradient(135deg,var(--ds-highlight-wash),#f7ecd0);box-shadow:0 10px 26px rgba(154,109,29,.12)}.cup-champion>span{flex:0 0 auto;font-size:2rem;line-height:1}.cup-champion>div{flex:1;min-width:0}.cup-champion small{display:block;color:var(--gold-on-light);font-size:var(--fs-label);font-weight:800}.cup-champion b{display:block;margin-top:.125rem;overflow:hidden;font-size:1.375rem;letter-spacing:-.02em;
+  text-overflow:ellipsis;white-space:nowrap}.cup-champion .player-badge{width:3rem;height:3rem;flex:0 0 auto;border-radius:var(--radius-md);font-size:var(--fs-sm)}/* --- Rounds: the phone's answer to a bracket tree ------------------------- */
+/* Scrolls inside itself rather than bleeding past the container: a negative margin here would make
+   the whole cup column horizontally scrollable, which is how a page starts drifting sideways. */
+.cup-rounds{display:flex;gap:var(--sp-1-5);overflow-x:auto;padding:.125rem;
+  scrollbar-width:none;scroll-snap-type:x proximity}.cup-rounds::-webkit-scrollbar{display:none}.cup-rounds button{flex:1 0 auto;display:grid;justify-items:center;gap:.125rem;min-width:4.5rem;min-height:var(--control-md);
+  padding:var(--sp-1-5) var(--sp-2-5);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--paper);
+  color:var(--muted);scroll-snap-align:start}.cup-rounds button b{font-size:var(--fs-sm);font-weight:800;color:var(--ink)}.cup-rounds button small{font-size:var(--fs-label);font-weight:700;font-variant-numeric:tabular-nums}.cup-rounds button.active{border-color:var(--green);background:var(--green);box-shadow:0 6px 14px rgba(18,61,55,.16)}.cup-rounds button.active b{color:var(--ds-text-on-danger)}.cup-rounds button.active small{color:var(--ds-success-wash-border)}.cup-ties{display:grid;gap:var(--sp-2-5);margin:0;padding:0;list-style:none}.cup-tie{display:grid;gap:var(--sp-1-5);padding:var(--sp-3) var(--sp-3-5);border:1px solid var(--line);
+  border-radius:var(--radius-md);background:var(--paper)}.cup-tie.played,.cup-tie.walkover,.cup-tie.bye{border-color:var(--ds-success-wash-border);background:#fafaf7}.cup-tie.ready{border-color:var(--ds-text-on-brand-secondary);box-shadow:0 6px 16px rgba(18,61,55,.06)}.cup-tie.mine{border-color:var(--green);box-shadow:0 8px 20px rgba(18,61,55,.12)}.cup-tie-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2)}.cup-tie-no{color:var(--muted);font-size:var(--fs-label);font-weight:800;letter-spacing:.08em;text-transform:uppercase}.cup-tie-mine{padding:.0625rem var(--sp-1-5);border-radius:999px;background:var(--green);color:var(--ds-text-on-danger);
+  font-size:var(--fs-label);font-weight:800}.cup-tie-side{display:flex;align-items:center;gap:var(--sp-2);min-width:0;padding:var(--sp-1-5) var(--sp-2);
+  border-radius:var(--radius-sm);background:var(--ds-text-on-danger)}.cup-tie-side .player-badge{width:1.875rem;height:1.875rem;flex:0 0 auto;font-size:var(--fs-label)}.cup-tie-side b{flex:1;overflow:hidden;font-size:var(--fs-sm);text-overflow:ellipsis;white-space:nowrap}.cup-tie-side em{flex:0 0 auto;font-size:var(--fs-lead);font-style:normal;font-weight:800;
+  color:var(--muted);font-variant-numeric:tabular-nums}/* `PlayerBadge` renders an <i>, so an unqualified `i` rule here painted every avatar's initials
+   green on green — invisible. Only the ✓ advancement mark is meant to be green. */
+.cup-tie-side i:not(.player-badge){flex:0 0 auto;font-style:normal;color:var(--green);font-weight:800}.cup-tie-side.won{background:var(--ds-success-wash)}.cup-tie-side.won b{font-weight:800;color:var(--green)}.cup-tie-side.won em{color:var(--green)}.cup-tie-side.tbd b{color:var(--muted);font-weight:600}.cup-tie-note{margin:.125rem 0 0;color:var(--muted);font-size:var(--fs-caption)}.cup-tie-actions{display:flex;gap:var(--sp-1-5);flex-wrap:wrap}.cup-tie-actions:empty{display:none}.cup-tie-actions .cup-btn{flex:1 1 7rem}.cup-empty{display:grid;justify-items:center;gap:var(--sp-1);padding:var(--sp-6) var(--sp-4-5);border:1px dashed var(--ds-border-muted);
+  border-radius:var(--radius-lg);background:var(--ds-surface-primary);text-align:center}.cup-empty>span{font-size:2rem;line-height:1}.cup-empty b{color:var(--deep);font-size:var(--fs-lead)}.cup-empty p{margin:0;color:var(--muted);font-size:var(--fs-sm);line-height:1.55}/* --- The tree, for screens that can actually hold one --------------------- */
+.cup-tree{display:none}.bracket-chart{display:flex;align-items:stretch;gap:2.25rem;padding-bottom:var(--sp-1-5);overflow-x:auto}.bracket-round{display:flex;flex-direction:column;justify-content:space-around;gap:var(--sp-4);min-width:12rem;flex:0 0 auto}.bracket-round-title{margin:0 0 var(--sp-2-5);color:var(--muted);font-size:var(--fs-label);font-weight:800;
+  letter-spacing:.08em;text-align:center;text-transform:uppercase}.bracket-round-matches{display:flex;flex-direction:column;justify-content:space-around;flex:1;gap:var(--sp-4)}.bracket-match{position:relative;display:grid;gap:1px;padding:2px;border:1px solid var(--line);
+  border-radius:var(--radius-sm);background:var(--line)}.bracket-match.played,.bracket-match.walkover,.bracket-match.bye{border-color:#9fcbb5}.bracket-match.mine{outline:2px solid var(--green);outline-offset:2px}.bracket-round:not(.final) .bracket-match::after{content:"";position:absolute;top:50%;left:100%;width:1.125rem;height:0;border-top:2px solid var(--line)}.bracket-round:not(:first-child) .bracket-match::before{content:"";position:absolute;top:50%;right:100%;width:1.125rem;height:0;border-top:2px solid var(--line)}.bracket-slot{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);padding:var(--sp-2) var(--sp-2-5);
+  background:var(--ds-text-on-danger);font-size:var(--fs-sm);font-weight:700}.bracket-slot:first-child{border-radius:8px 8px 0 0}.bracket-slot:last-child{border-radius:0 0 8px 8px}.bracket-slot span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bracket-slot.tbd span{color:var(--muted);font-weight:600}.bracket-slot.winner{background:var(--ds-surface-secondary);color:var(--green)}.bracket-slot.winner span{font-weight:800}.bracket-slot b{color:var(--green);font-size:var(--fs-sm)}.bracket-bye{display:block;margin-top:var(--sp-1);color:var(--muted);font-size:var(--fs-label);text-align:center}.bracket-record{display:block;width:100%;margin-top:var(--sp-1-5);min-height:2rem;height:2rem;padding:0;
+  border-radius:.5rem;font-size:var(--fs-label)}.bracket-edit.more{display:block;width:100%;margin-top:var(--sp-1-5);height:2rem;min-height:2rem;font-size:var(--fs-label)}.bracket-walkover{margin-top:var(--sp-1-5);padding-top:var(--sp-1-5);border-top:1px dashed var(--line)}.bracket-walkover small{display:block;color:var(--muted);font-size:var(--fs-label);text-align:center}.bracket-walkover span{display:flex;gap:var(--sp-1);margin-top:var(--sp-1)}.bracket-walkover button{flex:1;min-width:0;height:1.75rem;min-height:1.75rem;padding:0 var(--sp-1);
+  overflow:hidden;font-size:var(--fs-label);text-overflow:ellipsis;white-space:nowrap}/* --- Cup entry inside the match sheet ------------------------------------- */
+.cup-slot-banner{padding:var(--sp-3) var(--sp-3-5);border:1px solid var(--ds-success-wash-border);border-radius:var(--radius-md);
+  background:linear-gradient(150deg,var(--ds-surface-primary),var(--ds-success-wash))}.cup-slot-banner small{display:block;color:var(--muted);font-size:var(--fs-label);font-weight:800}.cup-slot-banner b{display:block;margin-top:.125rem;font-size:var(--fs-lead)}.cup-slot-banner span{display:block;margin-top:var(--sp-1);color:var(--muted);font-size:var(--fs-caption)}.cup-matchup-card.locked .matchup-trigger{cursor:default}
+
+@media(min-width:821px){.cup{gap:var(--sp-4-5)}.cup-list{grid-template-columns:repeat(auto-fill,minmax(21rem,1fr))}.cup-card{grid-template-columns:7rem minmax(0,1fr)}.cup-card-body{padding:var(--sp-4-5)}.cup-banner-body{padding:var(--sp-5)}.cup-banner h2{font-size:2rem}.cup-banner-stats{max-width:26rem}.cup-mytie-actions{grid-template-columns:repeat(2,minmax(0,12rem))}/* Below this width the tree either overflows the page or crushes names to
+     two characters, so the round list is not a fallback — it is the design. */
+  .cup-tree{display:block;padding:var(--sp-4);border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--paper)}/* Scoped to the app, like the overview above: the share page has no full tree to replace them
+     with, so its round rail and tie cards are the only detail a reader gets at any width. */
+  .cup>.cup-rounds,.cup>.cup-ties{display:none}
+}
+@media(max-width:599px){.cup-card{grid-template-columns:4rem minmax(0,1fr)}.cup-card-body{padding:var(--sp-3)}.cup-art-ball.red{width:2rem;height:2rem;right:.5rem}.cup-art-ball.white{width:1.5rem;height:1.5rem;left:.55rem}.cup-banner h2{font-size:1.375rem}.cup-banner-stats b{font-size:var(--fs-lead)}.cup-mytie-player .player-badge{width:2.5rem;height:2.5rem}.cup-tie-actions .cup-btn{flex:1 1 100%}
+}/* --- The bracket, at a glance --------------------------------------------
+   Drawn on the club's cloth so it reads as the showpiece it is.
+
+   Mobile first, and the mobile shape is a *stack*: rounds run down the page,
+   one tie a row, both names and the date in full. Columns come back at 640px,
+   where there is finally width for four of them. Nothing is ever sized in
+   fixed pixels across the tree and every text cell can shrink to nothing —
+   the moment this needs a horizontal scrollbar it stops being an overview
+   and becomes a second, worse tree. */
+.cup-mini{position:relative;overflow:hidden;padding:var(--sp-3-5);border-radius:var(--radius-lg);
+  background:radial-gradient(circle at 15% 85%,rgba(90,169,119,.3),transparent 45%),
+    linear-gradient(145deg,var(--ds-surface-featured),var(--ds-surface-inverse) 70%,var(--ds-surface-featured));
+  box-shadow:0 14px 30px rgba(11,45,41,.18)}.cup-mini::before{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(158deg,transparent 0 18px,rgba(179,224,192,.07) 19px 20px)}/* The rail names the columns, so it is meaningless while they are stacked. */
+.cup-mini-rail{display:none;position:relative;gap:var(--sp-2);margin-bottom:var(--sp-2-5)}.cup-mini-rail span{flex:1;min-width:0;color:var(--ds-text-muted-teal);font-size:var(--fs-label);font-weight:800;letter-spacing:.06em;
+  text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cup-mini-rail span.active{color:var(--gold-on-dark)}.cup-mini-tree{position:relative;display:flex;flex-direction:column;gap:var(--sp-3);min-width:0}.cup-mini-round{display:flex;flex-direction:column;gap:var(--sp-1-5);min-width:0}.cup-mini-round-name{display:flex;align-items:center;gap:var(--sp-2);margin:0;color:var(--ds-text-muted-teal);
+  font-size:var(--fs-label);font-weight:800;letter-spacing:.08em}.cup-mini-round-name::after{content:"";flex:1;height:1px;background:rgba(179,224,192,.2)}.cup-mini-round.is-active .cup-mini-round-name{color:var(--gold-on-dark)}.cup-mini-round.is-active .cup-mini-round-name::after{background:rgba(240,201,119,.28)}.cup-mini-nodes{display:flex;flex-direction:column;gap:var(--sp-1-5);min-width:0}.cup-mini-crown{display:flex;align-items:center;justify-content:center;gap:var(--sp-2);min-width:0;
+  padding:var(--sp-2) var(--sp-3);border:1px solid rgba(240,201,119,.4);border-radius:.75rem;
+  background:linear-gradient(120deg,rgba(240,201,119,.2),rgba(240,201,119,.06))}.cup-mini-crown span{flex:0 0 auto;font-size:1rem;line-height:1}.cup-mini-crown .player-badge{width:1.75rem;height:1.75rem;flex:0 0 auto;border:2px solid var(--gold-on-dark);font-size:var(--fs-label)}.cup-mini-crown b{min-width:0;color:var(--ds-accent-pale);font-size:.8125rem;font-weight:800;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cup-mini-node{position:relative;display:grid;gap:2px;width:100%;min-width:0;padding:var(--sp-1);
+  border:1px solid rgba(255,255,255,.14);border-radius:.625rem;background:rgba(255,255,255,.06);
+  text-align:left;font:inherit;color:inherit}.cup-mini-node:disabled{display:none}.cup-mini-node.in-round{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.24)}.cup-mini-node.mine{border-color:var(--gold-on-dark);box-shadow:0 0 0 2px rgba(240,201,119,.28)}.cup-mini-seat{display:flex;align-items:center;gap:var(--sp-1-5);min-width:0;padding:.125rem var(--sp-1);border-radius:.5rem}.cup-mini-seat .player-badge{width:1.5rem;height:1.5rem;flex:0 0 auto;font-size:var(--fs-label)}.cup-mini-seat.vacant i{display:block;width:1.5rem;height:1.5rem;flex:0 0 auto;border:1px dashed rgba(179,224,192,.4);
+  border-radius:50%}/* `min-width:0` is what keeps the tree inside its column: the name gives way
+   with an ellipsis instead of pushing the score past the right edge. */
+.cup-mini-name{flex:1 1 auto;min-width:0;color:var(--ds-success-wash);font-size:.75rem;font-weight:700;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cup-mini-seat.vacant .cup-mini-name{color:var(--ds-text-muted-teal);font-weight:600}.cup-mini-seat em{flex:0 0 auto;color:var(--ds-success-wash-border);font-size:.75rem;font-style:normal;
+  font-weight:800;font-variant-numeric:tabular-nums}.cup-mini-seat.won{background:rgba(240,201,119,.16)}.cup-mini-seat.won .player-badge{box-shadow:0 0 0 2px var(--gold-on-dark)}.cup-mini-seat.won .cup-mini-name,.cup-mini-seat.won em{color:var(--gold-on-dark)}.cup-mini-date{display:block;padding:.0625rem var(--sp-1) 0;color:var(--ds-text-muted-teal);font-size:var(--fs-label);font-weight:700;
+  letter-spacing:.04em;font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cup-tie.focus{border-color:var(--gold-on-dark);box-shadow:0 0 0 3px rgba(240,201,119,.3);animation:cup-tie-flash 1.4s ease}
+@keyframes cup-tie-flash{0%{background:var(--ds-highlight-wash)}100%{background:var(--paper)}}
+@media(min-width:821px){/* Wide enough to branch. Same markup, read left to right. */
+  .cup-mini-rail{display:flex}.cup-mini-round-name{display:none}.cup-mini-tree{flex-direction:row;align-items:stretch;gap:var(--sp-2)}.cup-mini-round{flex:1 1 0}.cup-mini-nodes{flex:1;justify-content:space-around}/* Centred on the tree rather than stretched down it: the champion belongs beside the final, not
+     alongside the first round they played in. */
+  .cup-mini-crown{flex:0 0 auto;flex-direction:column;align-self:center;gap:var(--sp-1);padding:var(--sp-2-5) var(--sp-2)}.cup-mini-crown b{max-width:5rem;text-align:center}/* Stubs on both sides, as on the desktop tree: at this size they carry the "this feeds that"
+     reading without any of the pixel measuring a true elbow would need. */
+  .cup-mini-round:not(.final) .cup-mini-node::after{content:"";position:absolute;top:50%;left:100%;
+    width:.5rem;height:0;border-top:1px solid rgba(179,224,192,.28)}.cup-mini-round:not(:first-child) .cup-mini-node::before{content:"";position:absolute;top:50%;right:100%;
+    width:.5rem;height:0;border-top:1px solid rgba(179,224,192,.28)}/* A hidden node would collapse its column's spacing, so in the tree a dead slot keeps its room. */
+  .cup-mini-node:disabled{display:grid;visibility:hidden}.cup-mini-seat{gap:var(--sp-1)}.cup-mini-name{font-size:.6875rem}.cup-mini-seat em{font-size:.6875rem}
+}
+@media(min-width:821px){/* In the app the full tree is back on screen at this width, so the overview would say the same
+     thing twice. The share page has no full tree — it is the only bracket a reader gets — so the
+     rule is scoped to the app rather than to the component. */
+  .cup>.cup-mini{display:none}
+}
+@media(max-width:599px){.cup-mini{padding:var(--sp-2-5)}.cup-mini-seat .player-badge,.cup-mini-seat.vacant i{width:1.25rem;height:1.25rem;font-size:var(--fs-label)}.cup-mini-name,.cup-mini-seat em{font-size:var(--fs-label)}
+}.cup-tie-date{margin-right:auto;color:var(--muted);font-size:var(--fs-label);font-weight:700;
+  font-variant-numeric:tabular-nums}.cup-tie-head .cup-tie-no{margin-right:var(--sp-2)}.bracket-date{display:block;margin-top:var(--sp-1);color:var(--muted);font-size:var(--fs-label);text-align:center;
+  font-variant-numeric:tabular-nums}/* --- Sharing a cup -------------------------------------------------------- */
+.cup-share-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap;
+  padding:var(--sp-3-5);border:1px solid #e6d5ab;border-radius:var(--radius-md);background:var(--ds-text-on-brand)}.cup-share-row>div{flex:1 1 12rem}.cup-share-row b{display:block;font-size:var(--fs-body)}.cup-share-row small{display:block;margin-top:.125rem;color:var(--muted);font-size:var(--fs-caption);line-height:1.45}.cup-share-row .cup-btn{flex:0 0 auto}/* While entries are open, this row is the recruiting ask rather than a courtesy — it gets the
+   green the rest of the app reserves for WhatsApp, so the eye finds it before the roster. */
+.cup-share-row.recruiting{border-color:rgba(37,163,90,.42);background:linear-gradient(135deg,#f2fbf5,var(--ds-text-on-brand))}/* The two destinations, side by side and equal in weight, because they are two different acts:
+   WhatsApp tells the group, Instagram shows everyone who has never heard of the club. On a phone
+   they stack rather than shrink — two half-width buttons with Chinese labels truncate. */
+.cup-share-buttons{display:flex;flex-wrap:wrap;gap:var(--sp-2)}.cup-share-buttons .cup-btn{flex:1 1 11rem}.cup-share-row>div.cup-share-buttons{flex:1 1 14rem}.cup-share-note{flex:1 1 100%;margin:var(--sp-2-5) 0 0;color:var(--muted);font-size:var(--fs-caption);line-height:1.55}/* Instagram's own gradient is theirs; this is the app's read of it, the same one the match share
+   sheet uses — enough to be recognisable without wearing somebody else's logo. */
+.ig-btn .share-glyph{flex:0 0 auto;width:1.25rem;height:1.25rem;border-radius:50%;
+  background:linear-gradient(135deg,#f2ae42,#d3376b 48%,#7b34c4);color:var(--ds-text-on-danger)}.ig-btn .share-glyph svg{width:.875rem;height:.875rem}/* A button whose whole point is that the tap ends in WhatsApp says so twice: the mark, and the
+   word. The glyph is the app's own hand — see .share-glyph — not WhatsApp's logo. */
+/* Layout, size and weight all come from `.cup-btn`; this adds the mark and nothing else, so the
+   button sits in a row with its neighbours rather than beside them. */
+.wa-btn .share-glyph{flex:0 0 auto;width:1.25rem;height:1.25rem;border-radius:50%;background:#25a35a;color:var(--ds-text-on-danger)}.wa-btn .share-glyph svg{width:.875rem;height:.875rem}.wa-btn.primary .share-glyph{background:rgba(255,255,255,.22)}/* The clock on a recruiting cup. Gold while there is time, alarm-red in the last three days —
+   the one place in the app allowed to shout, because after the deadline there is no way in. */
+.cup-urgency{display:inline-flex;align-items:center;padding:.125rem var(--sp-2);border-radius:999px;
+  font-size:var(--fs-caption);font-weight:700;background:rgba(232,194,106,.22);color:#f2dfae}.cup-urgency.hot{background:#ff6b5a;color:#2a0906}/* The guest landing page behind a shared link: same components as the app, without the chrome a
+   reader who has never signed in has no use for. */
+/* `main` carries a global `min-height:100vh`, so a grid here stretches its rows to fill the viewport
+   — which turned a four-line hero into a 500px slab. Rows size to their content. */
+.cup-share-page{width:min(34rem,100%);margin:0 auto;padding:var(--sp-4-5) var(--sp-4) calc(2.5rem + env(safe-area-inset-bottom));
+  display:grid;align-content:start;gap:var(--sp-3-5)}.cup-share-hero{position:relative;display:block;height:auto;overflow:hidden;border-radius:var(--radius-lg);
+  background:linear-gradient(135deg,var(--deep),var(--green-hover));color:var(--ds-text-on-danger);box-shadow:0 14px 30px rgba(11,45,41,.18)}.cup-share-hero>.cup-art{position:absolute;inset:0;opacity:.6}.cup-share-hero>.cup-art::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(100deg,var(--deep) 24%,rgba(11,45,41,.7) 55%,transparent 92%)}.cup-share-hero>.cup-art .cup-art-cup,.cup-share-hero>.cup-art .cup-art-ball{display:none}.cup-share-hero-body{position:relative;z-index:1;padding:var(--sp-4-5)}.cup-share-hero-body .share-kicker{color:var(--gold-on-dark)}.cup-share-hero h1{margin:var(--sp-1-5) 0 0;font-size:1.625rem;letter-spacing:-.04em;line-height:1.15}.cup-share-status{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin:var(--sp-3) 0 0;
+  color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption)}/* The commitment ("報名") gets the full width; sharing and copying pair beneath it, so the row that
+   grows the club is never the one that gets squeezed. */
+.cup-share-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2)}.cup-share-actions>*{width:100%}.cup-share-actions>.primary{grid-column:1/-1;min-height:var(--control-lg)}/* Entering, then copying: the two things a reader does with the page itself. Sharing it onward is a
+   different act and lives in its own row below, so this one is a single column rather than a half. */
+.cup-share-actions>.cup-share-copy{grid-column:1/-1}.cup-share-round h3{margin:0 0 var(--sp-2);font-size:var(--fs-body)}.cup-share-round+.cup-share-round{margin-top:var(--sp-1)}
+@media(min-width:821px){.cup-share-page{width:min(44rem,100%);padding-top:var(--sp-6)}.cup-share-hero h1{font-size:2rem}
+}/* ── Head-to-head matrix ────────────────────────────────────────────────────
+   Phone-first: the default is a one-player list, because a full N×N grid on a
+   360px screen is either unreadable or a horizontal-scroll maze. The grid is
+   opt-in and, when chosen on a phone, scrolls sideways under a pinned name
+   column so you never lose track of whose row you are reading. Every populated
+   cell is a button through to the full head-to-head on 賽事記錄. */
+.h2h-matrix{display:grid;gap:var(--sp-4)}.h2h-matrix-toolbar{display:grid;gap:var(--sp-3)}.h2h-matrix-focus{display:grid;gap:var(--sp-1-5)}.h2h-matrix-modes{display:flex;padding:var(--sp-1);border-radius:.75rem;background:var(--ds-canvas-muted)}.h2h-matrix-modes button{flex:1;min-height:var(--control-sm);border:0;border-radius:.5625rem;
+  background:transparent;color:var(--muted);font-size:var(--fs-label);font-weight:800}.h2h-matrix-modes button.active{background:white;color:var(--green);box-shadow:0 2px 8px rgba(0,0,0,.08)}.h2h-matrix-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-2);
+  padding:var(--sp-3-5);border:1px solid var(--line);border-radius:var(--radius-lg,1.25rem);background:var(--paper)}.h2h-matrix-summary div{text-align:center}.h2h-matrix-summary small{display:block;color:var(--muted);font-size:var(--fs-label);font-weight:700}.h2h-matrix-summary b{display:block;margin-top:var(--sp-1);font-size:1.125rem}.h2h-matrix-summary em{margin:0 var(--sp-1);color:var(--muted);font-style:normal;font-size:.875rem}.h2h-matrix-rows{display:grid;gap:var(--sp-2);margin:0;padding:0;list-style:none}.h2h-matrix-rows button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;
+  gap:var(--sp-3);width:100%;min-height:var(--control-lg,3rem);padding:var(--sp-3) var(--sp-3-5);text-align:left;
+  border:1px solid var(--line);border-radius:1rem;background:var(--paper);color:inherit}.h2h-matrix-rows button:active{transform:scale(.995)}.h2h-matrix-row-main{display:grid;gap:var(--sp-1);min-width:0}.h2h-matrix-row-main b{font-size:var(--fs-body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.h2h-matrix-row-main small{color:var(--muted);font-size:var(--fs-label);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}.h2h-matrix-bar{display:block;height:.3125rem;border-radius:999px;background:var(--line);overflow:hidden}.h2h-matrix-bar em{display:block;height:100%;border-radius:999px}.h2h-matrix-score{flex:none;text-align:right}.h2h-matrix-score b{font-size:1.0625rem;font-weight:800;white-space:nowrap}.h2h-matrix-score em{margin:0 .125rem;color:var(--muted);font-style:normal;font-size:.8125rem}.h2h-matrix-score small{display:block;color:var(--muted);font-size:var(--fs-label)}.h2h-matrix-score.ahead b{color:var(--green)}.h2h-matrix-score.behind b{color:var(--red)}.h2h-matrix-hint{margin:0;color:var(--muted);font-size:var(--fs-label)}.h2h-matrix-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;
+  border:1px solid var(--line);border-radius:1rem;background:var(--paper)}.h2h-matrix-grid{border-collapse:separate;border-spacing:0;font-size:var(--fs-label)}.h2h-matrix-grid th,.h2h-matrix-grid td{padding:0;border-bottom:1px solid var(--line);text-align:center}.h2h-matrix-grid thead th{position:sticky;top:0;z-index:2;min-width:3rem;height:2.5rem;
+  background:var(--ds-canvas-functional);color:var(--muted);font-size:var(--fs-label);font-weight:800}.h2h-matrix-grid tbody th{position:sticky;left:0;z-index:1;width:8.5rem;min-width:8.5rem;height:2.75rem;
+  padding:0 var(--sp-2);background:var(--paper);border-right:1px solid var(--line);text-align:left}.h2h-matrix-rowhead{display:flex;align-items:center;gap:var(--sp-2);min-width:0}.h2h-matrix-rowhead>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}.h2h-matrix-grid thead th:first-child{position:sticky;left:0;z-index:3;width:8.5rem;min-width:8.5rem;
+  background:var(--ds-canvas-functional);border-right:1px solid var(--line)}.h2h-matrix-grid tr.focused th,.h2h-matrix-grid tr.focused td{background-color:var(--ds-canvas-functional)}.h2h-matrix-grid td button{width:100%;min-height:2.75rem;border:0;background:transparent;color:inherit;
+  font:inherit}.h2h-matrix-grid td b{font-size:.8125rem;font-weight:800}.h2h-matrix-grid td em{margin:0 .0625rem;color:var(--muted);font-style:normal}.h2h-matrix-grid td.ahead{background:rgba(18,61,55,.12);color:var(--green)}.h2h-matrix-grid td.behind{background:rgba(162,81,63,.12);color:var(--red)}.h2h-matrix-grid td.level{background:rgba(120,130,125,.1)}.h2h-matrix-grid td.none,.h2h-matrix-grid td.self{color:var(--ds-text-quaternary)}.h2h-matrix-legend{display:flex;flex-wrap:wrap;gap:var(--sp-3);color:var(--muted);font-size:var(--fs-label)}.h2h-matrix-legend span{display:flex;align-items:center;gap:var(--sp-1-5)}.h2h-matrix-legend i{width:.875rem;height:.875rem;border-radius:.25rem;border:1px solid var(--line)}.h2h-matrix-legend i.ahead{background:rgba(18,61,55,.12)}.h2h-matrix-legend i.behind{background:rgba(162,81,63,.12)}.h2h-matrix-legend i.level{background:rgba(120,130,125,.1)}.h2h-matrix-legend i.none{background:var(--paper)}
+
+@media(min-width:821px){.h2h-matrix-toolbar{grid-template-columns:minmax(0,18rem) auto;align-items:end;justify-content:space-between}.h2h-matrix-modes{justify-self:end;width:max-content}.h2h-matrix-modes button{padding:0 var(--sp-4)}.h2h-matrix-grid tbody th,.h2h-matrix-grid thead th:first-child{width:10rem;min-width:10rem}.h2h-matrix-grid thead th,.h2h-matrix-grid tbody td{min-width:3.5rem}
+}/* ==========================================================================
+   Sharing a result
+   Two destinations, two different acts: WhatsApp tells the group (text plus a
+   link that opens the app), Instagram shows everyone (a picture that carries
+   the club's name and address inside it). The sheet shows the story card at
+   full bleed rather than describing it — a member deciding whether to post
+   something to their own account is entitled to see exactly what it looks
+   like first.
+   ========================================================================== */
+
+/* The share affordance on a match card. It is not an admin tool, so it does not
+   inherit the tools' hover-only dimming: a clubmate posting your win is worth
+   as much as you posting it, and they can't act on what they can't see. */
+.card-tool.share{color:var(--gold-on-light)}.card-tool.share:hover{background:var(--ds-highlight-wash);color:var(--gold-on-light)}.match:hover .card-tool.share{color:var(--gold-on-light)}.card-tool.share .share-glyph{width:1rem;height:1rem;border-radius:0;background:transparent;color:currentColor}.card-tool.share .share-glyph svg{width:100%;height:100%}.share-sheet-shell .sheet{padding-top:var(--sp-5-5)}.share-sheet .kicker{margin-bottom:var(--sp-1)}.share-sheet h2{margin:0}.share-sheet .sub{margin:var(--sp-2) 0 var(--sp-4)}/* Fixed 9:16 so the preview is the story's real proportions, and capped by
+   viewport height so the buttons under it never fall below the fold on a
+   phone — the preview is the argument, but the buttons are the point. */
+.story-preview{width:min(15rem,62%);margin:0 auto var(--sp-4-5);aspect-ratio:9/16;
+  border-radius:var(--radius-md);overflow:hidden;background:var(--ds-surface-inverse);
+  border:1px solid rgba(0,0,0,.12);box-shadow:0 14px 34px rgba(10,49,37,.28)}.story-preview img{display:block;width:100%;height:100%;object-fit:contain}.share-actions{display:grid;gap:var(--sp-2-5)}.share-btn{display:flex;align-items:center;gap:var(--sp-3-5);width:100%;min-height:var(--control-lg);
+  padding:var(--sp-3) var(--sp-4);border:1px solid var(--line);border-radius:var(--radius-md);
+  background:var(--paper);color:var(--ink);text-align:left;transition:transform .14s,box-shadow .14s,border-color .14s}.share-btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(18,61,55,.12)}.share-btn:disabled{opacity:.6;transform:none;box-shadow:none}.share-btn span{display:block;min-width:0;flex:1}.share-btn b{display:block;font-size:var(--fs-body);font-weight:800}.share-btn small{display:block;margin-top:.1rem;font-size:var(--fs-caption);color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.share-glyph{flex:0 0 auto;display:grid;place-items:center;width:2.75rem;height:2.75rem;
+  border-radius:var(--radius-sm);color:white}.share-glyph svg{width:1.5rem;height:1.5rem}.share-btn.whatsapp{border-color:rgba(37,145,80,.35)}.share-btn.whatsapp .share-glyph{background:#25a35a}/* Instagram's own gradient is theirs; this is the app's read of it — enough to
+   be recognisable at a glance without wearing somebody else's logo. */
+.share-btn.instagram{border-color:rgba(174,60,132,.32)}.share-btn.instagram .share-glyph{background:linear-gradient(135deg,#f2ae42,#d3376b 48%,#7b34c4)}.share-btn.plain .share-glyph{background:var(--ds-canvas-muted);color:var(--muted)}.share-sheet-note{margin:var(--sp-3-5) 0 0;font-size:var(--fs-caption);line-height:1.6;color:var(--green);
+  background:var(--ds-canvas-functional);border-radius:var(--radius-sm);padding:var(--sp-2-5) var(--sp-3)}.share-sheet-foot{margin:var(--sp-3-5) 0 0;font-size:var(--fs-label);color:var(--muted);text-align:center}/* The public pages behind a shared link. Same doorway job as the cup page, so
+   they borrow its width, padding and safe-area handling. */
+/* Plain divs, not <header>: the global `header{height:74px;display:flex}` page rule would turn
+   these stacked heroes into a row and clamp their height. `display:block` states the intent so a
+   future <header> here fails visibly rather than subtly. */
+.match-share-hero,.record-share-hero{display:block;height:auto;text-align:center;padding:var(--sp-2) 0 var(--sp-4-5)}.match-share-hero h1,.record-share-hero h1{margin:var(--sp-1-5) 0 var(--sp-2);font-size:var(--fs-h2);
+  letter-spacing:-.02em;text-wrap:balance}.match-share-date{margin:0;font-size:var(--fs-caption);color:var(--muted);font-variant-numeric:tabular-nums}.match-share-board{position:relative;display:grid;gap:var(--sp-2);background:var(--paper);
+  border:1px solid var(--line);border-radius:var(--radius-lg);padding:var(--sp-4);box-shadow:var(--shadow)}.match-share-side{display:flex;align-items:center;gap:var(--sp-3-5);padding:var(--sp-2) var(--sp-1);border-radius:var(--radius-md)}.match-share-side .player-badge{flex:0 0 auto;width:2.9rem;height:2.9rem;border-radius:50%}.match-share-who{flex:1;min-width:0}.match-share-who b{display:block;font-size:var(--fs-body);font-weight:800;overflow-wrap:anywhere}.match-share-who small{display:block;margin-top:.1rem;font-size:var(--fs-caption);color:var(--muted)}.match-share-side em{flex:0 0 auto;font-style:normal;font-size:2.4rem;font-weight:800;line-height:1;
+  color:var(--ds-text-quaternary);font-variant-numeric:tabular-nums}/* The winner is the reason the card exists, so it gets the one accent colour and
+   a rule down its edge; every other row is deliberately quieter. */
+.match-share-side.won{background:var(--ds-text-on-brand);box-shadow:inset 3px 0 0 var(--gold)}.match-share-side.won em,.match-share-side.won .match-share-who b{color:var(--ds-accent-text)}.match-share-vs{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:var(--sp-1) var(--sp-3);
+  font-size:var(--fs-label);font-weight:800;color:var(--muted)}.match-share-chips,.record-share-chips{justify-content:center;margin:var(--sp-4) 0 var(--sp-1)}.share-chip.gold{border-color:rgba(212,166,75,.5);background:var(--ds-text-on-brand);color:var(--gold-on-light);font-weight:700}.record-share-hero .player-badge{width:5rem;height:5rem;border-radius:50%;margin:0 auto;font-size:1.4rem}.record-share-chips{margin:var(--sp-3) 0 var(--sp-4)}.record-share-elo{margin:0}.record-share-elo small{display:block;font-size:var(--fs-label);color:var(--muted);letter-spacing:.1em}.record-share-elo b{display:block;margin-top:var(--sp-1);font-size:3.4rem;line-height:1;font-weight:800;
+  color:var(--ds-accent-text);font-variant-numeric:tabular-nums}.record-share-stats{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2-5);margin-top:var(--sp-2)}.record-share-stats div{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-md);
+  padding:var(--sp-3-5) var(--sp-4);box-shadow:var(--shadow)}.record-share-stats small{display:block;font-size:var(--fs-label);color:var(--muted)}.record-share-stats b{display:block;margin-top:var(--sp-1);font-size:var(--fs-h3);font-weight:800;
+  font-variant-numeric:tabular-nums}.record-share-form{display:flex;align-items:center;justify-content:center;gap:var(--sp-2-5);margin-top:var(--sp-4)}.record-share-form small{font-size:var(--fs-label);color:var(--muted)}/* Re-sharing, from the page a share landed on. The reader of a forwarded result
+   is exactly the person most likely to forward it again, so the second hop is
+   one tap from where the first one landed — set apart, but not buried. */
+.match-share-resend{margin-top:var(--sp-5);background:var(--paper);border:1px solid var(--line);
+  border-radius:var(--radius-lg);padding:var(--sp-4-5);box-shadow:var(--shadow)}.match-share-resend .share-sheet h2{font-size:var(--fs-h3)}/* The profile's own share, in the hero next to the rating. */
+.profile-share{display:inline-flex;align-items:center;gap:var(--sp-1-5);min-height:2rem;padding:0 var(--sp-3);
+  border:1px solid rgba(212,166,75,.5);border-radius:999px;background:var(--ds-text-on-brand);color:var(--gold-on-light);
+  font-size:var(--fs-label);font-weight:800}.profile-share .share-glyph{width:1rem;height:1rem;border-radius:0;background:transparent;color:currentColor}.profile-share .share-glyph svg{width:100%;height:100%}.profile-share:hover{background:#f7ecd0}
+
+@media(max-width:599px){.story-preview{width:min(12rem,54%)}.match-share-side em{font-size:2rem}.record-share-stats{grid-template-columns:1fr 1fr}
+}/* --------------------------------------------------------------------------
+   A cup tie, marked as one
+   A semi-final that reads exactly like a Tuesday night frame is a result the
+   app has failed to dress. The treatment is deliberately two light things
+   rather than one heavy one: a gold edge on the board, which does the finding
+   when a member scrolls the history for the game they remember, and a chip
+   naming the round, which does the telling. Neither costs a row, and neither
+   competes with the scoreline — the score is still what the card is for.
+   -------------------------------------------------------------------------- */
+.match.is-cup .match-board{box-shadow:inset 3px 0 0 var(--gold)}.match.is-cup .match-board .match-when{padding-left:var(--sp-1)}.match-cup-badge{display:inline-flex;align-items:center;gap:var(--sp-1);min-width:0;max-width:13rem;
+  padding:var(--sp-1) var(--sp-2);border:1px solid rgba(232,194,106,.42);border-radius:999px;
+  background:rgba(232,194,106,.14);color:var(--ds-accent-soft);font-size:var(--fs-label);font-weight:800;line-height:1.35}/* The round is the fact worth reading, so it keeps full contrast and never truncates; the cup's own
+   name is context and gives way first on a narrow phone. */
+.match-cup-badge>b{flex:0 0 auto;color:#ffe7b4}.match-cup-badge>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-weight:700;opacity:.82}.cup-mark{flex:0 0 auto;width:.8rem;height:.8rem;fill:currentColor}/* The ribbon on the shared result page: the round in the break between two
+   hairlines, matching the story card's own header so the page and the image a
+   reader arrived from read as one thing. */
+.cup-ribbon{display:flex;align-items:center;justify-content:center;gap:var(--sp-3);margin:.1rem 0 var(--sp-1);
+  color:var(--gold-on-light)}.cup-ribbon:before,.cup-ribbon:after{content:"";flex:0 1 4.5rem;height:1px;background:currentColor;
+  opacity:.5}.cup-ribbon>span{display:inline-flex;align-items:center;gap:var(--sp-1-5);font-size:var(--fs-label);
+  font-weight:800;letter-spacing:.08em;white-space:nowrap}.cup-ribbon .cup-mark{width:.9rem;height:.9rem}/* On a phone the card's top row also carries the date, the ELO pill and the tools, and the cup name
+   is what tips it onto a second row — making every cup tie a row taller than an ordinary game, which
+   is exactly the visual weight this treatment is trying to avoid. So the name gives way and the
+   round stays: the gold edge says "competition", the round says which stage, and the cup's full name
+   is one tap away on the card itself. A cup whose round could not be named keeps its name, since
+   dropping that would leave a chip containing nothing but a trophy. */
+@media(max-width:599px){
+  .match-cup-badge.has-round>span{display:none}
+  .match-cup-badge{max-width:none}
+}

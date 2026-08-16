@@ -5,6 +5,7 @@ import { getState, listSnapshots } from "../../db/state";
 import MemberDirectory, { Avatar, type Member, type Player } from "./MemberDirectory";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
 import SnapshotList from "./SnapshotList";
+import { StatTile } from "../components/ui/Primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -77,16 +78,14 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </p>}
 
       <div className="admin-stats">
-        <div><small>{zh.statAccounts}</small><b>{members.length}</b></div>
-        <div><small>{zh.statAdmins}</small><b>{admins}</b></div>
-        <div className={unlinked.length ? "warn" : ""}>
-          <small>{unlinked.length ? zh.statUnlinked : zh.statAllLinked}</small>
-          <b>{unlinked.length || "✓"}</b>
-        </div>
-        <div className={needAccount.length ? "warn" : ""}>
-          <small>{needAccount.length ? zh.statNoAccount : zh.statAllHaveAccounts}</small>
-          <b>{needAccount.length || "✓"}</b>
-        </div>
+        <StatTile label={zh.statAccounts} value={members.length} />
+        <StatTile label={zh.statAdmins} value={admins} />
+        <StatTile className={unlinked.length ? "warn" : ""}
+          label={unlinked.length ? zh.statUnlinked : zh.statAllLinked}
+          value={unlinked.length || "✓"} />
+        <StatTile className={needAccount.length ? "warn" : ""}
+          label={needAccount.length ? zh.statNoAccount : zh.statAllHaveAccounts}
+          value={needAccount.length || "✓"} />
       </div>
 
       {unlinked.length > 0 && <section className="admin-attention">
