@@ -16,7 +16,7 @@
 .auth-tabs{display:grid;grid-template-columns:1fr 1fr;margin:0 0 46px;padding:var(--sp-1);border:1px solid var(--line);border-radius:14px;background:var(--ds-canvas-muted)}
 .auth-tabs a{display:grid;min-height:44px;place-items:center;border-radius:10px;color:#6f746f;font-weight:800;text-decoration:none}
 .auth-tabs a[aria-current=page]{background:var(--ds-text-on-danger);color:var(--ds-surface-featured);box-shadow:0 5px 18px rgba(13,48,39,.09)}
-.auth-panel .kicker{color:#98701d}
+.auth-panel .kicker{color:var(--ds-accent-text)}
 .auth-panel h2{margin:var(--sp-2) 0 var(--sp-2-5);font-size:clamp(32px,4vw,48px);letter-spacing:-.04em}
 .auth-intro{margin:0 0 var(--sp-5-5);color:var(--ds-text-secondary);line-height:1.65}
 .auth-main-form{gap:var(--sp-4-5)}
