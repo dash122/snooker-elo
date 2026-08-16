@@ -353,12 +353,49 @@ close enough to *look* related, not close enough to trust as the same colour wit
 confirmation this pass didn't have tooling for, so left alone rather than force a merge on a "kind of
 close" read. `color-no-hex` warnings: 532 → 518. Distinct hex colours: 424 → 410.
 
+## Naming the numbered colour tokens, part 2 — --me-c*/--pc-c* (2026-08-16)
+
+Finished the renaming project the previous entry left open: all 163 `--me-c*` and 54 `--pc-c*`
+vars (217 total) now have semantic names, same technique as the `--mm-c*` pass — read each var's
+actual usage selectors before naming it, not the hex value.
+
+`--me-` turned out to be the match/matchmaking/availability/account/admin surface (auth forms,
+account dashboard, match-row and match-hero, the availability grid and density chart, the home
+"recent" panel) — no single English word covers it, so the scoped prefix stayed `--me-` rather than
+being renamed to something narrower that would misdescribe half its call sites. `--pc-` is the
+player-card/profile surface (`.profile-*`, `.players-*`, rivalry rows, matchmaking status cards,
+entertainment ratings) — kept as `--pc-` for the same reason.
+
+Checked first for exact `--ds-*` hex matches the way the `--mm-c*` pass found 8 of: none remained
+in this group — the easy merges were already taken. This pass is a pure rename, zero visual change.
+
+Two colours were split rather than kept under one name because the same numbered var covered
+genuinely different roles: `--me-c29` (the deep gradient anchor shared identically by
+`.account-player-card` and `.match-hero`) stayed one name (`--me-gradient-deep`) since it really is
+the same colour serving the same purpose in both places, but its mid/light gradient stops diverge
+per-component, so those became `--me-account-gradient-{mid,light}` and
+`--me-hero-gradient-{mid,light}` instead of forcing one pair of names onto two different gradients.
+Similarly `--me-c135`/`--me-c136` (both `.board-past` background, two close-but-different values)
+and `--me-c162`/`--me-c163` (two related-but-distinct card-accent shades) kept sibling names
+(`-alt`, `-alt2`) rather than being merged into one, since merging would have changed the render.
+
+Verified with the same three checks as the `--mm-c*` pass: `npm run build` and `npm run lint:css`
+clean (518 warnings, unchanged — no new violations), and a grep for every one of the 217 old
+`--me-cNN`/`--pc-cNN` names confirming zero stray references before committing.
+
+**Colour-token naming project is now complete**: all 277 originally-numbered vars
+(`--me-c*`, `--pc-c*`, `--mm-c*`) carry semantic names or were merged into an existing `--ds-*`
+token. What's left of the 410 hard-coded-hex count is the decorative long tail from colour pass 4
+(gradients, the password-strength meter, the danger-zone micro-palette) — a different problem
+(literal hex needing a token at all) from the one this two-part project solved (tokens that existed
+but were meaninglessly named).
+
 Not done, in rough priority order:
 1. **410 hard-coded hex colours still remain** per `design:metrics` (down from 605 across four
-   passes). What's left is dominated by the decorative long tail described above, plus the numbered
-   `--me-c`/`--mm-c`/`--pc-c` custom-property block in `globals.css` -- already token-shaped (no
-   literal hex at the use site, lint-clean) but generically named, so renaming them to something
-   semantic is a real project of its own rather than a follow-up to this pass.
+   passes). What's left is dominated by the decorative long tail described above — already
+   token-shaped (no literal hex at the use site, lint-clean) and, as of this entry, semantically
+   named too. Reducing the 410 further means tokenizing genuinely new literal-hex declarations, not
+   renaming existing tokens.
 2. **Type token adoption is at 67%, not 100%** — most of what's left *inside* `@media` blocks is the
    harder case flagged before: hand-computed tablet/phone step-downs (11.2px, 12.48px, 13.44px...)
    that don't land exactly on any tier's token value, or one-off heading/icon/score-display sizes
