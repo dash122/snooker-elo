@@ -8,7 +8,7 @@
 .auth-story>div>p:not(.kicker){max-width:460px;color:#c9d5d0;font-size:16px;line-height:1.75}
 .auth-story ul{display:grid;gap:16px;margin:42px 0 0;padding:0;list-style:none}
 .auth-story li{display:flex;align-items:center;gap:14px;color:#e9eee9;font-weight:700}
-.auth-story li span{display:grid;width:34px;height:34px;place-items:center;border:1px solid rgba(217,181,103,.45);border-radius:50%;color:#d9b567;font-size:10px;letter-spacing:.08em}
+.auth-story li span{display:grid;width:34px;height:34px;place-items:center;border:1px solid rgba(217,181,103,.45);border-radius:50%;color:#d9b567;font-size:var(--fs-label);letter-spacing:.08em}
 .auth-story>small{position:relative;z-index:1;color:#91aaa1}
 .auth-panel{display:grid;min-height:100svh;place-items:center;padding:48px clamp(28px,7vw,110px)}
 .auth-panel-inner{width:min(100%,480px)}
@@ -23,7 +23,7 @@
 .auth-main-form label{font-size:12px;font-weight:800;color:#32443d}
 .auth-main-form input{min-height:52px;margin-top:7px;border:1px solid #ccd3ce;border-radius:12px;background:#fff;font-size:16px;transition:border-color .15s,box-shadow .15s}
 .auth-main-form input:focus{border-color:#2c6757;outline:0;box-shadow:0 0 0 4px rgba(44,103,87,.12)}
-.auth-main-form label>small{display:block;margin-top:6px;color:#7a8580;font-size:10px;font-weight:600}
+.auth-main-form label>small{display:block;margin-top:6px;color:#7a8580;font-size:var(--fs-label);font-weight:600}
 .auth-password-field{position:relative;display:block}
 .auth-password-field input{padding-right:72px}
 .auth-password-field button{position:absolute;right:8px;top:15px;min-height:36px;padding:0 10px;border:0;border-radius:8px;background:transparent;color:#2c6757;font-size:11px;font-weight:800}
@@ -34,7 +34,7 @@
 .password-strength-2 i.filled{background:#c68a2e}
 .password-strength-3 i.filled{background:#7a9a3c}
 .password-strength-4 i.filled{background:#2c6757}
-.field-error{display:block;margin-top:6px;color:#c0533f;font-size:10px;font-weight:700}
+.field-error{display:block;margin-top:6px;color:#c0533f;font-size:var(--fs-label);font-weight:700}
 .auth-submit{min-height:54px;margin-top:6px;border-radius:12px;font-size:14px}
 .auth-submit:disabled{opacity:.5;cursor:not-allowed}
 .auth-switch{display:flex;justify-content:center;gap:7px;margin:24px 0 0;color:#6f7a75;font-size:12px}

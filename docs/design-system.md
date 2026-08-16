@@ -99,29 +99,30 @@ the live scoreboard. As of the last commit on `main`:
 
 | Metric | Then | Now | Target |
 | --- | --- | --- | --- |
-| Sub-11px declarations | 270 | 100 | 0 |
-| Token adoption | 29% | 46% | 100% |
+| Sub-11px declarations | 270 | 1 | 0 |
+| Token adoption | 29% | 54% | 100% |
 | Breakpoints | 22 | 5 | 5 |
 | `!important` | 100 | 85 | 0 |
 | `globals.css` lines | 4,825 | 1,794 | < 500 |
 
-Done: home view, player profile sheet, and the sub-11px floor across match/H2H/matchmaking/cup
-(slices 1-3 of "phase 03" in the commit log — search `git log --oneline --grep=slice` for each).
+Done: home view, player profile sheet, the sub-11px floor across match/H2H/matchmaking/cup
+(slices 1-3 of "phase 03"), the `.sl-eyebrow` specificity fix, and now slice 4 — every remaining
+literal sub-11px `font-size` in `globals.css`, `login/auth.css`, and `elo-guide/guide.css` retargeted
+onto `var(--fs-label)` (search `git log --oneline --grep=slice` for each).
+
+The one sub-11px value left is intentional: `.fraction` in `elo-guide/guide.css` uses
+`font-size:.47em`, relative to its parent element for a math numerator/denominator, not an absolute
+text size — the same category of exception as `font-size:0` for visually-hidden text.
 
 Not done, in rough priority order:
-1. **The remaining ~100 sub-11px declarations** — mostly the 12-24px display tier (headings,
-   scoreboard numerals) deliberately left alone in slice 3, plus account/admin pages not yet swept.
-2. **`.sl-eyebrow` renders at the wrong size** (14.4px instead of the intended 11px) because
-   `.availability-page p{font-size:var(--fs-body)}` has higher specificity (0,1,1) than a single
-   class selector (0,1,0) and wins regardless of source order or which one was edited more
-   recently. Not a regression, not a legibility bug (14.4px is fine) — just inert code. Fixing it
-   means either bumping `.sl-eyebrow`'s specificity or narrowing the broad `p` rule.
-3. **574 hard-coded hex colours** remain (tracked as `stylelint` warnings, not blocking) — a
+1. **574 hard-coded hex colours** remain (tracked as `stylelint` warnings, not blocking) — a
    separate, larger effort than the type/breakpoint work here; see the `color-no-hex` policy note
    in `.stylelintrc.json` for the sweep plan already underway on other files.
-4. Rotate the Supabase DB password — it was logged in plaintext to hosting/CI logs before
-   `db/sql.ts` was fixed to redact it. Code-side fix shipped; the credential itself was never
-   rotated.
+2. **Token adoption is still only 54%** — the sub-11px sweep pushed everything up to the floor but
+   most of those declarations still aren't literal-free; many other sizes above 11px (12–24px
+   display tier: headings, scoreboard numerals) remain hard-coded rather than on a token.
+3. `globals.css` is still 1,794 lines — no page has been fully extracted into its own file yet, so
+   the file stays on the stylelint exemption list.
 
 Each slice in the git history follows the same pattern and is safe to copy: retarget hard-coded
 sizes onto tokens, verify at 320/375/393px by measuring computed styles (not by eyeballing),
