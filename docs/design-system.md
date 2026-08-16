@@ -103,7 +103,7 @@ the live scoreboard. As of the last commit on `main`:
 | Metric | Then | Now | Target |
 | --- | --- | --- | --- |
 | Sub-11px declarations | 270 | 1 | 0 |
-| Token adoption | 29% | 55% | 100% |
+| Token adoption | 29% | 65% | 100% |
 | Breakpoints | 22 | 5 | 5 |
 | `!important` | 100 | 85 | 0 |
 | `globals.css` lines | 4,825 | 1,794 | < 500 |
@@ -169,6 +169,19 @@ both resolve to the exact expected token hex. That's still weaker than an actual
 screenshot tool becomes available, a visual pass over the touched pages (home, login, results,
 matchmaking, calibration, elo-guide) would be worth doing before trusting this further.
 
+## Bug found and fixed: root font-size compounding (2026-08-16)
+
+`html{font-size:var(--fs-body)}` pinned the *root* element's font-size to a token that itself steps
+down inside media queries (`--fs-body` becomes `.9rem` at ≤599px). Every other `--fs-*` token is
+`rem`-based, so all of them resolved against that already-shrunk root — compounding an extra ~10%
+shrinkage on top of the phone-tier values in the table above. Concretely: `--fs-label` is documented
+to floor at 11px on phones, but was actually rendering at **9.9px** — silently undermining the
+sub-11px floor that slices 3-4 spent real effort guaranteeing. This was a pre-existing bug (not
+introduced by this migration); it affected every already-tokenized element on the site, not just the
+ones touched today. Fixed by pinning `html` to a fixed `16px` (matching `--fs-body`'s own desktop
+value, so zero visual change at desktop). Verified via `getComputedStyle()`: `--fs-label` now
+resolves to exactly 11px at 375px and 12px at 1280px, matching the table.
+
 Not done, in rough priority order:
 1. **~420 hard-coded hex colours still remain** (down from 605; the 10 new tokens named in pass 4
    don't move the distinct-species count, see above). What's left after four passes is a genuinely
@@ -176,12 +189,12 @@ Not done, in rough priority order:
    definitions — plus whatever's below the "used 4+ times" cutoff pass 4 applied. Continuing means
    working down that frequency list further, each one needing the same judgment-call-plus-context-read
    as pass 4, or accepting a lower frequency cutoff isn't worth a named token and leaving it literal.
-2. **Token adoption is still only 55%** — the sub-11px sweep pushed everything up to the floor but
-   most of those declarations still aren't literal-free; many other sizes above 11px (12–24px
-   display tier: headings, scoreboard numerals) remain hard-coded rather than on a token. Many of the
-   "odd" values already found (11.2px, 12.48px, 13.44px...) are hand-computed tablet/phone step-downs
-   that mirror the token scale's own responsive steps — replacing those with a flat desktop token
-   would silently remove that responsiveness, so this also needs page-by-page visual QA, not regex.
+2. **Token adoption is at 65%, not 100%** — 121 flat literal sizes (12–26px, no existing responsive
+   behaviour) were retargeted onto tokens this session, but plenty remain *inside* `@media` blocks —
+   those are hand-computed tablet/phone step-downs (11.2px, 12.48px, 13.44px...) that mirror the
+   token scale's own responsive steps. Replacing those with a flat desktop token would silently
+   remove that responsiveness, so they need page-by-page visual QA rather than a blanket regex, same
+   as the earlier "don't touch media-scoped literals" caution.
 3. **`elo-guide/guide.css` is a different case from `auth.css`**, not just a smaller one: it's a
    self-contained marketing/explainer page with its own deliberate type scale (Barlow Condensed
    display faces, a `.7rem`–`1.2rem` body range, heavy use of `clamp()`) that doesn't map cleanly
