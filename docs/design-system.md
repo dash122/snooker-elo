@@ -108,12 +108,13 @@ the live scoreboard. As of the last commit on `main`:
 | `!important` | 100 | 85 | 0 |
 | `globals.css` lines | 4,825 | 1,794 | < 500 |
 | Type-exemption-list files | 3 | 2 | 0 |
+| Distinct hex colours | 605 | 432 | < 20 |
 
 Done: home view, player profile sheet, the sub-11px floor across match/H2H/matchmaking/cup
 (slices 1-3 of "phase 03"), the `.sl-eyebrow` specificity fix, slice 4 (every remaining literal
-sub-11px `font-size` in `globals.css`, `login/auth.css`, and `elo-guide/guide.css` retargeted onto
-`var(--fs-label)`), and slice 5 — `login/auth.css` fully migrated and removed from the type
-exemption list (search `git log --oneline --grep=slice` for each).
+sub-11px `font-size` retargeted onto `var(--fs-label)`), slice 5 (`login/auth.css` fully migrated
+and removed from the type exemption list), and a two-pass colour consolidation (search
+`git log --oneline --grep=slice` for the type slices).
 
 Slice 5 also fixed a live-ish bug the "append overrides at the end" pattern had introduced: the
 file had two passes of declarations stacked on the same selectors (original literals, then a later
@@ -128,18 +129,36 @@ The one sub-11px value left is intentional: `.fraction` in `elo-guide/guide.css`
 `font-size:.47em`, relative to its parent element for a math numerator/denominator, not an absolute
 text size — the same category of exception as `font-size:0` for visually-hidden text.
 
-Also done: 38 raw hex values that were byte-identical to an existing `--ds-*`/`--green`/`--line`/
-`--mint` token got rewritten as `var(...)`. This is a zero-risk, mechanical dedupe — it cannot
-change any rendered colour since the values are identical — and it dropped `color-no-hex` lint
-warnings from 889 to 851. It does **not** move the "574 distinct hex colours" metric, because that
-metric counts distinct hex *strings still present anywhere in the CSS* (including each token's own
-`--name:#hex` definition), and none of those definitions were touched.
+**Colour consolidation.** The "605 hard-coded hex colours" figure looked like 605 distinct design
+decisions, but frequency analysis showed the max reuse of any single value was 9 occurrences —
+most appear once or twice. Clustering every literal hex by RGB distance revealed the real shape of
+the problem: dozens of imperceptibly-different shades of the same handful of intended colours
+(near-white canvas tints, near-black surfaces, the brand green/gold), not genuinely distinct
+choices. Three passes so far:
+
+1. 38 values byte-identical to an existing token → `var(...)`. Zero risk by construction.
+2. 147 values within a Euclidean RGB distance of 7 of an existing token (imperceptible — smaller
+   than typical anti-aliasing noise) → `var(...)` for that token, instead of adding a new one.
+3. 239 remaining values that weren't close to a token but *were* close to each other, merged onto
+   79 canonical literals (not yet tokenized — sets up a smaller, tractable set for that later).
+
+`elo-guide/guide.css`'s own `--guide-*` custom property definitions were left untouched throughout —
+those are the values being defined, not usages, so replacing them with `var(--guide-*)` would be
+circular. Distinct-hex-species metric: 605 → 432. Lint warnings: 889 → 706.
+
+**Verification note on the colour passes:** this session's Browser pane couldn't composite
+screenshots (times out — "pane not displayed"), so these were checked via `getComputedStyle()` spot
+checks, 0 console/lint errors, and the mathematically bounded RGB delta, not an actual visual diff.
+That's a weaker guarantee than the screenshot-based checks used for slices 1-5. If a screenshot tool
+becomes available, a visual pass over the touched pages would be worth doing before trusting this
+further.
 
 Not done, in rough priority order:
-1. **574 hard-coded hex colours** remain (tracked as `stylelint` warnings, not blocking). Unlike the
-   sub-11px floor, most of these can't be swept mechanically: each one needs a judgment call (map to
-   an existing token, or add a new *named* token per the rule above) and a page-by-page visual check
-   — the doc's own phase-03 "don't" list warns against a blind rewrite here.
+1. **432 hard-coded hex colours still remain** (down from 605, tracked as `stylelint` warnings, not
+   blocking). What's left is a smaller set genuinely spread across real distinct colours + one-off
+   `--guide-*` definitions — turning the frequent ones into new named tokens is the next step, and
+   unlike the consolidation passes it needs a judgment call per colour (what should it be called,
+   does it deserve to be a token at all) plus visual QA.
 2. **Token adoption is still only 55%** — the sub-11px sweep pushed everything up to the floor but
    most of those declarations still aren't literal-free; many other sizes above 11px (12–24px
    display tier: headings, scoreboard numerals) remain hard-coded rather than on a token. Many of the
@@ -154,11 +173,10 @@ Not done, in rough priority order:
    dedicated token set, or (b) stay permanently exempt as a one-off landing page. Don't just retarget
    its literals onto `--fs-*` mechanically the way `auth.css` was.
 4. `globals.css` is still 1,794 lines — no page has been fully extracted into its own file yet, so
-   the file stays on the stylelint exemption list.
-
-Dev-server port conflict from the previous session is resolved — freed :3000 and confirmed a
-preview loads there, so remaining slices can go back to visual verification instead of blind
-mechanical sweeps.
+   the file stays on the stylelint exemption list. Not strictly required for consistency (tokens +
+   lint enforce that regardless of file layout) — it's a lower-priority cleanup for the `!important`
+   / dead-rule readability problem specifically, not the colour/type standardization problem. Still
+   worth doing eventually; just after the colour and type work above.
 
 Each slice in the git history follows the same pattern and is safe to copy: retarget hard-coded
 sizes onto tokens, verify at 320/375/393px by measuring computed styles (not by eyeballing),
