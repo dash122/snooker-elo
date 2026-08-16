@@ -46,6 +46,29 @@ const tinyType = literalSizes.filter((v) => {
   return v.endsWith("px") ? n < 11 : n < 0.6875;
 });
 
+/* --- Spacing scale --------------------------------------------------------
+   padding/margin/gap (and directional variants) split into their individual
+   values, same idea as font-size: how much of it is var(--sp-*) vs a literal
+   number that happens to land exactly on one of the six scale steps. */
+const spacingProps =
+  "padding|margin|gap|row-gap|column-gap|padding-inline|padding-block|margin-inline|margin-block|" +
+  "padding-top|padding-bottom|padding-left|padding-right|margin-top|margin-bottom|margin-left|margin-right|" +
+  "padding-inline-start|padding-inline-end";
+const spacingDeclarations = matches(
+  allCss,
+  new RegExp(`(?<![a-zA-Z-])(?:${spacingProps}):[^;{}]+`, "g"),
+).map((d) => d.split(":").slice(1).join(":").trim());
+const spacingValues = spacingDeclarations.flatMap((v) =>
+  v.replace(/!important\s*$/, "").trim().split(/\s+/),
+);
+const spacingTokenValues = spacingValues.filter((v) => v.startsWith("var(--sp-"));
+const spacingLiteralValues = spacingValues.filter((v) => /^[\d.]+(px|rem)$/.test(v));
+const ON_SCALE = new Set([
+  "4px", ".25rem", "8px", ".5rem", "12px", ".75rem",
+  "16px", "1rem", "24px", "1.5rem", "32px", "2rem",
+]);
+const spacingOffScale = spacingLiteralValues.filter((v) => !ON_SCALE.has(v));
+
 /* --- Breakpoints --------------------------------------------------------- */
 const breakpoints = unique(
   matches(allCss, /@media[^{]+/g)
@@ -64,6 +87,18 @@ const rows = [
   ["globals.css 行數", globals.split("\n").length, "< 500", ""],
   ["小於 11px 的字級", tinyType.length, 0, "低於此值手機上讀不清"],
   ["內嵌 style={{}}", matches(allTsx, /style=\{\{/g).length, 0, ""],
+  [
+    "間距走代幣比例",
+    `${Math.round((spacingTokenValues.length / spacingValues.length) * 100)}%`,
+    "100%",
+    "",
+  ],
+  [
+    "仍寫死但符合六階間距值",
+    spacingLiteralValues.length - spacingOffScale.length,
+    0,
+    "數字對但沒用代幣，應直接替換",
+  ],
 ];
 
 const pad = (s, n) => String(s).padEnd(n);

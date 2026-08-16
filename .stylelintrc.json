@@ -28,6 +28,17 @@
       {
         "message": "Only four breakpoints exist: 380px (narrow phone), 599px (phone), 820px (tablet), 1180px (narrow desktop), min-821px (desktop). See docs/design-system.md."
       }
+    ],
+    "declaration-property-value-disallowed-list": [
+      {
+        "/^(padding|margin|gap|row-gap|column-gap)(-(top|bottom|left|right|inline|block|inline-start|inline-end))?$/": [
+          "/(^|\\s)(4px|\\.25rem|8px|\\.5rem|12px|\\.75rem|16px|1rem|24px|1\\.5rem|32px|2rem)(\\s|$)/"
+        ]
+      },
+      {
+        "severity": "warning",
+        "message": "This value exactly matches a --sp-* spacing token -- use var(--sp-1..6) from app/styles/tokens.css instead of the literal. See docs/design-system.md."
+      }
     ]
   },
   "overrides": [
