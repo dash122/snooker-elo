@@ -75,10 +75,13 @@ defined. If you need a colour that doesn't exist, add a **named** token — don'
 
 ## The exemption list
 
-`app/globals.css`, `app/login/auth.css` and `app/elo-guide/guide.css` predate this system and are
-exempt from the colour and type rules (not the breakpoint rule). That list lives in
-`.stylelintrc.json` and **may only ever get shorter**. As each page is migrated out of
-`globals.css`, delete its entry. When the array is empty, the migration is finished.
+`app/globals.css` and `app/elo-guide/guide.css` predate this system and are exempt from the
+strict font-size rule (not the breakpoint rule; colour is a warning everywhere, not part of this
+list). That list lives in `.stylelintrc.json` and **may only ever get shorter**. As each page is
+migrated onto tokens, delete its entry. When the array is empty, the migration is finished.
+
+`app/login/auth.css` came off the list in phase 03 slice 5 — it's the first file to fully clear the
+type migration.
 
 Never add a file to it.
 
@@ -100,15 +103,26 @@ the live scoreboard. As of the last commit on `main`:
 | Metric | Then | Now | Target |
 | --- | --- | --- | --- |
 | Sub-11px declarations | 270 | 1 | 0 |
-| Token adoption | 29% | 54% | 100% |
+| Token adoption | 29% | 55% | 100% |
 | Breakpoints | 22 | 5 | 5 |
 | `!important` | 100 | 85 | 0 |
 | `globals.css` lines | 4,825 | 1,794 | < 500 |
+| Type-exemption-list files | 3 | 2 | 0 |
 
 Done: home view, player profile sheet, the sub-11px floor across match/H2H/matchmaking/cup
-(slices 1-3 of "phase 03"), the `.sl-eyebrow` specificity fix, and now slice 4 — every remaining
-literal sub-11px `font-size` in `globals.css`, `login/auth.css`, and `elo-guide/guide.css` retargeted
-onto `var(--fs-label)` (search `git log --oneline --grep=slice` for each).
+(slices 1-3 of "phase 03"), the `.sl-eyebrow` specificity fix, slice 4 (every remaining literal
+sub-11px `font-size` in `globals.css`, `login/auth.css`, and `elo-guide/guide.css` retargeted onto
+`var(--fs-label)`), and slice 5 — `login/auth.css` fully migrated and removed from the type
+exemption list (search `git log --oneline --grep=slice` for each).
+
+Slice 5 also fixed a live-ish bug the "append overrides at the end" pattern had introduced: the
+file had two passes of declarations stacked on the same selectors (original literals, then a later
+block redeclaring most of them onto tokens — the same root cause #2 from the original audit). One
+of those overrides quietly pointed `.auth-main-form input` at `var(--fs-body)`, which steps down to
+14.4px on phones; it was only rendering at the correct 16px because an unrelated global
+`input,select,textarea{font-size:16px}` safety-net rule in `globals.css` happened to win. Pinned it
+to `var(--fs-input)` (the token that's exempt from responsive stepping for exactly this
+iOS-Safari-zoom reason) so correctness no longer depends on an unrelated rule elsewhere.
 
 The one sub-11px value left is intentional: `.fraction` in `elo-guide/guide.css` uses
 `font-size:.47em`, relative to its parent element for a math numerator/denominator, not an absolute
@@ -126,20 +140,25 @@ Not done, in rough priority order:
    sub-11px floor, most of these can't be swept mechanically: each one needs a judgment call (map to
    an existing token, or add a new *named* token per the rule above) and a page-by-page visual check
    — the doc's own phase-03 "don't" list warns against a blind rewrite here.
-2. **Token adoption is still only 54%** — the sub-11px sweep pushed everything up to the floor but
+2. **Token adoption is still only 55%** — the sub-11px sweep pushed everything up to the floor but
    most of those declarations still aren't literal-free; many other sizes above 11px (12–24px
    display tier: headings, scoreboard numerals) remain hard-coded rather than on a token. Many of the
    "odd" values already found (11.2px, 12.48px, 13.44px...) are hand-computed tablet/phone step-downs
    that mirror the token scale's own responsive steps — replacing those with a flat desktop token
    would silently remove that responsiveness, so this also needs page-by-page visual QA, not regex.
-3. `globals.css` is still 1,794 lines — no page has been fully extracted into its own file yet, so
+3. **`elo-guide/guide.css` is a different case from `auth.css`**, not just a smaller one: it's a
+   self-contained marketing/explainer page with its own deliberate type scale (Barlow Condensed
+   display faces, a `.7rem`–`1.2rem` body range, heavy use of `clamp()`) that doesn't map cleanly
+   onto the app's 8-role scale — forcing it there would fight the page's own editorial design rather
+   than fix an inconsistency. Before migrating it, decide whether it should (a) get its own small
+   dedicated token set, or (b) stay permanently exempt as a one-off landing page. Don't just retarget
+   its literals onto `--fs-*` mechanically the way `auth.css` was.
+4. `globals.css` is still 1,794 lines — no page has been fully extracted into its own file yet, so
    the file stays on the stylelint exemption list.
 
-**Blocker:** the last two items need a working preview to verify against (per the doc's own slice
-checklist: "verify at 320/375/393px by measuring computed styles"). This session's dev server can't
-get a reachable port — another session already holds :3000 and the browser tooling here can't reach
-Vite's fallback port. Continuing safely means either freeing up :3000 or doing the verification in a
-session that can reach the preview.
+Dev-server port conflict from the previous session is resolved — freed :3000 and confirmed a
+preview loads there, so remaining slices can go back to visual verification instead of blind
+mechanical sweeps.
 
 Each slice in the git history follows the same pattern and is safe to copy: retarget hard-coded
 sizes onto tokens, verify at 320/375/393px by measuring computed styles (not by eyeballing),
