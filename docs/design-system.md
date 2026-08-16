@@ -114,15 +114,32 @@ The one sub-11px value left is intentional: `.fraction` in `elo-guide/guide.css`
 `font-size:.47em`, relative to its parent element for a math numerator/denominator, not an absolute
 text size — the same category of exception as `font-size:0` for visually-hidden text.
 
+Also done: 38 raw hex values that were byte-identical to an existing `--ds-*`/`--green`/`--line`/
+`--mint` token got rewritten as `var(...)`. This is a zero-risk, mechanical dedupe — it cannot
+change any rendered colour since the values are identical — and it dropped `color-no-hex` lint
+warnings from 889 to 851. It does **not** move the "574 distinct hex colours" metric, because that
+metric counts distinct hex *strings still present anywhere in the CSS* (including each token's own
+`--name:#hex` definition), and none of those definitions were touched.
+
 Not done, in rough priority order:
-1. **574 hard-coded hex colours** remain (tracked as `stylelint` warnings, not blocking) — a
-   separate, larger effort than the type/breakpoint work here; see the `color-no-hex` policy note
-   in `.stylelintrc.json` for the sweep plan already underway on other files.
+1. **574 hard-coded hex colours** remain (tracked as `stylelint` warnings, not blocking). Unlike the
+   sub-11px floor, most of these can't be swept mechanically: each one needs a judgment call (map to
+   an existing token, or add a new *named* token per the rule above) and a page-by-page visual check
+   — the doc's own phase-03 "don't" list warns against a blind rewrite here.
 2. **Token adoption is still only 54%** — the sub-11px sweep pushed everything up to the floor but
    most of those declarations still aren't literal-free; many other sizes above 11px (12–24px
-   display tier: headings, scoreboard numerals) remain hard-coded rather than on a token.
+   display tier: headings, scoreboard numerals) remain hard-coded rather than on a token. Many of the
+   "odd" values already found (11.2px, 12.48px, 13.44px...) are hand-computed tablet/phone step-downs
+   that mirror the token scale's own responsive steps — replacing those with a flat desktop token
+   would silently remove that responsiveness, so this also needs page-by-page visual QA, not regex.
 3. `globals.css` is still 1,794 lines — no page has been fully extracted into its own file yet, so
    the file stays on the stylelint exemption list.
+
+**Blocker:** the last two items need a working preview to verify against (per the doc's own slice
+checklist: "verify at 320/375/393px by measuring computed styles"). This session's dev server can't
+get a reachable port — another session already holds :3000 and the browser tooling here can't reach
+Vite's fallback port. Continuing safely means either freeing up :3000 or doing the verification in a
+session that can reach the preview.
 
 Each slice in the git history follows the same pattern and is safe to copy: retarget hard-coded
 sizes onto tokens, verify at 320/375/393px by measuring computed styles (not by eyeballing),
