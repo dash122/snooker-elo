@@ -141,24 +141,41 @@ choices. Three passes so far:
    than typical anti-aliasing noise) → `var(...)` for that token, instead of adding a new one.
 3. 239 remaining values that weren't close to a token but *were* close to each other, merged onto
    79 canonical literals (not yet tokenized — sets up a smaller, tractable set for that later).
+4. **10 new named tokens** for the highest-frequency values left after 1-3 that didn't map to an
+   existing token: `--ds-success-wash`/`-border`, `--ds-warning-wash`/`-text`, `--ds-highlight-wash`,
+   `--ds-accent-soft`, `--ds-border-muted`, `--ds-chart-primary`, `--ds-icon-muted`,
+   `--ds-text-quaternary`, `--ds-text-muted-teal`, plus `--green-hover` (named to match the existing
+   `--green`/`--green-bright` legacy vars rather than the `--ds-*` prefix). Each name was chosen by
+   reading the actual selector it appeared in (see `git show bba501d` for the full reasoning per
+   colour) rather than guessed from the hex alone. Two values got mapped onto *existing* tokens
+   instead of new ones, because their usage was the same design role, just drifted: `#c3d8d2` (hero
+   text on dark brand backgrounds, ~15 RGB units off) → `--ds-text-on-brand-secondary`, and
+   `#27704e` (win/success text, ~20 RGB units off) → `--ds-success`. Those two aren't byte-identical
+   like passes 1-2, so they were checked against a live preview via `getComputedStyle()` rather than
+   trusted on the math alone.
 
 `elo-guide/guide.css`'s own `--guide-*` custom property definitions were left untouched throughout —
 those are the values being defined, not usages, so replacing them with `var(--guide-*)` would be
-circular. Distinct-hex-species metric: 605 → 432. Lint warnings: 889 → 706.
+circular. Distinct-hex-species metric: 605 → 432 (passes 1-3 only — naming a new token doesn't move
+this metric, since the token's own definition keeps that hex string present in the file, same as any
+other token). Lint warnings: 889 → 612 (all four passes).
 
-**Verification note on the colour passes:** this session's Browser pane couldn't composite
-screenshots (times out — "pane not displayed"), so these were checked via `getComputedStyle()` spot
-checks, 0 console/lint errors, and the mathematically bounded RGB delta, not an actual visual diff.
-That's a weaker guarantee than the screenshot-based checks used for slices 1-5. If a screenshot tool
-becomes available, a visual pass over the touched pages would be worth doing before trusting this
-further.
+**Verification note on the colour passes:** the Browser pane still can't composite screenshots in
+this environment (times out — "pane not displayed"), even with a reachable dev server. Passes 1-3
+(all byte-identical or imperceptible-distance merges) leaned on the mathematically bounded RGB
+delta plus 0 console/lint errors. Pass 4's two "reuse an existing token" cases aren't
+byte-identical, so those were checked against a live preview via `getComputedStyle()` — confirmed
+both resolve to the exact expected token hex. That's still weaker than an actual pixel diff. If a
+screenshot tool becomes available, a visual pass over the touched pages (home, login, results,
+matchmaking, calibration, elo-guide) would be worth doing before trusting this further.
 
 Not done, in rough priority order:
-1. **432 hard-coded hex colours still remain** (down from 605, tracked as `stylelint` warnings, not
-   blocking). What's left is a smaller set genuinely spread across real distinct colours + one-off
-   `--guide-*` definitions — turning the frequent ones into new named tokens is the next step, and
-   unlike the consolidation passes it needs a judgment call per colour (what should it be called,
-   does it deserve to be a token at all) plus visual QA.
+1. **~420 hard-coded hex colours still remain** (down from 605; the 10 new tokens named in pass 4
+   don't move the distinct-species count, see above). What's left after four passes is a genuinely
+   flatter tail — mostly one-off decorative colours and `elo-guide/guide.css`'s own `--guide-*`
+   definitions — plus whatever's below the "used 4+ times" cutoff pass 4 applied. Continuing means
+   working down that frequency list further, each one needing the same judgment-call-plus-context-read
+   as pass 4, or accepting a lower frequency cutoff isn't worth a named token and leaving it literal.
 2. **Token adoption is still only 55%** — the sub-11px sweep pushed everything up to the floor but
    most of those declarations still aren't literal-free; many other sizes above 11px (12–24px
    display tier: headings, scoreboard numerals) remain hard-coded rather than on a token. Many of the
