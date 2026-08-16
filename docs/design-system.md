@@ -123,7 +123,7 @@ the live scoreboard. As of the last commit on `main`:
 | Token adoption (type) | 29% | 67% | 100% |
 | Breakpoints | 22 | 5 | 5 |
 | `!important` | 100 | 85 | 0 |
-| `globals.css` lines | 4,825 | 1,516 | < 500 |
+| `globals.css` lines | 4,825 | 1,501 | < 500 |
 | Type-migration-debt files | 3 | 1 | 0 |
 | Distinct hex colours | 605 | 424 | < 20 |
 | Token adoption (spacing) | not tracked before | 62% | 100% |
@@ -457,3 +457,58 @@ Each slice in the git history follows the same pattern and is safe to copy: reta
 sizes onto tokens, verify at 320/375/393px by measuring computed styles (not by eyeballing),
 diff against the previous CSS rather than only checking internal consistency, then
 `npm run design:metrics` to confirm the numbers moved the right way before committing.
+
+## Splitting globals.css by feature — second slice: calibration (2026-08-16)
+
+Went through the candidates the first slice deferred (match entry, account/auth, admin, home,
+profile, availability/matchmaking-adjacent bits, calibration, head-to-head), checking each for
+selector overlap the same way as the cup split, before moving anything.
+
+**Split:** the calibration-trend panel (settings page "is the model settled?" chart) — a single
+comment-delimited section, every `.calibration-trend`/`-readout`/`-plot`/`-axis-y`/`-axis-x`/
+`-canvas`/`-grid`/`-band`/`-line`/`-guide`/`-point`/`-tip`/`-legend`/`-meaning`/`-caution`/`-state`
+selector confirmed unique to that section by grepping the rest of `globals.css` and every
+already-split file (`cup.css`, `matchmaking.css`, `foundation.css`, `components.css`,
+`core-ranking.css`, `guide.css`, `auth.css`). The one exception — `.calibration-trend` reappearing
+in a grouped `box-shadow` rule inside the "UI consistency contract" section near the end of
+`globals.css` — is the same pattern as the cup split's `.cup-mark`/`.cup-ribbon` exceptions: it's
+additive (only adds `box-shadow`, doesn't redeclare the base rule) and stays later in source order
+than the new file's `@import`, so it keeps winning exactly as before. `.calibration-card`,
+`.calibration-stats` and `.calibration-history` are a *different* feature (the settings-page
+calibration promo card, not this chart) sharing only a name prefix — left in `globals.css`.
+
+Moved verbatim into `app/styles/calibration.css`, imported after `cup.css` in `app/layout.tsx`.
+The section was already fully on `--fs-*` tokens (no literal font sizes), so the new file needs no
+type-migration exemption — first split that doesn't need one. `app/globals.css`: 1,516 → 1,501
+lines. New `app/styles/calibration.css`: 16 lines. `npm run build` and `npm run lint:css` both
+clean (518 warnings, 0 errors, unchanged from baseline); grepped every `.calibration-*` selector in
+the moved list afterward to confirm no stray base-rule duplicates were left behind.
+
+**Skipped, with the overlap found:**
+- **Bottom navigation / floating glass bar** (~223 lines) — the largest remaining single-comment
+  section, but not a clean single feature: it also carries the availability grid, home dashboard
+  views, match-hero and player-badge rules. `.availability-grid-*`, `.availability-date-*`,
+  `.match-hero` and `.player-badge` already appear in `app/styles/matchmaking.css` (7 hits) —
+  splitting this block as-is would either duplicate those selectors across two files or risk
+  flipping which one wins, the exact "later rule wins" failure mode this file has documented
+  history of. Needs picking apart by sub-feature first, not moved as one block.
+- **PLAYER CARD** (~274 lines) — despite the heading, the block sprawls well past the profile
+  sheet into match entry, the players tab, the ranking table, matchmaking status and generic
+  material/motion polish (`.shell`, `.card` press states). Not a bounded feature; would need
+  breaking into several smaller, separately-checked slices.
+- **MATCHMAKING** (~144 lines, `.mm-*` family) — `.mm-card`/`.mm-head`/`.mm-count` etc. are already
+  declared (in `@layer components`) by `app/styles/matchmaking.css`. The unlayered rules here
+  currently lose to nothing because nothing else targets them directly, but moving them into a
+  second, separately-ordered file for the same selectors is exactly the overlap risk the task
+  called out — left in place rather than risk a cascade-layer interaction that's hard to verify
+  without a working screenshot tool.
+- **Match entry** (~162 lines) — same problem as Bottom navigation: the heading undersells it, the
+  block actually spans match-entry, the calendar, member auth, the admin roster and the member
+  dashboard. Not a single-feature boundary as-is.
+
+Same conclusion as the cup slice: the clean, low-risk cuts are the small, tightly-scoped
+comment sections, not the large ones — a big block's size usually means it accumulated multiple
+features over time rather than staying one bounded thing. Future slices should look for the next
+small, single-prefix section (e.g. the `.calibration-card`/`.calibration-stats` settings-promo
+block once its own boundary is checked) rather than reaching for the biggest remaining block by
+line count.
