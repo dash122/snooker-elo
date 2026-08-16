@@ -75,13 +75,23 @@ defined. If you need a colour that doesn't exist, add a **named** token — don'
 
 ## The exemption list
 
-`app/globals.css` and `app/elo-guide/guide.css` predate this system and are exempt from the
-strict font-size rule (not the breakpoint rule; colour is a warning everywhere, not part of this
-list). That list lives in `.stylelintrc.json` and **may only ever get shorter**. As each page is
-migrated onto tokens, delete its entry. When the array is empty, the migration is finished.
+`app/globals.css` is exempt from the strict font-size rule (not the breakpoint rule; colour is a
+warning everywhere, not part of this list) because it predates this system. That list lives in
+`.stylelintrc.json` and **may only ever get shorter**. As each page is migrated onto tokens, delete
+its entry. When the array is empty, the migration is finished.
 
 `app/login/auth.css` came off the list in phase 03 slice 5 — it's the first file to fully clear the
 type migration.
+
+`app/elo-guide/guide.css` is exempt too, but for a different reason — as of 2026-08-16 this is a
+closed decision, not an open TODO. It lives in its own override block in `.stylelintrc.json`,
+separate from the shrinking `globals.css` list, because it isn't migration debt: it's a
+self-contained marketing/explainer page with its own deliberate type scale (Barlow Condensed
+display faces, a `.7rem`–`1.2rem` body range, heavy `clamp()` use) that predates and intentionally
+doesn't match the app's 8-role scale. Forcing it onto `--fs-*` would fight the page's own editorial
+design rather than fix an inconsistency, so it stays permanently exempt unless someone makes an
+explicit design decision to give it its own dedicated token set — that would be new work, not a
+mechanical migration, and isn't planned.
 
 Never add a file to it.
 
@@ -107,7 +117,7 @@ the live scoreboard. As of the last commit on `main`:
 | Breakpoints | 22 | 5 | 5 |
 | `!important` | 100 | 85 | 0 |
 | `globals.css` lines | 4,825 | 1,794 | < 500 |
-| Type-exemption-list files | 3 | 2 | 0 |
+| Type-migration-debt files | 3 | 1 | 0 |
 | Distinct hex colours | 605 | 432 | < 20 |
 
 Done: home view, player profile sheet, the sub-11px floor across match/H2H/matchmaking/cup
@@ -190,23 +200,24 @@ Not done, in rough priority order:
    working down that frequency list further, each one needing the same judgment-call-plus-context-read
    as pass 4, or accepting a lower frequency cutoff isn't worth a named token and leaving it literal.
 2. **Token adoption is at 65%, not 100%** — 121 flat literal sizes (12–26px, no existing responsive
-   behaviour) were retargeted onto tokens this session, but plenty remain *inside* `@media` blocks —
-   those are hand-computed tablet/phone step-downs (11.2px, 12.48px, 13.44px...) that mirror the
-   token scale's own responsive steps. Replacing those with a flat desktop token would silently
-   remove that responsiveness, so they need page-by-page visual QA rather than a blanket regex, same
-   as the earlier "don't touch media-scoped literals" caution.
-3. **`elo-guide/guide.css` is a different case from `auth.css`**, not just a smaller one: it's a
-   self-contained marketing/explainer page with its own deliberate type scale (Barlow Condensed
-   display faces, a `.7rem`–`1.2rem` body range, heavy use of `clamp()`) that doesn't map cleanly
-   onto the app's 8-role scale — forcing it there would fight the page's own editorial design rather
-   than fix an inconsistency. Before migrating it, decide whether it should (a) get its own small
-   dedicated token set, or (b) stay permanently exempt as a one-off landing page. Don't just retarget
-   its literals onto `--fs-*` mechanically the way `auth.css` was.
-4. `globals.css` is still 1,794 lines — no page has been fully extracted into its own file yet, so
+   behaviour) were retargeted onto tokens, plus the 4 `input,select,textarea{font-size:16px}`
+   literals inside media blocks (an unambiguous case: retargeted onto `--fs-input`, the token that
+   exists specifically for that role and never steps down). Most of what's left *inside* `@media`
+   blocks is harder: hand-computed tablet/phone step-downs (11.2px, 12.48px, 13.44px...) that mirror
+   the token scale's own responsive steps, or one-off heading/icon/score-display sizes that don't
+   cleanly match a text-role token at all. Replacing those needs a per-declaration check against what
+   that breakpoint's token actually resolves to (not just "does the number look close"), so it's
+   page-by-page visual QA rather than a blanket regex.
+3. `globals.css` is still 1,794 lines — no page has been fully extracted into its own file yet, so
    the file stays on the stylelint exemption list. Not strictly required for consistency (tokens +
    lint enforce that regardless of file layout) — it's a lower-priority cleanup for the `!important`
    / dead-rule readability problem specifically, not the colour/type standardization problem. Still
    worth doing eventually; just after the colour and type work above.
+
+**Resolved:** `elo-guide/guide.css`'s exemption status was an open TODO as of the previous session;
+it's now a closed decision — see "The exemption list" above. It stays permanently exempt by design,
+split into its own `.stylelintrc.json` override block so it's no longer conflated with
+`globals.css`'s shrinking migration-debt list.
 
 Each slice in the git history follows the same pattern and is safe to copy: retarget hard-coded
 sizes onto tokens, verify at 320/375/393px by measuring computed styles (not by eyeballing),

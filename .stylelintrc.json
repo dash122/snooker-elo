@@ -40,9 +40,17 @@
       }
     },
     {
-      "_comment": "THE EXEMPTION LIST for the type rule. These files predate the design system. This array may only ever get shorter: as each page is migrated out of globals.css, delete its entry. When it is empty, the migration is finished. Never add to it.",
+      "_comment": "THE EXEMPTION LIST for the type rule -- migration debt, not a design decision. This array may only ever get shorter: as each page is migrated out of globals.css, delete its entry. When it is empty, the migration is finished. Never add to it.",
       "files": [
-        "app/globals.css",
+        "app/globals.css"
+      ],
+      "rules": {
+        "declaration-property-value-allowed-list": null
+      }
+    },
+    {
+      "_comment": "elo-guide/guide.css is a DELIBERATE, PERMANENT exception, not migration debt -- do not read this as a shrinking-list entry. It's a self-contained marketing/explainer page with its own intentional type scale (Barlow Condensed display faces, a .7rem-1.2rem body range, heavy clamp() use) that predates and deliberately doesn't match the app's 8-role --fs-* scale. Forcing it onto --fs-* would fight the page's own editorial design rather than fix an inconsistency -- see docs/design-system.md's \"Where this stands\" section for the reasoning. If this page ever gets its own dedicated token set, that's a separate design decision to make explicitly, not a mechanical migration.",
+      "files": [
         "app/elo-guide/guide.css"
       ],
       "rules": {
