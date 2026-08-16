@@ -512,3 +512,72 @@ features over time rather than staying one bounded thing. Future slices should l
 small, single-prefix section (e.g. the `.calibration-card`/`.calibration-stats` settings-promo
 block once its own boundary is checked) rather than reaching for the biggest remaining block by
 line count.
+
+## Untangling the four deferred sections (2026-08-16) — the `.mm-*` finding, and why the rest stayed put
+
+Went back into the four sections the previous entry flagged as "not a clean single feature" (bottom
+nav, PLAYER CARD, MATCHMAKING, match entry) to pick them apart by sub-feature rather than move them
+as one block, per the task brief. One definitive, reportable finding came out of it; the rest turned
+out too interleaved to safely cut in this pass.
+
+**`.mm-*` in `globals.css` vs `app/styles/matchmaking.css`'s `@layer components` block — resolved.**
+Enumerated every `.mm-*` selector in each file (`grep -oE '\.mm-[a-zA-Z0-9_-]+'`). Only one name is
+shared: `.mm-card`. Every other `.mm-*` class in the globals.css MATCHMAKING section (`.mm-ask`,
+`.mm-row`, `.mm-play-*`, `.mm-head`, `.mm-count`, `.mm-note`, `.mm-searching-*`, `.mm-segmented`,
+`.mm-exit(s)`, `.mm-see-all`/`-more`, `.mm-prog`, `.mm-withdraw`, `.mm-footer-links`,
+`.mm-more-games`) is unique to globals.css and doesn't appear in `matchmaking.css` at all — the
+`.mm-*` naming similarity across the two files is coincidental for those, not the same feature
+re-declared.
+
+For the one real overlap, `.mm-card`, checked property-by-property rather than trusting the
+selector match alone. `globals.css`'s bare `.mm-card{margin-top:var(--sp-3-5);border-radius:17px}`
+is unlayered. `matchmaking.css`'s `@layer components` block declares `.mm-card` only inside compound
+selectors: `background`/`border`/`border-radius`/`box-shadow` (shared with
+`.availability-card`/`.session-card`/etc., line 15), `padding`/`margin-block` (line 18), plus two
+`@media`-scoped `padding`/`border-radius` re-declarations. Per the cascade-layer spec, an unlayered
+declaration always wins over a layered one for the same property on the same selector, regardless
+of specificity or source order — so:
+
+- **`border-radius` is confirmed dead code.** Both files declare it for bare `.mm-card`, at
+  different values (globals: `17px`; matchmaking.css: `var(--ds-radius-card)` = `1.25rem`/20px, plus
+  its own further `@media` overrides). The layered value can never win. Every `.mm-card` on the page
+  renders at 17px; the `--ds-radius-card`/media-scoped border-radius rules in `matchmaking.css` are
+  unreachable — real dead code from an incomplete migration, not a naming coincidence.
+- `background`, `border`, `box-shadow`, `padding`, and the bottom half of `margin-block` are **not**
+  overridden — globals.css never sets those properties on bare `.mm-card`, so matchmaking.css's
+  layered rules for them do apply. Only `margin-block-start` (the top-margin component) loses to
+  globals.css's unlayered `margin-top`; `margin-block-end` still applies.
+
+Per the task instructions this is reported, not fixed — deleting the losing declaration is a
+separate decision (and would need its own visual check, since matchmaking.css's `@media(max-width:820px)`
+`border-radius` re-declaration is *also* dead, which someone maintaining that file wouldn't
+otherwise know).
+
+**Splitting `.mm-*` out of globals.css itself was not attempted this pass**, even though only one
+selector collides: the MATCHMAKING comment block in globals.css (~1185-1417) is not actually a
+single feature once read closely — it runs `.mm-*` (session/queue cards) straight into `.next-up`/
+`.free-now-*` (the top-of-tab zone), `.push-strip*` (notification opt-in), `.share-*` (the
+match-result share page), and then a second, separately-headed block, "Matchmaking marketplace
+refresh" (`.sl-*`, the two-sided session marketplace, ~200 more lines) before the section ends.
+These sub-features look separable in principle (distinct prefixes, no cross-references found on a
+first grep pass), but the block is minified to one selector block per line in the source, which
+makes a careful line-by-line boundary check materially slower and more error-prone than the cup/
+calibration splits (which were already broken across many short lines). Given the time available,
+verified the `.mm-card` question definitively (the specific ask in the task) but did not verify
+selector-overlap for `.next-up`/`.free-now`/`.push-strip`/`.share-*`/`.sl-*` against the rest of the
+codebase closely enough to move any of them safely — left as the next follow-up, in the same
+"small pieces at a time" style as the cup/calibration slices.
+
+**Bottom navigation, PLAYER CARD, and Match entry** were re-read to identify their actual
+sub-features (bottom nav: nav shell + availability-grid/date rules already duplicated into
+matchmaking.css + match-hero/player-badge rules; PLAYER CARD: profile sheet + match-entry rows +
+players-tab list + ranking table + matchmaking-status chips + generic `.shell`/`.card` press-state
+polish; match entry: the entry form + a calendar widget + member-auth forms + admin roster + member
+dashboard). The sub-feature boundaries are visible from the selector prefixes, but none were split
+this pass — same reason as `.mm-*`'s sibling classes above: confirming each sub-feature's selectors
+are truly unique across the whole codebase (globals.css remainder, every `app/styles/*.css`,
+`guide.css`, `auth.css`) is the part that takes real time per the cup/calibration method, and doing
+it properly for four ~150-270-line, single-line-per-rule blocks wasn't achievable to the same
+verification bar in this session. No file was moved, so `globals.css` stays at 1,501 lines — build
+and `lint:css` remain unchanged at the 518-warning/0-error baseline throughout (no edits were made
+to any CSS file this pass, only this documentation entry).
