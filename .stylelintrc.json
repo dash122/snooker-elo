@@ -63,7 +63,8 @@
         "app/styles/admin-roster.css",
         "app/styles/member-dashboard.css",
         "app/styles/players-tab.css",
-        "app/styles/modal-sheet.css"
+        "app/styles/modal-sheet.css",
+        "app/styles/matchmaking-status.css"
       ],
       "rules": {
         "declaration-property-value-allowed-list": null
