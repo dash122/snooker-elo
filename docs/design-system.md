@@ -123,7 +123,7 @@ the live scoreboard. As of the last commit on `main`:
 | Token adoption (type) | 29% | 67% | 100% |
 | Breakpoints | 22 | 5 | 5 |
 | `!important` | 100 | 85 | 0 |
-| `globals.css` lines | 4,825 | 1,501 | < 500 |
+| `globals.css` lines | 4,825 | 1,232 | < 500 |
 | Type-migration-debt files | 3 | 1 | 0 |
 | Distinct hex colours | 605 | 424 | < 20 |
 | Token adoption (spacing) | not tracked before | 62% | 100% |
@@ -936,3 +936,91 @@ columns, already order-independent).
 dents the line count). `npm run build` and `npm run lint:css` both clean throughout (518 warnings, 0
 errors — unchanged from baseline); grepped every moved selector afterward to confirm no stray
 base-rule duplicate was left in `globals.css`, only the documented additive exceptions above.
+
+## Splitting globals.css by feature — sixth pass: entertainment and the modal-sheet close button (2026-08-16)
+
+Went through the four items the fifth pass left open (profile-sheet core + modal-sheet close button,
+entertainment/team-name-grid, matchmaking-status/invite inbox, material+motion polish), applying the
+`@layer legacy` structural finding from that pass to each before moving anything.
+
+**The structural finding changes the risk calculus, but not uniformly.** Since every already-split
+file is unlayered and everything remaining in `globals.css` sits in `@layer legacy`, moving a
+selector out is *safe by construction* whenever the block being moved is already the winning
+declaration for its colliding properties (i.e. it's the last same-specificity declaration for that
+selector/property in `globals.css`'s own source order today) — moving it to an unlayered file only
+makes that win unconditional, it can't flip anything. It is **not** safe when a *later* rule still in
+`globals.css` currently wins over the block being moved — moving would flip which one renders, since
+the moved rule would go from "loses by source order" to "wins by layer priority" (unlayered always
+beats `@layer legacy`, regardless of source order). Both cases had to be checked per-selector, not
+assumed from the general finding.
+
+**Split 1: entertainment/team-name-grid**, merged into `app/styles/match-entry-form.css` (the doc's
+own suggested destination from the fifth pass). `.entertainment-*`, `.match-entertainment-badge`,
+`.match-row-entertainment`, `.match.entertainment` (and its `>div.match-board`/`>.match-body`/
+`.scoreline-elo` descendants), `.match-row-delta.neutral`, `.team-name-grid` — checked against
+`match-entry-form.css` (no bare `.match`/`.scoreline-elo`/`.match-board`/`.match-body` selectors
+there), `cup.css` (`.match.is-cup .match-board` is a different compound selector, additive, no
+property collision), and `globals.css`'s own later `.match-board{border-top:...}` (UI-consistency
+block, additive, different property, and lower specificity than `.match.entertainment>div.match-board`
+regardless). `.match-row-delta.neutral{color:...}` only sets `color`; `member-dashboard.css`'s base
+`.match-row-delta` rule never sets `color`, so no collision there either. Zero risk case: the
+entertainment compound selectors are already the winning declaration by specificity today (0,2,0 /
+0,3,0 vs `.match-board`'s 0,1,0), so moving them to unlayered only reinforces the existing win.
+
+**Split 2: the generic modal-sheet close button**, `.sheet-shell`/`.close` (and the
+`.player-detail-sheet`/`.match-entry-sheet` variants), into new `app/styles/modal-sheet.css`. This is
+the "safe by construction" case: `.close` is also declared at the very top of `globals.css` (the base
+ruleset) and once more in a desktop-only override further down, both same specificity (0,1,0) as this
+section's `.close` — but this section's declaration is textually *last* among the three, so it already
+wins every contested property (`position`, `top`, `width`/`height`) by ordinary same-layer cascade
+order today. Moving it to an unlayered file changes *why* it wins (layer priority instead of source
+order) but not *that* it wins — zero rendered difference. Also checked the one other `.close`
+reference, a shared `min-height:var(--control-md)` rule inside the "UI consistency contract"
+`@media(max-width:820px)` block (`.bottom button,.close,...`): it's not `!important`, and this
+section's own `.close{min-height:0!important}` is — `!important` beats non-`!important` regardless of
+layer or source order, so that property was already decided independently of this move, both before
+and after. No overlap found against any already-split file (`cup.css` only has the differently-named
+`.share-sheet-shell`).
+
+`app/globals.css`: 1,311 → 1,232 lines. `match-entry-form.css` already carried the type-migration
+exemption; `modal-sheet.css` was added to it (one un-migrated `font-size:1.375rem`). `npm run build`
+and `npm run lint:css` both clean after each split (518 warnings, 0 errors — unchanged from baseline);
+grepped every moved selector afterward to confirm no stray base-rule duplicate was left behind.
+
+**Left un-split, with the specific reason each is NOT the "safe by construction" case:**
+- **Profile-sheet core** (`.profile-head`, `.profile-hero-elo`, `.profile-chips`, `.profile-body`,
+  `.profile-section*`, `.profile-stats`, `.rating-compare`, `.rivalry-*`, `.slot-*`,
+  `.player-card.rich`, `.player-main`, `.player-card-foot`, `.profile-hero-form`/`.profile-form-dots`/
+  `.profile-snapshot-*`) — unlike the modal-sheet close button, this is the *unsafe* direction: the
+  fifth pass found that grouped typography rules *later* in `globals.css` (e.g. `.player-main h3`,
+  `.player-main p b` font-size) currently win over this section's declarations by source order (later
+  same-specificity wins within `@layer legacy`). Moving the profile-sheet block to an unlayered file
+  would flip that — the moved block would start winning unconditionally over rules that currently
+  beat it, a real rendering change, not just a mechanism change. Every one of these later-collision
+  selectors needs the same per-property check the `.close` case got (confirm each one is or isn't
+  already losing to something after it in the file) before any of this section can move — not
+  attempted this pass, same reason as the fifth pass gave: real time per selector, ~150 lines, not
+  achievable to the verification bar in this session.
+- **Matchmaking status / invite inbox** (`.availability-page`, `.availability-grid-*`,
+  `.matchmaking-status-*`, `.invite-*`, `.follow-up-card`, `.open-call-*`, `.home-view-nav` mobile
+  override, `.pull-refresh`) — re-confirmed the 21-hit overlap against `matchmaking.css` and 2-hit
+  overlap against `core-ranking.css` (`.home-view-nav`) from the fifth pass still stands. Both of
+  those files are themselves in named `@layer`s (`matchmaking.css`/`core-ranking.css` are
+  `@layer components`), not unlayered — so unlike the two splits above, moving this content changes
+  a genuine cross-layer relationship (`@layer legacy` vs `@layer components`, not `@layer legacy` vs
+  unlayered), which needs its own layer-order check (which named layer was declared first in
+  `app/layout.tsx`'s CSS, since among two named layers the *first-declared* layer loses) before any
+  move — a materially different and unverified question from the one the structural finding answered.
+  Left in place.
+- **Material + motion polish** (`.shell`, `.table-card,.match,.player-card,...` shared box-shadow,
+  `.primary,.secondary,.danger,...` transition rule, `@keyframes snooker-settle`,
+  `prefers-reduced-motion` guards) — same named-layer problem as matchmaking-status: it overlaps six
+  already-split files, and several of those (`core-ranking.css`, `matchmaking.css`) are
+  `@layer components`, not unlayered, so the same layer-order (not just layer-vs-unlayered) check
+  applies. Not attempted this pass.
+
+Same conclusion as every prior slice: the structural finding meaningfully de-risks moves *out of*
+`@layer legacy` into an unlayered file, but only when checked to confirm the moved content is already
+winning its property collisions today — it does not de-risk moves that collide with content in
+*another named layer* (`matchmaking.css`/`core-ranking.css`'s `@layer components`), which still needs
+the original, more conservative layer-order verification.
