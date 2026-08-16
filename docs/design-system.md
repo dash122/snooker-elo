@@ -122,8 +122,8 @@ the live scoreboard. As of the last commit on `main`:
 | Sub-11px declarations | 270 | 1 | 0 |
 | Token adoption (type) | 29% | 67% | 100% |
 | Breakpoints | 22 | 5 | 5 |
-| `!important` | 100 | 23 | 0 |
-| `globals.css` lines | 4,825 | 1,232 | < 500 |
+| `!important` | 100 | 22 | 0 |
+| `globals.css` lines | 4,825 | 1,227 | < 500 |
 | Type-migration-debt files | 3 | 1 | 0 |
 | Distinct hex colours | 605 | 424 | < 20 |
 | Token adoption (spacing) | not tracked before | 62% | 100% |
@@ -1088,3 +1088,107 @@ declaration count: 53 → 17). Remaining 23 are the accessibility guard (8, redu
 the iOS `@supports` case and the `.term-tip` cascade finding (2, flagged above, not fixed), the
 `matchmaking.css` cross-layer escape hatch (2), the `modal-sheet.css` sibling-rule fight (3), and
 comment-only mentions of the word `!important` left over in explanatory prose (8, harmless).
+
+## Closing out phase 3: the three remaining tangled sections, and `.term-tip` (2026-08-16)
+
+Went back through the three sections the sixth pass left open (profile-sheet core, matchmaking-
+status/invite inbox, material+motion polish) and fixed the `.term-tip` finding flagged three
+entries above. Foundation for all three: read `app/styles/foundation.css`'s own
+`@layer reset, tokens, base, layout, components, utilities, legacy;` statement closely for the
+first time (previous passes established *that* `matchmaking.css`/`core-ranking.css` are
+`@layer components` and asked "which named layer wins" without answering it). That statement is
+the actual, authoritative layer order: `legacy` is declared **last**, so it outranks `components`
+and every other named layer, unconditionally. This explains, precisely, why globals.css's
+`.mm-card`/`.elo-preview`/`.availability-*` declarations already won over `matchmaking.css`'s/
+`core-ranking.css`'s layered ones in every prior finding — not a coincidence, a direct
+consequence of this order statement. It also means: content still in `@layer legacy` that
+collides with `@layer components` content is safe to move to an unlayered file *whenever
+globals.css's declaration is the one currently winning* — moving only makes that win
+unconditional instead of layer-order-conditional. It is **not** safe when globals.css's own later
+same-layer content (not another file) is the thing currently winning over the block being moved.
+
+**Split: matchmaking-status / invite inbox**, mostly. `.availability-page`, `.availability-grid-*`,
+`.matchmaking-status-*`, `.invite-*`, `.follow-up-card`, `.open-call-*`, `.pull-refresh` → new
+`app/styles/matchmaking-status.css` (unlayered). Checked all 21 `matchmaking.css` hits and the
+`core-ranking.css` hits via the layer-order finding above: safe by construction, since
+`matchmaking.css` is `@layer components` and already loses to `@layer legacy`. Two real risks were
+found and handled rather than assumed away:
+- The `.availability-page{overflow-x:clip}` base rule and its `@media(max-width:820px)
+  {.availability-page{overflow-x:visible}}` override lived in *different* parts of the original
+  file (the override was in the later "UI consistency contract" section). Moved both together, in
+  the right order, so the override still lands after the base rule in the new file — moving only
+  the base rule would have silently dropped the ≤820px behaviour.
+- **`.home-view-nav`'s mobile-nav override was found to be unsafe and left in `globals.css`.** It
+  collides property-by-property with two *later* grouped rules still in `globals.css`'s own "UI
+  consistency contract" (`margin-inline` at ≤1180px, `width` at ≤820px) that currently win those
+  specific longhand properties by ordinary same-layer source order — this override is declared
+  earlier than both. Moving it to an unlayered file would make it win unconditionally instead,
+  flipping those two properties at the breakpoints where both media queries match. This is exactly
+  the failure mode the task warned against, caught before it shipped by tracing every remaining
+  hit of the moved selector set through the rest of `globals.css`, not just the two other files.
+
+`app/globals.css`: 1,232 → 1,227 lines. New `app/styles/matchmaking-status.css`: 35 lines, added to
+the shrinking type-migration exemption list (one un-migrated `11px` literal). `npm run build` and
+`npm run lint:css` clean throughout (518 warnings, 0 errors); grepped every moved base selector
+afterward to confirm no stray duplicate remained.
+
+**Left un-split: profile-sheet core.** Ran the same per-selector audit the `.close` case set as the
+template: extracted every selector in `.profile-head`/`.profile-hero-elo`/`.profile-section*`/
+`.player-main`/`.rivalry-*`/`.slot-*`/`.player-card.rich`/`.player-card-foot`/`.profile-hero-form`/
+`.profile-form-dots`/`.profile-snapshot-*` (~150 lines) and grepped the rest of `globals.css` for
+each. Confirmed real, same-layer collisions on several: `.player-main h3`, `.player-main p b`,
+`.profile-stats b`, `.rating-compare b` all have their `font-size` re-declared by a *later* grouped
+typography rule elsewhere in `globals.css` (part of the same `@layer legacy`) — e.g.
+`.match h3,.player-main h3,...{font-size:var(--fs-h3)}` followed later by more grouped rules
+retargeting some of the same selectors to `--fs-lead`/`--fs-stat`. Because these later rules are
+textually *after* the profile-sheet section, they currently win by ordinary source order within
+the same layer. Moving the profile-sheet section to an unlayered file would flip that: the moved
+block would go from "loses to a later same-layer rule" to "wins unconditionally over anything left
+in `@layer legacy`" — a real rendering change, not just a mechanism change. One collision resolved
+harmlessly during this check (`.profile-head h2`: an intermediate grouped rule sets it to
+`--fs-h3`, but a later rule resets it back to `--fs-h2` — the same value the profile-sheet section
+itself declares, so that one specific property is not actually at risk), but the others are real
+and would need the full "confirm current winner, confirm it's the intended one" verification the
+`.close` case got, selector by selector, across roughly a dozen colliding declarations. Not
+completed to that bar this pass — same conclusion as the sixth pass, now backed by an actual grep
+of every colliding property rather than the general risk description.
+
+**Left un-split: material + motion polish.** Checked `foundation.css` first, per the task's own
+suggestion: it's a clean 24-line file with its own three named layers (`base`/`layout`/`utilities`)
+plus one unlayered accessibility escape hatch, and declares no selector this block would collide
+with directly. But the block itself (`.shell`, the shared `.table-card,.match,.player-card,...`
+box-shadow rule, the `.primary,.secondary,.danger,...` transition rule, `@keyframes
+snooker-settle`, the `prefers-reduced-motion` guards) has real selector overlap in six already-
+split files, and — per the layer-order finding above — two of those six (`matchmaking.css`,
+`core-ranking.css`) are `@layer components`, the rest (`admin-roster.css`, `components.css`,
+`cup.css`, `match-entry-form.css`) are unlayered. That second group is the genuinely unresolved
+risk: an unlayered-vs-unlayered collision is decided by plain source/import order, which means
+merging this block into `foundation.css` (imported *first*, before every one of those six files)
+could flip who wins for any selector where one of those files currently wins by being imported
+later than where this block currently sits (inside `globals.css`, i.e. after all of them, per the
+layer-order finding). Confirming that requires the same per-selector property audit as the
+profile-sheet case, across a broader, more heavily-reused selector set (`.match`, `.player-card`,
+`.hero`, `.setting` are generic names touched by many components) — not attempted this pass.
+`globals.css` stays at 1,227 lines from this section; only the two Item A2/Item B changes above
+moved the number this pass.
+
+**Fixed: `.term-tip` (Item B).** `--ds-text-on-danger` (`tokens.css`) resolves to `#fff` — byte-
+identical to the `.calibration-card .term-tip{color:white}` value it was shadowing via
+`!important`. Checked why: `.term-tip` is an absolutely-positioned popup with its own
+`background:var(--ds-surface-inverse)` (a dark navy bubble), so its text colour is chosen for
+legibility against *that* background, not against whatever page content it floats over —
+`.calibration-card`'s own dark-green gradient background was never actually the relevant contrast
+pair, since the tooltip always paints its own surface underneath its text. Conclusion: this was
+dead code, not a live readability bug — both declarations already rendered identically wherever
+`.term-tip` appeared. Fixed by dropping the now-fully-redundant `.calibration-card .term-tip`
+override and removing the `!important` from `.term-tip`'s own `color` (nothing left for it to
+defeat). **Zero-visual-change fix**, unlike the "may be a genuine visual fix" the task flagged as
+possible — the values were already identical, so being honest about that rather than writing this
+up as a bigger fix than it was. `npm run build`/`npm run lint:css` clean (518 warnings, 0 errors).
+Raw `!important` count: 23 → 22.
+
+Phase 3 closes with two of the three tangled sections at least partially untangled (matchmaking-
+status split, `.availability-page` risk caught and fixed) and one real bug avoided (`.home-view-nav`).
+Profile-sheet core and material+motion polish remain, now with a precise account of exactly which
+collisions block them and why — the next pass can skip straight to resolving those named
+collisions instead of re-discovering them.
