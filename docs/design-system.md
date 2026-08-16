@@ -581,3 +581,30 @@ it properly for four ~150-270-line, single-line-per-rule blocks wasn't achievabl
 verification bar in this session. No file was moved, so `globals.css` stays at 1,501 lines — build
 and `lint:css` remain unchanged at the 518-warning/0-error baseline throughout (no edits were made
 to any CSS file this pass, only this documentation entry).
+
+## Follow-up: fixed the `.mm-card` `border-radius` cascade-layer conflict
+
+Acted on the dead-code finding above. `.mm-card` was pulled out of the shared compound selector in
+`app/styles/matchmaking.css`'s `@layer components` block (both the base rule and the
+`@media(max-width:820px)` re-declaration) so it no longer carries a `border-radius` that can never
+apply; its live properties (`background`/`border`/`box-shadow`/`padding`, which globals.css doesn't
+touch for `.mm-card`) were kept in a dedicated `.mm-card{...}` rule instead.
+
+Chose **option (a): keep the live 17px value, delete the dead layered declarations** — not switch
+globals.css to `var(--ds-radius-card)` (20px). Reasoning: `.availability-card`, which shares the same
+compound selector and same `var(--ds-radius-card)` declaration in matchmaking.css, *also* gets its
+own independent unlayered `border-radius:17px` in globals.css (line 513) — a separate, deliberate-
+looking override, not a fluke limited to `.mm-card`. Two of the six selectors in that compound rule
+land on 17px this way while the rest (`.session-card`, `.availability-manage-card`,
+`.availability-opponent-card`, `.availability-date-selector`) get the 20px token untouched. That
+pattern reads as an intentional tighter radius for the two primary/featured card types rather than
+one stray forgotten value, so this was treated as the "not confident 20px is correct" case and
+resolved with the zero-risk choice.
+
+This is a **zero-visual-change fix** — the computed `.mm-card` border-radius stays 17px, exactly as
+it rendered before. Only the source-level bug (two declarations silently fighting, with the losing
+one invisible to anyone editing matchmaking.css) was removed. `.availability-card`'s equivalent
+(now-noticed) dead `border-radius` in the same compound selector was left alone — out of scope for
+this pass, which was `.mm-card`-only per the prior finding; flagging it here as a plausible next
+small follow-up if someone wants to run down the same evidence for that selector too. Build and
+`lint:css` stay clean at 0 errors / 518 warnings, same baseline as before this change.
