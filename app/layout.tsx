@@ -7,6 +7,7 @@ import "./styles/matchmaking.css";
 import "./styles/cup.css";
 import "./styles/calibration.css";
 import "./globals.css";
+import "./styles/bottom-nav.css";
 import { AddToHomeScreen } from "./components/AddToHomeScreen";
 
 export const metadata: Metadata = {

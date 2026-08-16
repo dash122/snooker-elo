@@ -608,3 +608,55 @@ one invisible to anyone editing matchmaking.css) was removed. `.availability-car
 this pass, which was `.mm-card`-only per the prior finding; flagging it here as a plausible next
 small follow-up if someone wants to run down the same evidence for that selector too. Build and
 `lint:css` stay clean at 0 errors / 518 warnings, same baseline as before this change.
+
+## Splitting globals.css by feature — third slice: bottom navigation (2026-08-16)
+
+Went back into the "Bottom navigation / floating glass bar" section the two previous entries
+flagged as mixed rather than moving it as one block. Confirmed by re-reading the ~223-line
+comment-delimited section (`app/globals.css`, was lines 564-785) that it genuinely bundles four
+unrelated things behind one heading: the `.bottom`/`.bottom-record` nav shell itself; a
+`.header-settings` icon that "left the tab bar" per its own inline comment (an account-controls
+concern, not navigation); the availability date-selector/grid (`.availability-date-*`,
+`.availability-grid-*`); and the home dashboard views (`.home-view-*`, `.recent-*`, `.trend-*`).
+
+**Moved — genuinely bottom-nav-only, verbatim, zero visual change:** the `.bottom`/`.bottom-record`
+rule set: the floating glass bar itself, its `@supports` fallback, button/active/record states, the
+`max-width:380px` and `prefers-reduced-motion` variants. New file `app/styles/bottom-nav.css`, 131
+lines. `app/globals.css`: 1,501 → 1,373 lines.
+
+**Import order deliberately does NOT follow the cup/calibration precedent.** Those files import
+*before* `globals.css`. This section's own comment says why that's wrong here: "earlier 820px blocks
+in this file define `.bottom` three separate times" (confirmed: `@layer legacy` near the top, and
+two more `@media(max-width:820px)` blocks later in the base/reset area) — the moved section was
+deliberately the *last* `.bottom` declaration in the file so it wins the cascade as the final layer.
+Importing `bottom-nav.css` before `globals.css` would let those earlier, weaker `.bottom` rules win
+instead, since they'd then be the ones declared latest. Added the import *after* `./globals.css` in
+`app/layout.tsx` instead, preserving the exact win order that existed before the split. The earlier
+three `.bottom` declarations were left in place, untouched — they're pre-existing, documented dead
+layers this section already overrides, not new dead code created by this move.
+
+**Left in `globals.css`, not moved, with reasons:**
+- `.header-settings` — a different feature (account controls), not bottom-nav; only shares the old
+  section heading by accident of file layout.
+- `.availability-date-*` / `.availability-grid-*` — checked against `app/styles/matchmaking.css`:
+  these selector families already appear there (7 hits total across `.availability-grid-*`,
+  `.availability-date-*`, `.match-hero`, `.player-badge`), inside `matchmaking.css`'s
+  `@layer components` block. The globals.css copies checked here are the *availability grid/date*
+  rules specifically (not `.match-hero`/`.player-badge`, which live in a different part of the same
+  old section, further down past the home-dashboard block, and weren't re-checked property-by-property
+  this pass). This is the same overlap the earlier entries flagged, not a new finding — reported here
+  again for completeness since it's what kept this sub-feature out of the move, not fixed. Per the
+  task instructions, left both copies in place rather than deleting either; resolving which one should
+  win (or whether they conflict on values) is a separate follow-up, same as the `.mm-card` finding
+  above.
+- Home dashboard views (`.home-view-*`, `.recent-*`, `.trend-overview`, `.chart-head .more`) — a
+  distinct feature (the home page's dashboard tabs), unrelated to navigation beyond sharing the old
+  section's heading. Left as its own future candidate slice.
+
+`npm run build` and `npm run lint:css` both clean after the move (518 warnings, 0 errors — unchanged
+from baseline). `app/styles/bottom-nav.css` carries the section's un-migrated literal `rem`/`px` font
+sizes (e.g. `font-size:1.6875rem` on the record button's icon), so it was added to the same shrinking
+type-migration exemption list in `.stylelintrc.json` that `cup.css` is on — migration debt, now
+relocated, not newly created. Grepped every moved `.bottom`/`.bottom-record` selector afterward to
+confirm no duplicate was left behind in `globals.css` (only the three pre-existing, intentionally
+overridden `.bottom` declarations remain, as documented above).
