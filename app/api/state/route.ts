@@ -35,9 +35,15 @@ export async function PUT(request: Request) {
     const data = await request.text();
     const currentRaw = await getState();
     let parsedNext: any; try { parsedNext = JSON.parse(data); } catch { return Response.json({ error: "Invalid state" }, { status: 400 }); }
-    if (currentRaw && !entertainmentOnlyWritePreservesOfficialState(JSON.parse(currentRaw), parsedNext)) return Response.json({ error: "Entertainment matches cannot change official ratings or statistics" }, { status: 400 });
+    const current = currentRaw ? JSON.parse(currentRaw) : null;
+    // A normal save must never interpret a partial or failed client fetch as a
+    // request to erase the club. Full reset has its own explicit DELETE route.
+    if (current?.players?.length && (!Array.isArray(parsedNext?.players) || parsedNext.players.length === 0)) {
+      return Response.json({ error: "Incomplete state; existing data was preserved" }, { status: 409 });
+    }
+    if (current && !entertainmentOnlyWritePreservesOfficialState(current, parsedNext)) return Response.json({ error: "Entertainment matches cannot change official ratings or statistics" }, { status: 400 });
     if (user.role !== "admin") {
-      if (!memberCanWrite(currentRaw ? JSON.parse(currentRaw) : null, parsedNext, user.statePlayerId)) return Response.json({ error: "You may only change your player profile or matches involving you" }, { status: 403 });
+      if (!memberCanWrite(current, parsedNext, user.statePlayerId)) return Response.json({ error: "You may only change your player profile or matches involving you" }, { status: 403 });
     }
     await putState(data);
     const next = parsedNext as { players?: { id: string; name: string; short: string; colour?: string | null }[] };

@@ -175,8 +175,8 @@ export async function createMemberWithPlayer(input: {
   await sql.begin(async tx => {
     await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
     await tx`
-      INSERT INTO state_players (id, name, short, handicap, rating, colour, initial_rating, preliminary_rating, active, wins, losses, draws, frames_won, frames_lost, last_change, form, updated_at)
-      VALUES (${p.id}, ${p.name}, ${p.short}, NULL, ${p.rating}, ${p.colour}, ${p.initialRating}, ${p.preliminaryRating ?? null}, true, 0, 0, 0, 0, 0, 0, ${tx.json([])}, now())
+      INSERT INTO state_players (id, name, short, handicap, rating, colour, initial_rating, active, wins, losses, draws, frames_won, frames_lost, last_change, form, updated_at)
+      VALUES (${p.id}, ${p.name}, ${p.short}, NULL, ${p.rating}, ${p.colour}, ${p.initialRating}, true, 0, 0, 0, 0, 0, 0, ${tx.json([])}, now())
     `;
     await tx`
       INSERT INTO state_audits (id, text, occurred_at) VALUES (${crypto.randomUUID()}, ${input.auditText}, ${now})

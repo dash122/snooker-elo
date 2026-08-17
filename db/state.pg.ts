@@ -152,7 +152,7 @@ export async function getState(): Promise<string | null> {
   await ensureStateSchema();
   const sql = getSql();
   const [players, matches, tournaments, settings, audits] = await Promise.all([
-    sql<Player[]>`SELECT id, name, short, handicap::float8 AS handicap, rating::float8 AS rating, colour, avatar, initial_rating::float8 AS "initialRating", preliminary_rating::float8 AS "preliminaryRating", active, wins, losses, draws, frames_won AS "framesWon", frames_lost AS "framesLost", last_change::float8 AS "lastChange", form FROM state_players ORDER BY name`,
+    sql<Player[]>`SELECT id, name, short, handicap::float8 AS handicap, rating::float8 AS rating, colour, avatar, initial_rating::float8 AS "initialRating", active, wins, losses, draws, frames_won AS "framesWon", frames_lost AS "framesLost", last_change::float8 AS "lastChange", form FROM state_players ORDER BY name`,
     sql<Match[]>`SELECT id, player_a AS a, player_b AS b, player_a2 AS a2, player_b2 AS b2, mode, team_a_name AS "teamAName", team_b_name AS "teamBName", score_a AS "scoreA", score_b AS "scoreB", to_char(played_on, 'YYYY-MM-DD') AS "playedOn", entry_mode AS "entryMode", frame_evidence::float8 AS "frameEvidence", performance_score::float8 AS "performanceScore", evidence_weight::float8 AS "evidenceWeight", handicap_adjustment::float8 AS "handicapAdjustment", over_handicap_elo::float8 AS "overHandicapElo", over_handicap_multiplier::float8 AS "overHandicapMultiplier", high_breaks AS "highBreaks", actual::float8 AS actual, giver, official::float8 AS official, extra::float8 AS extra, expected_a::float8 AS "expectedA", before_a::float8 AS "beforeA", before_b::float8 AS "beforeB", before_a2::float8 AS "beforeA2", before_b2::float8 AS "beforeB2", after_a::float8 AS "afterA", after_b::float8 AS "afterB", after_a2::float8 AS "afterA2", after_b2::float8 AS "afterB2", delta_a::float8 AS "deltaA", margin_multiplier::float8 AS "marginMultiplier", tournament_id AS "tournamentId", tournament_round AS "tournamentRound", tournament_match_index AS "tournamentMatchIndex", status, created_at AS "createdAt" FROM state_matches ORDER BY played_on, created_at, id`,
     sql<Tournament[]>`SELECT id, name, handicap_mode AS "handicapMode", to_char(signup_deadline AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD"T"HH24:MI') AS "signupDeadline", created_at AS "createdAt", created_by AS "createdBy", signups, draw, drawn_at AS "drawnAt", walkovers FROM state_tournaments ORDER BY created_at DESC`,
     sql<{data:Record<string, unknown>}[]>`SELECT data FROM state_settings WHERE id = true`,
@@ -226,13 +226,13 @@ export async function putState(data: string) {
     if (state.players.length) {
       const rows = state.players.map(p => ({
         id: p.id, name: p.name, short: p.short, handicap: p.handicap, rating: p.rating,
-        colour: p.colour ?? null, avatar: p.avatar ?? null, initial_rating: p.initialRating, preliminary_rating: p.preliminaryRating ?? null,
+        colour: p.colour ?? null, avatar: p.avatar ?? null, initial_rating: p.initialRating,
         active: p.active, wins: p.wins, losses: p.losses, draws: p.draws,
         frames_won: p.framesWon, frames_lost: p.framesLost, last_change: p.lastChange,
         form: tx.json(p.form), updated_at: new Date(),
       }));
       await tx`INSERT INTO state_players ${tx(rows)}
-        ON CONFLICT (id) DO UPDATE SET name=excluded.name,short=excluded.short,handicap=excluded.handicap,rating=excluded.rating,colour=excluded.colour,avatar=excluded.avatar,initial_rating=excluded.initial_rating,preliminary_rating=excluded.preliminary_rating,active=excluded.active,wins=excluded.wins,losses=excluded.losses,draws=excluded.draws,frames_won=excluded.frames_won,frames_lost=excluded.frames_lost,last_change=excluded.last_change,form=excluded.form,updated_at=excluded.updated_at`;
+        ON CONFLICT (id) DO UPDATE SET name=excluded.name,short=excluded.short,handicap=excluded.handicap,rating=excluded.rating,colour=excluded.colour,avatar=excluded.avatar,initial_rating=excluded.initial_rating,active=excluded.active,wins=excluded.wins,losses=excluded.losses,draws=excluded.draws,frames_won=excluded.frames_won,frames_lost=excluded.frames_lost,last_change=excluded.last_change,form=excluded.form,updated_at=excluded.updated_at`;
     }
     await tx`DELETE FROM state_players WHERE NOT (id = ANY(${playerIds}::text[]))`;
 
