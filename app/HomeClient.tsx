@@ -2212,7 +2212,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
             const suggested=suggestedHandicap(p,data);
             return <div className={`players-row${open?" open":""}${provisional?" provisional":""}`} key={p.id}>
               <button type="button" className="players-row-hit" aria-expanded={open} onClick={()=>setOpenId(current=>current===p.id?"":p.id)}>
-                <span className="players-row-badge"><PlayerBadge player={p}/><i className="players-row-free-dot" style={{background:free?"#4ade80":"#d7dbd4"}}/></span>
+                <span className="players-row-badge"><PlayerBadge player={p}/><i className="players-row-free-dot" style={{background:free?"var(--ds-chart-positive)":"var(--ds-border-muted)"}}/></span>
                 <span className="players-row-id">
                   <span className="players-row-name-line"><b>{p.name}</b><em className={`players-tag${provisional?" provisional":""}`}>{provisional?"臨時":`#${rank}`}</em></span>
                   <span className="players-row-meta">
