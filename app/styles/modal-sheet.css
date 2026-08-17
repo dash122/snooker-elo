@@ -85,10 +85,10 @@
    box and got clipped by `.sheet-shell`'s `overflow-x:hidden`. Scoping the
    fix to `.tournament-form` keeps every other sheet untouched. */
 .tournament-form{display:flex;flex-direction:column;gap:var(--sp-3-5)}
-.tournament-form label{margin-top:0}
+.tournament-form label{margin-top:0;width:100%;min-width:0}
 .tournament-form .mm-note{margin-top:0}
 .tournament-form .sheet-actions{margin-top:var(--sp-1)}
-.tournament-form input[type="datetime-local"]{padding-inline:var(--sp-2);min-width:0}
+.tournament-form input[type="datetime-local"]{box-sizing:border-box;width:100%;max-width:100%;padding-inline:var(--sp-2);min-width:0}
 @media(max-width:380px){
   .tournament-form input[type="datetime-local"]{padding-inline:var(--sp-1-5)}
 }
