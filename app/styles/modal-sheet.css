@@ -76,3 +76,19 @@
     box-shadow:none;
   }
 }
+/* --- Tournament create/edit form ------------------------------------------
+   `.sheet label` only sets margin-top, so anything that isn't a `<label>`
+   (the reopen note, the action row) sat flush against whatever came before
+   it. And the deadline field is a native datetime-local control: its
+   internal segments have a fixed intrinsic width that `width:100%` cannot
+   shrink below, so on a narrow phone it overflowed past the input's own
+   box and got clipped by `.sheet-shell`'s `overflow-x:hidden`. Scoping the
+   fix to `.tournament-form` keeps every other sheet untouched. */
+.tournament-form{display:flex;flex-direction:column;gap:var(--sp-3-5)}
+.tournament-form label{margin-top:0}
+.tournament-form .mm-note{margin-top:0}
+.tournament-form .sheet-actions{margin-top:var(--sp-1)}
+.tournament-form input[type="datetime-local"]{padding-inline:var(--sp-2);min-width:0}
+@media(max-width:380px){
+  .tournament-form input[type="datetime-local"]{padding-inline:var(--sp-1-5)}
+}
