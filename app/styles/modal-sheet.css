@@ -19,10 +19,23 @@
    36px wide — an oval, not a circle); forcing both here removes any ordering
    dependency on where this block sits in the file. */
 .sheet-shell{position:relative;width:min(680px,100%);max-height:calc(100dvh - 2.5rem);overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+/* Every sheet nests its own scroller (`.sheet` inside `.sheet-shell`) unless a variant
+   below flattens that to single-scroll. Without `overscroll-behavior:contain` here, a
+   swipe that runs out of sheet content chains into scrolling the page behind the
+   backdrop; without safe-area bottom clearance, the last row of content sits under the
+   iOS home-indicator. Both were previously true only for `.player-detail-sheet` and
+   `.match-entry-sheet` — generalising them here brings every other sheet (share,
+   settings, tournament form, confirm, sign-in, player form) up to the same baseline. A
+   variant's own rule further down the file still wins on equal specificity because it
+   is declared later, so this does not disturb their existing overrides. */
 @media(max-width:820px){.backdrop{
     padding-top:env(safe-area-inset-top);
   }.sheet-shell{
     max-height:calc(100dvh - env(safe-area-inset-top));
+  }.sheet-shell>.sheet{
+    overscroll-behavior:contain;
+    touch-action:pan-y;
+    padding-bottom:max(var(--sp-5),calc(env(safe-area-inset-bottom) + var(--sp-3)));
   }
 }.sheet-shell.player-detail-sheet{
   border-radius:26px;
