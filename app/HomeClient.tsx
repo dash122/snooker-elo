@@ -62,6 +62,9 @@ type Match = {
   beforeB2?: number;
   afterB2?: number;
   deltaA: number;
+  deltaB?: number;
+  deltaA2?: number;
+  deltaB2?: number;
   marginMultiplier?: number;
   status: "confirmed" | "void";
   createdAt: string;
@@ -133,6 +136,9 @@ const seed: AppState = {
 };
 
 function games(p: Player) { return p.wins + p.losses + p.draws; }
+function provisionalMultiplier(matchCount: number) {
+  return matchCount === 0 ? 2 : matchCount === 1 ? 1.5 : matchCount === 2 ? 1.25 : 1;
+}
 function eloToHandicap(eloDifference:number,s:Settings,averageRating:number){
   return eloDifference/handicapEloPerPoint(averageRating,s);
 }
@@ -379,16 +385,21 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
     const resultB=resultA==="D"?"D":resultA==="W"?"L":"W";
     const beforeA=teamAEntity.rating,beforeB=teamBEntity.rating;
     const beforeA2=a2?.rating,beforeB2=b2?.rating;
-    for(const player of teamA){ player.rating += result.deltaA; player.lastChange = result.deltaA; player.wins += resultA==="W"?1:0; player.losses += resultA==="L"?1:0; player.draws += resultA==="D"?1:0; player.framesWon += m.scoreA; player.framesLost += m.scoreB; player.form=[resultA,...player.form].slice(0,5); }
-    for(const player of teamB){ player.rating -= result.deltaA; player.lastChange = -result.deltaA; player.wins += resultB==="W"?1:0; player.losses += resultB==="L"?1:0; player.draws += resultB==="D"?1:0; player.framesWon += m.scoreB; player.framesLost += m.scoreA; player.form=[resultB,...player.form].slice(0,5); }
+    const deltaA = result.deltaA * provisionalMultiplier(games(a));
+    const deltaA2 = a2 ? result.deltaA * provisionalMultiplier(games(a2)) : undefined;
+    const deltaB = -result.deltaA * provisionalMultiplier(games(b));
+    const deltaB2 = b2 ? -result.deltaA * provisionalMultiplier(games(b2)) : undefined;
+    for(const [index,player] of teamA.entries()){ const delta=index===0?deltaA:deltaA2!; player.rating += delta; player.lastChange = delta; player.wins += resultA==="W"?1:0; player.losses += resultA==="L"?1:0; player.draws += resultA==="D"?1:0; player.framesWon += m.scoreA; player.framesLost += m.scoreB; player.form=[resultA,...player.form].slice(0,5); }
+    for(const [index,player] of teamB.entries()){ const delta=index===0?deltaB:deltaB2!; player.rating += delta; player.lastChange = delta; player.wins += resultB==="W"?1:0; player.losses += resultB==="L"?1:0; player.draws += resultB==="D"?1:0; player.framesWon += m.scoreB; player.framesLost += m.scoreA; player.form=[resultB,...player.form].slice(0,5); }
     const updatedMatch: Match = {
       ...m,
       expectedA: result.expectedA,
       beforeA,
       beforeB,
-      afterA: beforeA + result.deltaA,
-      afterB: beforeB - result.deltaA,
-      deltaA: result.deltaA,
+      afterA: beforeA + deltaA,
+      afterB: beforeB + deltaB,
+      deltaA,
+      deltaB,
       frameEvidence: result.frameEvidence,
       performanceScore: result.performanceScore,
       evidenceWeight: result.evidenceWeight,
@@ -398,8 +409,8 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
       status: m.status,
       createdAt: m.createdAt,
     } as Match;
-    if(a2){ updatedMatch.beforeA2 = beforeA2; updatedMatch.afterA2 = beforeA2! + result.deltaA; }
-    if(b2){ updatedMatch.beforeB2 = beforeB2; updatedMatch.afterB2 = beforeB2! - result.deltaA; }
+    if(a2){ updatedMatch.beforeA2 = beforeA2; updatedMatch.afterA2 = beforeA2! + deltaA2!; updatedMatch.deltaA2 = deltaA2; }
+    if(b2){ updatedMatch.beforeB2 = beforeB2; updatedMatch.afterB2 = beforeB2! + deltaB2!; updatedMatch.deltaB2 = deltaB2; }
     updated.set(m.id,updatedMatch);
   }
   return {players:rebuilt,matches:matches.filter(m=>m.status==="confirmed").map(m=>updated.get(m.id)??m)};
