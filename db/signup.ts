@@ -25,7 +25,7 @@ export async function signUpMember(input: {
     displayName: input.displayName,
     password: input.password,
     role: firstAccount ? "admin" : "member",
-    player: { id: playerId, name: displayName, short, colour: "#52796f", rating: initialRating, initialRating },
+    player: { id: playerId, name: displayName, short, colour: "#52796f", rating: initialRating, initialRating, preliminaryRating: null },
     auditText: `會員註冊並建立球員：${displayName}`,
   });
 

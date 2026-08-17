@@ -153,7 +153,7 @@ export async function checkSignupAvailability(username: string | null, email: st
 }
 
 export type NewSignupPlayer = {
-  id: string; name: string; short: string; colour: string; rating: number; initialRating: number;
+  id: string; name: string; short: string; colour: string; rating: number; initialRating: number; preliminaryRating?: number | null;
 };
 
 // Player row and member row must exist together or not at all — a single
@@ -175,8 +175,8 @@ export async function createMemberWithPlayer(input: {
   await sql.begin(async tx => {
     await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
     await tx`
-      INSERT INTO state_players (id, name, short, handicap, rating, colour, initial_rating, active, wins, losses, draws, frames_won, frames_lost, last_change, form, updated_at)
-      VALUES (${p.id}, ${p.name}, ${p.short}, NULL, ${p.rating}, ${p.colour}, ${p.initialRating}, true, 0, 0, 0, 0, 0, 0, ${tx.json([])}, now())
+      INSERT INTO state_players (id, name, short, handicap, rating, colour, initial_rating, preliminary_rating, active, wins, losses, draws, frames_won, frames_lost, last_change, form, updated_at)
+      VALUES (${p.id}, ${p.name}, ${p.short}, NULL, ${p.rating}, ${p.colour}, ${p.initialRating}, ${p.preliminaryRating ?? null}, true, 0, 0, 0, 0, 0, 0, ${tx.json([])}, now())
     `;
     await tx`
       INSERT INTO state_audits (id, text, occurred_at) VALUES (${crypto.randomUUID()}, ${input.auditText}, ${now})
@@ -209,6 +209,22 @@ export async function hasMembers() {
   const sql = getSql();
   const rows = await sql<{ count: number }[]>`SELECT COUNT(*)::int AS count FROM members`;
   return Number(rows[0]?.count ?? 0) > 0;
+}
+
+export async function savePreliminaryRating(email: string, preliminaryRating: number, finalRating: number, at: string) {
+  await Promise.all([ensureAuthSchema(), ensureStateSchema()]);
+  const sql = getSql();
+  const rows = await sql<{ statePlayerId: string | null; displayName: string }[]>`
+    SELECT state_player_id AS "statePlayerId", display_name AS "displayName"
+    FROM members WHERE email = ${email.trim().toLowerCase()} AND active = true
+  `;
+  const member = rows[0];
+  if (!member?.statePlayerId) return false;
+  await sql.begin(async tx => {
+    await tx`UPDATE state_players SET rating = ${finalRating}, initial_rating = ${finalRating}, preliminary_rating = ${preliminaryRating}, updated_at = now() WHERE id = ${member.statePlayerId}`;
+    await tx`INSERT INTO state_audits (id, text, occurred_at) VALUES (${crypto.randomUUID()}, ${`完成新會員評級：${member.displayName}（${finalRating} ELO）`}, ${at})`;
+  });
+  return true;
 }
 export async function updateMember(email: string, input: { username?: string; newEmail?: string; password?: string; currentPassword?: string }) {
   await ensureAuthSchema();
