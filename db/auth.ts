@@ -53,6 +53,9 @@ export async function adminUpdateMember(email: string, input: { username: string
 export async function hasMembers() {
   return backend.hasMembers();
 }
+export async function savePreliminaryRating(email: string, preliminaryRating: number, finalRating: number, at: string) {
+  return backend.savePreliminaryRating(email, preliminaryRating, finalRating, at);
+}
 export async function createSession(email: string) {
   return backend.createSession(email);
 }

@@ -1,0 +1,1 @@
+ALTER TABLE state_players ADD COLUMN IF NOT EXISTS preliminary_rating numeric;

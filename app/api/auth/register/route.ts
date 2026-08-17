@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     const result = await signUpMember({ username, email, displayName, password });
     return new Response(null, {
       status: 303,
-      headers: { location: new URL("/login?welcome=1", request.url).toString(), "set-cookie": result.cookie },
+      headers: { location: new URL("/onboarding", request.url).toString(), "set-cookie": result.cookie },
     });
   } catch (error) {
     console.error("registration error:", error);
