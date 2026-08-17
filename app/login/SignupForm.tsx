@@ -12,7 +12,7 @@ export default function SignupForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const usernameValid = username.trim().length >= 2;
+  const usernameValid = username.trim().length >= 3;
   const emailValid = email.trim().includes("@");
   const usernameCheck = useAvailabilityCheck("username", username, usernameValid);
   const emailCheck = useAvailabilityCheck("email", email, emailValid);
@@ -42,7 +42,7 @@ export default function SignupForm() {
       <label htmlFor="username">
         使用者名稱
         <input
-          id="username" name="username" autoComplete="username" required minLength={2}
+          id="username" name="username" autoComplete="username" required minLength={3}
           value={username} onChange={event => setUsername(event.target.value)}
           aria-invalid={usernameCheck.taken || undefined}
         />

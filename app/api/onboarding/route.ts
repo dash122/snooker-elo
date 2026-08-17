@@ -14,6 +14,7 @@ export async function POST(request: Request) {
   const q1 = typeof body?.q1 === "string" ? q1Scores.get(body.q1) : undefined;
   const q2 = typeof body?.q2 === "string" ? q2Scores.get(body.q2) : undefined;
   if (q1 === undefined) return Response.json({ error: "請完成第一條問題。" }, { status: 400 });
+  if (q1 === 700) return Response.json({ error: "✕ 需要能夠用白波擊中目標波先可以開帳戶。" }, { status: 400 });
   if (q1 === 1900 && q2 === undefined) return Response.json({ error: "請完成第二條問題。" }, { status: 400 });
 
   const finalRating = q1 === 1900 ? q2! : q1;

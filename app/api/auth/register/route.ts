@@ -13,9 +13,8 @@ export async function POST(request: Request) {
   const username = String(form.get("username") ?? "").trim();
   const displayName = String(form.get("displayName") ?? "").trim();
   const password = String(form.get("password") ?? "");
-  if (checkUsername(username) || checkEmail(email) || checkDisplayName(displayName) || checkPassword(password)) {
-    return Response.redirect(new URL("/login?mode=signup&error=invalid", request.url), 303);
-  }
+  const validationError = checkUsername(username) ?? checkEmail(email) ?? checkDisplayName(displayName) ?? checkPassword(password);
+  if (validationError) return Response.redirect(new URL(`/login?mode=signup&error=${validationError}`, request.url), 303);
   try {
     const result = await signUpMember({ username, email, displayName, password });
     return new Response(null, {

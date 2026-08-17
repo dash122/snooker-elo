@@ -7,6 +7,17 @@ const SESSION_COOKIE = "scaa_session";
 const SESSION_DAYS = 30;
 
 let schemaReady: Promise<unknown> | null = null;
+let preliminaryRatingSchemaReady: Promise<unknown> | null = null;
+function ensurePreliminaryRatingSchema() {
+  preliminaryRatingSchemaReady ??= (async () => {
+    const sql = getSql();
+    await sql.begin(async tx => {
+      await tx`SELECT pg_advisory_xact_lock(72591004)`;
+      await tx`ALTER TABLE state_players ADD COLUMN IF NOT EXISTS preliminary_rating numeric`;
+    });
+  })().catch(error => { preliminaryRatingSchemaReady = null; throw error; });
+  return preliminaryRatingSchemaReady;
+}
 function ensureAuthSchema() {
   schemaReady ??= (async () => {
     const sql = getSql();
@@ -212,7 +223,7 @@ export async function hasMembers() {
 }
 
 export async function savePreliminaryRating(email: string, preliminaryRating: number, finalRating: number, at: string) {
-  await Promise.all([ensureAuthSchema(), ensureStateSchema()]);
+  await Promise.all([ensureAuthSchema(), ensureStateSchema(), ensurePreliminaryRatingSchema()]);
   const sql = getSql();
   const rows = await sql<{ statePlayerId: string | null; displayName: string }[]>`
     SELECT state_player_id AS "statePlayerId", display_name AS "displayName"
