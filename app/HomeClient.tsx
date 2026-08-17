@@ -9,7 +9,7 @@ import { registerServiceWorker } from "./push-client";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
-import { ShareGlyph } from "./ShareSheet";
+import { ShareGlyph, shareSheetTitle } from "./ShareSheet";
 import CupShareButtons from "./CupShareButtons";
 import { handicapEloPerPoint, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
 import { calculateSnookerElo } from "../lib/snooker-elo";
@@ -20,6 +20,7 @@ import { AppShell, PageFrame } from "./components/shell/AppShell";
 import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
 import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 import { StatTile } from "./components/ui/Primitives";
+import { Sheet } from "./components/ui/Overlay";
 
 type Player = {
   id: string; name: string; short: string; handicap: number | null; rating: number; colour?: string; avatar?: string | null;
@@ -997,12 +998,19 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={()=>newMatch("cup")}><i>會友盃</i><span><b>會友盃記錄</b><small>選擇盃賽場次並儲存，不可手動設定讓分</small></span></button>
     </div>
     <MobileBottomNav active={tab as Destination} onNavigate={goTab} onRecord={()=>setRecordMenuOpen(open=>!open)} recordOpen={recordMenuOpen} badge={navBadge}/>
-    {modal&&<div className="backdrop" onMouseDown={e=>e.target===e.currentTarget&&closeModal()}>
+    {/* Share is the first modal kind migrated off this shared shell onto the `Sheet`
+        primitive (see docs/ui-audit.md §3) — it owns its own scrim, safe-area handling,
+        and close button now, so it is excluded from the block below and rendered
+        separately underneath it. */}
+    <Sheet open={modal==="share"} title={sharePayload?shareSheetTitle(sharePayload.card.kind):""} onClose={closeModal}>
+      {sharePayload&&<ShareSheet card={sharePayload.card} message={sharePayload.message} url={sharePayload.url} title={sharePayload.title} heading={false}/>}
+    </Sheet>
+    {modal&&modal!=="share"&&<div className="backdrop" onMouseDown={e=>e.target===e.currentTarget&&closeModal()}>
       {/* `.close` is a sibling of `.sheet`, not a child: `.sheet` is the scrolling box, and a
           descendant can never sit outside it or straddle its edge without being clipped by that
           same overflow. As a sibling inside `.sheet-shell` it floats above the corner, stays put
           while the sheet content scrolls underneath it, and can cross the sheet's edge freely. */}
-      <div className={`sheet-shell${modal==="detail"?" player-detail-sheet":""}${modal==="match"?" match-entry-sheet":""}${modal==="share"?" share-sheet-shell":""}`}>
+      <div className={`sheet-shell${modal==="detail"?" player-detail-sheet":""}${modal==="match"?" match-entry-sheet":""}`}>
         <button className="close" aria-label="關閉" onClick={closeModal}>×</button>
         <section className={`sheet${modal==="deleteMatch"?" confirm-sheet":""}`} role="dialog" aria-modal="true">
           {modal==="match"&&<MatchForm data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} saving={saving} onSave={saveMatch}/>}
@@ -1038,7 +1046,6 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
-          {modal==="share"&&sharePayload&&<ShareSheet card={sharePayload.card} message={sharePayload.message} url={sharePayload.url} title={sharePayload.title}/>}
         </section>
       </div>
     </div>}

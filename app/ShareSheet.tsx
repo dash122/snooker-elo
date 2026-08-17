@@ -16,7 +16,14 @@ import { storyCaption } from "../lib/match-share";
  *
  *  The story card is shown, not described. It is the product here, and a member deciding whether to
  *  post something to their own Instagram is entitled to see exactly what it looks like first. */
-export default function ShareSheet({ card, message, url, title }: { card: StoryCard; message: string; url: string; title: string }) {
+/** The two headings ShareSheet's own kicker+h2 can read as. Shared so a wrapper that
+ *  supplies its own heading (the `Sheet` primitive's `title` prop) can match it exactly
+ *  instead of drifting into its own copy of this string. */
+export function shareSheetTitle(kind: StoryCard["kind"]) {
+  return kind === "result" ? "分享今場賽果" : "分享我嘅紀錄";
+}
+
+export default function ShareSheet({ card, message, url, title, heading = true }: { card: StoryCard; message: string; url: string; title: string; heading?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const svg = useMemo(() => storySvg(card, avatarHex), [card]);
@@ -44,8 +51,8 @@ export default function ShareSheet({ card, message, url, title }: { card: StoryC
   };
 
   return <div className="share-sheet">
-    <p className="kicker">分享</p>
-    <h2>{card.kind === "result" ? "分享今場賽果" : "分享我嘅紀錄"}</h2>
+    {heading && <p className="kicker">分享</p>}
+    {heading && <h2>{shareSheetTitle(card.kind)}</h2>}
     <p className="sub">WhatsApp 分享連結，Instagram 分享限時動態圖。</p>
 
     <div className="story-preview">
