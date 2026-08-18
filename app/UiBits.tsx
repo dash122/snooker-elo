@@ -135,6 +135,8 @@ export function Scoreline({left,right,scoreLeft,scoreRight,eloLeft,eloRight,onLe
     <em aria-hidden="true">–</em>
     <b className={side(rightWins)}>{scoreRight}</b>
     {onRightClick?<button type="button" className={`scoreline-name right ${side(rightWins)}`} onClick={onRightClick}>{right}</button>:<span className={`scoreline-name right ${side(rightWins)}`}>{right}</span>}
+    {eloLeft&&<small className={`scoreline-delta ${eloLeft.delta>=0?"positive":"negative"}`}>ELO {eloLeft.delta>=0?"+":""}{Math.round(eloLeft.delta)}</small>}
+    {eloRight&&<small className={`scoreline-delta right ${eloRight.delta>=0?"positive":"negative"}`}>ELO {eloRight.delta>=0?"+":""}{Math.round(eloRight.delta)}</small>}
     {eloLeft&&<small className={`scoreline-elo ${eloLeft.delta>=0?"positive":"negative"}`}>{Math.round(eloLeft.before)} <i aria-hidden="true">→</i> {Math.round(eloLeft.after)}</small>}
     {eloRight&&<small className={`scoreline-elo right ${eloRight.delta>=0?"positive":"negative"}`}>{Math.round(eloRight.before)} <i aria-hidden="true">→</i> {Math.round(eloRight.after)}</small>}
   </div>;

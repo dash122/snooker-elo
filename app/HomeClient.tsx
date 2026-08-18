@@ -1983,19 +1983,18 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
      costs a row. */
   const cup=cupFor(m,data);
   return <article ref={card} className={`match ${m.status}${isEntertainmentMode(m.mode)?" entertainment":""}${cup?" is-cup":""}${highlighted?" just-saved":""}`}>
-    <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time>{cup&&<small className={`match-cup-badge${cup.round?" has-round":""}`} title={cup.round?`${cup.name} · ${cup.round}`:cup.name}><CupMark/>{cup.round&&<b>{cup.round}</b>}<span>{cup.name}</span></small>}{isEntertainmentMode(m.mode)?<small className="match-entertainment-badge">潮拍 2v2 · 不計 ELO</small>:<small className="match-net-elo" aria-label={`${leftLabel} ELO 變化 ${m.deltaA>=0?"+":""}${Math.round(m.deltaA)}`}>ELO {m.deltaA>=0?"+":""}{Math.round(m.deltaA)}</small>}{highlighted&&<span className="pill just-saved-pill">剛剛記錄</span>}{m.status==="void"&&<span className="pill">已作廢</span>}{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
+    <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time>{cup&&<small className={`match-cup-badge${cup.round?" has-round":""}`} title={cup.round?`${cup.name} · ${cup.round}`:cup.name}><CupMark/>{cup.round&&<b>{cup.round}</b>}<span>{cup.name}</span></small>}{isEntertainmentMode(m.mode)&&<small className="match-entertainment-badge">潮拍 2v2 · 不計 ELO</small>}{highlighted&&<span className="pill just-saved-pill">剛剛記錄</span>}{m.status==="void"&&<span className="pill">已作廢</span>}{m.entryMode==="aggregate"&&<span className="pill muted">歷史匯總</span>}</span>
       {/* Sharing sits with the card's own tools rather than behind the expander: the urge to show a
           result off lasts about as long as the walk back to the table, and a share hidden one tap
           down is a share that does not happen. Offered to every reader, not only to whoever may
           edit the card — a clubmate posting your win is worth more than you posting it. A voided
           match is excluded; it is not a result any more. */}
       <span className="card-tools">
-        {!isEntertainmentMode(m.mode)&&<small className="match-net-elo" aria-label={`${rightLabel} ELO 變化 ${(m.deltaB??-m.deltaA)>=0?"+":""}${Math.round(m.deltaB??-m.deltaA)}`}>ELO {(m.deltaB??-m.deltaA)>=0?"+":""}{Math.round(m.deltaB??-m.deltaA)}</small>}
         {m.status!=="void"&&<button className="card-tool share" aria-label={`分享 ${leftLabel} 對 ${rightLabel} 的賽果`} onClick={()=>onShare(m)}><ShareGlyph kind="share" /></button>}
         {canManage&&<><button className="card-tool" aria-label={`編輯 ${leftLabel} 對 ${rightLabel} 的賽事`} onClick={()=>onEdit(m)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${leftLabel} 對 ${rightLabel} 的賽事`} onClick={()=>onVoid(m)}>✕</button></>}
       </span></div>
     <Scoreline left={leftLabel} right={rightLabel} onLeftClick={isEntertainmentMode(m.mode)?undefined:()=>onPlayer(m.a)} onRightClick={isEntertainmentMode(m.mode)?undefined:()=>onPlayer(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}
-      eloLeft={{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={{before:m.beforeB,after:m.afterB,delta:m.deltaB??-m.deltaA}}/>
+      eloLeft={isEntertainmentMode(m.mode)?undefined:{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={isEntertainmentMode(m.mode)?undefined:{before:m.beforeB,after:m.afterB,delta:m.deltaB??-m.deltaA}}/>
     {isEntertainmentMode(m.mode)&&<div className="match-team-rosters">{(["A","B"] as const).map(side=><div className={`match-team-roster ${side==="B"?"right":""}`} key={side}>{teamMemberIds(m,side).map(id=>{const player=data.players.find(item=>item.id===id);return <button type="button" key={id} onClick={()=>onPlayer(id)} aria-label={`查看 ${name(id)} 的球員卡`}><PlayerBadge player={player??{short:"?"}}/><span>{name(id)}</span></button>})}</div>)}</div>}
     <button type="button" className="match-summary-row" aria-expanded={open} aria-label={open?"收起比賽詳情":"展開比賽詳情"} onClick={()=>setOpen(value=>!value)}>
       {!!topBreaks.length&&<span className="match-net-breaks">★ {topBreaks.map((item,index)=><Fragment key={item.playerId}>{index>0&&"、"}{name(item.playerId)} 單桿 {item.value}</Fragment>)}</span>}
