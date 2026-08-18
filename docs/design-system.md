@@ -1292,3 +1292,57 @@ status split, `.availability-page` risk caught and fixed) and one real bug avoid
 Profile-sheet core and material+motion polish remain, now with a precise account of exactly which
 collisions block them and why — the next pass can skip straight to resolving those named
 collisions instead of re-discovering them.
+
+## Design-system audit, and opening a new front: shape and elevation (2026-08-18)
+
+Ran a full adoption audit (components, colour, type, spacing, shape, naming) rather than another
+CSS-organisation pass. Headline finding: the token system and primitives are solid, but adoption is
+close to zero outside the code that demonstrates them — e.g. 307 raw `<button>` elements in TSX
+against 9 uses of the `Button` primitive, and four colour namespaces (`--ds-*`, `--me-*`, `--pc-*`,
+plus unprefixed legacy aliases) running in parallel, 96 of the 163 `--me-*` tokens used exactly
+once. Full findings live in the audit artifact from this session, not restated here since this file
+tracks *changes made*, not analysis.
+
+Opened the fix with the same two-step pattern the type and spacing fronts used: gate first, then
+mechanically collapse what the gate catches.
+
+**Radius codemod.** `border-radius` had no token discipline at all — ~45 distinct literal values,
+including every integer from 8px to 20px. Found the exact-match subset (values that are byte-for-
+byte one of `--radius-sm`/`--radius-md`/`--radius-lg`: `.75rem`/`12px`, `1rem`/`16px`,
+`1.25rem`/`20px`) and replaced all 95 occurrences across 13 files with `var(--radius-sm|md|lg)` —
+zero-visual-change by construction, same guarantee the spacing exact-match pass relied on.
+`app/elo-guide/guide.css` was excluded from the codemod: it's the file already carved out in this
+doc as a deliberate, permanent exception with its own scale, and matching its shape tokens to the
+app's isn't a mechanical fix, it's a design call outside this pass's scope — same reasoning as the
+type exemption, extended to radius.
+
+**New stylelint rule.** Added `border-radius` to the existing `declaration-property-value-
+disallowed-list` rule (same rule the spacing exact-match check already used — merged into one rule
+config since stylelint keys a rule name once), same warning severity and "trending debt" posture as
+colour. `guide.css` got the same exemption on this rule as it already has on the type rule, verified
+first that it had zero pre-existing spacing warnings so nulling the whole rule there doesn't hide
+anything real. Starts at 0 warnings for the app (the 95 exact matches were just fixed); 3 warnings
+remain, all in the exempted `guide.css`.
+
+**Metrics extended.** Added four rows to `design:metrics` — distinct literal `border-radius` values,
+literal-but-exact-match count (mirrors the spacing "off-scale" row), distinct `box-shadow` values,
+distinct `transition` values. Shadow and transition don't have a stylelint rule yet: their token
+sets (`--ds-shadow-*`, `--ds-duration-*`/`--ds-ease-*`) exist but the literal values in the CSS
+don't cluster into a small exact-match set the way spacing and radius did — 189 shadow values and
+57 transition values are mostly one-offs, not a handful of repeated recipes. Collapsing those needs
+a design decision about which 2-3 shadow/motion recipes the app should actually have, not a regex
+codemod, so they're measured (139 distinct shadow values, 45 distinct transition values after the
+`var(...)` ones are excluded) but deliberately left as a follow-up rather than force-fit into a rule
+today.
+
+Verified with `npm run build` and `npm run lint:css` after the codemod and again after the rule
+change: build compiles clean, lint returns to the 516-warning/0-error baseline once the `guide.css`
+exemption was added (it briefly rose to 519 before that exemption, confirming the new rule actually
+catches real violations rather than being a no-op).
+
+**Left open, in priority order for the next pass:** migrating features onto the `Button`/`Surface`/
+`FormField` primitives (the highest-leverage item, but not mechanical — needs per-feature review);
+merging the `--me-*`/`--pc-*` colour namespaces into `--ds-*`; a shadow/transition recipe decision
+followed by the same gate-then-collapse treatment radius just got; an inline-`style={{}}` lint gate
+(55 occurrences, mostly in `HomeClient.tsx` and `Availability.tsx`) — stylelint can't see TSX, so
+this needs an ESLint rule instead, not attempted this pass.

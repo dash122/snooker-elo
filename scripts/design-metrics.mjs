@@ -70,6 +70,34 @@ const ON_SCALE = new Set([
 ]);
 const spacingOffScale = spacingLiteralValues.filter((v) => !ON_SCALE.has(v));
 
+/* --- Shape and elevation --------------------------------------------------
+   Same idea as type and spacing: border-radius, box-shadow and transition
+   are properties a user reads as "is this the same app?", and as of the
+   phase 04 shape work they have their own token scale (--radius-sm/md/lg,
+   plus the existing shadow and duration/easing tokens in tokens.css)
+   but no lint gate of their own yet beyond the border-radius exact-match
+   rule in .stylelintrc.json. These three rows exist to make that debt
+   visible and trend it down, the same way the spacing rows did before the
+   spacing rule existed. */
+const radiusValues = matches(allCss, /border-radius\s*:\s*[^;}!]+/g).map((d) =>
+  d.split(":").slice(1).join(":").trim(),
+);
+const radiusLiteralValues = radiusValues.filter((v) => !v.startsWith("var("));
+const RADIUS_ON_SCALE = new Set([".75rem", "12px", "1rem", "16px", "1.25rem", "20px"]);
+const radiusOffScale = radiusLiteralValues.filter((v) => !RADIUS_ON_SCALE.has(v));
+
+const shadowValues = unique(
+  matches(allCss, /box-shadow\s*:\s*[^;}!]+/g)
+    .map((d) => d.split(":").slice(1).join(":").trim())
+    .filter((v) => !v.startsWith("var(")),
+);
+
+const transitionValues = unique(
+  matches(allCss, /(?<![a-zA-Z-])transition\s*:\s*[^;}!]+/g)
+    .map((d) => d.split(":").slice(1).join(":").trim())
+    .filter((v) => !v.startsWith("var(")),
+);
+
 /* --- Breakpoints --------------------------------------------------------- */
 const breakpoints = unique(
   matches(allCss, /@media[^{]+/g)
@@ -100,6 +128,15 @@ const rows = [
     0,
     "數字對但沒用代幣，應直接替換",
   ],
+  ["不同圓角數值種類", unique(radiusLiteralValues).length, "< 5", "寫死的圓角應全數改用代幣"],
+  [
+    "仍寫死但符合三階圓角值",
+    radiusLiteralValues.length - radiusOffScale.length,
+    0,
+    "數字對但沒用代幣，應直接替換",
+  ],
+  ["不同陰影數值種類", shadowValues.length, "< 5", "寫死的陰影應全數改用代幣"],
+  ["不同過場動畫數值種類", transitionValues.length, "< 5", "寫死的 transition 應全數改用代幣"],
 ];
 
 const pad = (s, n) => String(s).padEnd(n);
