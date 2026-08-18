@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PlayerBadge } from "./UiBits";
 import { ChipRow } from "./components/ui/Primitives";
+import { BackdropSheet } from "./components/ui/Overlay";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant } from "../lib/availability";
 import { conditionChips, handoffMessage, handsLine, shareMessage, slotStatus, sortPostedSlots,
@@ -65,9 +66,7 @@ function Composer({onCreate,onClose,busy,error}:{
   const [conditions,setConditions]=useState<SlotConditions>({});
   const toggle=(key:keyof SlotConditions)=>setConditions(value=>({...value,[key]:!value[key]}));
 
-  return <div className="backdrop invite-backdrop" onMouseDown={onClose}>
-    <section className="sheet invite-sheet sl-composer" onMouseDown={event=>event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="new-slot">
-      <button type="button" className="close" aria-label="關閉" onClick={onClose}>×</button>
+  return <BackdropSheet onClose={onClose} labelledBy="new-slot" className="sl-composer">
       <h2 id="new-slot">開一張局</h2>
       <p className="sub">留一段時間出嚟，我哋將佢公開俾成個會所。</p>
 
@@ -113,8 +112,7 @@ function Composer({onCreate,onClose,busy,error}:{
         const endDate=end<=start?addDaysHongKong(date,1):date;
         onCreate({startAt:hongKongInstant(date,start),endAt:hongKongInstant(endDate,end),venue,fillRule,conditions});
       }}>{busy?"開緊…":`開 ${start}–${end}`}</button>
-    </section>
-  </div>;
+  </BackdropSheet>;
 }
 
 /* --- Hand-off card --------------------------------------------------------- */

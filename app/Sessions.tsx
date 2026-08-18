@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { PlayerBadge } from "./UiBits";
+import { BackdropSheet } from "./components/ui/Overlay";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant, hongKongWeekday,
   type Interval } from "../lib/availability";
@@ -249,9 +250,7 @@ function NewSession({onCreate,onClose,busy,error}:{
   const [start,setStart]=useState("19:00");
   const [end,setEnd]=useState("21:00");
   const [venue,setVenue]=useState("");
-  return <div className="backdrop invite-backdrop" onMouseDown={onClose}>
-    <section className="sheet invite-sheet" onMouseDown={event=>event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="new-session">
-      <button type="button" className="close" aria-label="關閉" onClick={onClose}>×</button>
+  return <BackdropSheet onClose={onClose} labelledBy="new-session">
       <h2 id="new-session">開一節</h2>
       <p className="sub">留一段時間出嚟，我哋幫你搵對手。</p>
       <div className="composer-times">
@@ -264,8 +263,7 @@ function NewSession({onCreate,onClose,busy,error}:{
       {error&&<p className="availability-form-error" role="alert">{error}</p>}
       <button type="button" className="primary full" disabled={busy} onClick={()=>onCreate({date,start,end,venue})}>
         {busy?"開緊…":`開 ${start}–${end}`}</button>
-    </section>
-  </div>;
+  </BackdropSheet>;
 }
 
 /* --- The tab ---------------------------------------------------------------- */

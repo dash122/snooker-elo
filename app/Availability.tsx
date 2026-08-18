@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
+import {BackdropSheet} from "./components/ui/Overlay";
 import {Slots} from "./Slots";
 import {CounterSheet,NotificationPrefsPanel,PushOptIn,RecurrenceEditor,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type QueueItem,type RecurrenceRule,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
@@ -137,9 +138,7 @@ function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,p
  venue:string;onVenueChange:(value:string)=>void;
  onSend:()=>void;onClose:()=>void;sending:boolean;sendLabel:string;
 }){
- return <div className="backdrop invite-backdrop" onMouseDown={onClose}>
-  <section className="sheet invite-sheet" onMouseDown={e=>e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="invite-sheet-title">
-   <button type="button" className="close" aria-label="關閉" onClick={onClose}>×</button>
+ return <BackdropSheet onClose={onClose} labelledBy="invite-sheet-title">
    <p className="kicker">邀請對局</p>
    <h2 id="invite-sheet-title">{opponent.member.name}</h2>
    <div className="invite-mode-toggle" role="tablist" aria-label="邀請方式">
@@ -164,8 +163,7 @@ function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,p
    <VenueField value={venue} onChange={onVenueChange}/>
    <label className="invite-message-field">留言（可省略）<textarea value={message} onChange={e=>onMessageChange(e.target.value)} placeholder="加句留言（可省略）"/></label>
    <button type="button" className="primary full" disabled={sending||(mode==="simple"&&!selectedWindow)} onClick={onSend}>{sending?"送出中…":sendLabel}</button>
-  </section>
- </div>;
+ </BackdropSheet>;
 }
 /* The board speaks in hours from the start of a row's Hong Kong day, so a slot that runs past
    midnight simply extends beyond 24 on the row it started in — one bar, one row, no wrapping. */
