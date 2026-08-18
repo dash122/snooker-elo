@@ -10,6 +10,15 @@
     --ds-border-subtle:rgba(20,65,57,.12);--ds-border-strong:rgba(20,65,57,.24);
     --ds-accent-primary:#d5a94d;--ds-accent-primary-hover:#e1b96f;--ds-focus:#e4b452;
     --ds-accent-shadow:rgba(151,103,31,.18);--ds-selected-shadow:rgba(9,47,40,.08);
+    /* The app's real primary-action colour (buttons the member actually taps to
+       commit something) has always been this green, not --ds-accent-primary's
+       gold -- gold is the highlight/feature accent (badges, hero glow, ratings).
+       Named here during the button-migration pass so Button's primary variant
+       can finally match the ~190 pre-existing .primary buttons instead of
+       fighting them. Exact values carried over unchanged from --green/
+       --green-hover/the .primary class's own shadow -- zero visual diff. */
+    --ds-accent-action:#155e52;--ds-accent-action-hover:#185149;
+    --ds-accent-action-shadow:rgba(18,61,55,.16);
     --ds-overlay:rgba(3,25,21,.7);--ds-featured-glow:rgba(77,155,126,.25);
     --ds-hero-glow:rgba(85,165,134,.25);--ds-inverse-border:rgba(255,255,255,.12);
     --ds-text-on-danger:#fff;--ds-text-on-brand-secondary:#bdd0c9;

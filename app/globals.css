@@ -28,14 +28,19 @@
    wiring change. Re-theming (dark mode) becomes a tokens.css-only edit for
    whatever reads through --deep/--gold/--cream/--paper/--ink/--muted/--red.
 
-   --green, --green-bright, --mint and --line have no --ds-* counterpart yet
-   and are NOT aliased — --green is a distinct mid-bright brand green with no
-   equivalent token, and --line is a solid hex where --ds-border-subtle is an
+   --green and --green-hover now alias --ds-accent-action/--ds-accent-action-hover
+   (added during the button-migration pass so Button's primary variant could
+   match the app's real primary-action colour instead of the gold accent).
+
+   --green-bright, --mint and --line still have no --ds-* counterpart and are
+   NOT aliased — --line is a solid hex where --ds-border-subtle is an
    alpha-based border; picking between "solid line color" and "alpha border"
    for dark mode is a design call, not a mechanical rename, so it's left for
-   the dark-theme phase rather than forced here. */
-/* stylelint-disable color-no-hex, function-disallowed-list -- this block IS the token source; --green/--line/--shadow have no --ds-* counterpart yet (see comment above) */
-:root{--deep:var(--ds-canvas-brand);--green:#155e52;--green-bright:#237a67;--green-hover:#185149;--mint:#dcebe5;--gold:var(--ds-accent-primary);--cream:var(--ds-canvas-functional);--paper:var(--ds-surface-primary);--ink:var(--ds-text-primary);--muted:var(--ds-text-secondary);--line:#dde2dc;--red:var(--ds-danger);--shadow:0 12px 38px rgba(15,45,39,.07);--shadow-hover:0 18px 48px rgba(15,45,39,.13)}/* stylelint-enable */
+   the dark-theme phase rather than forced here. --green-bright and --mint are
+   each used in a handful of places and weren't touched by this pass; same
+   deferral, just not yet named. */
+/* stylelint-disable color-no-hex, function-disallowed-list -- this block IS the token source; --green-bright/--mint/--line/--shadow have no --ds-* counterpart yet (see comment above) */
+:root{--deep:var(--ds-canvas-brand);--green:var(--ds-accent-action);--green-bright:#237a67;--green-hover:var(--ds-accent-action-hover);--mint:#dcebe5;--gold:var(--ds-accent-primary);--cream:var(--ds-canvas-functional);--paper:var(--ds-surface-primary);--ink:var(--ds-text-primary);--muted:var(--ds-text-secondary);--line:#dde2dc;--red:var(--ds-danger);--shadow:0 12px 38px rgba(15,45,39,.07);--shadow-hover:0 18px 48px rgba(15,45,39,.13)}/* stylelint-enable */
 
 /* Gold, consolidated. The file previously carried 11 near-identical gold/amber
    hex values, entered by hand at different times for the same two jobs: gold

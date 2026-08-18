@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useState} from "react";
 import {A2HS_STORAGE_KEY,dismissA2hs,isIosSafari,parseA2hsState,shouldPromptAddToHomeScreen,type A2hsState} from "../../lib/add-to-home-screen";
+import {Button} from "./ui/Primitives";
 
 const read=():A2hsState=>{try{return parseA2hsState(localStorage.getItem(A2HS_STORAGE_KEY))}catch{return {visits:0,snoozeUntil:0,never:false}}};
 const write=(state:A2hsState)=>{try{localStorage.setItem(A2HS_STORAGE_KEY,JSON.stringify(state))}catch{}};
@@ -34,7 +35,7 @@ export function AddToHomeScreen(){
         <li>按右上角「加入」即完成</li>
       </ol>
       <div className="a2hs-actions">
-        <button className="primary" onClick={()=>close(false)}>知道了</button>
+        <Button className="a2hs-primary" onClick={()=>close(false)}>知道了</Button>
         <button className="a2hs-quiet" onClick={()=>close(true)}>不用再提醒我</button>
       </div>
     </div>

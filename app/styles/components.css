@@ -1,7 +1,8 @@
 @layer components {
   .ds-button,.ds-icon-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);min-height:44px;border-radius:var(--ds-radius-control);border:1px solid transparent;font-weight:800;transition:transform var(--ds-duration-fast) var(--ds-ease-standard),background var(--ds-duration-fast) var(--ds-ease-standard)}
   .ds-button{padding:var(--sp-3) var(--sp-4)}.ds-button:active,.ds-icon-button:active{transform:translateY(1px) scale(.98)}
-  .ds-button--primary{background:var(--ds-accent-primary);color:var(--ds-text-on-accent);box-shadow:0 8px 24px var(--ds-accent-shadow)}.ds-button--primary:hover{background:var(--ds-accent-primary-hover)}
+  .ds-button--primary{background:var(--ds-accent-action);color:var(--ds-text-on-brand);box-shadow:0 8px 24px var(--ds-accent-action-shadow)}.ds-button--primary:hover{background:var(--ds-accent-action-hover)}
+  .ds-button--featured{background:var(--ds-accent-primary);color:var(--ds-text-on-accent);box-shadow:0 8px 24px var(--ds-accent-shadow)}.ds-button--featured:hover{background:var(--ds-accent-primary-hover)}
   .ds-button--secondary{background:var(--ds-surface-primary);color:var(--ds-text-primary);border-color:var(--ds-border-strong)}
   .ds-button--quiet{background:transparent;color:var(--ds-text-primary)}.ds-button--danger{background:var(--ds-danger);color:var(--ds-text-on-danger)}
   .ds-button:disabled{opacity:.5;cursor:not-allowed;transform:none}.ds-icon-button{width:44px;padding:0;background:var(--ds-surface-primary);color:var(--ds-text-primary);border-color:var(--ds-border-subtle)}
@@ -48,7 +49,7 @@
 .a2hs-steps li{line-height:1.5}.a2hs-steps svg{vertical-align:-.2em;margin-left:var(--sp-1);color:var(--ds-accent-primary)}
 .a2hs-plus{margin-left:var(--sp-1);font-weight:800;color:var(--ds-accent-primary)}
 .a2hs-actions{display:grid;gap:var(--sp-2)}
-.a2hs-actions .primary{width:100%}
+.a2hs-actions .a2hs-primary{width:100%}
 .a2hs-quiet{min-height:44px;border:0;background:transparent;color:var(--ds-text-tertiary);font-size:var(--fs-sm);font-weight:700;text-decoration:underline}
 @keyframes a2hs-fade{from{opacity:0}}
 @keyframes a2hs-rise{from{transform:translateY(100%)}}
