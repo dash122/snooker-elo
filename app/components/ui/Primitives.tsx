@@ -11,3 +11,4 @@ export function InlineNotice({tone="info",title,children}:{tone?:"info"|"success
 export function Skeleton({width="100%",height="1rem"}:{width?:string;height?:string}){return <span className="ds-skeleton" aria-hidden="true" style={{width,height}}/>}
 export function StatTile({label,value,className=""}:{label:ReactNode;value:ReactNode;className?:string}){return <div className={`ds-stat-tile ${className}`.trim()}><small>{label}</small><b>{value}</b></div>}
 export function ChipRow({items,className=""}:{items:string[];className?:string}){if(!items.length)return null;return <div className={`ds-chip-row ${className}`.trim()}>{items.map(item=><span key={item} className="ds-chip">{item}</span>)}</div>}
+export function Chip({tone="neutral",className="",children,...props}:HTMLAttributes<HTMLSpanElement>&{tone?:"neutral"|"accent"|"success"|"warning"|"danger"}){return <span {...props} className={`ds-chip ds-chip--${tone} ${className}`.trim()}>{children}</span>}
