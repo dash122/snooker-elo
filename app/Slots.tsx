@@ -356,25 +356,19 @@ function SessionCard({entry,featured,overlap,canAct,busy,onRaise,onRetract,onRes
   </article>;
 }
 
-function MatchmakingEmpty({signedIn,tonightCount,onCreate,onManage}:{signedIn:boolean;tonightCount:number;onCreate:()=>void;onManage?:()=>void}){
+function MatchmakingEmpty({signedIn,tonightCount,onManage}:{signedIn:boolean;tonightCount:number;onManage?:()=>void}){
   return <section className="sl-cold-start">
     <div className="sl-cold-start-mark" aria-hidden="true"><span>＋</span></div>
     <div className="sl-cold-start-copy"><p className="sl-eyebrow">今晚的球會</p>
       <h3>暫時未有適合你的球局</h3>
-      <p>{tonightCount>0?`今晚有 ${tonightCount} 位球友想打。開一場，其他人就可以加入。`:"做第一個開局的人，讓其他球手有局可以加入。"}</p>
+      {/* The only 開局約人 button on the page lives in the toolbar above, so this state points at it
+          rather than growing a second one — two buttons for one job is what made this screen busy. */}
+      <p>{tonightCount>0?`今晚有 ${tonightCount} 位球友想打。用上面「開局約人」開一場，其他人就可以加入。`:"用上面「開局約人」做第一個開局的人，讓其他球手有局可以加入。"}</p>
     </div>
-    {signedIn&&<div className="sl-cold-start-actions">
-      <button type="button" className="primary" onClick={onCreate}>＋ 開局約人</button>
-      {onManage&&<button type="button" className="secondary" onClick={onManage}>公開我的空檔 <span aria-hidden="true">→</span></button>}
+    {signedIn&&onManage&&<div className="sl-cold-start-actions">
+      <button type="button" className="secondary" onClick={onManage}>公開我的空檔 <span aria-hidden="true">→</span></button>
     </div>}
     {!signedIn&&<a className="sl-session-login" href="/login">登入後開局 <span aria-hidden="true">→</span></a>}
-  </section>;
-}
-
-function RecruitmentIntro({onCreate}:{onCreate:()=>void}){
-  return <section className="sl-recruitment-intro">
-    <div><p className="sl-eyebrow">我的招募</p><h2>讓對的人找到你。</h2><p>開一場具體時間嘅球局，其他球手可以直接申請加入。</p></div>
-    <button type="button" className="primary" onClick={onCreate}>＋ 開局約人</button>
   </section>;
 }
 
@@ -522,9 +516,15 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
     onShare={()=>share(item.id)}/>);
 
   return <div className="sl-marketplace">
-    {signedIn&&<div className="sl-mode-switch" role="tablist" aria-label="約戰模式">
-      <button type="button" role="tab" aria-selected={mode==="find"} className={mode==="find"?"active":""} onClick={()=>changeMode("find")}>找球局{data.board.length>0&&<i>{data.board.length}</i>}</button>
-      <button type="button" role="tab" aria-selected={mode==="mine"} className={mode==="mine"?"active":""} onClick={()=>changeMode("mine")}>我的招募{mine.length>0&&<i>{mine.length}</i>}</button>
+    {/* One toolbar, one primary action. 開局約人 used to appear in the cold start, the bottom CTA, the
+        recruitment header, the demand banner and the personal empty state at once — five buttons for
+        one job. It now lives here only, above both modes, so it is always in the same place. */}
+    {signedIn&&<div className="sl-toolbar">
+      <div className="sl-mode-switch" role="tablist" aria-label="約戰模式">
+        <button type="button" role="tab" aria-selected={mode==="find"} className={mode==="find"?"active":""} onClick={()=>changeMode("find")}>找球局{data.board.length>0&&<i>{data.board.length}</i>}</button>
+        <button type="button" role="tab" aria-selected={mode==="mine"} className={mode==="mine"?"active":""} onClick={()=>changeMode("mine")}>我的招募{mine.length>0&&<i>{mine.length}</i>}</button>
+      </div>
+      <button type="button" className="primary sl-new-session" onClick={createSession}>＋ 開局約人</button>
     </div>}
     {signedIn&&<AvailabilityStatus count={availabilityCount} onManage={onManageAvailability}/>}
 
@@ -548,21 +548,19 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
         <header className="sl-market-section-head"><div><p className="sl-eyebrow">OPEN SESSIONS</p><h3 id="public-sessions-title">{featured?"其他公開球局":"公開球局"}</h3></div><span>{otherBoard.length} 場</span></header>
         {otherBoard.length>0
           ? <div className="sl-session-list">{otherBoard.map(entry=>renderSession(entry))}</div>
-          : !featured&&<MatchmakingEmpty signedIn={signedIn} tonightCount={data.wantTonight??0} onCreate={createSession} onManage={onManageAvailability}/>}
+          : !featured&&<MatchmakingEmpty signedIn={signedIn} tonightCount={data.wantTonight??0} onManage={onManageAvailability}/>}
       </section>
       {signedIn&&<HandsTray hands={data.hands??[]} busyId={busyId} onRetract={id=>void retract(id)} onRetractAll={()=>void retractAll()}
         onResult={(id,value,opponentId,startAt)=>void result(id,value,opponentId,startAt)}/>}
-      {signedIn&&<section className="sl-bottom-cta"><div><b>想自己揀時間？</b><span>開一場球局，等其他球手申請加入。</span></div><button type="button" className="primary" onClick={createSession}>開局約人 <span aria-hidden="true">→</span></button></section>}
     </>}
 
     {mode==="mine"&&signedIn&&<>
-      <RecruitmentIntro onCreate={createSession}/>
-      {(data.waitingForMe??0)>0&&<section className="sl-demand-card"><span className="sl-live-dot" aria-hidden="true"/><div><b>有 {data.waitingForMe} 位球友等緊你開局</b><small>開一場具體時間，佢哋就可以申請加入。</small></div><button type="button" onClick={createSession}>開局 <span aria-hidden="true">→</span></button></section>}
+      {(data.waitingForMe??0)>0&&<section className="sl-demand-card"><span className="sl-live-dot" aria-hidden="true"/><div><b>有 {data.waitingForMe} 位球友等緊你開局</b><small>開一場具體時間，佢哋就可以申請加入。</small></div></section>}
       <section className="sl-market-section sl-my-sessions" aria-labelledby="my-sessions-title">
         <header className="sl-market-section-head"><div><p className="sl-eyebrow">YOUR SESSIONS</p><h3 id="my-sessions-title">我的公開球局</h3></div><span>{mine.length} 場</span></header>
-        {mine.length>0?<div className="sl-mine-list">{mineCards}</div>:<div className="sl-personal-empty"><b>你仲未開局</b><span>選一段具體時間，其他球手先知道可以加入你。</span><button type="button" className="primary" onClick={createSession}>＋ 開第一場</button></div>}
+        {mine.length>0?<div className="sl-mine-list">{mineCards}</div>:<div className="sl-personal-empty"><b>你仲未開局</b><span>選一段具體時間，其他球手先知道可以加入你。</span></div>}
       </section>
-      <section className="sl-tonight-summary"><div><p className="sl-eyebrow">CLUB PULSE</p><b>今晚有人想打嗎？</b><small>{(data.wantTonight??0)>0?`有 ${data.wantTonight} 位球友已表示想打`:"而家未有人表示今晚想打"}</small></div><span><strong>{data.openCount??0}</strong><small>公開中</small></span><button type="button" className="more" onClick={()=>{changeMode("find");setDayFilter("tonight")}}>搵球局 <span aria-hidden="true">→</span></button></section>
+      <section className="sl-tonight-summary"><div><p className="sl-eyebrow">CLUB PULSE</p><b>今晚有人想打嗎？</b><small>{(data.wantTonight??0)>0?`有 ${data.wantTonight} 位球友已表示想打`:"而家未有人表示今晚想打"}</small></div><span><strong>{data.openCount??0}</strong><small>公開中</small></span></section>
     </>}
 
     {error&&!composing&&<p className="availability-form-error" role="alert">{error}</p>}
