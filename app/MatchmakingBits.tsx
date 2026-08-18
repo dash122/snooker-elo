@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { PlayerBadge } from "./UiBits";
+import { BackdropSheet } from "./components/ui/Overlay";
 import { disablePush, enablePush, pushState, registerServiceWorker, type PushState } from "./push-client";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { hkClock, hkDate, hkDayLabel, type Interval, type ReliabilitySignals } from "../lib/availability";
@@ -451,9 +452,7 @@ export function CounterSheet({title,date,onSubmit,onClose,busy}:{title:string;da
   const [start,setStart]=useState("19:00");
   const [end,setEnd]=useState("21:00");
   const [venue,setVenue]=useState("");
-  return <div className="backdrop invite-backdrop" onMouseDown={onClose}>
-    <section className="sheet invite-sheet" onMouseDown={event=>event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="counter-title">
-      <button type="button" className="close" aria-label="關閉" onClick={onClose}>×</button>
+  return <BackdropSheet onClose={onClose} labelledBy="counter-title">
       <p className="kicker">提議另一個時間</p>
       <h2 id="counter-title">{title}</h2>
       <p className="sub">唔使拒絕 — 直接提議一個就得嘅時間，對方確認就搞掂。</p>
@@ -464,8 +463,7 @@ export function CounterSheet({title,date,onSubmit,onClose,busy}:{title:string;da
       </div>
       <VenueField value={venue} onChange={setVenue}/>
       <button type="button" className="primary full" disabled={busy} onClick={()=>onSubmit({date:when,start,end,venue})}>{busy?"送出中…":`提議 ${start}–${end}`}</button>
-    </section>
-  </div>;
+  </BackdropSheet>;
 }
 
 /* --- Recurring availability ----------------------------------------------- */
