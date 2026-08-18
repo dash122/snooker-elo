@@ -2720,7 +2720,7 @@ function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFin
             club's name into somebody's Instagram does the same job either way. It rides in the chip
             row rather than as a fourth column of the hero grid, which has three tracks. */}
         <button type="button" className="profile-share" aria-label={`分享 ${player.name} 的球會紀錄`} onClick={onShare}><ShareGlyph kind="share" />分享紀錄</button></div>
-      <div className="profile-hero-form"><div><small>近期 5 場</small><span className="profile-form-dots">{player.form.slice(0,5).map((result,index)=><i key={`${result}-${index}`} className={result.toLowerCase()}>{result}</i>)}</span></div></div>
+      <div className="profile-hero-form"><div><small>最近5場</small><span className="profile-form-dots">{player.form.slice(0,5).map((result,index)=><i key={`${result}-${index}`} className={result.toLowerCase()}>{result}</i>)}</span></div></div>
     </div>
     <div className="profile-hero-elo"><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div>
   </div>
