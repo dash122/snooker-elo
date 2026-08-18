@@ -1403,3 +1403,47 @@ Verified `npm run build`, `npm run lint:css` (516/0, unchanged), and `npx tsc --
 Confirmed the new gallery section renders via a server-rendered fetch of `/ui-gallery` (playwright
 wasn't available in this environment to screenshot, so verification stopped at markup + computed
 CSS class presence rather than a rendered screenshot).
+
+## Button migration, unblocked: naming the real primary colour (2026-08-18)
+
+Resolved the blocker flagged in the last entry. Asked which colour should be the app's actual
+primary CTA — green (matching the ~190 existing `.primary` buttons) or gold (`Button`'s previous
+default) — and got green, confirmed explicitly rather than assumed.
+
+**Named the missing token.** Added `--ds-accent-action` / `--ds-accent-action-hover` /
+`--ds-accent-action-shadow` to `tokens.css`, carrying over `--green`'s/`--green-hover`'s/the
+`.primary` class's own box-shadow's exact existing hex values — zero visual diff for anything that
+already reads through them. This also closes half of the gap this file's own "Competitive clubhouse
+design system" comment flagged two entries ago: `--green` and `--green-hover` now alias
+`--ds-accent-action`/`--ds-accent-action-hover` instead of carrying their own hex, the same wiring
+pattern already used for `--gold`/`--paper`/`--ink`/etc. `--green-bright`, `--mint` and `--line`
+remain deliberately un-aliased for the reasons already on record (line's solid-vs-alpha dark-theme
+question; green-bright/mint just not touched by this pass).
+
+**Repointed `Button`'s primary variant.** `.ds-button--primary` now uses `--ds-accent-action`
+instead of `--ds-accent-primary` (gold). Confirmed first that `Button` had zero real-page usages
+outside `app/ui-gallery` (checked via grep), so this had no existing blast radius to worry about.
+Gold didn't disappear — it's now `.ds-button--featured` / `variant="featured"`, for the callout use
+cases gold is already used for elsewhere (badges, hero glow, ratings): invites, championship
+moments, anything meant to read as a highlight rather than the default action. Added `featured` to
+gallery's Buttons section with a one-line explanation of the split.
+
+**First real migration.** `AddToHomeScreen.tsx`'s "知道了" (confirm) button now renders `<Button>`
+instead of the raw `.primary` class. This is the first `Button` usage in a real page, not the
+gallery. It's not byte-identical — `Button` differs from the old `.primary` class in radius (12px
+vs 14px), min-height (44px vs 48px, still meets the touch-target floor), padding, font-weight (800
+vs 700), and a slightly off-white vs pure-white text colour — small tightening toward the shared
+scale, which is what standardising a button actually means, not something to force into a
+zero-diff codemod. Left the "不用再提醒我" (dismiss) button as a plain `.a2hs-quiet` link-style
+button rather than `variant="quiet"`: traced the two and they're semantically different (a subtle
+underlined dismiss link vs. `ds-button--quiet`'s solid-text, no-underline quiet button) — migrating
+it would have swapped one visual language for a different one, not normalised it, so left as a
+judgment call rather than forced.
+
+Verified `npm run build`, `npm run lint:css` (514/0, unchanged from the merge baseline),
+`npx tsc --noEmit` (clean), and a server-rendered fetch of `/ui-gallery` confirming the new
+`ds-button--featured` markup and label render.
+
+**Left open:** this is one button out of 307. The pattern is now proven (name the missing token,
+confirm zero blast radius, accept the small normalisation, leave what doesn't actually match
+alone) — the next pass can repeat it page by page rather than re-deriving the approach.

@@ -1,6 +1,6 @@
 "use client";
 import type {ButtonHTMLAttributes,HTMLAttributes,ReactNode} from "react";
-type ButtonProps=ButtonHTMLAttributes<HTMLButtonElement>&{variant?:"primary"|"secondary"|"quiet"|"danger";loading?:boolean};
+type ButtonProps=ButtonHTMLAttributes<HTMLButtonElement>&{variant?:"primary"|"featured"|"secondary"|"quiet"|"danger";loading?:boolean};
 export function Button({variant="primary",loading=false,disabled,className="",children,...props}:ButtonProps){return <button {...props} disabled={disabled||loading} aria-busy={loading||undefined} className={`ds-button ds-button--${variant} ${className}`.trim()}>{loading&&<span className="ds-spinner" aria-hidden="true"/>}<span>{loading?"處理中…":children}</span></button>}
 export function IconButton({label,className="",children,...props}:ButtonHTMLAttributes<HTMLButtonElement>&{label:string;children:ReactNode}){return <button {...props} aria-label={label} className={`ds-icon-button ${className}`.trim()}>{children}</button>}
 export function Surface({tone="primary",className="",...props}:HTMLAttributes<HTMLElement>&{tone?:"primary"|"raised"|"featured"}){return <section {...props} className={`ds-surface ds-surface--${tone} ${className}`.trim()}/>}
