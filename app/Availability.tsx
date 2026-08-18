@@ -807,8 +807,11 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   onRecord={(opponentId,playedOn)=>onRecordMatch?.(opponentId,playedOn)}
   onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>}
 
-{userPlayerId&&<section className="availability-card mm-card">
-  <button type="button" className="mm-see-all" onClick={()=>setShowBoard(v=>!v)} aria-expanded={showBoard}>
+{/* A disclosure, not a card. Wrapping one link in a full surface produced an empty rounded box on
+    an otherwise clean screen — and, being the first `.mm-card`, it also picked up the dark
+    "featured" treatment meant for something that actually matters. */}
+{userPlayerId&&<section className="availability-roster">
+  <button type="button" className="mm-see-all availability-roster-toggle" onClick={()=>setShowBoard(v=>!v)} aria-expanded={showBoard}>
     {showBoard?"收起全部空檔":`睇全部 ${members.length} 位球員空檔`}</button>
   {showBoard&&<>
    <DateScroller dates={week} selected={date} counts={counts} onSelect={changeDate}/>
@@ -819,9 +822,6 @@ export default function Availability({userPlayerId,matches,tournaments,provision
  </section>}
 
 {userPlayerId&&<WaitingStrip items={waitingItems} cancellingId={cancellingInviteId} onCancel={id=>void cancelInviteAction(id)}/>}
-{userPlayerId&&<div className="mm-footer-links">
-  <button type="button" className="more" onClick={()=>nav(own.length?"manage":"create")}>我嘅時段{own.length?` · ${own.length}`:""}</button>
-</div>}
 {userPlayerId&&<PushOptIn/>}
 </>}
 {/* One screen, one gesture: the board is the list, the editor and the composer at once. Nothing here
