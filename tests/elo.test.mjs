@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { calculateSnookerElo } from "../lib/snooker-elo.ts";
+import { resolveOnboardingRating } from "../lib/onboarding.ts";
 import { checkDisplayName, checkEmail, checkUsername, checkDisallowedText } from "../app/api/account/validate.ts";
 
 test("matches the new PDF worked example",()=>{
@@ -86,6 +87,20 @@ test("repetition decay reduces repeated-match rating changes",()=>{
   const first=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,repetitionCount:0});
   const repeated=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,repetitionCount:7});
   assert.equal(Math.round(repeated.deltaA*100)/100,Math.round(first.deltaA*.5*100)/100);
+});
+
+test("onboarding rating stays as a baseline when past matches already exist",()=>{
+  const existing = resolveOnboardingRating({ currentRating: 1600, hasHistoricMatches: true, finalRating: 1800 });
+  assert.equal(existing.shouldOverrideCurrentRating, false);
+  assert.equal(existing.rating, 1600);
+  assert.equal(existing.initialRating, 1600);
+  assert.equal(existing.preliminaryRating, 1800);
+
+  const newMember = resolveOnboardingRating({ currentRating: 1500, hasHistoricMatches: false, finalRating: 1800 });
+  assert.equal(newMember.shouldOverrideCurrentRating, true);
+  assert.equal(newMember.rating, 1800);
+  assert.equal(newMember.initialRating, 1800);
+  assert.equal(newMember.preliminaryRating, 1800);
 });
 
 test("signup validation follows the current club rules",()=>{
