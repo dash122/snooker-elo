@@ -79,7 +79,7 @@ export default function AuthExperience({
               {error === "username-format"
                 ? "使用者名稱須為 3 至 24 個英文字母、數字或 .。"
                 : error === "email-format"
-                  ? "請輸入有效電郵地址（需包含 @XXX.com）。"
+                  ? "請輸入有效電郵地址。"
                   : error === "display-name-format"
                     ? "顯示名稱只能使用中英數字、空白、! 及 ?。"
                     : error === "disallowed-text"

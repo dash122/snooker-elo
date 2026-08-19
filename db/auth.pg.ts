@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { resolveOnboardingRating } from "../lib/onboarding";
 import type { MemberSession, MemberRow } from "./auth-types";
 import { getSql } from "./sql";
 import { ensureStateSchema } from "./state.pg";
@@ -237,15 +238,35 @@ export async function needsOnboarding(email: string) {
 export async function savePreliminaryRating(email: string, preliminaryRating: number, finalRating: number, at: string) {
   await Promise.all([ensureAuthSchema(), ensureStateSchema(), ensurePreliminaryRatingSchema()]);
   const sql = getSql();
-  const rows = await sql<{ statePlayerId: string | null; displayName: string }[]>`
-    SELECT state_player_id AS "statePlayerId", display_name AS "displayName"
-    FROM members WHERE email = ${email.trim().toLowerCase()} AND active = true
+  const rows = await sql<{ statePlayerId: string | null; displayName: string; rating: number | null; hasHistory: boolean }[]>`
+    SELECT m.state_player_id AS "statePlayerId",
+           m.display_name AS "displayName",
+           p.rating::float8 AS rating,
+           EXISTS (
+             SELECT 1 FROM state_matches sm
+             WHERE sm.player_a = p.id OR sm.player_b = p.id OR sm.player_a2 = p.id OR sm.player_b2 = p.id
+           ) AS "hasHistory"
+    FROM members m
+    LEFT JOIN state_players p ON p.id = m.state_player_id
+    WHERE m.email = ${email.trim().toLowerCase()} AND m.active = true
   `;
   const member = rows[0];
   if (!member?.statePlayerId) return false;
+
+  const next = resolveOnboardingRating({
+    currentRating: member.rating ?? null,
+    hasHistoricMatches: member.hasHistory,
+    finalRating,
+  });
+
   await sql.begin(async tx => {
-    await tx`UPDATE state_players SET rating = ${finalRating}, initial_rating = ${finalRating}, preliminary_rating = ${preliminaryRating}, updated_at = now() WHERE id = ${member.statePlayerId}`;
-    await tx`INSERT INTO state_audits (id, text, occurred_at) VALUES (${crypto.randomUUID()}, ${`完成新會員評級：${member.displayName}（${finalRating} ELO）`}, ${at})`;
+    await tx`UPDATE state_players
+      SET rating = ${next.rating},
+          initial_rating = ${next.initialRating},
+          preliminary_rating = ${preliminaryRating},
+          updated_at = now()
+      WHERE id = ${member.statePlayerId}`;
+    await tx`INSERT INTO state_audits (id, text, occurred_at) VALUES (${crypto.randomUUID()}, ${`完成新會員評級：${member.displayName}（${next.rating} ELO）`}, ${at})`;
   });
   return true;
 }
