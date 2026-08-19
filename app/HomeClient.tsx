@@ -1053,7 +1053,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
             </form>
           </div>}
           {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} onSave={savePlayer}/>}
-          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const applied={...settings,start:1500,modelVersion:9},rebuilt=replay(data.players.map(player=>({...player,initialRating:1500})),data.matches,applied);setModal(null);persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:"調整 PDF Snooker Elo 公式參數；以 1500 起始並重播歷史評分",at:new Date().toISOString()},...data.audits]},"設定已套用，歷史評分已從 1500 重播。")}}/>}
+          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const start=Number(settings.start ?? data.settings.start ?? 1500); const applied={...settings,start,modelVersion:9}; const rebuilt=replay(data.players.map(player=>({...player,initialRating:start,rating:start})),data.matches,applied); setModal(null); persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:`調整 PDF Snooker Elo 公式參數；以 ${start} 起始並重播歷史評分`,at:new Date().toISOString()},...data.audits]},`設定已套用，歷史評分已從 ${start} 重播。`)}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
@@ -2276,7 +2276,7 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
   const s=data.settings;
   return <><section className="hero small"><div><p className="kicker">公開設定</p><h1>ELO 設定</h1><p>所有球員由 1500 起步；每場賽果只使用 PDF Snooker Elo 公式重播。以下參數只有管理員可以修改。</p></div><button className="primary" onClick={onEdit}>編輯設定</button></section>
     <div className="settings-grid">
-      <div className="setting"><small>起始 ELO</small><b>1500</b></div>
+      <div className="setting"><small>起始 ELO</small><b>{s.start}</b></div>
       <div className="setting"><small>局數影響係數（150）</small><b>{s.frameScaleCoefficient}</b></div>
       <div className="setting"><small>局數加數（15）</small><b>{s.frameScaleNumeratorOffset}</b></div>
       <div className="setting"><small>局數除數（10）</small><b>{s.frameScaleDenominator}</b></div>
@@ -2493,8 +2493,9 @@ function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
   return <>
     <p className="kicker">公開管理</p>
     <h2>PDF Snooker Elo 公式設定</h2>
-    <p className="warning">起始 ELO 固定為 1500，不能修改。儲存後會以新參數，從 1500 起始完整重播歷史 ELO。</p>
+    <p className="warning">起始 ELO 可修改，儲存後會以新參數從此起始值重播全部歷史 ELO。</p>
     <div className="settings-form-grid">
+      <label className="settings-field"><span>起始 ELO</span><input type="number" step="10" min={1000} max={3000} value={s.start} onChange={e=>{const value=e.target.value===""?1500:Number(e.target.value);setS(current=>({...current,start:value}))}}/><small>所有現有球員會用此起始值重建評分。</small></label>
       {field("frameScaleCoefficient","局數影響係數","S(n) = 係數 × ln((n+15)/10)，PDF 原值 150。",1,0)}
       {field("frameScaleNumeratorOffset","局數加數","S(n) 中 n + 此數值，PDF 原值 15。",1,0)}
       {field("frameScaleDenominator","局數除數","S(n) 的除數，PDF 原值 10。",1,.1)}
@@ -2509,7 +2510,7 @@ function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
       {field("repetitionDecayPeriod","重複衰減週期","M(t) 的週期，PDF 原值 7。",.5,.1)}
       {field("handicapEffectiveness","讓分有效度","0–1。1 即「公平」讓分令勝率剛好一半；低於 1 時，就算讓足建議分數，ELO 差越大，較強的一方仍保留越多優勢，不會完全拉平。",.05,0,1)}
     </div>
-    <button className="primary full" onClick={()=>onSave({...s,start:1500,provisionalGames:data.settings.provisionalGames,modelVersion:9})}>套用並重播歷史 ELO</button>
+    <button className="primary full" onClick={()=>onSave({...s,provisionalGames:data.settings.provisionalGames,modelVersion:9})}>套用並重播歷史 ELO</button>
   </>;
 }
 type RivalSnapshot = {

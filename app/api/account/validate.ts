@@ -1,23 +1,38 @@
 // Shared between the account API routes and the client form so both agree on
 // what counts as valid. Each returns an error code, or null when the value is
 // acceptable; the client maps the codes to Chinese messages.
-export const USERNAME_PATTERN = /^[a-z0-9._-]{3,24}$/i;
+export const USERNAME_PATTERN = /^[a-z0-9.]{3,24}$/i;
+export const DISPLAY_NAME_PATTERN = /^[\p{L}\p{N} !?]+$/u;
 export const MIN_PASSWORD = 8;
 export const MAX_AVATAR_CHARS = 200_000; // ~150 KB of base64
 const AVATAR_PATTERN = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
+const DISALLOWED_TEXT = [
+  "fuck", "shit", "bitch", "idiot", "stupid", "dumb", "retard", "slur",
+  "nigger", "chink", "gook", "kike", "whore", "racist", "hate",
+  "faggot", "asshole", "bullshit",
+];
 
 export function checkUsername(value: string) {
-  return USERNAME_PATTERN.test(value.trim()) ? null : "username-format";
+  const trimmed = value.trim();
+  return USERNAME_PATTERN.test(trimmed) ? null : "username-format";
 }
 
 export function checkEmail(value: string) {
   const email = value.trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? null : "email-format";
+  return /^[^\s@]+@[^\s@]+\.com$/i.test(email) ? null : "email-format";
 }
 
 export function checkDisplayName(value: string) {
   const name = value.trim();
-  return name.length >= 1 && name.length <= 40 ? null : "display-name-format";
+  if (name.length < 1 || name.length > 40) return "display-name-format";
+  return DISPLAY_NAME_PATTERN.test(name) ? null : "display-name-format";
+}
+
+export function checkDisallowedText(value: string) {
+  const normalized = value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!normalized) return null;
+  const blocked = DISALLOWED_TEXT.some(word => normalized.includes(word.replace(/[^a-z0-9]/g, "")));
+  return blocked ? "disallowed-text" : null;
 }
 
 export function checkPassword(value: string) {

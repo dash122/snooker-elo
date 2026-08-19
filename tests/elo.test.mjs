@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { calculateSnookerElo } from "../lib/snooker-elo.ts";
+import { checkDisplayName, checkEmail, checkUsername, checkDisallowedText } from "../app/api/account/validate.ts";
 
 test("matches the new PDF worked example",()=>{
   const result=calculateSnookerElo({ratingA:1600,ratingB:1450,handicapA:-5,framesA:5,framesB:1,repetitionCount:3});
@@ -85,4 +86,18 @@ test("repetition decay reduces repeated-match rating changes",()=>{
   const first=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,repetitionCount:0});
   const repeated=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,repetitionCount:7});
   assert.equal(Math.round(repeated.deltaA*100)/100,Math.round(first.deltaA*.5*100)/100);
+});
+
+test("signup validation follows the current club rules",()=>{
+  assert.equal(checkUsername("alice"),null);
+  assert.equal(checkUsername("alice_123"),"username-format");
+  assert.equal(checkUsername("alic123"),null);
+  assert.equal(checkUsername("alice.."),null);
+  assert.equal(checkDisplayName("Tom! 1"),null);
+  assert.equal(checkDisplayName("bad!!!"),null);
+  assert.equal(checkDisplayName(""),"display-name-format");
+  assert.equal(checkEmail("player@example.com"),null);
+  assert.equal(checkEmail("player@example.org"),"email-format");
+  assert.equal(checkDisallowedText("idiot"),"disallowed-text");
+  assert.equal(checkDisallowedText("Tom! 1"),null);
 });

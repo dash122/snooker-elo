@@ -1,4 +1,4 @@
-import { createSession, verifyCredentials } from "../../../../db/auth";
+import { createSession, needsOnboarding, verifyCredentials } from "../../../../db/auth";
 import { checkAttempt } from "../../../../lib/rate-limit";
 
 export async function POST(request: Request) {
@@ -12,10 +12,13 @@ export async function POST(request: Request) {
   const password = String(form.get("password") ?? "");
   const member = await verifyCredentials(username, password);
   if (!member) return Response.redirect(new URL("/login?error=invalid", request.url), 303);
+  const cookie = await createSession(member.email);
+  const promptOnboarding = await needsOnboarding(member.email);
   return new Response(null, {
     status: 303,
-    // Land on the leaderboard: signing in is a step towards looking at the
-    // club table or logging a match, not an errand about the account itself.
-    headers: { location: new URL("/", request.url).toString(), "set-cookie": await createSession(member.email) },
+    headers: {
+      location: new URL(promptOnboarding ? "/onboarding?reminder=1" : "/", request.url).toString(),
+      "set-cookie": cookie,
+    },
   });
 }
