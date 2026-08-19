@@ -484,6 +484,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const [refreshing,setRefreshing] = useState(false);
   const [draft,setDraft] = useState({mode:"1v1" as MatchMode,teamAName:"Team A",teamBName:"Team B",a:"",b:"",a2:"",b2:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[] as {playerId:string;value:number}[],tournamentId:"",tournamentRound:1,tournamentMatchIndex:1,cupSlotLocked:false});
   const [playerForm,setPlayerForm] = useState({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});
+  const [managementMode,setManagementMode] = useState(false);
   const ownPlayerId=user?.statePlayerId;
   /* The badge is the whole reason matchmaking stops being invisible: it runs in the app shell, so a
      member looking at the leaderboard finds out that three people are waiting on them. */
@@ -498,6 +499,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     const search=new URLSearchParams(window.location.search);
     const wanted=search.get("tab");
     if(wanted&&["leaderboard","matches","availability","players","settings"].includes(wanted))setTab(wanted);
+    setManagementMode(search.get("manage")==="1");
     /* The draw notification deep-links to the bracket itself, not merely to 比賽 — landing on the
        match history after being told who you drew is a dead end. */
     if(search.get("view")==="cup")setMatchesView("cup");
@@ -1008,7 +1010,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setTournamentForm({name:"",handicapMode:"suggested",signupDeadline:`${today}T23:59`});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setTournamentForm({name:tournament.name,handicapMode:tournament.handicapMode,signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onRefresh={refreshData}/>}
       {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} tournaments={data.tournaments} provisionalGames={data.settings.provisionalGames} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecordMatch={(opponentId,date)=>newMatch("1v1",opponentId,date)} onActivity={refreshMatchmaking} onSignUpTournament={signUpTournament}/>} 
-      {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
+      {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} managementMode={Boolean(isAdmin&&managementMode)} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
       </PageFrame>
     </main>
@@ -2129,17 +2131,18 @@ type PlayersChip = "near"|"free"|"soon"|"hot"|"all";
 const PLAYERS_SORT_CYCLE:SortKey[]=["rank","rating","form","suggested"];
 const playersSortDir=(key:SortKey):"asc"|"desc"=>key==="rank"||key==="name"?"asc":"desc";
 
-function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,onOpen,onCompare,onRecordAgainst,onFindOpponent}:{
-  data:AppState;ownPlayerId?:string;canAdd:boolean;canManagePlayer:(player:Player)=>boolean;
+function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,onAdd,onEdit,onDelete,onOpen,onCompare,onRecordAgainst,onFindOpponent}:{
+  data:AppState;ownPlayerId?:string;managementMode?:boolean;canAdd:boolean;canManagePlayer:(player:Player)=>boolean;
   onAdd:()=>void;onEdit:(p:Player)=>void;onDelete:(p:Player)=>void;onOpen:(p:Player)=>void;
   onCompare:(p:Player)=>void;onRecordAgainst:(p:Player)=>void;onFindOpponent:(playerId:string,date:string)=>void;
 }) {
   const me=data.players.find(p=>p.id===ownPlayerId);
   const [query,setQuery]=useState("");
-  const [chip,setChip]=useState<PlayersChip>(me?"near":"all");
+  const [chip,setChip]=useState<PlayersChip>(managementMode?"all":me?"near":"all");
   const [openId,setOpenId]=useState("");
   const [sort,setSort]=useState<SortKey>("rank");
   const [freeToday,setFreeToday]=useState<Record<string,string>>({});
+  useEffect(()=>{if(managementMode)setChip("all")},[managementMode]);
 
   // Availability is fetched separately (not part of `data`) — the roster's "今晚有空" chip and
   // per-row free time both key off whoever has a published slot for tonight (Hong Kong time).
@@ -2254,6 +2257,7 @@ function Players({data,ownPlayerId,canAdd,canManagePlayer,onAdd,onEdit,onDelete,
                   ? <em className={delta>=0?"positive":"negative"}>{delta>=0?"+":"−"}{Math.abs(Math.round(delta))}</em>
                   : <em className="neutral">{suggested}</em>}</span>
               </button>
+              {managementMode&&canManagePlayer(p)&&<button type="button" className="players-row-manage" onClick={()=>onEdit(p)}>管理</button>}
               {open&&<div className="players-row-expand">
                 {me&&!isSelf&&<div className="players-verdict">
                   <div className="players-verdict-main">{handicapVerdict(me,p,data.settings)}</div>
