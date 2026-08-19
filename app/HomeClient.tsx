@@ -452,7 +452,7 @@ function isInPastThirtyDays(playedOn:string){
 function isInPastTenDays(playedOn:string){
   return playedOn>=tenDaysAgo&&playedOn<=today;
 }
-export default function Home({user}:{user:{displayName:string;email:string;role:"admin"|"member";statePlayerId?:string}|null}) {
+export default function Home({user}:{user:{displayName:string;email:string;role:"admin"|"member";statePlayerId?:string;needsOnboarding?:boolean}|null}) {
   const [data,setData] = useState<AppState>(seed);
   const [tab,setTab] = useState("leaderboard");
   const [availabilityDirty,setAvailabilityDirty] = useState(false);
@@ -515,7 +515,15 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   useEffect(()=>{
     const local = localStorage.getItem("scaa-draft");
     if(local) try { setDraft(JSON.parse(local)); } catch {}
-    fetch("/api/state").then(r=>r.ok?r.json():null).then(v=>{if(!v?.players)return;const upgraded=upgradeState(v);setData(upgraded.state);if(upgraded.changed)fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(upgraded.state)}).catch(()=>{});}).catch(()=>{});
+    fetch("/api/state").then(r=>r.ok?r.json():null).then(v=>{
+      if(!v?.players)return;
+      const upgraded=upgradeState(v);
+      const loaded=upgraded.state;
+      const replayed={...loaded,...replay(loaded.players,loaded.matches,loaded.settings)};
+      const replayChanged=JSON.stringify({players:loaded.players,matches:loaded.matches})!==JSON.stringify({players:replayed.players,matches:replayed.matches});
+      setData(replayed);
+      if(upgraded.changed||replayChanged)fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(replayed)}).catch(()=>{});
+    }).catch(()=>{});
   },[]);
   async function refreshData(){
     try{
@@ -803,9 +811,13 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   function savePlayer(){
     if(!isAdmin&&(!editingPlayer||editingPlayer.id!==ownPlayerId)){setToast("你只能修改自己的球員資料。");return;}
     if(!playerForm.name.trim()||!playerForm.short.trim()){setToast("請輸入顯示名稱及縮寫。");return;}
-    const rating=1500;
+    const requestedRating=Number(playerForm.rating);
+    const rating=editingPlayer
+      ? isAdmin&&Number.isFinite(requestedRating)?requestedRating:editingPlayer.initialRating
+      : isAdmin&&Number.isFinite(requestedRating)?requestedRating:data.settings.start;
+    if(!Number.isFinite(rating)||rating<1000||rating>3000){setToast("個人起始 ELO 必須介乎 1000 至 3000。");return;}
     const p:Player=editingPlayer
-      ? {...editingPlayer,name:playerForm.name.trim(),short:playerForm.short.toUpperCase().slice(0,3),handicap:playerForm.handicap===""?null:+playerForm.handicap,initialRating:1500,colour:playerForm.colour||DEFAULT_AVATAR}
+      ? {...editingPlayer,name:playerForm.name.trim(),short:playerForm.short.toUpperCase().slice(0,3),handicap:playerForm.handicap===""?null:+playerForm.handicap,initialRating:rating,colour:playerForm.colour||DEFAULT_AVATAR}
       : {id:crypto.randomUUID(),name:playerForm.name.trim(),short:playerForm.short.toUpperCase().slice(0,3),colour:playerForm.colour||DEFAULT_AVATAR,
         handicap:playerForm.handicap===""?null:+playerForm.handicap,rating,initialRating:rating,active:true,wins:0,losses:0,draws:0,
         framesWon:0,framesLost:0,lastChange:0,form:[]};
@@ -986,9 +998,9 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     <div className={`pull-refresh${refreshing?" spinning":""}`} style={{height:refreshing?PULL_THRESHOLD:pullDistance,opacity:refreshing||pullDistance>0?1:0}} aria-hidden="true">
       <span/>
     </div>
-    <DesktopNavigation active={tab as Destination} onNavigate={goTab} badge={navBadge} signedIn={Boolean(user)}/>
+    <DesktopNavigation active={tab as Destination} onNavigate={goTab} badge={navBadge} signedIn={Boolean(user)} needsOnboarding={Boolean(user?.needsOnboarding)}/>
     <main>
-      <header><div className="mobile-brand">SCAA <span>Snooker ELO</span></div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
+      <header><div className="mobile-brand-wrap"><div className="mobile-brand">SCAA <span>Snooker ELO</span></div>{user?.needsOnboarding&&<a className="onboarding-alert-link" href="/onboarding?reminder=1" aria-label="完成會員問卷" title="完成會員問卷">⚠️</a>}</div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       <PageFrame className={`app-page-${tab}`}>
       {/* The club's pulse, on the screen members actually open. Matchmaking used to live entirely
           behind a tab, so "is anyone playing tonight?" was unanswerable without going to look. */}
@@ -1052,7 +1064,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
               <div className="sheet-actions"><button className="primary" type="submit">儲存盃賽</button><button type="button" className="secondary" onClick={()=>{setModal(null);setEditingTournament(null)}}>取消</button></div>
             </form>
           </div>}
-          {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} onSave={savePlayer}/>}
+          {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} canEditRating={isAdmin} onSave={savePlayer}/>}
           {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const start=Number(settings.start ?? data.settings.start ?? 1500); const applied={...settings,start,modelVersion:9}; const rebuilt=replay(data.players.map(player=>({...player,initialRating:start,rating:start})),data.matches,applied); setModal(null); persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:`調整 PDF Snooker Elo 公式參數；以 ${start} 起始並重播歷史評分`,at:new Date().toISOString()},...data.audits]},`設定已套用，歷史評分已從 ${start} 重播。`)}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}

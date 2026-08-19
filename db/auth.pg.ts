@@ -1,8 +1,9 @@
 import { headers } from "next/headers";
-import { resolveOnboardingRating } from "../lib/onboarding";
 import type { MemberSession, MemberRow } from "./auth-types";
 import { getSql } from "./sql";
 import { ensureStateSchema } from "./state.pg";
+import { getState, putState } from "./state";
+import { replay, type ReplayMatch, type ReplayPlayer, type ReplaySettings } from "../lib/elo-replay";
 
 const SESSION_COOKIE = "scaa_session";
 const SESSION_DAYS = 30;
@@ -238,10 +239,11 @@ export async function needsOnboarding(email: string) {
 export async function savePreliminaryRating(email: string, preliminaryRating: number, finalRating: number, at: string) {
   await Promise.all([ensureAuthSchema(), ensureStateSchema(), ensurePreliminaryRatingSchema()]);
   const sql = getSql();
-  const rows = await sql<{ statePlayerId: string | null; displayName: string; rating: number | null; hasHistory: boolean }[]>`
+  const rows = await sql<{ statePlayerId: string | null; displayName: string; rating: number | null; initialRating: number | null; hasHistory: boolean }[]>`
     SELECT m.state_player_id AS "statePlayerId",
            m.display_name AS "displayName",
            p.rating::float8 AS rating,
+           p.initial_rating::float8 AS "initialRating",
            EXISTS (
              SELECT 1 FROM state_matches sm
              WHERE sm.player_a = p.id OR sm.player_b = p.id OR sm.player_a2 = p.id OR sm.player_b2 = p.id
@@ -253,21 +255,30 @@ export async function savePreliminaryRating(email: string, preliminaryRating: nu
   const member = rows[0];
   if (!member?.statePlayerId) return false;
 
-  const next = resolveOnboardingRating({
-    currentRating: member.rating ?? null,
-    hasHistoricMatches: member.hasHistory,
-    finalRating,
-  });
-
-  await sql.begin(async tx => {
-    await tx`UPDATE state_players
-      SET rating = ${next.rating},
-          initial_rating = ${next.initialRating},
-          preliminary_rating = ${preliminaryRating},
-          updated_at = now()
-      WHERE id = ${member.statePlayerId}`;
-    await tx`INSERT INTO state_audits (id, text, occurred_at) VALUES (${crypto.randomUUID()}, ${`完成新會員評級：${member.displayName}（${next.rating} ELO）`}, ${at})`;
-  });
+  const rawState = await getState();
+  if (!rawState) return false;
+  const state = JSON.parse(rawState) as {
+    players: Array<Record<string, unknown> & { id: string; initialRating: number; rating: number }>;
+    matches: Record<string, unknown>[];
+    settings: Record<string, unknown>;
+    tournaments: unknown[];
+    audits: { id: string; text: string; at: string }[];
+  };
+  const players = state.players.map(player => player.id === member.statePlayerId
+    ? { ...player, initialRating: finalRating, preliminaryRating }
+    : player);
+  const rebuilt = replay(
+    players as unknown as ReplayPlayer[],
+    state.matches as unknown as ReplayMatch[],
+    state.settings as ReplaySettings,
+  );
+  const rebuiltPlayer = rebuilt.players.find(player => player.id === member.statePlayerId);
+  if (!rebuiltPlayer) return false;
+  await putState(JSON.stringify({
+    ...state,
+    ...rebuilt,
+    audits: [{ id: crypto.randomUUID(), text: `完成新會員評級：${member.displayName}（${rebuiltPlayer.rating} ELO）`, at }, ...state.audits],
+  }));
   return true;
 }
 export async function updateMember(email: string, input: { username?: string; newEmail?: string; password?: string; currentPassword?: string }) {
