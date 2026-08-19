@@ -105,6 +105,23 @@
     --radius-sm:.75rem;
     --radius-md:1rem;
     --radius-lg:1.25rem;
+
+    /* The eight steps below are a second, denser radius scale this codebase
+       already had before --radius-sm/md/lg existed: 8/9/10/11/13/14/15/18px
+       show up 8-30 times each as hand-typed literals, almost never landing on
+       12/16/20. Same call as the --sp-N-5 half-steps above -- a real de-facto
+       scale, not drift, so it gets named rather than force-rounded into
+       --radius-sm/md/lg (which would visibly change corner roundness across
+       dozens of components). Consolidating the two scales into one is a
+       follow-up design decision, not a mechanical rename. */
+    --radius-8:.5rem;
+    --radius-9:.5625rem;
+    --radius-10:.625rem;
+    --radius-11:.6875rem;
+    --radius-13:.8125rem;
+    --radius-14:.875rem;
+    --radius-15:.9375rem;
+    --radius-18:1.125rem;
   }
 
   /* --- Breakpoints — three tiers, and only these three -------------------
