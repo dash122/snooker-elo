@@ -68,7 +68,7 @@ export default function SignupForm() {
           value={email} onChange={event => setEmail(event.target.value)}
           aria-invalid={Boolean(emailError || emailDisallowed || emailCheck.taken) || undefined}
         />
-        {emailError && <small className="field-error" role="alert">請輸入有效電郵地址（需包含 @XXX.com）。</small>}
+        {emailError && <small className="field-error" role="alert">請輸入有效電郵地址。</small>}
         {emailDisallowed && <small className="field-error" role="alert">內容含有不當用語，請修改後再提交。</small>}
         {emailCheck.taken && <small className="field-error" role="alert">此電郵已被使用。</small>}
       </label>

@@ -97,7 +97,8 @@ test("signup validation follows the current club rules",()=>{
   assert.equal(checkDisplayName("bad!!!"),null);
   assert.equal(checkDisplayName(""),"display-name-format");
   assert.equal(checkEmail("player@example.com"),null);
-  assert.equal(checkEmail("player@example.org"),"email-format");
+  assert.equal(checkEmail("player@example.org"),null);
+  assert.equal(checkEmail("plain-text"),"email-format");
   assert.equal(checkDisallowedText("idiot"),"disallowed-text");
   assert.equal(checkDisallowedText("Tom! 1"),null);
 });

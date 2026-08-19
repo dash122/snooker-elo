@@ -21,7 +21,7 @@ const zh = {
   restored: "資料已還原至所選快照。",
   snapshotsSection: "資料備份快照", snapshotsSub: "系統每小時最多保留一個完整資料備份，最多保留 100 個。還原會以該時間點的資料覆蓋目前所有資料。",
   snapshotsEmpty: "暫無備份快照。", restore: "還原",
-  statAccounts: "帳戶總數", statAdmins: "管理員", statUnlinked: "待連結球員檔案", statAllLinked: "全部已連結",
+  settings: "ELO 設定", settingsOpen: "開啟評分設定", statAccounts: "帳戶總數", statAdmins: "管理員", statUnlinked: "待連結球員檔案", statAllLinked: "全部已連結",
   statNoAccount: "球員待開帳戶", statAllHaveAccounts: "球員全部已開帳戶",
   attentionTitle: "需要處理", attentionSub: "以下帳戶未連結球員檔案，成績不會計入排行榜。選擇對應的球員即可連結。",
   link: "連結", pick: "選擇球員",
@@ -86,6 +86,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <StatTile className={needAccount.length ? "warn" : ""}
           label={needAccount.length ? zh.statNoAccount : zh.statAllHaveAccounts}
           value={needAccount.length || "✓"} />
+      </div>
+
+      <div className="admin-toolbar">
+        <Link className="primary" href="/?tab=settings">{zh.settingsOpen}</Link>
       </div>
 
       {unlinked.length > 0 && <section className="admin-attention">

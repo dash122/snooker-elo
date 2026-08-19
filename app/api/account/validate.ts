@@ -19,7 +19,7 @@ export function checkUsername(value: string) {
 
 export function checkEmail(value: string) {
   const email = value.trim();
-  return /^[^\s@]+@[^\s@]+\.com$/i.test(email) ? null : "email-format";
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(email) ? null : "email-format";
 }
 
 export function checkDisplayName(value: string) {
