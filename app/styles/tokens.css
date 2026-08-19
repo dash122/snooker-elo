@@ -102,26 +102,20 @@
     --control-md:2.75rem;  /* 44px — the standard tap target */
     --control-lg:3.125rem; /* 50px — primary commitment actions */
 
-    --radius-sm:.75rem;
-    --radius-md:1rem;
-    --radius-lg:1.25rem;
-
-    /* The eight steps below are a second, denser radius scale this codebase
-       already had before --radius-sm/md/lg existed: 8/9/10/11/13/14/15/18px
-       show up 8-30 times each as hand-typed literals, almost never landing on
-       12/16/20. Same call as the --sp-N-5 half-steps above -- a real de-facto
-       scale, not drift, so it gets named rather than force-rounded into
-       --radius-sm/md/lg (which would visibly change corner roundness across
-       dozens of components). Consolidating the two scales into one is a
-       follow-up design decision, not a mechanical rename. */
-    --radius-8:.5rem;
-    --radius-9:.5625rem;
-    --radius-10:.625rem;
-    --radius-11:.6875rem;
-    --radius-13:.8125rem;
-    --radius-14:.875rem;
-    --radius-15:.9375rem;
-    --radius-18:1.125rem;
+    /* Seven steps, replacing ~25 hand-typed literal border-radius values that
+       had drifted across the codebase (2-30px). --sm/md/lg keep their
+       original values unchanged (nothing using them moves); the fringe
+       values within 1-3px of a step were rounded onto it after checking each
+       call site -- e.g. the .status pill's old 30px already exceeded half
+       its own height so it rendered fully round anyway, making the move to
+       --radius-pill visually free. --2xs/--xs/--xl are new. */
+    --radius-2xs:.25rem;  /* 4px  — tiny accents/nubs (was 2-5px) */
+    --radius-xs:.5rem;    /* 8px  — small chips/icons (was 6-10px) */
+    --radius-sm:.75rem;   /* 12px — controls/buttons (was 11-13px) */
+    --radius-md:1rem;     /* 16px — cards (was 14-19px) */
+    --radius-lg:1.25rem;  /* 20px — = --ds-radius-card (was 20px, unchanged) */
+    --radius-xl:1.5rem;   /* 24px — sheets/modals, = --ds-radius-sheet (was 22-26px) */
+    --radius-pill:999px;  /* fully round (was 999px and the .status 30px that already clamped to round) */
   }
 
   /* --- Breakpoints — three tiers, and only these three -------------------
