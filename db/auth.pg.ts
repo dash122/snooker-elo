@@ -8,6 +8,24 @@ import { replay, type ReplayMatch, type ReplayPlayer, type ReplaySettings } from
 const SESSION_COOKIE = "scaa_session";
 const SESSION_DAYS = 30;
 
+export type GoogleMemberLookup =
+  | { status: "linked" | "not-found"; email: string }
+  | { status: "deactivated" };
+
+// Looks up the member a Google sign-in's email belongs to, auto-linking if
+// found (only ever fills a missing google_id, never overwrites one). Never
+// creates a member — signInOrSignUpWithGoogle in db/signup.ts does that.
+export async function resolveGoogleMember(email: string, googleId: string): Promise<GoogleMemberLookup> {
+  await ensureAuthSchema();
+  const sql = getSql();
+  const normalizedEmail = email.trim().toLowerCase();
+  const existing = await sql<{ active: boolean }[]>`SELECT active FROM members WHERE email = ${normalizedEmail}`;
+  if (!existing[0]) return { status: "not-found", email: normalizedEmail };
+  if (!existing[0].active) return { status: "deactivated" };
+  await sql`UPDATE members SET google_id = COALESCE(google_id, ${googleId}) WHERE email = ${normalizedEmail}`;
+  return { status: "linked", email: normalizedEmail };
+}
+
 let schemaReady: Promise<unknown> | null = null;
 let preliminaryRatingSchemaReady: Promise<unknown> | null = null;
 function ensurePreliminaryRatingSchema() {
@@ -60,6 +78,7 @@ function ensureAuthSchema() {
       await tx`ALTER TABLE members ADD COLUMN IF NOT EXISTS icon_colour TEXT`;
       await tx`CREATE INDEX IF NOT EXISTS sessions_member_email_idx ON sessions (member_email)`;
       await tx`CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions (expires_at)`;
+      await tx`ALTER TABLE members ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE`;
     });
   })().catch(error => {
     schemaReady = null;
@@ -175,7 +194,7 @@ export type NewSignupPlayer = {
 // an orphaned player if the process crashed between the two writes.
 export async function createMemberWithPlayer(input: {
   username: string; email: string; displayName: string; password: string;
-  role: "admin" | "member"; player: NewSignupPlayer; auditText: string;
+  role: "admin" | "member"; player: NewSignupPlayer; auditText: string; googleId?: string;
 }) {
   await Promise.all([ensureAuthSchema(), ensureStateSchema()]);
   const sql = getSql();
@@ -195,8 +214,8 @@ export async function createMemberWithPlayer(input: {
       INSERT INTO state_audits (id, text, occurred_at) VALUES (${crypto.randomUUID()}, ${input.auditText}, ${now})
     `;
     await tx`
-      INSERT INTO members (email, username, state_player_id, display_name, role, password_hash, password_salt, active, joined_at, last_seen_at)
-      VALUES (${normalizedEmail}, ${normalizedUsername}, ${p.id}, ${input.displayName.trim()}, ${input.role}, ${hash}, ${salt}, true, ${now}, ${now})
+      INSERT INTO members (email, username, state_player_id, display_name, role, password_hash, password_salt, active, joined_at, last_seen_at, google_id)
+      VALUES (${normalizedEmail}, ${normalizedUsername}, ${p.id}, ${input.displayName.trim()}, ${input.role}, ${hash}, ${salt}, true, ${now}, ${now}, ${input.googleId ?? null})
     `;
   });
 }

@@ -2,6 +2,12 @@ export type { MemberSession, MemberRow } from "./auth-types";
 
 import * as backend from "./auth.pg";
 
+export type { GoogleMemberLookup } from "./auth.pg";
+
+export async function resolveGoogleMember(email: string, googleId: string) {
+  return backend.resolveGoogleMember(email, googleId);
+}
+
 export async function getCurrentMember() {
   return backend.getCurrentMember();
 }
