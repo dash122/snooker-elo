@@ -77,20 +77,22 @@ export default function AuthExperience({
           {error && (
             <p className="form-error" role="alert">
               {error === "username-format"
-                ? "使用者名稱須為 3 至 24 個英文字母、數字或 . _ -。"
+                ? "使用者名稱須為 3 至 24 個英文字母、數字或 .。"
                 : error === "email-format"
-                  ? "請輸入有效電郵地址。"
+                  ? "請輸入有效電郵地址（需包含 @XXX.com）。"
                   : error === "display-name-format"
-                    ? "顯示名稱須為 1 至 40 個字元。"
-                    : error === "password-short"
-                      ? "密碼需至少 8 個字元。"
-                      : error === "exists"
-                ? "此電郵或使用者名稱已被使用。"
-                : error === "rate-limited"
-                  ? "嘗試次數過多，請稍後再試。"
-                  : error === "error"
-                    ? "系統發生錯誤，請稍後再試。"
-                    : signup ? "請檢查資料。" : "使用者名稱或密碼不正確。"}
+                    ? "顯示名稱只能使用中英數字、空白、! 及 ?。"
+                    : error === "disallowed-text"
+                      ? "內容含有不當用語，請修改後再提交。"
+                      : error === "password-short"
+                        ? "密碼需至少 8 個字元。"
+                        : error === "exists"
+                          ? "此電郵或使用者名稱已被使用。"
+                          : error === "rate-limited"
+                            ? "嘗試次數過多，請稍後再試。"
+                            : error === "error"
+                              ? "系統發生錯誤，請稍後再試。"
+                              : signup ? "請檢查資料。" : "使用者名稱或密碼不正確。"}
             </p>
           )}
           {signup ? (

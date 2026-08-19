@@ -222,6 +222,18 @@ export async function hasMembers() {
   return Number(rows[0]?.count ?? 0) > 0;
 }
 
+export async function needsOnboarding(email: string) {
+  await Promise.all([ensureAuthSchema(), ensurePreliminaryRatingSchema()]);
+  const sql = getSql();
+  const rows = await sql<{ needs: boolean }[]>`
+    SELECT (p.preliminary_rating IS NULL) AS needs
+    FROM members m
+    LEFT JOIN state_players p ON p.id = m.state_player_id
+    WHERE m.email = ${email.trim().toLowerCase()} AND m.active = true
+  `;
+  return rows[0]?.needs ?? false;
+}
+
 export async function savePreliminaryRating(email: string, preliminaryRating: number, finalRating: number, at: string) {
   await Promise.all([ensureAuthSchema(), ensureStateSchema(), ensurePreliminaryRatingSchema()]);
   const sql = getSql();

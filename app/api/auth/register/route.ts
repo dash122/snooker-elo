@@ -1,6 +1,6 @@
 import { signUpMember } from "../../../../db/signup";
 import { checkAttempt } from "../../../../lib/rate-limit";
-import { checkUsername, checkEmail, checkDisplayName, checkPassword } from "../../account/validate";
+import { checkUsername, checkEmail, checkDisplayName, checkPassword, checkDisallowedText } from "../../account/validate";
 
 export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
@@ -13,7 +13,14 @@ export async function POST(request: Request) {
   const username = String(form.get("username") ?? "").trim();
   const displayName = String(form.get("displayName") ?? "").trim();
   const password = String(form.get("password") ?? "");
-  const validationError = checkUsername(username) ?? checkEmail(email) ?? checkDisplayName(displayName) ?? checkPassword(password);
+  const validationError =
+    checkDisplayName(displayName) ??
+    checkDisallowedText(displayName) ??
+    checkUsername(username) ??
+    checkDisallowedText(username) ??
+    checkEmail(email) ??
+    checkDisallowedText(email) ??
+    checkPassword(password);
   if (validationError) return Response.redirect(new URL(`/login?mode=signup&error=${validationError}`, request.url), 303);
   try {
     const result = await signUpMember({ username, email, displayName, password });
