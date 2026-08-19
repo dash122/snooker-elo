@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { calculateSnookerElo } from "../lib/snooker-elo.ts";
+import { replay } from "../lib/elo-replay.ts";
 import { resolveOnboardingRating } from "../lib/onboarding.ts";
 import { checkDisplayName, checkEmail, checkUsername, checkDisallowedText } from "../app/api/account/validate.ts";
 
@@ -89,14 +90,25 @@ test("repetition decay reduces repeated-match rating changes",()=>{
   assert.equal(Math.round(repeated.deltaA*100)/100,Math.round(first.deltaA*.5*100)/100);
 });
 
-test("onboarding rating stays as a baseline when past matches already exist",()=>{
-  const existing = resolveOnboardingRating({ currentRating: 1600, hasHistoricMatches: true, finalRating: 1800 });
-  assert.equal(existing.shouldOverrideCurrentRating, false);
-  assert.equal(existing.rating, 1600);
-  assert.equal(existing.initialRating, 1600);
-  assert.equal(existing.preliminaryRating, 1800);
+test("changing a starting ELO recalculates historical match deltas",()=>{
+  const player=(id,rating)=>({id,name:id,short:id,handicap:null,rating,initialRating:rating,active:true,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]});
+  const match={id:"m1",a:"new",b:"opponent",scoreA:1,scoreB:0,playedOn:"2026-01-01",actual:0,giver:null,official:null,extra:0,expectedA:0,beforeA:0,beforeB:0,afterA:0,afterB:0,deltaA:0,status:"confirmed",createdAt:"2026-01-01T12:00:00.000Z"};
+  const settings={start:1500};
+  const original=replay([player("new",1500),player("opponent",1580)],[match],settings);
+  const rebased=replay([player("new",1100),player("opponent",1580)],[match],settings);
+  assert.equal(rebased.matches[0].beforeA,1100);
+  assert.ok(rebased.matches[0].deltaA>original.matches[0].deltaA);
+  assert.equal(rebased.players.find(item=>item.id==="new").rating,1100+rebased.matches[0].deltaA);
+});
 
-  const newMember = resolveOnboardingRating({ currentRating: 1500, hasHistoricMatches: false, finalRating: 1800 });
+test("onboarding re-bases the live rating when past matches already exist",()=>{
+  const existing = resolveOnboardingRating({ currentRating: 1534, initialRating: 1500, hasHistoricMatches: true, finalRating: 1100 });
+  assert.equal(existing.shouldOverrideCurrentRating, true);
+  assert.equal(existing.rating, 1100);
+  assert.equal(existing.initialRating, 1100);
+  assert.equal(existing.preliminaryRating, 1100);
+
+  const newMember = resolveOnboardingRating({ currentRating: 1500, initialRating: 1500, hasHistoricMatches: false, finalRating: 1800 });
   assert.equal(newMember.shouldOverrideCurrentRating, true);
   assert.equal(newMember.rating, 1800);
   assert.equal(newMember.initialRating, 1800);
