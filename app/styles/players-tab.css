@@ -1,3 +1,4 @@
+.players-row-manage{display:block;width:calc(100% - var(--sp-6));margin:0 var(--sp-3) var(--sp-2);padding:var(--sp-1-5) var(--sp-2);border:1px solid var(--pc-hover-border);border-radius:var(--radius-sm);background:var(--ds-surface-secondary);color:var(--ink);font-size:var(--fs-label);font-weight:800;text-align:center}
 /* ===========================================================================
    Players tab
    ---------------------------------------------------------------------------
