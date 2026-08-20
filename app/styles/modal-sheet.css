@@ -39,7 +39,7 @@
   }
 }.sheet-shell.player-detail-sheet{
   border-radius:26px;
-  background:var(--paper);
+  background:var(--ds-surface-primary);
   box-shadow:0 30px 90px rgba(0,0,0,.3);
   scrollbar-gutter:stable;
 }.sheet-shell.player-detail-sheet>.sheet{
@@ -48,10 +48,10 @@
 }.close{position:sticky;top:1rem;z-index:5;display:grid;place-items:center;
   width:2.25rem!important;height:2.25rem!important;min-height:0!important;
   margin:0 0 var(--sp-3) auto;border:1px solid var(--line);border-radius:50%;
-  background:var(--paper);color:var(--muted);font-size:1.375rem;line-height:1;
+  background:var(--ds-surface-primary);color:var(--ds-text-secondary);font-size:1.375rem;line-height:1;
   box-shadow:0 2px 8px rgba(18,61,55,.14);
   transition:background .18s ease,color .18s ease,transform .18s ease}.close:after{content:"";position:absolute;inset:-.25rem}/* 44px tap target, 36px circle */
-.close:hover{background:var(--ds-surface-raised);color:var(--ink)}.close:active{transform:scale(.94)}
+.close:hover{background:var(--ds-surface-raised);color:var(--ds-text-primary)}.close:active{transform:scale(.94)}
 @media(max-width:820px){.close{top:.75rem;margin-bottom:var(--sp-2)}}/* The shell is the sole player-detail scroller. Removing the sheet's nested
    overflow lets one continuous touch gesture reach the final profile section. */
 @media(max-width:820px){
@@ -79,7 +79,7 @@
     touch-action:pan-y;
     overscroll-behavior:contain;
     border-radius:24px;
-    background:var(--paper);
+    background:var(--ds-surface-primary);
     box-shadow:0 30px 90px rgba(0,0,0,.3);
   }
   .sheet-shell.match-entry-sheet>.sheet{

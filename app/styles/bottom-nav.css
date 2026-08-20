@@ -84,7 +84,7 @@
     pointer-events:none;
   }
   .bottom button>*{position:relative;z-index:1}
-  .bottom .active{background:transparent;color:var(--green)}
+  .bottom .active{background:transparent;color:var(--ds-accent-action)}
   .bottom .active:before{opacity:1;transform:none}
   .bottom .active small{font-weight:800}
 
