@@ -1329,6 +1329,7 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
   },{played:0,wins:0,losses:0});
   if(!focus)return <Empty text="尚未有對賽記錄" sub="記錄第一場 1v1 比賽後，球員之間的對賽矩陣會顯示在這裡。"/>;
   const shareOf=(record:H2HRecord,id:string)=>Math.round((record.wins[id]+record.draws/2)/Math.max(1,record.total)*100);
+  const frameShareOf=(record:H2HRecord,id:string,otherId:string)=>Math.round(record.frames[id]/Math.max(1,record.frames[id]+record.frames[otherId])*100);
   return <section className="h2h-matrix" aria-label="對賽矩陣">
     <div className="h2h-matrix-toolbar">
       <div className="h2h-matrix-focus">
@@ -1369,10 +1370,10 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
             </li>;
           })}</ul>}
     </>:<>
-      <p className="h2h-matrix-hint">橫行為該球員的勝負，向右捲動可看更多對手。</p>
+      <p className="h2h-matrix-hint">橫行為該球員的局數勝負，向右捲動可看更多對手。</p>
       <div className="h2h-matrix-scroll">
         <table className="h2h-matrix-grid">
-          <caption className="sr-only">球員之間的 1v1 對賽勝負矩陣，橫行球員對直行球員</caption>
+          <caption className="sr-only">球員之間的 1v1 對賽局數勝負矩陣，橫行球員對直行球員</caption>
           <thead><tr><th scope="col"><span className="sr-only">球員</span></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
           <tbody>{players.map(row=><tr key={row.id} className={row.id===focus.id?"focused":""}>
             <th scope="row"><span className="h2h-matrix-rowhead"><PlayerBadge player={row}/><span>{row.short||row.name}</span></span></th>
@@ -1380,11 +1381,11 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
               if(column.id===row.id)return <td key={column.id} className="self" aria-label="同一位球員">—</td>;
               const record=index.get(h2hKey(row.id,column.id));
               if(!record)return <td key={column.id} className="none" aria-label={`${row.name} 與 ${column.name} 未曾交手`}>·</td>;
-              const share=shareOf(record,row.id);
-              const losses=record.total-record.wins[row.id]-record.draws;
+              const share=frameShareOf(record,row.id,column.id);
+              const framesWon=record.frames[row.id],framesLost=record.frames[column.id];
               return <td key={column.id} className={share>50?"ahead":share<50?"behind":"level"}>
-                <button type="button" onClick={()=>onOpenPair(row.id,column.id)} aria-label={`${row.name} 對 ${column.name}：${record.wins[row.id]} 勝 ${losses} 負，共 ${record.total} 場`}>
-                  <b>{record.wins[row.id]}<em>–</em>{losses}</b>
+                <button type="button" onClick={()=>onOpenPair(row.id,column.id)} aria-label={`${row.name} 對 ${column.name}：局數 ${framesWon} 勝 ${framesLost} 負，共 ${record.total} 場`}>
+                  <b>{framesWon}<em>–</em>{framesLost}</b>
                 </button>
               </td>;
             })}
