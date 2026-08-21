@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Button } from "./components/ui/Primitives";
 
 export type SortKey = "rank"|"name"|"rating"|"change"|"form"|"official"|"suggested"|"games"|"winRate"|"frameRate";
 export type EloTrendPoint = {
@@ -308,5 +309,5 @@ export function PlayerForm({form,setForm,editing,canEditRating=false,onSave}:{fo
       <div className="colour-preview"><i style={avatarStyle(form.colour)}>{(form.short||"?").toUpperCase().slice(0,3)}</i><small>{AVATAR_COLOURS.find(option=>option.id===(form.colour||DEFAULT_AVATAR))?.name}</small></div>
       <div className="colour-grid" role="radiogroup" aria-label="圖示顏色">{AVATAR_COLOURS.map(option=><button key={option.id} type="button" role="radio" aria-checked={(form.colour||DEFAULT_AVATAR)===option.id} aria-label={option.name} title={option.name} className={`colour-swatch${(form.colour||DEFAULT_AVATAR)===option.id?" active":""}`} style={{background:option.hex}} onClick={()=>update("colour",option.id)}/>)}</div>
     </div>
-    <button className="primary full" onClick={onSave}>{editing?"儲存並重播":"新增球員"}</button></>;
+    <Button className="full" onClick={onSave}>{editing?"儲存並重播":"新增球員"}</Button></>;
 }

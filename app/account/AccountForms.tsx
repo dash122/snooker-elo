@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { AVATAR_COLOURS, DEFAULT_AVATAR, avatarHex } from "../avatar-colours";
 import { checkAvatar, checkDisplayName, checkEmail, checkInitials, checkPassword, checkUsername, deriveInitials, MAX_AVATAR_CHARS } from "../api/account/validate";
+import { Button } from "../components/ui/Primitives";
 
 const zh = {
   email: "電郵",
@@ -224,7 +225,7 @@ function ProfileForm({ member, onDone }: { member: Member; onDone: () => void })
     {status === "saved" && <p className="form-success">{zh.saved}</p>}
     <div className="account-form-actions">
       <button type="button" className="more" onClick={onDone}>{zh.cancel}</button>
-      <button className="primary" type="submit" disabled={status === "saving"}>{status === "saving" ? zh.saving : zh.save}</button>
+      <Button type="submit" disabled={status === "saving"}>{status === "saving" ? zh.saving : zh.save}</Button>
     </div>
   </form>;
 }
@@ -285,7 +286,7 @@ function PasswordForm({ onDone }: { onDone: () => void }) {
     {status === "saved" && <p className="form-success">{zh.passwordSaved}</p>}
     <div className="account-form-actions">
       <button type="button" className="more" onClick={onDone}>{zh.cancel}</button>
-      <button className="primary" type="submit" disabled={status === "saving"}>{status === "saving" ? zh.saving : zh.updatePassword}</button>
+      <Button type="submit" disabled={status === "saving"}>{status === "saving" ? zh.saving : zh.updatePassword}</Button>
     </div>
   </form>;
 }
@@ -332,7 +333,7 @@ function DangerZone({ username }: { username: string }) {
       {fieldErrors.form && <p className="form-error">{message(fieldErrors.form)}</p>}
       <div className="account-danger-actions">
         <button type="button" className="more" onClick={() => { setOpen(false); setFieldErrors({}); }}>{zh.cancel}</button>
-        <button className="danger" type="submit" disabled={status === "saving"}>{status === "saving" ? zh.saving : zh.deactivate}</button>
+        <Button variant="danger" type="submit" disabled={status === "saving"}>{status === "saving" ? zh.saving : zh.deactivate}</Button>
       </div>
     </form>
   </section>;

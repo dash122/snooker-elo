@@ -1,6 +1,11 @@
 @layer components {
   .ds-button,.ds-icon-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);min-height:44px;border-radius:var(--ds-radius-control);border:1px solid transparent;font-weight:800;transition:transform var(--ds-duration-fast) var(--ds-ease-standard),background var(--ds-duration-fast) var(--ds-ease-standard)}
   .ds-button{padding:var(--sp-3) var(--sp-4)}.ds-button:active,.ds-icon-button:active{transform:translateY(1px) scale(.98)}
+  /* `@layer legacy`'s `button,input,select{font:inherit}` always wins over any font-size set
+     directly on `.ds-button` (unlayered beats named layers, and legacy is declared last of all
+     named layers — see docs/design-system.md). Styling the text-wrapping <span> instead sidesteps
+     that reset, since legacy has no rule targeting `.ds-button`'s children. */
+  .ds-button>span{font-size:var(--fs-sm)}
   .ds-button--primary{background:var(--ds-accent-action);color:var(--ds-text-on-brand);box-shadow:0 8px 24px var(--ds-accent-action-shadow)}.ds-button--primary:hover{background:var(--ds-accent-action-hover)}
   .ds-button--featured{background:var(--ds-accent-primary);color:var(--ds-text-on-accent);box-shadow:0 8px 24px var(--ds-accent-shadow)}.ds-button--featured:hover{background:var(--ds-accent-primary-hover)}
   .ds-button--secondary{background:var(--ds-surface-primary);color:var(--ds-text-primary);border-color:var(--ds-border-strong)}

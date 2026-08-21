@@ -4,6 +4,7 @@ import { useState } from "react";
 import PasswordField from "./PasswordField";
 import { checkDisplayName, checkDisallowedText, checkEmail, checkPassword, checkUsername } from "../api/account/validate";
 import { useAvailabilityCheck } from "./useAvailabilityCheck";
+import { Button } from "../components/ui/Primitives";
 
 export default function SignupForm() {
   const [displayName, setDisplayName] = useState("");
@@ -82,9 +83,9 @@ export default function SignupForm() {
         />
         {passwordsMismatch && <small className="field-error" role="alert">兩次密碼不相符。</small>}
       </label>
-      <button className="primary auth-submit" type="submit" disabled={!canSubmit}>
+      <Button className="auth-submit" type="submit" disabled={!canSubmit}>
         建立帳戶及球員檔案
-      </button>
+      </Button>
     </form>
   );
 }

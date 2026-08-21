@@ -6,4 +6,22 @@ export function Sheet({open,title,children,onClose,className=""}:{open:boolean;t
     (invite composers, session/slot creation, counter-offers). Kept on the legacy classes rather than
     `.ds-sheet` since those carry their own established styling — this only removes the identical
     backdrop/close-button/aria wiring that was duplicated across each call site. */
+/** Shared scaffold for the app's `.availability-dialog-backdrop`/`.availability-dialog`
+    alertdialog pattern (destructive confirmations, unsaved-changes prompts). Owns its own
+    focus trap + Escape handling so call sites stop re-implementing the same wiring. */
+export function ConfirmDialog({kicker,title,titleId,description,children,onClose}:{kicker:string;title:ReactNode;titleId:string;description:ReactNode;children:ReactNode;onClose:()=>void}){
+  const ref=useRef<HTMLElement>(null);
+  useEffect(()=>{
+    const previous=document.activeElement as HTMLElement|null;
+    const focusable=ref.current?Array.from(ref.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')):[];
+    focusable[0]?.focus();
+    function onKey(ev:KeyboardEvent){
+      if(ev.key==="Escape"){onClose();return}
+      if(ev.key==="Tab"&&focusable.length){const first=focusable[0],last=focusable[focusable.length-1];if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus()}else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus()}}
+    }
+    document.addEventListener("keydown",onKey);
+    return()=>{document.removeEventListener("keydown",onKey);previous?.focus()}
+  },[onClose]);
+  return <div className="availability-dialog-backdrop" onMouseDown={onClose}><section ref={ref as never} className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={event=>event.stopPropagation()}><small>{kicker}</small><h2 id={titleId}>{title}</h2><p>{description}</p><div>{children}</div></section></div>
+}
 export function BackdropSheet({onClose,labelledBy,className,children}:{onClose:()=>void;labelledBy?:string;className?:string;children:ReactNode}){return <div className="backdrop invite-backdrop" onMouseDown={onClose}><section className={`sheet invite-sheet${className?` ${className}`:""}`} onMouseDown={event=>event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={labelledBy}><button type="button" className="close" aria-label="關閉" onClick={onClose}>×</button>{children}</section></div>}

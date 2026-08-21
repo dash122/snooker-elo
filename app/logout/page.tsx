@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCurrentMember } from "../../db/auth";
+import { Button } from "../components/ui/Primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export default async function LogoutPage() {
       <h1>{user ? "確定登出？" : "你已登出"}</h1>
       <p>{user ? `登出 ${user.displayName} 後仍可繼續瀏覽公開排行榜。` : "你目前沒有登入會員帳戶。"}</p>
       <div className="auth-buttons">
-        {user && <form action="/api/auth/logout" method="post"><button className="primary" type="submit">確認登出</button></form>}
+        {user && <form action="/api/auth/logout" method="post"><Button type="submit">確認登出</Button></form>}
         <Link className="more" href="/">返回排行榜</Link>
       </div>
     </section>
