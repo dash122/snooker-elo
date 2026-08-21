@@ -12,6 +12,11 @@ import { AVAILABILITY_GRACE_MINUTES, type MutualOffer } from "../lib/availabilit
 let schemaReady:Promise<unknown>|null=null;
 export async function ensureOfferSchema(){ return ensureSchema(); }
 async function ensureSchema(){
+  // Schema changes are migration-owned — see the identical short-circuit in
+  // db/availability.pg.ts. match_offers is already live everywhere this
+  // module runs, so skip re-running the bootstrap on every cold start.
+  return Promise.resolve();
+
   schemaReady??=(async()=>{
     const sql=getSql();
     /* The pair is stored in a fixed order (a < b) so that "is there already an offer between these

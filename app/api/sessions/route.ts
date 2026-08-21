@@ -46,12 +46,13 @@ export async function GET(){
   const me=member.statePlayerId;
   try{
     const now=Date.now();
-    const [mine,state,invites,reliability,intents]=await Promise.all([
+    const [mine,state,invites,reliability,intents,openCalls]=await Promise.all([
       listSessions(me),
       clubState(),
       listInvitesFor(me),
       reliabilityByPlayer().catch(()=>({})),
       liveIntentsByPlayer().catch(()=>({})),
+      listOpenCalls().catch(()=>[]),
     ]);
     const players:ClubState["players"]=state?.players??[];
     const matches:ClubState["matches"]=state?.matches??[];
@@ -160,7 +161,7 @@ export async function GET(){
     /* Open calls belong in the same strip: a table somebody already booked and opened to the club is
        strictly less work to join than any session above, and hiding it behind a second surface (as
        the old Room did) buries the easiest "yes" on the whole screen. */
-    const calls=(await listOpenCalls().catch(()=>[]))
+    const calls=openCalls
       .filter(call=>isOpenCallLive(call,now))
       .slice(0,MARKET_LIMIT)
       .map(call=>({id:call.id,startAt:call.startAt,endAt:call.endAt,venue:call.venue,message:call.message,

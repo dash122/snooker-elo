@@ -26,6 +26,13 @@ import { ensureAvailabilitySchema, fillPostedSlotTx, type PostedSlot } from "./a
 
 let schemaReady:Promise<unknown>|null=null;
 async function ensureSchema(){
+  // Schema changes are migration-owned — see the identical short-circuit in
+  // db/availability.pg.ts. slot_hands and slot_watchers are already live in
+  // every environment this module runs against, so re-running this bootstrap
+  // on every serverless cold start only adds round trips (and a lock-timeout
+  // risk) for no schema work actually left to do.
+  return Promise.resolve();
+
   schemaReady??=(async()=>{
     await ensureAvailabilitySchema();
     const sql=getSql();
@@ -223,6 +230,29 @@ export async function handsForSlot(posterId:string,slotId:string):Promise<Pendin
   return rows.map(row=>({playerId:row.id,raisedAt:new Date(row.raisedAt).toISOString(),
     state:row.acceptedAt?"accepted" as const:"raised" as const,
     player:{id:row.id,name:row.name,short:row.short,rating:Number(row.rating),colour:row.colour,avatar:row.avatar}}));
+}
+
+/** Same as `handsForSlot`, batched over every slot a poster already owns — one query instead of one
+    per slot. `slotIds` must already be known-owned by `posterId` (e.g. from `myPostedSlots`); this
+    skips the per-slot ownership check `handsForSlot` does, filtering by owner in the join instead. */
+export async function handsForSlots(posterId:string,slotIds:string[]):Promise<Map<string,PendingHand[]>>{
+  const byId=new Map<string,PendingHand[]>();
+  if(!slotIds.length)return byId;
+  await ensureSchema(); const sql=getSql();
+  const rows=await sql<(HandRow&{slotId:string})[]>`SELECT h.slot_id AS "slotId",h.raised_at AS "raisedAt",h.accepted_at AS "acceptedAt",
+      p.id,p.name,p.short,p.rating::float8 AS rating,p.colour,p.avatar
+    FROM slot_hands h
+    JOIN state_players p ON p.id=h.player_id
+    JOIN availability_slots s ON s.id=h.slot_id AND s.player_id=${posterId}
+    WHERE h.slot_id = ANY(${slotIds}) AND h.retracted_at IS NULL ORDER BY h.raised_at`;
+  for(const row of rows){
+    const list=byId.get(row.slotId)??[];
+    list.push({playerId:row.id,raisedAt:new Date(row.raisedAt).toISOString(),
+      state:row.acceptedAt?"accepted" as const:"raised" as const,
+      player:{id:row.id,name:row.name,short:row.short,rating:Number(row.rating),colour:row.colour,avatar:row.avatar}});
+    byId.set(row.slotId,list);
+  }
+  return byId;
 }
 
 /** Take one hand, several, or every hand up.

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { resolveInitials } from "../api/account/validate";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
-import { Button } from "../components/ui/Primitives";
+import { Button, EmptyState } from "../components/ui/Primitives";
 
 export type Player = { id: string; name: string; active?: boolean };
 export type Member = {
@@ -76,7 +76,7 @@ export default function MemberDirectory({ members, players, currentEmail }: { me
     </div>
     <p className="admin-directory-count">{zh.count(shown.length, members.length)}</p>
     {shown.length === 0
-      ? <div className="admin-empty"><b>{zh.noMatch}</b><span>{zh.noMatchSub}</span></div>
+      ? <EmptyState title={zh.noMatch} description={zh.noMatchSub} />
       : <div className="member-list">{shown.map(member => {
         const link = linkOf(member);
         return <details key={member.email} className={member.active ? "" : "is-inactive"}>

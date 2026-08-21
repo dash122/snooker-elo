@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PlayerBadge } from "./UiBits";
 import { BackdropSheet } from "./components/ui/Overlay";
+import { Button } from "./components/ui/Primitives";
 import { disablePush, enablePush, pushState, registerServiceWorker, type PushState } from "./push-client";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { hkClock, hkDate, hkDayLabel, type Interval, type ReliabilitySignals } from "../lib/availability";
@@ -68,8 +69,8 @@ export function PushOptIn({compact}:{compact?:boolean}){
   return <div className="push-strip">
     <span className="push-strip-copy"><b>開啟通知</b><small>有人約你打波即刻知，唔使開住個 App。</small></span>
     <span className="push-strip-actions">
-      <button type="button" className="primary" disabled={busy} onClick={()=>void turnOn()}>{busy?"設定中…":"開啟"}</button>
-      <button type="button" className="secondary" onClick={dismiss}>唔使</button>
+      <Button disabled={busy} onClick={()=>void turnOn()}>{busy?"設定中…":"開啟"}</Button>
+      <Button variant="secondary" onClick={dismiss}>唔使</Button>
     </span>
   </div>;
 }
@@ -212,8 +213,8 @@ export function IntentAsk({onPost,busy,todayLabel}:{onPost:(kind:"tonight"|"wind
     <h2>想打波？</h2>
     <p>話畀會所知，我哋即刻幫你搵夾得到嘅對手。</p>
     <div className="mm-ask-actions">
-      <button type="button" className="primary" disabled={busy} onClick={()=>onPost("tonight")}>今晚<small>{todayLabel}</small></button>
-      <button type="button" className="secondary" disabled={busy} onClick={()=>onPost("window")}>呢個星期</button>
+      <Button disabled={busy} onClick={()=>onPost("tonight")}>今晚<small>{todayLabel}</small></Button>
+      <Button variant="secondary" disabled={busy} onClick={()=>onPost("window")}>呢個星期</Button>
     </div>
   </section>;
 }
@@ -393,8 +394,8 @@ export function NextUpCard({game,others,onRecord,onCancel,cancelling,onFreeNow,o
         <small>{slotLabel(game)}{game.venue?` · ${game.venue}`:""}</small>
       </div>
       <div className="mm-row-actions">
-        <button type="button" className="primary" onClick={()=>onRecord(game.opponent.id,game.startAt)}>記錄比分</button>
-        <button type="button" className="secondary" disabled={cancelling} onClick={()=>onCancel(game.id)}>取消</button>
+        <Button onClick={()=>onRecord(game.opponent.id,game.startAt)}>記錄比分</Button>
+        <Button variant="secondary" disabled={cancelling} onClick={()=>onCancel(game.id)}>取消</Button>
       </div>
     </div>
   </section>;
@@ -417,7 +418,7 @@ export function WaitingStrip({items,onCancel,cancellingId}:{items:WaitingItem[];
     </button>
     {open&&<ul>{items.map(item=>
       <li key={item.id}><span><b>{item.name}</b><small>{item.label}</small></span>
-        {item.cancellable&&<button type="button" className="secondary" disabled={cancellingId===item.id} onClick={()=>onCancel(item.id)}>取消邀請</button>}</li>)}
+        {item.cancellable&&<Button variant="secondary" disabled={cancellingId===item.id} onClick={()=>onCancel(item.id)}>取消邀請</Button>}</li>)}
     </ul>}
   </div>;
 }
@@ -503,8 +504,8 @@ export function RecurrenceEditor({rules,onAdd,onRemove,onCopyLastWeek,busy}:{
         </div>
         <p className="availability-form-hint">未來四星期會自動幫你公開。個別一次唔得閒，照樣可以喺上面個板取消嗰次。</p>
         <div className="availability-form-actions">
-          <button type="button" className="primary" disabled={busy} onClick={()=>{onAdd({weekday,startTime,endTime});setOpen(false)}}>加入每週時段</button>
-          <button type="button" className="secondary" onClick={()=>setOpen(false)}>取消</button>
+          <Button disabled={busy} onClick={()=>{onAdd({weekday,startTime,endTime});setOpen(false)}}>加入每週時段</Button>
+          <Button variant="secondary" onClick={()=>setOpen(false)}>取消</Button>
         </div>
       </div>
       :<button type="button" className="secondary recurrence-add" onClick={()=>setOpen(true)}>＋ 加一個每週時段</button>}

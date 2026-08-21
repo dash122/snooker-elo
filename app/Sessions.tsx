@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { PlayerBadge } from "./UiBits";
+import { Button, Skeleton } from "./components/ui/Primitives";
 import { BackdropSheet } from "./components/ui/Overlay";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant, hongKongWeekday,
@@ -101,8 +102,8 @@ function BestMatch({option,alternates,expanded,onInvite,onLater,onToggle,busy,bu
           <b>{alt.player.name}</b>
           <small>只差 {alt.difference} · {alt.handicap.label}</small>
         </span>
-        <button type="button" className="secondary" disabled={busyId===alt.player.id}
-          onClick={()=>onInvite(alt.player.id,alt.slot)}>約佢</button>
+        <Button variant="secondary" disabled={busyId===alt.player.id}
+          onClick={()=>onInvite(alt.player.id,alt.slot)}>約佢</Button>
       </li>)}
     </ul>}
   </div>;
@@ -136,7 +137,7 @@ function SessionCard({session,onInvite,onCustomise,onCancel,onRecord,onWatch,bus
          four exits, which reads as the club being dead rather than as tonight being quiet. */
       :<div className="ses-empty">
         <p>暫時未有夾得到嘅對手。</p>
-        <button type="button" className="primary" onClick={onWatch}>有人得閒就即刻通知我</button>
+        <Button onClick={onWatch}>有人得閒就即刻通知我</Button>
       </div>)}
 
     {session.status==="booked"&&session.booking&&<div className="ses-booked">
@@ -180,7 +181,7 @@ function MarketCard({entry,busy,onAsk}:{entry:MarketEntry;busy:boolean;onAsk:()=
     <small>{entry.levelLabel}</small>
     <small className="mk-when">{when(entry.slot)}</small>
     <span className="mk-hcap">{entry.handicap.label}</span>
-    <button type="button" className="secondary" disabled={busy} onClick={onAsk}>約佢</button>
+    <Button variant="secondary" disabled={busy} onClick={onAsk}>約佢</Button>
   </li>;
 }
 
@@ -192,7 +193,7 @@ function CallCard({call,busy,onJoin}:{call:MarketCall;busy:boolean;onJoin:()=>vo
     <small className="mk-when">{when(call)}</small>
     {call.mine
       ?<span className="mk-mine">你開嘅</span>
-      :<button type="button" className="primary" disabled={busy} onClick={onJoin}>接受</button>}
+      :<Button disabled={busy} onClick={onJoin}>接受</Button>}
   </li>;
 }
 
@@ -231,9 +232,9 @@ function ColdOpen({onQuick,onPick,onWatch,busy}:{
   return <section className="availability-card mm-card ses-ask">
     <h2>你想幾時打波？</h2>
     <div className="ses-ask-actions">
-      <button type="button" className="primary" disabled={busy} onClick={()=>onQuick("tonight")}>
-        今晚<small>{hkDayLabel(hkDate())}</small></button>
-      <button type="button" className="secondary" disabled={busy} onClick={()=>onQuick("weekend")}>今個週末</button>
+      <Button disabled={busy} onClick={()=>onQuick("tonight")}>
+        今晚<small>{hkDayLabel(hkDate())}</small></Button>
+      <Button variant="secondary" disabled={busy} onClick={()=>onQuick("weekend")}>今個週末</Button>
     </div>
     <button type="button" className="more ses-ask-link" onClick={onPick}>揀第個時間</button>
     <button type="button" className="more ses-ask-link" onClick={onWatch}>有啱對手就通知我</button>
@@ -346,7 +347,7 @@ export function Sessions({signedIn,onInvite,onCustomise,onRecord,onWatch,onClaim
     <p className="mm-note">連結球員檔案，就可以開時段、收邀請同約戰。</p>
   </section>;
 
-  if(sessions===null)return <div className="availability-skeleton" aria-hidden="true"/>;
+  if(sessions===null)return <Skeleton height="300px" className="availability-skeleton"/>;
 
   const marketStrip=<MarketStrip market={market} calls={calls} busyId={invitingId} claimingId={claimingCallId}
     onAsk={onInvite} onJoin={onClaim}/>;

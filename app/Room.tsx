@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlayerBadge } from "./UiBits";
 import { CardHead } from "./MatchmakingBits";
+import { Button } from "./components/ui/Primitives";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { hkClock, hkDate, type Interval } from "../lib/availability";
 import { NOW_DURATIONS, PREFERENCE_HINTS, PREFERENCE_LABELS, TONIGHT_ENDS,
@@ -72,9 +73,9 @@ function MyStatus({me,onExtend,onStop,onArrive,onLeave,busy}:{
         :<><b>全會所睇唔到你</b><small>撳下面話畀人知你得閒，先會出現喺呢個名單。</small></>}
     </span>
     <span className="room-me-actions">
-      {me.intent&&endAt&&<button type="button" className="secondary" disabled={busy} onClick={onExtend}>+1 小時</button>}
-      <button type="button" className={me.atClub?"secondary is-on":"secondary"} disabled={busy}
-        onClick={me.atClub?onLeave:onArrive}>{me.atClub?"離開會所":"我喺會所"}</button>
+      {me.intent&&endAt&&<Button variant="secondary" disabled={busy} onClick={onExtend}>+1 小時</Button>}
+      <Button variant="secondary" className={me.atClub?"is-on":""} disabled={busy}
+        onClick={me.atClub?onLeave:onArrive}>{me.atClub?"離開會所":"我喺會所"}</Button>
       {me.intent&&<button type="button" className="more" disabled={busy} onClick={onStop}>收工</button>}
     </span>
   </div>;
@@ -272,7 +273,7 @@ export function Room({signedIn,onAsk,onOpen,onClaim,claimingCallId,onChanged,ref
             <small>{call.player.name} 開嘅{call.message?` · ${call.message}`:""}</small>
           </div>
           {call.player.id!==me?.playerId
-            ?<button type="button" className="primary" disabled={claimingCallId===call.id} onClick={()=>onClaim(call.id)}>接受</button>
+            ?<Button disabled={claimingCallId===call.id} onClick={()=>onClaim(call.id)}>接受</Button>
             :<span className="room-call-mine">你開嘅</span>}
         </li>)}
       </ul>

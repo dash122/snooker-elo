@@ -59,7 +59,7 @@
 .auth-intro{margin-bottom:var(--space-block);font-size:var(--fs-body)}
 .auth-main-form{gap:var(--space-block)}
 .auth-main-form label{font-size:var(--fs-sm)}
-.auth-main-form input{min-height:var(--control-lg);border-radius:var(--radius-sm)}
+.auth-main-form input{min-height:var(--control-lg);border-radius:var(--radius-sm);font-size:var(--fs-input)}
 .auth-main-form label>small,.field-error{font-size:var(--fs-caption)}
 .auth-password-field button{font-size:var(--fs-caption)}
 .auth-submit{min-height:var(--control-lg);font-size:var(--fs-body)}

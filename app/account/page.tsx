@@ -7,7 +7,7 @@ import { avatarHex } from "../avatar-colours";
 import AccountForms from "./AccountForms";
 import MatchHistory, { type MatchRecord } from "./MatchHistory";
 import { deriveInitials, resolveInitials } from "../api/account/validate";
-import { StatTile } from "../components/ui/Primitives";
+import { StatTile, Surface } from "../components/ui/Primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -183,19 +183,19 @@ export default async function AccountPage() {
 
     {player ? <div className="account-layout">
       <div className="account-column">
-        <section className="account-panel">
+        <Surface className="account-panel">
           <div className="account-panel-head">
             <div><p className="kicker">{zh.trendKicker}</p><h2>{zh.trend}</h2></div>
             <span>{zh.peak} {Math.round(peak)}</span>
           </div>
           <InteractiveEloChart points={points} label={`${player.name} 的 ELO 走勢`} />
-        </section>
+        </Surface>
 
         <MatchHistory records={records} />
       </div>
 
       <div className="account-column">
-        <section className="account-panel account-stat-panel">
+        <Surface className="account-panel account-stat-panel">
           <div className="account-panel-head"><div><p className="kicker">{zh.highlights}</p><h2>成績一覽</h2></div></div>
           <div className="account-stat-grid">
             <StatTile label={zh.record} value={`${player.wins}/${player.losses}/${player.draws}`} />
@@ -210,25 +210,25 @@ export default async function AccountPage() {
             <li><span>{zh.streak}</span><b>{streak ? `${streak} 場` : "—"}</b></li>
             <li><span>{zh.bestGain}</span><b className={bestGain > 0 ? "positive" : undefined}>{bestGain > 0 ? `+${Math.round(bestGain)}` : "—"}</b></li>
           </ul>
-        </section>
+        </Surface>
 
-        <section className="account-panel account-settings">
+        <Surface className="account-panel account-settings">
           <div className="account-panel-head"><div><p className="kicker">{zh.settingsKicker}</p><h2>{zh.settings}</h2></div></div>
           <p className="account-settings-hint">{zh.settingsHint}</p>
           <AccountForms member={{ username: member.username, email: member.email, displayName: member.displayName, avatar: member.avatar, initials: member.initials, iconColour: member.iconColour ?? player.colour, playerName: player.name }} />
-        </section>
+        </Surface>
       </div>
     </div> : <div className="account-layout single">
-      <section className="account-panel account-unlinked">
+      <Surface className="account-panel account-unlinked">
         <p className="kicker">{zh.account}</p>
         <h2>{zh.unlinkedTitle}</h2>
         <p>{zh.unlinkedBody}</p>
-      </section>
-      <section className="account-panel account-settings">
+      </Surface>
+      <Surface className="account-panel account-settings">
         <div className="account-panel-head"><div><p className="kicker">{zh.settingsKicker}</p><h2>{zh.settings}</h2></div></div>
         <p className="account-settings-hint">{zh.settingsHint}</p>
         <AccountForms member={{ username: member.username, email: member.email, displayName: member.displayName, avatar: member.avatar, initials: member.initials, iconColour: member.iconColour }} />
-      </section>
+      </Surface>
     </div>}
   </main>;
 }

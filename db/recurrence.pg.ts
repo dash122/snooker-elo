@@ -22,6 +22,11 @@ export const RECURRENCE_HORIZON_DAYS = 28;
 
 let schemaReady:Promise<unknown>|null=null;
 async function ensureSchema(){
+  // Schema changes are migration-owned — see the identical short-circuit in
+  // db/availability.pg.ts. availability_recurrence is already live everywhere
+  // this module runs, so skip re-running the bootstrap on every cold start.
+  return Promise.resolve();
+
   schemaReady??=(async()=>{
     const sql=getSql();
     await sql`CREATE TABLE IF NOT EXISTS availability_recurrence (

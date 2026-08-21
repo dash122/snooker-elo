@@ -1,6 +1,6 @@
 import { requireMember } from "../../../db/auth";
 import { boardSlots, boardOpenCount, createPostedSlot, myPostedSlots, playerProfiles, type SlotConditions, type FillRule } from "../../../db/availability";
-import { handSummaries, handsForSlot, myHands, waitingForMeCount, type SlotHandSummary } from "../../../db/slot-hands";
+import { handSummaries, handsForSlots, myHands, waitingForMeCount, type SlotHandSummary } from "../../../db/slot-hands";
 import { sortBoard } from "../../../lib/slots";
 import { announceSlotPosted } from "../../../db/slot-actions";
 import { liveIntentsByPlayer } from "../../../db/intents";
@@ -74,21 +74,26 @@ export async function GET(){
     ]);
     /* The waiting list with names on it is owner-only, so it is fetched one card at a time rather
        than joined into the board query above — the board query must never be capable of returning
-       it. The counts are a different matter and travel with everything. */
-    const fillers=await playerProfiles(mine.flatMap(item=>item.filledBy?[item.filledBy]:[]));
-    const mineSummaries=await handSummaries(mine.map(item=>item.id)).catch(()=>new Map<string,SlotHandSummary>());
-    const mineWithHands=await Promise.all(mine.map(async item=>{
+       it. The counts are a different matter and travel with everything. None of these depend on
+       each other's results, so they run together rather than as separate round trips. */
+    const [boardWithHands,fillers,mineSummaries,mineHands]=await Promise.all([
+      withHands(board,me),
+      playerProfiles(mine.flatMap(item=>item.filledBy?[item.filledBy]:[])),
+      handSummaries(mine.map(item=>item.id)).catch(()=>new Map<string,SlotHandSummary>()),
+      handsForSlots(me,mine.map(item=>item.id)),
+    ]);
+    const mineWithHands=mine.map(item=>{
       const summary=mineSummaries.get(item.id);
       return {...item,
         mine:true,
         filler:item.filledBy?fillers.get(item.filledBy)??null:null,
         counts:{total:summary?.total??0,accepted:summary?.accepted??0,waiting:summary?.waiting??0},
         acceptedPlayers:summary?.acceptedPlayers??[],
-        hands:await handsForSlot(me,item.id),
+        hands:mineHands.get(item.id)??[],
       };
-    }));
+    });
     return Response.json({signedIn:true,canAct:true,
-      board:sortBoard((await withHands(board,me)).map(slot=>({...slot,mine:false}))),
+      board:sortBoard(boardWithHands.map(slot=>({...slot,mine:false}))),
       mine:mineWithHands,hands,waitingForMe,wantTonight,openCount},
       {headers:{"cache-control":"no-store"}});
   }catch(error){
