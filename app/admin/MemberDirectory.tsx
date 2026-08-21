@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { resolveInitials } from "../api/account/validate";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
+import { Button } from "../components/ui/Primitives";
 
 export type Player = { id: string; name: string; active?: boolean };
 export type Member = {
@@ -106,15 +107,15 @@ export default function MemberDirectory({ members, players, currentEmail }: { me
             <label className="admin-field-wide">{zh.password}<input name="password" type="password" minLength={6} autoComplete="new-password" />
               <small className="admin-field-hint">{zh.passwordHint}</small></label>
             <div className="admin-edit-actions">
-              <button className="primary" type="submit">{zh.save}</button>
-              <button className="more" type="reset">{zh.cancel}</button>
+              <Button type="submit">{zh.save}</Button>
+              <Button variant="quiet" type="reset">{zh.cancel}</Button>
             </div>
           </form>
           {member.email !== currentEmail && <form className="admin-delete" action="/api/admin/members" method="post"
             onSubmit={event => { if (!confirm(zh.deleteConfirm(member.displayName))) event.preventDefault(); }}>
             <input type="hidden" name="action" value="delete" />
             <input type="hidden" name="originalEmail" value={member.email} />
-            <button className="danger" type="submit">{zh.deleteAccount}</button>
+            <Button variant="danger" type="submit">{zh.deleteAccount}</Button>
           </form>}
         </details>;
       })}</div>}

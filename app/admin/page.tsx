@@ -5,7 +5,7 @@ import { getState, listSnapshots } from "../../db/state";
 import MemberDirectory, { Avatar, type Member, type Player } from "./MemberDirectory";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
 import SnapshotList from "./SnapshotList";
-import { StatTile } from "../components/ui/Primitives";
+import { Button, StatTile } from "../components/ui/Primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -104,7 +104,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <input type="hidden" name="originalEmail" value={member.email} />
               <PlayerLinkCombobox players={freePlayers} initialValue="" name="statePlayerId"
                 formId={`link:${member.email}`} placeholder={zh.pick} clearLabel={zh.pick} />
-              <button className="primary" type="submit">{zh.link}</button>
+              <Button type="submit">{zh.link}</Button>
             </form>
           </div>)}
         </div>
@@ -135,7 +135,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <PlayerLinkCombobox players={freePlayers} initialValue={prefill?.id ?? ""} name="statePlayerId"
               formId="create" placeholder={zh.createNew} clearLabel={zh.createNew} />
           </label>
-          <button className="primary" type="submit">{zh.add}</button>
+          <Button type="submit">{zh.add}</Button>
         </form>
       </details>
 

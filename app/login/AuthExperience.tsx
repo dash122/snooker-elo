@@ -1,6 +1,7 @@
 import Link from "next/link";
 import PasswordField from "./PasswordField";
 import SignupForm from "./SignupForm";
+import { Button } from "../components/ui/Primitives";
 
 type User = { displayName: string; role: "admin" | "member" };
 
@@ -118,7 +119,7 @@ export default function AuthExperience({
                 <input id="username" name="username" autoComplete="username" required minLength={2}/>
               </label>
               <PasswordField mode="login"/>
-              <button className="primary auth-submit" type="submit">登入</button>
+              <Button className="auth-submit" type="submit">登入</Button>
             </form>
           )}
           <p className="auth-switch">
