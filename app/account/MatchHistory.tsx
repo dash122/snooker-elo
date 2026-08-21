@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { PlayerBadge } from "../UiBits";
+import { EmptyState, Surface } from "../components/ui/Primitives";
 
 export type MatchRecord = {
   id: string;
@@ -64,14 +65,14 @@ export default function MatchHistory({ records }: { records: MatchRecord[] }) {
     D: records.filter(record => record.result === "D").length,
   }), [records]);
 
-  return <section className="account-panel match-history">
+  return <Surface className="account-panel match-history">
     <div className="account-panel-head">
       <div><p className="kicker">賽事紀錄</p><h2>我的每一場</h2></div>
       <span>{records.length} 場</span>
     </div>
 
     {records.length === 0
-      ? <p className="match-history-empty">尚未有比賽紀錄。完成第一場後，這裡會列出每場的對手、比分與 ELO 變化。</p>
+      ? <EmptyState title="尚未有比賽紀錄" description="完成第一場後，這裡會列出每場的對手、比分與 ELO 變化。" />
       : <>
         <div className="match-history-filters" role="tablist" aria-label="賽果篩選">
           {filters.map(option => <button key={option.id} type="button" role="tab"
@@ -83,12 +84,12 @@ export default function MatchHistory({ records }: { records: MatchRecord[] }) {
         </div>
 
         {visible.length === 0
-          ? <p className="match-history-empty">沒有符合的賽果。</p>
+          ? <EmptyState title="沒有符合的賽果" description="試試其他篩選條件。" />
           : <ul className="match-history-list">
             {visible.map(record => {
               const open = openId === record.id;
               const stamp = day(record.date);
-              return <li key={record.id} className={`match-row ${record.result.toLowerCase()}${open ? " open" : ""}`}>
+              return <Surface as="li" padded={false} key={record.id} className={`match-row ${record.result.toLowerCase()}${open ? " open" : ""}`}>
                 <button type="button" className="match-row-main" aria-expanded={open}
                   onClick={() => setOpenId(current => current === record.id ? null : record.id)}>
                   <span className="match-row-date"><b>{stamp.day}</b><small>{stamp.year}</small></span>
@@ -110,7 +111,7 @@ export default function MatchHistory({ records }: { records: MatchRecord[] }) {
                   <div><dt>局數</dt><dd>{record.score}</dd></div>
                   <div><dt>最佳單桿</dt><dd>{record.highBreak ?? "—"}</dd></div>
                 </dl>}
-              </li>;
+              </Surface>;
             })}
           </ul>}
 
@@ -118,5 +119,5 @@ export default function MatchHistory({ records }: { records: MatchRecord[] }) {
           顯示更多（尚有 {filtered.length - shown} 場）
         </button>}
       </>}
-  </section>;
+  </Surface>;
 }

@@ -169,7 +169,7 @@
    reader who has never signed in has no use for. */
 /* `main` carries a global `min-height:100vh`, so a grid here stretches its rows to fill the viewport
    — which turned a four-line hero into a 500px slab. Rows size to their content. */
-.cup-share-page{width:min(34rem,100%);margin:0 auto;padding:var(--sp-4-5) var(--sp-4) calc(2.5rem + env(safe-area-inset-bottom));
+.cup-share-page{width:min(var(--ds-page-compact-mobile),100%);margin:0 auto;padding:var(--sp-4-5) var(--sp-4) calc(2.5rem + env(safe-area-inset-bottom));
   display:grid;align-content:start;gap:var(--sp-3-5)}.cup-share-hero{position:relative;display:block;height:auto;overflow:hidden;border-radius:var(--radius-lg);
   background:linear-gradient(135deg,var(--ds-canvas-brand),var(--ds-accent-action-hover));color:var(--ds-text-on-danger);box-shadow:0 14px 30px rgba(11,45,41,.18)}.cup-share-hero>.cup-art{position:absolute;inset:0;opacity:.6}.cup-share-hero>.cup-art::after{content:"";position:absolute;inset:0;
   background:linear-gradient(100deg,var(--ds-canvas-brand) 24%,rgba(11,45,41,.7) 55%,transparent 92%)}.cup-share-hero>.cup-art .cup-art-cup,.cup-share-hero>.cup-art .cup-art-ball{display:none}.cup-share-hero-body{position:relative;z-index:1;padding:var(--sp-4-5)}.cup-share-hero-body .share-kicker{color:var(--gold-on-dark)}.cup-share-hero h1{margin:var(--sp-1-5) 0 0;font-size:1.625rem;letter-spacing:-.04em;line-height:1.15}.cup-share-status{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin:var(--sp-3) 0 0;
@@ -178,7 +178,7 @@
 .cup-share-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2)}.cup-share-actions>*{width:100%}.cup-share-actions>.primary{grid-column:1/-1;min-height:var(--control-lg)}/* Entering, then copying: the two things a reader does with the page itself. Sharing it onward is a
    different act and lives in its own row below, so this one is a single column rather than a half. */
 .cup-share-actions>.cup-share-copy{grid-column:1/-1}.cup-share-round h3{margin:0 0 var(--sp-2);font-size:var(--fs-body)}.cup-share-round+.cup-share-round{margin-top:var(--sp-1)}
-@media(min-width:821px){.cup-share-page{width:min(44rem,100%);padding-top:var(--sp-6)}.cup-share-hero h1{font-size:2rem}
+@media(min-width:821px){.cup-share-page{width:min(var(--ds-page-compact),100%);padding-top:var(--sp-6)}.cup-share-hero h1{font-size:2rem}
 }/* ── Head-to-head matrix ────────────────────────────────────────────────────
    Phone-first: the default is a one-player list, because a full N×N grid on a
    360px screen is either unreadable or a horizontal-scroll maze. The grid is

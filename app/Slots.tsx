@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { PlayerBadge } from "./UiBits";
-import { ChipRow } from "./components/ui/Primitives";
+import { Button, ChipRow, Skeleton } from "./components/ui/Primitives";
 import { BackdropSheet } from "./components/ui/Overlay";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant } from "../lib/availability";
@@ -141,8 +141,8 @@ function HandoffCard({slot,opponent,onResult,busy,showWho=true}:{
     {status==="toRecord"&&<>
       <p className="sl-kick">打完喇？</p>
       <div className="sl-two">
-        <button type="button" className="primary" disabled={busy} onClick={()=>onResult("played")}>打咗</button>
-        <button type="button" className="secondary" disabled={busy} onClick={()=>onResult("missed")}>冇打成</button>
+        <Button disabled={busy} onClick={()=>onResult("played")}>打咗</Button>
+        <Button variant="secondary" disabled={busy} onClick={()=>onResult("missed")}>冇打成</Button>
       </div>
     </>}
     {status==="done"&&<p className="sl-status is-quiet">{slot.result==="played"?"打咗喇，記得去記分。":"呢一節冇約成。"}</p>}
@@ -202,8 +202,8 @@ function MineCard({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onResu
           <PlayerBadge player={hand.player}/>
           <span className="mm-row-copy"><b>{hand.player.name}</b><small>ELO {Math.round(hand.player.rating)}</small></span>
           <span className="mm-row-actions">
-            <button type="button" className="secondary" disabled={busyId===hand.playerId}
-              onClick={()=>onAccept(hand.playerId)}>收</button>
+            <Button variant="secondary" disabled={busyId===hand.playerId}
+              onClick={()=>onAccept(hand.playerId)}>收</Button>
           </span>
         </li>)}
       </ul>
@@ -254,7 +254,7 @@ function HandsTray({hands,busyId,onRetract,onRetractAll,onResult}:{
         <span className="mm-row-copy"><b>{hand.slot.player.name}</b>
           <small>{when(hand.slot)}{hand.slot.venue?` · ${hand.slot.venue}`:""}</small></span>
         <span className="mm-row-actions">
-          <button type="button" className="secondary" disabled={busyId===hand.slotId} onClick={()=>onRetract(hand.slotId)}>收返</button>
+          <Button variant="secondary" disabled={busyId===hand.slotId} onClick={()=>onRetract(hand.slotId)}>收返</Button>
         </span>
       </li>)}
     </ul>
@@ -343,9 +343,9 @@ function SessionCard({entry,featured,overlap,canAct,busy,onRaise,onRetract,onRes
         {entry.iAccepted
           ? <span className="sl-session-confirmed">已經收咗你，準備開波</span>
           : entry.iRaised
-            ? <button type="button" className="secondary" disabled={busy} onClick={onRetract}>已申請 · 收回</button>
+            ? <Button variant="secondary" disabled={busy} onClick={onRetract}>已申請 · 收回</Button>
             : canAct
-              ? <button type="button" className="primary" disabled={busy} onClick={onRaise}>申請加入 <span aria-hidden="true">→</span></button>
+              ? <Button disabled={busy} onClick={onRaise}>申請加入 <span aria-hidden="true">→</span></Button>
               : <a className="sl-session-login" href="/login">登入後申請加入 <span aria-hidden="true">→</span></a>}
       </div>
       {entry.iAccepted&&(status==="filled"||status==="toRecord"||status==="done")&&<HandoffCard
@@ -364,7 +364,7 @@ function MatchmakingEmpty({signedIn,tonightCount,onManage}:{signedIn:boolean;ton
       <p>{tonightCount>0?`今晚有 ${tonightCount} 位球友想打。用上面「開局約人」開一場，其他人就可以加入。`:"用上面「開局約人」做第一個開局的人，讓其他球手有局可以加入。"}</p>
     </div>
     {signedIn&&onManage&&<div className="sl-cold-start-actions">
-      <button type="button" className="secondary" onClick={onManage}>公開我的空檔 <span aria-hidden="true">→</span></button>
+      <Button variant="secondary" onClick={onManage}>公開我的空檔 <span aria-hidden="true">→</span></Button>
     </div>}
     {!signedIn&&<a className="sl-session-login" href="/login">登入後開局 <span aria-hidden="true">→</span></a>}
   </section>;
@@ -481,7 +481,7 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
     else{void navigator.clipboard?.writeText(text);setToast("已複製分享文字")}
   };
 
-  if(data===null)return <div className="availability-skeleton" aria-hidden="true"/>;
+  if(data===null)return <Skeleton height="300px" className="availability-skeleton"/>;
 
   const canAct=Boolean(data.canAct);
   const mine=visiblePostedSlots(sortPostedSlots(data.mine)) as MineSlot[];

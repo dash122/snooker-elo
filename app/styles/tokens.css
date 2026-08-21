@@ -40,6 +40,19 @@
     --ds-shadow-floating:0 24px 70px rgba(5,34,29,.22);
     --ds-space-page:clamp(1.75rem,4vw,4rem);--ds-space-section:clamp(2rem,4vw,3.5rem);
     --ds-content-max:80rem;--ds-nav-width:15.5rem;--ds-mobile-nav-height:4.5rem;
+    /* Page-wrapper width scale, named during the container-standardisation pass
+       after finding 12+ one-off `width:min(Nrem,100%)` values across page CSS
+       files, each invented independently for that one page. Values below are
+       carried over unchanged from their call sites -- zero visual diff -- so
+       this documents the de-facto scale rather than forcing new numbers. Any
+       new page-level wrapper should reuse one of these (or --ds-content-max
+       for full-width dashboards) instead of hand-typing another rem value. */
+    --ds-page-narrow:31rem;         /* single-column forms -- member auth */
+    --ds-page-compact-mobile:34rem; /* share/story pages, mobile-first tier */
+    --ds-page-compact:44rem;        /* share/story pages, desktop tier */
+    --ds-page-medium:52rem;         /* onboarding flow */
+    --ds-page-standard:56rem;       /* admin roster */
+    --ds-page-wide:74rem;           /* account dashboard */
     --ds-safe-top:env(safe-area-inset-top,0px);--ds-safe-bottom:env(safe-area-inset-bottom,0px);
     --ds-duration-fast:140ms;--ds-duration-standard:220ms;
     --ds-ease-standard:cubic-bezier(.2,.8,.2,1);

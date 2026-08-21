@@ -19,7 +19,7 @@ import ShareSheet from "./ShareSheet";
 import { AppShell, PageFrame } from "./components/shell/AppShell";
 import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
 import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
-import { Button, StatTile } from "./components/ui/Primitives";
+import { Button, StatTile, Surface } from "./components/ui/Primitives";
 import { Sheet, ConfirmDialog } from "./components/ui/Overlay";
 
 type Player = {
@@ -1155,7 +1155,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
     <section className="home-view-panel ranking-panel" aria-labelledby="ranking-title">
       <div className="home-panel-head"><div><p className="kicker">即時競爭形勢</p><h2 id="ranking-title">目前排名</h2><p>每場結果都會即時反映在 ELO 與近期狀態。</p></div><div className="mini-toggle ranking-scope-toggle" aria-label="排名球員範圍"><button aria-pressed={!officialOnly} className={!officialOnly?"active":""} onClick={()=>setOfficialOnly(false)}>全部球員</button><button aria-pressed={officialOnly} className={officialOnly?"active":""} onClick={()=>setOfficialOnly(true)}>正式球手</button></div></div>
     <SortControls sort={sort} dir={dir} onSort={sortBy}/>
-    <div className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?"尚未有正式球手":"尚未有球員"} sub={officialOnly?"未有球員完成臨時門檻，暫時未有正式評分。":"前往球員頁面新增第一位球員。"}/>:<><div className="table-head sortable"><button title="箭嘴為過去 10 天的排名升跌" onClick={()=>sortBy("rank")}>排名<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>球員<SortArrow active={sort==="name"} dir={dir}/></button><button title="最近五筆比賽；較近期結果權重較高" onClick={()=>sortBy("form")}>近況<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>場數／勝率<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>建議／正式評分<SortArrow active={sort==="suggested"} dir={dir}/></button><button title="ELO 及近10天ELO變化" onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
+    <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?"尚未有正式球手":"尚未有球員"} sub={officialOnly?"未有球員完成臨時門檻，暫時未有正式評分。":"前往球員頁面新增第一位球員。"}/>:<><div className="table-head sortable"><button title="箭嘴為過去 10 天的排名升跌" onClick={()=>sortBy("rank")}>排名<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>球員<SortArrow active={sort==="name"} dir={dir}/></button><button title="最近五筆比賽；較近期結果權重較高" onClick={()=>sortBy("form")}>近況<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>場數／勝率<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>建議／正式評分<SortArrow active={sort==="suggested"} dir={dir}/></button><button title="ELO 及近10天ELO變化" onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
       <MobileSortHead sort={sort}/>
       {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=recentDeltaDays(p,data,10),played=games(p),rate=played?Math.round(p.wins/played*100):0,provisional=played<data.settings.provisionalGames,trailing=trailingStat(sort,p,data,suggested);
         return <button className={`row ${rank===1?"top":""} ${provisional?"provisional":""}`} key={p.id} onClick={()=>onPlayer(p)} aria-label={`${p.name}，排名 ${rank}，ELO ${Math.round(p.rating)}，近10天ELO變化 ${swing>=0?"+":""}${Math.round(swing)}，建議讓分 ${suggested}${provisional?"，臨時評分":""}`}>
@@ -1165,7 +1165,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
         <span className="form">{p.form.map((x,j)=><i className={x.toLowerCase()} key={j}>{x}</i>)}</span>
         <span>{played} 場<small>{rate}% 勝率</small></span><span className="dual-rating"><b>{suggested}</b><small>正式 {p.handicap==null?"—":p.handicap}</small></span>
         {trailing?<span className="elo"><b className={trailing.cls}>{trailing.big}</b><small>{trailing.sub}</small></span>
-        :<span className="elo"><b>{Math.round(p.rating)}</b><small className={swing>=0?"positive":"negative"}>{swing>=0?"+":""}{Math.round(swing)}</small><em className="elo-suggested">建議 {suggested}</em></span>}</button>})}</>}</div>
+        :<span className="elo"><b>{Math.round(p.rating)}</b><small className={swing>=0?"positive":"negative"}>{swing>=0?"+":""}{Math.round(swing)}</small><em className="elo-suggested">建議 {suggested}</em></span>}</button>})}</>}</Surface>
     </section></>}
     {homeView==="breaks"&&<section className="home-view-panel break-records-panel" aria-labelledby="break-records-title">
       <div className="home-panel-head"><div><p className="kicker">HIGH BREAK RECORDS</p><h2 id="break-records-title">最高單桿紀錄</h2><p>查看每位球員的個人最佳、歷史最高，或近 30 日最高紀錄。</p></div><div className="mini-toggle break-toggle" aria-label="單桿紀錄顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史最高</button><button aria-pressed={breakView==="recent"} className={breakView==="recent"?"active":""} onClick={()=>setBreakView("recent")}>近30日最高</button></div></div>
@@ -1240,13 +1240,13 @@ function ThirtyDayStats({data,onPlayer,onMatch,onRivalry}:{data:AppState;onPlaye
       {stats.topBreak&&<button onClick={()=>onPlayer(stats.topBreak!.player!)}><span className="recent-focus-label"><RecentStatIcon kind="break"/>近三十日最高單桿</span><PlayerBadge className="recent-player-badge" player={stats.topBreak.player!}/><span className="recent-focus-person"><b>{stats.topBreak.player!.name}</b><em>{stats.topBreak.value} 分 · {stats.topBreak.date}</em></span></button>}
     </div>
     <div className="recent-chart-grid">
-      <article className="recent-chart-card recent-activity-chart"><header><div><small>ACTIVITY</small><h3>每週比賽走勢</h3></div><strong>{stats.matches.length}<small>場</small></strong></header><div className="recent-week-chart" aria-label={`過去四週比賽場數：${stats.weekCounts.join("、")}`}>{stats.weekCounts.map((value,index)=><div key={`week-${index}`}><span><i style={{height:`${Math.max(8,value/maxWeek*100)}%`}}/></span><b>{value}</b><small>第 {index+1} 週</small></div>)}</div></article>
-      <article className="recent-chart-card recent-outcome-chart"><header><div><small>OUTCOMES</small><h3>賽事結果分布</h3></div></header><div className="recent-donut-wrap"><div className="recent-donut" style={{"--decisive":`${stats.decisive/stats.matches.length*360}deg`} as Record<string,string>}><span><b>{Math.round(stats.decisive/stats.matches.length*100)}%</b><small>分勝負</small></span></div><div className="recent-chart-legend"><span><i className="decisive"/><b>分勝負</b><em>{stats.decisive} 場</em></span><span><i className="draw"/><b>和局</b><em>{stats.draws} 場</em></span></div></div></article>
-      <article className="recent-chart-card recent-balance-chart"><header><div><small>COMPETITION</small><h3>對賽緊湊度</h3></div></header><div className="recent-balance-hero"><b>{Math.round(stats.closeMatches/stats.matches.length*100)}<small>%</small></b><span>賽事僅相差一局或以下</span></div><footer><span>緊湊賽事 <b>{stats.closeMatches}</b></span><span>平均差距 <b>{stats.averageMargin.toFixed(1)} 局</b></span></footer></article>
+      <Surface as="article" className="recent-chart-card recent-activity-chart"><header><div><small>ACTIVITY</small><h3>每週比賽走勢</h3></div><strong>{stats.matches.length}<small>場</small></strong></header><div className="recent-week-chart" aria-label={`過去四週比賽場數：${stats.weekCounts.join("、")}`}>{stats.weekCounts.map((value,index)=><div key={`week-${index}`}><span><i style={{height:`${Math.max(8,value/maxWeek*100)}%`}}/></span><b>{value}</b><small>第 {index+1} 週</small></div>)}</div></Surface>
+      <Surface as="article" className="recent-chart-card recent-outcome-chart"><header><div><small>OUTCOMES</small><h3>賽事結果分布</h3></div></header><div className="recent-donut-wrap"><div className="recent-donut" style={{"--decisive":`${stats.decisive/stats.matches.length*360}deg`} as Record<string,string>}><span><b>{Math.round(stats.decisive/stats.matches.length*100)}%</b><small>分勝負</small></span></div><div className="recent-chart-legend"><span><i className="decisive"/><b>分勝負</b><em>{stats.decisive} 場</em></span><span><i className="draw"/><b>和局</b><em>{stats.draws} 場</em></span></div></div></Surface>
+      <Surface as="article" className="recent-chart-card recent-balance-chart"><header><div><small>COMPETITION</small><h3>對賽緊湊度</h3></div></header><div className="recent-balance-hero"><b>{Math.round(stats.closeMatches/stats.matches.length*100)}<small>%</small></b><span>賽事僅相差一局或以下</span></div><footer><span>緊湊賽事 <b>{stats.closeMatches}</b></span><span>平均差距 <b>{stats.averageMargin.toFixed(1)} 局</b></span></footer></Surface>
     </div>
     <div className="recent-detail-grid">
-      {stats.rivalry&&<button className="recent-detail-card" onClick={()=>onRivalry(stats.rivalry!.aPlayer,stats.rivalry!.bPlayer)} aria-label={`查看 ${stats.rivalry.aPlayer.name} 對 ${stats.rivalry.bPlayer.name} 的對賽紀錄`}><small>熱門對賽</small><b>{stats.rivalry.aPlayer.name} × {stats.rivalry.bPlayer.name}</b><p>{stats.rivalry.matches} 場 · 局數 {stats.rivalry.framesA}–{stats.rivalry.framesB}</p><span>查看對賽紀錄 →</span></button>}
-      {stats.closest&&<button className="recent-detail-card recent-close-card" onClick={()=>onMatch(stats.closest!)} aria-label={`查看 ${playerName(stats.closest.a)} 對 ${playerName(stats.closest.b)} 的賽事`}><small>最接近賽事</small><b>{playerName(stats.closest.a)} {stats.closest.scoreA}–{stats.closest.scoreB} {playerName(stats.closest.b)}</b><p>{stats.closest.playedOn} · 相差 {Math.abs(stats.closest.scoreA-stats.closest.scoreB)} 局</p><span>查看賽事 →</span></button>}
+      {stats.rivalry&&<Surface as="button" className="recent-detail-card" onClick={()=>onRivalry(stats.rivalry!.aPlayer,stats.rivalry!.bPlayer)} aria-label={`查看 ${stats.rivalry.aPlayer.name} 對 ${stats.rivalry.bPlayer.name} 的對賽紀錄`}><small>熱門對賽</small><b>{stats.rivalry.aPlayer.name} × {stats.rivalry.bPlayer.name}</b><p>{stats.rivalry.matches} 場 · 局數 {stats.rivalry.framesA}–{stats.rivalry.framesB}</p><span>查看對賽紀錄 →</span></Surface>}
+      {stats.closest&&<Surface as="button" className="recent-detail-card recent-close-card" onClick={()=>onMatch(stats.closest!)} aria-label={`查看 ${playerName(stats.closest.a)} 對 ${playerName(stats.closest.b)} 的賽事`}><small>最接近賽事</small><b>{playerName(stats.closest.a)} {stats.closest.scoreA}–{stats.closest.scoreB} {playerName(stats.closest.b)}</b><p>{stats.closest.playedOn} · 相差 {Math.abs(stats.closest.scoreA-stats.closest.scoreB)} 局</p><span>查看賽事 →</span></Surface>}
     </div>  </section>;
 }
 function fadeHex(hex:string,alpha:number){
@@ -1705,7 +1705,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     return <section className="cup">
       <div className="cup-intro">
         <div><p className="sl-eyebrow">SCAA 會友盃</p><h2>盃賽</h2><p>報名、抽籤、對陣同賽果，一頁睇晒。</p></div>
-        {isAdmin&&<button type="button" className="primary" onClick={onCreateTournament}>＋ 新增盃賽</button>}
+        {isAdmin&&<Button onClick={onCreateTournament}>＋ 新增盃賽</Button>}
       </div>
       {cups.length===0?<div className="cup-empty"><span aria-hidden="true">🏆</span><b>尚未有盃賽</b><p>{isAdmin?"建立第一個會友盃，球員即可報名。":"管理員建立盃賽後，你就可以在這裡報名。"}</p></div>
       :<div className="cup-list">{cups.map(item=>{
@@ -1716,7 +1716,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
           :status==="short"?"報名人數不足兩人"
           :itemSlot?`輪到你：${itemSlot.state==="ready"?`對 ${name(opponentIn(itemSlot,ownPlayerId))}`:"等待對手"}`
           :"賽事進行中";
-        return <article className={`cup-card is-${status}`} key={item.id}>
+        return <Surface as="article" padded={false} className={`cup-card is-${status}`} key={item.id}>
           <CupArt tone={status==="done"?"gold":"dark"}/>
           <div className="cup-card-body">
             <div className="cup-card-top"><span className={`cup-chip is-${status}`}>{CUP_STATUS_LABEL[status]}</span>{isAdmin&&controls(item)}</div>
@@ -1731,7 +1731,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
               {shareButton(item,"cup-btn ghost",true)}
             </div>
           </div>
-        </article>;
+        </Surface>;
       })}</div>}
     </section>;
   }
@@ -2272,7 +2272,7 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
                   {isSelf
                     ? <button type="button" className="primary players-expand-open-self" onClick={()=>onOpen(p)}>查看完整球員頁 ›</button>
                     : <>
-                        <button type="button" className="primary" onClick={()=>onRecordAgainst(p)}>記錄對局</button>
+                        <Button onClick={()=>onRecordAgainst(p)}>記錄對局</Button>
                         <button type="button" onClick={()=>onCompare(p)}>對戰紀錄</button>
                         <button type="button" onClick={()=>onFindOpponent(p.id,today)}>約戰</button>
                         <button type="button" className="players-row-open" aria-label={`開啟 ${p.name} 的球員卡`} onClick={()=>onOpen(p)}>›</button>
@@ -2292,23 +2292,23 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
   const s=data.settings;
   return <><section className="hero small"><div><p className="kicker">公開設定</p><h1>ELO 設定</h1><p>所有球員由 1500 起步；每場賽果只使用 PDF Snooker Elo 公式重播。以下參數只有管理員可以修改。</p></div><Button onClick={onEdit}>編輯設定</Button></section>
     <div className="settings-grid">
-      <div className="setting"><small>起始 ELO</small><b>{s.start}</b></div>
-      <div className="setting"><small>局數影響係數（150）</small><b>{s.frameScaleCoefficient}</b></div>
-      <div className="setting"><small>局數加數（15）</small><b>{s.frameScaleNumeratorOffset}</b></div>
-      <div className="setting"><small>局數除數（10）</small><b>{s.frameScaleDenominator}</b></div>
-      <div className="setting"><small>讓分 ELO 尺度（500）</small><b>{s.handicapEloScale}</b></div>
-      <div className="setting"><small>個人建議讓分換算（只供顯示）</small><b>{s.handicapPointsToElo}</b></div>
-      <div className="setting"><small>讓分最低 ELO 值（7）</small><b>{s.handicapMinimumElo}</b></div>
-      <div className="setting"><small>讓分敏感度範圍（16）</small><b>{s.handicapSensitivityRange}</b></div>
-      <div className="setting"><small>讓分敏感度寬度（250）</small><b>{s.handicapSensitivityWidth}</b></div>
-      <div className="setting"><small>壓縮寬度基數（3）</small><b>{s.compressionWidthBase}</b></div>
-      <div className="setting"><small>壓縮寬度指數（0.1）</small><b>{s.compressionWidthExponent}</b></div>
-      <div className="setting"><small>重複衰減底數（2）</small><b>{s.repetitionDecayBase}</b></div>
-      <div className="setting"><small>重複衰減週期（7）</small><b>{s.repetitionDecayPeriod}</b></div>
-      <div className="setting"><small>讓分有效度</small><b>{Math.round(s.handicapEffectiveness*100)}%</b></div>
-      <div className="setting"><small>零和更新</small><b>是</b></div>
+      <Surface as="div" className="setting"><small>起始 ELO</small><b>{s.start}</b></Surface>
+      <Surface as="div" className="setting"><small>局數影響係數（150）</small><b>{s.frameScaleCoefficient}</b></Surface>
+      <Surface as="div" className="setting"><small>局數加數（15）</small><b>{s.frameScaleNumeratorOffset}</b></Surface>
+      <Surface as="div" className="setting"><small>局數除數（10）</small><b>{s.frameScaleDenominator}</b></Surface>
+      <Surface as="div" className="setting"><small>讓分 ELO 尺度（500）</small><b>{s.handicapEloScale}</b></Surface>
+      <Surface as="div" className="setting"><small>個人建議讓分換算（只供顯示）</small><b>{s.handicapPointsToElo}</b></Surface>
+      <Surface as="div" className="setting"><small>讓分最低 ELO 值（7）</small><b>{s.handicapMinimumElo}</b></Surface>
+      <Surface as="div" className="setting"><small>讓分敏感度範圍（16）</small><b>{s.handicapSensitivityRange}</b></Surface>
+      <Surface as="div" className="setting"><small>讓分敏感度寬度（250）</small><b>{s.handicapSensitivityWidth}</b></Surface>
+      <Surface as="div" className="setting"><small>壓縮寬度基數（3）</small><b>{s.compressionWidthBase}</b></Surface>
+      <Surface as="div" className="setting"><small>壓縮寬度指數（0.1）</small><b>{s.compressionWidthExponent}</b></Surface>
+      <Surface as="div" className="setting"><small>重複衰減底數（2）</small><b>{s.repetitionDecayBase}</b></Surface>
+      <Surface as="div" className="setting"><small>重複衰減週期（7）</small><b>{s.repetitionDecayPeriod}</b></Surface>
+      <Surface as="div" className="setting"><small>讓分有效度</small><b>{Math.round(s.handicapEffectiveness*100)}%</b></Surface>
+      <Surface as="div" className="setting"><small>零和更新</small><b>是</b></Surface>
     </div>
-    <section className="audit"><h2>審計記錄</h2>{data.audits.slice(0,12).map(a=><div key={a.id}><span>{a.text}</span><small>{new Date(a.at).toLocaleString("zh-HK")}</small></div>)}</section>
+    <Surface className="audit"><h2>審計記錄</h2>{data.audits.slice(0,12).map(a=><div key={a.id}><span>{a.text}</span><small>{new Date(a.at).toLocaleString("zh-HK")}</small></div>)}</Surface>
     {canReset&&<section className="danger-zone"><div><h2>清除並重設資料</h2><p>永久刪除共用資料庫內所有球員、比賽及審計記錄，並恢復預設 ELO 設定。</p></div><button onClick={onReset}>清除所有資料</button></section>}</>;
 }
 

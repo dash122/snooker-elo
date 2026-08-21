@@ -5,7 +5,7 @@ import { getState, listSnapshots } from "../../db/state";
 import MemberDirectory, { Avatar, type Member, type Player } from "./MemberDirectory";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
 import SnapshotList from "./SnapshotList";
-import { Button, StatTile } from "../components/ui/Primitives";
+import { Button, StatTile, Surface } from "../components/ui/Primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +92,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <Link className="primary" href="/?tab=players&manage=1">{zh.playersOpen}</Link>
       </div>
 
-      {unlinked.length > 0 && <section className="admin-attention">
+      {unlinked.length > 0 && <Surface className="admin-attention">
         <h2>{zh.attentionTitle}<em>{unlinked.length}</em></h2>
         <p>{zh.attentionSub}</p>
         <div className="member-list">{unlinked.map(member =>
@@ -108,9 +108,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             </form>
           </div>)}
         </div>
-      </section>}
+      </Surface>}
 
-      {needAccount.length > 0 && <section className="admin-attention players">
+      {needAccount.length > 0 && <Surface className="admin-attention players">
         <h2>{zh.noAccountTitle}<em>{needAccount.length}</em></h2>
         <p>{zh.noAccountSub}</p>
         <ul className="admin-player-list">{needAccount.map(player =>
@@ -120,7 +120,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <Link className="more" href={`/admin?player=${encodeURIComponent(player.id)}#create`}>{zh.createAccount}</Link>
           </li>)}
         </ul>
-      </section>}
+      </Surface>}
 
       <details className="admin-section" id="create" open={!!prefill}>
         <summary>{zh.addSection}</summary>
