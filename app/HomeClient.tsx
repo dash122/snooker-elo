@@ -1265,14 +1265,14 @@ const monthGroupLabel=(month:string)=>{
 };
 
 /* Every pair that has ever met, keyed by the two ids in a stable order, so a
-   meeting counts the same whichever way round it was recorded. Only 1v1 counts
-   here — that is exactly what the head-to-head hero on 賽事記錄 tallies, and a
-   cell that disagreed with the screen it opens would be worse than no cell. */
+   meeting counts the same whichever way round it was recorded. Any singles
+   match counts — regular 1v1 and cup ties alike — since both are individual
+   head-to-head results; only 2v2 team matches are excluded. */
 type H2HRecord={wins:Record<string,number>;draws:number;frames:Record<string,number>;total:number;last:string};
 function headToHeadIndex(matches:Match[]){
   const index=new Map<string,H2HRecord>();
   for(const match of matches){
-    if(match.status!=="confirmed"||isEntertainmentMode(match.mode)||matchMode(match)!=="1v1")continue;
+    if(match.status!=="confirmed"||isEntertainmentMode(match.mode)||matchMode(match)==="2v2")continue;
     const [first,second]=[match.a,match.b].sort();
     if(!first||!second||first===second)continue;
     const key=`${first}|${second}`;
