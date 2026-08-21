@@ -14,6 +14,11 @@ let schemaReady:Promise<unknown>|null=null;
    ever having gone through a read or write path that would have bootstrapped the table. */
 export async function ensureOpenCallSchema(){ return ensureSchema(); }
 async function ensureSchema(){
+  // Schema changes are migration-owned — see the identical short-circuit in
+  // db/availability.pg.ts. open_calls is already live everywhere this module
+  // runs, so skip re-running the bootstrap on every cold start.
+  return Promise.resolve();
+
   schemaReady??=(async()=>{
     const sql=getSql();
     await sql`CREATE TABLE IF NOT EXISTS open_calls (
