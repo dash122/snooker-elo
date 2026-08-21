@@ -1144,7 +1144,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
         <span><b>{month}</b><small>本月比賽</small></span>
         <span><b>{total}</b><small>歷來總場數</small></span>
       </div>
-    </div><Button className="hero-action" onClick={onRecord}><span aria-hidden="true">＋</span><b>記錄新賽果</b><small>更新排名與近期狀態</small></Button></section>
+    </div><Button className="hero-action" onClick={onRecord}><span aria-hidden="true" className="hero-action-icon">＋</span><b>記錄新賽果</b><small>更新排名與近期狀態</small></Button></section>
     <nav className="page-tabs home-view-nav" aria-label="首頁內容" role="tablist">
       <button role="tab" aria-selected={homeView==="ranking"} className={homeView==="ranking"?"active":""} onClick={()=>setHomeView("ranking")}><span>目前排名</span></button>
       <button role="tab" aria-selected={homeView==="breaks"} className={homeView==="breaks"?"active":""} onClick={()=>setHomeView("breaks")}><span>最高單桿紀錄</span></button>
@@ -1333,7 +1333,9 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
     <div className="h2h-matrix-toolbar">
       <div className="h2h-matrix-focus">
         <span className="match-filter-label">球員</span>
-        <PlayerCombobox players={players} value={focus.id} onChange={id=>{if(id)setFocusId(id)}} placeholder="選擇球員" ariaLabel="對賽矩陣主角球員"/>
+        <div className="match-player-picker">
+          <PlayerCombobox players={players} value={focus.id} onChange={id=>{if(id)setFocusId(id)}} placeholder="選擇球員" ariaLabel="對賽矩陣主角球員"/>
+        </div>
       </div>
       <div className="h2h-matrix-modes" role="group" aria-label="對賽矩陣顯示方式">
         <button type="button" className={mode==="list"?"active":""} aria-pressed={mode==="list"} onClick={()=>setMode("list")}>清單</button>
