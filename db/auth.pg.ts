@@ -29,6 +29,13 @@ export async function resolveGoogleMember(email: string, googleId: string): Prom
 let schemaReady: Promise<unknown> | null = null;
 let preliminaryRatingSchemaReady: Promise<unknown> | null = null;
 function ensurePreliminaryRatingSchema() {
+  // Column is migration-owned now (see
+  // supabase/migrations/20260821000000_auth_schema_runtime_ddl_cleanup.sql).
+  // Running this ALTER on every serverless cold start meant every instance
+  // queued on the advisory lock below and, under concurrent cold starts,
+  // could sit there until the pooler's statement_timeout cancelled it.
+  return Promise.resolve();
+
   preliminaryRatingSchemaReady ??= (async () => {
     const sql = getSql();
     await sql.begin(async tx => {
@@ -39,6 +46,15 @@ function ensurePreliminaryRatingSchema() {
   return preliminaryRatingSchemaReady;
 }
 function ensureAuthSchema() {
+  // Tables and columns are migration-owned now (see
+  // supabase/migrations/20260821000000_auth_schema_runtime_ddl_cleanup.sql).
+  // Running this bootstrap on every serverless cold start took the advisory
+  // lock below and, under a stampede of concurrent cold starts, queued
+  // requests behind it until the pooler's statement_timeout cancelled them
+  // — surfacing as "canceling statement due to statement timeout" on every
+  // route that touches auth.
+  return Promise.resolve();
+
   schemaReady ??= (async () => {
     const sql = getSql();
     // Serialize concurrent cold starts on a session advisory lock instead of

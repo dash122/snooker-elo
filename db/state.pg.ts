@@ -37,6 +37,13 @@ function snapshotEntities(state: State): SnapshotEntity[] {
 let schemaReady: Promise<unknown> | null = null;
 let provisionalDeltaSchemaReady: Promise<unknown> | null = null;
 function ensureProvisionalDeltaSchema() {
+  // Columns are migration-owned now (see
+  // supabase/migrations/20260821000000_auth_schema_runtime_ddl_cleanup.sql),
+  // for the same reason ensureStateSchema below is short-circuited: running
+  // this on every cold start queued requests on the advisory lock until the
+  // pooler's statement_timeout cancelled them.
+  return Promise.resolve();
+
   provisionalDeltaSchemaReady ??= (async () => {
     const sql = getSql();
     await sql.begin(async tx => {
