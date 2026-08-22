@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
 import {BackdropSheet,ConfirmDialog} from "./components/ui/Overlay";
-import {Button} from "./components/ui/Primitives";
+import {Button,IconButton,SegmentedControl} from "./components/ui/Primitives";
 import {Slots} from "./Slots";
 import {CounterSheet,NotificationPrefsPanel,PushOptIn,RecurrenceEditor,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type QueueItem,type RecurrenceRule,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
@@ -89,11 +89,11 @@ function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:
  return <section className="availability-date-selector" aria-label="未來 14 日">
   <div className="availability-date-selector-head"><b>選擇日期</b><span aria-hidden="true">左右滑動查看未來 14 日 <i>↔</i></span></div>
   <div className="availability-date-strip-wrap">
-   <button type="button" className="availability-date-scroll-button previous" aria-label="向前捲動日期" onClick={()=>move(-1)}>‹</button>
+   <IconButton className="availability-date-scroll-button previous" label="向前捲動日期" onClick={()=>move(-1)}>‹</IconButton>
    <div className="availability-date-strip" role="tablist" aria-label="選擇日期，左右滑動查看更多" ref={scrollRef}>
     {dates.map((value,index)=>{const active=value===selected,count=counts[value]??0,weekday=new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",weekday:"short"}).format(new Date(`${value}T00:00:00+08:00`));return <button type="button" key={value} role="tab" aria-label={`${index===0?"今天":index===1?"明天":weekday}，${Number(value.slice(5,7))}月${Number(value.slice(8,10))}日，${count} 位球員有空`} aria-selected={active} aria-current={active?"date":undefined} className={active?"active":""} onClick={()=>onSelect(value)}><small>{index===0?"今天":index===1?"明天":weekday}</small><span>{Number(value.slice(5,7))}/{Number(value.slice(8,10))}</span><strong>{count} 位</strong></button>})}
    </div>
-   <button type="button" className="availability-date-scroll-button next" aria-label="向後捲動日期" onClick={()=>move(1)}>›</button>
+   <IconButton className="availability-date-scroll-button next" label="向後捲動日期" onClick={()=>move(1)}>›</IconButton>
   </div>
  </section>
 }function AvailabilityGrid({members,mine,date,lo,hi,userPlayerId,focus,onFocus,highlightId,onPlayer}:{members:Member[];mine:Interval[];date:string;lo:number;hi:number;userPlayerId?:string;focus:Interval|null;onFocus:(x:Interval|null)=>void;highlightId?:string|null;onPlayer?:(playerId:string)=>void}){
@@ -119,7 +119,7 @@ function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:
      {focus&&<i className="availability-grid-focus" style={{left:position(focus.startAt),width:slotWidth(focus)}}/>}{showNow&&<i className="availability-grid-now" style={{left:`${(now-lo)/span*100}%`}}/>}
     </div></div>})}
   </div></div>
-  <div className="availability-grid-legend"><span><i/>該時段有空</span>{focus&&<button type="button" className="more" onClick={()=>onFocus(null)}>清除 {range(focus)}</button>}</div>
+  <div className="availability-grid-legend"><span><i/>該時段有空</span>{focus&&<Button variant="quiet" onClick={()=>onFocus(null)}>清除 {range(focus)}</Button>}</div>
  </section>
 }
 /* One row of the invite inbox. Every pending invite gets one of these — the previous design surfaced
@@ -142,10 +142,8 @@ function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,p
  return <BackdropSheet onClose={onClose} labelledBy="invite-sheet-title">
    <p className="kicker">邀請對局</p>
    <h2 id="invite-sheet-title">{opponent.member.name}</h2>
-   <div className="invite-mode-toggle" role="tablist" aria-label="邀請方式">
-    <button type="button" role="tab" aria-selected={mode==="simple"} className={mode==="simple"?"active":""} onClick={()=>onModeChange("simple")}>快速邀請</button>
-    <button type="button" role="tab" aria-selected={mode==="propose"} className={mode==="propose"?"active":""} onClick={()=>onModeChange("propose")}>提議時段</button>
-   </div>
+   <div className="invite-mode-toggle"><SegmentedControl label="邀請方式" value={mode} onChange={value=>onModeChange(value as typeof mode)}
+     items={[{value:"simple",label:"快速邀請"},{value:"propose",label:"提議時段"}]}/></div>
    {mode==="simple"
     ?<div className="invite-window-list">
       <p className="sub">{opponent.windows.length?"佢公開嘅得閒時段，揀一個一鍵送出：":"對方今日未公開時段 — 可以改用「提議時段」直接建議時間。"}</p>
@@ -163,7 +161,7 @@ function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,p
        which is the difference between an accepted invite and a game that actually happens. */}
    <VenueField value={venue} onChange={onVenueChange}/>
    <label className="invite-message-field">留言（可省略）<textarea value={message} onChange={e=>onMessageChange(e.target.value)} placeholder="加句留言（可省略）"/></label>
-   <button type="button" className="primary full" disabled={sending||(mode==="simple"&&!selectedWindow)} onClick={onSend}>{sending?"送出中…":sendLabel}</button>
+   <Button variant="primary" className="full" disabled={sending||(mode==="simple"&&!selectedWindow)} onClick={onSend}>{sending?"送出中…":sendLabel}</Button>
  </BackdropSheet>;
 }
 /* The board speaks in hours from the start of a row's Hong Kong day, so a slot that runs past
@@ -809,8 +807,8 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     an otherwise clean screen — and, being the first `.mm-card`, it also picked up the dark
     "featured" treatment meant for something that actually matters. */}
 {userPlayerId&&<section className="availability-roster">
-  <button type="button" className="mm-see-all availability-roster-toggle" onClick={()=>setShowBoard(v=>!v)} aria-expanded={showBoard}>
-    {showBoard?"收起全部空檔":`睇全部 ${members.length} 位球員空檔`}</button>
+  <Button variant="quiet" className="mm-see-all availability-roster-toggle" onClick={()=>setShowBoard(v=>!v)} aria-expanded={showBoard}>
+    {showBoard?"收起全部空檔":`睇全部 ${members.length} 位球員空檔`}</Button>
   {showBoard&&<>
    <DateScroller dates={week} selected={date} counts={counts} onSelect={changeDate}/>
    {members.length
@@ -826,20 +824,20 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     navigates away, so a member can paint three evenings and publish them in a single pass. */}
 {editor&&userPlayerId&&<section className="availability-editor">
  <header className="availability-day-head"><div><h2>公開你的空閒時間</h2><small>拖曳加入時段，點按可調整或刪除。</small></div>
-  <span className="slot-tally-group"><span className="slot-tally"><b>{own.length}</b>個已公開</span>{own.length>0&&<button type="button" className="clear-all-link" onClick={()=>setConfirmClear(true)}>全部刪除</button>}</span></header>
+  <span className="slot-tally-group"><span className="slot-tally"><b>{own.length}</b>個已公開</span>{own.length>0&&<Button variant="quiet" className="clear-all-link" onClick={()=>setConfirmClear(true)}>全部刪除</Button>}</span></header>
  <section className={`availability-card slot-board-card${draft.length||pendingKeys.length?" has-draft":""}`}>
   <SlotBoard dates={boardDates} items={displayedBoardItems} lo={boardRange.lo} hi={boardRange.hi} soonest={soonest} selected={selected}
    onSelect={key=>setSelected(key)}
    onCreate={x=>{setDraft(a=>mergeIntervals([...a,x]));setSelected(null);setMessage("");trackAvailabilityEvent("availability_slot_draft_add")}}
    onResize={(item,x)=>{if(item.draft){setDraft(a=>mergeIntervals([...a.filter(v=>v.startAt!==item.key),x]));setSelected(x.startAt)}else setAdjustments(a=>({...a,[item.key]:x}))}}/>
   {!own.length&&!draft.length&&<p className="board-hint">在上面任何一行拖曳，就能加入可配對時段。輕按一下等於兩小時。</p>}
-  <div className="board-legend"><span><i className="legend-live"/>已公開</span><span><i className="legend-draft"/>未發佈／未儲存</span><button type="button" className="more" onClick={()=>setBoardWide(v=>!v)}>{boardWide?"只看未來 7 天":"顯示未來 14 天"}</button></div>
+  <div className="board-legend"><span><i className="legend-live"/>已公開</span><span><i className="legend-draft"/>未發佈／未儲存</span><Button variant="quiet" onClick={()=>setBoardWide(v=>!v)}>{boardWide?"只看未來 7 天":"顯示未來 14 天"}</Button></div>
  </section>
  {active&&adjusted&&<section className={`slot-detail${adjustment?" has-adjustment":""}`} role="group" aria-label="調整已選時段">
   <div><small>{fullDay(active.date)}</small><b>{clockAt(adjusted.from)}–{clockAt(adjusted.to)}</b><span>{durationLabel((adjusted.to-adjusted.from)*60)}{active.draft?" · 未發佈":""}{adjustment?" · 待確認":""}</span></div>
-  <div className="slot-nudge"><small>開始</small><button type="button" aria-label="開始時間提早 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,-.5,0)}>−</button><button type="button" aria-label="開始時間延後 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,.5,0)}>+</button></div>
-  <div className="slot-nudge"><small>結束</small><button type="button" aria-label="結束時間提早 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,0,-.5)}>−</button><button type="button" aria-label="結束時間延後 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,0,.5)}>+</button></div>
-   <span className="card-tools"><button className="card-tool danger" aria-label={`刪除 ${dayLabel(active.date)} ${clockAt(active.from)}–${clockAt(active.to)} 的時段`} onClick={()=>{const found=own.find(v=>v.id===active.key);if(active.draft)setDraft(a=>a.filter(v=>v.startAt!==active.key));else if(found)setPending(found);setSelected(null);dropAdjustment(active.key)}}>✕</button></span>
+  <div className="slot-nudge"><small>開始</small><IconButton label="開始時間提早 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,-.5,0)}>−</IconButton><IconButton label="開始時間延後 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,.5,0)}>+</IconButton></div>
+  <div className="slot-nudge"><small>結束</small><IconButton label="結束時間提早 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,0,-.5)}>−</IconButton><IconButton label="結束時間延後 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,0,.5)}>+</IconButton></div>
+   <span className="card-tools"><IconButton className="card-tool danger" label={`刪除 ${dayLabel(active.date)} ${clockAt(active.from)}–${clockAt(active.to)} 的時段`} onClick={()=>{const found=own.find(v=>v.id===active.key);if(active.draft)setDraft(a=>a.filter(v=>v.startAt!==active.key));else if(found)setPending(found);setSelected(null);dropAdjustment(active.key)}}>✕</IconButton></span>
    {tournaments&&tournaments.length>0&&userPlayerId&&own.find(s=>s.id===active.key)&&<div className="slot-tournament-signups">
       <small>對應盃賽</small>
       <div className="tournament-actions-inline">{tournaments.map(t=>{const signed=Boolean(userPlayerId&&(t.signups||[]).includes(userPlayerId));return <Button key={t.id} variant="secondary" className={`tournament-action${signed?" signed":""}`} onClick={()=>onSignUpTournament?.(t.id)}>{signed?`取消 ${t.name}`:`報名 ${t.name}`}</Button>})}</div>

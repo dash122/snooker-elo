@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PlayerBadge } from "./UiBits";
 import { BackdropSheet } from "./components/ui/Overlay";
-import { Button } from "./components/ui/Primitives";
+import { Button, IconButton, SegmentedControl } from "./components/ui/Primitives";
 import { disablePush, enablePush, pushState, registerServiceWorker, type PushState } from "./push-client";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { hkClock, hkDate, hkDayLabel, type Interval, type ReliabilitySignals } from "../lib/availability";
@@ -57,7 +57,7 @@ export function PushOptIn({compact}:{compact?:boolean}){
   if(state===null||state==="unsupported")return null;
   if(state==="subscribed")return compact?null:<p className="push-status" role="status">
     <span aria-hidden="true">🔔</span> 已開啟通知 · 有人約你會即時話你知
-    <button type="button" className="more" onClick={()=>void disablePush().then(setState)}>關閉</button>
+    <Button variant="quiet" onClick={()=>void disablePush().then(setState)}>關閉</Button>
   </p>;
   /* A member who has actively blocked notifications cannot be re-prompted by any amount of UI, so
      saying so plainly beats a button that would silently do nothing. */
@@ -111,7 +111,7 @@ export function NotificationPrefsPanel(){
   return <section className="availability-card notification-prefs">
     <header className="availability-grid-head">
       <div><h3>通知設定</h3><small>揀你想收邊啲提示。</small></div>
-      <button type="button" className="more" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?"收起":"調整"}</button>
+      <Button variant="quiet" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?"收起":"調整"}</Button>
     </header>
     {open&&<>
       <ul className="pref-list">{PREF_LABELS.map(([key,label,hint])=>
@@ -176,14 +176,13 @@ export function FreeNowPanel({onDone,disabled}:{onDone:(result:{offers:number;br
     finally{setBusy(false)}
   };
   return <div className="free-now-panel">
-    <div className="free-now-durations" role="group" aria-label="打幾耐">
-      {DURATIONS.map(item=><button type="button" key={item.minutes} className={minutes===item.minutes?"active":""} aria-pressed={minutes===item.minutes} onClick={()=>setMinutes(item.minutes)}>{item.label}</button>)}
-    </div>
-    <button type="button" className="primary free-now-button" disabled={busy||disabled} aria-busy={busy} onClick={()=>void go()}>
+    <SegmentedControl label="打幾耐" value={String(minutes)} onChange={value=>setMinutes(Number(value))}
+      items={DURATIONS.map(item=>({value:String(item.minutes),label:item.label}))}/>
+    <Button variant="primary" className="free-now-button" disabled={busy||disabled} aria-busy={busy} onClick={()=>void go()}>
       {busy&&<i className="button-spinner" aria-hidden="true"/>}
       <span>{busy?"發緊…":`我而家得閒 · ${minutes/60} 小時`}</span>
-    </button>
-    <button type="button" className="free-now-toggle more" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?"收起":"加枱位或留言"}</button>
+    </Button>
+    <Button variant="quiet" className="free-now-toggle" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?"收起":"加枱位或留言"}</Button>
     {open&&<div className="free-now-details">
       <VenueField value={venue} onChange={setVenue}/>
       <label className="invite-message-field"><span>留言（可省略）</span>
@@ -264,13 +263,13 @@ export function PlayableCard({item,onAct,onOpen,busy,actionLabel,sent,onUndo,onC
     {sent
       ?<div className="mm-play-sent" role="status">
         <span>已送出</span>
-        {onUndo&&<button type="button" className="mm-play-undo" onClick={onUndo}>收回</button>}
+        {onUndo&&<Button variant="quiet" className="mm-play-undo" onClick={onUndo}>收回</Button>}
       </div>
       :<div className="mm-play-actions">
-        <button type="button" className="primary mm-play-go" disabled={busy} aria-busy={busy} onClick={onAct}>
+        <Button variant="primary" className="mm-play-go" disabled={busy} aria-busy={busy} onClick={onAct}>
           {busy&&<i className="button-spinner" aria-hidden="true"/>}<span>{actionLabel}</span>
-        </button>
-        {onCustomise&&<button type="button" className="mm-play-alt" onClick={onCustomise}>改時間／加留言</button>}
+        </Button>
+        {onCustomise&&<Button variant="quiet" className="mm-play-alt" onClick={onCustomise}>改時間／加留言</Button>}
       </div>}
   </article>;
 }
@@ -299,7 +298,7 @@ export function SearchingCard({asked,seen,exits,onWithdraw,busy}:{
       </p>
     </div>
     <div className="mm-exits">{exits}</div>
-    <button type="button" className="mm-withdraw" disabled={busy} onClick={onWithdraw}>收回，暫時唔打住</button>
+    <Button variant="quiet" className="mm-withdraw" disabled={busy} onClick={onWithdraw}>收回，暫時唔打住</Button>
   </section>;
 }
 
@@ -315,9 +314,9 @@ export type Exit={label:string;hint?:string;tone:"primary"|"secondary";onClick:(
 
 export function ExitList({exits}:{exits:Exit[]}){
   return <>{exits.map(exit=>
-    <button type="button" key={exit.label} className={`mm-exit is-${exit.tone}`} onClick={exit.onClick}>
+    <Button variant={exit.tone} key={exit.label} className="mm-exit" onClick={exit.onClick}>
       <b>{exit.label}</b>{exit.hint&&<small>{exit.hint}</small>}
-    </button>)}</>;
+    </Button>)}</>;
 }
 
 /* --- The response queue --------------------------------------------------- */
@@ -359,7 +358,7 @@ export function ResponseQueue({items}:{items:QueueItem[]}){
           {item.note&&<p>{item.note}</p>}
         </div>
         <div className="mm-row-actions">{item.actions.map(action=>
-          <button type="button" key={action.label} className={action.tone} disabled={item.busy} onClick={action.onClick}>{action.label}</button>)}
+          <Button variant={action.tone} key={action.label} disabled={item.busy} onClick={action.onClick}>{action.label}</Button>)}
         </div>
       </li>)}
     </ul>
@@ -401,7 +400,7 @@ export function NextUpCard({game,others,onRecord,onCancel,cancelling,onFreeNow,o
   </section>;
   return <section className="availability-card mm-card is-idle">
     <CardHead title="而家得閒？" hint="一撳就公開你嘅時間、開一張全會所睇到嘅枱，同埋問夾得到嘅球友。"
-      aside={<button type="button" className="more" onClick={onEditSlots}>{slotCount?`我嘅時段 · ${slotCount}`:"排定期時段"}</button>}/>
+      aside={<Button variant="quiet" onClick={onEditSlots}>{slotCount?`我嘅時段 · ${slotCount}`:"排定期時段"}</Button>}/>
     <FreeNowPanel onDone={onFreeNow}/>
   </section>;
 }
@@ -413,9 +412,9 @@ export function WaitingStrip({items,onCancel,cancellingId}:{items:WaitingItem[];
   const [open,setOpen]=useState(false);
   if(!items.length)return null;
   return <div className="waiting-strip">
-    <button type="button" className="waiting-strip-toggle" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
+    <Button variant="quiet" className="waiting-strip-toggle" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
       <span>等緊 {items.length} 位球友回覆</span><i aria-hidden="true">{open?"▲":"▼"}</i>
-    </button>
+    </Button>
     {open&&<ul>{items.map(item=>
       <li key={item.id}><span><b>{item.name}</b><small>{item.label}</small></span>
         {item.cancellable&&<Button variant="secondary" disabled={cancellingId===item.id} onClick={()=>onCancel(item.id)}>取消邀請</Button>}</li>)}
@@ -463,7 +462,7 @@ export function CounterSheet({title,date,onSubmit,onClose,busy}:{title:string;da
         <label><span>結束</span><select value={end} onChange={event=>setEnd(event.target.value)}>{TIMES.map(time=><option key={time}>{time}{time<=start?" · 次日":""}</option>)}</select></label>
       </div>
       <VenueField value={venue} onChange={setVenue}/>
-      <button type="button" className="primary full" disabled={busy} onClick={()=>onSubmit({date:when,start,end,venue})}>{busy?"送出中…":`提議 ${start}–${end}`}</button>
+      <Button variant="primary" className="full" disabled={busy} onClick={()=>onSubmit({date:when,start,end,venue})}>{busy?"送出中…":`提議 ${start}–${end}`}</Button>
   </BackdropSheet>;
 }
 
@@ -488,12 +487,12 @@ export function RecurrenceEditor({rules,onAdd,onRemove,onCopyLastWeek,busy}:{
   return <section className="availability-card recurrence-card">
     <header className="availability-grid-head">
       <div><h3>每週固定時段</h3><small>設定一次，之後每個星期自動公開，唔使再畫。</small></div>
-      <button type="button" className="more" onClick={()=>onCopyLastWeek()} disabled={busy}>同上星期一樣</button>
+      <Button variant="quiet" onClick={()=>onCopyLastWeek()} disabled={busy}>同上星期一樣</Button>
     </header>
     {rules.length>0&&<ul className="recurrence-list">{rules.map(rule=>
       <li key={rule.id}>
         <span><b>逢{WEEKDAYS[rule.weekday]}</b><small>{rule.startTime}–{rule.endTime}</small></span>
-        <button type="button" className="card-tool danger" aria-label={`刪除逢${WEEKDAYS[rule.weekday]} ${rule.startTime}–${rule.endTime}`} disabled={busy} onClick={()=>onRemove(rule.id)}>✕</button>
+        <IconButton className="card-tool danger" label={`刪除逢${WEEKDAYS[rule.weekday]} ${rule.startTime}–${rule.endTime}`} disabled={busy} onClick={()=>onRemove(rule.id)}>✕</IconButton>
       </li>)}</ul>}
     {open
       ?<div className="recurrence-composer availability-slot-form">
@@ -508,7 +507,7 @@ export function RecurrenceEditor({rules,onAdd,onRemove,onCopyLastWeek,busy}:{
           <Button variant="secondary" onClick={()=>setOpen(false)}>取消</Button>
         </div>
       </div>
-      :<button type="button" className="secondary recurrence-add" onClick={()=>setOpen(true)}>＋ 加一個每週時段</button>}
+      :<Button variant="secondary" className="recurrence-add" onClick={()=>setOpen(true)}>＋ 加一個每週時段</Button>}
   </section>;
 }
 

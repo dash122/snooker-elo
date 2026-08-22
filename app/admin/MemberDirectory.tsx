@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { resolveInitials } from "../api/account/validate";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
 import { Button, EmptyState } from "../components/ui/Primitives";
+import { ConfirmDialog } from "../components/ui/Overlay";
 
 export type Player = { id: string; name: string; active?: boolean };
 export type Member = {
@@ -43,6 +44,8 @@ export function Avatar({ member, playerName }: { member: Member; playerName?: st
 export default function MemberDirectory({ members, players, currentEmail }: { members: Member[]; players: Player[]; currentEmail: string }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "admins" | "unlinked">("all");
+  const [pendingDelete, setPendingDelete] = useState<{ form: HTMLFormElement; name: string } | null>(null);
+  const skipDeleteConfirm = useRef(false);
   const playerName = useMemo(() => new Map(players.map(player => [player.id, player.name])), [players]);
   const linkOf = (member: Member) => (member.statePlayerId && playerName.get(member.statePlayerId)) || null;
 
@@ -112,12 +115,20 @@ export default function MemberDirectory({ members, players, currentEmail }: { me
             </div>
           </form>
           {member.email !== currentEmail && <form className="admin-delete" action="/api/admin/members" method="post"
-            onSubmit={event => { if (!confirm(zh.deleteConfirm(member.displayName))) event.preventDefault(); }}>
+            onSubmit={event => {
+              if (skipDeleteConfirm.current) { skipDeleteConfirm.current = false; return; }
+              event.preventDefault();
+              setPendingDelete({ form: event.currentTarget, name: member.displayName });
+            }}>
             <input type="hidden" name="action" value="delete" />
             <input type="hidden" name="originalEmail" value={member.email} />
             <Button variant="danger" type="submit">{zh.deleteAccount}</Button>
           </form>}
         </details>;
       })}</div>}
+    {pendingDelete && <ConfirmDialog kicker={zh.deleteAccount} titleId="delete-member-title" title={`確定要刪除「${pendingDelete.name}」的帳戶？`} description={zh.deleteConfirm(pendingDelete.name)} onClose={() => setPendingDelete(null)}>
+      <Button variant="secondary" onClick={() => setPendingDelete(null)}>取消</Button>
+      <Button variant="danger" onClick={() => { const { form } = pendingDelete; setPendingDelete(null); skipDeleteConfirm.current = true; form.requestSubmit(); }}>{zh.deleteAccount}</Button>
+    </ConfirmDialog>}
   </div>;
 }

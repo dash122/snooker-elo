@@ -19,7 +19,7 @@ import ShareSheet from "./ShareSheet";
 import { AppShell, PageFrame } from "./components/shell/AppShell";
 import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
 import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
-import { Button, StatTile, Surface } from "./components/ui/Primitives";
+import { Button, IconButton, SegmentedControl, StatTile, Surface } from "./components/ui/Primitives";
 import { Sheet, ConfirmDialog } from "./components/ui/Overlay";
 
 type Player = {
@@ -457,6 +457,8 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   const [tab,setTab] = useState("leaderboard");
   const [availabilityDirty,setAvailabilityDirty] = useState(false);
   const [leavingAvailability,setLeavingAvailability] = useState<string|null>(null);
+  const [pendingConfirm,setPendingConfirm] = useState<{kicker:string;title:string;description:string;confirmLabel:string;onConfirm:()=>void}|null>(null);
+  const askConfirm=(opts:{kicker:string;title:string;description:string;confirmLabel:string;onConfirm:()=>void})=>setPendingConfirm(opts);
   const [jumpToAvailability,setJumpToAvailability] = useState<{playerId:string;date:string}|null>(null);
   const [matchesView,setMatchesView] = useState<"history"|"calendar"|"cup"|"matrix">("history");
   const [headToHead,setHeadToHead] = useState({a:"",b:""});
@@ -676,11 +678,13 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   }
   useEffect(()=>()=>{if(toastTimer.current)clearTimeout(toastTimer.current);if(undoTimer.current)clearTimeout(undoTimer.current)},[]);
 
-  async function resetAll(){
+  function resetAll(){
     if(user?.role!=="admin"){setToast("只有管理員可以清除並重設資料。");return;}
     const typed=prompt("此操作會永久刪除所有球員、比賽及審計記錄。請輸入 RESET 繼續：");
     if(typed!=="RESET")return;
-    if(!confirm("最後確認：清除並重設所有共用資料？此操作無法復原。"))return;
+    askConfirm({kicker:"清除並重設資料",title:"最後確認",description:"清除並重設所有共用資料？此操作無法復原。",confirmLabel:"清除並重設",onConfirm:doResetAll});
+  }
+  async function doResetAll(){
     setSaving(true);
     try{
       const response=await fetch("/api/state",{method:"DELETE"});
@@ -696,11 +700,12 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
 
   function deleteTournament(tournament:Tournament){
     if(!isAdmin){setToast("只有管理員可以刪除盃賽。");return;}
-    if(!confirm(`確定刪除「${tournament.name}」？盃賽及其已記錄賽事都會永久刪除。`))return;
-    const matches=data.matches.filter(match=>match.tournamentId!==tournament.id);
-    const base={...data,tournaments:data.tournaments.filter(item=>item.id!==tournament.id),matches,audits:[{id:crypto.randomUUID(),text:`刪除盃賽：${tournament.name}`,at:new Date().toISOString()},...data.audits]};
-    const settings=data.settings,next={...base,settings,...replay(data.players,matches,settings)};
-    setData(next);persist(next,"盃賽已刪除。",data);
+    askConfirm({kicker:"刪除盃賽",title:`確定刪除「${tournament.name}」？`,description:"盃賽及其已記錄賽事都會永久刪除。",confirmLabel:"永久刪除",onConfirm:()=>{
+      const matches=data.matches.filter(match=>match.tournamentId!==tournament.id);
+      const base={...data,tournaments:data.tournaments.filter(item=>item.id!==tournament.id),matches,audits:[{id:crypto.randomUUID(),text:`刪除盃賽：${tournament.name}`,at:new Date().toISOString()},...data.audits]};
+      const settings=data.settings,next={...base,settings,...replay(data.players,matches,settings)};
+      setData(next);persist(next,"盃賽已刪除。",data);
+    }});
   }
 
   const ranked=useMemo(()=>[...data.players].sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name)),[data]);
@@ -840,10 +845,11 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   function deletePlayer(p:Player){
     if(!isAdmin){setToast("只有管理員可以刪除球員。");return;}
     const hasHistory=data.matches.some(m=>m.a===p.id||m.b===p.id);
-    if(!confirm(`永久刪除 ${p.name}？${hasHistory?"歷史賽事會保留並顯示為「已刪除球員」。":""}此操作無法復原。`))return;
-    const next={...data,players:data.players.filter(x=>x.id!==p.id),
-      audits:[{id:crypto.randomUUID(),text:`永久刪除球員：${p.name}`,at:new Date().toISOString()},...data.audits]};
-    persist(next,"球員已永久刪除。");
+    askConfirm({kicker:"刪除球員",title:`永久刪除 ${p.name}？`,description:`${hasHistory?"歷史賽事會保留並顯示為「已刪除球員」。":""}此操作無法復原。`,confirmLabel:"永久刪除",onConfirm:()=>{
+      const next={...data,players:data.players.filter(x=>x.id!==p.id),
+        audits:[{id:crypto.randomUUID(),text:`永久刪除球員：${p.name}`,at:new Date().toISOString()},...data.audits]};
+      persist(next,"球員已永久刪除。");
+    }});
   }
 
   function closeModal(){ setModal(null); setDeletingMatch(null); setShareTarget(null); }
@@ -929,13 +935,16 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
   function declareWalkover(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string){
     if(!isAdmin){setToast("只有管理員可以判定晉級。");return;}
     const playerName=(id:string)=>data.players.find(player=>player.id===id)?.name??"該球員";
-    if(winnerId&&!confirm(`判定「${playerName(winnerId)}」因對手棄權晉級？不會產生賽果，亦不影響 ELO。`))return;
-    const others=(tournament.walkovers??[]).filter(item=>!(item.round===slot.round&&item.index===slot.index));
-    const walkovers:Walkover[]=winnerId?[...others,{round:slot.round,index:slot.index,winner:winnerId}]:others;
-    const tournaments=data.tournaments.map(item=>item.id===tournament.id?{...item,walkovers}:item);
-    const text=winnerId?`判定晉級：${tournament.name} 第 ${slot.round} 輪第 ${slot.index} 場 — ${playerName(winnerId)}`:`取消判定晉級：${tournament.name} 第 ${slot.round} 輪第 ${slot.index} 場`;
-    const next={...data,tournaments,audits:[{id:crypto.randomUUID(),text,at:new Date().toISOString()},...data.audits]};
-    setData(next);persist(next,winnerId?"已判定晉級。":"已取消判定晉級。",data);
+    const apply=()=>{
+      const others=(tournament.walkovers??[]).filter(item=>!(item.round===slot.round&&item.index===slot.index));
+      const walkovers:Walkover[]=winnerId?[...others,{round:slot.round,index:slot.index,winner:winnerId}]:others;
+      const tournaments=data.tournaments.map(item=>item.id===tournament.id?{...item,walkovers}:item);
+      const text=winnerId?`判定晉級：${tournament.name} 第 ${slot.round} 輪第 ${slot.index} 場 — ${playerName(winnerId)}`:`取消判定晉級：${tournament.name} 第 ${slot.round} 輪第 ${slot.index} 場`;
+      const next={...data,tournaments,audits:[{id:crypto.randomUUID(),text,at:new Date().toISOString()},...data.audits]};
+      setData(next);persist(next,winnerId?"已判定晉級。":"已取消判定晉級。",data);
+    };
+    if(winnerId)askConfirm({kicker:"判定晉級",title:`判定「${playerName(winnerId)}」因對手棄權晉級？`,description:"不會產生賽果，亦不影響 ELO。",confirmLabel:"確定判定",onConfirm:apply});
+    else apply();
   }
 
   /* The roster is an admin's to edit, because the reasons it goes wrong are all off-app: a member
@@ -949,36 +958,35 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
     if(!isAdmin){setToast("只有管理員可以編輯報名名單。");return;}
     const playerName=(id:string)=>data.players.find(player=>player.id===id)?.name??"該球員";
     const drawn=Boolean(tournament.draw?.length);
-    let updated:Tournament,text:string,message:string;
+    const apply=(updated:Tournament,text:string,message:string)=>{
+      const tournaments=data.tournaments.map(item=>item.id===tournament.id?updated:item);
+      const next={...data,tournaments,audits:[{id:crypto.randomUUID(),text,at:new Date().toISOString()},...data.audits]};
+      setData(next);persist(next,message,data);
+    };
     if(outgoingId&&incomingId){
+      const text=`更換參賽球員：${tournament.name} — ${playerName(outgoingId)} → ${playerName(incomingId)}`,message="已更換參賽球員。";
       if(drawn){
         const result=swapPlayer(tournament,outgoingId,incomingId,data.matches);
         if(!result.ok){setToast(result.error);return}
-        if(!confirm(`在「${tournament.name}」籤表中以「${playerName(incomingId)}」代替「${playerName(outgoingId)}」？對陣會即時更新。`))return;
-        updated={...tournament,signups:result.tournament.signups,draw:result.tournament.draw,walkovers:result.tournament.walkovers};
+        const updated:Tournament={...tournament,signups:result.tournament.signups,draw:result.tournament.draw,walkovers:result.tournament.walkovers};
+        askConfirm({kicker:"更換參賽球員",title:`在「${tournament.name}」籤表中以「${playerName(incomingId)}」代替「${playerName(outgoingId)}」？`,description:"對陣會即時更新。",confirmLabel:"確定更換",onConfirm:()=>apply(updated,text,message)});
       }else{
         if(tournament.signups.includes(incomingId)){setToast("該球員已在名單內。");return}
-        if(!confirm(`在「${tournament.name}」報名名單中以「${playerName(incomingId)}」代替「${playerName(outgoingId)}」？`))return;
-        updated={...tournament,signups:tournament.signups.map(id=>id===outgoingId?incomingId:id)};
+        const updated:Tournament={...tournament,signups:tournament.signups.map(id=>id===outgoingId?incomingId:id)};
+        askConfirm({kicker:"更換參賽球員",title:`在「${tournament.name}」報名名單中以「${playerName(incomingId)}」代替「${playerName(outgoingId)}」？`,description:"名單會即時更新。",confirmLabel:"確定更換",onConfirm:()=>apply(updated,text,message)});
       }
-      text=`更換參賽球員：${tournament.name} — ${playerName(outgoingId)} → ${playerName(incomingId)}`;
-      message="已更換參賽球員。";
     }else if(incomingId){
       if(drawn){setToast("已抽籤，不能加入新球員；可改為替換名單上的球員。");return}
       if(tournament.signups.includes(incomingId)){setToast("該球員已在名單內。");return}
-      updated={...tournament,signups:[...tournament.signups,incomingId]};
-      text=`加入報名：${tournament.name} — ${playerName(incomingId)}`;
-      message="已加入報名名單。";
+      const updated:Tournament={...tournament,signups:[...tournament.signups,incomingId]};
+      apply(updated,`加入報名：${tournament.name} — ${playerName(incomingId)}`,"已加入報名名單。");
     }else if(outgoingId){
       if(drawn){setToast("已抽籤，不能移除球員；可改為替換名單上的球員。");return}
-      if(!confirm(`將「${playerName(outgoingId)}」移出「${tournament.name}」報名名單？`))return;
-      updated={...tournament,signups:tournament.signups.filter(id=>id!==outgoingId)};
-      text=`移除報名：${tournament.name} — ${playerName(outgoingId)}`;
-      message="已移除報名。";
-    }else return;
-    const tournaments=data.tournaments.map(item=>item.id===tournament.id?updated:item);
-    const next={...data,tournaments,audits:[{id:crypto.randomUUID(),text,at:new Date().toISOString()},...data.audits]};
-    setData(next);persist(next,message,data);
+      askConfirm({kicker:"移除報名",title:`將「${playerName(outgoingId)}」移出「${tournament.name}」報名名單？`,description:"移除後可重新加入。",confirmLabel:"確定移除",onConfirm:()=>{
+        const updated:Tournament={...tournament,signups:tournament.signups.filter(id=>id!==outgoingId)};
+        apply(updated,`移除報名：${tournament.name} — ${playerName(outgoingId)}`,"已移除報名。");
+      }});
+    }
   }
 
   /* Signing up for a cup belongs to 比賽, not 約戰 — entering a competition and pitching a friendly
@@ -1036,7 +1044,7 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
           same overflow. As a sibling inside `.sheet-shell` it floats above the corner, stays put
           while the sheet content scrolls underneath it, and can cross the sheet's edge freely. */}
       <div className={`sheet-shell${modal==="detail"?" player-detail-sheet":""}${modal==="match"?" match-entry-sheet":""}`}>
-        <button className="close" aria-label="關閉" onClick={closeModal}>×</button>
+        <IconButton className="close" label="關閉" onClick={closeModal}>×</IconButton>
         <section className={`sheet${modal==="deleteMatch"?" confirm-sheet":""}`} role="dialog" aria-modal="true">
           {modal==="match"&&<MatchForm data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} saving={saving} onSave={saveMatch}/>}
           {modal==="tournament"&&<div>
@@ -1052,12 +1060,15 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
                  no longer the field. Clearing it here lets the freeze happen again, once, when the
                  new deadline passes. Recorded results are left alone — deleting them is the ✕. */
               const reopening=Boolean(editingTournament?.draw?.length)&&!signupsClosed({signupDeadline:tournamentForm.signupDeadline});
-              if(reopening&&!confirm(`「${tournamentForm.name.trim()}」已經抽籤。重新開放報名會清除現有籤表，截止後重新抽籤（已記錄的賽果會保留）。繼續？`))return;
-              const tournament: Tournament = {id,name:tournamentForm.name.trim(),handicapMode:tournamentForm.handicapMode,signupDeadline:tournamentForm.signupDeadline,createdAt:editingTournament?.createdAt??now,createdBy:editingTournament?.createdBy??ownPlayerId,signups:editingTournament?.signups??[],
-                draw:reopening?undefined:editingTournament?.draw,drawnAt:reopening?undefined:editingTournament?.drawnAt,walkovers:reopening?undefined:editingTournament?.walkovers};
-              const tournaments = editingTournament? data.tournaments.map(t=>t.id===id?tournament:t) : [tournament,...data.tournaments];
-              const next={...data,tournaments,audits:[{id:crypto.randomUUID(),text:`${editingTournament?"更新":"建立"} 盃賽：${tournament.name}`,at:now},...data.audits]};
-              setEditingTournament(null);setModal(null);setToast(editingTournament?"盃賽已更新。":"盃賽已建立。");setData(next);persist(next,editingTournament?"盃賽已更新。":"盃賽已建立。",data);
+              const commit=()=>{
+                const tournament: Tournament = {id,name:tournamentForm.name.trim(),handicapMode:tournamentForm.handicapMode,signupDeadline:tournamentForm.signupDeadline,createdAt:editingTournament?.createdAt??now,createdBy:editingTournament?.createdBy??ownPlayerId,signups:editingTournament?.signups??[],
+                  draw:reopening?undefined:editingTournament?.draw,drawnAt:reopening?undefined:editingTournament?.drawnAt,walkovers:reopening?undefined:editingTournament?.walkovers};
+                const tournaments = editingTournament? data.tournaments.map(t=>t.id===id?tournament:t) : [tournament,...data.tournaments];
+                const next={...data,tournaments,audits:[{id:crypto.randomUUID(),text:`${editingTournament?"更新":"建立"} 盃賽：${tournament.name}`,at:now},...data.audits]};
+                setEditingTournament(null);setModal(null);setToast(editingTournament?"盃賽已更新。":"盃賽已建立。");setData(next);persist(next,editingTournament?"盃賽已更新。":"盃賽已建立。",data);
+              };
+              if(reopening)askConfirm({kicker:"重新開放報名",title:`「${tournamentForm.name.trim()}」已經抽籤`,description:"重新開放報名會清除現有籤表，截止後重新抽籤（已記錄的賽果會保留）。繼續？",confirmLabel:"重新開放",onConfirm:commit});
+              else commit();
             }}>
               <label>盃賽名稱<input type="text" value={tournamentForm.name} onChange={e=>setTournamentForm({...tournamentForm,name:e.target.value})} required/></label>
               <label>讓分模式<select value={tournamentForm.handicapMode} onChange={e=>setTournamentForm({...tournamentForm,handicapMode:e.target.value as "suggested"|"none"})}><option value="suggested">建議讓分（系統會自動套用建議）</option><option value="none">不設讓分</option></select></label>
@@ -1075,7 +1086,8 @@ export default function Home({user}:{user:{displayName:string;email:string;role:
       </div>
     </div>}
     {leavingAvailability&&<ConfirmDialog kicker="未儲存的變更" titleId="leave-availability-title" title="離開後變更會消失" description="你在「可配對」的時段變更尚未儲存，離開這一頁後不會保留。" onClose={()=>setLeavingAvailability(null)}><Button variant="secondary" onClick={()=>setLeavingAvailability(null)}>留在此頁</Button><Button variant="danger" onClick={()=>{const next=leavingAvailability;setLeavingAvailability(null);setAvailabilityDirty(false);setHighlightMatch(null);setTab(next)}}>捨棄變更離開</Button></ConfirmDialog>}
-    {toast&&<div className={`toast${undoSnapshot?" toast-expiring":""}`} role="status"><span>{toast}</span>{undoSnapshot&&<button type="button" onClick={undoDelete}>復原</button>}</div>}
+    {pendingConfirm&&<ConfirmDialog kicker={pendingConfirm.kicker} titleId="pending-confirm-title" title={pendingConfirm.title} description={pendingConfirm.description} onClose={()=>setPendingConfirm(null)}><Button variant="secondary" onClick={()=>setPendingConfirm(null)}>取消</Button><Button variant="danger" onClick={()=>{const run=pendingConfirm.onConfirm;setPendingConfirm(null);run()}}>{pendingConfirm.confirmLabel}</Button></ConfirmDialog>}
+    {toast&&<div className={`toast${undoSnapshot?" toast-expiring":""}`} role="status"><span>{toast}</span>{undoSnapshot&&<Button variant="quiet" onClick={undoDelete}>復原</Button>}</div>}
   </AppShell></>;
 }
 
@@ -1337,10 +1349,7 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
           <PlayerCombobox players={players} value={focus.id} onChange={id=>{if(id)setFocusId(id)}} placeholder="選擇球員" ariaLabel="對賽矩陣主角球員"/>
         </div>
       </div>
-      <div className="h2h-matrix-modes" role="group" aria-label="對賽矩陣顯示方式">
-        <button type="button" className={mode==="list"?"active":""} aria-pressed={mode==="list"} onClick={()=>setMode("list")}>清單</button>
-        <button type="button" className={mode==="grid"?"active":""} aria-pressed={mode==="grid"} onClick={()=>setMode("grid")}>全隊網格</button>
-      </div>
+      <div className="h2h-matrix-modes"><SegmentedControl label="對賽矩陣顯示方式" value={mode} onChange={value=>setMode(value as typeof mode)} items={[{value:"list",label:"清單"},{value:"grid",label:"全隊網格"}]}/></div>
     </div>
     {mode==="list"?<>
       <div className="h2h-matrix-summary">
@@ -1521,8 +1530,8 @@ function Matches({data,canManageMatch,onEdit,onVoid,onShare,onPlayer,view,setVie
       <div className="match-filter-control player-control">
         <span className="match-filter-label">球員</span>
         <div className="match-player-picker">
-          {a&&<span className="match-player-chip">{a.name}<button type="button" aria-label={`取消選擇 ${a.name}`} onClick={()=>setFocus("")}>×</button></span>}
-          {opponent&&<span className="match-player-chip compare">{opponent.name}<button type="button" aria-label={`取消比較 ${opponent.name}`} onClick={()=>setOpponent("")}>×</button></span>}
+          {a&&<span className="match-player-chip">{a.name}<IconButton label={`取消選擇 ${a.name}`} onClick={()=>setFocus("")}>×</IconButton></span>}
+          {opponent&&<span className="match-player-chip compare">{opponent.name}<IconButton label={`取消比較 ${opponent.name}`} onClick={()=>setOpponent("")}>×</IconButton></span>}
           {!focusPlayer&&<PlayerCombobox players={roster} value="" onChange={setFocus} placeholder="全部球員" ariaLabel="球員"/>}
           {focusPlayer&&!opponent&&<PlayerCombobox players={roster.filter(p=>p.id!==focusPlayer)} value="" onChange={setOpponent} placeholder="＋ 比較球員" ariaLabel="選擇比較球員"/>}
         </div>
@@ -1538,7 +1547,7 @@ function Matches({data,canManageMatch,onEdit,onVoid,onShare,onPlayer,view,setVie
       </div>
       <div className="match-filter-control sort-control"><span className="match-filter-label">排序</span><div className="match-sort-compact"><select aria-label="排序依據" value={sortBy} onChange={event=>setSortBy(event.target.value as "playedOn"|"createdAt")}><option value="playedOn">比賽日期</option><option value="createdAt">加入日期</option></select><button type="button" aria-label={sortDirection==="desc"?"目前最新至最舊；按下改為最舊至最新":"目前最舊至最新；按下改為最新至最舊"} title={sortDirection==="desc"?"最新至最舊":"最舊至最新"} onClick={()=>setSortDirection(value=>value==="desc"?"asc":"desc")}>{sortDirection==="desc"?"↓":"↑"}</button></div></div>
     </section>
-    {(focusPlayer||modeFilter!=="all")&&<div className="match-filter-status"><span>{matches.length} 場符合記錄</span><button type="button" onClick={clearAll}>清除篩選</button></div>}    {comparing&&a&&opponent&&h2hStats&&<div className="h2h-summary neutral">
+    {(focusPlayer||modeFilter!=="all")&&<div className="match-filter-status"><span>{matches.length} 場符合記錄</span><Button variant="quiet" onClick={clearAll}>清除篩選</Button></div>}    {comparing&&a&&opponent&&h2hStats&&<div className="h2h-summary neutral">
       <div className="h2h-hero-players">
         <div className="h2h-hero-player"><PlayerBadge player={a}/><b>{a.name}</b><small>{Math.round(a.rating)} ELO</small></div>
         <div className="h2h-hero-score"><span><b>{h2hStats.winsA}</b><em>–</em><b>{h2hStats.winsB}</b></span>{h2hStats.draws>0&&<small>{h2hStats.draws} 和</small>}</div>
@@ -1699,7 +1708,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     </button>;
   };
 
-  const controls=(item:Tournament)=><span className="cup-admin"><button type="button" className="cup-admin-btn" aria-label={`編輯 ${item.name}`} onClick={()=>onEditTournament(item)}>✎</button><button type="button" className="cup-admin-btn danger" aria-label={`刪除 ${item.name}`} onClick={()=>onDeleteTournament(item)}>✕</button></span>;
+  const controls=(item:Tournament)=><span className="cup-admin"><IconButton className="cup-admin-btn" label={`編輯 ${item.name}`} onClick={()=>onEditTournament(item)}>✎</IconButton><IconButton className="cup-admin-btn danger" label={`刪除 ${item.name}`} onClick={()=>onDeleteTournament(item)}>✕</IconButton></span>;
   const avatarStack=(ids:string[])=><span className="cup-avatars">{ids.slice(0,5).map(id=><PlayerBadge key={id} player={player(id)??{short:"?"}}/>)}{ids.length>5&&<i>+{ids.length-5}</i>}</span>;
 
   if(!selectedTournament){
@@ -1727,9 +1736,9 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
             <div className="cup-card-people">{item.signups.length>0&&avatarStack(item.signups)}<span>{item.signups.length} 人報名</span></div>
             <div className="cup-card-actions">
               {status==="signup"&&(ownPlayerId
-                ?<button type="button" className={itemSignedUp?"cup-btn ghost":"cup-btn primary"} onClick={()=>onSignUpTournament(item.id)}>{itemSignedUp?"取消報名":"立即報名"}</button>
+                ?<Button variant={itemSignedUp?"secondary":"primary"} className="cup-btn" onClick={()=>onSignUpTournament(item.id)}>{itemSignedUp?"取消報名":"立即報名"}</Button>
                 :<a className="cup-btn primary" href="/login">登入後報名</a>)}
-              <button type="button" className={`cup-btn ${status==="signup"?"ghost":"primary"}`} onClick={()=>setSelectedTournament(item.id)}>{status==="signup"?"睇對陣預覽":"睇賽程"}<span className="cup-btn-mark" aria-hidden="true">›</span></button>
+              <Button variant={status==="signup"?"secondary":"primary"} className="cup-btn" onClick={()=>setSelectedTournament(item.id)}>{status==="signup"?"睇對陣預覽":"睇賽程"}<span className="cup-btn-mark" aria-hidden="true">›</span></Button>
               {shareButton(item,"cup-btn ghost",true)}
             </div>
           </div>
@@ -1798,11 +1807,11 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       })}
       {note&&<p className="cup-tie-note">{note}</p>}
       <div className="cup-tie-actions">
-        {canRecord&&<button type="button" className="cup-btn primary sm" onClick={()=>onRecordSlot(tournament,slot)}>記錄賽果</button>}
-        {canRecord&&mine&&<button type="button" className="cup-btn ghost sm" onClick={()=>onArrange(opponentIn(slot,ownPlayerId))}>約時間</button>}
-        {slot.match&&canManageMatch(slot.match)&&<button type="button" className="cup-btn ghost sm" onClick={()=>onEdit(slot.match!)}>編輯賽果</button>}
-        {isAdmin&&slot.state==="ready"&&[slot.a,slot.b].map(id=><button type="button" key={id} className="cup-btn ghost sm" onClick={()=>onWalkover(tournament,slot,id)}>判 {name(id)} 晉級</button>)}
-        {isAdmin&&slot.state==="walkover"&&<button type="button" className="cup-btn ghost sm" onClick={()=>onWalkover(tournament,slot,"")}>取消判定</button>}
+        {canRecord&&<Button variant="primary" className="cup-btn sm" onClick={()=>onRecordSlot(tournament,slot)}>記錄賽果</Button>}
+        {canRecord&&mine&&<Button variant="secondary" className="cup-btn sm" onClick={()=>onArrange(opponentIn(slot,ownPlayerId))}>約時間</Button>}
+        {slot.match&&canManageMatch(slot.match)&&<Button variant="secondary" className="cup-btn sm" onClick={()=>onEdit(slot.match!)}>編輯賽果</Button>}
+        {isAdmin&&slot.state==="ready"&&[slot.a,slot.b].map(id=><Button variant="secondary" className="cup-btn sm" key={id} onClick={()=>onWalkover(tournament,slot,id)}>判 {name(id)} 晉級</Button>)}
+        {isAdmin&&slot.state==="walkover"&&<Button variant="secondary" className="cup-btn sm" onClick={()=>onWalkover(tournament,slot,"")}>取消判定</Button>}
       </div>
     </li>;
   };
@@ -1852,7 +1861,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       <div className={`cup-signup${signedUp?" in":""}`}>
         <div><b>{signedUp?"你已報名":"報名參加"}</b><small>{signedUp?"截止後會自動抽籤，並通知你首圈對手。":"截止後按報名名單抽籤並建立對陣。"}</small></div>
         {ownPlayerId
-          ?<button type="button" className={signedUp?"cup-btn ghost":"cup-btn primary"} onClick={()=>onSignUpTournament(selectedTournament)}>{signedUp?"取消報名":"立即報名"}</button>
+          ?<Button variant={signedUp?"secondary":"primary"} className="cup-btn" onClick={()=>onSignUpTournament(selectedTournament)}>{signedUp?"取消報名":"立即報名"}</Button>
           :<a className="cup-btn primary" href="/login">登入後報名</a>}
       </div>
       {rosterPanel}
@@ -1876,7 +1885,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
           </Fragment>)}
         </div>
         {mySlot.state==="ready"
-          ?<div className="cup-mytie-actions"><button type="button" className="cup-btn primary" onClick={()=>onRecordSlot(tournament,mySlot)}>記錄賽果</button><button type="button" className="cup-btn ghost" onClick={()=>onArrange(opponentIn(mySlot,ownPlayerId))}>約時間</button></div>
+          ?<div className="cup-mytie-actions"><Button variant="primary" className="cup-btn" onClick={()=>onRecordSlot(tournament,mySlot)}>記錄賽果</Button><Button variant="secondary" className="cup-btn" onClick={()=>onArrange(opponentIn(mySlot,ownPlayerId))}>約時間</Button></div>
           :<p className="cup-mytie-wait">對手要等上一圈賽果出咗先定到。</p>}
       </article>
       :eliminated?<p className="cup-note">你在今屆已止步；可繼續睇餘下賽程。</p>
@@ -1941,10 +1950,10 @@ function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManageMatch
               {slot.state==="bye"&&<small className="bracket-bye">輪空晉級</small>}
               {slot.state==="walkover"&&<small className="bracket-bye">{name(slot.winner)} 因對手棄權晉級</small>}
               {slot.state==="waiting"&&<small className="bracket-bye">等待上一圈賽果</small>}
-              {canRecord&&<button type="button" className="primary bracket-record" onClick={()=>onRecordSlot(slot)}>記錄賽果</button>}
-              {match&&canManageMatch(match)&&<button type="button" className="more bracket-edit" onClick={()=>onEdit(match)}>編輯賽果</button>}
-              {isAdmin&&slot.state==="ready"&&<div className="bracket-walkover"><small>判定晉級</small><span>{[first,second].map(id=><button type="button" key={id} className="more" onClick={()=>onWalkover(slot,id)}>{name(id)}</button>)}</span></div>}
-              {isAdmin&&slot.state==="walkover"&&<button type="button" className="more bracket-edit" onClick={()=>onWalkover(slot,"")}>取消判定</button>}
+              {canRecord&&<Button variant="primary" className="bracket-record" onClick={()=>onRecordSlot(slot)}>記錄賽果</Button>}
+              {match&&canManageMatch(match)&&<Button variant="quiet" className="bracket-edit" onClick={()=>onEdit(match)}>編輯賽果</Button>}
+              {isAdmin&&slot.state==="ready"&&<div className="bracket-walkover"><small>判定晉級</small><span>{[first,second].map(id=><Button variant="quiet" key={id} onClick={()=>onWalkover(slot,id)}>{name(id)}</Button>)}</span></div>}
+              {isAdmin&&slot.state==="walkover"&&<Button variant="quiet" className="bracket-edit" onClick={()=>onWalkover(slot,"")}>取消判定</Button>}
             </div>;
           })}
         </div>
@@ -2006,8 +2015,8 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
           edit the card — a clubmate posting your win is worth more than you posting it. A voided
           match is excluded; it is not a result any more. */}
       <span className="card-tools">
-        {m.status!=="void"&&<button className="card-tool share" aria-label={`分享 ${leftLabel} 對 ${rightLabel} 的賽果`} onClick={()=>onShare(m)}><ShareGlyph kind="share" /></button>}
-        {canManage&&<><button className="card-tool" aria-label={`編輯 ${leftLabel} 對 ${rightLabel} 的賽事`} onClick={()=>onEdit(m)}>✎</button><button className="card-tool danger" aria-label={`刪除 ${leftLabel} 對 ${rightLabel} 的賽事`} onClick={()=>onVoid(m)}>✕</button></>}
+        {m.status!=="void"&&<IconButton className="card-tool share" label={`分享 ${leftLabel} 對 ${rightLabel} 的賽果`} onClick={()=>onShare(m)}><ShareGlyph kind="share" /></IconButton>}
+        {canManage&&<><IconButton className="card-tool" label={`編輯 ${leftLabel} 對 ${rightLabel} 的賽事`} onClick={()=>onEdit(m)}>✎</IconButton><IconButton className="card-tool danger" label={`刪除 ${leftLabel} 對 ${rightLabel} 的賽事`} onClick={()=>onVoid(m)}>✕</IconButton></>}
       </span></div>
     <Scoreline left={leftLabel} right={rightLabel} onLeftClick={isEntertainmentMode(m.mode)?undefined:()=>onPlayer(m.a)} onRightClick={isEntertainmentMode(m.mode)?undefined:()=>onPlayer(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}
       eloLeft={isEntertainmentMode(m.mode)?undefined:{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={isEntertainmentMode(m.mode)?undefined:{before:m.beforeB,after:m.afterB,delta:m.deltaB??-m.deltaA}}/>
@@ -2077,9 +2086,9 @@ function CalendarView({data,canManageMatch,onPlayer,onEdit,onVoid,onShare}:{data
   const selectedMatches=selectedDay?dayMatches.get(selectedDay)??[]:[];
   return <section className="calendar-view">
     <div className="calendar-nav">
-      <button type="button" className="calendar-nav-btn" aria-label="上一個月" disabled={month<=bounds.min} onClick={()=>goToMonth(shiftMonth(month,-1))}>‹</button>
+      <IconButton className="calendar-nav-btn" label="上一個月" disabled={month<=bounds.min} onClick={()=>goToMonth(shiftMonth(month,-1))}>‹</IconButton>
       <b>{monthLabel(month)}</b>
-      <button type="button" className="calendar-nav-btn" aria-label="下一個月" disabled={month>=bounds.max} onClick={()=>goToMonth(shiftMonth(month,1))}>›</button>
+      <IconButton className="calendar-nav-btn" label="下一個月" disabled={month>=bounds.max} onClick={()=>goToMonth(shiftMonth(month,1))}>›</IconButton>
     </div>
     <div className="calendar-body">
       <div className="calendar-weekdays">{weekdayLabels.map(w=><span key={w}>{w}</span>)}</div>
@@ -2124,7 +2133,7 @@ function ConfirmDeleteMatch({match,data,onCancel,onConfirm}:{match:Match;data:Ap
       {!!match.highBreaks?.length&&<div className="match-breaks"><span>單桿</span>{match.highBreaks.map((item,index)=><b key={`${item.playerId}-${index}`}>{name(item.playerId)} {item.value}</b>)}</div>}
     </div>
     {later>1&&<p className="confirm-impact">此賽事之後還有 <b>{later-1}</b> 場比賽會一併重新計算。</p>}
-    <div className="confirm-actions"><button type="button" className="confirm-cancel" onClick={onCancel}>保留賽事</button><button type="button" className="confirm-delete" onClick={onConfirm}>刪除賽事</button></div>
+    <div className="confirm-actions"><Button variant="secondary" className="confirm-cancel" onClick={onCancel}>保留賽事</Button><Button variant="danger" className="confirm-delete" onClick={onConfirm}>刪除賽事</Button></div>
     <p className="confirm-hint">刪除後可在提示訊息按「復原」還原。</p></>;
 }
 
@@ -2229,7 +2238,7 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
     </div>
     <div className="players-list-head">
       <span>{filtered.length} 位球員</span>
-      {canAdd&&<button type="button" className="players-add-btn" onClick={onAdd}>＋ 新增球員</button>}
+      {canAdd&&<Button variant="primary" className="players-add-btn" onClick={onAdd}>＋ 新增球員</Button>}
       <span className="players-list-hint">{activeChip==="hot"?"ELO · 近30日ELO變化":"ELO · 建議評分"}</span>
     </div>
     {data.players.length===0
@@ -2259,7 +2268,7 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
                   ? <em className={delta>=0?"positive":"negative"}>{delta>=0?"+":"−"}{Math.abs(Math.round(delta))}</em>
                   : <em className="neutral">{suggested}</em>}</span>
               </button>
-              {managementMode&&canManagePlayer(p)&&<button type="button" className="players-row-manage" onClick={()=>onEdit(p)}>管理</button>}
+              {managementMode&&canManagePlayer(p)&&<Button variant="quiet" className="players-row-manage" onClick={()=>onEdit(p)}>管理</Button>}
               {open&&<div className="players-row-expand">
                 {me&&!isSelf&&<div className="players-verdict">
                   <div className="players-verdict-main">{handicapVerdict(me,p,data.settings)}</div>
@@ -2272,17 +2281,17 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
                 </div>
                 <div className="players-expand-actions">
                   {isSelf
-                    ? <button type="button" className="primary players-expand-open-self" onClick={()=>onOpen(p)}>查看完整球員頁 ›</button>
+                    ? <Button variant="primary" className="players-expand-open-self" onClick={()=>onOpen(p)}>查看完整球員頁 ›</Button>
                     : <>
                         <Button onClick={()=>onRecordAgainst(p)}>記錄對局</Button>
-                        <button type="button" onClick={()=>onCompare(p)}>對戰紀錄</button>
-                        <button type="button" onClick={()=>onFindOpponent(p.id,today)}>約戰</button>
-                        <button type="button" className="players-row-open" aria-label={`開啟 ${p.name} 的球員卡`} onClick={()=>onOpen(p)}>›</button>
+                        <Button variant="secondary" onClick={()=>onCompare(p)}>對戰紀錄</Button>
+                        <Button variant="secondary" onClick={()=>onFindOpponent(p.id,today)}>約戰</Button>
+                        <IconButton className="players-row-open" label={`開啟 ${p.name} 的球員卡`} onClick={()=>onOpen(p)}>›</IconButton>
                       </>}
                 </div>
                 {(canManagePlayer(p)||canAdd)&&<div className="players-expand-manage">
-                  {canManagePlayer(p)&&<button type="button" className="card-tool" aria-label={`編輯 ${p.name}`} onClick={()=>onEdit(p)}>✎</button>}
-                  {canAdd&&<button type="button" className="card-tool danger" aria-label={`刪除 ${p.name}`} onClick={()=>onDelete(p)}>✕</button>}
+                  {canManagePlayer(p)&&<IconButton className="card-tool" label={`編輯 ${p.name}`} onClick={()=>onEdit(p)}>✎</IconButton>}
+                  {canAdd&&<IconButton className="card-tool danger" label={`刪除 ${p.name}`} onClick={()=>onDelete(p)}>✕</IconButton>}
                 </div>}
               </div>}
             </div>;
@@ -2311,7 +2320,7 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
       <Surface as="div" className="setting"><small>零和更新</small><b>是</b></Surface>
     </div>
     <Surface className="audit"><h2>審計記錄</h2>{data.audits.slice(0,12).map(a=><div key={a.id}><span>{a.text}</span><small>{new Date(a.at).toLocaleString("zh-HK")}</small></div>)}</Surface>
-    {canReset&&<section className="danger-zone"><div><h2>清除並重設資料</h2><p>永久刪除共用資料庫內所有球員、比賽及審計記錄，並恢復預設 ELO 設定。</p></div><button onClick={onReset}>清除所有資料</button></section>}</>;
+    {canReset&&<section className="danger-zone"><div><h2>清除並重設資料</h2><p>永久刪除共用資料庫內所有球員、比賽及審計記錄，並恢復預設 ELO 設定。</p></div><Button variant="danger" onClick={onReset}>清除所有資料</Button></section>}</>;
 }
 
 function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;editing:boolean;saving:boolean;onSave:()=>void}) {
@@ -2621,7 +2630,7 @@ function BreakMilestoneChart({player,data}:{player:Player;data:AppState}){
     </div>
     <div className="break-chart-x-axis" aria-hidden="true">{tickIndexes.map(index=><span key={index} style={{left:`${x(index)}%`}}>{points[index].period}</span>)}</div>
     <p className="chart-summary">{mode==="personal"?`共 ${points.length} 次個人最佳里程碑。`:`共 ${points.length} 個有賽事記錄月份；N/A 代表該月未記錄單桿。`}</p>
-    <div className="mini-toggle break-milestone-toggle" role="group" aria-label="高桿圖表顯示方式"><button type="button" aria-pressed={mode==="personal"} className={mode==="personal"?"active":""} onClick={()=>{setMode("personal");setActiveIndex(null)}}>個人最佳</button><button type="button" aria-pressed={mode==="monthly"} className={mode==="monthly"?"active":""} onClick={()=>{setMode("monthly");setActiveIndex(null)}}>每月最高</button></div>
+    <SegmentedControl label="高桿圖表顯示方式" value={mode} onChange={value=>{setMode(value as BreakChartMode);setActiveIndex(null)}} items={[{value:"personal",label:"個人最佳"},{value:"monthly",label:"每月最高"}]}/>
   </div>;
 }
 
@@ -2708,7 +2717,7 @@ function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOppone
                 <div className="slot-day-name">{relative&&<b className="slot-day-badge">{relative}</b>}<small>{hkDayLabel(day)}</small></div>
                 <div className="slot-chips">{bars.map(bar=><span key={bar.label}>{bar.label}</span>)}</div>
               </li>})}</ul>
-              {groups!.length>SLOT_PREVIEW_DAYS&&<button type="button" className={`slot-more${expanded?" expanded":""}`} aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded?"只顯示最近 3 天":`顯示全部 ${groups!.length} 天`}<i aria-hidden="true">▾</i></button>}
+              {groups!.length>SLOT_PREVIEW_DAYS&&<Button variant="quiet" className={`slot-more${expanded?" expanded":""}`} aria-expanded={expanded} onClick={()=>setExpanded(value=>!value)}>{expanded?"只顯示最近 3 天":`顯示全部 ${groups!.length} 天`}<i aria-hidden="true">▾</i></Button>}
             </>
           : <p className="profile-slots-empty">目前未有公開的可配對時段</p>}
     </div>
@@ -2737,7 +2746,7 @@ function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFin
             to post, but a rating and a rank are always worth showing — and a card carrying the
             club's name into somebody's Instagram does the same job either way. It rides in the chip
             row rather than as a fourth column of the hero grid, which has three tracks. */}
-        <button type="button" className="profile-share" aria-label={`分享 ${player.name} 的球會紀錄`} onClick={onShare}><ShareGlyph kind="share" />分享紀錄</button></div>
+        <Button variant="quiet" className="profile-share" aria-label={`分享 ${player.name} 的球會紀錄`} onClick={onShare}><ShareGlyph kind="share" />分享紀錄</Button></div>
       <div className="profile-hero-form"><div><small>最近5場</small><span className="profile-form-dots">{player.form.slice(0,5).map((result,index)=><i key={`${result}-${index}`} className={result.toLowerCase()}>{result}</i>)}</span></div></div>
     </div>
     <div className="profile-hero-elo"><small>目前 ELO</small><b>{Math.round(player.rating)}</b></div>
