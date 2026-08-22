@@ -878,7 +878,7 @@ body{font-size:var(--fs-body);line-height:1.65}:where(p,li,dd){text-wrap:pretty}
   }.account-page{padding:var(--page-top) var(--page-gutter) 3rem}.account-actions{min-width:0}.account-link.sign-in{max-width:5.25rem;padding-inline:var(--sp-2-5);font-size:var(--fs-label)}.auth-page{padding:var(--page-gutter)}.admin-card{padding:var(--sp-5)}input,select,textarea{font-size:var(--fs-input)}
 }
 
-@media(max-width:599px){:root{--page-gutter:.875rem;--space-card:1rem}.account-topbar{align-items:flex-start}.account-topbar-links{width:100%;overflow-x:auto;padding-bottom:var(--sp-1)}.account-topbar-links a{flex:none}.account-hero{padding:var(--sp-4-5)}.account-panel,.home-view-panel{border-radius:var(--radius-md)}.admin-card{padding:var(--sp-4-5);border-radius:var(--radius-md)}.admin-stats{grid-template-columns:1fr 1fr}.admin-stats>div{display:block;padding:var(--sp-3-5)}.admin-stats b{margin-top:var(--sp-1)}
+@media(max-width:599px){:root{--page-gutter:.875rem;--space-card:1rem}.account-topbar-links a{flex:none}.account-hero{padding:var(--sp-4-5)}.account-panel,.home-view-panel{border-radius:var(--radius-md)}.admin-card{padding:var(--sp-4-5);border-radius:var(--radius-md)}.admin-stats{grid-template-columns:1fr 1fr}.admin-stats>div{display:block;padding:var(--sp-3-5)}.admin-stats b{margin-top:var(--sp-1)}
 }/* Keep the mobile header controls on one shared tap-target height and center
    the account label inside its rounded button. */
 .account-actions{align-items:center}.account-link{
