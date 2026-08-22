@@ -103,7 +103,7 @@ function ProfileSection({ member }: { member: Member }) {
   if (!editing) {
     return <section className="account-summary-row">
       <span className="account-summary-email">{member.email}</span>
-      <button type="button" className="link-trigger" onClick={() => setEditing(true)}>{zh.editProfile}</button>
+      <Button variant="quiet" className="link-trigger" onClick={() => setEditing(true)}>{zh.editProfile}</Button>
     </section>;
   }
   return <ProfileForm member={member} onDone={() => setEditing(false)} />;
@@ -175,8 +175,8 @@ function ProfileForm({ member, onDone }: { member: Member; onDone: () => void })
         ? <img className="member-avatar" src={avatar} alt="" />
         : <div className="member-avatar" style={{ background: avatarHex(iconColour) }}>{shownInitials}</div>}
       <div className="avatar-picker-actions">
-        <button type="button" className="more" onClick={() => fileInput.current?.click()}>{zh.upload}</button>
-        {avatar && <button type="button" className="more" onClick={() => setAvatar(null)}>{zh.remove}</button>}
+        <Button variant="quiet" onClick={() => fileInput.current?.click()}>{zh.upload}</Button>
+        {avatar && <Button variant="quiet" onClick={() => setAvatar(null)}>{zh.remove}</Button>}
         <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden
           onChange={event => { void pickAvatar(event.target.files?.[0]); event.target.value = ""; }} />
       </div>
@@ -224,7 +224,7 @@ function ProfileForm({ member, onDone }: { member: Member; onDone: () => void })
     {fieldErrors.form && <p className="form-error">{message(fieldErrors.form)}</p>}
     {status === "saved" && <p className="form-success">{zh.saved}</p>}
     <div className="account-form-actions">
-      <button type="button" className="more" onClick={onDone}>{zh.cancel}</button>
+      <Button variant="quiet" onClick={onDone}>{zh.cancel}</Button>
       <Button type="submit" disabled={status === "saving"}>{status === "saving" ? zh.saving : zh.save}</Button>
     </div>
   </form>;
@@ -234,7 +234,7 @@ function PasswordSection() {
   const [editing, setEditing] = useState(false);
   if (!editing) {
     return <section className="account-summary-row">
-      <button type="button" className="link-trigger" onClick={() => setEditing(true)}>{zh.changePassword}</button>
+      <Button variant="quiet" className="link-trigger" onClick={() => setEditing(true)}>{zh.changePassword}</Button>
     </section>;
   }
   return <PasswordForm onDone={() => setEditing(false)} />;
@@ -285,7 +285,7 @@ function PasswordForm({ onDone }: { onDone: () => void }) {
     {errors_.form && <p className="form-error">{message(errors_.form)}</p>}
     {status === "saved" && <p className="form-success">{zh.passwordSaved}</p>}
     <div className="account-form-actions">
-      <button type="button" className="more" onClick={onDone}>{zh.cancel}</button>
+      <Button variant="quiet" onClick={onDone}>{zh.cancel}</Button>
       <Button type="submit" disabled={status === "saving"}>{status === "saving" ? zh.saving : zh.updatePassword}</Button>
     </div>
   </form>;
@@ -318,7 +318,7 @@ function DangerZone({ username }: { username: string }) {
 
   if (!open) {
     return <section className="account-danger-trigger">
-      <button type="button" className="link-trigger link-trigger-muted" onClick={() => setOpen(true)}>{zh.dangerTrigger}</button>
+      <Button variant="quiet" className="link-trigger link-trigger-muted" onClick={() => setOpen(true)}>{zh.dangerTrigger}</Button>
     </section>;
   }
   return <section className="account-danger">
@@ -332,7 +332,7 @@ function DangerZone({ username }: { username: string }) {
       </Field>
       {fieldErrors.form && <p className="form-error">{message(fieldErrors.form)}</p>}
       <div className="account-danger-actions">
-        <button type="button" className="more" onClick={() => { setOpen(false); setFieldErrors({}); }}>{zh.cancel}</button>
+        <Button variant="quiet" onClick={() => { setOpen(false); setFieldErrors({}); }}>{zh.cancel}</Button>
         <Button variant="danger" type="submit" disabled={status === "saving"}>{status === "saving" ? zh.saving : zh.deactivate}</Button>
       </div>
     </form>

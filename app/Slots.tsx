@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { PlayerBadge } from "./UiBits";
-import { Button, ChipRow, Skeleton } from "./components/ui/Primitives";
+import { Button, ChipRow, IconButton, SegmentedControl, Skeleton } from "./components/ui/Primitives";
 import { BackdropSheet } from "./components/ui/Overlay";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant } from "../lib/availability";
@@ -96,22 +96,18 @@ function Composer({onCreate,onClose,busy,error}:{
         <span className="sl-label">要唔要自己揀</span>
         {/* Real buttons rather than click-handled spans: keyboard, screen readers and a proper
             44px tap target all come free, and none of them did before. */}
-        <div className="sl-seg" role="group" aria-label="要唔要自己揀">
-          <button type="button" className={fillRule==="first"?"on":""} aria-pressed={fillRule==="first"}
-            onClick={()=>setFillRule("first")}>第一個就算</button>
-          <button type="button" className={fillRule==="review"?"on":""} aria-pressed={fillRule==="review"}
-            onClick={()=>setFillRule("review")}>我想睇下先</button>
-        </div>
+        <SegmentedControl label="要唔要自己揀" value={fillRule} onChange={value=>setFillRule(value as FillRule)}
+          items={[{value:"first",label:"第一個就算"},{value:"review",label:"我想睇下先"}]}/>
         <p className="sl-hint">{fillRule==="first"
           ?"第一個舉手嘅人就即刻成事。之後仲有人舉手，你想收幾多個都得。"
           :"舉手名單淨係你自己見到。收一個、收幾個、定全部收，到時先算。"}</p>
       </div>
 
       {error&&<p className="availability-form-error" role="alert">{error}</p>}
-      <button type="button" className="primary sl-primary" disabled={busy} onClick={()=>{
+      <Button variant="primary" className="sl-primary" disabled={busy} onClick={()=>{
         const endDate=end<=start?addDaysHongKong(date,1):date;
         onCreate({startAt:hongKongInstant(date,start),endAt:hongKongInstant(endDate,end),venue,fillRule,conditions});
-      }}>{busy?"開緊…":`開 ${start}–${end}`}</button>
+      }}>{busy?"開緊…":`開 ${start}–${end}`}</Button>
   </BackdropSheet>;
 }
 
@@ -136,7 +132,7 @@ function HandoffCard({slot,opponent,onResult,busy,showWho=true}:{
     <ChipRow items={conditionChips(slot.conditions)}/>
     {(status==="filled")&&<>
       <a className="primary sl-primary" href={whatsappShareUrl(text)} target="_blank" rel="noreferrer">WhatsApp {opponent?.name??"佢"}</a>
-      <button type="button" className="more sl-wide-link" onClick={()=>void navigator.clipboard?.writeText(text)}>複製聯絡文字</button>
+      <Button variant="quiet" className="sl-wide-link" onClick={()=>void navigator.clipboard?.writeText(text)}>複製聯絡文字</Button>
     </>}
     {status==="toRecord"&&<>
       <p className="sl-kick">打完喇？</p>
@@ -175,7 +171,7 @@ function MineCard({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onResu
         {item.counts.total>0&&<span className="mm-count">{item.counts.total}</span>}
         {/* One tap, no reason field. A cancellation that has to be justified is one members avoid
             making, and the dead card they leave up instead is worse for everyone waiting on it. */}
-        {taking&&<button type="button" className="sl-drop" aria-label="取消呢張局" onClick={onCancel}>✕</button>}
+        {taking&&<IconButton className="sl-drop" label="取消呢張局" onClick={onCancel}>✕</IconButton>}
       </div>
     </header>
     <ChipRow items={conditionChips(item.conditions)}/>
@@ -210,7 +206,7 @@ function MineCard({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onResu
       {/* The one button this whole change exists for. Being made to read three names and confirm one
           is what stops people posting again; taking everybody is not a bulk shortcut, it is the
           default that means nobody was turned down — so it gets the zone's primary weight. */}
-      {takeAll&&<button type="button" className="primary sl-primary" disabled={Boolean(busyId)} onClick={onAcceptAll}>{takeAll}</button>}
+      {takeAll&&<Button variant="primary" className="sl-primary" disabled={Boolean(busyId)} onClick={onAcceptAll}>{takeAll}</Button>}
     </>}
 
     {(status==="filled"||status==="toRecord"||status==="done")&&
@@ -218,11 +214,11 @@ function MineCard({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onResu
         showWho={accepted.length===0}/>}
 
     {taking&&<div className="sl-card-foot">
-      <button type="button" className="secondary sl-wide" onClick={onShare}>分享落 WhatsApp</button>
+      <Button variant="secondary" className="sl-wide" onClick={onShare}>分享落 WhatsApp</Button>
       {/* Distinct from cancelling: the evening still happens, it just stops taking people. Whoever is
           still waiting sees a slot that filled — the same thing they would have seen had the poster
           never opened the list. */}
-      {item.counts.accepted>0&&<button type="button" className="more" disabled={Boolean(busyId)} onClick={onStopTaking}>夠喇 · 唔再收</button>}
+      {item.counts.accepted>0&&<Button variant="quiet" disabled={Boolean(busyId)} onClick={onStopTaking}>夠喇 · 唔再收</Button>}
     </div>}
   </article>;
 }
@@ -245,7 +241,7 @@ function HandsTray({hands,busyId,onRetract,onRetractAll,onResult}:{
       <div><h3>你舉咗嘅手</h3><small>舉幾多張都得，隨時可以收返</small></div>
       <div className="mm-head-aside">
         {open.length>0&&<span className="mm-count">{open.length}</span>}
-        {open.length>1&&<button type="button" className="more" onClick={onRetractAll}>全部收返</button>}
+        {open.length>1&&<Button variant="quiet" onClick={onRetractAll}>全部收返</Button>}
       </div>
     </header>
     <ul className="mm-rows">
@@ -302,7 +298,7 @@ function AvailabilityStatus({count,onManage}:{count:number;onManage?:()=>void}){
     <span className="sl-live-dot" aria-hidden="true"/>
     <span className="sl-availability-copy"><b>{count?"你的空檔已公開":"未公開你的空檔"}</b>
       <small>{count?`其他球手可以喺 ${count} 個時段搵到你` : "公開時間，別人先知道幾時可以約你"}</small></span>
-    {onManage&&<button type="button" onClick={onManage}>{count?"查看":"公開"}<span aria-hidden="true">›</span></button>}
+    {onManage&&<Button variant="quiet" onClick={onManage}>{count?"查看":"公開"}<span aria-hidden="true">›</span></Button>}
   </div>;
 }
 
@@ -522,7 +518,7 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
         <button type="button" role="tab" aria-selected={mode==="find"} className={mode==="find"?"active":""} onClick={()=>changeMode("find")}>找球局{data.board.length>0&&<i>{data.board.length}</i>}</button>
         <button type="button" role="tab" aria-selected={mode==="mine"} className={mode==="mine"?"active":""} onClick={()=>changeMode("mine")}>我的招募{mine.length>0&&<i>{mine.length}</i>}</button>
       </div>
-      <button type="button" className="primary sl-new-session" onClick={createSession}>＋ 開局約人</button>
+      <Button variant="primary" className="sl-new-session" onClick={createSession}>＋ 開局約人</Button>
     </div>}
     {signedIn&&<AvailabilityStatus count={availabilityCount} onManage={onManageAvailability}/>}
 
@@ -532,7 +528,7 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
           {dayOptions.map(([value,label])=><button key={value} type="button" role="tab" aria-selected={dayFilter===value}
             className={dayFilter===value?"active":""} onClick={()=>setDayFilter(value)}><b>{label}</b><small>{countFor(value)} 場</small></button>)}
         </div>
-        <button type="button" className={`sl-filter-button${filterOpen?" is-open":""}`} aria-expanded={filterOpen} onClick={()=>setFilterOpen(value=>!value)}><span aria-hidden="true">☷</span>篩選</button>
+        <Button variant="quiet" className={`sl-filter-button${filterOpen?" is-open":""}`} aria-expanded={filterOpen} onClick={()=>setFilterOpen(value=>!value)}><span aria-hidden="true">☷</span>篩選</Button>
       </div>
       {filterOpen&&<div className="sl-filter-panel" role="group" aria-label="球局篩選">
         <span>我想搵</span>

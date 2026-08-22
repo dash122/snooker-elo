@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlayerBadge } from "./UiBits";
 import { CardHead } from "./MatchmakingBits";
-import { Button } from "./components/ui/Primitives";
+import { Button, SegmentedControl } from "./components/ui/Primitives";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { hkClock, hkDate, type Interval } from "../lib/availability";
 import { NOW_DURATIONS, PREFERENCE_HINTS, PREFERENCE_LABELS, TONIGHT_ENDS,
@@ -76,7 +76,7 @@ function MyStatus({me,onExtend,onStop,onArrive,onLeave,busy}:{
       {me.intent&&endAt&&<Button variant="secondary" disabled={busy} onClick={onExtend}>+1 小時</Button>}
       <Button variant="secondary" className={me.atClub?"is-on":""} disabled={busy}
         onClick={me.atClub?onLeave:onArrive}>{me.atClub?"離開會所":"我喺會所"}</Button>
-      {me.intent&&<button type="button" className="more" disabled={busy} onClick={onStop}>收工</button>}
+      {me.intent&&<Button variant="quiet" disabled={busy} onClick={onStop}>收工</Button>}
     </span>
   </div>;
 }
@@ -97,38 +97,28 @@ function GoLive({onPost,busy}:{onPost:(input:{shape:"now"|"tonight"|"soon";minut
   const [preference,setPreference]=useState<MatchPreference>("any");
   const label=shape==="now"?`我而家得閒 · ${minutes/60} 小時`:shape==="tonight"?`今晚得閒到 ${end}`:"呢幾日都得，有啱搵我";
   return <div className="room-live">
-    <div className="room-live-shape" role="group" aria-label="幾時得閒">
-      {([["now","而家"],["tonight","今晚"],["soon","呢幾日"]] as const).map(([value,text])=>
-        <button type="button" key={value} className={shape===value?"active":""} aria-pressed={shape===value}
-          onClick={()=>setShape(value)}>{text}</button>)}
-    </div>
+    <div className="room-live-shape"><SegmentedControl label="幾時得閒" value={shape} onChange={value=>setShape(value as typeof shape)}
+      items={[{value:"now",label:"而家"},{value:"tonight",label:"今晚"},{value:"soon",label:"呢幾日"}]}/></div>
 
-    {shape==="now"&&<div className="room-live-until" role="group" aria-label="打幾耐">
-      {NOW_DURATIONS.map(value=><button type="button" key={value} className={minutes===value?"active":""}
-        aria-pressed={minutes===value} onClick={()=>setMinutes(value)}>{value/60} 小時</button>)}
-    </div>}
+    {shape==="now"&&<div className="room-live-until"><SegmentedControl label="打幾耐" value={String(minutes)} onChange={value=>setMinutes(Number(value))}
+      items={NOW_DURATIONS.map(value=>({value:String(value),label:`${value/60} 小時`}))}/></div>}
 
-    {shape==="tonight"&&<div className="room-live-until" role="group" aria-label="得閒到幾點">
-      {TONIGHT_ENDS.map(value=><button type="button" key={value} className={end===value?"active":""}
-        aria-pressed={end===value} onClick={()=>setEnd(value)}>到 {value}</button>)}
-    </div>}
+    {shape==="tonight"&&<div className="room-live-until"><SegmentedControl label="得閒到幾點" value={end} onChange={setEnd}
+      items={TONIGHT_ENDS.map(value=>({value,label:`到 ${value}`}))}/></div>}
 
     {shape==="soon"&&<p className="room-live-note">唔使揀時間 — 有夾到嘅局我哋直接問你。</p>}
 
     <div className="room-live-pref">
       <span className="room-live-lbl">想打邊種？</span>
-      <div role="group" aria-label="想打邊種">
-        {(Object.keys(PREFERENCE_LABELS) as MatchPreference[]).map(value=>
-          <button type="button" key={value} className={preference===value?"active":""} aria-pressed={preference===value}
-            title={PREFERENCE_HINTS[value]} onClick={()=>setPreference(value)}>{PREFERENCE_LABELS[value]}</button>)}
-      </div>
+      <SegmentedControl label="想打邊種" value={preference} onChange={value=>setPreference(value as MatchPreference)}
+        items={(Object.keys(PREFERENCE_LABELS) as MatchPreference[]).map(value=>({value,label:PREFERENCE_LABELS[value]}))}/>
       <small>{PREFERENCE_HINTS[preference]}</small>
     </div>
 
-    <button type="button" className="primary room-live-go" disabled={busy} aria-busy={busy}
+    <Button variant="primary" className="room-live-go" disabled={busy} aria-busy={busy}
       onClick={()=>onPost({shape,minutes,end,preference})}>
       {busy&&<i className="button-spinner" aria-hidden="true"/>}<span>{busy?"發緊…":label}</span>
-    </button>
+    </Button>
   </div>;
 }
 
@@ -156,10 +146,10 @@ function RoomRow({entry,now,onAsk,onOpen,busy}:{
         {entry.licenceNote&&<em className="room-licence">{entry.licenceNote}</em>}
       </span>
     </button>
-    <button type="button" className={entry.tier==="unconfirmed"?"secondary room-row-ask":"primary room-row-ask"}
+    <Button variant={entry.tier==="unconfirmed"?"secondary":"primary"} className="room-row-ask"
       disabled={busy} onClick={onAsk}>
       {entry.tier==="unconfirmed"?"問佢":"約佢"}
-    </button>
+    </Button>
   </li>;
 }
 
