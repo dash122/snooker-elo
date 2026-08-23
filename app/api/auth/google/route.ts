@@ -1,9 +1,17 @@
 import { checkAttempt } from "../../../../lib/rate-limit";
+import { getCurrentMember } from "../../../../db/auth";
 
 const SCOPE = "openid email profile";
 const STATE_COOKIE = "scaa_oauth_state";
+const INTENT_COOKIE = "scaa_oauth_intent";
+type GoogleIntent = "login" | "signup" | "connect";
 
 export async function GET(request: Request) {
+  const requestedIntent = new URL(request.url).searchParams.get("intent");
+  const intent: GoogleIntent = requestedIntent === "signup" || requestedIntent === "connect" ? requestedIntent : "login";
+  if (intent === "connect" && !(await getCurrentMember())) {
+    return Response.redirect(new URL("/login?error=session-required", request.url), 303);
+  }
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   if (!checkAttempt(`google-start:${ip}`, 20, 5 * 60_000)) {
     return Response.redirect(new URL("/login?error=rate-limited", request.url), 303);
@@ -30,6 +38,7 @@ export async function GET(request: Request) {
     headers: [
       ["location", authUrl.toString()],
       ["set-cookie", `${STATE_COOKIE}=${state}; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax; Max-Age=600`],
+      ["set-cookie", `${INTENT_COOKIE}=${intent}; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax; Max-Age=600`],
     ],
   });
 }

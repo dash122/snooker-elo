@@ -19,6 +19,12 @@
 .auth-panel .kicker{color:var(--ds-accent-text)}
 .auth-panel h2{margin:var(--sp-2) 0 var(--sp-2-5);font-size:clamp(32px,4vw,48px);letter-spacing:-.04em}
 .auth-intro{margin:0 0 var(--sp-5-5);color:var(--ds-text-secondary);line-height:1.65}
+.auth-google-button{display:flex;align-items:center;justify-content:center;gap:var(--sp-3);min-height:54px;padding:0 var(--sp-4);border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--ds-surface-primary);color:var(--ds-text-primary);font-weight:800;text-decoration:none;box-shadow:var(--shadow-panel-soft);transition:border-color .18s,box-shadow .18s,transform .18s}
+.auth-google-button:hover{border-color:var(--ds-border-muted);box-shadow:var(--shadow-card-lift);transform:translateY(-1px)}
+.auth-google-button:focus-visible{outline:3px solid var(--ds-focus);outline-offset:3px}
+.auth-google-note{margin:var(--sp-2-5) auto 0;color:var(--ds-text-secondary);font-size:var(--fs-caption);line-height:1.55;text-align:center}
+.auth-divider{display:flex;align-items:center;gap:var(--sp-3);margin:var(--sp-4) 0;color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
+.auth-divider:before,.auth-divider:after{content:"";height:1px;flex:1;background:var(--line)}
 .auth-main-form{gap:var(--sp-4-5)}
 .auth-main-form label{font-weight:800;color:#32443d}
 .auth-main-form input{min-height:52px;margin-top:var(--sp-2);border:1px solid var(--ds-border-muted);border-radius:var(--radius-sm);background:var(--ds-text-on-danger);font-size:var(--fs-input);transition:border-color .15s,box-shadow .15s}

@@ -91,6 +91,12 @@ export default function AuthExperience({
                           ? "此電郵或使用者名稱已被使用。"
                           : error === "google-unverified"
                             ? "此 Google 帳戶的電郵尚未驗證，請先在 Google 完成電郵驗證。"
+                            : error === "cancelled"
+                              ? "你已取消 Google 授權，帳戶沒有任何變更。"
+                            : error === "session-required"
+                              ? "登入狀態已失效，請重新登入後再連結 Google。"
+                            : error === "google-no-account"
+                              ? "找不到已連結的 Google 帳戶。請先使用 Google 註冊，或以密碼登入後再連結。"
                             : error === "google-failed"
                               ? "Google 登入失敗，請重試或使用密碼登入。"
                               : error === "rate-limited"
@@ -100,7 +106,7 @@ export default function AuthExperience({
                                   : signup ? "請檢查資料。" : "使用者名稱或密碼不正確。"}
             </p>
           )}
-          <a className="auth-google-button" href="/api/auth/google">
+          <a className="auth-google-button" href={`/api/auth/google?intent=${signup ? "signup" : "login"}`}>
             <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
               <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
               <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.85.87-3.04.87-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/>
@@ -109,6 +115,7 @@ export default function AuthExperience({
             </svg>
             使用 Google {signup ? "註冊" : "登入"}
           </a>
+          <p className="auth-google-note">{signup ? "Google 會提供已驗證的電郵及姓名，毋須另設密碼。" : "使用已連結的 Google 帳戶快速登入。首次使用請先註冊。"}</p>
           <div className="auth-divider"><span>或</span></div>
           {signup ? (
             <SignupForm/>

@@ -111,7 +111,8 @@ function longestStreak(results: ("W" | "L" | "D")[]) {
   return best;
 }
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ google?: string }> }) {
+  const params = await searchParams;
   const member = await getCurrentMember();
   if (!member) redirect("/login");
   const raw = await getState();
@@ -215,7 +216,7 @@ export default async function AccountPage() {
         <Surface className="account-panel account-settings">
           <div className="account-panel-head"><div><p className="kicker">{zh.settingsKicker}</p><h2>{zh.settings}</h2></div></div>
           <p className="account-settings-hint">{zh.settingsHint}</p>
-          <AccountForms member={{ username: member.username, email: member.email, displayName: member.displayName, avatar: member.avatar, initials: member.initials, iconColour: member.iconColour ?? player.colour, playerName: player.name }} />
+          <AccountForms googleStatus={params.google} member={{ username: member.username, email: member.email, displayName: member.displayName, avatar: member.avatar, initials: member.initials, iconColour: member.iconColour ?? player.colour, playerName: player.name, googleLinked: member.googleLinked }} />
         </Surface>
       </div>
     </div> : <div className="account-layout single">
@@ -227,7 +228,7 @@ export default async function AccountPage() {
       <Surface className="account-panel account-settings">
         <div className="account-panel-head"><div><p className="kicker">{zh.settingsKicker}</p><h2>{zh.settings}</h2></div></div>
         <p className="account-settings-hint">{zh.settingsHint}</p>
-        <AccountForms member={{ username: member.username, email: member.email, displayName: member.displayName, avatar: member.avatar, initials: member.initials, iconColour: member.iconColour }} />
+        <AccountForms googleStatus={params.google} member={{ username: member.username, email: member.email, displayName: member.displayName, avatar: member.avatar, initials: member.initials, iconColour: member.iconColour, googleLinked: member.googleLinked }} />
       </Surface>
     </div>}
   </main>;

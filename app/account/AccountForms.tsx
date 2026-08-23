@@ -79,7 +79,7 @@ function readAvatar(file: File) {
   });
 }
 
-type Member = { username: string; email: string; displayName: string; avatar?: string | null; initials?: string | null; iconColour?: string | null; playerName?: string };
+type Member = { username: string; email: string; displayName: string; avatar?: string | null; initials?: string | null; iconColour?: string | null; playerName?: string; googleLinked?: boolean };
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return <label className={error ? "field-invalid" : undefined}>
@@ -88,12 +88,26 @@ function Field({ label, error, children }: { label: string; error?: string; chil
   </label>;
 }
 
-export default function AccountForms({ member }: { member: Member }) {
+export default function AccountForms({ member, googleStatus }: { member: Member; googleStatus?: string }) {
   return <>
+    <GoogleConnection linked={Boolean(member.googleLinked)} status={googleStatus} />
     <ProfileSection member={member} />
     <PasswordSection />
     <DangerZone username={member.username} />
   </>;
+}
+
+function GoogleMark() {
+  return <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.85.87-3.04.87-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.73A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.19.29-1.73V4.94H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.06z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.94l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>;
+}
+
+function GoogleConnection({ linked, status }: { linked: boolean; status?: string }) {
+  const message = status === "connected" ? "Google 帳戶已成功連結。" : status === "already-connected" ? "這個 Google 帳戶早已連結。" : status === "account-already-linked" ? "你的會員帳戶已連結另一個 Google 帳戶。" : status === "google-in-use" ? "這個 Google 帳戶已連結至另一個會員帳戶。" : status === "cancelled" ? "你已取消授權，帳戶沒有任何變更。" : status === "session-required" ? "登入狀態已失效，請重新登入再試。" : status ? "暫時未能連結 Google，請稍後再試。" : null;
+  return <section className="google-connection" aria-labelledby="google-connection-title">
+    <div className="google-connection-copy"><span className="google-mark"><GoogleMark /></span><div><h3 id="google-connection-title">Google 登入</h3><p>{linked ? "已連結。下次可直接使用 Google 安全登入。" : "連結後可免密碼登入；不會更改你的會員電郵或球員紀錄。"}</p></div></div>
+    {linked ? <span className="google-linked"><i aria-hidden="true">✓</i> 已連結</span> : <a className="google-connect-button" href="/api/auth/google?intent=connect">連結 Google</a>}
+    {message && <p className={status === "connected" || status === "already-connected" ? "form-success google-status" : "form-error google-status"} role="status">{message}</p>}
+  </section>;
 }
 
 // Read-only by default — most visits are to check a stat, not to edit

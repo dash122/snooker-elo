@@ -6,6 +6,7 @@ export type MemberSession = {
   avatar?: string | null;
   initials?: string | null;
   iconColour?: string | null;
+  googleLinked?: boolean;
   role: "admin" | "member";
 };
 
@@ -17,6 +18,7 @@ export type MemberRow = {
   avatar?: string | null;
   initials?: string | null;
   iconColour?: string | null;
+  googleLinked?: boolean;
   role: "admin" | "member";
   active: boolean;
   joinedAt: string;

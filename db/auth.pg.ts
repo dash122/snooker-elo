@@ -26,6 +26,24 @@ export async function resolveGoogleMember(email: string, googleId: string): Prom
   return { status: "linked", email: normalizedEmail };
 }
 
+export type GoogleConnectResult = "connected" | "already-connected" | "account-already-linked" | "google-in-use";
+
+export async function connectGoogleMember(memberEmail: string, googleId: string): Promise<GoogleConnectResult> {
+  await ensureAuthSchema();
+  const sql = getSql();
+  const normalizedEmail = memberEmail.trim().toLowerCase();
+  const rows = await sql<{ email: string; googleId: string | null }[]>`
+    SELECT email, google_id AS "googleId" FROM members
+    WHERE email = ${normalizedEmail} OR google_id = ${googleId}
+  `;
+  const member = rows.find(row => row.email === normalizedEmail);
+  if (member?.googleId === googleId) return "already-connected";
+  if (member?.googleId) return "account-already-linked";
+  if (rows.some(row => row.googleId === googleId && row.email !== normalizedEmail)) return "google-in-use";
+  await sql`UPDATE members SET google_id = ${googleId} WHERE email = ${normalizedEmail} AND active = true`;
+  return "connected";
+}
+
 let schemaReady: Promise<unknown> | null = null;
 let preliminaryRatingSchemaReady: Promise<unknown> | null = null;
 function ensurePreliminaryRatingSchema() {
@@ -145,7 +163,7 @@ export async function getCurrentMember(): Promise<MemberSession | null> {
   const now = new Date().toISOString();
   const sql = getSql();
   const rows = await sql<MemberSession[]>`
-    SELECT m.email, m.username, m.state_player_id AS "statePlayerId", m.display_name AS "displayName", m.avatar, m.initials, m.icon_colour AS "iconColour", m.role
+    SELECT m.email, m.username, m.state_player_id AS "statePlayerId", m.display_name AS "displayName", m.avatar, m.initials, m.icon_colour AS "iconColour", m.role, (m.google_id IS NOT NULL) AS "googleLinked"
     FROM sessions s JOIN members m ON m.email = s.member_email
     WHERE s.token_hash = ${tokenHash} AND s.expires_at > ${now} AND m.active = true
   `;

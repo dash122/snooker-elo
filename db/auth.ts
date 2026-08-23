@@ -8,6 +8,10 @@ export async function resolveGoogleMember(email: string, googleId: string) {
   return backend.resolveGoogleMember(email, googleId);
 }
 
+export async function connectGoogleMember(memberEmail: string, googleId: string) {
+  return backend.connectGoogleMember(memberEmail, googleId);
+}
+
 export async function getCurrentMember() {
   return backend.getCurrentMember();
 }
