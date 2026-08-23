@@ -1,5 +1,5 @@
 import { isEntertainmentMode, neutralRatingSnapshot } from "./entertainment-match.ts";
-import { handicapEloPerPoint, suggestedHandicap } from "./handicap.ts";
+import { HANDICAP_ELO_PER_POINT, suggestedHandicap } from "./handicap.ts";
 import { calculateSnookerElo } from "./snooker-elo.ts";
 
 export type ReplayPlayer = {
@@ -151,8 +151,8 @@ function calculateMatch(a: ReplayPlayer, b: ReplayPlayer, match: ReplayMatch, se
     framesA: match.scoreA,
     framesB: match.scoreB,
     handicapEloScale: settings.handicapEloScale,
-    handicapEloPerPoint: handicapEloPerPoint((a.rating + b.rating) / 2, handicapSettings(settings)),
-    handicapEffectiveness: settings.handicapEffectiveness,
+    handicapEloPerPoint: HANDICAP_ELO_PER_POINT,
+    handicapEffectiveness: 1,
     frameScaleCoefficient: settings.frameScaleCoefficient,
     frameScaleNumeratorOffset: settings.frameScaleNumeratorOffset,
     frameScaleDenominator: settings.frameScaleDenominator,
@@ -169,7 +169,7 @@ function calculateMatch(a: ReplayPlayer, b: ReplayPlayer, match: ReplayMatch, se
     deltaA: formula.deltaA,
     frameEvidence: totalFrames,
     performanceScore: formula.performance,
-    evidenceWeight: 1,
+    evidenceWeight: formula.confidence,
     handicapAdjustment: -actual,
     overHandicapElo: 0,
     overHandicapMultiplier: 1,

@@ -44,6 +44,23 @@ export async function connectGoogleMember(memberEmail: string, googleId: string)
   return "connected";
 }
 
+export type GoogleDisconnectResult = "disconnected" | "not-linked" | "password-wrong";
+
+export async function disconnectGoogleMember(memberEmail: string, currentPassword: string): Promise<GoogleDisconnectResult> {
+  await ensureAuthSchema();
+  const sql = getSql();
+  const normalizedEmail = memberEmail.trim().toLowerCase();
+  const rows = await sql<{ googleId: string | null; passwordHash: string; passwordSalt: string }[]>`
+    SELECT google_id AS "googleId", password_hash AS "passwordHash", password_salt AS "passwordSalt"
+    FROM members WHERE email = ${normalizedEmail} AND active = true
+  `;
+  const member = rows[0];
+  if (!member?.googleId) return "not-linked";
+  if (!currentPassword || await passwordDigest(currentPassword, member.passwordSalt) !== member.passwordHash) return "password-wrong";
+  await sql`UPDATE members SET google_id = NULL WHERE email = ${normalizedEmail}`;
+  return "disconnected";
+}
+
 let schemaReady: Promise<unknown> | null = null;
 let preliminaryRatingSchemaReady: Promise<unknown> | null = null;
 function ensurePreliminaryRatingSchema() {

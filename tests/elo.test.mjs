@@ -5,13 +5,13 @@ import { replay } from "../lib/elo-replay.ts";
 import { resolveOnboardingRating } from "../lib/onboarding.ts";
 import { checkDisplayName, checkEmail, checkUsername, checkDisallowedText } from "../app/api/account/validate.ts";
 
-test("matches the new PDF worked example",()=>{
+test("matches the worked example with a fully effective handicap",()=>{
   const result=calculateSnookerElo({ratingA:1600,ratingB:1450,handicapA:-5,framesA:5,framesB:1,repetitionCount:3});
-  assert.equal(Math.round(result.expectedFramesA*100)/100,3.43);
-  assert.equal(Math.round(result.scale*100)/100,111.29);
-  assert.equal(Math.round(result.compressionWidth*1000)/1000,2.887);
+  assert.equal(Math.round(result.expectedFramesA*100)/100,3.17);
+  assert.equal(result.scale,300);
+  assert.equal(Math.round(result.confidence*1000)/1000,.545);
   assert.equal(Math.round(result.repetitionFactor*1000)/1000,.743);
-  assert.equal(Math.round(result.deltaA*100)/100,41.03);
+  assert.equal(Math.round(result.deltaA*100)/100,37.03);
 });
 
 test("handicap increases Player A's expected frames",()=>{
@@ -26,12 +26,13 @@ test("an explicit rating-sensitive handicap conversion takes precedence over 25H
   assert.ok(dynamic.expectedFramesA<legacy.expectedFramesA);
 });
 
-test("uses match length scaling without a separate result bonus",()=>{
+test("uses diminishing confidence for match length without a separate result bonus",()=>{
   const short=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:3,framesB:0});
   const long=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:6,framesB:0});
   assert.equal(short.bonus,0);
   assert.equal(long.bonus,0);
-  assert.ok(long.scale>short.scale);
+  assert.ok(long.confidence>short.confidence);
+  assert.ok(long.deltaA>short.deltaA);
 });
 
 test("draws have no match-result bonus",()=>{
@@ -48,18 +49,24 @@ test("reversing the result reverses the rating change",()=>{
 
 test("zero-frame input is neutral",()=>{
   assert.deepEqual(calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:0,framesB:0}),{
-    probabilityA:.5,expectedFramesA:0,scale:0,compressionWidth:3,repetitionFactor:1,performance:0,bonus:0,deltaA:0,
+    probabilityA:.5,expectedFramesA:0,scale:300,compressionWidth:3,repetitionFactor:1,actualFrameShare:.5,confidence:0,performance:0,bonus:0,deltaA:0,
   });
 });
 
-test("the logarithmic scaling numerator and denominator are configurable",()=>{
-  const custom=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,frameScaleCoefficient:100,frameScaleNumeratorOffset:15,frameScaleDenominator:10});
-  assert.equal(Math.round(custom.scale*10)/10,83.3);
+test("zero-score match previews update their frame-share forecast for handicap changes",()=>{
+  const level=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:0,framesB:0});
+  const receiving=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:5,framesA:0,framesB:0});
+  const giving=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:-5,framesA:0,framesB:0});
+  assert.ok(receiving.probabilityA>level.probabilityA);
+  assert.ok(giving.probabilityA<level.probabilityA);
+  assert.equal(receiving.deltaA,0);
+  assert.equal(giving.deltaA,0);
 });
 
-test("adaptive compression width constants are configurable",()=>{
-  const result=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,compressionWidthBase:6,compressionWidthExponent:.2});
-  assert.equal(Math.round(result.compressionWidth*1000)/1000,5.664);
+test("performance sensitivity is configurable",()=>{
+  const standard=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3});
+  const half=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,frameScaleCoefficient:150});
+  assert.equal(half.deltaA,standard.deltaA/2);
 });
 
 test("handicapEloScale is configurable",()=>{
@@ -71,6 +78,20 @@ test("handicapEloScale is configurable",()=>{
 test("a fully-effective fair handicap makes probability exactly even",()=>{
   const result=calculateSnookerElo({ratingA:1800,ratingB:1500,handicapA:-12,framesA:4,framesB:4,handicapEffectiveness:1});
   assert.ok(Math.abs(result.probabilityA-.5)<1e-9);
+});
+
+test("excess handicap becomes progressively more decisive beyond the fair recommendation",()=>{
+  // Handicap indexes 32 and 49 imply a 17-point fair start and a 425-ELO rating gap.
+  const fair=calculateSnookerElo({ratingA:1925,ratingB:1500,handicapA:-17,framesA:0,framesB:0,handicapEloScale:1250});
+  const excessive=calculateSnookerElo({ratingA:1925,ratingB:1500,handicapA:-35,framesA:0,framesB:0,handicapEloScale:1250});
+  assert.ok(Math.abs(fair.probabilityA-.5)<1e-9);
+  assert.ok(excessive.probabilityA>.19&&excessive.probabilityA<.21);
+});
+
+test("the excess-handicap curve is symmetric",()=>{
+  const giving=calculateSnookerElo({ratingA:1925,ratingB:1500,handicapA:-35,framesA:0,framesB:0,handicapEloScale:1250});
+  const receiving=calculateSnookerElo({ratingA:1500,ratingB:1925,handicapA:35,framesA:0,framesB:0,handicapEloScale:1250});
+  assert.ok(Math.abs(giving.probabilityA-(1-receiving.probabilityA))<1e-12);
 });
 
 test("reduced handicap effectiveness leaves the stronger player a residual edge",()=>{

@@ -61,11 +61,11 @@ test("sessions cannot overlap — that is one evening entered twice",()=>{
 
 const settings={handicapPointsToElo:25,handicapMinimumElo:7,handicapSensitivityRange:16,handicapSensitivityWidth:250};
 
-test("the proposal uses the rating-sensitive conversion and reads from my side",()=>{
+test("the proposal uses the displayed handicap difference and reads from my side",()=>{
   const strongerThanMe=proposeHandicap(1400,1700,settings);
   assert.equal(strongerThanMe.direction,"receive");
   assert.ok(strongerThanMe.label.startsWith("建議佢讓"));
-  assert.equal(strongerThanMe.points,-21);
+  assert.equal(strongerThanMe.points,-12);
 
   const weakerThanMe=proposeHandicap(1700,1400,settings);
   assert.equal(weakerThanMe.direction,"give");
@@ -74,13 +74,13 @@ test("the proposal uses the rating-sensitive conversion and reads from my side",
   assert.deepEqual(proposeHandicap(1500,1500,settings),{points:0,direction:"level",label:"平手打就啱"});
 });
 
-test("a bigger gap proposes more points without an unbounded linear conversion",()=>{
+test("a bigger displayed handicap gap proposes more points",()=>{
   const near=proposeHandicap(1500,1600,settings).points;
   const far=proposeHandicap(1500,1900,settings).points;
   const absurd=proposeHandicap(1500,3000,settings).points;
-  assert.equal(near,-7);
-  assert.equal(far,-33);
-  assert.equal(absurd,-193);
+  assert.equal(near,-4);
+  assert.equal(far,-16);
+  assert.equal(absurd,-60);
 });
 
 test("suggestions round to the nearest integer",()=>{

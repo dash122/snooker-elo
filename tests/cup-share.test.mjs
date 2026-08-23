@@ -210,10 +210,10 @@ test("a tie quotes the terms the two sides actually play off", () => {
   assert.equal(receiving.points, -giving.points);
 });
 
-test("rating-sensitive handicaps grow through the playing range and flatten at high ELO", () => {
-  assert.equal(proposeHandicap(1200, 1000, settings).points, 10);
-  assert.equal(proposeHandicap(2000, 1800, settings).points, 21);
-  assert.equal(proposeHandicap(2700, 2500, settings).points, 28);
+test("pair proposals use the displayed handicap difference while ELO sensitivity remains rating-aware", () => {
+  assert.equal(proposeHandicap(1200, 1000, settings).points, 8);
+  assert.equal(proposeHandicap(2000, 1800, settings).points, 8);
+  assert.equal(proposeHandicap(2700, 2500, settings).points, 8);
   assert.ok(handicapEloPerPoint(1100, settings)>handicapEloPerPoint(1900, settings));
   assert.ok(handicapEloPerPoint(1900, settings)-handicapEloPerPoint(2600, settings)>0);
 });

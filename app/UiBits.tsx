@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Button } from "./components/ui/Primitives";
+import { Button, SlidingToggleGroup } from "./components/ui/Primitives";
 
 export type SortKey = "rank"|"name"|"rating"|"change"|"form"|"official"|"suggested"|"games"|"winRate"|"frameRate";
 export type EloTrendPoint = {
@@ -273,7 +273,7 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
   const periodChange=visible.at(-1)!.elo-visible[0].elo;
   const resultLabel=(result:EloTrendPoint["result"])=>result==="W"?"勝":result==="L"?"負":result==="D"?"和":"起始";
   return <div className="interactive-trend">
-    <div className="trend-overview"><div><small>{range==="recent"?"最近十場":"完整記錄"}</small><b className={periodChange>=0?"positive":"negative"}>{periodChange>=0?"+":""}{Math.round(periodChange)} <em>ELO</em></b></div><div className="mini-toggle" aria-label="ELO 走勢範圍"><button className={range==="recent"?"active":""} onClick={()=>{setRange("recent");setActiveId(null)}}>最近十場</button><button className={range==="all"?"active":""} onClick={()=>{setRange("all");setActiveId(null)}}>全部</button></div></div>
+    <div className="trend-overview"><div><small>{range==="recent"?"最近十場":"完整記錄"}</small><b className={periodChange>=0?"positive":"negative"}>{periodChange>=0?"+":""}{Math.round(periodChange)} <em>ELO</em></b></div><SlidingToggleGroup className="mini-toggle" aria-label="ELO 走勢範圍"><button className={range==="recent"?"active":""} onClick={()=>{setRange("recent");setActiveId(null)}}>最近十場</button><button className={range==="all"?"active":""} onClick={()=>{setRange("all");setActiveId(null)}}>全部</button></SlidingToggleGroup></div>
     <div className="trend-plot" onPointerLeave={()=>setActiveId(null)}>
       <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label={label}>
         <defs><linearGradient id="elo-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#287e69" stopOpacity=".28"/><stop offset="100%" stopColor="#287e69" stopOpacity=".02"/></linearGradient></defs>

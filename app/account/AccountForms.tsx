@@ -102,11 +102,37 @@ function GoogleMark() {
 }
 
 function GoogleConnection({ linked, status }: { linked: boolean; status?: string }) {
-  const message = status === "connected" ? "Google 帳戶已成功連結。" : status === "already-connected" ? "這個 Google 帳戶早已連結。" : status === "account-already-linked" ? "你的會員帳戶已連結另一個 Google 帳戶。" : status === "google-in-use" ? "這個 Google 帳戶已連結至另一個會員帳戶。" : status === "cancelled" ? "你已取消授權，帳戶沒有任何變更。" : status === "session-required" ? "登入狀態已失效，請重新登入再試。" : status ? "暫時未能連結 Google，請稍後再試。" : null;
+  const [isLinked, setIsLinked] = useState(linked);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [disconnectStatus, setDisconnectStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
+  const [disconnectError, setDisconnectError] = useState("");
+  const message_ = status === "connected" ? "Google 帳戶已成功連結。" : status === "already-connected" ? "這個 Google 帳戶早已連結。" : status === "account-already-linked" ? "你的會員帳戶已連結另一個 Google 帳戶。" : status === "google-in-use" ? "這個 Google 帳戶已連結至另一個會員帳戶。" : status === "cancelled" ? "你已取消授權，帳戶沒有任何變更。" : status === "session-required" ? "登入狀態已失效，請重新登入再試。" : status ? "暫時未能連結 Google，請稍後再試。" : null;
+  const message_2 = disconnectStatus === "success" ? "Google 帳戶已解除連結。你仍可使用帳戶密碼登入。" : message_;
+
+  async function disconnect(event: React.FormEvent) {
+    event.preventDefault();
+    if (!currentPassword) return setDisconnectError("請輸入目前密碼以確認。");
+    setDisconnectStatus("saving"); setDisconnectError("");
+    const failure = await post("/api/account/google", { currentPassword });
+    if (failure) {
+      setDisconnectStatus("error");
+      setDisconnectError(failure.error === "password-wrong" ? "目前密碼不正確，Google 仍然保持連結。" : failure.error === "rate-limited" ? "嘗試次數過多，請稍後再試。" : failure.error === "not-linked" ? "Google 帳戶已經解除連結。" : "暫時未能解除連結，請稍後再試。");
+      return;
+    }
+    setIsLinked(false); setDisconnecting(false); setCurrentPassword(""); setDisconnectStatus("success");
+  }
+
   return <section className="google-connection" aria-labelledby="google-connection-title">
-    <div className="google-connection-copy"><span className="google-mark"><GoogleMark /></span><div><h3 id="google-connection-title">Google 登入</h3><p>{linked ? "已連結。下次可直接使用 Google 安全登入。" : "連結後可免密碼登入；不會更改你的會員電郵或球員紀錄。"}</p></div></div>
-    {linked ? <span className="google-linked"><i aria-hidden="true">✓</i> 已連結</span> : <a className="google-connect-button" href="/api/auth/google?intent=connect">連結 Google</a>}
-    {message && <p className={status === "connected" || status === "already-connected" ? "form-success google-status" : "form-error google-status"} role="status">{message}</p>}
+    <div className="google-connection-copy"><span className="google-mark"><GoogleMark /></span><div><h3 id="google-connection-title">Google 登入</h3><p>{isLinked ? "已連結。下次可直接使用 Google 安全登入。" : "連結後可免密碼登入；不會更改你的會員電郵或球員紀錄。"}</p></div></div>
+    {isLinked ? <div className="google-linked-actions"><span className="google-linked"><i aria-hidden="true">✓</i> 已連結</span><button type="button" className="google-disconnect-trigger" onClick={() => { setDisconnecting(true); setDisconnectStatus("idle"); }}>解除連結</button></div> : <a className="google-connect-button" href="/api/auth/google?intent=connect">連結 Google</a>}
+    {disconnecting && <form className="google-disconnect-form" onSubmit={disconnect}>
+      <p>解除後將無法使用 Google 登入。請輸入目前密碼，確認你仍可使用密碼登入帳戶。</p>
+      <label htmlFor="google-disconnect-password">目前密碼<input id="google-disconnect-password" type="password" autoComplete="current-password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} aria-invalid={Boolean(disconnectError)} /></label>
+      {disconnectError && <p className="field-error" role="alert">{disconnectError}</p>}
+      <div><Button variant="quiet" onClick={() => { setDisconnecting(false); setCurrentPassword(""); setDisconnectError(""); }}>取消</Button><Button variant="danger" type="submit" disabled={disconnectStatus === "saving"}>{disconnectStatus === "saving" ? "解除中…" : "確認解除"}</Button></div>
+    </form>}
+    {message_2 && <p className={disconnectStatus === "success" || status === "connected" || status === "already-connected" ? "form-success google-status" : "form-error google-status"} role="status">{message_2}</p>}
   </section>;
 }
 

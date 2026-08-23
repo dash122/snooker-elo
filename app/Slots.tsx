@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { PlayerBadge } from "./UiBits";
-import { Button, ChipRow, IconButton, SegmentedControl, Skeleton } from "./components/ui/Primitives";
+import { Button, ChipRow, IconButton, SegmentedControl, Skeleton, SlidingToggleGroup } from "./components/ui/Primitives";
 import { BackdropSheet } from "./components/ui/Overlay";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant } from "../lib/availability";
@@ -514,10 +514,10 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
         recruitment header, the demand banner and the personal empty state at once — five buttons for
         one job. It now lives here only, above both modes, so it is always in the same place. */}
     {signedIn&&<div className="sl-toolbar">
-      <div className="sl-mode-switch" role="tablist" aria-label="約戰模式">
+      <SlidingToggleGroup className="sl-mode-switch" role="tablist" aria-label="約戰模式">
         <button type="button" role="tab" aria-selected={mode==="find"} className={mode==="find"?"active":""} onClick={()=>changeMode("find")}>找球局{data.board.length>0&&<i>{data.board.length}</i>}</button>
         <button type="button" role="tab" aria-selected={mode==="mine"} className={mode==="mine"?"active":""} onClick={()=>changeMode("mine")}>我的招募{mine.length>0&&<i>{mine.length}</i>}</button>
-      </div>
+      </SlidingToggleGroup>
       <Button variant="primary" className="sl-new-session" onClick={createSession}>＋ 開局約人</Button>
     </div>}
     {signedIn&&<AvailabilityStatus count={availabilityCount} onManage={onManageAvailability}/>}

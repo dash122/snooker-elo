@@ -11,15 +11,18 @@
  * arithmetic said about a *pair*, so it can be printed on a recommendation before either member has
  * to raise the subject. The system proposes the terms, so neither player has to.
  *
- * The conversion itself is lifted verbatim from the match form so a proposal and the handicap
- * actually applied when the score is recorded can never disagree. */
+ * A proposal is the difference between the two players' displayed handicap indexes, so the terms
+ * shown on a recommendation always agree with the numbers members already use on the leaderboard. */
 
 export type HandicapSettings = {
   handicapPointsToElo:number;
   handicapMinimumElo:number;
   handicapSensitivityRange:number;
   handicapSensitivityWidth:number;
+  start?:number;
 };
+
+export const HANDICAP_ELO_PER_POINT = 25;
 
 /** ELO points represented by one handicap point at a given rating. The sigmoid makes handicap
     sensitivity rise through the lower/middle ratings, then flatten toward a safe lower bound. */
@@ -51,9 +54,13 @@ export type HandicapProposal = {
   label:string;
 };
 
-/** What the two of us should play off, said to me about them. */
+/** What the two of us should play off, said to me about them. The displayed integer indexes are
+    authoritative: a 37 player facing a 56 player gives 19 points. */
 export function proposeHandicap(myRating:number,theirRating:number,settings:HandicapSettings):HandicapProposal {
-  const points=roundToNearestInteger(eloToHandicap(myRating-theirRating,settings,(myRating+theirRating)/2));
+  const start=settings.start??1500;
+  const myHandicap=roundToNearestInteger(DEFAULT_SUGGESTED_HANDICAP-(myRating-start)/HANDICAP_ELO_PER_POINT);
+  const theirHandicap=roundToNearestInteger(DEFAULT_SUGGESTED_HANDICAP-(theirRating-start)/HANDICAP_ELO_PER_POINT);
+  const points=theirHandicap-myHandicap;
   if(points===0)return {points:0,direction:"level",label:"平手打就啱"};
   return points>0
     ?{points,direction:"give",label:`建議你讓 ${points} 分`}
@@ -126,5 +133,5 @@ export const DEFAULT_SUGGESTED_HANDICAP = 60;
 export function suggestedHandicap(player:RatedPlayer,_players:RatedPlayer[],
   settings:HandicapSettings&{start:number}):number {
   return roundToNearestInteger(DEFAULT_SUGGESTED_HANDICAP
-    -eloToHandicap(player.rating-settings.start,settings));
+    -(player.rating-settings.start)/HANDICAP_ELO_PER_POINT);
 }

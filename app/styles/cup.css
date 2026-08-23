@@ -189,8 +189,8 @@
 /* `.h2h-matrix-modes` now wraps `<SegmentedControl>`, which already supplies its own padding/background
    pill — this only keeps the positioning slot (the `justify-self:end` rule below) without double-boxing it. */
 .h2h-matrix-modes:has(.ds-segmented){padding:0;border-radius:0;background:transparent}
-.h2h-matrix-modes button{flex:1;min-height:var(--control-sm);border:0;border-radius:.5625rem;
-  background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:800}.h2h-matrix-modes button.active{background:white;color:var(--ds-accent-action);box-shadow:0 2px 8px rgba(0,0,0,.08)}.h2h-matrix-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-2);
+.h2h-matrix-modes:not(:has(.ds-segmented)) button{flex:1;min-height:var(--control-sm);border:0;border-radius:.5625rem;
+  background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:800}.h2h-matrix-modes:not(:has(.ds-segmented)) button.active{background:white;color:var(--ds-accent-action);box-shadow:0 2px 8px rgba(0,0,0,.08)}.h2h-matrix-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-2);
   padding:var(--sp-3-5);border:1px solid var(--line);border-radius:var(--radius-lg,1.25rem);background:var(--ds-surface-primary)}.h2h-matrix-summary div{text-align:center}.h2h-matrix-summary small{display:block;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:700}.h2h-matrix-summary b{display:block;margin-top:var(--sp-1);font-size:var(--fs-lead)}.h2h-matrix-summary em{margin:0 var(--sp-1);color:var(--ds-text-secondary);font-style:normal;font-size:var(--fs-sm)}.h2h-matrix-rows{display:grid;gap:var(--sp-2);margin:0;padding:0;list-style:none}.h2h-matrix-rows button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;
   gap:var(--sp-3);width:100%;min-height:var(--control-lg,3rem);padding:var(--sp-3) var(--sp-3-5);text-align:left;
   border:1px solid var(--line);border-radius:var(--radius-md);background:var(--ds-surface-primary);color:inherit}.h2h-matrix-rows button:active{transform:scale(.995)}.h2h-matrix-row-main{display:grid;gap:var(--sp-1);min-width:0}.h2h-matrix-row-main b{font-size:var(--fs-body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.h2h-matrix-row-main small{color:var(--ds-text-secondary);font-size:var(--fs-label);overflow:hidden;
@@ -201,7 +201,7 @@
   background:var(--ds-canvas-functional);border-right:1px solid var(--line)}.h2h-matrix-grid tr.focused th,.h2h-matrix-grid tr.focused td{background-color:var(--ds-canvas-functional)}.h2h-matrix-grid td button{width:100%;min-height:2.75rem;border:0;background:transparent;color:inherit;
   font:inherit}.h2h-matrix-grid td b{font-size:var(--fs-caption);font-weight:800}.h2h-matrix-grid td em{margin:0 .0625rem;color:var(--ds-text-secondary);font-style:normal}.h2h-matrix-grid td.ahead{background:rgba(18,61,55,.12);color:var(--ds-accent-action)}.h2h-matrix-grid td.behind{background:rgba(162,81,63,.12);color:var(--ds-danger)}.h2h-matrix-grid td.level{background:rgba(120,130,125,.1)}.h2h-matrix-grid td.none,.h2h-matrix-grid td.self{color:var(--ds-text-quaternary)}.h2h-matrix-legend{display:flex;flex-wrap:wrap;gap:var(--sp-3);color:var(--ds-text-secondary);font-size:var(--fs-label)}.h2h-matrix-legend span{display:flex;align-items:center;gap:var(--sp-1-5)}.h2h-matrix-legend i{width:.875rem;height:.875rem;border-radius:.25rem;border:1px solid var(--line)}.h2h-matrix-legend i.ahead{background:rgba(18,61,55,.12)}.h2h-matrix-legend i.behind{background:rgba(162,81,63,.12)}.h2h-matrix-legend i.level{background:rgba(120,130,125,.1)}.h2h-matrix-legend i.none{background:var(--ds-surface-primary)}
 
-@media(min-width:821px){.h2h-matrix-toolbar{grid-template-columns:minmax(0,18rem) auto;align-items:end;justify-content:space-between}.h2h-matrix-modes{justify-self:end;width:max-content}.h2h-matrix-modes button{padding:0 var(--sp-4)}.h2h-matrix-grid tbody th,.h2h-matrix-grid thead th:first-child{width:10rem;min-width:10rem}.h2h-matrix-grid thead th,.h2h-matrix-grid tbody td{min-width:3.5rem}
+@media(min-width:821px){.h2h-matrix-toolbar{grid-template-columns:minmax(0,18rem) auto;align-items:end;justify-content:space-between}.h2h-matrix-modes{justify-self:end;width:max-content}.h2h-matrix-modes:not(:has(.ds-segmented)) button{padding:0 var(--sp-4)}.h2h-matrix-grid tbody th,.h2h-matrix-grid thead th:first-child{width:10rem;min-width:10rem}.h2h-matrix-grid thead th,.h2h-matrix-grid tbody td{min-width:3.5rem}
 }/* ==========================================================================
    Sharing a result
    Two destinations, two different acts: WhatsApp tells the group (text plus a
@@ -250,6 +250,7 @@
 .profile-share{display:inline-flex;align-items:center;gap:var(--sp-1-5);min-height:2rem;padding:0 var(--sp-3);
   border:1px solid rgba(212,166,75,.5);border-radius:999px;background:var(--ds-text-on-brand);color:var(--gold-on-light);
   font-size:var(--fs-label);font-weight:800}.profile-share .share-glyph{width:1rem;height:1rem;border-radius:0;background:transparent;color:currentColor}.profile-share .share-glyph svg{width:100%;height:100%}.profile-share:hover{background:#f7ecd0}
+.profile-share>span{display:inline-flex;align-items:center;gap:var(--sp-1-5);font-size:var(--fs-label);white-space:nowrap}
 
 @media(max-width:599px){.story-preview{width:min(12rem,54%)}.match-share-side em{font-size:2rem}.record-share-stats{grid-template-columns:1fr 1fr}
 }/* --------------------------------------------------------------------------

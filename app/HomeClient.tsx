@@ -11,7 +11,7 @@ import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type Av
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
 import { ShareGlyph, shareSheetTitle } from "./ShareSheet";
 import CupShareButtons from "./CupShareButtons";
-import { handicapEloPerPoint, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
+import { HANDICAP_ELO_PER_POINT, proposeHandicap, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
 import { calculateSnookerElo } from "../lib/snooker-elo";
 import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
 import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story-card";
@@ -19,7 +19,7 @@ import ShareSheet from "./ShareSheet";
 import { AppShell, PageFrame } from "./components/shell/AppShell";
 import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
 import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
-import { Button, IconButton, SegmentedControl, StatTile, Surface } from "./components/ui/Primitives";
+import { Button, IconButton, SegmentedControl, SlidingToggleGroup, StatTile, Surface } from "./components/ui/Primitives";
 import { Sheet, ConfirmDialog } from "./components/ui/Overlay";
 
 type Player = {
@@ -123,11 +123,11 @@ export type AppState = { players: Player[]; matches: Match[]; tournaments: Tourn
 const seed: AppState = {
   settings: {
     start: 1500, provisionalGames:10,
-    frameScaleCoefficient:150, frameScaleNumeratorOffset:15, frameScaleDenominator:10,
-    handicapEloScale:500, handicapPointsToElo:25, handicapMinimumElo:7,
+    frameScaleCoefficient:300, frameScaleNumeratorOffset:15, frameScaleDenominator:10,
+    handicapEloScale:1250, handicapPointsToElo:25, handicapMinimumElo:7,
     handicapSensitivityRange:16, handicapSensitivityWidth:250, compressionWidthBase:3,
     compressionWidthExponent:.1, repetitionDecayBase:2, repetitionDecayPeriod:7,
-    handicapEffectiveness:.7, modelVersion:9,
+    handicapEffectiveness:1, modelVersion:14,
   },
   players: [],
   matches: [],
@@ -139,17 +139,13 @@ function games(p: Player) { return p.wins + p.losses + p.draws; }
 function provisionalMultiplier(matchCount: number) {
   return matchCount === 0 ? 2 : matchCount === 1 ? 1.5 : matchCount === 2 ? 1.25 : 1;
 }
-function eloToHandicap(eloDifference:number,s:Settings,averageRating:number){
-  return eloDifference/handicapEloPerPoint(averageRating,s);
-}
-function roundToNearestInteger(value:number) {
-  const rounded=Math.round(value);
-  return Object.is(rounded,-0)?0:rounded;
-}
 /* A thin wrapper over `lib/handicap`, which owns the arithmetic so the leaderboard, the cup roster
    and the shared cup page can never quote three different 建議讓分 for the same player. */
 function suggestedHandicap(p: Player,data: AppState) {
   return clubSuggestedHandicap(p,data.players,data.settings);
+}
+function suggestedHandicapAtRating(rating:number,data:AppState) {
+  return clubSuggestedHandicap({rating},data.players,data.settings);
 }
 function recentFramesPerMatch(p:Player,data:AppState,count:number) {
   const matches=[...data.matches].filter(m=>m.status==="confirmed"&&!isEntertainmentMode(m.mode)&&isParticipant(m,p.id)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
@@ -301,10 +297,10 @@ function breakChartPoints(player:Player,data:AppState,mode:BreakChartMode):Break
   if(today>points[points.length-1].period)points.push({period:today,value:best});
   return points;
 }
-/** "我讓他 X 分" / "他讓我 X 分" — the same fair-handicap conversion the match form uses, read as a verdict about `me` vs. `p` rather than as a giver/points pair to apply. */
+/** "我讓他 X 分" / "他讓我 X 分" — the same displayed-handicap difference the match form uses. */
 function handicapVerdict(me:Player,p:Player,s:Settings){
   const eloDifference=me.rating-p.rating;
-  const points=roundToNearestInteger(eloToHandicap(eloDifference,s,(me.rating+p.rating)/2));
+  const points=proposeHandicap(me.rating,p.rating,s).points;
   const base=points===0?"平手":points>0?`建議我讓 ${points} 分`:`建議他讓 ${Math.abs(points)} 分`;
   return points!==0&&Math.abs(eloDifference)<30?`${base} · 勢均力敵`:base;
 }
@@ -327,8 +323,8 @@ function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,
   const formula = calculateSnookerElo({
     ratingA:a.rating, ratingB:b.rating, handicapA:-actual, framesA:scoreA, framesB:scoreB,
     handicapEloScale:s.handicapEloScale,
-    handicapEloPerPoint:handicapEloPerPoint((a.rating+b.rating)/2,s),
-    handicapEffectiveness:s.handicapEffectiveness, frameScaleCoefficient:s.frameScaleCoefficient,
+    handicapEloPerPoint:HANDICAP_ELO_PER_POINT,
+    handicapEffectiveness:1, frameScaleCoefficient:s.frameScaleCoefficient,
     frameScaleNumeratorOffset:s.frameScaleNumeratorOffset, frameScaleDenominator:s.frameScaleDenominator,
     compressionWidthBase:s.compressionWidthBase, compressionWidthExponent:s.compressionWidthExponent,
     repetitionDecayBase:s.repetitionDecayBase, repetitionDecayPeriod:s.repetitionDecayPeriod,
@@ -338,7 +334,7 @@ function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,
   return {
     official, actual, extra:actual-(official??0), expectedA:formula.probabilityA, deltaA:formula.deltaA,
     frameShare:totalFrames?scoreA/totalFrames:.5, frameEvidence:totalFrames, performanceScore:formula.performance,
-    evidenceWeight:1, adjustment:-actual, overHandicapElo:0, overHandicapMultiplier:1,
+    evidenceWeight:formula.confidence, adjustment:-actual, overHandicapElo:0, overHandicapMultiplier:1,
   };
 }
 function matchProbabilities(frameProbability:number,frames:number){
@@ -417,17 +413,43 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
 }
 function upgradeState(raw:AppState){
   const nextRaw = { ...raw, tournaments: raw.tournaments ?? [] };
-  if((nextRaw.settings.modelVersion??1)>=9)return {state:nextRaw,changed:false};
+  const modelVersion=nextRaw.settings.modelVersion??1;
+  if(modelVersion>=14)return {state:nextRaw,changed:false};
+  if(modelVersion>=13){
+    const settings={...nextRaw.settings,modelVersion:14};
+    const rebuilt=replay(nextRaw.players,nextRaw.matches,settings);
+    return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"加入超額讓分曲線並重播歷史評分",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
+  }
+  if(modelVersion>=12){
+    const settings={...nextRaw.settings,frameScaleCoefficient:300,modelVersion:13};
+    const rebuilt=replay(nextRaw.players,nextRaw.matches,settings);
+    return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"改用局數百分比與漸進信心權重並重播歷史評分",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
+  }
+  if(modelVersion>=11){
+    const settings={...nextRaw.settings,frameScaleCoefficient:300,handicapEloScale:1250,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:13};
+    const rebuilt=replay(nextRaw.players,nextRaw.matches,settings);
+    return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"固定讓分換算為每分 25 ELO 並重播歷史評分",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
+  }
+  if(modelVersion>=10){
+    const settings={...nextRaw.settings,frameScaleCoefficient:300,handicapEloScale:1250,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:13};
+    const rebuilt=replay(nextRaw.players,nextRaw.matches,settings);
+    return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"校準勝率曲線至 1250；固定每分 25 ELO 並重播歷史評分",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
+  }
+  if(modelVersion>=9){
+    const settings={...nextRaw.settings,frameScaleCoefficient:300,handicapEloScale:1250,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:13};
+    const rebuilt=replay(nextRaw.players,nextRaw.matches,settings);
+    return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"統一讓分換算：每分 25 ELO，建議讓分按 100% 抵銷並重播歷史評分",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
+  }
   const players=nextRaw.players.map(player=>({...player,initialRating:1500,rating:1500}));
   const stale=nextRaw.settings as Partial<Settings>&{frameScaleBase?:number};
   const settings:Settings={
     start:1500,
     provisionalGames:stale.provisionalGames??10,
-    frameScaleCoefficient:stale.frameScaleCoefficient??150,
+    frameScaleCoefficient:300,
     frameScaleNumeratorOffset:stale.frameScaleNumeratorOffset??15,
     frameScaleDenominator:stale.frameScaleDenominator??stale.frameScaleBase??10,
-    handicapEloScale:stale.handicapEloScale??500,
-    handicapPointsToElo:stale.handicapPointsToElo??25,
+    handicapEloScale:1250,
+    handicapPointsToElo:HANDICAP_ELO_PER_POINT,
     handicapMinimumElo:stale.handicapMinimumElo===14?7:stale.handicapMinimumElo??7,
     handicapSensitivityRange:stale.handicapSensitivityRange===32?16:stale.handicapSensitivityRange??16,
     handicapSensitivityWidth:stale.handicapSensitivityWidth??250,
@@ -435,8 +457,8 @@ function upgradeState(raw:AppState){
     compressionWidthExponent:stale.compressionWidthExponent??.1,
     repetitionDecayBase:stale.repetitionDecayBase??2,
     repetitionDecayPeriod:stale.repetitionDecayPeriod??7,
-    handicapEffectiveness:stale.handicapEffectiveness??.7,
-    modelVersion:9,
+    handicapEffectiveness:1,
+    modelVersion:14,
   };
   const rebuilt=replay(players,nextRaw.matches,settings);
   return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"移除舊評分系統；以 1500 起始並套用可調整參數的 PDF Snooker Elo 公式",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
@@ -1078,7 +1100,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
             </form>
           </div>}
           {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} canEditRating={isAdmin} onSave={savePlayer}/>}
-          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const start=Number(settings.start ?? data.settings.start ?? 1500); const applied={...settings,start,modelVersion:9}; const rebuilt=replay(data.players.map(player=>({...player,initialRating:start,rating:start})),data.matches,applied); setModal(null); persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:`調整 PDF Snooker Elo 公式參數；以 ${start} 起始並重播歷史評分`,at:new Date().toISOString()},...data.audits]},`設定已套用，歷史評分已從 ${start} 重播。`)}}/>}
+          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const start=Number(settings.start ?? data.settings.start ?? 1500); const applied={...settings,start,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:14}; const rebuilt=replay(data.players.map(player=>({...player,initialRating:start,rating:start})),data.matches,applied); setModal(null); persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:`調整 Snooker Elo 公式參數；以 ${start} 起始並重播歷史評分`,at:new Date().toISOString()},...data.audits]},`設定已套用，歷史評分已從 ${start} 重播。`)}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
@@ -1157,15 +1179,15 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
         <span><b>{total}</b><small>歷來總場數</small></span>
       </div>
     </div><Button className="hero-action" onClick={onRecord}><span aria-hidden="true" className="hero-action-icon">＋</span><b>記錄新賽果</b><small>更新排名與近期狀態</small></Button></section>
-    <nav className="page-tabs home-view-nav" aria-label="首頁內容" role="tablist">
+    <SlidingToggleGroup as="nav" className="page-tabs home-view-nav" aria-label="首頁內容" role="tablist">
       <button role="tab" aria-selected={homeView==="ranking"} className={homeView==="ranking"?"active":""} onClick={()=>setHomeView("ranking")}><span>目前排名</span></button>
       <button role="tab" aria-selected={homeView==="breaks"} className={homeView==="breaks"?"active":""} onClick={()=>setHomeView("breaks")}><span>最高單桿紀錄</span></button>
       <button role="tab" aria-selected={homeView==="recent"} className={homeView==="recent"?"active":""} onClick={()=>setHomeView("recent")}><span>近三十日統計</span></button>
-    </nav>
+    </SlidingToggleGroup>
     {homeView==="ranking"&&<>
     <Overview top={visibleRanked.slice(0,3)} data={data} onPlayer={onPlayer}/>
     <section className="home-view-panel ranking-panel" aria-labelledby="ranking-title">
-      <div className="home-panel-head"><div><p className="kicker">即時競爭形勢</p><h2 id="ranking-title">目前排名</h2><p>每場結果都會即時反映在 ELO 與近期狀態。</p></div><div className="mini-toggle ranking-scope-toggle" aria-label="排名球員範圍"><button aria-pressed={!officialOnly} className={!officialOnly?"active":""} onClick={()=>setOfficialOnly(false)}>全部球員</button><button aria-pressed={officialOnly} className={officialOnly?"active":""} onClick={()=>setOfficialOnly(true)}>正式球手</button></div></div>
+      <div className="home-panel-head"><div><p className="kicker">即時競爭形勢</p><h2 id="ranking-title">目前排名</h2><p>每場結果都會即時反映在 ELO 與近期狀態。</p></div><SlidingToggleGroup className="mini-toggle ranking-scope-toggle" aria-label="排名球員範圍"><button aria-pressed={!officialOnly} className={!officialOnly?"active":""} onClick={()=>setOfficialOnly(false)}>全部球員</button><button aria-pressed={officialOnly} className={officialOnly?"active":""} onClick={()=>setOfficialOnly(true)}>正式球手</button></SlidingToggleGroup></div>
     <SortControls sort={sort} dir={dir} onSort={sortBy}/>
     <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?"尚未有正式球手":"尚未有球員"} sub={officialOnly?"未有球員完成臨時門檻，暫時未有正式評分。":"前往球員頁面新增第一位球員。"}/>:<><div className="table-head sortable"><button title="箭嘴為過去 10 天的排名升跌" onClick={()=>sortBy("rank")}>排名<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>球員<SortArrow active={sort==="name"} dir={dir}/></button><button title="最近五筆比賽；較近期結果權重較高" onClick={()=>sortBy("form")}>近況<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>場數／勝率<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>建議／正式評分<SortArrow active={sort==="suggested"} dir={dir}/></button><button title="ELO 及近10天ELO變化" onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
       <MobileSortHead sort={sort}/>
@@ -1180,7 +1202,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
         :<span className="elo"><b>{Math.round(p.rating)}</b><small className={swing>=0?"positive":"negative"}>{swing>=0?"+":""}{Math.round(swing)}</small><em className="elo-suggested">建議 {suggested}</em></span>}</button>})}</>}</Surface>
     </section></>}
     {homeView==="breaks"&&<section className="home-view-panel break-records-panel" aria-labelledby="break-records-title">
-      <div className="home-panel-head"><div><p className="kicker">HIGH BREAK RECORDS</p><h2 id="break-records-title">最高單桿紀錄</h2><p>查看每位球員的個人最佳、歷史最高，或近 30 日最高紀錄。</p></div><div className="mini-toggle break-toggle" aria-label="單桿紀錄顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史最高</button><button aria-pressed={breakView==="recent"} className={breakView==="recent"?"active":""} onClick={()=>setBreakView("recent")}>近30日最高</button></div></div>
+      <div className="home-panel-head"><div><p className="kicker">HIGH BREAK RECORDS</p><h2 id="break-records-title">最高單桿紀錄</h2><p>查看每位球員的個人最佳、歷史最高，或近 30 日最高紀錄。</p></div><SlidingToggleGroup className="mini-toggle break-toggle" aria-label="單桿紀錄顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史最高</button><button aria-pressed={breakView==="recent"} className={breakView==="recent"?"active":""} onClick={()=>setBreakView("recent")}>近30日最高</button></SlidingToggleGroup></div>
       <ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>對 {record.opponent}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title="破百單桿">破百</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
       <p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":breakView==="overall"?"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。":`${thirtyDaysAgo} 至 ${today} 的最高單桿，同一球員可重複上榜。`}</p>
     </section>}
@@ -1525,7 +1547,7 @@ function Matches({data,canManageMatch,onEdit,onVoid,onShare,onPlayer,view,setVie
   },[matches,comparing]);
   const newestMonth=groups.reduce((latest,group)=>group.key>latest?group.key:latest,"");
   return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽記錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
-    <div className="page-tabs match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button><button role="tab" aria-selected={view==="matrix"} className={view==="matrix"?"active":""} onClick={()=>setView("matrix")}>對賽矩陣</button><button role="tab" aria-selected={view==="cup"} className={view==="cup"?"active":""} onClick={()=>setView("cup")}>盃賽紀錄</button></div>
+    <SlidingToggleGroup className="page-tabs match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button><button role="tab" aria-selected={view==="matrix"} className={view==="matrix"?"active":""} onClick={()=>setView("matrix")}>對賽矩陣</button><button role="tab" aria-selected={view==="cup"} className={view==="cup"?"active":""} onClick={()=>setView("cup")}>盃賽紀錄</button></SlidingToggleGroup>
     {view==="matrix"?<HeadToHeadMatrix data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{setPair({a:first,b:second});setModeFilter("all");setView("history")}}/> : view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid} onShare={onShare}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament} onRecordSlot={onRecordSlot} onArrange={onArrange} onWalkover={onWalkover} onEditRoster={onEditRoster} onRefresh={onRefresh}/> : <>
     <section className="match-filter-toolbar" aria-label="篩選及排序比賽記錄">
       <div className="match-filter-control player-control">
@@ -1998,7 +2020,7 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
   const rightLabel = isEntertainmentMode(m.mode) ? teamLabel(m,data,"B") : name(m.b);
   const preMatchLeftElo=m.beforeA2==null?m.beforeA:(m.beforeA+m.beforeA2)/2;
   const preMatchRightElo=m.beforeB2==null?m.beforeB:(m.beforeB+m.beforeB2)/2;
-  const recommendedActual=Math.round(eloToHandicap(preMatchLeftElo-preMatchRightElo,data.settings,(preMatchLeftElo+preMatchRightElo)/2));
+  const recommendedActual=suggestedHandicapAtRating(preMatchRightElo,data)-suggestedHandicapAtRating(preMatchLeftElo,data);
   const handicapText=(actual:number)=>
     actual>0?`${leftLabel} 每局讓 ${rightLabel} ${actual} 分`
     :actual<0?`${rightLabel} 每局讓 ${leftLabel} ${Math.abs(actual)} 分`
@@ -2305,16 +2327,13 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
   return <><section className="hero small"><div><p className="kicker">公開設定</p><h1>ELO 設定</h1><p>所有球員由 1500 起步；每場賽果只使用 PDF Snooker Elo 公式重播。以下參數只有管理員可以修改。</p></div><Button onClick={onEdit}>編輯設定</Button></section>
     <div className="settings-grid">
       <Surface as="div" className="setting"><small>起始 ELO</small><b>{s.start}</b></Surface>
-      <Surface as="div" className="setting"><small>局數影響係數（150）</small><b>{s.frameScaleCoefficient}</b></Surface>
-      <Surface as="div" className="setting"><small>局數加數（15）</small><b>{s.frameScaleNumeratorOffset}</b></Surface>
-      <Surface as="div" className="setting"><small>局數除數（10）</small><b>{s.frameScaleDenominator}</b></Surface>
+      <Surface as="div" className="setting"><small>表現敏感度（300）</small><b>{s.frameScaleCoefficient}</b></Surface>
+      <Surface as="div" className="setting"><small>信心權重</small><b>局數 ÷（局數＋5）</b></Surface>
       <Surface as="div" className="setting"><small>讓分 ELO 尺度（500）</small><b>{s.handicapEloScale}</b></Surface>
       <Surface as="div" className="setting"><small>個人建議讓分換算（只供顯示）</small><b>{s.handicapPointsToElo}</b></Surface>
       <Surface as="div" className="setting"><small>讓分最低 ELO 值（7）</small><b>{s.handicapMinimumElo}</b></Surface>
       <Surface as="div" className="setting"><small>讓分敏感度範圍（16）</small><b>{s.handicapSensitivityRange}</b></Surface>
       <Surface as="div" className="setting"><small>讓分敏感度寬度（250）</small><b>{s.handicapSensitivityWidth}</b></Surface>
-      <Surface as="div" className="setting"><small>壓縮寬度基數（3）</small><b>{s.compressionWidthBase}</b></Surface>
-      <Surface as="div" className="setting"><small>壓縮寬度指數（0.1）</small><b>{s.compressionWidthExponent}</b></Surface>
       <Surface as="div" className="setting"><small>重複衰減底數（2）</small><b>{s.repetitionDecayBase}</b></Surface>
       <Surface as="div" className="setting"><small>重複衰減週期（7）</small><b>{s.repetitionDecayPeriod}</b></Surface>
       <Surface as="div" className="setting"><small>讓分有效度</small><b>{Math.round(s.handicapEffectiveness*100)}%</b></Surface>
@@ -2338,6 +2357,18 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   const isCupMode=draft.mode==="cup";
   const a2=isTeamMode?data.players.find(player=>player.id===draft.a2):undefined;
   const b2=isTeamMode?data.players.find(player=>player.id===draft.b2):undefined;
+  /* Keep the visible forecast tied directly to this form's draft. In particular, changing the
+     selected giver or points must not wait for the parent preview used when the result is saved. */
+  const livePreview=(()=>{
+    const validTeams=!isTeamMode||Boolean(a2&&b2&&new Set([a.id,b.id,a2.id,b2.id]).size===4);
+    if(!validTeams)return null;
+    const match={a:a.id,b:b.id,a2:a2?.id,b2:b2?.id,mode:draft.mode,teamAName:draft.teamAName?.trim()||"Team A",teamBName:draft.teamBName?.trim()||"Team B"} as Match;
+    const previewA=isTeamMode?{...a,id:"teamA",name:teamLabel(match,data,"A"),short:teamLabel(match,data,"A"),handicap:teamHandicap(match,data,"A"),rating:teamRating(match,data,"A")} as Player:a;
+    const previewB=isTeamMode?{...b,id:"teamB",name:teamLabel(match,data,"B"),short:teamLabel(match,data,"B"),handicap:teamHandicap(match,data,"B"),rating:teamRating(match,data,"B")} as Player:b;
+    const giverSide=isTeamMode?([a.id,a2?.id].includes(draft.giver)?"A":[b.id,b2?.id].includes(draft.giver)?"B":undefined):undefined;
+    return calc(previewA,previewB,+draft.scoreA,+draft.scoreB,draft.giver,+draft.points,data.settings,giverSide);
+  })();
+  const forecast=livePreview??preview;
   const tournament=data.tournaments.find(t=>t.id===draft.tournamentId);
   const tournamentHandicap=isCupMode&&tournament?.handicapMode==="suggested";
   /* Locked when the form was opened from a bracket box: the pairing, round and match number came
@@ -2388,10 +2419,10 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   const teamEloDifference=draft.mode==="2v2"&&a2&&b2?roundedTeamEloDifference([a,a2],[b,b2]):a.rating-b.rating;
   const teamAHandicap=isTeamMode&&a2?Math.round((suggestedHandicap(a,data)+suggestedHandicap(a2,data))/2):null;
   const teamBHandicap=isTeamMode&&b2?Math.round((suggestedHandicap(b,data)+suggestedHandicap(b2,data))/2):null;
-  const fairActual=preview?(isTeamMode&&teamAHandicap!=null&&teamBHandicap!=null?teamBHandicap-teamAHandicap:Math.round(eloToHandicap(teamEloDifference,data.settings,(a.rating+b.rating)/2))):null;
-  const probabilities=preview?matchProbabilities(preview.expectedA,+draft.scoreA+ +draft.scoreB):null;
-  const previewDeltaA=preview&&!isTeamMode?preview.deltaA*provisionalMultiplier(games(a)):null;
-  const previewDeltaB=preview&&!isTeamMode?-preview.deltaA*provisionalMultiplier(games(b)):null;
+  const fairActual=forecast?(isTeamMode&&teamAHandicap!=null&&teamBHandicap!=null?teamBHandicap-teamAHandicap:suggestedHandicap(b,data)-suggestedHandicap(a,data)):null;
+  const probabilities=forecast?matchProbabilities(forecast.expectedA,+draft.scoreA+ +draft.scoreB):null;
+  const previewDeltaA=forecast&&!isTeamMode?forecast.deltaA*provisionalMultiplier(games(a)):null;
+  const previewDeltaB=forecast&&!isTeamMode?-forecast.deltaA*provisionalMultiplier(games(b)):null;
   const applyFair=()=>{
     if(fairActual==null)return;
     setDraft((d:any)=>({...d,giver:fairActual>=0?a.id:b.id,points:Math.abs(fairActual)}));
@@ -2402,13 +2433,13 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
     setCustomHandicap(false);
   };
   useEffect(()=>{
-    if(isCupMode && tournament && tournament.handicapMode === "suggested" && preview){
+    if(isCupMode && tournament && tournament.handicapMode === "suggested" && forecast){
       if(fairActual!=null){
         setDraft((d:any)=>({...d,giver:fairActual>=0?a.id:b.id,points:Math.abs(fairActual)}));
         setCustomHandicap(false);
       }
     }
-  },[isCupMode,tournament,preview,fairActual]);
+  },[isCupMode,tournament,forecast,fairActual]);
   useEffect(()=>{
     if(isCupMode && tournament && tournament.handicapMode === "none"){
       setDraft((d:any)=>({...d,giver:"",points:0}));
@@ -2417,7 +2448,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   },[isCupMode,tournament]);
   const changeScore=(key:"scoreA"|"scoreB",amount:number)=>setDraft((d:any)=>({...d,[key]:Math.max(0,+d[key]+amount)}));
   const totalFrames=+draft.scoreA + +draft.scoreB;
-  const hasEloPreview=Boolean(preview&&totalFrames>0);
+  const hasEloPreview=Boolean(forecast&&totalFrames>0);
   useEffect(()=>{
     if(hasEloPreview&&!hadEloPreview.current){
       requestAnimationFrame(()=>eloPreviewRef.current?.scrollIntoView({behavior:"smooth",block:"center"}));
@@ -2489,12 +2520,12 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
         ? <div className="tournament-handicap-note"><b>盃賽模式</b><span>{tournament ? (tournament.handicapMode==="suggested" ? `自動套用建議讓分：每局 ${fairPoints} 分` : "此盃賽不設讓分") : "未選擇盃賽"}</span></div>
         : <>
             {validTeamSelection&&<div className="entertainment-handicap-note recommended"><b>建議讓分</b><span>{fairPoints===0?`${teamAName} 與 ${teamBName} 毋須讓分`:`${fairActual!>0?teamAName:teamBName} 每局讓 ${fairActual!>0?teamBName:teamAName} ${fairPoints} 分`}</span><small>{teamAHandicap!=null&&teamBHandicap!=null?`${teamAName} 平均 ${Math.round(teamAHandicap)} · ${teamBName} 平均 ${Math.round(teamBHandicap)}`:`隊伍平均 ELO 相差 ${Math.abs(teamEloDifference)}`}；按球員 ELO 建議讓分計算。</small></div>}
-            <div className="handicap-segment"><button type="button" className={!draft.giver&&!customHandicap?"active":""} onClick={setNoHandicap}>沒有讓分</button><button type="button" disabled={fairActual==null} className={draft.giver&&+draft.points===fairPoints&&!customHandicap?"active":""} onClick={fairPoints===0?setNoHandicap:applyFair}>ELO 建議</button><button type="button" className={customHandicap?"active":""} onClick={()=>setCustomHandicap(value=>!value)}>自訂</button></div>
+            <SlidingToggleGroup className="handicap-segment"><button type="button" className={!draft.giver&&!customHandicap?"active":""} onClick={setNoHandicap}>沒有讓分</button><button type="button" disabled={fairActual==null} className={draft.giver&&+draft.points===fairPoints&&!customHandicap?"active":""} onClick={fairPoints===0?setNoHandicap:applyFair}>ELO 建議</button><button type="button" className={customHandicap?"active":""} onClick={()=>setCustomHandicap(value=>!value)}>自訂</button></SlidingToggleGroup>
             {customHandicap&&<div className="custom-handicap"><label>{draft.mode==="2v2"?"讓分隊伍":"讓分球員"}<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">沒有讓分</option><option value={a?.id}>{draft.mode==="2v2"?`${teamAName}（${a.name} / ${a2?.name}）`:a?.name}</option><option value={b?.id}>{draft.mode==="2v2"?`${teamBName}（${b.name} / ${b2?.name}）`:b?.name}</option></select></label><label>每局分數<input type="number" inputMode="numeric" min="0" step="1" value={draft.points} onChange={e=>update("points",Math.max(0,+e.target.value))}/></label></div>}
           </>
       }
     </section>
-    <section className="score-panel" aria-labelledby="score-title">{preview&&<div className="predicted-ratio"><div><span>預測局數比例</span><b>{isTeamMode?teamAName:a.short} {Math.round(preview.expectedA*100)}% · {Math.round((1-preview.expectedA)*100)}% {isTeamMode?teamBName:b.short}</b></div><em aria-label={`${isTeamMode?teamAName:a.name} ${Math.round(preview.expectedA*100)}%，${isTeamMode?teamBName:b.name} ${Math.round((1-preview.expectedA)*100)}%`}><i style={{width:`${Math.round(preview.expectedA*100)}%`}}/></em></div>}<h3 id="score-title">最終比分</h3>{!isTeamMode&&<div className="break-invitation"><b>今場有冇值得記低嘅單桿？</b><span>每次突破，都係進步嘅紀錄。</span></div>}<div className="scoreboard-entry">
+    <section className="score-panel" aria-labelledby="score-title">{forecast&&<div className="predicted-ratio"><div><span>預測局數比例</span><b>{isTeamMode?teamAName:a.short} {Math.round(forecast.expectedA*100)}% · {Math.round((1-forecast.expectedA)*100)}% {isTeamMode?teamBName:b.short}</b></div><em aria-label={`${isTeamMode?teamAName:a.name} ${Math.round(forecast.expectedA*100)}%，${isTeamMode?teamBName:b.name} ${Math.round((1-forecast.expectedA)*100)}%`}><i style={{width:`${Math.round(forecast.expectedA*100)}%`}}/></em></div>}<h3 id="score-title">最終比分</h3>{!isTeamMode&&<div className="break-invitation"><b>今場有冇值得記低嘅單桿？</b><span>每次突破，都係進步嘅紀錄。</span></div>}<div className="scoreboard-entry">
       <div><b>{isTeamMode?teamAName:(a?.name??"球員 A")}</b><div className="score-row"><button type="button" aria-label={`${isTeamMode?teamAName:(a?.name??"球員 A")}減一局`} onClick={()=>changeScore("scoreA",-1)}>−</button><input className="score-value" aria-label={`${isTeamMode?teamAName:(a?.name??"球員 A")}局數`} type="number" inputMode="numeric" min="0" value={draft.scoreA} onChange={e=>update("scoreA",Math.max(0,+e.target.value))}/><button type="button" aria-label={`${isTeamMode?teamAName:(a?.name??"球員 A")}加一局`} onClick={()=>changeScore("scoreA",1)}>＋</button></div>
         {!isTeamMode&&a&&<div className="break-inline">{(breakOpen[a.id]||(draft.highBreaks??[]).some((item:{playerId:string})=>item.playerId===a.id))&&<p className="break-heading">已記錄嘅單桿</p>}<div className="break-chips">{(draft.highBreaks??[]).map((item:{playerId:string;value:number},index:number)=>item.playerId===a.id?<button type="button" key={index} onClick={()=>removeBreak(index)} aria-label={`移除 ${a.name} 的 ${item.value} 分單桿度數`}>{item.value}<span>×</span></button>:null)}</div>
           {breakOpen[a.id]?<form className="break-add" onSubmit={event=>{event.preventDefault();addBreak(a.id)}}><input autoFocus className="break-value" aria-label={`${a.name} 單桿度數`} type="number" inputMode="numeric" min="1" max="147" placeholder="輸入度數" enterKeyHint="done" value={breakInput[a.id]??""} onChange={event=>setBreakInput(current=>({...current,[a.id]:event.target.value}))}/><button type="submit">記低</button></form>:<button type="button" className="break-add-toggle" onClick={()=>setBreakOpen(current=>({...current,[a.id]:true}))}>＋ 記錄單桿</button>}
@@ -2507,12 +2538,12 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
         {breakMessage[b.id]&&<p className="break-encouragement" role="status">{breakMessage[b.id]}</p>}</div>}
       </div>
     </div></section>
-    {preview&&totalFrames>0&&(draft.mode==="2v2"?<section ref={eloPreviewRef} className="elo-preview entertainment-preview"><b>潮拍娛樂模式</b><p>本場只記錄隊伍、讓分與比分；四位球員的目前 ELO、勝負、局數及近況均不會改變。</p></section>:<section ref={eloPreviewRef} className="elo-preview"><div><span><small>{a.name}</small><b className={previewDeltaA!>=0?"positive":"negative"}>{previewDeltaA!>=0?"+":""}{Math.round(previewDeltaA!)} ELO</b></span><i aria-hidden="true">↔</i><span className="right"><small>{b.name}</small><b className={previewDeltaB!>=0?"positive":"negative"}>{previewDeltaB!>=0?"+":""}{Math.round(previewDeltaB!)} ELO</b></span></div><details><summary>查看計算詳情</summary><p>{probabilities?`A 勝 ${Math.round(probabilities.win*100)}% · 和 ${Math.round(probabilities.draw*100)}% · `:""}表現分 {preview.performanceScore>=0?"+":""}{Math.round(preview.performanceScore)} · 讓分 H {preview.adjustment>=0?"+":""}{Math.round(preview.adjustment)}</p></details></section>)}
-    <div className="match-save">{breakReminder&&<div className="break-save-reminder" role="status"><b>今場有冇值得記低嘅單桿？</b><span><button type="button" onClick={()=>{setBreakReminder(false);setBreakOpen({[a.id]:true,[b.id]:true})}}>返回記錄</button><button type="button" onClick={onSave}>今場沒有，照樣儲存</button></span></div>}<Button className="full" disabled={!valid||data.players.length<2||saving} aria-busy={saving} onClick={()=>{if(!isTeamMode&&!editing&&(draft.highBreaks??[]).length===0){setBreakReminder(true);return}onSave()}}>{saving?"儲存中…":editing?"儲存變更":"儲存賽果"}<small>{saving?"請稍候":resultLabel}</small></Button></div>
+    {forecast&&totalFrames>0&&(draft.mode==="2v2"?<section ref={eloPreviewRef} className="elo-preview entertainment-preview"><b>潮拍娛樂模式</b><p>本場只記錄隊伍、讓分與比分；四位球員的目前 ELO、勝負、局數及近況均不會改變。</p></section>:<section ref={eloPreviewRef} className="elo-preview"><div><span><small>{a.name}</small><b className={previewDeltaA!>=0?"positive":"negative"}>{previewDeltaA!>=0?"+":""}{Math.round(previewDeltaA!)} ELO</b></span><i aria-hidden="true">↔</i><span className="right"><small>{b.name}</small><b className={previewDeltaB!>=0?"positive":"negative"}>{previewDeltaB!>=0?"+":""}{Math.round(previewDeltaB!)} ELO</b></span></div><details><summary>查看計算詳情</summary><p>{probabilities?`A 勝 ${Math.round(probabilities.win*100)}% · 和 ${Math.round(probabilities.draw*100)}% · `:""}表現分 {forecast.performanceScore>=0?"+":""}{Math.round(forecast.performanceScore)} · 讓分 H {forecast.adjustment>=0?"+":""}{Math.round(forecast.adjustment)}</p></details></section>)}
+    <div className="match-save">{breakReminder&&<div className="break-save-reminder" role="status"><b>今場有冇值得記低嘅單桿？</b><span><button type="button" onClick={()=>{setBreakReminder(false);setBreakOpen({[a.id]:true,[b.id]:true})}}>返回記錄</button><button type="button" onClick={onSave}>今場沒有，照樣儲存</button></span></div>}<Button className="full" disabled={!valid||data.players.length<2||saving} aria-busy={saving} onClick={()=>{if(!isTeamMode&&!editing&&(draft.highBreaks??[]).length===0){setBreakReminder(true);return}onSave()}}><strong>{saving?"儲存中…":editing?"儲存變更":"儲存賽果"}</strong><small>{saving?"請稍候":resultLabel}</small></Button></div>
   </div>;
 }
 
-type TunableSettingKey="frameScaleCoefficient"|"frameScaleNumeratorOffset"|"frameScaleDenominator"|"handicapEloScale"|"handicapPointsToElo"|"handicapMinimumElo"|"handicapSensitivityRange"|"handicapSensitivityWidth"|"compressionWidthBase"|"compressionWidthExponent"|"repetitionDecayBase"|"repetitionDecayPeriod"|"handicapEffectiveness";
+type TunableSettingKey="frameScaleCoefficient"|"handicapEloScale"|"handicapMinimumElo"|"handicapSensitivityRange"|"handicapSensitivityWidth"|"repetitionDecayBase"|"repetitionDecayPeriod";
 function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
   const [s,setS]=useState<Settings>(data.settings);
   const field=(key:TunableSettingKey,label:string,hint:string,step=1,min?:number,max?:number)=>
@@ -2524,21 +2555,15 @@ function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
     <p className="warning">起始 ELO 可修改，儲存後會以新參數從此起始值重播全部歷史 ELO。</p>
     <div className="settings-form-grid">
       <label className="settings-field"><span>起始 ELO</span><input type="number" step="10" min={1000} max={3000} value={s.start} onChange={e=>{const value=e.target.value===""?1500:Number(e.target.value);setS(current=>({...current,start:value}))}}/><small>所有現有球員會用此起始值重建評分。</small></label>
-      {field("frameScaleCoefficient","局數影響係數","S(n) = 係數 × ln((n+15)/10)，PDF 原值 150。",1,0)}
-      {field("frameScaleNumeratorOffset","局數加數","S(n) 中 n + 此數值，PDF 原值 15。",1,0)}
-      {field("frameScaleDenominator","局數除數","S(n) 的除數，PDF 原值 10。",1,.1)}
+      {field("frameScaleCoefficient","表現敏感度","ELO 變化 = 此數值 ×（實際局數百分比 − 預測百分比）× 信心權重。預設 300。",1,0)}
       {field("handicapEloScale","讓分 ELO 尺度","勝率公式分母，原值 500。數值越大，同樣 ELO 差距對勝率的影響越小。",10,1)}
-      {field("handicapPointsToElo","個人建議讓分換算（只供顯示）","只影響排行榜上的個人建議讓分，不會影響任何比賽 ELO 變化。原值 25。",1,1)}
       {field("handicapMinimumElo","讓分最低 ELO 值","高 ELO 區域時，每讓 1 分最少代表的 ELO，原值 7。",1,.1)}
       {field("handicapSensitivityRange","讓分敏感度範圍","低 ELO 與高 ELO 每讓 1 分的 ELO 差距範圍，原值 16。",1,0)}
       {field("handicapSensitivityWidth","讓分敏感度寬度","控制敏感度由低至高轉變的速度，原值 250。",1,1)}
-      {field("compressionWidthBase","壓縮寬度基數","σ(n) = 基數 × 10^(-指數/n)，PDF 原值 3。",.5,.1)}
-      {field("compressionWidthExponent","壓縮寬度指數","σ(n) 中的指數，PDF 原值 0.1。",.01,0)}
       {field("repetitionDecayBase","重複衰減底數","M(t) = 底數^(-t/週期)，PDF 原值 2。",.1,1)}
       {field("repetitionDecayPeriod","重複衰減週期","M(t) 的週期，PDF 原值 7。",.5,.1)}
-      {field("handicapEffectiveness","讓分有效度","0–1。1 即「公平」讓分令勝率剛好一半；低於 1 時，就算讓足建議分數，ELO 差越大，較強的一方仍保留越多優勢，不會完全拉平。",.05,0,1)}
     </div>
-    <Button className="full" onClick={()=>onSave({...s,provisionalGames:data.settings.provisionalGames,modelVersion:9})}>套用並重播歷史 ELO</Button>
+    <Button className="full" onClick={()=>onSave({...s,provisionalGames:data.settings.provisionalGames,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:14})}>套用並重播歷史 ELO</Button>
   </>;
 }
 type RivalSnapshot = {
@@ -2631,7 +2656,7 @@ function BreakMilestoneChart({player,data}:{player:Player;data:AppState}){
     </div>
     <div className="break-chart-x-axis" aria-hidden="true">{tickIndexes.map(index=><span key={index} style={{left:`${x(index)}%`}}>{points[index].period}</span>)}</div>
     <p className="chart-summary">{mode==="personal"?`共 ${points.length} 次個人最佳里程碑。`:`共 ${points.length} 個有賽事記錄月份；N/A 代表該月未記錄單桿。`}</p>
-    <SegmentedControl label="高桿圖表顯示方式" value={mode} onChange={value=>{setMode(value as BreakChartMode);setActiveIndex(null)}} items={[{value:"personal",label:"個人最佳"},{value:"monthly",label:"每月最高"}]}/>
+    <SlidingToggleGroup className="mini-toggle break-milestone-toggle" aria-label="高桿圖表顯示方式"><button type="button" aria-pressed={mode==="personal"} className={mode==="personal"?"active":""} onClick={()=>{setMode("personal");setActiveIndex(null)}}>個人最佳</button><button type="button" aria-pressed={mode==="monthly"} className={mode==="monthly"?"active":""} onClick={()=>{setMode("monthly");setActiveIndex(null)}}>每月最高</button></SlidingToggleGroup>
   </div>;
 }
 

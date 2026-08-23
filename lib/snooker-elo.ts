@@ -18,7 +18,12 @@ export type SnookerEloInput = {
       the stronger player even when the recommended handicap is applied — a fixed points head start
       does not fully cancel a real skill gap over one match. */
   handicapEffectiveness?: number;
-  /** The "150" multiplying the match-length scaling factor. */
+  /** Residual handicap points around a fair game that retain the ordinary linear conversion. */
+  excessHandicapSoftZone?: number;
+  /** Point scale of the quadratic tail beyond the soft zone. Smaller values make an excessive
+      handicap become decisive sooner. */
+  excessHandicapCurveScale?: number;
+  /** ELO sensitivity applied to the frame-share performance gap. Defaults to 300. */
   frameScaleCoefficient?: number;
   /** The "15" added to n in the logarithmic scaling factor. */
   frameScaleNumeratorOffset?: number;
@@ -42,6 +47,8 @@ export type SnookerEloResult = {
   scale: number;
   compressionWidth: number;
   repetitionFactor: number;
+  actualFrameShare: number;
+  confidence: number;
   performance: number;
   bonus: number;
   deltaA: number;
@@ -50,30 +57,43 @@ export type SnookerEloResult = {
 export function calculateSnookerElo(input: SnookerEloInput): SnookerEloResult {
   const handicapEloScale = input.handicapEloScale ?? 500;
   const handicapEloPerPoint = input.handicapEloPerPoint ?? input.handicapPointsToElo ?? 25;
-  const handicapEffectiveness = input.handicapEffectiveness ?? .7;
-  const frameScaleCoefficient = input.frameScaleCoefficient ?? 150;
-  const frameScaleNumeratorOffset = input.frameScaleNumeratorOffset ?? 15;
-  const frameScaleDenominator = input.frameScaleDenominator ?? 10;
+  const handicapEffectiveness = input.handicapEffectiveness ?? 1;
+  const excessHandicapSoftZone = Math.max(0, input.excessHandicapSoftZone ?? 5);
+  const excessHandicapCurveScale = Math.max(1, input.excessHandicapCurveScale ?? 26.5);
+  const frameScaleCoefficient = input.frameScaleCoefficient ?? 300;
   const compressionWidthBase = input.compressionWidthBase ?? 3;
   const compressionWidthExponent = input.compressionWidthExponent ?? .1;
   const repetitionDecayBase = input.repetitionDecayBase ?? 2;
   const repetitionDecayPeriod = input.repetitionDecayPeriod ?? 7;
   const repetitionCount = Math.max(0, input.repetitionCount ?? 0);
+  const handicapElo = handicapEffectiveness * handicapEloPerPoint * input.handicapA;
+  const linearGap = input.ratingA - input.ratingB + handicapElo;
+  // A fair handicap still lands exactly at 50/50. Once the residual advantage passes five
+  // handicap points, a quadratic log-odds tail represents the practical scoring ceiling of a
+  // snooker frame. This is symmetric: an excessive start hurts either player equally.
+  const residualPoints = linearGap / handicapEloPerPoint;
+  const excessPoints = Math.max(0, Math.abs(residualPoints) - excessHandicapSoftZone);
+  const curvedLogOdds = linearGap / handicapEloScale
+    + Math.sign(linearGap) * (excessPoints / excessHandicapCurveScale) ** 2;
+  const probabilityA = 1 / (1 + 10 ** (-curvedLogOdds));
 
   const totalFrames = input.framesA + input.framesB;
   if (totalFrames <= 0) {
-    return { probabilityA: .5, expectedFramesA: 0, scale: 0, compressionWidth: compressionWidthBase,
+    // The match form previews odds before a score is entered. Preserve the rating and handicap
+    // forecast there, while still preventing a zero-length match from changing either rating.
+    return { probabilityA, expectedFramesA: 0, scale: frameScaleCoefficient, compressionWidth: compressionWidthBase,
+      actualFrameShare: .5, confidence: 0,
       repetitionFactor: 1, performance: 0, bonus: 0, deltaA: 0 };
   }
 
-  const handicapElo = handicapEffectiveness * handicapEloPerPoint * input.handicapA;
-  const probabilityA = 1 / (1 + 10 ** (-(input.ratingA - input.ratingB + handicapElo) / handicapEloScale));
   const expectedFramesA = probabilityA * totalFrames;
-  const scale = frameScaleCoefficient * Math.log((totalFrames + frameScaleNumeratorOffset) / frameScaleDenominator);
+  const actualFrameShare = input.framesA / totalFrames;
+  const confidence = totalFrames / (totalFrames + 5);
+  const scale = frameScaleCoefficient;
   const compressionWidth = compressionWidthBase * 10 ** (-compressionWidthExponent / totalFrames);
   const repetitionFactor = repetitionDecayBase ** (-repetitionCount / repetitionDecayPeriod);
-  const performance = scale * Math.tanh((input.framesA - expectedFramesA) / compressionWidth) * repetitionFactor;
+  const performance = scale * (actualFrameShare - probabilityA) * confidence * repetitionFactor;
   const bonus = 0;
 
-  return { probabilityA, expectedFramesA, scale, compressionWidth, repetitionFactor, performance, bonus, deltaA: performance };
+  return { probabilityA, expectedFramesA, scale, compressionWidth, repetitionFactor, actualFrameShare, confidence, performance, bonus, deltaA: performance };
 }

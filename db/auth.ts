@@ -12,6 +12,10 @@ export async function connectGoogleMember(memberEmail: string, googleId: string)
   return backend.connectGoogleMember(memberEmail, googleId);
 }
 
+export async function disconnectGoogleMember(memberEmail: string, currentPassword: string) {
+  return backend.disconnectGoogleMember(memberEmail, currentPassword);
+}
+
 export async function getCurrentMember() {
   return backend.getCurrentMember();
 }
