@@ -118,7 +118,7 @@ type Settings = {
   handicapEffectiveness: number;
   modelVersion?: number;
 };
-type AppState = { players: Player[]; matches: Match[]; tournaments: Tournament[]; settings: Settings; audits: { id: string; text: string; at: string }[] };
+export type AppState = { players: Player[]; matches: Match[]; tournaments: Tournament[]; settings: Settings; audits: { id: string; text: string; at: string }[] };
 
 const seed: AppState = {
   settings: {
@@ -452,8 +452,8 @@ function isInPastThirtyDays(playedOn:string){
 function isInPastTenDays(playedOn:string){
   return playedOn>=tenDaysAgo&&playedOn<=today;
 }
-export default function Home({user}:{user:{displayName:string;email:string;role:"admin"|"member";statePlayerId?:string;needsOnboarding?:boolean}|null}) {
-  const [data,setData] = useState<AppState>(seed);
+export default function Home({user,initialData}:{user:{displayName:string;email:string;role:"admin"|"member";statePlayerId?:string;needsOnboarding?:boolean}|null;initialData?:AppState|null}) {
+  const [data,setData] = useState<AppState>(initialData ?? seed);
   const [tab,setTab] = useState("leaderboard");
   const [availabilityDirty,setAvailabilityDirty] = useState(false);
   const [leavingAvailability,setLeavingAvailability] = useState<string|null>(null);
