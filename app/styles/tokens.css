@@ -80,9 +80,9 @@
     --fs-h2:1.625rem;
 
     /* Two special cases that are constraints, not taste: --fs-input must stay
-       at 16px or iOS Safari zooms the page when a field is focused, and
+       above 16px so iOS Safari does not zoom the page when a field is focused, and
        --fs-display-* are the only sizes above --fs-h2, reserved for heroes. */
-    --fs-input:1rem;           /* 16px — every text input, select, textarea */
+    --fs-input:1.0625rem;      /* 17px — every text input, select, textarea */
     --fs-display:2rem;         /* 32px — hero headings, empty-state glyphs */
     --fs-display-lg:2.375rem;  /* 38px — the primary ranking hero only */
 

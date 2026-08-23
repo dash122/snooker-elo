@@ -1,7 +1,7 @@
 import Link from "next/link";
 import PasswordField from "./PasswordField";
 import SignupForm from "./SignupForm";
-import { Button } from "../components/ui/Primitives";
+import { Button, SlidingToggleGroup } from "../components/ui/Primitives";
 
 type User = { displayName: string; role: "admin" | "member" };
 
@@ -64,10 +64,10 @@ export default function AuthExperience({
       <section className="auth-panel">
         <div className="auth-panel-inner">
           <Link className="auth-mobile-brand" href="/">SCAA <span>Snooker ELO</span></Link>
-          <nav className="auth-tabs" aria-label="帳戶選項">
+          <SlidingToggleGroup as="nav" className="auth-tabs" aria-label="帳戶選項">
             <Link href="/login" aria-current={!signup ? "page" : undefined}>登入</Link>
             <Link href="/login?mode=signup" aria-current={signup ? "page" : undefined}>註冊</Link>
-          </nav>
+          </SlidingToggleGroup>
           <p className="kicker">{signup ? "建立會員帳戶" : "會員登入"}</p>
           <h2>{signup ? "加入球會排名" : "歡迎回來"}</h2>
           <p className="auth-intro">
