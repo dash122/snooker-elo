@@ -55,7 +55,7 @@
     --ds-page-wide:74rem;           /* account dashboard */
     --ds-safe-top:env(safe-area-inset-top,0px);--ds-safe-bottom:env(safe-area-inset-bottom,0px);
     --ds-duration-fast:140ms;--ds-duration-standard:220ms;
-    --ds-ease-standard:cubic-bezier(.2,.8,.2,1);
+    --ds-duration-toggle:280ms;--ds-ease-standard:cubic-bezier(.2,.8,.2,1);--ds-ease-toggle:cubic-bezier(.22,.75,.25,1);
 
     /* --- Layout rail ------------------------------------------------------ */
     --content-max:80rem;
