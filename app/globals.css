@@ -1255,3 +1255,18 @@ body{font-size:var(--fs-body);line-height:1.65}:where(p,li,dd){text-wrap:pretty}
    measures the selected item, so the thumb remains exact with translated labels and responsive widths. */
 .sliding-toggle-group{position:relative;isolation:isolate}.sliding-toggle-thumb{position:absolute;z-index:0;left:0;top:0;width:var(--toggle-width);height:var(--toggle-height);border-radius:var(--radius-xs);background:var(--ds-surface-primary);box-shadow:var(--shadow-active-pill);transform:translate3d(var(--toggle-x),var(--toggle-y),0);transition:transform var(--ds-duration-toggle) var(--ds-ease-toggle);pointer-events:none}.sliding-toggle-group>button,.sliding-toggle-group>a{position:relative;z-index:1;transition:color var(--ds-duration-toggle) var(--ds-ease-toggle)}.sliding-toggle-group>button.active,.sliding-toggle-group>button[aria-selected="true"],.sliding-toggle-group>button[aria-pressed="true"],.sliding-toggle-group>a[aria-current="page"]{background:transparent!important;box-shadow:none!important}.handicap-segment .sliding-toggle-thumb{background:var(--ds-accent-action);box-shadow:0 3px 8px rgba(18,61,55,.25)}
 @media(prefers-reduced-motion:reduce){.sliding-toggle-thumb{transition:none}}
+
+/* Matchmaking controls use the shared Button primitive, which wraps their children in a span. Keep
+   icon treatment scoped to the icon itself so the action labels retain the global type weight. */
+.sl-availability-status>button>span{font-size:var(--fs-sm);font-weight:800;line-height:normal}
+.sl-availability-status>button .sl-availability-arrow{font-size:21px;font-weight:400;line-height:1}
+.sl-filter-button>span{font-size:var(--fs-label);line-height:normal;transform:none}
+.sl-filter-button .sl-filter-icon{font-size:var(--fs-h3);line-height:1;transform:rotate(90deg)}
+
+/* Legacy bottom sheets need the same overlay priority and dynamic viewport/safe-area contract as the
+   shared sheet primitive; otherwise the floating mobile navigation can paint over the composer in a
+   standalone PWA. */
+@media(max-width:820px){
+  .backdrop{z-index:100}
+  .backdrop>.sheet{max-height:calc(100dvh - var(--ds-safe-top));padding-bottom:calc(1.5rem + var(--ds-safe-bottom));overscroll-behavior:contain;touch-action:pan-y}
+}

@@ -298,7 +298,7 @@ function AvailabilityStatus({count,onManage}:{count:number;onManage?:()=>void}){
     <span className="sl-live-dot" aria-hidden="true"/>
     <span className="sl-availability-copy"><b>{count?"你的空檔已公開":"未公開你的空檔"}</b>
       <small>{count?`其他球手可以喺 ${count} 個時段搵到你` : "公開時間，別人先知道幾時可以約你"}</small></span>
-    {onManage&&<Button variant="quiet" onClick={onManage}>{count?"查看":"公開"}<span aria-hidden="true">›</span></Button>}
+    {onManage&&<Button variant="quiet" onClick={onManage}>{count?"查看":"公開"}<span className="sl-availability-arrow" aria-hidden="true">›</span></Button>}
   </div>;
 }
 
@@ -528,7 +528,7 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
           {dayOptions.map(([value,label])=><button key={value} type="button" role="tab" aria-selected={dayFilter===value}
             className={dayFilter===value?"active":""} onClick={()=>setDayFilter(value)}><b>{label}</b><small>{countFor(value)} 場</small></button>)}
         </div>
-        <Button variant="quiet" className={`sl-filter-button${filterOpen?" is-open":""}`} aria-expanded={filterOpen} onClick={()=>setFilterOpen(value=>!value)}><span aria-hidden="true">☷</span>篩選</Button>
+        <Button variant="quiet" className={`sl-filter-button${filterOpen?" is-open":""}`} aria-expanded={filterOpen} onClick={()=>setFilterOpen(value=>!value)}><span className="sl-filter-icon" aria-hidden="true">☷</span>篩選</Button>
       </div>
       {filterOpen&&<div className="sl-filter-panel" role="group" aria-label="球局篩選">
         <span>我想搵</span>
