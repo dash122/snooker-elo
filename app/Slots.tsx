@@ -66,7 +66,7 @@ function Composer({onCreate,onClose,busy,error}:{
   const [conditions,setConditions]=useState<SlotConditions>({});
   const toggle=(key:keyof SlotConditions)=>setConditions(value=>({...value,[key]:!value[key]}));
 
-  return <BackdropSheet onClose={onClose} labelledBy="new-slot" className="sl-composer">
+  return <BackdropSheet onClose={onClose} labelledBy="new-slot" className="sl-composer" shellClassName="match-entry-sheet">
       <h2 id="new-slot">開一張局</h2>
       <p className="sub">留一段時間出嚟，我哋將佢公開俾成個會所。</p>
 

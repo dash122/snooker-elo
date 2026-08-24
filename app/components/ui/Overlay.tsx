@@ -44,4 +44,11 @@ export function ConfirmDialog({kicker,title,titleId,description,children,onClose
   },[onClose]);
   return <div className="availability-dialog-backdrop" onMouseDown={onClose}><section ref={ref as never} className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={event=>event.stopPropagation()}><small>{kicker}</small><h2 id={titleId}>{title}</h2><p>{description}</p><div>{children}</div></section></div>
 }
-export function BackdropSheet({onClose,labelledBy,className,children}:{onClose:()=>void;labelledBy?:string;className?:string;children:ReactNode}){return <div className="backdrop invite-backdrop" onMouseDown={onClose}><section className={`sheet invite-sheet${className?` ${className}`:""}`} onMouseDown={event=>event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={labelledBy}><button type="button" className="close" aria-label="關閉" onClick={onClose}>×</button>{children}</section></div>}
+export function BackdropSheet({onClose,labelledBy,className,shellClassName,children}:{onClose:()=>void;labelledBy?:string;className?:string;shellClassName?:string;children:ReactNode}){
+  const sheetClassName=`sheet${shellClassName?"":" invite-sheet"}${className?` ${className}`:""}`;
+  const close=<button type="button" className="close" aria-label="關閉" onClick={onClose}>×</button>;
+  return <div className="backdrop invite-backdrop" onMouseDown={onClose}>{shellClassName
+    ? <div className={`sheet-shell ${shellClassName}`} onMouseDown={event=>event.stopPropagation()}>{close}<section className={sheetClassName} role="dialog" aria-modal="true" aria-labelledby={labelledBy}>{children}</section></div>
+    : <section className={sheetClassName} onMouseDown={event=>event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={labelledBy}>{close}{children}</section>}
+  </div>;
+}
