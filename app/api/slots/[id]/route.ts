@@ -1,14 +1,29 @@
 import { requireMember } from "../../../../db/auth";
-import { cancelAvailability, playerProfiles, postedSlotById, recordSlotResult } from "../../../../db/availability";
+import { cancelAvailability, editPostedSlot, playerProfiles, postedSlotById, recordSlotResult } from "../../../../db/availability";
 import { acceptHands, closeSlot, raiseHand, retractHand, retractHandsInWindow } from "../../../../db/slot-hands";
 import { announceSlotFilled } from "../../../../db/slot-actions";
+import type { FillRule, SlotConditions } from "../../../../db/availability";
 
 export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){
   const member=await requireMember();
   if(!member?.statePlayerId)return Response.json({error:"A linked member account is required"},{status:403});
   const me=member.statePlayerId;
   const {id}=await params;
-  const body=await request.json() as {action?:unknown;playerId?:unknown;playerIds?:unknown;result?:unknown;startAt?:unknown;endAt?:unknown};
+  const body=await request.json() as {action?:unknown;playerId?:unknown;playerIds?:unknown;result?:unknown;startAt?:unknown;endAt?:unknown;venue?:unknown;note?:unknown;fillRule?:unknown;conditions?:unknown};
+
+  /* Editing is only for a slot that has not taken anyone yet — `editPostedSlot` enforces that at
+     the query level, but the request shape needs its own guard here since the fields are optional
+     everywhere else on this route. */
+  if(body.action==="edit"){
+    if(typeof body.startAt!=="string"||typeof body.endAt!=="string")
+      return Response.json({error:"Missing time"},{status:400});
+    const fillRule:FillRule=body.fillRule==="review"?"review":"first";
+    const conditions=(body.conditions&&typeof body.conditions==="object"?body.conditions:{}) as SlotConditions;
+    const slot=await editPostedSlot(me,id,{startAt:body.startAt,endAt:body.endAt,
+      venue:typeof body.venue==="string"?body.venue:"",note:typeof body.note==="string"?body.note:"",
+      fillRule,conditions});
+    return slot?Response.json({slot}):Response.json({error:"改唔到 — 已經有人接受，或者時間同其他局撞埋。"},{status:409});
+  }
 
   if(body.action==="raise"){
     const outcome=await raiseHand(me,id);

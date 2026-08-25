@@ -1,5 +1,9 @@
 @layer components {
-  .availability-page{position:relative;isolation:isolate;max-width:var(--ds-content-max);margin-inline:auto;padding-inline:var(--ds-space-page);padding-bottom:calc(var(--ds-mobile-nav-height) + var(--ds-safe-bottom) + 2rem)}
+  /* No `isolation:isolate` here on purpose: it would trap any position:fixed backdrop opened from
+     inside this page (the new-slot composer, the "your slot" sheet) inside this element's own
+     stacking context, so its z-index could no longer be compared against the floating bottom nav
+     bar -- which lives outside this page -- and the popup rendered underneath the nav. */
+  .availability-page{position:relative;max-width:var(--ds-content-max);margin-inline:auto;padding-inline:var(--ds-space-page);padding-bottom:calc(var(--ds-mobile-nav-height) + var(--ds-safe-bottom) + 2rem)}
   /* No page-level backdrop. This used to paint a 22rem gradient panel with rounded bottom corners
      behind the header -- a rounded rectangle floating behind the content that belonged to no
      component, and that no other page has. 約戰 now uses the same felt-baize `.hero` panel as the
