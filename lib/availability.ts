@@ -33,6 +33,9 @@ const hongKongClock=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Hong_Kong",h
 export const hkDate=(d=new Date())=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Hong_Kong",year:"numeric",month:"2-digit",day:"2-digit"}).format(d);
 export const hkClock=(iso:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(iso));
 export const hkDayLabel=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"numeric",day:"numeric",weekday:"short"}).format(new Date(`${d}T00:00:00+08:00`));
+/** Same as `hkDayLabel` but without the weekday — for a context ("全部日子") that already reads as a
+    mixed, cross-day list, where the day of week is not the thing a member is scanning for. */
+export const hkDateLabel=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"numeric",day:"numeric"}).format(new Date(`${d}T00:00:00+08:00`));
 export const hkRange=(x:Interval)=>`${hkClock(x.startAt)}–${hkClock(x.endAt)}`;
 
 /** Calendar arithmetic on a `YYYY-MM-DD` Hong Kong date. Anchored at UTC noon so the shift never

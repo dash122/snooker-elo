@@ -4,9 +4,9 @@ import { PlayerBadge } from "./UiBits";
 import { Button, ChipRow, IconButton, SegmentedControl, Skeleton } from "./components/ui/Primitives";
 import { BackdropSheet } from "./components/ui/Overlay";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
-import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant } from "../lib/availability";
+import { addDaysHongKong, hkClock, hkDate, hkDateLabel, hkDayLabel, hongKongInstant } from "../lib/availability";
 import { conditionChips, freshnessLabel, handoffMessage, handsLine, shareMessage, slotStatus, slotTakingHands,
-  sortPostedSlots, takeActionLabel, visiblePostedSlots, weekendDates, whatsappShareUrl,
+  sortPostedSlots, takeActionLabel, visiblePostedSlots, whatsappShareUrl,
   type FillRule, type HandsView, type SlotConditions } from "../lib/slots";
 
 /* --- 約戰 · one timeline ----------------------------------------------------
@@ -101,10 +101,65 @@ const overlapMinutes=(slot:AvailabilityWindow,windows:AvailabilityWindow[])=>win
    leftover from a list that was shared with the end-time select, where hours past midnight are
    spelled that way on purpose. A start time cannot be past midnight, so it stops at 23:30. */
 const TIMES=Array.from({length:28},(_,index)=>`${String(10+Math.floor(index/2)).padStart(2,"0")}:${index%2?"30":"00"}`);
-/** The three times this club actually starts at. A preset that lands on the right hour is one tap;
-    a dropdown of 32 half-hours is a scroll, a squint and a mis-tap — for the same answer. */
+/** The three times this club actually starts at — surfaced as a note under their own button in the
+    slide strip, not a separate preset row: one selector, one visual language, for both day and time. */
 const TIME_PRESETS:[string,string][]=[["18:00","放工"],["19:30","最多人"],["21:00","夜場"]];
-const DURATIONS=[1,1.5,2,2.5,3,4];
+/** 30 minutes to 8 hours, in the same 30-minute steps the times themselves use. */
+const DURATIONS=Array.from({length:16},(_,index)=>(index+1)/2);
+/** How many days ahead the composer's own date strip offers — the same horizon as the tab's date
+    rail (`HORIZON` in `DateRail`), so "which day" is answered the same way whether a member is
+    filtering the board or posting to it. */
+const DATE_HORIZON=14;
+
+/** The composer's own slidable day strip — the same visual language as the tab's `DateRail` (a
+    scrollable row of snap-to buttons flanked by prev/next arrows), reused here rather than
+    reinvented as a second date-picking pattern, and without a card wrapper or a running count since
+    neither is meaningful while posting. */
+function ComposerDateStrip({value,onSelect}:{value:string;onSelect:(date:string)=>void}){
+  const scrollRef=useRef<HTMLDivElement>(null);
+  const today=hkDate();
+  const dates=useMemo(()=>Array.from({length:DATE_HORIZON},(_,index)=>addDaysHongKong(today,index)),[today]);
+  const move=(direction:-1|1)=>scrollRef.current?.scrollBy({left:direction*Math.max(200,scrollRef.current.clientWidth*.72),behavior:"smooth"});
+  useEffect(()=>{scrollRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"})},[value]);
+  return <div className="mm-slide-strip-wrap">
+    <IconButton className="availability-date-scroll-button previous" label="向前捲動日期" onClick={()=>move(-1)}>‹</IconButton>
+    <div className="availability-date-strip" role="tablist" aria-label={`選擇日期，左右滑動查看未來 ${DATE_HORIZON} 日`} ref={scrollRef}>
+      {dates.map(date=>{
+        const active=date===value;
+        const weekday=new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",weekday:"short"}).format(new Date(`${date}T00:00:00+08:00`));
+        const label=date===today?"今天":date===addDaysHongKong(today,1)?"明天":weekday;
+        return <button type="button" key={date} role="tab" aria-selected={active}
+          aria-label={`${label}，${Number(date.slice(5,7))}月${Number(date.slice(8,10))}日`}
+          className={active?"active":""} onClick={()=>onSelect(date)}>
+          <small>{label}</small><span>{Number(date.slice(5,7))}/{Number(date.slice(8,10))}</span>
+        </button>;
+      })}
+    </div>
+    <IconButton className="availability-date-scroll-button next" label="向後捲動日期" onClick={()=>move(1)}>›</IconButton>
+  </div>;
+}
+
+/** Same slide-strip language as `ComposerDateStrip`, for the start time — the three times this club
+    actually starts at ride along as a note under their own button instead of a separate preset row. */
+function ComposerTimeStrip({value,onSelect}:{value:string;onSelect:(time:string)=>void}){
+  const scrollRef=useRef<HTMLDivElement>(null);
+  const move=(direction:-1|1)=>scrollRef.current?.scrollBy({left:direction*Math.max(180,scrollRef.current.clientWidth*.72),behavior:"smooth"});
+  useEffect(()=>{scrollRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"})},[value]);
+  return <div className="mm-slide-strip-wrap">
+    <IconButton className="availability-date-scroll-button previous" label="向前捲動時間" onClick={()=>move(-1)}>‹</IconButton>
+    <div className="availability-date-strip mm-time-strip" role="tablist" aria-label="選擇開始時間，左右滑動查看更多" ref={scrollRef}>
+      {TIMES.map(time=>{
+        const active=time===value,preset=TIME_PRESETS.find(([presetTime])=>presetTime===time)?.[1];
+        return <button type="button" key={time} role="tab" aria-selected={active}
+          aria-label={preset?`${time}，${preset}`:time}
+          className={active?"active":""} onClick={()=>onSelect(time)}>
+          <span>{time}</span>{preset&&<small>{preset}</small>}
+        </button>;
+      })}
+    </div>
+    <IconButton className="availability-date-scroll-button next" label="向後捲動時間" onClick={()=>move(1)}>›</IconButton>
+  </div>;
+}
 
 /** Shared by the composer (blank) and the edit sheet (seeded from the slot being changed) — the
     fields are identical, only the starting values and the verb on the primary button differ. */
@@ -115,29 +170,24 @@ function Composer({onCreate,onClose,busy,error,initial,editing}:{
   onClose:()=>void; busy:boolean; error:string; initial?:ComposerInitial; editing?:boolean;
 }){
   const today=hkDate();
-  const saturday=weekendDates(today)[0];
   const [date,setDate]=useState(()=>initial?dateOf(initial.startAt):today);
-  const [customDate,setCustomDate]=useState(()=>Boolean(initial)&&![today,addDaysHongKong(today,1),saturday].includes(dateOf(initial!.startAt)));
   const [start,setStart]=useState(()=>initial?hkClock(initial.startAt):"19:30");
-  const [customTime,setCustomTime]=useState(()=>Boolean(initial)&&!TIME_PRESETS.some(([value])=>value===hkClock(initial!.startAt)));
   const [hours,setHours]=useState(()=>initial?spanHours(initial):2);
   const [venue,setVenue]=useState(()=>initial?.venue??"");
-  const [fillRule,setFillRule]=useState<FillRule>(()=>initial?.fillRule??"first");
+  /* Open to whoever raises a hand, reviewed and accepted at the poster's own pace, is the club's
+     normal night — a poster who wants the old first-come-first-served 1:1 lock still can, from the
+     "要唔要自己揀" control below, but it is no longer the thing every new slot silently opts into. */
+  const [fillRule,setFillRule]=useState<FillRule>(()=>initial?.fillRule??"review");
   const [conditions,setConditions]=useState<SlotConditions>(()=>initial?.conditions??{});
   const [more,setMore]=useState(()=>Boolean(initial?.venue||Object.values(initial?.conditions??{}).some(Boolean)));
   const toggle=(key:keyof SlotConditions)=>setConditions(value=>({...value,[key]:!value[key]}));
 
-  /* Days offered as presets are the days a club is actually asked about. 週六 drops off the row when
-     it is already today or tomorrow — it would be a second button for a day the row already has. */
-  const dayPresets:[string,string][]=[[today,"今晚"],[addDaysHongKong(today,1),"聽日"],
-    ...(saturday>addDaysHongKong(today,1)?[[saturday,"週六"] as [string,string]]:[])];
-  const pickDay=(value:string)=>{setDate(value);setCustomDate(false)};
   const endTime=(()=>{
     const [h,m]=start.split(":").map(Number);
     const total=h*60+m+hours*60;
     return `${String(Math.floor(total/60)%24).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;
   })();
-  const dayLabel=dayPresets.find(([value])=>value===date)?.[1]??hkDayLabel(date);
+  const dayLabel=date===today?"今晚":date===addDaysHongKong(today,1)?"聽日":hkDayLabel(date);
 
   return <BackdropSheet onClose={onClose} labelledBy="new-slot" className="sl-composer" shellClassName="match-entry-sheet">
       <p className="kicker">{editing?"編輯呢場":"開一場"}</p>
@@ -145,28 +195,13 @@ function Composer({onCreate,onClose,busy,error,initial,editing}:{
       <p className="sub">{editing?"未收人之前，隨時可以改。":"揀個時間就得，其他嘢我哋幫你搞掂。"}</p>
 
       <div className="mm-field">
-        <span className="mm-field-label">邊日</span>
-        <div className="mm-choice-row">
-          {dayPresets.map(([value,label])=><button type="button" key={value} aria-pressed={!customDate&&date===value}
-            className={!customDate&&date===value?"mm-choice is-on":"mm-choice"} onClick={()=>pickDay(value)}>{label}</button>)}
-          <button type="button" aria-pressed={customDate} className={customDate?"mm-choice is-on":"mm-choice"}
-            onClick={()=>setCustomDate(true)}>其他</button>
-        </div>
-        {customDate&&<label className="mm-inline-field"><span>揀日期</span>
-          <input type="date" min={today} value={date} onChange={event=>setDate(event.target.value)}/></label>}
+        <span className="mm-field-label">日期</span>
+        <ComposerDateStrip value={date} onSelect={setDate}/>
       </div>
 
       <div className="mm-field">
-        <span className="mm-field-label">幾點</span>
-        <div className="mm-choice-row">
-          {TIME_PRESETS.map(([value,note])=><button type="button" key={value} aria-pressed={!customTime&&start===value}
-            className={!customTime&&start===value?"mm-choice is-time is-on":"mm-choice is-time"}
-            onClick={()=>{setStart(value);setCustomTime(false)}}><b>{value}</b><small>{note}</small></button>)}
-          <button type="button" aria-pressed={customTime} className={customTime?"mm-choice is-on":"mm-choice"}
-            onClick={()=>setCustomTime(true)}>其他</button>
-        </div>
-        {customTime&&<label className="mm-inline-field"><span>開始時間</span>
-          <select value={start} onChange={event=>setStart(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>}
+        <span className="mm-field-label">開始時間</span>
+        <ComposerTimeStrip value={start} onSelect={setStart}/>
         <div className="mm-stepper">
           <span>打幾耐</span>
           <span className="mm-stepper-controls">
@@ -183,7 +218,7 @@ function Composer({onCreate,onClose,busy,error,initial,editing}:{
           it is not the same as hiding it. Note what is still not asked anywhere: how many people. */}
       <button type="button" className="mm-disclosure" aria-expanded={more} onClick={()=>setMore(value=>!value)}>
         <span className="mm-disclosure-copy"><b>枱位、讓分、想自己揀人</b>
-          <small>唔揀都得 · 預設第一個舉手就成事</small></span>
+          <small>唔揀都得 · 預設開畀大家舉手，你話事收邊個</small></span>
         <span className="mm-disclosure-mark" aria-hidden="true">{more?"−":"＋"}</span>
       </button>
       {more&&<div className="mm-more">
@@ -332,10 +367,14 @@ function TimelineRow({entry,canAct,busy,showDay,onRaise,onRetract,onOpenMine}:{
   const meta=entry.mine
     ? entry.waiting>0?`${entry.waiting} 人舉手 · 等你回覆`:`${entry.hands.total} 人已報名 · ${freshnessLabel(entry.createdAt)}`
     : [entry.venue||"SCAA 會所",`${entry.hands.total} 人已報名`].filter(Boolean).join(" · ");
+  /* "全部日子" already reads as a mixed, cross-day list -- the weekday `dayWord` carries elsewhere
+     is one more word to scan past here, where the date alone is enough to place a row. */
+  const day=dateOf(entry.startAt);
+  const dayDate=day===hkDate()?"今晚":day===addDaysHongKong(hkDate(),1)?"聽日":hkDateLabel(day);
   return <article className={`mm-slot${entry.mine?" is-mine":""}${entry.iAccepted?" is-confirmed":""}${closed&&!entry.mine?" is-closed":""}`}>
     <span className="mm-slot-when">
       {showDay
-        ? <><b>{dayWord(entry)}</b><small>{hkClock(entry.startAt)} · {spanHours(entry)} 個鐘</small></>
+        ? <><b>{dayDate}</b><small>{hkClock(entry.startAt)} · {spanHours(entry)} 個鐘</small></>
         : <><b>{hkClock(entry.startAt)}</b><small>{spanHours(entry)} 個鐘</small></>}
     </span>
     <span className="mm-slot-rule" aria-hidden="true"/>
@@ -478,7 +517,7 @@ function DateRail({dates,selected,counts,total,onSelect}:{dates:string[];selecte
   const move=(direction:-1|1)=>scrollRef.current?.scrollBy({left:direction*Math.max(220,scrollRef.current.clientWidth*.72),behavior:"smooth"});
   useEffect(()=>{scrollRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"})},[selected]);
   const today=hkDate();
-  return <section className="availability-date-selector" aria-label={`未來 ${HORIZON} 日`}>
+  return <section className="availability-date-selector mm-date-rail" aria-label={`未來 ${HORIZON} 日`}>
     <div className="availability-date-selector-head"><b>選擇日期</b><span aria-hidden="true">左右滑動查看未來 {HORIZON} 日 <i>↔</i></span></div>
     <div className="availability-date-strip-wrap">
       <IconButton className="availability-date-scroll-button previous" label="向前捲動日期" onClick={()=>move(-1)}>‹</IconButton>

@@ -141,19 +141,15 @@
      hiding it. */
   .mm-field{display:grid;gap:var(--sp-2-5);margin-top:var(--sp-4)}
   .mm-field-label{font-size:var(--fs-label);font-weight:700;letter-spacing:.08em;color:var(--ds-text-tertiary)}
-  .mm-choice-row{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
-  .mm-choice{display:grid;place-items:center;gap:2px;flex:1 1 4.5rem;min-height:3rem;padding:var(--sp-2) var(--sp-3);
-    border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);
-    background:var(--ds-surface-secondary);color:var(--ds-text-primary);font-size:var(--fs-sm);font-weight:700}
-  .mm-choice.is-time{min-height:3.75rem}
-  .mm-choice.is-time b{font-family:var(--font-display);font-size:var(--fs-lead);line-height:1;font-variant-numeric:tabular-nums}
-  .mm-choice.is-time small{color:var(--ds-text-tertiary);font-size:var(--fs-label)}
-  .mm-choice.is-on{background:var(--ds-canvas-brand);border-color:var(--ds-canvas-brand);color:var(--ds-text-on-brand)}
-  .mm-choice.is-on small{color:var(--ds-text-on-brand-secondary)}
-  .mm-inline-field{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
-    padding:var(--sp-2-5) var(--sp-3-5);border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary)}
-  .mm-inline-field span{font-size:var(--fs-caption);color:var(--ds-text-secondary)}
-  .mm-inline-field input,.mm-inline-field select{min-height:2.75rem;font-size:var(--fs-input)}
+  /* The composer's own day and time pickers reuse the tab's slidable date-rail language
+     (`.availability-date-strip`, flanked by `.availability-date-scroll-button`s) instead of the
+     old preset-chip row -- see `ComposerDateStrip`/`ComposerTimeStrip` in Slots.tsx. */
+  .mm-slide-strip-wrap{display:flex;align-items:center;gap:var(--sp-1)}
+  .mm-slide-strip-wrap .availability-date-strip{flex:1 1 auto;padding-block:2px}
+  .mm-time-strip button{flex-basis:4.5rem}
+  .mm-time-strip button span{font-family:var(--font-display);font-size:var(--fs-lead);line-height:1;font-variant-numeric:tabular-nums}
+  .mm-time-strip button small{color:var(--ds-text-tertiary);font-size:var(--fs-label)}
+  .mm-time-strip button.active small{color:var(--ds-text-on-brand-secondary)}
   .mm-stepper{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
     padding:var(--sp-2-5) var(--sp-3-5);border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary);
     color:var(--ds-text-secondary);font-size:var(--fs-caption)}
