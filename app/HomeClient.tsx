@@ -5,7 +5,6 @@ import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBad
 import Availability from "./Availability";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
-import { registerServiceWorker } from "./push-client";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
@@ -520,9 +519,6 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
      signed-out visitor sees too, since `tonight.openSlots` is public. */
   const {summary:matchmakingSummary,refresh:refreshMatchmaking}=useMatchmakingSummary(Boolean(ownPlayerId));
   const matchmakingBadge=actionableCount(matchmakingSummary?.counts)||matchmakingSummary?.tonight.openSlots||0;
-  /* Registered from the shell rather than the matchmaking tab so a notification can be delivered to
-     a member who has never opened that tab — which is exactly the member worth reaching. */
-  useEffect(()=>{void registerServiceWorker()},[]);
   /* Notifications deep-link to /?tab=availability, and the click handler navigates an already-open
      tab there, so the parameter has to be honoured on mount and on subsequent navigations alike. */
   useEffect(()=>{

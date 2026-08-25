@@ -5,7 +5,7 @@ import { sortBoard } from "../../../lib/slots";
 import { announceSlotPosted } from "../../../db/slot-actions";
 import { liveIntentsByPlayer } from "../../../db/intents";
 import { validateAvailabilityInterval } from "../../../lib/availability";
-import { getState } from "../../../db/state";
+import { getSettings } from "../../../db/state";
 import { proposeHandicap, type HandicapSettings } from "../../../lib/handicap";
 
 /* --- 讓分, said next to every name -------------------------------------------
@@ -15,13 +15,9 @@ import { proposeHandicap, type HandicapSettings } from "../../../lib/handicap";
  * in a slot, a name on a waiting list. `withHandicap` is the one seam every one of those player
  * objects passes through, so the number is never computed twice with two different settings. */
 
-type HandicapState = {settings?:Partial<HandicapSettings>};
-
 async function handicapSettings():Promise<HandicapSettings|null>{
-  const raw=await getState().catch(()=>null);
-  if(!raw)return null;
-  const state=JSON.parse(raw) as HandicapState;
-  const s=state.settings??{};
+  const raw=await getSettings().catch(()=>null) as Partial<HandicapSettings>|null;
+  const s=raw??{};
   return {handicapPointsToElo:s.handicapPointsToElo??25,handicapMinimumElo:s.handicapMinimumElo??7,
     handicapSensitivityRange:s.handicapSensitivityRange??16,handicapSensitivityWidth:s.handicapSensitivityWidth??250,
     start:s.start};
@@ -101,23 +97,31 @@ export async function GET(){
     ]);
     /* The waiting list with names on it is owner-only, so it is fetched one card at a time rather
        than joined into the board query above — the board query must never be capable of returning
-       it. The counts are a different matter and travel with everything. None of these depend on
+       it. The counts are a different matter and travel with everything. `board` and `mine` never
+       share an id (the board query excludes this member's own posts), so one `handSummaries` call
+       covers both rather than one per list, and the filler profiles and this member's own profile
+       come from the same `playerProfiles` call for the same reason. None of these three depend on
        each other's results, so they run together rather than as separate round trips. */
-    const [boardWithHands,fillers,mineSummaries,mineHands,myProfile]=await Promise.all([
-      withHands(board,me),
-      playerProfiles(mine.flatMap(item=>item.filledBy?[item.filledBy]:[])),
-      handSummaries(mine.map(item=>item.id)).catch(()=>new Map<string,SlotHandSummary>()),
+    const [summaries,profiles,mineHands]=await Promise.all([
+      handSummaries([...board.map(slot=>slot.id),...mine.map(slot=>slot.id)]).catch(()=>new Map<string,SlotHandSummary>()),
+      playerProfiles([...new Set([...mine.flatMap(item=>item.filledBy?[item.filledBy]:[]),me])]),
       handsForSlots(me,mine.map(item=>item.id)),
-      playerProfiles([me]).then(map=>map.get(me)??null),
     ]);
+    const myProfile=profiles.get(me)??null;
     const myRating=myProfile?.rating??null;
     const rated=<T extends {rating:number}>(player:T)=>withHandicap(player,myRating,settings);
-    const boardWithHandicap=boardWithHands.map(slot=>({...slot,
-      player:rated(slot.player),
-      acceptedPlayers:slot.acceptedPlayers.map(rated),
-    }));
+    const boardWithHandicap=board.map(slot=>{
+      const summary=summaries.get(slot.id);
+      return {...slot,
+        hands:{total:summary?.total??0,accepted:summary?.accepted??0,waiting:summary?.waiting??0},
+        acceptedPlayers:(summary?.acceptedPlayers??[]).map(rated),
+        iRaised:Boolean(summary?.raisers.includes(me)&&!summary.acceptedPlayers.some(p=>p.id===me)),
+        iAccepted:Boolean(summary?.acceptedPlayers.some(p=>p.id===me)),
+        player:rated(slot.player),
+      };
+    });
     const mineWithHands=mine.map(item=>{
-      const summary=mineSummaries.get(item.id);
+      const summary=summaries.get(item.id);
       return {...item,
         mine:true,
         /* The poster's own profile, so a member's own row can name and picture them the same as
@@ -125,7 +129,7 @@ export async function GET(){
            colour, not the absence of a face. Never run through `rated`: a proposal for a game
            against yourself is not a thing. */
         player:myProfile,
-        filler:item.filledBy?(f=>f?rated(f):null)(fillers.get(item.filledBy)??null):null,
+        filler:item.filledBy?(f=>f?rated(f):null)(profiles.get(item.filledBy)??null):null,
         counts:{total:summary?.total??0,accepted:summary?.accepted??0,waiting:summary?.waiting??0},
         acceptedPlayers:(summary?.acceptedPlayers??[]).map(rated),
         hands:(mineHands.get(item.id)??[]).map(hand=>({...hand,player:rated(hand.player)})),

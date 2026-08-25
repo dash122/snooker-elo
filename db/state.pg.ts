@@ -169,6 +169,17 @@ export function ensureStateSchema() {
   return schemaReady;
 }
 
+/** The settings blob alone, for callers that need a handful of numbers (handicap tuning, mostly)
+    and nothing else `getState()` carries. `getState()` pulls every player, every match ever played
+    and the entire audit log just to reach this same row — fine for the settings page, ruinous for
+    an endpoint like `/api/slots` that a client polls every 45 seconds. */
+export async function getSettings(): Promise<Record<string, unknown> | null> {
+  await ensureStateSchema();
+  const sql = getSql();
+  const [row] = await sql<{data:Record<string, unknown>}[]>`SELECT data FROM state_settings WHERE id = true`;
+  return row?.data ?? null;
+}
+
 export async function getState(): Promise<string | null> {
   await Promise.all([ensureStateSchema(), ensureProvisionalDeltaSchema()]);
   const sql = getSql();
