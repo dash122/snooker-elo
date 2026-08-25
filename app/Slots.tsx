@@ -8,6 +8,7 @@ import { addDaysHongKong, hkClock, hkDate, hkDateLabel, hkDayLabel, hongKongInst
 import { conditionChips, freshnessLabel, handoffMessage, handsLine, shareMessage, slotStatus, slotTakingHands,
   sortPostedSlots, takeActionLabel, visiblePostedSlots, whatsappShareUrl,
   type FillRule, type HandsView, type SlotConditions } from "../lib/slots";
+import type { HandicapProposal } from "../lib/handicap";
 
 /* --- 約戰 · one timeline ----------------------------------------------------
  *
@@ -31,7 +32,17 @@ import { conditionChips, freshnessLabel, handoffMessage, handsLine, shareMessage
  * What is deliberately NOT here: a mode switch (my own slots are cards in the same list, not a
  * second tab), a filter panel, and a capacity field. */
 
-type Player={id:string;name:string;short?:string|null;rating:number;colour?:string|null;avatar?:string|null};
+/** `handicap` is this viewer's own proposal against that player -- computed server-side, since it
+    takes the viewer's own rating and the club's settings to work out, and absent for a viewer
+    looking at their own name (a proposal against yourself is not a thing). */
+type Player={id:string;name:string;short?:string|null;rating:number;colour?:string|null;avatar?:string|null;handicap?:HandicapProposal|null};
+
+/** The short form for a name line: a level game says nothing (levelling is the default, not news),
+    an uneven one says who gives and how much -- "你讓" from the viewer's own side, in the same
+    arithmetic the leaderboard's 建議讓分 column already uses. */
+const handicapNote=(handicap:HandicapProposal|null|undefined):string|null=>
+  !handicap||handicap.direction==="level"?null
+    :handicap.direction==="give"?`你讓 ${handicap.points} 分`:`佢讓 ${Math.abs(handicap.points)} 分`;
 type PostedSlot={
   id:string;playerId:string;startAt:string;endAt:string;venue:string;note:string;createdAt:string;
   fillRule:FillRule;conditions:SlotConditions;filledBy:string|null;filledAt:string|null;result:"pending"|"played"|"missed";
@@ -268,7 +279,7 @@ function HandoffCard({slot,opponent,onResult,busy,showWho=true}:{
     {showWho&&opponent&&<div className="next-up">
       <PlayerBadge player={opponent}/>
       <span className="next-up-copy"><b>{opponent.name}</b>
-        <small>ELO {Math.round(opponent.rating)} · {when(slot)}{slot.venue?` · ${slot.venue}`:""}</small></span>
+        <small>ELO {Math.round(opponent.rating)}{handicapNote(opponent.handicap)?` · ${handicapNote(opponent.handicap)}`:""} · {when(slot)}{slot.venue?` · ${slot.venue}`:""}</small></span>
     </div>}
     <ChipRow items={conditionChips(slot.conditions)}/>
     {(status==="filled")&&<>
@@ -342,7 +353,7 @@ function FeaturedCard({entry,overlap,canAct,busy,onRaise,onRetract}:{
     <div className="mm-featured-who">
       {entry.player&&<PlayerBadge player={entry.player}/>}
       <span><b>{entry.player?.name??"球友"} 開嘅局</b>
-        <small>{Math.round(entry.player?.rating??0)} ELO{overlap>0?` · 同你重疊 ${durationLabel(overlap)}`:""}</small></span>
+        <small>{Math.round(entry.player?.rating??0)} ELO{handicapNote(entry.player?.handicap)?` · ${handicapNote(entry.player?.handicap)}`:""}{overlap>0?` · 同你重疊 ${durationLabel(overlap)}`:""}</small></span>
     </div>
     <div className="mm-featured-chips">{chips.map(chip=><span key={chip}>{chip}</span>)}</div>
     {entry.iAccepted
@@ -380,7 +391,9 @@ function TimelineRow({entry,canAct,busy,showDay,onRaise,onRetract,onOpenMine}:{
     <span className="mm-slot-rule" aria-hidden="true"/>
     {entry.player&&<PlayerBadge player={entry.player}/>}
     <span className="mm-row-copy">
-      <b>{entry.mine?entry.player?.name??"你":entry.player?.name??"球友"}</b>
+      <b>{entry.mine?entry.player?.name??"你":entry.player?.name??"球友"}
+        {!entry.mine&&entry.player&&<span className="mm-row-elo">{Math.round(entry.player.rating)}</span>}
+        {!entry.mine&&handicapNote(entry.player?.handicap)&&<span className="mm-row-handicap">{handicapNote(entry.player?.handicap)}</span>}</b>
       <small className={entry.mine&&entry.waiting>0?"is-attention":undefined}>{meta}</small>
     </span>
     <span className="mm-slot-action">
@@ -437,7 +450,8 @@ function MineSheet({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onRes
       <ul className="mm-rows">
         {accepted.map(hand=><li className="mm-row is-offer" key={hand.playerId}>
           <PlayerBadge player={hand.player}/>
-          <span className="mm-row-copy"><b>{hand.player.name}</b><small>ELO {Math.round(hand.player.rating)}</small></span>
+          <span className="mm-row-copy"><b>{hand.player.name}</b>
+            <small>ELO {Math.round(hand.player.rating)}{handicapNote(hand.player.handicap)?` · ${handicapNote(hand.player.handicap)}`:""}</small></span>
         </li>)}
       </ul>
     </>}
@@ -447,7 +461,8 @@ function MineSheet({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onRes
       <ul className="mm-rows">
         {waiting.map(hand=><li className="mm-row" key={hand.playerId}>
           <PlayerBadge player={hand.player}/>
-          <span className="mm-row-copy"><b>{hand.player.name}</b><small>ELO {Math.round(hand.player.rating)}</small></span>
+          <span className="mm-row-copy"><b>{hand.player.name}</b>
+            <small>ELO {Math.round(hand.player.rating)}{handicapNote(hand.player.handicap)?` · ${handicapNote(hand.player.handicap)}`:""}</small></span>
           <span className="mm-row-actions">
             <Button variant="secondary" disabled={busyId===hand.playerId} onClick={()=>onAccept(hand.playerId)}>收</Button>
           </span>
