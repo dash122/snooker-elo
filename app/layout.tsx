@@ -4,6 +4,7 @@ import "./styles/foundation.css";
 import "./styles/components.css";
 import "./styles/core-ranking.css";
 import "./styles/matchmaking.css";
+import "./styles/matchmaking-timeline.css";
 import "./styles/cup.css";
 import "./styles/calibration.css";
 import "./styles/home.css";

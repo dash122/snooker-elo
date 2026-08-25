@@ -214,3 +214,56 @@ export function shareMessage(input:{whenLabel:string;venue:string;url:string}):s
   const venue=input.venue?` · ${input.venue}`:"";
   return `${input.whenLabel}${venue} 開咗局，有冇人？\n${input.url}`;
 }
+
+/* --- The timeline ------------------------------------------------------------
+ *
+ * The board used to be filtered by three overlapping chips (今晚／明天／週末) that between them could
+ * not reach a slot posted for next Tuesday, and double-counted a Saturday that happened to be
+ * tomorrow. Buckets are now **disjoint and exhaustive** over the horizon: every open slot sits under
+ * exactly one tab, the counts sum to the board, and nothing is unreachable — which is what lets the
+ * rail replace the filter panel rather than sit beside it. */
+
+export type DayBucket="tonight"|"tomorrow"|"weekend"|"later";
+
+export const DAY_BUCKETS:readonly DayBucket[]=["tonight","tomorrow","weekend","later"];
+
+export const dayBucketLabel=(bucket:DayBucket)=>
+  bucket==="tonight"?"今晚":bucket==="tomorrow"?"聽日":bucket==="weekend"?"週末":"之後";
+
+/** The Saturday and Sunday of the coming weekend, as Hong Kong dates. A Saturday counts as its own
+    weekend; a Sunday's weekend is the day itself, not the one six days out. */
+export function weekendDates(today:string):string[]{
+  const weekday=new Date(`${today}T12:00:00+08:00`).getUTCDay();          // 0 = Sunday
+  if(weekday===0)return [today];
+  const saturday=addDays(today,6-weekday);
+  return [saturday,addDays(saturday,1)];
+}
+
+const addDays=(date:string,days:number)=>{
+  const at=new Date(`${date}T12:00:00+08:00`);
+  at.setUTCDate(at.getUTCDate()+days);
+  return at.toISOString().slice(0,10);
+};
+
+/** Which tab a slot belongs under. Order matters and is the whole point: today wins over "it is also
+    a Saturday", tomorrow wins over the weekend, and anything left lands in 之後 rather than nowhere. */
+export function dayBucketOf(date:string,today:string):DayBucket{
+  if(date<=today)return "tonight";
+  if(date===addDays(today,1))return "tomorrow";
+  if(weekendDates(today).includes(date))return "weekend";
+  return "later";
+}
+
+/** How many open slots sit under each tab — every bucket keyed, including the empty ones, so the rail
+    can render a `0 場` tab rather than silently dropping a day out of the row. */
+export function bucketCounts(dates:string[],today:string):Record<DayBucket,number>{
+  const counts:Record<DayBucket,number>={tonight:0,tomorrow:0,weekend:0,later:0};
+  for(const date of dates)counts[dayBucketOf(date,today)]+=1;
+  return counts;
+}
+
+/** The first bucket worth opening on. A member who opens the tab at 23:30, with nothing left tonight,
+    should land on tomorrow rather than on an empty screen that says the club is dead. */
+export function openingBucket(counts:Record<DayBucket,number>):DayBucket{
+  return DAY_BUCKETS.find(bucket=>counts[bucket]>0)??"tonight";
+}

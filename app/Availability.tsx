@@ -6,7 +6,7 @@ import {Button,IconButton,SegmentedControl} from "./components/ui/Primitives";
 import {Slots} from "./Slots";
 import {CounterSheet,NotificationPrefsPanel,PushOptIn,RecurrenceEditor,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type QueueItem,type RecurrenceRule,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
-import {addDaysHongKong,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOffers,rankOpponents,screenState,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type IntentSignal,type RankedOpponent,type MutualOffer,type ReliabilitySignals} from "../lib/availability";
+import {addDaysHongKong,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOffers,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type IntentSignal,type RankedOpponent,type MutualOffer,type ReliabilitySignals} from "../lib/availability";
 type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type View="screen"|"manage"|"create";
 type InviteStatus="pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";type InvitePlayer={id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null};
 type MatchInvite={id:string;startAt:string;endAt:string;message:string;status:InviteStatus;venue:string;createdAt:string;respondedAt:string|null;counter:{startAt:string;endAt:string;byPlayerId:string}|null;fromPlayer:InvitePlayer;toPlayer:InvitePlayer};
@@ -347,7 +347,6 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     is deliberately not used here — that is pinned at mount to keep the shortlist stable, whereas
     these buckets are about the clock actually moving. */
  const buckets=useMemo(()=>partitionInvites({sent:invites.sent,received:invites.received,playerId:userPlayerId??"",matches,now:tick}),[invites,userPlayerId,matches,tick]);
- const confirmedMatches=buckets.upcoming;
  /* Same one-minute tick as the invite buckets: an offer for 20:00 stops being answerable at 20:30,
     and it should take itself off the screen rather than wait for a reload. */
  const liveOffers=useMemo(()=>partitionOffers(offers,tick),[offers,tick]);
@@ -767,58 +766,33 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   finally{clearingRef.current=false;setClearing(false)}
  };
  /* --- What is this screen about right now? ---------------------------------
-    Four situations, one of which is always true, and each fully determines what belongs on screen.
-    This replaces the old two-level navigation (搵對手／我的時段／報名盃賽, plus a three-way segmented
-    control inside the first): a member made four choices before seeing one name, when the answer was
-    never theirs to choose — it follows from what they already owe, hold, or asked for. */
- const pendingAsks=buckets.awaitingReply.length+liveOffers.answered.length;
- const state=useMemo(()=>screenState({
-  owed:queueItems.length,upcoming:confirmedMatches.length,intent:myIntent,pendingAsks,
- }),[queueItems.length,confirmedMatches.length,myIntent,pendingAsks]);
+    Nothing, any more — and that is the change. The screen used to switch wholesale between four
+    states, and one of them (`owed`) replaced the entire tab with the response queue: a member who
+    owed somebody a score could not look at tonight's games until they had settled it. Ranking the
+    queue above the timeline says "this first" without taking the club away while it is unresolved,
+    so there is one composition and the queue is simply the top of it. */
  return <section className="availability-page">
 <section className="hero small availability-hero"><div><p className="kicker">SCAA MATCHMAKING</p><h1>約戰</h1><p>搵一場啱你嘅球局，或者開一場等人加入。</p></div></section>
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
 {!editor&&<>
-{/* STATE · OWED — somebody is waiting on this member. Nothing else belongs on screen: everything
-    else here would invite them to start something new while owing somebody an answer. */}
-{state==="owed"&&userPlayerId&&<ResponseQueue items={queueItems}/>}
+{/* Whatever is waiting on this member, above everything else — an invite to answer, an offer to
+    accept, a score to record. One band, never the whole screen. */}
+{queueItems.length>0&&userPlayerId&&<ResponseQueue items={queueItems}/>}
 
-{/* EVERY OTHER STATE — 我嘅場次.
-    One slot is one session, and each session's card carries its own answer: the best opponent for
-    that evening, or the fixture once somebody said yes, or the score once it has been played. This
-    replaced four separate controls that all declared the same intent and three cards that all said
-    nobody was free — the union of two designs, which is always worse than either.
+{/* The tab itself: one timeline of 開局卡, mine inline among everyone else's, in clock order.
+    A member posts a slot — a block of time they are free — and the club raises hands on it. No name
+    is ever read off a public list before a slot is filled, which is the whole point: raising a hand
+    costs nothing, and confirming one does not mean reading past the others.
 
-    `Slots` replaces `Sessions` as of the 開局卡 redesign: instead of the system proposing a best
-    opponent to invite, a member posts a slot — with a fill rule and conditions decided up front —
-    and the club raises hands on it. No name is ever read off a public list before a slot is filled,
-    which is the whole point: raising a hand costs nothing, and confirming one does not mean reading
-    past the others. The board inside `Slots` (「大家開緊嘅局」) plays the same role the old market
-    strip did for a club this size: always visible, unranked, proof the club is alive, including on
-    the cold open. The Room's own board (ranked, grouped, built on `match_intents`) stays retired for
-    the same reason it always was. The raw per-day grid stays reachable as the last-resort,
-    fully-manual view underneath. */}
-{state!=="owed"&&<Slots signedIn={Boolean(userPlayerId)} availabilityCount={own.length} availability={own}
+    Everything that is not that — the whole-club availability grid, the weekly rules, notification
+    prefs, invites already waiting on somebody else — now lives one level down, in the editor below.
+    They were four surfaces competing with the board for the same screen while answering questions
+    nobody had asked yet. */}
+<Slots signedIn={Boolean(userPlayerId)} availabilityCount={own.length} availability={own}
   onManageAvailability={()=>nav(own.length?"manage":"create")}
   onRecord={(opponentId,playedOn)=>onRecordMatch?.(opponentId,playedOn)}
-  onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>}
+  onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>
 
-{/* A disclosure, not a card. Wrapping one link in a full surface produced an empty rounded box on
-    an otherwise clean screen — and, being the first `.mm-card`, it also picked up the dark
-    "featured" treatment meant for something that actually matters. */}
-{userPlayerId&&<section className="availability-roster">
-  <Button variant="quiet" className="mm-see-all availability-roster-toggle" onClick={()=>setShowBoard(v=>!v)} aria-expanded={showBoard}>
-    {showBoard?"收起全部空檔":`睇全部 ${members.length} 位球員空檔`}</Button>
-  {showBoard&&<>
-   <DateScroller dates={week} selected={date} counts={counts} onSelect={changeDate}/>
-   {members.length
-    ?<AvailabilityGrid members={members} mine={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi} userPlayerId={userPlayerId} focus={focus} onFocus={setFocus} highlightId={jumpTo?.playerId} onPlayer={onPlayer}/>
-    :<p className="mm-note">呢日暫時未有人公開時段。</p>}
-  </>}
- </section>}
-
-{userPlayerId&&<WaitingStrip items={waitingItems} cancellingId={cancellingInviteId} onCancel={id=>void cancelInviteAction(id)}/>}
-{userPlayerId&&<PushOptIn/>}
 </>}
 {/* One screen, one gesture: the board is the list, the editor and the composer at once. Nothing here
     navigates away, so a member can paint three evenings and publish them in a single pass. */}
@@ -848,6 +822,20 @@ export default function Availability({userPlayerId,matches,tournaments,provision
    <span>{uncommitted.map(x=>`${dayLabel(hkDate(new Date(x.startAt)))} ${range(x)}`).join("、")}</span></div>
   <div><Button variant="secondary" disabled={saving} onClick={()=>{setAdjustments({});setDraft([]);setSelected(null)}}>{pendingKeys.length?"全部還原":"清除"}</Button>
    <Button className="publish-button" disabled={saving} aria-busy={saving} onClick={()=>void commitAll()}>{saving&&<i className="button-spinner" aria-hidden="true"/>}<span>{saving?"儲存中…":pendingKeys.length&&draft.length?"儲存並發佈":draft.length?"發佈":"儲存變更"}</span></Button></div></div>}
+ {/* Everything a member manages about their own availability, in the one place they came to manage
+     it. The roster grid in particular is a last-resort, fully-manual view — useful when you want to
+     find one specific person's evening, useless as the first thing on a matchmaking screen. */}
+ {userPlayerId&&<section className="availability-roster">
+  <Button variant="quiet" className="mm-see-all availability-roster-toggle" onClick={()=>setShowBoard(v=>!v)} aria-expanded={showBoard}>
+    {showBoard?"收起全部空檔":`睇全部 ${members.length} 位球員空檔`}</Button>
+  {showBoard&&<>
+   <DateScroller dates={week} selected={date} counts={counts} onSelect={changeDate}/>
+   {members.length
+    ?<AvailabilityGrid members={members} mine={mine} date={date} lo={rosterRange.lo} hi={rosterRange.hi} userPlayerId={userPlayerId} focus={focus} onFocus={setFocus} highlightId={jumpTo?.playerId} onPlayer={onPlayer}/>
+    :<p className="mm-note">呢日暫時未有人公開時段。</p>}
+  </>}
+ </section>}
+ <WaitingStrip items={waitingItems} cancellingId={cancellingInviteId} onCancel={id=>void cancelInviteAction(id)}/>
  {/* Sits under the board rather than beside it: painting is how a member starts, and a rule is what
      they reach for once they notice they are painting the same evening every week. */}
  <RecurrenceEditor rules={rules} busy={rulesBusy} onAdd={input=>void addRule(input)} onRemove={id=>void removeRule(id)} onCopyLastWeek={()=>void copyLastWeek()}/>
