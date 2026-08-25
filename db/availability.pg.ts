@@ -244,6 +244,29 @@ export async function createPostedSlot(playerId:string,input:{startAt:string;end
   });
 }
 
+/** Edit one — only while it is still open and nobody has been accepted yet. Once somebody is
+    accepted the time and place are a promise made to them, not a draft; the poster's only lever
+    from that point on is 取消 (cancel), same as before this existed. Overlap is refused the same
+    way `createPostedSlot` refuses it, checked against the poster's other active windows excluding
+    this one. */
+export async function editPostedSlot(playerId:string,id:string,input:{startAt:string;endAt:string;venue?:string;note?:string;fillRule:FillRule;conditions:SlotConditions}):Promise<PostedSlot|null>{
+  await ensureSchema(); const sql=getSql();
+  return sql.begin(async tx=>{
+    const [current]=await tx<any[]>`SELECT id FROM availability_slots
+      WHERE id=${id} AND player_id=${playerId} AND posted=true AND cancelled_at IS NULL AND filled_by IS NULL AND end_at > now()`;
+    if(!current)return null;
+    const clash=await tx<any[]>`SELECT id FROM availability_slots
+      WHERE player_id=${playerId} AND cancelled_at IS NULL AND id != ${id}
+        AND start_at < ${input.endAt} AND end_at > ${input.startAt} LIMIT 1`;
+    if(clash.length)return null;
+    const [row]=await tx<any[]>`UPDATE availability_slots SET
+        start_at=${input.startAt},end_at=${input.endAt},venue=${input.venue??""},note=${input.note??""},
+        fill_rule=${input.fillRule},conditions=${JSON.stringify(input.conditions)},updated_at=now()
+      WHERE id=${id} RETURNING ${tx.unsafe(POSTED_COLUMNS)}`;
+    return row?postedSlot(row):null;
+  });
+}
+
 /** This member's own posted slots — open, filled, or finished — newest window last. Includes hand
     counts privately: nobody but the poster ever learns how many raised, or who, per `handsForSlot`
     in `db/slot-hands.pg.ts`; this function only returns the slot itself. */

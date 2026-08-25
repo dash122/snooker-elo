@@ -105,21 +105,25 @@ const TIMES=Array.from({length:28},(_,index)=>`${String(10+Math.floor(index/2)).
 const TIME_PRESETS:[string,string][]=[["18:00","放工"],["19:30","最多人"],["21:00","夜場"]];
 const DURATIONS=[1,1.5,2,2.5,3,4];
 
-function Composer({onCreate,onClose,busy,error}:{
+/** Shared by the composer (blank) and the edit sheet (seeded from the slot being changed) — the
+    fields are identical, only the starting values and the verb on the primary button differ. */
+type ComposerInitial={startAt:string;endAt:string;venue:string;fillRule:FillRule;conditions:SlotConditions};
+
+function Composer({onCreate,onClose,busy,error,initial,editing}:{
   onCreate:(input:{startAt:string;endAt:string;venue:string;fillRule:FillRule;conditions:SlotConditions})=>void;
-  onClose:()=>void; busy:boolean; error:string;
+  onClose:()=>void; busy:boolean; error:string; initial?:ComposerInitial; editing?:boolean;
 }){
   const today=hkDate();
   const saturday=weekendDates(today)[0];
-  const [date,setDate]=useState(today);
-  const [customDate,setCustomDate]=useState(false);
-  const [start,setStart]=useState("19:30");
-  const [customTime,setCustomTime]=useState(false);
-  const [hours,setHours]=useState(2);
-  const [venue,setVenue]=useState("");
-  const [fillRule,setFillRule]=useState<FillRule>("first");
-  const [conditions,setConditions]=useState<SlotConditions>({});
-  const [more,setMore]=useState(false);
+  const [date,setDate]=useState(()=>initial?dateOf(initial.startAt):today);
+  const [customDate,setCustomDate]=useState(()=>Boolean(initial)&&![today,addDaysHongKong(today,1),saturday].includes(dateOf(initial!.startAt)));
+  const [start,setStart]=useState(()=>initial?hkClock(initial.startAt):"19:30");
+  const [customTime,setCustomTime]=useState(()=>Boolean(initial)&&!TIME_PRESETS.some(([value])=>value===hkClock(initial!.startAt)));
+  const [hours,setHours]=useState(()=>initial?spanHours(initial):2);
+  const [venue,setVenue]=useState(()=>initial?.venue??"");
+  const [fillRule,setFillRule]=useState<FillRule>(()=>initial?.fillRule??"first");
+  const [conditions,setConditions]=useState<SlotConditions>(()=>initial?.conditions??{});
+  const [more,setMore]=useState(()=>Boolean(initial?.venue||Object.values(initial?.conditions??{}).some(Boolean)));
   const toggle=(key:keyof SlotConditions)=>setConditions(value=>({...value,[key]:!value[key]}));
 
   /* Days offered as presets are the days a club is actually asked about. 週六 drops off the row when
@@ -135,9 +139,9 @@ function Composer({onCreate,onClose,busy,error}:{
   const dayLabel=dayPresets.find(([value])=>value===date)?.[1]??hkDayLabel(date);
 
   return <BackdropSheet onClose={onClose} labelledBy="new-slot" className="sl-composer" shellClassName="match-entry-sheet">
-      <p className="kicker">開一場</p>
-      <h2 id="new-slot">你幾時得閒？</h2>
-      <p className="sub">揀個時間就得，其他嘢我哋幫你搞掂。</p>
+      <p className="kicker">{editing?"編輯呢場":"開一場"}</p>
+      <h2 id="new-slot">{editing?"改幾時":"你幾時得閒？"}</h2>
+      <p className="sub">{editing?"未收人之前，隨時可以改。":"揀個時間就得，其他嘢我哋幫你搞掂。"}</p>
 
       <div className="mm-field">
         <span className="mm-field-label">邊日</span>
@@ -207,8 +211,8 @@ function Composer({onCreate,onClose,busy,error}:{
       <Button variant="primary" className="sl-primary" disabled={busy} onClick={()=>{
         const endDate=endTime<=start?addDaysHongKong(date,1):date;
         onCreate({startAt:hongKongInstant(date,start),endAt:hongKongInstant(endDate,endTime),venue,fillRule,conditions});
-      }}>{busy?"開緊…":`開 ${dayLabel} ${start}–${endTime}`}</Button>
-      <p className="mm-fineprint">會即刻俾成個會所見到 · 隨時可以取消</p>
+      }}>{busy?(editing?"儲存緊…":"開緊…"):editing?`儲存 ${dayLabel} ${start}–${endTime}`:`開 ${dayLabel} ${start}–${endTime}`}</Button>
+      <p className="mm-fineprint">{editing?"改咗會即刻更新畀成個會所睇到":"會即刻俾成個會所見到 · 隨時可以取消"}</p>
   </BackdropSheet>;
 }
 
@@ -358,19 +362,25 @@ function TimelineRow({entry,canAct,busy,onRaise,onRetract,onOpenMine}:{
  * sheet reached from the row (and from the banner), not a permanent second section competing with
  * the board for the same screen. */
 
-function MineSheet({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onResult,onShare,onClose}:{
+function MineSheet({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onResult,onShare,onEdit,onClose}:{
   item:MineSlot; busyId:string|null;
   onAccept:(playerId:string)=>void; onAcceptAll:()=>void; onStopTaking:()=>void;
-  onCancel:()=>void; onResult:(result:"played"|"missed")=>void; onShare:()=>void; onClose:()=>void;
+  onCancel:()=>void; onResult:(result:"played"|"missed")=>void; onShare:()=>void; onEdit:()=>void; onClose:()=>void;
 }){
   const status=slotStatus(item);
   const waiting=item.hands.filter(hand=>hand.state==="raised");
   const accepted=item.hands.filter(hand=>hand.state==="accepted");
   const takeAll=takeActionLabel(item.counts);
   const taking=!item.closedAt&&status!=="expired"&&status!=="done";
+  /* Editing the time or place is only safe while nothing here is a promise yet — once somebody is
+     accepted, changing the plan out from under them belongs to 取消, not a silent rewrite. */
+  const canEdit=taking&&status==="open"&&accepted.length===0;
   return <BackdropSheet onClose={onClose} labelledBy="mine-sheet" className="sl-mine-sheet" shellClassName="match-entry-sheet">
     <p className="kicker">你開嘅局</p>
-    <h2 id="mine-sheet">{when(item)}</h2>
+    <div className="mm-mine-head">
+      <h2 id="mine-sheet">{when(item)}</h2>
+      {canEdit&&<Button variant="quiet" className="mm-edit-link" onClick={onEdit}>編輯</Button>}
+    </div>
     <p className="sub">{item.venue||"未講枱位"}{item.closedAt?" · 已經唔收人":""}</p>
     <ChipRow items={conditionChips(item.conditions)}/>
 
@@ -487,6 +497,7 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
 }){
   const [data,setData]=useState<Board|null>(null);
   const [composing,setComposing]=useState(false);
+  const [editing,setEditing]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
   const [busyId,setBusyId]=useState<string|null>(null);
   const [error,setError]=useState("");
@@ -520,6 +531,18 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
       if(!response.ok){setError(body.error??"開唔到，試多次。");return}
       trackAvailabilityEvent("session_created");
       setComposing(false);
+      await load();onChanged();
+    }catch{setError("網絡連線失敗，請再試一次。")}
+    finally{setBusy(false)}
+  };
+
+  const saveEdit=async(id:string,input:{startAt:string;endAt:string;venue:string;fillRule:FillRule;conditions:SlotConditions})=>{
+    setBusy(true);setError("");
+    try{
+      const response=await fetch(`/api/slots/${id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({action:"edit",...input})});
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok){setError(body.error??"改唔到，試多次。");return}
+      setEditing(null);
       await load();onChanged();
     }catch{setError("網絡連線失敗，請再試一次。")}
     finally{setBusy(false)}
@@ -646,6 +669,7 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
   const canAct=Boolean(data.canAct);
   const createSession=()=>{setError("");setComposing(true)};
   const sheet=openMine?mineById.get(openMine)??null:null;
+  const editingSlot=editing?mineById.get(editing)??null:null;
   const bannerBusy=Boolean(busyId);
   const empty=live.length===0;
 
@@ -712,16 +736,20 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
     {signedIn&&!empty&&onManageAvailability&&<Button variant="quiet" className="mm-quiet-row" onClick={onManageAvailability}>
       {availabilityCount?`你公開咗 ${availabilityCount} 個空檔`:"公開你嘅空檔，其他人先知幾時可以約你"}<span aria-hidden="true">›</span></Button>}
 
-    {error&&!composing&&<p className="availability-form-error" role="alert">{error}</p>}
+    {error&&!composing&&!editingSlot&&<p className="availability-form-error" role="alert">{error}</p>}
     {toast&&<p key={toast} className="availability-notice" role="status">{toast}</p>}
 
     {composing&&<Composer busy={busy} error={error} onClose={()=>{setComposing(false);setError("")}} onCreate={create}/>}
-    {sheet&&<MineSheet item={sheet} busyId={busyId} onClose={()=>setOpenMine(null)}
+    {editingSlot&&<Composer busy={busy} error={error} editing
+      initial={{startAt:editingSlot.startAt,endAt:editingSlot.endAt,venue:editingSlot.venue,fillRule:editingSlot.fillRule,conditions:editingSlot.conditions}}
+      onClose={()=>{setEditing(null);setError("")}} onCreate={input=>void saveEdit(editingSlot.id,input)}/>}
+    {sheet&&!editingSlot&&<MineSheet item={sheet} busyId={busyId} onClose={()=>setOpenMine(null)}
       onAccept={playerId=>void accept(sheet.id,playerId)}
       onAcceptAll={()=>void acceptAll(sheet.id)}
       onStopTaking={()=>void stopTaking(sheet.id)}
       onCancel={()=>void cancel(sheet.id)}
       onResult={value=>void result(sheet.id,value,sheet.filledBy,sheet.startAt)}
-      onShare={()=>share(sheet.id)}/>}
+      onShare={()=>share(sheet.id)}
+      onEdit={()=>{setError("");setEditing(sheet.id)}}/>}
   </div>;
 }

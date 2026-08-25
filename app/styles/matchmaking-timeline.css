@@ -168,6 +168,9 @@
   .mm-more{display:grid;gap:var(--sp-2);margin-top:var(--sp-2)}
   .mm-fineprint{margin:var(--sp-2) 0 0;color:var(--ds-text-tertiary);font-size:var(--fs-caption);text-align:center}
   .mm-cancel-link{width:100%;margin-top:var(--sp-2);color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+  .mm-mine-head{display:flex;align-items:start;justify-content:space-between;gap:var(--sp-2)}
+  .mm-mine-head h2{margin:0}
+  .mm-edit-link{flex:0 0 auto;min-height:0;padding:var(--sp-1) var(--sp-2);color:var(--ds-accent-action);font-size:var(--fs-caption);font-weight:800}
 
   @media (max-width:599px){
     .mm-banner{flex-wrap:wrap}
