@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+  <style>
+    body{margin:0;font-family:"Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif;background:#f4f3ed;color:#132521;-webkit-font-smoothing:antialiased}
+    a{color:#155e52;text-decoration:none}a:hover{color:#185149}
+    .disp{font-family:"Barlow Condensed","Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif}
+  </style>
+</helmet>
+<div style="width:390px;min-height:844px;background:#f4f3ed;display:flex;flex-direction:column">
+
+  <div style="display:flex;flex-direction:column;gap:4px;padding:44px 20px 18px 20px;background:#082c27;color:#f9f7ee;border-radius:0 0 24px 24px">
+    <span class="disp" style="font-size:12px;letter-spacing:.2em;font-weight:600;color:#bdd0c9">SCAA 約戰</span>
+    <span class="disp" style="font-size:30px;line-height:1;font-weight:700">今晚未有人開局</span>
+    <span style="font-size:13px;color:#bdd0c9">做第一個開局嘅人，通常 10 分鐘內有人加入。</span>
+  </div>
+
+  <div style="padding:20px">
+    <a href="#" style="display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:16px;background:#d5a94d;color:#153128;font-size:16px;font-weight:700;box-shadow:0 8px 20px rgba(151,103,31,.18)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#153128" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      我得閒，開一場
+    </a>
+  </div>
+
+  <!-- proof the club is alive, without a name-by-name list -->
+  <div style="display:flex;flex-direction:column;gap:14px;margin:0 20px;padding:20px;border-radius:20px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+    <span class="disp" style="font-size:12px;letter-spacing:.16em;font-weight:600;color:#9a6e24">會所而家</span>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="display:flex;align-items:baseline;gap:4px"><b class="disp" style="font-size:38px;line-height:1;font-weight:700">7</b><small style="font-size:13px;color:#63736e">位球友今晚得閒</small></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:0">
+      <span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#c0392b;color:#fff;font-size:13px;font-weight:700;border:2px solid #fffefa">陳</span>
+      <span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#1b62a8;color:#fff;font-size:13px;font-weight:700;border:2px solid #fffefa;margin-left:-10px">黃</span>
+      <span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#1e7a45;color:#fff;font-size:13px;font-weight:700;border:2px solid #fffefa;margin-left:-10px">李</span>
+      <span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#8a5a2b;color:#fff;font-size:13px;font-weight:700;border:2px solid #fffefa;margin-left:-10px">羅</span>
+      <span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#f7f6ef;border:2px solid #fffefa;color:#63736e;font-size:12px;font-weight:700;margin-left:-10px">+3</span>
+    </div>
+    <span style="height:1px;background:rgba(20,65,57,.12)"></span>
+    <span style="font-size:13px;color:#63736e">開一場之後，佢哋會即刻收到通知。</span>
+  </div>
+
+  <!-- the fallback that used to be the whole tab: now one line -->
+  <div style="display:flex;align-items:center;gap:10px;margin:16px 20px 0;padding:14px 16px;border-radius:16px;background:#f7f6ef">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#63736e" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3"/></svg>
+    <span style="font-size:13px;color:#63736e;flex-grow:1">睇成個星期邊個得閒</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#63736e" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

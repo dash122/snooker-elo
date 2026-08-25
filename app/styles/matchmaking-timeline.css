@@ -1,0 +1,182 @@
+/* ===========================================================================
+   約戰 · the timeline
+   One primary action, one rail, one list of 開局卡, one banner for whatever is
+   waiting on the member. Everything the old surface stacked beside those — the
+   mode switch, the filter panel, the availability status strip, the roster
+   grid, the club-pulse footer — is either gone or one level down, so this file
+   only has to dress four things.
+
+   Layered so the legacy `.sl-*` / `.mm-*` block in globals.css keeps owning the
+   card internals it already styles (`.sl-primary`, `.mm-row`, `.sl-kick`…).
+   =========================================================================== */
+@layer components {
+  .mm-tab{display:grid;gap:var(--sp-3);margin-top:var(--sp-4)}
+
+  /* --- The one primary action ---------------------------------------------
+     Full width and always in the same place, on every state of the tab. 開局約人
+     used to appear in the toolbar, the cold start, the demand banner and the
+     personal empty state at once — four buttons for one job. */
+  .mm-tab .mm-primary{display:flex;align-items:center;justify-content:center;gap:var(--sp-2);
+    width:100%;min-height:3.25rem;border-radius:var(--ds-radius-control);font-size:var(--fs-body);font-weight:800}
+  .mm-primary-mark{display:flex;flex:0 0 auto}
+
+  /* --- The banner ----------------------------------------------------------
+     Ranked above the feed, never instead of it. Tone carries the meaning and
+     nothing else does: amber only when the member has something to do, green
+     only once a game is actually on. */
+  .mm-banner{display:flex;align-items:center;gap:var(--sp-3);min-width:0;
+    padding:var(--sp-3-5) var(--sp-4);border:1px solid var(--ds-border-subtle);
+    border-radius:var(--ds-radius-card);background:var(--ds-surface-primary);box-shadow:var(--ds-shadow-resting)}
+  .mm-banner.is-attention{border-color:var(--ds-accent-soft);background:var(--ds-warning-wash)}
+  .mm-banner.is-confirmed{border-color:var(--ds-success-wash-border);background:var(--ds-success-wash)}
+  .mm-banner>.player-badge{flex:0 0 2.5rem;width:2.5rem;height:2.5rem;border-radius:50%}
+  .mm-banner-mark{display:grid;place-items:center;flex:0 0 2.375rem;width:2.375rem;height:2.375rem;
+    border-radius:50%;background:var(--ds-surface-raised);color:var(--ds-text-secondary)}
+  .mm-banner.is-attention .mm-banner-mark{color:var(--ds-warning-wash-text)}
+  .mm-banner.is-confirmed .mm-banner-mark{background:var(--ds-success);color:var(--ds-text-on-danger)}
+  .mm-banner-copy{flex:1 1 auto;min-width:0}
+  .mm-banner-copy b{display:block;font-size:var(--fs-sm);font-weight:800;overflow-wrap:anywhere}
+  .mm-banner-copy small{display:block;margin-top:2px;color:var(--ds-text-secondary);font-size:var(--fs-caption);font-variant-numeric:tabular-nums}
+  .mm-banner.is-attention .mm-banner-copy b{color:var(--ds-warning-wash-text)}
+  .mm-banner-actions{display:flex;flex:0 0 auto;gap:var(--sp-2)}
+  .mm-banner button,.mm-banner-primary{flex:0 0 auto;min-height:2.75rem;padding-inline:var(--sp-4);
+    border-radius:var(--ds-radius-control);font-size:var(--fs-sm);font-weight:700;white-space:nowrap}
+  .mm-banner-primary{display:inline-flex;align-items:center;background:var(--ds-accent-action);
+    color:var(--ds-text-on-brand);text-decoration:none}
+  .mm-banner-primary:hover{background:var(--ds-accent-action-hover);color:var(--ds-text-on-brand)}
+
+  /* --- The day rail --------------------------------------------------------
+     Replaces both the three overlapping day chips and the filter panel: the
+     buckets are disjoint and exhaustive, so every game is reachable from
+     exactly one tab and no filter is needed to find the rest. */
+  .mm-rail{display:flex;gap:var(--sp-2);overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:none}
+  .mm-rail::-webkit-scrollbar{display:none}
+  .mm-rail button{display:grid;gap:2px;flex:0 0 auto;min-height:3.25rem;padding:var(--sp-2) var(--sp-4);
+    border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);
+    background:var(--ds-surface-primary);color:var(--ds-text-primary)}
+  .mm-rail button b{font-size:var(--fs-sm);font-weight:800}
+  .mm-rail button small{color:var(--ds-text-secondary);font-size:var(--fs-label);font-variant-numeric:tabular-nums}
+  .mm-rail button.is-on{background:var(--ds-canvas-brand);border-color:var(--ds-canvas-brand);color:var(--ds-text-on-brand)}
+  .mm-rail button.is-on small{color:var(--ds-text-on-brand-secondary)}
+
+  /* --- The pinned card -----------------------------------------------------
+     The only card that earns the dark treatment, and only when there is an
+     honest reason to pin it: a real overlap with time the member published. */
+  .mm-featured{display:grid;gap:var(--sp-3);padding:var(--sp-4-5);border-radius:var(--ds-radius-card);
+    background:radial-gradient(circle at 90% 0,var(--ds-featured-glow),transparent 38%),var(--ds-surface-featured);
+    color:var(--ds-text-on-brand);box-shadow:var(--ds-shadow-floating)}
+  .mm-featured-kicker{display:flex;align-items:center;gap:var(--sp-2);margin:0;
+    font-family:var(--font-display);font-size:var(--fs-label);letter-spacing:.16em;font-weight:600;color:var(--ds-accent-primary)}
+  .mm-featured-kicker i{width:.375rem;height:.375rem;border-radius:50%;background:var(--ds-accent-primary)}
+  .mm-featured-when{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-3)}
+  .mm-featured-when b{font-family:var(--font-display);font-size:var(--fs-display);line-height:1;font-variant-numeric:tabular-nums}
+  .mm-featured-when span{padding-bottom:.2rem;color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption)}
+  .mm-featured-who{display:flex;align-items:center;gap:var(--sp-2-5);min-width:0}
+  .mm-featured-who>.player-badge{flex:0 0 2.25rem;width:2.25rem;height:2.25rem;border-radius:50%}
+  .mm-featured-who span{min-width:0}
+  .mm-featured-who b{display:block;font-size:var(--fs-sm);font-weight:800}
+  .mm-featured-who small{display:block;margin-top:2px;color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption)}
+  .mm-featured-chips{display:flex;flex-wrap:wrap;gap:var(--sp-1-5)}
+  .mm-featured-chips span{padding:var(--sp-1) var(--sp-2-5);border-radius:999px;
+    background:var(--ds-inverse-border);font-size:var(--fs-caption)}
+  .mm-featured-state{margin:0;color:var(--ds-text-on-brand-secondary);font-size:var(--fs-sm);font-weight:700}
+  .mm-featured .sl-primary{margin-top:0}
+
+  /* --- The timeline --------------------------------------------------------
+     My own slots sit inline among everyone else's rather than in a second tab:
+     this club fits its whole evening on one screen, so splitting four cards
+     into two lists of two makes both look empty. */
+  .mm-timeline{display:grid;gap:var(--sp-2)}
+  .mm-slot{display:flex;align-items:center;gap:var(--sp-3);min-width:0;
+    padding:var(--sp-3-5) var(--sp-4);border:1px solid var(--ds-border-subtle);
+    border-radius:var(--ds-radius-card);background:var(--ds-surface-primary)}
+  .mm-slot.is-mine{border-color:var(--ds-border-strong);background:var(--ds-surface-secondary)}
+  .mm-slot.is-confirmed{border-color:var(--ds-success-wash-border);background:var(--ds-success-wash)}
+  .mm-slot.is-closed{opacity:.72}
+  .mm-slot-when{display:grid;justify-items:center;gap:1px;flex:0 0 3.875rem}
+  .mm-slot-when b{font-family:var(--font-display);font-size:var(--fs-h3);line-height:1;font-variant-numeric:tabular-nums}
+  .mm-slot-when small{color:var(--ds-text-tertiary);font-size:var(--fs-label)}
+  .mm-slot-rule{align-self:stretch;flex:0 0 1px;background:var(--ds-border-subtle)}
+  .mm-slot .mm-row-copy small.is-attention{color:var(--ds-warning);font-weight:700}
+  .mm-slot-action{display:flex;flex:0 0 auto;align-items:center}
+  .mm-slot-action button{min-height:2.75rem;padding-inline:var(--sp-4);border-radius:var(--ds-radius-control);
+    font-size:var(--fs-sm);font-weight:700}
+  .mm-slot-done{color:var(--ds-text-tertiary);font-size:var(--fs-caption);font-weight:700}
+  .mm-slot-login{display:inline-flex;align-items:center;min-height:2.75rem;padding-inline:var(--sp-3);
+    color:var(--ds-accent-action);font-size:var(--fs-sm);font-weight:700}
+
+  /* --- Cold open -----------------------------------------------------------
+     What is missing when nothing is on is not an instruction pointing at a
+     button already on screen — it is a reason to believe posting will work. */
+  .mm-cold{display:grid;gap:var(--sp-3-5);padding:var(--sp-5) var(--sp-4-5);
+    border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-card);
+    background:var(--ds-surface-primary);box-shadow:var(--ds-shadow-resting)}
+  .mm-cold-copy{display:grid;gap:var(--sp-1-5)}
+  .mm-cold-copy h3{margin:0;font-size:var(--fs-h3);letter-spacing:-.02em}
+  .mm-cold-copy p:not(.kicker){margin:0;color:var(--ds-text-secondary);font-size:var(--fs-sm);line-height:1.6}
+  .mm-pulse{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3-5) var(--sp-4);
+    border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary)}
+  .mm-pulse-count{display:flex;align-items:baseline;gap:var(--sp-2)}
+  .mm-pulse-count b{font-family:var(--font-display);font-size:var(--fs-stat);line-height:1;font-variant-numeric:tabular-nums}
+  .mm-pulse-count small{color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+  .mm-cold .sl-primary{margin-top:0}
+
+  /* --- The quiet tail ------------------------------------------------------
+     Hands I have already raised, and the way down to my own availability. Both
+     are information rather than tasks, so both are one line until asked. */
+  .mm-waiting{display:grid;gap:var(--sp-2)}
+  .mm-waiting-head{display:flex;align-items:center;gap:var(--sp-2-5);width:100%;min-height:2.75rem;
+    padding:var(--sp-2-5) var(--sp-4);border:0;border-radius:var(--ds-radius-control);
+    background:var(--ds-surface-secondary);color:var(--ds-text-secondary);font-size:var(--fs-caption);text-align:left}
+  .mm-waiting-head>span:nth-child(2){flex:1 1 auto}
+  .mm-waiting-mark{display:flex;flex:0 0 auto}
+  .mm-tab .mm-quiet-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);
+    width:100%;min-height:2.75rem;padding:0 var(--sp-4);border:1px solid var(--ds-border-subtle);
+    border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary);
+    color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700}
+  .mm-row.is-quiet{justify-content:center;background:transparent;border-style:dashed}
+
+  /* --- Composer ------------------------------------------------------------
+     Two decisions on the face of it; the rest behind one disclosure that says
+     what the defaults already are, so folding it away is not the same as
+     hiding it. */
+  .mm-field{display:grid;gap:var(--sp-2-5);margin-top:var(--sp-4)}
+  .mm-field-label{font-size:var(--fs-label);font-weight:700;letter-spacing:.08em;color:var(--ds-text-tertiary)}
+  .mm-choice-row{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+  .mm-choice{display:grid;place-items:center;gap:2px;flex:1 1 4.5rem;min-height:3rem;padding:var(--sp-2) var(--sp-3);
+    border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);
+    background:var(--ds-surface-secondary);color:var(--ds-text-primary);font-size:var(--fs-sm);font-weight:700}
+  .mm-choice.is-time{min-height:3.75rem}
+  .mm-choice.is-time b{font-family:var(--font-display);font-size:var(--fs-lead);line-height:1;font-variant-numeric:tabular-nums}
+  .mm-choice.is-time small{color:var(--ds-text-tertiary);font-size:var(--fs-label)}
+  .mm-choice.is-on{background:var(--ds-canvas-brand);border-color:var(--ds-canvas-brand);color:var(--ds-text-on-brand)}
+  .mm-choice.is-on small{color:var(--ds-text-on-brand-secondary)}
+  .mm-inline-field{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+    padding:var(--sp-2-5) var(--sp-3-5);border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary)}
+  .mm-inline-field span{font-size:var(--fs-caption);color:var(--ds-text-secondary)}
+  .mm-inline-field input,.mm-inline-field select{min-height:2.75rem;font-size:var(--fs-input)}
+  .mm-stepper{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+    padding:var(--sp-2-5) var(--sp-3-5);border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary);
+    color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+  .mm-stepper-controls{display:flex;align-items:center;gap:var(--sp-3-5)}
+  .mm-stepper-controls b{min-width:5rem;color:var(--ds-text-primary);font-family:var(--font-display);
+    font-size:var(--fs-lead);text-align:center;font-variant-numeric:tabular-nums}
+  .mm-disclosure{display:flex;align-items:center;gap:var(--sp-3);width:100%;margin-top:var(--sp-4);
+    padding:var(--sp-3-5) var(--sp-4);border:1px dashed var(--ds-border-strong);
+    border-radius:var(--ds-radius-control);background:transparent;color:var(--ds-text-primary);text-align:left}
+  .mm-disclosure-copy{flex:1 1 auto;min-width:0}
+  .mm-disclosure-copy b{display:block;font-size:var(--fs-sm);font-weight:700}
+  .mm-disclosure-copy small{display:block;margin-top:2px;color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
+  .mm-disclosure-mark{flex:0 0 auto;color:var(--ds-text-secondary);font-size:var(--fs-body)}
+  .mm-more{display:grid;gap:var(--sp-2);margin-top:var(--sp-2)}
+  .mm-fineprint{margin:var(--sp-2) 0 0;color:var(--ds-text-tertiary);font-size:var(--fs-caption);text-align:center}
+  .mm-cancel-link{width:100%;margin-top:var(--sp-2);color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+
+  @media (max-width:599px){
+    .mm-banner{flex-wrap:wrap}
+    .mm-banner-copy{flex-basis:100%;order:3}
+    .mm-banner button,.mm-banner-primary,.mm-banner-actions{margin-left:auto}
+    .mm-slot{padding:var(--sp-3) var(--sp-3-5)}
+    .mm-slot-when{flex-basis:3.25rem}
+  }
+}

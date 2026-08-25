@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { conditionChips, freshnessLabel, handoffMessage, handsLine, handsView, hasConditions,
-  shareMessage, slotStatus, slotTakingHands, sortBoard, sortPostedSlots, takeActionLabel,
-  visibleHands, visiblePostedSlots, whatsappShareUrl } from "../lib/slots.ts";
+import { bucketCounts, conditionChips, dayBucketOf, freshnessLabel, handoffMessage, handsLine,
+  handsView, hasConditions, openingBucket, shareMessage, slotStatus, slotTakingHands, sortBoard,
+  sortPostedSlots, takeActionLabel, visibleHands, visiblePostedSlots, weekendDates,
+  whatsappShareUrl } from "../lib/slots.ts";
 
 const now=Date.parse("2026-08-01T13:00:00.000Z"); // 21:00 HK
 const s=(id,startAt,endAt,over={})=>({id,startAt,endAt,filledBy:null,result:"pending",...over});
@@ -166,4 +167,46 @@ test("somebody else being taken is not my acceptance, and not my loss either",()
     filledBy:"kelvin",result:"pending"};
   assert.equal(slotStatus(slot,now),"filled","the slot has somebody in it");
   assert.equal(slotTakingHands(slot,now),true,"and is still open to me");
+});
+
+/* --- Timeline buckets --------------------------------------------------- */
+
+/* 2026-08-01 is a Saturday; 2026-08-05 a Wednesday. */
+
+test("today wins over every other reading of the same date",()=>{
+  // A Saturday is also the weekend, and it is still 今晚 to somebody standing in it.
+  assert.equal(dayBucketOf("2026-08-01","2026-08-01"),"tonight");
+  assert.equal(dayBucketOf("2026-08-02","2026-08-01"),"tomorrow");
+});
+
+test("a slot already under way still belongs to tonight, never to no bucket at all",()=>{
+  assert.equal(dayBucketOf("2026-07-31","2026-08-01"),"tonight");
+});
+
+test("tomorrow wins over the weekend when they are the same day",()=>{
+  // Friday: Saturday is both tomorrow and the weekend. It must be reachable from exactly one tab.
+  assert.equal(dayBucketOf("2026-08-01","2026-07-31"),"tomorrow");
+  assert.equal(dayBucketOf("2026-08-02","2026-07-31"),"weekend");
+});
+
+test("the coming weekend is this Saturday, and a Sunday's weekend is the day itself",()=>{
+  assert.deepEqual(weekendDates("2026-08-05"),["2026-08-08","2026-08-09"]);
+  assert.deepEqual(weekendDates("2026-08-02"),["2026-08-02"]);
+});
+
+test("anything further out lands in 之後 rather than falling off the rail",()=>{
+  assert.equal(dayBucketOf("2026-08-20","2026-08-05"),"later");
+});
+
+test("every open slot is counted exactly once, so the tabs sum to the board",()=>{
+  const dates=["2026-08-05","2026-08-06","2026-08-08","2026-08-09","2026-08-20"];
+  const counts=bucketCounts(dates,"2026-08-05");
+  assert.deepEqual(counts,{tonight:1,tomorrow:1,weekend:2,later:1});
+  assert.equal(Object.values(counts).reduce((a,b)=>a+b,0),dates.length);
+});
+
+test("opening on the first day that actually has a game beats opening on an empty tonight",()=>{
+  assert.equal(openingBucket({tonight:0,tomorrow:2,weekend:0,later:0}),"tomorrow");
+  assert.equal(openingBucket({tonight:1,tomorrow:2,weekend:0,later:0}),"tonight");
+  assert.equal(openingBucket({tonight:0,tomorrow:0,weekend:0,later:0}),"tonight");
 });
