@@ -1,10 +1,10 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerBadge } from "./UiBits";
-import { Button, ChipRow, IconButton, SegmentedControl, Skeleton } from "./components/ui/Primitives";
+import { Button, ChipRow, IconButton, Skeleton } from "./components/ui/Primitives";
 import { BackdropSheet } from "./components/ui/Overlay";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
-import { addDaysHongKong, hkClock, hkDate, hkDateLabel, hkDayLabel, hongKongInstant } from "../lib/availability";
+import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant } from "../lib/availability";
 import { conditionChips, freshnessLabel, handoffMessage, handsLine, shareMessage, slotStatus, slotTakingHands,
   sortPostedSlots, takeActionLabel, visiblePostedSlots, whatsappShareUrl,
   type FillRule, type HandsView, type SlotConditions } from "../lib/slots";
@@ -43,6 +43,11 @@ type Player={id:string;name:string;short?:string|null;rating:number;colour?:stri
 const handicapNote=(handicap:HandicapProposal|null|undefined):string|null=>
   !handicap||handicap.direction==="level"?null
     :handicap.direction==="give"?`你讓 ${handicap.points} 分`:`佢讓 ${Math.abs(handicap.points)} 分`;
+
+/** What pressing 加入 actually does, said before the tap rather than only after -- a row that reads
+    "第一個就算" costs the reader nothing to check and saves them wondering whether they now have to
+    wait on the poster. */
+const fillHint=(fillRule:FillRule):string=>fillRule==="first"?"第一個就算":"主人揀人";
 type PostedSlot={
   id:string;playerId:string;startAt:string;endAt:string;venue:string;note:string;createdAt:string;
   fillRule:FillRule;conditions:SlotConditions;filledBy:string|null;filledAt:string|null;result:"pending"|"played"|"missed";
@@ -77,11 +82,14 @@ type Entry={
   mine:boolean;hands:HandsView;iRaised:boolean;iAccepted:boolean;
   /** Hands still waiting on a decision. Only ever non-zero on my own rows. */
   waiting:number;
+  /** Public on both sides of the API split -- who is already in matters more to a reader deciding
+      whether to join than how many, so the row can put faces on it rather than just a count. */
+  acceptedPlayers:Player[];
 };
 
-const fromBoard=(slot:BoardSlot):Entry=>({...slot,player:slot.player,mine:false,waiting:0});
+const fromBoard=(slot:BoardSlot):Entry=>({...slot,player:slot.player,mine:false,waiting:0,acceptedPlayers:slot.acceptedPlayers});
 const fromMine=(slot:MineSlot):Entry=>({...slot,player:slot.player,mine:true,hands:slot.counts,
-  iRaised:false,iAccepted:false,waiting:slot.counts.waiting});
+  iRaised:false,iAccepted:false,waiting:slot.counts.waiting,acceptedPlayers:slot.acceptedPlayers});
 
 const dateOf=(iso:string)=>hkDate(new Date(iso));
 const dayWord=(slot:{startAt:string})=>{
@@ -124,9 +132,10 @@ const DATE_HORIZON=14;
 
 /** The composer's own slidable day strip — the same visual language as the tab's `DateRail` (a
     scrollable row of snap-to buttons flanked by prev/next arrows), reused here rather than
-    reinvented as a second date-picking pattern, and without a card wrapper or a running count since
-    neither is meaningful while posting. */
-function ComposerDateStrip({value,onSelect}:{value:string;onSelect:(date:string)=>void}){
+    reinvented as a second date-picking pattern. Unlike the tab's rail, the count riding under each
+    button is not "how many games are already posted" but "how many members already said they are
+    free that day" -- the reason to pick this day over another before a single hand has been raised. */
+function ComposerDateStrip({value,onSelect,demand}:{value:string;onSelect:(date:string)=>void;demand:Record<string,number>}){
   const scrollRef=useRef<HTMLDivElement>(null);
   const today=hkDate();
   const dates=useMemo(()=>Array.from({length:DATE_HORIZON},(_,index)=>addDaysHongKong(today,index)),[today]);
@@ -136,13 +145,14 @@ function ComposerDateStrip({value,onSelect}:{value:string;onSelect:(date:string)
     <IconButton className="availability-date-scroll-button previous" label="向前捲動日期" onClick={()=>move(-1)}>‹</IconButton>
     <div className="availability-date-strip" role="tablist" aria-label={`選擇日期，左右滑動查看未來 ${DATE_HORIZON} 日`} ref={scrollRef}>
       {dates.map(date=>{
-        const active=date===value;
+        const active=date===value,count=demand[date]??0;
         const weekday=new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",weekday:"short"}).format(new Date(`${date}T00:00:00+08:00`));
         const label=date===today?"今天":date===addDaysHongKong(today,1)?"明天":weekday;
         return <button type="button" key={date} role="tab" aria-selected={active}
-          aria-label={`${label}，${Number(date.slice(5,7))}月${Number(date.slice(8,10))}日`}
+          aria-label={`${label}，${Number(date.slice(5,7))}月${Number(date.slice(8,10))}日${count>0?`，${count} 人得閒`:""}`}
           className={active?"active":""} onClick={()=>onSelect(date)}>
           <small>{label}</small><span>{Number(date.slice(5,7))}/{Number(date.slice(8,10))}</span>
+          {count>0&&<strong>{count} 人得閒</strong>}
         </button>;
       })}
     </div>
@@ -150,21 +160,26 @@ function ComposerDateStrip({value,onSelect}:{value:string;onSelect:(date:string)
   </div>;
 }
 
-/** Same slide-strip language as `ComposerDateStrip`, for the start time — the three times this club
-    actually starts at ride along as a note under their own button instead of a separate preset row. */
-function ComposerTimeStrip({value,onSelect}:{value:string;onSelect:(time:string)=>void}){
+/** Same slide-strip language as `ComposerDateStrip`, for the start time. Demand replaces the three
+    hardcoded club-preset labels this used to carry: real counts for the day actually picked beat a
+    guess about which times "usually" work, and the busiest one is called out the way the peak day
+    is on the tab's own rail. */
+function ComposerTimeStrip({value,onSelect,demand}:{value:string;onSelect:(time:string)=>void;demand:Record<string,number>}){
   const scrollRef=useRef<HTMLDivElement>(null);
   const move=(direction:-1|1)=>scrollRef.current?.scrollBy({left:direction*Math.max(180,scrollRef.current.clientWidth*.72),behavior:"smooth"});
   useEffect(()=>{scrollRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"})},[value]);
+  const peak=Math.max(0,...Object.values(demand));
   return <div className="mm-slide-strip-wrap">
     <IconButton className="availability-date-scroll-button previous" label="向前捲動時間" onClick={()=>move(-1)}>‹</IconButton>
     <div className="availability-date-strip mm-time-strip" role="tablist" aria-label="選擇開始時間，左右滑動查看更多" ref={scrollRef}>
       {TIMES.map(time=>{
-        const active=time===value,preset=TIME_PRESETS.find(([presetTime])=>presetTime===time)?.[1];
-        return <button type="button" key={time} role="tab" aria-selected={active}
-          aria-label={preset?`${time}，${preset}`:time}
-          className={active?"active":""} onClick={()=>onSelect(time)}>
-          <span>{time}</span>{preset&&<small>{preset}</small>}
+        const active=time===value,count=demand[time]??0,isPeak=peak>0&&count===peak;
+        const preset=count>0?null:TIME_PRESETS.find(([presetTime])=>presetTime===time)?.[1];
+        return <button type="button" key={time} role="tab" aria-selected={active} onClick={()=>onSelect(time)}
+          className={`${active?"active":""}${isPeak&&!active?" is-peak":""}`}
+          aria-label={count>0?`${time}，${count} 人得閒${isPeak?"，最多人":""}`:preset?`${time}，${preset}`:time}>
+          <span>{time}</span>
+          {count>0?<small>{isPeak?`${count} 人得閒 · 最多`:`${count} 人得閒`}</small>:preset&&<small>{preset}</small>}
         </button>;
       })}
     </div>
@@ -175,6 +190,10 @@ function ComposerTimeStrip({value,onSelect}:{value:string;onSelect:(time:string)
 /** Shared by the composer (blank) and the edit sheet (seeded from the slot being changed) — the
     fields are identical, only the starting values and the verb on the primary button differ. */
 type ComposerInitial={startAt:string;endAt:string;venue:string;fillRule:FillRule;conditions:SlotConditions};
+
+/** Quick durations members actually pick, alongside the +/- stepper -- a tap on one is the common
+    case, the stepper is for everything else. */
+const DURATION_PRESETS=[1.5,2,3];
 
 function Composer({onCreate,onClose,busy,error,initial,editing}:{
   onCreate:(input:{startAt:string;endAt:string;venue:string;fillRule:FillRule;conditions:SlotConditions})=>void;
@@ -187,11 +206,44 @@ function Composer({onCreate,onClose,busy,error,initial,editing}:{
   const [venue,setVenue]=useState(()=>initial?.venue??"");
   /* Open to whoever raises a hand, reviewed and accepted at the poster's own pace, is the club's
      normal night — a poster who wants the old first-come-first-served 1:1 lock still can, from the
-     "要唔要自己揀" control below, but it is no longer the thing every new slot silently opts into. */
+     "要唔要自己揀" cards below, but it is no longer the thing every new slot silently opts into. */
   const [fillRule,setFillRule]=useState<FillRule>(()=>initial?.fillRule??"review");
   const [conditions,setConditions]=useState<SlotConditions>(()=>initial?.conditions??{});
   const [more,setMore]=useState(()=>Boolean(initial?.venue||Object.values(initial?.conditions??{}).some(Boolean)));
   const toggle=(key:keyof SlotConditions)=>setConditions(value=>({...value,[key]:!value[key]}));
+
+  /* Demand under the day strip: how many members published availability on each of the next
+     `DATE_HORIZON` days. One fetch, reused for every day the strip scrolls past -- it never depends
+     on which day is currently picked. */
+  const [dayDemand,setDayDemand]=useState<Record<string,number>>({});
+  useEffect(()=>{
+    let cancelled=false;
+    fetch(`/api/availability?week=${today}&days=${DATE_HORIZON}`).then(r=>r.ok?r.json():null)
+      .then(body=>{if(!cancelled&&body?.counts)setDayDemand(body.counts)}).catch(()=>{});
+    return ()=>{cancelled=true};
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `today` is stable for the component's life
+  },[]);
+
+  /* Demand under the time strip: how many members' published windows cover each 30-minute button,
+     for the day currently picked -- refetched whenever that day changes, since a Tuesday and a
+     Saturday do not share a shape. */
+  const [timeDemand,setTimeDemand]=useState<Record<string,number>>({});
+  useEffect(()=>{
+    let cancelled=false;
+    fetch(`/api/availability?date=${date}`).then(r=>r.ok?r.json():null).then(body=>{
+      if(cancelled||!body?.members)return;
+      const buckets:Record<string,number>={};
+      for(const time of TIMES){
+        const bucketStart=Date.parse(hongKongInstant(date,time)),bucketEnd=bucketStart+30*60_000;
+        let count=0;
+        for(const member of body.members as {slots:{startAt:string;endAt:string}[]}[])
+          if(member.slots.some(slot=>Date.parse(slot.startAt)<bucketEnd&&Date.parse(slot.endAt)>bucketStart))count+=1;
+        if(count>0)buckets[time]=count;
+      }
+      setTimeDemand(buckets);
+    }).catch(()=>{});
+    return ()=>{cancelled=true};
+  },[date]);
 
   const endTime=(()=>{
     const [h,m]=start.split(":").map(Number);
@@ -205,31 +257,68 @@ function Composer({onCreate,onClose,busy,error,initial,editing}:{
       <h2 id="new-slot">{editing?"改幾時":"你幾時得閒？"}</h2>
       <p className="sub">{editing?"未收人之前，隨時可以改。":"揀個時間就得，其他嘢我哋幫你搞掂。"}</p>
 
-      <div className="mm-field">
-        <span className="mm-field-label">日期</span>
-        <ComposerDateStrip value={date} onSelect={setDate}/>
+      {/* The running answer, always on screen -- not only in the submit button at the very bottom
+          of a sheet that can grow past one screenful once the disclosure opens. */}
+      <div className="mm-composer-summary">
+        <span className="mm-composer-summary-copy">
+          <b>{dayLabel} {start} → {endTime}</b>
+          <small>{venue||"SCAA 會所"} · {fillRule==="first"?"開畀大家，第一個就算":"開畀大家，你揀邊個"}</small>
+        </span>
+        <span className="mm-composer-summary-mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </span>
       </div>
 
       <div className="mm-field">
-        <span className="mm-field-label">開始時間</span>
-        <ComposerTimeStrip value={start} onSelect={setStart}/>
+        <span className="mm-field-label">邊日</span>
+        <ComposerDateStrip value={date} onSelect={setDate} demand={dayDemand}/>
+      </div>
+
+      <div className="mm-field">
+        <span className="mm-field-label">幾點開波</span>
+        <ComposerTimeStrip value={start} onSelect={setStart} demand={timeDemand}/>
         <div className="mm-stepper">
-          <span>打幾耐</span>
+          <span>打到幾點</span>
           <span className="mm-stepper-controls">
             <IconButton label="減 30 分鐘" disabled={hours<=DURATIONS[0]}
               onClick={()=>setHours(value=>DURATIONS[Math.max(0,DURATIONS.indexOf(value)-1)]??value)}>−</IconButton>
-            <b>{durationLabel(hours*60)}</b>
+            <b>{endTime}<small>{durationLabel(hours*60)}</small></b>
             <IconButton label="加 30 分鐘" disabled={hours>=DURATIONS[DURATIONS.length-1]}
               onClick={()=>setHours(value=>DURATIONS[Math.min(DURATIONS.length-1,DURATIONS.indexOf(value)+1)]??value)}>＋</IconButton>
           </span>
+        </div>
+        <div className="mm-duration-presets">
+          {DURATION_PRESETS.map(preset=><button key={preset} type="button"
+            className={hours===preset?"mm-duration-chip active":"mm-duration-chip"} onClick={()=>setHours(preset)}>
+            {durationLabel(preset*60)}
+          </button>)}
+        </div>
+      </div>
+
+      {/* 收人方式 has real consequences -- whether "加入" on the board finishes the deal or just
+          raises a hand -- so it gets two cards on the composer's face, not a row inside a drawer
+          that also holds venue and condition chips. */}
+      <div className="mm-field">
+        <span className="mm-field-label">收人方式</span>
+        <div className="mm-fillrule-cards">
+          <button type="button" className={`mm-fillrule-card${fillRule==="review"?" active":""}`}
+            aria-pressed={fillRule==="review"} onClick={()=>setFillRule("review")}>
+            <b>開畀大家</b>
+            <small>舉手名單淨係你見到，你揀收邊個。</small>
+          </button>
+          <button type="button" className={`mm-fillrule-card${fillRule==="first"?" active":""}`}
+            aria-pressed={fillRule==="first"} onClick={()=>setFillRule("first")}>
+            <b>第一個就算</b>
+            <small>第一個舉手即刻成事，唔使你再覆。</small>
+          </button>
         </div>
       </div>
 
       {/* Everything the app can answer for them, folded away — with the defaults stated, so folding
           it is not the same as hiding it. Note what is still not asked anywhere: how many people. */}
       <button type="button" className="mm-disclosure" aria-expanded={more} onClick={()=>setMore(value=>!value)}>
-        <span className="mm-disclosure-copy"><b>枱位、讓分、想自己揀人</b>
-          <small>唔揀都得 · 預設開畀大家舉手，你話事收邊個</small></span>
+        <span className="mm-disclosure-copy"><b>枱位同條件</b>
+          <small>讓分 · 無煙 · 水平接近 · 已訂枱 -- 唔揀都得</small></span>
         <span className="mm-disclosure-mark" aria-hidden="true">{more?"−":"＋"}</span>
       </button>
       {more&&<div className="mm-more">
@@ -243,14 +332,6 @@ function Composer({onCreate,onClose,busy,error,initial,editing}:{
             <button type="button" className={conditions.levelOnly?"sl-chip on":"sl-chip"} aria-pressed={Boolean(conditions.levelOnly)} onClick={()=>toggle("levelOnly")}>水平接近</button>
             <button type="button" className={conditions.tableBooked?"sl-chip on":"sl-chip"} aria-pressed={Boolean(conditions.tableBooked)} onClick={()=>toggle("tableBooked")}>已訂枱</button>
           </div>
-        </div>
-        <div className="mm-field">
-          <span className="mm-field-label">要唔要自己揀</span>
-          <SegmentedControl label="要唔要自己揀" value={fillRule} onChange={value=>setFillRule(value as FillRule)}
-            items={[{value:"first",label:"第一個就算"},{value:"review",label:"我想睇下先"}]}/>
-          <p className="sl-hint">{fillRule==="first"
-            ?"第一個舉手嘅人就即刻成事。之後仲有人舉手，你想收幾多個都得。"
-            :"舉手名單淨係你自己見到。收一個、收幾個、定全部收，到時先算。"}</p>
         </div>
       </div>}
 
@@ -303,6 +384,15 @@ function HandoffCard({slot,opponent,onResult,busy,showWho=true}:{
  * unanswered obligation blanked the whole tab, so a member who owed somebody a score could not look
  * at tonight's games at all. Ranking it above the feed says the same thing — this first — without
  * taking the rest of the club away while it is unresolved. */
+
+/** The board's own quick filters, all derivable from data the payload already carries -- no new
+    endpoint, just a second pass over what `/api/slots` already returned. */
+type RowFilter="all"|"level"|"handicap"|"tableBooked";
+
+/** What the confirmation screen needs after a successful post: the slot itself, plus how many
+    people the composer could already see were free around that time -- captured at submit time
+    from the demand the composer had already fetched, rather than a second round trip. */
+type PostedConfirmation={id:string;startAt:string;endAt:string;venue:string;reach:number};
 
 type BannerItem=
   |{kind:"handoff";slot:PostedSlot;opponent:Player|null}
@@ -366,27 +456,36 @@ function FeaturedCard({entry,overlap,canAct,busy,onRaise,onRetract}:{
   </article>;
 }
 
+/** Up to three faces, then a "+N" chip -- who is already in matters more to a reader deciding
+    whether to join than how many, and stacking faces reads at a glance the way a bare count never
+    does. */
+function AcceptedFaces({players}:{players:Player[]}){
+  if(!players.length)return null;
+  const shown=players.slice(0,3),rest=players.length-shown.length;
+  return <span className="mm-row-faces">
+    {shown.map(player=><PlayerBadge key={player.id} player={player} className="mm-row-face"/>)}
+    {rest>0&&<i className="mm-row-face mm-row-face-more" aria-hidden="true">+{rest}</i>}
+  </span>;
+}
+
 /** One row of the timeline. My own slot is the same row with a different right-hand affordance —
     not a second list, because splitting an evening's four cards into two lists of two makes both
-    look like a dead club. */
-function TimelineRow({entry,canAct,busy,showDay,onRaise,onRetract,onOpenMine}:{
-  entry:Entry; canAct:boolean; busy:boolean; showDay?:boolean;
-  onRaise:()=>void; onRetract:()=>void; onOpenMine:()=>void;
+    look like a dead club. Day is carried by the section heading above the row now, not repeated on
+    every card, so the row itself only ever has to say the clock. */
+function TimelineRow({entry,canAct,busy,onRaise,onRetract,onOpenMine,onOpenDetail}:{
+  entry:Entry; canAct:boolean; busy:boolean;
+  onRaise:()=>void; onRetract:()=>void; onOpenMine:()=>void; onOpenDetail:()=>void;
 }){
   const status=slotStatus(entry);
   const closed=Boolean(entry.closedAt)||status!=="open";
   const meta=entry.mine
     ? entry.waiting>0?`${entry.waiting} 人舉手 · 等你回覆`:`${entry.hands.total} 人已報名 · ${freshnessLabel(entry.createdAt)}`
-    : [entry.venue||"SCAA 會所",`${entry.hands.total} 人已報名`].filter(Boolean).join(" · ");
-  /* "全部日子" already reads as a mixed, cross-day list -- the weekday `dayWord` carries elsewhere
-     is one more word to scan past here, where the date alone is enough to place a row. */
-  const day=dateOf(entry.startAt);
-  const dayDate=day===hkDate()?"今晚":day===addDaysHongKong(hkDate(),1)?"聽日":hkDateLabel(day);
-  return <article className={`mm-slot${entry.mine?" is-mine":""}${entry.iAccepted?" is-confirmed":""}${closed&&!entry.mine?" is-closed":""}`}>
+    : entry.venue||"SCAA 會所";
+  const openRow=()=>{if(entry.mine)onOpenMine();else onOpenDetail()};
+  return <article className={`mm-slot${entry.mine?" is-mine":""}${entry.iAccepted?" is-confirmed":""}${closed&&!entry.mine?" is-closed":""}`}
+    role="button" tabIndex={0} onClick={openRow} onKeyDown={event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();openRow()}}}>
     <span className="mm-slot-when">
-      {showDay
-        ? <><b>{dayDate}</b><small>{hkClock(entry.startAt)} · {spanHours(entry)} 個鐘</small></>
-        : <><b>{hkClock(entry.startAt)}</b><small>{spanHours(entry)} 個鐘</small></>}
+      <b>{hkClock(entry.startAt)}</b><small>→ {hkClock(entry.endAt)}</small>
     </span>
     <span className="mm-slot-rule" aria-hidden="true"/>
     {entry.player&&<PlayerBadge player={entry.player}/>}
@@ -394,9 +493,14 @@ function TimelineRow({entry,canAct,busy,showDay,onRaise,onRetract,onOpenMine}:{
       <b>{entry.mine?entry.player?.name??"你":entry.player?.name??"球友"}
         {!entry.mine&&entry.player&&<span className="mm-row-elo">{Math.round(entry.player.rating)}</span>}
         {!entry.mine&&handicapNote(entry.player?.handicap)&&<span className="mm-row-handicap">{handicapNote(entry.player?.handicap)}</span>}</b>
-      <small className={entry.mine&&entry.waiting>0?"is-attention":undefined}>{meta}</small>
+      <span className="mm-row-sub">
+        <small className={entry.mine&&entry.waiting>0?"is-attention":undefined}>{meta}</small>
+        <AcceptedFaces players={entry.acceptedPlayers}/>
+        {entry.acceptedPlayers.length>0&&<small className="mm-row-faces-count">{entry.acceptedPlayers.length} 人已加入</small>}
+        <ChipRow items={conditionChips(entry.conditions)}/>
+      </span>
     </span>
-    <span className="mm-slot-action">
+    <span className="mm-slot-action" onClick={event=>event.stopPropagation()}>
       {entry.mine
         ? <Button variant={entry.waiting>0?"primary":"secondary"} disabled={busy} onClick={onOpenMine}>睇下</Button>
         /* Already in: the banner above carries the WhatsApp hand-off, so the row states the fact
@@ -408,7 +512,10 @@ function TimelineRow({entry,canAct,busy,showDay,onRaise,onRetract,onOpenMine}:{
             : entry.iRaised
               ? <Button variant="secondary" disabled={busy} onClick={onRetract}>收返</Button>
               : canAct
-                ? <Button disabled={busy} onClick={onRaise}>加入</Button>
+                ? <>
+                    <Button disabled={busy} onClick={onRaise}>加入</Button>
+                    <small className="mm-slot-fillhint">{fillHint(entry.fillRule)}</small>
+                  </>
                 : <a className="mm-slot-login" href="/login">登入</a>}
     </span>
   </article>;
@@ -482,6 +589,85 @@ function MineSheet({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onRes
       {item.counts.accepted>0&&<Button variant="quiet" disabled={Boolean(busyId)} onClick={onStopTaking}>夠喇 · 唔再收</Button>}
     </div>}
     {taking&&<Button variant="quiet" className="mm-cancel-link" onClick={onCancel}>取消呢場</Button>}
+  </BackdropSheet>;
+}
+
+/* --- Slot detail, for everyone else's row -----------------------------------
+ *
+ * The board used to give a non-owner nothing to tap but 加入 itself -- no route to "who is this,
+ * what's the handicap, is anyone else already in" before committing. This sheet is that missing
+ * stop: reachable from anywhere the row appears, read-only except for the same action the row's own
+ * button already offers, so opening it can never do anything a plain tap on 加入 could not undo. */
+function BoardDetailSheet({entry,canAct,busy,onRaise,onRetract,onShare,onClose}:{
+  entry:Entry; canAct:boolean; busy:boolean;
+  onRaise:()=>void; onRetract:()=>void; onShare:()=>void; onClose:()=>void;
+}){
+  const status=slotStatus(entry);
+  const closed=Boolean(entry.closedAt)||status!=="open";
+  const player=entry.player;
+  return <BackdropSheet onClose={onClose} labelledBy="slot-detail" className="sl-mine-sheet" shellClassName="match-entry-sheet">
+    <p className="kicker">{player?.name??"球友"}開嘅局</p>
+    <h2 id="slot-detail">{when(entry)}</h2>
+    <p className="sub">{entry.venue||"未講枱位"} · {freshnessLabel(entry.createdAt)}</p>
+
+    {player&&<div className="mm-detail-who">
+      <PlayerBadge player={player}/>
+      <span className="mm-row-copy">
+        <b>{player.name} <span className="mm-row-elo">{Math.round(player.rating)} ELO</span></b>
+        <small>{player.handicap?.label??"未有讓分建議"}</small>
+      </span>
+    </div>}
+
+    <ChipRow items={conditionChips(entry.conditions)}/>
+
+    {entry.acceptedPlayers.length>0&&<>
+      <p className="sl-kick">已經加入 · {entry.acceptedPlayers.length} 人</p>
+      <ul className="mm-rows">
+        {entry.acceptedPlayers.map(accepted=><li className="mm-row" key={accepted.id}>
+          <PlayerBadge player={accepted}/>
+          <span className="mm-row-copy"><b>{accepted.name}</b>
+            <small>ELO {Math.round(accepted.rating)}{handicapNote(accepted.handicap)?` · ${handicapNote(accepted.handicap)}`:""}</small></span>
+        </li>)}
+      </ul>
+    </>}
+
+    <div className="mm-detail-fillnote">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span>{entry.fillRule==="first"
+        ?"呢場係「第一個就算」，撳加入即刻成事，唔使等回覆。"
+        :"呢場由主人揀人。撳加入即係舉手，等主人回覆。"}</span>
+    </div>
+
+    {entry.iAccepted
+      ? <p className="sl-status is-quiet">已經加入，準備開波</p>
+      : closed
+        ? <p className="sl-status is-quiet">已滿或已過</p>
+        : entry.iRaised
+          ? <Button variant="secondary" className="sl-primary" disabled={busy} onClick={onRetract}>已舉手 · 收返</Button>
+          : canAct
+            ? <Button variant="primary" className="sl-primary" disabled={busy} onClick={onRaise}>加入呢場</Button>
+            : <a className="primary sl-primary" href="/login">登入後加入</a>}
+    <Button variant="quiet" className="sl-wide-link" onClick={onShare}>分享畀朋友</Button>
+  </BackdropSheet>;
+}
+
+/* --- Post-submit confirmation -------------------------------------------------
+ *
+ * Submitting used to just close the sheet -- a member who just posted had no way to tell it worked
+ * short of finding their own row on the board. This states it plainly and hands over the one thing
+ * worth doing next: telling people directly, while the moment is still warm. */
+function PostedSheet({posted,onShare,onClose}:{posted:PostedConfirmation; onShare:()=>void; onClose:()=>void}){
+  return <BackdropSheet onClose={onClose} labelledBy="posted-slot" className="sl-mine-sheet" shellClassName="match-entry-sheet">
+    <div className="mm-posted-head">
+      <span className="mm-posted-mark" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      </span>
+      <h2 id="posted-slot">開咗喇</h2>
+      <p className="sub">{when(posted)}{posted.venue?` · ${posted.venue}`:""}</p>
+    </div>
+    {posted.reach>0&&<p className="mm-posted-reach">已經通知咗 {posted.reach} 位話咗嗰陣得閒嘅球友</p>}
+    <Button variant="primary" className="sl-primary" onClick={onShare}>分享落 WhatsApp</Button>
+    <Button variant="quiet" className="mm-cancel-link" onClick={onClose}>睇返個板</Button>
   </BackdropSheet>;
 }
 
@@ -573,7 +759,11 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
   const [toast,setToast]=useState("");
   const [date,setDate]=useState<string|null>(null);
   const [openMine,setOpenMine]=useState<string|null>(null);
+  const [openDetail,setOpenDetail]=useState<string|null>(null);
   const [handsOpen,setHandsOpen]=useState(false);
+  const [filter,setFilter]=useState<RowFilter>("all");
+  const [closedOpen,setClosedOpen]=useState(false);
+  const [posted,setPosted]=useState<PostedConfirmation|null>(null);
 
   const load=useCallback(async()=>{
     try{
@@ -600,6 +790,11 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
       if(!response.ok){setError(body.error??"開唔到，試多次。");return}
       trackAvailabilityEvent("session_created");
       setComposing(false);
+      /* The old flow just closed the sheet -- a member who just posted had no way to tell whether
+         it worked short of scrolling the board to find their own row. `notified` is the real count
+         of watchers the server just messaged (`announceSlotPosted`), not a guess dressed up as one. */
+      setPosted({id:body.slot?.id??input.startAt,startAt:input.startAt,endAt:input.endAt,venue:input.venue,
+        reach:typeof body.notified==="number"?body.notified:0});
       await load();onChanged();
     }catch{setError("網絡連線失敗，請再試一次。")}
     finally{setBusy(false)}
@@ -674,8 +869,10 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
       await load();onChanged();
     } finally{setBusyId(null)}
   };
+  /* Shares any slot by id, not only the caller's own -- the detail sheet on someone else's row
+     offers 分享畀朋友 too, and looking it up only in `mine`/`hands` left that share silently empty. */
   const share=(id:string)=>{
-    const slot=[...(data?.mine??[]),...(data?.hands??[]).map(hand=>hand.slot)].find(item=>item.id===id);
+    const slot=[...(data?.mine??[]),...(data?.hands??[]).map(hand=>hand.slot),...(data?.board??[])].find(item=>item.id===id);
     const url=`${window.location.origin}/s/${id}`;
     const text=shareMessage({whenLabel:slot?when(slot):"",venue:slot?.venue??"",url});
     if(navigator.share)void navigator.share({text,url}).catch(()=>{});
@@ -715,6 +912,44 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
   },[visible,availability]);
   const rows=featured?visible.filter(entry=>entry.id!==featured.id):visible;
 
+  /* Closed rows -- filled, expired, cancelled from a reader's point of view -- stop being anything
+     anybody can act on, so they no longer take a seat in the middle of the live run at reduced
+     opacity; they collapse to one line below it. My own slot never counts as closed here: its
+     owner still has work to do on it (record a result, share it again) regardless of status. */
+  const isClosedRow=(entry:Entry)=>!entry.mine&&(Boolean(entry.closedAt)||slotStatus(entry)!=="open");
+  const openRows=useMemo(()=>rows.filter(entry=>!isClosedRow(entry)),[rows]);
+  const closedRows=useMemo(()=>rows.filter(isClosedRow),[rows]);
+  const matchesFilter=useCallback((entry:Entry,key:RowFilter)=>{
+    if(key==="level")return Math.abs(entry.player?.handicap?.points??0)<=5;
+    if(key==="handicap")return Boolean(entry.conditions.handicap);
+    if(key==="tableBooked")return Boolean(entry.conditions.tableBooked);
+    return true;
+  },[]);
+  const filterCounts=useMemo(()=>({
+    all:openRows.length,
+    level:openRows.filter(entry=>matchesFilter(entry,"level")).length,
+    handicap:openRows.filter(entry=>matchesFilter(entry,"handicap")).length,
+    tableBooked:openRows.filter(entry=>matchesFilter(entry,"tableBooked")).length,
+  }),[openRows,matchesFilter]);
+  const filteredOpenRows=useMemo(()=>filter==="all"?openRows:openRows.filter(entry=>matchesFilter(entry,filter)),
+    [openRows,filter,matchesFilter]);
+  /* Section headings only make sense across a mixed run of days -- picking one day on the rail
+     already answers "which day", so headings would just repeat it. `filteredOpenRows` is already in
+     clock order, so consecutive same-date entries fall into the same group for free. */
+  const dayGroups=useMemo(()=>{
+    if(active!==ALL_DATES)return null;
+    const groups:{date:string;entries:Entry[]}[]=[];
+    for(const entry of filteredOpenRows){
+      const entryDate=dateOf(entry.startAt);
+      const last=groups[groups.length-1];
+      if(last&&last.date===entryDate)last.entries.push(entry);
+      else groups.push({date:entryDate,entries:[entry]});
+    }
+    return groups;
+  },[filteredOpenRows,active]);
+  const sectionLabel=(entryDate:string)=>
+    entryDate===today?"今晚":entryDate===addDaysHongKong(today,1)?"聽日":hkDayLabel(entryDate);
+
   const openHands=(data?.hands??[]).filter(hand=>!hand.accepted);
 
   /* One banner, chosen in the order a member would rank these themselves: a game that is on beats a
@@ -739,6 +974,7 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
   const createSession=()=>{setError("");setComposing(true)};
   const sheet=openMine?mineById.get(openMine)??null:null;
   const editingSlot=editing?mineById.get(editing)??null:null;
+  const detailEntry=openDetail?entries.find(entry=>entry.id===openDetail)??null:null;
   const bannerBusy=Boolean(busyId);
   const empty=live.length===0;
 
@@ -765,16 +1001,54 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
       : <>
         <DateRail dates={dates} selected={active} counts={dateCounts} total={live.length} onSelect={setDate}/>
 
-        {featured&&<FeaturedCard entry={featured} overlap={overlapMinutes(featured,availability)} canAct={canAct}
-          busy={busyId===featured.id} onRaise={()=>void raise(featured.id)} onRetract={()=>void retract(featured.id)}/>}
+        {featured
+          ? <FeaturedCard entry={featured} overlap={overlapMinutes(featured,availability)} canAct={canAct}
+              busy={busyId===featured.id} onRaise={()=>void raise(featured.id)} onRetract={()=>void retract(featured.id)}/>
+          /* Without published availability there is no honest "best fit" to pin -- but leaving the
+             gap unexplained reads as a bug, not a boundary. A signed-in member with somewhere to fix
+             it gets a one-line reason instead of silence; nobody else sees anything here at all. */
+          : signedIn&&onManageAvailability&&<div className="mm-invite">
+              <span className="mm-invite-copy"><b>話你幾時得閒，我哋幫你揀啱嘅局</b>
+                <small>公開空檔之後，最啱你嘅局就會釘喺呢度</small></span>
+              <Button variant="secondary" onClick={onManageAvailability}>宜家講</Button>
+            </div>}
+
+        {openRows.length>0&&<div className="mm-filter-row" role="tablist" aria-label="篩選開緊嘅局">
+          {([
+            ["all","全部"],["level","啱我水平"],["handicap","有讓分"],["tableBooked","已訂枱"],
+          ] as [RowFilter,string][]).filter(([key])=>key==="all"||filterCounts[key]>0).map(([key,label])=>
+            <button key={key} type="button" role="tab" aria-selected={filter===key}
+              className={`mm-filter-chip${filter===key?" active":""}`} onClick={()=>setFilter(key)}>
+              {label} {filterCounts[key]}
+            </button>)}
+        </div>}
 
         <div className="mm-timeline">
-          {rows.length>0
-            ? rows.map(entry=><TimelineRow key={entry.id} entry={entry} canAct={canAct} busy={busyId===entry.id}
-                showDay={active===ALL_DATES}
-                onRaise={()=>void raise(entry.id)} onRetract={()=>void retract(entry.id)}
-                onOpenMine={()=>setOpenMine(entry.id)}/>)
-            : !featured&&<p className="mm-note">{active===ALL_DATES?"":hkDayLabel(active)}未有人開局。{signedIn?"你可以做第一個。":""}</p>}
+          {filteredOpenRows.length>0
+            ? dayGroups
+              ? dayGroups.map(group=><div className="mm-day-group" key={group.date}>
+                  <div className="mm-day-heading"><b>{sectionLabel(group.date)}</b><i aria-hidden="true"/>
+                    <small>{group.entries.length} 場</small></div>
+                  {group.entries.map(entry=><TimelineRow key={entry.id} entry={entry} canAct={canAct} busy={busyId===entry.id}
+                    onRaise={()=>void raise(entry.id)} onRetract={()=>void retract(entry.id)}
+                    onOpenMine={()=>setOpenMine(entry.id)} onOpenDetail={()=>setOpenDetail(entry.id)}/>)}
+                </div>)
+              : filteredOpenRows.map(entry=><TimelineRow key={entry.id} entry={entry} canAct={canAct} busy={busyId===entry.id}
+                  onRaise={()=>void raise(entry.id)} onRetract={()=>void retract(entry.id)}
+                  onOpenMine={()=>setOpenMine(entry.id)} onOpenDetail={()=>setOpenDetail(entry.id)}/>)
+            : !featured&&<p className="mm-note">{filter==="all"
+                ?`${active===ALL_DATES?"":hkDayLabel(active)}未有人開局。${signedIn?"你可以做第一個。":""}`
+                :"呢個篩選暫時冇符合嘅局。"}</p>}
+
+          {closedRows.length>0&&<div className="mm-closed">
+            <button type="button" className="mm-closed-head" aria-expanded={closedOpen} onClick={()=>setClosedOpen(value=>!value)}>
+              <span>已滿或已過 · {closedRows.length} 場</span>
+              <span aria-hidden="true">{closedOpen?"−":"›"}</span>
+            </button>
+            {closedOpen&&closedRows.map(entry=><TimelineRow key={entry.id} entry={entry} canAct={canAct} busy={busyId===entry.id}
+              onRaise={()=>void raise(entry.id)} onRetract={()=>void retract(entry.id)}
+              onOpenMine={()=>setOpenMine(entry.id)} onOpenDetail={()=>setOpenDetail(entry.id)}/>)}
+          </div>}
         </div>
       </>}
 
@@ -821,5 +1095,9 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
       onResult={value=>void result(sheet.id,value,sheet.filledBy,sheet.startAt)}
       onShare={()=>share(sheet.id)}
       onEdit={()=>{setError("");setEditing(sheet.id)}}/>}
+    {detailEntry&&!sheet&&<BoardDetailSheet entry={detailEntry} canAct={canAct} busy={busyId===detailEntry.id}
+      onRaise={()=>void raise(detailEntry.id)} onRetract={()=>void retract(detailEntry.id)}
+      onShare={()=>share(detailEntry.id)} onClose={()=>setOpenDetail(null)}/>}
+    {posted&&<PostedSheet posted={posted} onShare={()=>share(posted.id)} onClose={()=>setPosted(null)}/>}
   </div>;
 }

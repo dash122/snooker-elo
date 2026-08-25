@@ -19,9 +19,12 @@ async function playerName(id:string):Promise<string>{
     is watching, never told anything beyond "they posted". */
 export async function announceSlotPosted(playerId:string,slot:{startAt:string;endAt:string;venue?:string}){
   const watcherIds=await watchersOf(playerId);
-  if(!watcherIds.length)return;
+  /* The count travels back to the poster's own confirmation screen -- "已經通知咗 N 位球友" is only
+     honest if N is the number actually notified, not a guess dressed up as one. */
+  if(!watcherIds.length)return 0;
   const name=await playerName(playerId);
   await notifyPlayers(watcherIds,slotWatcherPosted(name,slot,slot.venue));
+  return watcherIds.length;
 }
 
 /** Fired the moment a slot fills, whichever path filled it. Both sides are told the same thing at

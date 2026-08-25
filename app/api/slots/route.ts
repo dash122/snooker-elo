@@ -154,8 +154,8 @@ export async function POST(request:Request){
       note:typeof body.note==="string"?body.note.trim().slice(0,200):"",
       fillRule,conditions:readConditions(body.conditions)});
     if(!created)return Response.json({error:"呢段時間你已經開咗局，改一改時間先。"},{status:409});
-    await announceSlotPosted(member.statePlayerId,created).catch(()=>{});
-    return Response.json({slot:created},{status:201});
+    const notified=await announceSlotPosted(member.statePlayerId,created).catch(()=>0);
+    return Response.json({slot:created,notified:notified??0},{status:201});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"Could not post slot"},{status:400});
   }
