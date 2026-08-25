@@ -513,7 +513,7 @@ export function RecurrenceEditor({rules,onAdd,onRemove,onCopyLastWeek,busy}:{
 
 /* --- Club activity, outside the matchmaking tab --------------------------- */
 
-export type TonightSummary={free:number;openCalls:number};
+export type TonightSummary={free:number;openCalls:number;openSlots:number};
 
 /** What the club looks like right now, on the screen members actually land on.
  *
