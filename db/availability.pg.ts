@@ -295,6 +295,18 @@ export async function boardOpenCount():Promise<number>{
   return Number(row?.count??0);
 }
 
+/** How many 開局卡 are actually still joinable right now -- unlike `boardOpenCount` this counts rows,
+    not posters, and excludes anything already filled, so it answers "how many slots could I raise a
+    hand on" rather than "how many members have something up". Public (no `excludePlayerId`): the
+    club-wide nav badge this feeds is a discovery signal for a visitor as much as a member, same
+    reasoning as `tonight.free` on the summary endpoint it sits beside. */
+export async function openSlotsCount():Promise<number>{
+  await ensureSchema(); const sql=getSql();
+  const [row]=await sql<{count:string}[]>`SELECT count(*)::text AS count FROM availability_slots
+    WHERE posted=true AND cancelled_at IS NULL AND closed_at IS NULL AND filled_by IS NULL AND end_at > now()`;
+  return Number(row?.count??0);
+}
+
 /** The public preview behind a shared link — readable without signing in, like an open call always
     was. Only ever a post that is still open: once filled or cancelled, the link should read as gone
     rather than show a stranger who is now playing. */

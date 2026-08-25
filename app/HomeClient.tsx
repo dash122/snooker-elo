@@ -511,9 +511,15 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const [managementMode,setManagementMode] = useState(false);
   const ownPlayerId=user?.statePlayerId;
   /* The badge is the whole reason matchmaking stops being invisible: it runs in the app shell, so a
-     member looking at the leaderboard finds out that three people are waiting on them. */
+     member looking at the leaderboard finds out that three people are waiting on them.
+
+     Two different signals share the one red circle a nav icon can carry, so they take turns rather
+     than sum: something owed *to me* (an invite, an offer, a follow-up) is the more personal, more
+     urgent claim on the number, so it wins when it is nonzero. Otherwise the badge falls back to how
+     many 開局卡 are open club-wide right now — a discovery nudge rather than an obligation, and one a
+     signed-out visitor sees too, since `tonight.openSlots` is public. */
   const {summary:matchmakingSummary,refresh:refreshMatchmaking}=useMatchmakingSummary(Boolean(ownPlayerId));
-  const matchmakingBadge=actionableCount(matchmakingSummary?.counts);
+  const matchmakingBadge=actionableCount(matchmakingSummary?.counts)||matchmakingSummary?.tonight.openSlots||0;
   /* Registered from the shell rather than the matchmaking tab so a notification can be delivered to
      a member who has never opened that tab — which is exactly the member worth reaching. */
   useEffect(()=>{void registerServiceWorker()},[]);
@@ -1025,12 +1031,19 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   };
 
   const navBadge=(id:string)=>id==="availability"?matchmakingBadge:id==="matches"?cupBadge:0;
+  /** The number on 約戰's badge means one of two different things depending on which source fed it
+      (see `matchmakingBadge` above) — this says which, so a screen reader hears the right claim. */
+  const navBadgeLabel=(id:string)=>{
+    if(id!=="availability")return undefined;
+    const actionable=actionableCount(matchmakingSummary?.counts);
+    return actionable>0?`${actionable} 項待處理`:`${matchmakingBadge} 個開緊局`;
+  };
 
   return <><style>{`.read-only .card-tools,.read-only .hero.small > .primary{display:none}`}</style><AppShell signedIn={Boolean(user)}>
     <div className={`pull-refresh${refreshing?" spinning":""}`} style={{height:refreshing?PULL_THRESHOLD:pullDistance,opacity:refreshing||pullDistance>0?1:0}} aria-hidden="true">
       <span/>
     </div>
-    <DesktopNavigation active={tab as Destination} onNavigate={goTab} badge={navBadge} signedIn={Boolean(user)} needsOnboarding={Boolean(user?.needsOnboarding)}/>
+    <DesktopNavigation active={tab as Destination} onNavigate={goTab} badge={navBadge} badgeLabel={navBadgeLabel} signedIn={Boolean(user)} needsOnboarding={Boolean(user?.needsOnboarding)}/>
     <main>
       <header><div className="mobile-brand-wrap"><div className="mobile-brand">SCAA <span>Snooker ELO</span></div>{user?.needsOnboarding&&<a className="onboarding-alert-link" href="/onboarding?reminder=1" aria-label="完成會員問卷" title="完成會員問卷">⚠️</a>}</div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       <PageFrame className={`app-page-${tab}`}>
@@ -1052,7 +1065,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={()=>newMatch("2v2")}><i>2v2</i><span><b>潮拍 2v2</b><small>純娛樂模式，不影響目前 ELO 與統計</small></span></button>
       <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={()=>newMatch("cup")}><i>會友盃</i><span><b>會友盃記錄</b><small>選擇盃賽場次並儲存，不可手動設定讓分</small></span></button>
     </div>
-    <MobileBottomNav active={tab as Destination} onNavigate={goTab} onRecord={()=>setRecordMenuOpen(open=>!open)} recordOpen={recordMenuOpen} badge={navBadge}/>
+    <MobileBottomNav active={tab as Destination} onNavigate={goTab} onRecord={()=>setRecordMenuOpen(open=>!open)} recordOpen={recordMenuOpen} badge={navBadge} badgeLabel={navBadgeLabel}/>
     {/* Share is the first modal kind migrated off this shared shell onto the `Sheet`
         primitive (see docs/ui-audit.md §3) — it owns its own scrim, safe-area handling,
         and close button now, so it is excluded from the block below and rendered

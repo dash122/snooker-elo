@@ -1,6 +1,6 @@
 import { getCurrentMember } from "../../../../db/auth";
 import { matchmakingCounts, reliabilityByPlayer } from "../../../../db/matchmaking";
-import { listAvailability } from "../../../../db/availability";
+import { listAvailability, openSlotsCount } from "../../../../db/availability";
 import { listOpenCalls } from "../../../../db/open-calls";
 import { liveIntentsByPlayer } from "../../../../db/intents";
 import { dayRangeHongKong, hkDate, isOpenCallLive } from "../../../../lib/availability";
@@ -15,14 +15,18 @@ export async function GET(){
   try{
     const member=await getCurrentMember();
     const today=hkDate(),range=dayRangeHongKong(today);
-    const [members,calls]=await Promise.all([
+    const [members,calls,openSlots]=await Promise.all([
       listAvailability(range.startAt,range.endAt),
       listOpenCalls().catch(()=>[]),
+      /* Public like the rest of `tonight`: a visitor deciding whether to sign up should see the
+         same "N 個開緊局" the nav badge shows a member, not a blank until they log in. */
+      openSlotsCount().catch(()=>0),
     ]);
     const now=Date.now();
     const tonight={
       free:members.filter(entry=>entry.slots.length>0).length,
       openCalls:calls.filter(call=>isOpenCallLive(call,now)).length,
+      openSlots,
     };
     if(!member?.statePlayerId)return Response.json({tonight,counts:null,reliability:{},intents:{}},{headers:{"cache-control":"no-store"}});
     const [counts,reliability,intents]=await Promise.all([
