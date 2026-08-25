@@ -174,11 +174,105 @@
   .mm-mine-head h2{margin:0}
   .mm-edit-link{flex:0 0 auto;min-height:0;padding:var(--sp-1) var(--sp-2);color:var(--ds-accent-action);font-size:var(--fs-caption);font-weight:800}
 
+  /* --- Row density: faces, sub-line, fill-rule hint -------------------------
+     Everything below was already in the payload -- see `AcceptedFaces` and `fillHint` in
+     Slots.tsx -- this only gives each piece somewhere to sit in the row. */
+  .mm-row-sub{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-1-5);margin-top:2px}
+  .mm-row-faces{display:flex;flex:0 0 auto}
+  .mm-row-face{width:1.25rem;height:1.25rem;border-radius:50%;border:2px solid var(--ds-surface-primary);font-size:var(--fs-label);transform:scale(.85)}
+  .mm-row-face+.mm-row-face{margin-left:-.4rem}
+  .mm-row-face-more{display:grid;place-items:center;background:var(--ds-surface-secondary);color:var(--ds-text-tertiary);font-style:normal;font-weight:800}
+  .mm-slot.is-mine .mm-row-face{border-color:var(--ds-success-wash)}
+  .mm-row-faces-count{color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
+  .mm-row-sub .ds-chip-row{gap:var(--sp-1)}
+  .mm-slot-fillhint{display:block;margin-top:2px;color:var(--ds-text-tertiary);font-size:var(--fs-label);text-align:center}
+  .mm-slot[role="button"]{cursor:pointer}
+
+  /* --- Day sections and the closed-row disclosure ---------------------------
+     Headings only appear under 全部日子, where a mixed run of days would otherwise read as one
+     wall; closed/full rows move out of the live run entirely rather than dimming in place. */
+  .mm-day-group{display:grid;gap:var(--sp-2)}
+  .mm-day-group+.mm-day-group{margin-top:var(--sp-2)}
+  .mm-day-heading{display:flex;align-items:center;gap:var(--sp-2-5);margin:var(--sp-1) 0 0}
+  .mm-day-heading b{font-family:var(--font-display);font-size:var(--fs-lead);font-weight:700;color:var(--ds-text-primary);white-space:nowrap}
+  .mm-day-heading i{height:1px;flex-grow:1;background:var(--ds-border-subtle)}
+  .mm-day-heading small{color:var(--ds-text-tertiary);font-size:var(--fs-caption);white-space:nowrap}
+  .mm-closed{margin-top:var(--sp-2)}
+  .mm-closed-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);
+    width:100%;min-height:2.75rem;padding:0 var(--sp-4);border:1px dashed var(--ds-border-strong);
+    border-radius:var(--ds-radius-control);background:transparent;color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
+  .mm-closed .mm-slot{margin-top:var(--sp-2)}
+
+  /* --- Filter chips ----------------------------------------------------------
+     A second axis on top of the date rail, all derivable from data already on the page. */
+  .mm-filter-row{display:flex;gap:var(--sp-1-5);overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .mm-filter-row::-webkit-scrollbar{display:none}
+  .mm-filter-chip{flex:0 0 auto;display:inline-flex;align-items:center;height:1.875rem;padding:0 var(--sp-3);
+    border:1px solid var(--ds-border-subtle);border-radius:999px;background:var(--ds-surface-primary);
+    color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700;white-space:nowrap}
+  .mm-filter-chip.active{background:var(--ds-surface-featured);border-color:var(--ds-surface-featured);color:var(--ds-text-on-brand)}
+
+  /* --- The no-availability invite --------------------------------------------
+     Fills the gap `FeaturedCard` leaves when nothing can honestly be pinned -- a light card, not the
+     dark featured treatment, since there is no recommendation here yet, only a reason to make one
+     possible. */
+  .mm-invite{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3-5) var(--sp-4);
+    border:1px dashed var(--ds-border-strong);border-radius:var(--ds-radius-card);background:var(--ds-surface-secondary)}
+  .mm-invite-copy{flex:1 1 auto;min-width:0}
+  .mm-invite-copy b{display:block;font-size:var(--fs-sm);font-weight:700}
+  .mm-invite-copy small{display:block;margin-top:2px;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+
+  /* --- Composer: running summary, duration presets, fill-rule cards --------- */
+  .mm-composer-summary{display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-4);
+    padding:var(--sp-3-5) var(--sp-4);border-radius:var(--ds-radius-control);
+    background:var(--ds-success-wash);border:1px solid var(--ds-success-wash-border)}
+  .mm-composer-summary-copy{flex:1 1 auto;min-width:0}
+  .mm-composer-summary-copy b{display:block;font-family:var(--font-display);font-size:var(--fs-lead);font-weight:700;
+    color:var(--ds-text-primary);overflow-wrap:anywhere}
+  .mm-composer-summary-copy small{display:block;margin-top:2px;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+  .mm-composer-summary-mark{display:grid;place-items:center;flex:0 0 1.75rem;width:1.75rem;height:1.75rem;
+    border-radius:50%;background:var(--ds-success);color:var(--ds-text-on-danger)}
+  .mm-time-strip button.is-peak{border-color:var(--ds-accent-primary)}
+  .mm-time-strip button.is-peak small{color:var(--ds-accent-text)}
+  .mm-time-strip button.active.is-peak small{color:var(--ds-text-on-brand-secondary)}
+  .mm-stepper-controls b small{display:block;margin-top:1px;font-family:inherit;font-size:var(--fs-label);
+    font-weight:600;color:var(--ds-text-tertiary)}
+  .mm-duration-presets{display:flex;gap:var(--sp-2);margin-top:var(--sp-2)}
+  .mm-duration-chip{flex:1 1 0;display:flex;align-items:center;justify-content:center;min-height:2.25rem;
+    border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);background:var(--ds-surface-primary);
+    color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700}
+  .mm-duration-chip.active{background:var(--ds-surface-featured);border-color:var(--ds-surface-featured);color:var(--ds-text-on-brand)}
+  .mm-fillrule-cards{display:flex;gap:var(--sp-2)}
+  .mm-fillrule-card{flex:1 1 0;display:grid;gap:var(--sp-1);padding:var(--sp-3) var(--sp-3-5);text-align:left;
+    border:1.5px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);background:var(--ds-surface-primary)}
+  .mm-fillrule-card.active{border-color:var(--ds-accent-action);background:var(--ds-success-wash)}
+  .mm-fillrule-card b{font-size:var(--fs-sm);font-weight:800;color:var(--ds-text-primary)}
+  .mm-fillrule-card small{color:var(--ds-text-secondary);font-size:var(--fs-caption);line-height:1.45}
+
+  /* --- Slot detail sheet (non-owner) ----------------------------------------- */
+  .mm-detail-who{display:flex;align-items:center;gap:var(--sp-2-5);margin-top:var(--sp-3);
+    padding:var(--sp-3) var(--sp-3-5);border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary)}
+  .mm-detail-who>.player-badge{flex:0 0 2.75rem;width:2.75rem;height:2.75rem;border-radius:50%}
+  .mm-detail-fillnote{display:flex;align-items:flex-start;gap:var(--sp-2-5);margin-top:var(--sp-3);
+    padding:var(--sp-3) var(--sp-3-5);border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary);
+    color:var(--ds-text-secondary)}
+  .mm-detail-fillnote svg{flex:0 0 auto;margin-top:1px;color:var(--ds-accent-action)}
+  .mm-detail-fillnote span{font-size:var(--fs-caption);line-height:1.6}
+
+  /* --- Post-submit confirmation ----------------------------------------------- */
+  .mm-posted-head{display:grid;justify-items:center;gap:var(--sp-2);text-align:center;padding-top:var(--sp-2)}
+  .mm-posted-mark{display:grid;place-items:center;width:3.5rem;height:3.5rem;border-radius:50%;
+    background:var(--ds-success-wash);border:1px solid var(--ds-success-wash-border);color:var(--ds-success)}
+  .mm-posted-head h2{margin:0}
+  .mm-posted-reach{margin:var(--sp-3) 0 0;padding:var(--sp-3) var(--sp-3-5);border-radius:var(--ds-radius-control);
+    background:var(--ds-surface-secondary);color:var(--ds-text-secondary);font-size:var(--fs-sm);text-align:center}
+
   @media (max-width:599px){
     .mm-banner{flex-wrap:wrap}
     .mm-banner-copy{flex-basis:100%;order:3}
     .mm-banner button,.mm-banner-primary,.mm-banner-actions{margin-left:auto}
     .mm-slot{padding:var(--sp-3) var(--sp-3-5)}
     .mm-slot-when{flex-basis:3.25rem}
+    .mm-fillrule-cards{flex-direction:column}
   }
 }
