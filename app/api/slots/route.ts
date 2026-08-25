@@ -76,16 +76,21 @@ export async function GET(){
        than joined into the board query above — the board query must never be capable of returning
        it. The counts are a different matter and travel with everything. None of these depend on
        each other's results, so they run together rather than as separate round trips. */
-    const [boardWithHands,fillers,mineSummaries,mineHands]=await Promise.all([
+    const [boardWithHands,fillers,mineSummaries,mineHands,myProfile]=await Promise.all([
       withHands(board,me),
       playerProfiles(mine.flatMap(item=>item.filledBy?[item.filledBy]:[])),
       handSummaries(mine.map(item=>item.id)).catch(()=>new Map<string,SlotHandSummary>()),
       handsForSlots(me,mine.map(item=>item.id)),
+      playerProfiles([me]).then(map=>map.get(me)??null),
     ]);
     const mineWithHands=mine.map(item=>{
       const summary=mineSummaries.get(item.id);
       return {...item,
         mine:true,
+        /* The poster's own profile, so a member's own row can name and picture them the same as
+           anyone else's -- distinguishing "your slot" from "somebody else's" is now the row's
+           colour, not the absence of a face. */
+        player:myProfile,
         filler:item.filledBy?fillers.get(item.filledBy)??null:null,
         counts:{total:summary?.total??0,accepted:summary?.accepted??0,waiting:summary?.waiting??0},
         acceptedPlayers:summary?.acceptedPlayers??[],
