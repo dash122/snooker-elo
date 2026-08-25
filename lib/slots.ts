@@ -108,7 +108,7 @@ const minute=60_000;
 export function freshnessLabel(createdAt:string,now=Date.now()):string {
   const minutes=Math.max(0,Math.round((now-Date.parse(createdAt))/minute));
   if(minutes<1)return "啱啱開";
-  if(minutes<60)return `啱啱開 · ${minutes} 分鐘`;
+  if(minutes<60)return `${minutes} 分鐘前開始招募`;
   const hours=Math.floor(minutes/60);
   return hours<24?`開咗 ${hours} 個鐘`:`開咗 ${Math.floor(hours/24)} 日`;
 }

@@ -322,18 +322,19 @@ function FeaturedCard({entry,overlap,canAct,busy,onRaise,onRetract}:{
 /** One row of the timeline. My own slot is the same row with a different right-hand affordance —
     not a second list, because splitting an evening's four cards into two lists of two makes both
     look like a dead club. */
-function TimelineRow({entry,canAct,busy,onRaise,onRetract,onOpenMine}:{
-  entry:Entry; canAct:boolean; busy:boolean;
+function TimelineRow({entry,canAct,busy,showDay,onRaise,onRetract,onOpenMine}:{
+  entry:Entry; canAct:boolean; busy:boolean; showDay?:boolean;
   onRaise:()=>void; onRetract:()=>void; onOpenMine:()=>void;
 }){
   const status=slotStatus(entry);
   const closed=Boolean(entry.closedAt)||status!=="open";
   const meta=entry.mine
     ? entry.waiting>0?`${entry.waiting} 人舉手 · 等你回覆`:handsLine({hands:entry.hands,mine:true,iRaised:false,fillRule:entry.fillRule,createdAt:entry.createdAt})
-    : [entry.venue||"SCAA 會所",entry.hands.total>0?`${entry.hands.total} 人有興趣`:null].filter(Boolean).join(" · ");
+    : [entry.venue||"SCAA 會所",`${entry.hands.total} 人已報名`].filter(Boolean).join(" · ");
   return <article className={`mm-slot${entry.mine?" is-mine":""}${entry.iAccepted?" is-confirmed":""}${closed&&!entry.mine?" is-closed":""}`}>
-    <span className="mm-slot-when"><b>{hkClock(entry.startAt)}</b><small>{spanHours(entry)} 個鐘</small></span>
+    <span className="mm-slot-when"><b>{hkClock(entry.startAt)}</b><small>{showDay?`${dayWord(entry)} · `:""}{spanHours(entry)} 個鐘</small></span>
     <span className="mm-slot-rule" aria-hidden="true"/>
+    {!entry.mine&&entry.player&&<PlayerBadge player={entry.player}/>}
     <span className="mm-row-copy">
       <b>{entry.mine?"你開嘅局":entry.player?.name??"球友"}</b>
       <small className={entry.mine&&entry.waiting>0?"is-attention":undefined}>{meta}</small>
@@ -463,7 +464,11 @@ function ColdOpen({signedIn,onCreate}:{signedIn:boolean; onCreate:()=>void}){
  * question ("which day"). One picker, one visual language, reused rather than re-invented — counts
  * read in slots (場) here, where the roster grid's reads in people (位). */
 const HORIZON=14;
-function DateRail({dates,selected,counts,onSelect}:{dates:string[];selected:string;counts:Record<string,number>;onSelect:(date:string)=>void}){
+/** The value `active` takes when no single day is picked — every slot across the whole horizon,
+    in one clock order. It is the rail's first option and its default, so a member sees the whole
+    club's pulse before narrowing to one day. */
+export const ALL_DATES="all";
+function DateRail({dates,selected,counts,total,onSelect}:{dates:string[];selected:string;counts:Record<string,number>;total:number;onSelect:(date:string)=>void}){
   const scrollRef=useRef<HTMLDivElement>(null);
   const move=(direction:-1|1)=>scrollRef.current?.scrollBy({left:direction*Math.max(220,scrollRef.current.clientWidth*.72),behavior:"smooth"});
   useEffect(()=>{scrollRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"})},[selected]);
@@ -473,6 +478,11 @@ function DateRail({dates,selected,counts,onSelect}:{dates:string[];selected:stri
     <div className="availability-date-strip-wrap">
       <IconButton className="availability-date-scroll-button previous" label="向前捲動日期" onClick={()=>move(-1)}>‹</IconButton>
       <div className="availability-date-strip" role="tablist" aria-label="選擇日期，左右滑動查看更多" ref={scrollRef}>
+        <button type="button" role="tab" aria-selected={selected===ALL_DATES}
+          aria-label={`全部日子，${total} 場`}
+          className={selected===ALL_DATES?"active":""} onClick={()=>onSelect(ALL_DATES)}>
+          <small>全部</small><span>日子</span><strong>{total} 場</strong>
+        </button>
         {dates.map(value=>{
           const active=value===selected,count=counts[value]??0;
           const weekday=new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",weekday:"short"}).format(new Date(`${value}T00:00:00+08:00`));
@@ -629,10 +639,10 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
     for(const entry of live){const d=dateOf(entry.startAt);if(d in counts)counts[d]+=1}
     return counts;
   },[live,dates]);
-  /* The first day worth opening on, absent a member's own pick — a member who opens the tab at
-     23:30 with nothing left tonight should land on tomorrow, not on an empty screen. */
-  const active=date??dates.find(d=>dateCounts[d]>0)??dates[0];
-  const visible=useMemo(()=>entries.filter(entry=>dateOf(entry.startAt)===active),[entries,active]);
+  /* Absent a member's own pick, the rail opens on 全部 — every slot across the horizon, so a member
+     sees the whole club's pulse before narrowing to one day. */
+  const active=date??ALL_DATES;
+  const visible=useMemo(()=>active===ALL_DATES?entries:entries.filter(entry=>dateOf(entry.startAt)===active),[entries,active]);
   /* The pinned card is the best *overlap* with what I already said I am free for — the one ranking
      in this tab a member cannot do for themselves by reading the list. Without published
      availability there is no honest "best", so nothing is pinned and the list simply runs. */
@@ -694,7 +704,7 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
     {empty
       ? <ColdOpen signedIn={signedIn} onCreate={createSession}/>
       : <>
-        <DateRail dates={dates} selected={active} counts={dateCounts} onSelect={setDate}/>
+        <DateRail dates={dates} selected={active} counts={dateCounts} total={live.length} onSelect={setDate}/>
 
         {featured&&<FeaturedCard entry={featured} overlap={overlapMinutes(featured,availability)} canAct={canAct}
           busy={busyId===featured.id} onRaise={()=>void raise(featured.id)} onRetract={()=>void retract(featured.id)}/>}
@@ -702,9 +712,10 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
         <div className="mm-timeline">
           {rows.length>0
             ? rows.map(entry=><TimelineRow key={entry.id} entry={entry} canAct={canAct} busy={busyId===entry.id}
+                showDay={active===ALL_DATES}
                 onRaise={()=>void raise(entry.id)} onRetract={()=>void retract(entry.id)}
                 onOpenMine={()=>setOpenMine(entry.id)}/>)
-            : !featured&&<p className="mm-note">{hkDayLabel(active)}未有人開局。{signedIn?"你可以做第一個。":""}</p>}
+            : !featured&&<p className="mm-note">{active===ALL_DATES?"":hkDayLabel(active)}未有人開局。{signedIn?"你可以做第一個。":""}</p>}
         </div>
       </>}
 
