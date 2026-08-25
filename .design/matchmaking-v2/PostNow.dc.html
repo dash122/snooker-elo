@@ -1,0 +1,79 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+  <style>
+    body{margin:0;font-family:"Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif;background:#f4f3ed;color:#132521;-webkit-font-smoothing:antialiased}
+    a{color:#155e52;text-decoration:none}a:hover{color:#185149}
+    .disp{font-family:"Barlow Condensed","Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif;font-variant-numeric:tabular-nums}
+    .chip{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12);color:#63736e;font-size:11px;font-weight:700}
+    .kick{margin:0;font-size:12px;letter-spacing:.16em;font-weight:700;color:#82908c}
+    .av{display:flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-size:12px;font-weight:700;flex:0 0 auto}
+  </style>
+</helmet>
+<div style="width:390px;height:900px;background:rgba(3,25,21,.7);display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden">
+  <div style="background:#fffefa;border-radius:24px 24px 0 0;padding:22px 20px 24px;display:flex;flex-direction:column;gap:0;box-shadow:0 -24px 70px rgba(5,34,29,.22)">
+
+    <div style="width:38px;height:4px;border-radius:2px;background:rgba(20,65,57,.24);align-self:center;margin-bottom:16px"></div>
+
+    <p class="kick">開一場</p>
+    <h2 class="disp" style="margin:6px 0 4px;font-size:28px;font-weight:700">你幾時得閒？</h2>
+    <p style="margin:0;font-size:14px;color:#63736e">揀個時間就得，其他嘢我哋幫你搞掂。</p>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#82908c">日期</span>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span style="color:#63736e;font-size:18px;flex:0 0 auto">‹</span>
+        <div style="display:flex;gap:8px;overflow:hidden;flex-grow:1">
+          <span style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:76px;height:70px;border-radius:12px;background:#0d443a;color:#f9f7ee;flex:0 0 auto"><small style="font-size:11px;color:#bdd0c9">今天</small><span class="disp" style="font-size:16px;font-weight:700">8/25</span></span>
+          <span style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:76px;height:70px;border-radius:12px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12);flex:0 0 auto"><small style="font-size:11px;color:#63736e">明天</small><span class="disp" style="font-size:16px;font-weight:700">8/26</span></span>
+          <span style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:76px;height:70px;border-radius:12px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12);flex:0 0 auto"><small style="font-size:11px;color:#63736e">三</small><span class="disp" style="font-size:16px;font-weight:700">8/27</span></span>
+        </div>
+        <span style="color:#63736e;font-size:18px;flex:0 0 auto">›</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#82908c">開始時間</span>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span style="color:#63736e;font-size:18px;flex:0 0 auto">‹</span>
+        <div style="display:flex;gap:8px;overflow:hidden;flex-grow:1">
+          <span style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:72px;height:70px;border-radius:12px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12);flex:0 0 auto"><span class="disp" style="font-size:18px;font-weight:700">18:00</span><small style="font-size:11px;color:#82908c">放工</small></span>
+          <span style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:72px;height:70px;border-radius:12px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12);flex:0 0 auto"><span class="disp" style="font-size:18px;font-weight:700">18:30</span></span>
+          <span style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:72px;height:70px;border-radius:12px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12);flex:0 0 auto"><span class="disp" style="font-size:18px;font-weight:700">19:00</span></span>
+          <span style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:72px;height:70px;border-radius:12px;background:#0d443a;color:#f9f7ee;flex:0 0 auto"><span class="disp" style="font-size:18px;font-weight:700">19:30</span><small style="font-size:11px;color:#bdd0c9">最多人</small></span>
+        </div>
+        <span style="color:#63736e;font-size:18px;flex:0 0 auto">›</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-radius:12px;background:#f7f6ef;color:#63736e;font-size:13px">
+        <span>打幾耐</span>
+        <span style="display:flex;align-items:center;gap:14px">
+          <span style="display:grid;place-items:center;width:32px;height:32px;border-radius:10px;border:1px solid rgba(20,65,57,.12);background:#fffefa">−</span>
+          <b class="disp" style="min-width:80px;text-align:center;font-size:18px;color:#132521">2 小時</b>
+          <span style="display:grid;place-items:center;width:32px;height:32px;border-radius:10px;border:1px solid rgba(20,65,57,.12);background:#fffefa">＋</span>
+        </span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-top:20px;padding:14px 16px;border:1px dashed rgba(20,65,57,.24);border-radius:12px">
+      <span style="display:flex;flex-direction:column;gap:2px;flex-grow:1">
+        <b style="font-size:14px;font-weight:700">枱位、讓分、想自己揀人</b>
+        <small style="font-size:13px;color:#82908c">唔揀都得 · 預設開畀大家舉手，你話事收邊個</small>
+      </span>
+      <span style="color:#63736e;font-size:16px">＋</span>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:center;height:52px;margin-top:20px;border-radius:12px;background:#155e52;color:#fffefa;font-size:16px;font-weight:800">開 今晚 19:30–21:30</div>
+    <p style="margin:10px 0 0;text-align:center;font-size:13px;color:#82908c">會即刻俾成個會所見到 · 隨時可以取消</p>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

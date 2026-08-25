@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+  <style>
+    body{margin:0;font-family:"Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif;background:#f4f3ed;color:#132521;-webkit-font-smoothing:antialiased}
+    a{color:#155e52;text-decoration:none}a:hover{color:#185149}
+    .disp{font-family:"Barlow Condensed","Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif;font-variant-numeric:tabular-nums}
+    .chip{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12);color:#63736e;font-size:11px;font-weight:700}
+    .kick{margin:0;font-size:12px;letter-spacing:.16em;font-weight:700;color:#82908c}
+    .av{display:flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-size:12px;font-weight:700;flex:0 0 auto}
+  </style>
+</helmet>
+<div style="width:1280px;height:760px;background:#f4f3ed;padding:32px 36px;box-sizing:border-box;display:flex;flex-direction:column;gap:22px">
+
+  <div style="display:flex;flex-direction:column;gap:4px">
+    <p class="kick">約戰 · 用戶流程</p>
+    <h1 class="disp" style="margin:0;font-size:32px;font-weight:700;letter-spacing:-.01em">兩條路，各自少一步、多一個交代</h1>
+  </div>
+
+  <!-- JOIN -->
+  <div style="display:flex;flex-direction:column;gap:12px;padding:20px 22px;border-radius:20px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+    <b class="disp" style="font-size:20px;font-weight:700">A · 揀一場加入</b>
+
+    <div style="display:flex;align-items:stretch;gap:10px">
+      <span style="display:flex;align-items:center;justify-content:center;width:52px;flex:0 0 auto;border-radius:10px;background:#f7f6ef;color:#63736e;font-size:13px;font-weight:800">而家</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#f7f6ef"><b style="font-size:13px;font-weight:800">開 tab</b><small style="font-size:12px;color:#63736e">一條扁平時間軸</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#fbeeed;border:1px solid rgba(173,81,73,.28)"><b style="font-size:13px;font-weight:800">睇每一行</b><small style="font-size:12px;color:#ad5149">得「會所 · N 人已報名」，決定唔到揀邊場</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#fbeeed;border:1px solid rgba(173,81,73,.28)"><b style="font-size:13px;font-weight:800">撳「加入」</b><small style="font-size:12px;color:#ad5149">唔知即刻成事定要等人揀</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#fbeeed;border:1px solid rgba(173,81,73,.28)"><b style="font-size:13px;font-weight:800">等</b><small style="font-size:12px;color:#ad5149">行變咗「收返」，之後冇下文</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#f7f6ef"><b style="font-size:13px;font-weight:800">banner 出現</b><small style="font-size:12px;color:#63736e">先知成咗事</small></span>
+    </div>
+
+    <div style="display:flex;align-items:stretch;gap:10px">
+      <span style="display:flex;align-items:center;justify-content:center;width:52px;flex:0 0 auto;border-radius:10px;background:#0d443a;color:#f9f7ee;font-size:13px;font-weight:800">建議</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#eef6f0;border:1px solid #cfe0d5"><b style="font-size:13px;font-weight:800">開 tab</b><small style="font-size:12px;color:#63736e">頂部一句：今晚 4 場、2 場仲收</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#eef6f0;border:1px solid #cfe0d5"><b style="font-size:13px;font-weight:800">篩一下（可選）</b><small style="font-size:12px;color:#63736e">仲收人 · 啱我水平 · 有讓分</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#eef6f0;border:1px solid #cfe0d5"><b style="font-size:13px;font-weight:800">行入面已經夠</b><small style="font-size:12px;color:#63736e">幾點完、對手分數、已經有邊個、條件、收人方式</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#eef6f0;border:1px solid #cfe0d5"><b style="font-size:13px;font-weight:800">撳「加入」</b><small style="font-size:12px;color:#63736e">按鈕底下已經寫咗會點</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#0d443a;color:#f9f7ee"><b style="font-size:13px;font-weight:800">即時交代</b><small style="font-size:12px;color:#bdd0c9">成事 → WhatsApp；等緊 → 話你知等緊邊個</small></span>
+    </div>
+  </div>
+
+  <!-- POST -->
+  <div style="display:flex;flex-direction:column;gap:12px;padding:20px 22px;border-radius:20px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+    <b class="disp" style="font-size:20px;font-weight:700">B · 開一場</b>
+
+    <div style="display:flex;align-items:stretch;gap:10px">
+      <span style="display:flex;align-items:center;justify-content:center;width:52px;flex:0 0 auto;border-radius:10px;background:#f7f6ef;color:#63736e;font-size:13px;font-weight:800">而家</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#f7f6ef"><b style="font-size:13px;font-weight:800">撳「立即約局」</b><small style="font-size:12px;color:#63736e">開 sheet</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#fbeeed;border:1px solid rgba(173,81,73,.28)"><b style="font-size:13px;font-weight:800">揀日、揀時間</b><small style="font-size:12px;color:#ad5149">唔知邊日邊個鐘有人得閒</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#fbeeed;border:1px solid rgba(173,81,73,.28)"><b style="font-size:13px;font-weight:800">加減時數</b><small style="font-size:12px;color:#ad5149">要碌到底部個掣先知幾點完</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#fbeeed;border:1px solid rgba(173,81,73,.28)"><b style="font-size:13px;font-weight:800">「＋ 更多」</b><small style="font-size:12px;color:#ad5149">收人方式同枱位、條件揼埋一齊收埋</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#fbeeed;border:1px solid rgba(173,81,73,.28)"><b style="font-size:13px;font-weight:800">開</b><small style="font-size:12px;color:#ad5149">sheet 閂咗，冇確認、冇分享、唔知通知咗邊個</small></span>
+    </div>
+
+    <div style="display:flex;align-items:stretch;gap:10px">
+      <span style="display:flex;align-items:center;justify-content:center;width:52px;flex:0 0 auto;border-radius:10px;background:#0d443a;color:#f9f7ee;font-size:13px;font-weight:800">建議</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#eef6f0;border:1px solid #cfe0d5"><b style="font-size:13px;font-weight:800">撳「立即約局」</b><small style="font-size:12px;color:#63736e">開 sheet，頂部已經寫住預設嗰場</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#eef6f0;border:1px solid #cfe0d5"><b style="font-size:13px;font-weight:800">揀日、揀時間</b><small style="font-size:12px;color:#63736e">每格寫住「6 人得閒」，揀有人嗰格</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#eef6f0;border:1px solid #cfe0d5"><b style="font-size:13px;font-weight:800">打到幾點</b><small style="font-size:12px;color:#63736e">直接顯示完場時間 + 1.5／2／3 鐘快揀</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#eef6f0;border:1px solid #cfe0d5"><b style="font-size:13px;font-weight:800">收人方式</b><small style="font-size:12px;color:#63736e">兩張卡擺喺面；枱位、條件先收埋</small></span>
+      <span style="align-self:center;color:#82908c;font-size:16px">›</span>
+      <span style="display:flex;flex-direction:column;gap:4px;flex-grow:1;flex-basis:0;padding:12px 14px;border-radius:12px;background:#0d443a;color:#f9f7ee"><b style="font-size:13px;font-weight:800">開咗喇</b><small style="font-size:12px;color:#bdd0c9">通知咗 6 人 · 分享 · 冇人嘅話會提你</small></span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
