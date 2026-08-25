@@ -1,14 +1,13 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerBadge } from "./UiBits";
 import { Button, ChipRow, IconButton, SegmentedControl, Skeleton } from "./components/ui/Primitives";
 import { BackdropSheet } from "./components/ui/Overlay";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant } from "../lib/availability";
-import { DAY_BUCKETS, bucketCounts, conditionChips, dayBucketLabel, dayBucketOf, handoffMessage,
-  handsLine, openingBucket, shareMessage, slotStatus, slotTakingHands, sortPostedSlots,
-  takeActionLabel, visiblePostedSlots, weekendDates, whatsappShareUrl,
-  type DayBucket, type FillRule, type HandsView, type SlotConditions } from "../lib/slots";
+import { conditionChips, handoffMessage, handsLine, shareMessage, slotStatus, slotTakingHands,
+  sortPostedSlots, takeActionLabel, visiblePostedSlots, weekendDates, whatsappShareUrl,
+  type FillRule, type HandsView, type SlotConditions } from "../lib/slots";
 
 /* --- 約戰 · one timeline ----------------------------------------------------
  *
@@ -23,14 +22,14 @@ import { DAY_BUCKETS, bucketCounts, conditionChips, dayBucketLabel, dayBucketOf,
  * hand on, and the signal that notifies the club — not three features that have to agree with each
  * other. What follows from that is the whole layout:
  *
- *   one primary action    — 我得閒，開一場
+ *   one primary action    — 立即約局
+ *   one date picker        — the same 14-day scroller the roster grid uses, not a bespoke filter
  *   one timeline          — every slot in clock order, mine inline among them, best fit pinned
  *   one banner            — whatever is waiting on me, above the feed rather than instead of it
  *   everything else quiet — the roster grid, weekly rules and notification prefs go one level down
  *
  * What is deliberately NOT here: a mode switch (my own slots are cards in the same list, not a
- * second tab), a filter panel (the rail's buckets are disjoint, so nothing is unreachable without
- * one), and a capacity field. */
+ * second tab), a filter panel, and a capacity field. */
 
 type Player={id:string;name:string;short?:string|null;rating:number;colour?:string|null;avatar?:string|null};
 type PostedSlot={
@@ -423,25 +422,60 @@ function MineSheet({item,busyId,onAccept,onAcceptAll,onStopTaking,onCancel,onRes
  * actually missing at that moment is a reason to believe posting will work, so the club's pulse —
  * how many people are free, as faces — is the card, and the button follows it. */
 
-function ColdOpen({signedIn,wantTonight,onCreate,onManageAvailability}:{
-  signedIn:boolean; wantTonight:number; onCreate:()=>void; onManageAvailability?:()=>void;
-}){
+/** Nothing on the board yet. One button, and nothing beside it competing for the tap: the old
+    version stacked its own CTA under the club-pulse count and a second link down to the roster, so
+    an empty screen offered three things to press before a member had done the one that matters. The
+    tab-level primary button is suppressed while this renders (see `empty` below), so this is never
+    a second 約局 button next to the first — it is the only one on screen. */
+function ColdOpen({signedIn,onCreate}:{signedIn:boolean; onCreate:()=>void}){
   return <section className="mm-cold">
     <div className="mm-cold-copy">
       <p className="kicker">今晚嘅會所</p>
-      <h3>{wantTonight>0?"未有人開局":"今晚未有人開局"}</h3>
-      <p>{wantTonight>0
-        ?"做第一個開局嘅人，得閒嘅球友會即刻收到通知。"
-        :"做第一個開局嘅人，其他球友先有局可以加入。"}</p>
+      <h3>今晚未有人開局</h3>
+      <p>做第一個開局嘅人，其他球友先有局可以加入。</p>
     </div>
-    {wantTonight>0&&<div className="mm-pulse">
-      <span className="mm-pulse-count"><b>{wantTonight}</b><small>位球友今晚得閒</small></span>
-    </div>}
     {signedIn
-      ? <Button variant="primary" className="sl-primary" onClick={onCreate}>我得閒，開一場</Button>
+      ? <Button variant="primary" className="mm-primary" onClick={onCreate}>
+          <span className="mm-primary-mark" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </span>
+          立即約局
+        </Button>
       : <a className="primary sl-primary" href="/login">登入後開局</a>}
-    {signedIn&&onManageAvailability&&<Button variant="quiet" className="mm-quiet-row" onClick={onManageAvailability}>
-      睇成個星期邊個得閒<span aria-hidden="true">›</span></Button>}
+  </section>;
+}
+
+/* --- The date rail -----------------------------------------------------------
+ *
+ * The same 14-day scroller the roster grid uses (`DateScroller` in Availability.tsx) rather than a
+ * second, bespoke picker: 今晚／聽日／週末／之後 read as a filter, distinct from the 開局卡 board
+ * they sat above, and disagreed with the exact-day picker one tab over that answers the same
+ * question ("which day"). One picker, one visual language, reused rather than re-invented — counts
+ * read in slots (場) here, where the roster grid's reads in people (位). */
+const HORIZON=14;
+function DateRail({dates,selected,counts,onSelect}:{dates:string[];selected:string;counts:Record<string,number>;onSelect:(date:string)=>void}){
+  const scrollRef=useRef<HTMLDivElement>(null);
+  const move=(direction:-1|1)=>scrollRef.current?.scrollBy({left:direction*Math.max(220,scrollRef.current.clientWidth*.72),behavior:"smooth"});
+  useEffect(()=>{scrollRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"})},[selected]);
+  const today=hkDate();
+  return <section className="availability-date-selector" aria-label={`未來 ${HORIZON} 日`}>
+    <div className="availability-date-selector-head"><b>選擇日期</b><span aria-hidden="true">左右滑動查看未來 {HORIZON} 日 <i>↔</i></span></div>
+    <div className="availability-date-strip-wrap">
+      <IconButton className="availability-date-scroll-button previous" label="向前捲動日期" onClick={()=>move(-1)}>‹</IconButton>
+      <div className="availability-date-strip" role="tablist" aria-label="選擇日期，左右滑動查看更多" ref={scrollRef}>
+        {dates.map(value=>{
+          const active=value===selected,count=counts[value]??0;
+          const weekday=new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",weekday:"short"}).format(new Date(`${value}T00:00:00+08:00`));
+          const label=value===today?"今天":value===addDaysHongKong(today,1)?"明天":weekday;
+          return <button type="button" key={value} role="tab" aria-selected={active}
+            aria-label={`${label}，${Number(value.slice(5,7))}月${Number(value.slice(8,10))}日，${count} 場`}
+            className={active?"active":""} onClick={()=>onSelect(value)}>
+            <small>{label}</small><span>{Number(value.slice(5,7))}/{Number(value.slice(8,10))}</span><strong>{count} 場</strong>
+          </button>;
+        })}
+      </div>
+      <IconButton className="availability-date-scroll-button next" label="向後捲動日期" onClick={()=>move(1)}>›</IconButton>
+    </div>
   </section>;
 }
 
@@ -457,7 +491,7 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
   const [busyId,setBusyId]=useState<string|null>(null);
   const [error,setError]=useState("");
   const [toast,setToast]=useState("");
-  const [bucket,setBucket]=useState<DayBucket|null>(null);
+  const [date,setDate]=useState<string|null>(null);
   const [openMine,setOpenMine]=useState<string|null>(null);
   const [handsOpen,setHandsOpen]=useState(false);
 
@@ -563,11 +597,19 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
   const entries=useMemo(()=>[...(data?.board??[]).map(fromBoard),...mine.map(fromMine)]
     .sort((a,b)=>a.startAt.localeCompare(b.startAt)||a.id.localeCompare(b.id)),[data,mine]);
   const live=useMemo(()=>entries.filter(entry=>slotStatus(entry)==="open"&&!entry.closedAt),[entries]);
-  /* Counted over the whole timeline rather than the visible bucket, so a tab can honestly say how
-     many games sit behind it before it is opened. */
-  const counts=useMemo(()=>bucketCounts(live.map(entry=>dateOf(entry.startAt)),today),[live,today]);
-  const active=bucket??openingBucket(counts);
-  const visible=useMemo(()=>entries.filter(entry=>dayBucketOf(dateOf(entry.startAt),today)===active),[entries,active,today]);
+  const dates=useMemo(()=>Array.from({length:HORIZON},(_,i)=>addDaysHongKong(today,i)),[today]);
+  /* Counted over the whole timeline rather than the visible day, so the rail can honestly say how
+     many games sit behind each date before it is opened. */
+  const dateCounts=useMemo(()=>{
+    const counts:Record<string,number>={};
+    for(const d of dates)counts[d]=0;
+    for(const entry of live){const d=dateOf(entry.startAt);if(d in counts)counts[d]+=1}
+    return counts;
+  },[live,dates]);
+  /* The first day worth opening on, absent a member's own pick — a member who opens the tab at
+     23:30 with nothing left tonight should land on tomorrow, not on an empty screen. */
+  const active=date??dates.find(d=>dateCounts[d]>0)??dates[0];
+  const visible=useMemo(()=>entries.filter(entry=>dateOf(entry.startAt)===active),[entries,active]);
   /* The pinned card is the best *overlap* with what I already said I am free for — the one ranking
      in this tab a member cannot do for themselves by reading the list. Without published
      availability there is no honest "best", so nothing is pinned and the list simply runs. */
@@ -616,24 +658,19 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
         void result(banner.slotId,value,opponent,banner.slot.startAt);
       }}/>}
 
-    {signedIn&&<Button variant="primary" className="mm-primary" onClick={createSession}>
+    {/* Suppressed while the board is empty: `ColdOpen` below carries the only 約局 button on
+        screen then, rather than sitting one above the other saying the same thing twice. */}
+    {signedIn&&!empty&&<Button variant="primary" className="mm-primary" onClick={createSession}>
       <span className="mm-primary-mark" aria-hidden="true">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </span>
-      我得閒，開一場
+      立即約局
     </Button>}
 
     {empty
-      ? <ColdOpen signedIn={signedIn} wantTonight={data.wantTonight??0} onCreate={createSession} onManageAvailability={onManageAvailability}/>
+      ? <ColdOpen signedIn={signedIn} onCreate={createSession}/>
       : <>
-        {/* A filter row, not a tablist: the old chips claimed `role="tab"` without any tabpanel to
-            control, which tells a screen reader to expect a widget that is not there. */}
-        <div className="mm-rail" role="group" aria-label="揀日子">
-          {DAY_BUCKETS.map(value=><button type="button" key={value} aria-pressed={active===value}
-            aria-label={`${dayBucketLabel(value)}，${counts[value]} 場`}
-            className={active===value?"is-on":""} onClick={()=>setBucket(value)}>
-            <b>{dayBucketLabel(value)}</b><small>{counts[value]} 場</small></button>)}
-        </div>
+        <DateRail dates={dates} selected={active} counts={dateCounts} onSelect={setDate}/>
 
         {featured&&<FeaturedCard entry={featured} overlap={overlapMinutes(featured,availability)} canAct={canAct}
           busy={busyId===featured.id} onRaise={()=>void raise(featured.id)} onRetract={()=>void retract(featured.id)}/>}
@@ -643,7 +680,7 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
             ? rows.map(entry=><TimelineRow key={entry.id} entry={entry} canAct={canAct} busy={busyId===entry.id}
                 onRaise={()=>void raise(entry.id)} onRetract={()=>void retract(entry.id)}
                 onOpenMine={()=>setOpenMine(entry.id)}/>)
-            : !featured&&<p className="mm-note">{dayBucketLabel(active)}未有人開局。{signedIn?"你可以做第一個。":""}</p>}
+            : !featured&&<p className="mm-note">{hkDayLabel(active)}未有人開局。{signedIn?"你可以做第一個。":""}</p>}
         </div>
       </>}
 

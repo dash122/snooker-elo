@@ -45,19 +45,11 @@
     color:var(--ds-text-on-brand);text-decoration:none}
   .mm-banner-primary:hover{background:var(--ds-accent-action-hover);color:var(--ds-text-on-brand)}
 
-  /* --- The day rail --------------------------------------------------------
-     Replaces both the three overlapping day chips and the filter panel: the
-     buckets are disjoint and exhaustive, so every game is reachable from
-     exactly one tab and no filter is needed to find the rest. */
-  .mm-rail{display:flex;gap:var(--sp-2);overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:none}
-  .mm-rail::-webkit-scrollbar{display:none}
-  .mm-rail button{display:grid;gap:2px;flex:0 0 auto;min-height:3.25rem;padding:var(--sp-2) var(--sp-4);
-    border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);
-    background:var(--ds-surface-primary);color:var(--ds-text-primary)}
-  .mm-rail button b{font-size:var(--fs-sm);font-weight:800}
-  .mm-rail button small{color:var(--ds-text-secondary);font-size:var(--fs-label);font-variant-numeric:tabular-nums}
-  .mm-rail button.is-on{background:var(--ds-canvas-brand);border-color:var(--ds-canvas-brand);color:var(--ds-text-on-brand)}
-  .mm-rail button.is-on small{color:var(--ds-text-on-brand-secondary)}
+  /* --- The date rail --------------------------------------------------------
+     Reuses `.availability-date-selector` (the roster grid's own 14-day scroller)
+     rather than styling a second date-picking pattern -- see `DateRail` in
+     Slots.tsx for why. Nothing to add here; the existing rules in this layer
+     already dress it identically wherever it appears. */
 
   /* --- The pinned card -----------------------------------------------------
      The only card that earns the dark treatment, and only when there is an
@@ -81,6 +73,11 @@
     background:var(--ds-inverse-border);font-size:var(--fs-caption)}
   .mm-featured-state{margin:0;color:var(--ds-text-on-brand-secondary);font-size:var(--fs-sm);font-weight:700}
   .mm-featured .sl-primary{margin-top:0}
+  /* The one place on this tab where a button sits on a dark card, not a light one -- the same
+     situation the felt-baize `.hero` panels solve with a gold CTA (`.hero .primary`) rather than the
+     app's usual teal, because teal-on-baize has no contrast to speak of. Same fix, same reason. */
+  .mm-featured .ds-button--primary,.mm-featured a.primary{background:var(--ball-yellow);color:var(--baize-deep);box-shadow:0 10px 22px rgba(0,0,0,.24)}
+  .mm-featured .ds-button--primary:hover{background:var(--hero-primary-hover)}
 
   /* --- The timeline --------------------------------------------------------
      My own slots sit inline among everyone else's rather than in a second tab:
