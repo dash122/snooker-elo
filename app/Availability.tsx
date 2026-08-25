@@ -2,12 +2,12 @@
 import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
 import {BackdropSheet,ConfirmDialog} from "./components/ui/Overlay";
-import {Button,IconButton,SegmentedControl} from "./components/ui/Primitives";
+import {Button,IconButton,SegmentedControl,SlidingToggleGroup} from "./components/ui/Primitives";
 import {Slots} from "./Slots";
-import {CounterSheet,NotificationPrefsPanel,PushOptIn,RecurrenceEditor,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type QueueItem,type RecurrenceRule,type WaitingItem} from "./MatchmakingBits";
+import {CounterSheet,NotificationPrefsPanel,PushOptIn,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type QueueItem,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
 import {addDaysHongKong,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOffers,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type IntentSignal,type RankedOpponent,type MutualOffer,type ReliabilitySignals} from "../lib/availability";
-type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type View="screen"|"manage"|"create";
+type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type View="book"|"mine"|"notify";
 type InviteStatus="pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";type InvitePlayer={id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null};
 type MatchInvite={id:string;startAt:string;endAt:string;message:string;status:InviteStatus;venue:string;createdAt:string;respondedAt:string|null;counter:{startAt:string;endAt:string;byPlayerId:string}|null;fromPlayer:InvitePlayer;toPlayer:InvitePlayer};
 type ListFilter="all"|"new"|"never"|"close";
@@ -228,7 +228,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
  /** Anything that changes what the shell's badge should say. The tab owns the truth while it is
     open, so it tells the shell rather than making the shell poll faster on the off-chance. */
  onActivity?:()=>void; onSignUpTournament?:(tournamentId:string)=>void}){
- const week=useMemo(()=>days(hkDate(),HORIZON),[]),[date,setDate]=useState(jumpTo?.date??hkDate()),[appliedJump,setAppliedJump]=useState(jumpTo??null),[members,setMembers]=useState<Member[]>([]),[counts,setCounts]=useState<Record<string,number>>({}),[own,setOwn]=useState<AvailabilitySlot[]>([]),[view,setView]=useState<View>("screen"),[draft,setDraft]=useState<Interval[]>([]),[selected,setSelected]=useState<string|null>(null),[adjustments,setAdjustments]=useState<Record<string,Interval>>({}),[focus,setFocus]=useState<Interval|null>(null),[boardWide,setBoardWide]=useState(false),[pending,setPending]=useState<AvailabilitySlot|null>(null),[leaveTo,setLeaveTo]=useState<View|null>(null),[confirmClear,setConfirmClear]=useState(false),[clearing,setClearing]=useState(false),[saving,setSaving]=useState(false),[cancelling,setCancelling]=useState(false),[confirmingChange,setConfirmingChange]=useState(false),[message,setMessage]=useState(""),[recommendationNow]=useState(()=>Date.now());
+ const week=useMemo(()=>days(hkDate(),HORIZON),[]),[date,setDate]=useState(jumpTo?.date??hkDate()),[appliedJump,setAppliedJump]=useState(jumpTo??null),[members,setMembers]=useState<Member[]>([]),[counts,setCounts]=useState<Record<string,number>>({}),[own,setOwn]=useState<AvailabilitySlot[]>([]),[view,setView]=useState<View>("book"),[draft,setDraft]=useState<Interval[]>([]),[selected,setSelected]=useState<string|null>(null),[adjustments,setAdjustments]=useState<Record<string,Interval>>({}),[focus,setFocus]=useState<Interval|null>(null),[boardWide,setBoardWide]=useState(false),[pending,setPending]=useState<AvailabilitySlot|null>(null),[leaveTo,setLeaveTo]=useState<View|null>(null),[confirmClear,setConfirmClear]=useState(false),[clearing,setClearing]=useState(false),[saving,setSaving]=useState(false),[cancelling,setCancelling]=useState(false),[confirmingChange,setConfirmingChange]=useState(false),[message,setMessage]=useState(""),[recommendationNow]=useState(()=>Date.now());
  const[filter,setFilter]=useState<ListFilter>("all"),[prioritizeNew,setPrioritizeNew]=useState(false),
   [invites,setInvites]=useState<{sent:MatchInvite[];received:MatchInvite[]}>({sent:[],received:[]}),
   [inviteFor,setInviteFor]=useState<string|null>(null),[inviteMode,setInviteMode]=useState<"simple"|"propose">("simple"),[selectedWindow,setSelectedWindow]=useState<Interval|null>(null),
@@ -239,7 +239,6 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     and the reliability signals only the server can know. */
  const[offers,setOffers]=useState<MutualOffer[]>([]),[answeringOfferId,setAnsweringOfferId]=useState<string|null>(null),
   [inviteVenue,setInviteVenue]=useState(""),
-  [rules,setRules]=useState<RecurrenceRule[]>([]),[rulesBusy,setRulesBusy]=useState(false),
   [counterFor,setCounterFor]=useState<MatchInvite|null>(null),[counteringId,setCounteringId]=useState<string|null>(null),
   [reliability,setReliability]=useState<Record<string,ReliabilitySignals>>({}),
   [intentsByPlayer,setIntentsByPlayer]=useState<Record<string,IntentSignal>>({}),[myIntent,setMyIntent]=useState<IntentState>(null),[intentBusy,setIntentBusy]=useState(false),
@@ -259,7 +258,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     open (card opened from the grid itself), so mount-time initial state alone would miss it, and an
     effect would paint the wrong day first. The highlight is the parent's to clear, mirroring
     highlightMatch in Matches, so it survives until the member navigates away. */
- if(jumpTo&&jumpTo!==appliedJump){setAppliedJump(jumpTo);setView("screen");setShowBoard(true);setFocus(null);setDate(jumpTo.date)}
+ if(jumpTo&&jumpTo!==appliedJump){setAppliedJump(jumpTo);setView("book");setShowBoard(true);setFocus(null);setDate(jumpTo.date)}
  useEffect(()=>trackAvailabilityEvent("availability_view"),[]);
  useEffect(()=>{if(!message)return;const timer=window.setTimeout(()=>setMessage(""),4000);return()=>window.clearTimeout(timer)},[message]);
  const refreshFind=async()=>{
@@ -466,12 +465,6 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setIntentBusy(false)}
  };
- useEffect(()=>{
-  if(!userPlayerId)return;
-  let cancelled=false;
-  void (async()=>{try{const r=await fetch("/api/availability/recurring");const b=await r.json();if(!cancelled&&r.ok)setRules(b.rules??[])}catch{/* the editor simply shows no rules */}})();
-  return()=>{cancelled=true};
- },[userPlayerId]);
  const openInviteSheet=(playerId:string,window?:Interval)=>{
   const opponent=[...shortlist,...browseList].find(o=>o.member.id===playerId);
   const times=defaultProposalTimes(date);
@@ -596,48 +589,6 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setCounteringId(null)}
  };
- /* --- Recurring availability ----------------------------------------------- */
- const refreshRules=async()=>{try{const r=await fetch("/api/availability/recurring");const b=await r.json();if(r.ok)setRules(b.rules??[])}catch{/* leave the list as it is */}};
- const addRule=async(input:{weekday:number;startTime:string;endTime:string})=>{
-  if(rulesBusy)return;
-  setRulesBusy(true);setMessage("");
-  try{
-   const r=await fetch("/api/availability/recurring",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(input)});
-   const b=await r.json();
-   if(!r.ok){setMessage(b.error??"未能加入，請再試一次。");return;}
-   trackAvailabilityEvent("matchmaking_recurrence_add");
-   await Promise.all([refreshRules(),reloadOwn()]);setMessage("每週時段已設定，未來四星期已自動公開。");
-  }catch{setMessage("網絡連線失敗，請再試一次。")}
-  finally{setRulesBusy(false)}
- };
- const removeRule=async(id:string)=>{
-  if(rulesBusy)return;
-  setRulesBusy(true);setMessage("");
-  try{
-   const r=await fetch("/api/availability/recurring",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify({id})});
-   const b=await r.json().catch(()=>({}));
-   if(!r.ok){setMessage(b.error??"未能刪除，請再試一次。");return;}
-   trackAvailabilityEvent("matchmaking_recurrence_remove");
-   await refreshRules();setMessage("已停止每週自動公開。已經公開咗嘅時段仍然有效，可以逐個取消。");
-  }catch{setMessage("網絡連線失敗，請再試一次。")}
-  finally{setRulesBusy(false)}
- };
- const copyLastWeek=async()=>{
-  if(rulesBusy)return;
-  setRulesBusy(true);setMessage("");
-  try{
-   const r=await fetch("/api/availability/recurring",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"copyLastWeek"})});
-   const b=await r.json();
-   if(!r.ok){setMessage(b.error??"未能複製，請再試一次。");return;}
-   trackAvailabilityEvent("matchmaking_copy_last_week",{copied:b.copied??0});
-   setOwn(b.slots??[]);await refreshFind();setMessage(`已複製上星期 ${b.copied} 個時段。`);
-  }catch{setMessage("網絡連線失敗，請再試一次。")}
-  finally{setRulesBusy(false)}
- };
- const reloadOwn=async()=>{
-  if(!userPlayerId)return;
-  try{const r=await fetch("/api/availability?me");const b=await r.json();if(r.ok)setOwn(b.slots??[])}catch{/* board keeps what it has */}
- };
  const claimCall=async(id:string)=>{
   if(claimingCallId)return;
   setClaimingCallId(id);setMessage("");
@@ -666,7 +617,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   finally{setClosingInviteId(null)}
  };
  const changeDate=(next:string)=>{setFocus(null);setDate(next)};
- const editor=view==="manage"||view==="create";
+ const editor=view==="mine";
  /* Unsaved work only lives in this component's state, so every way out of it has to ask first: the
     tabs here, the app-level tabs (via the parent), and closing the tab outright. */
  const dirty=uncommitted.length>0;
@@ -678,9 +629,10 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   return()=>window.removeEventListener("beforeunload",warn);
  },[dirty]);
  const discard=()=>{setAdjustments({});setDraft([]);setSelected(null)};
- const go=(v:View)=>{if(v==="create"){trackAvailabilityEvent("availability_composer_open");setSelected(null)}setView(v)};
- /* Moving between the two editor views keeps the work; only stepping out of the editor loses it. */
- const nav=(v:View)=>{if(dirty&&editor&&!(v==="manage"||v==="create"))return setLeaveTo(v);go(v)};
+ const go=(v:View)=>setView(v);
+ /* Switching tabs while an edit sits unsaved on 我的空檔 has to ask first; the other tabs never hold
+    unsaved work of their own. */
+ const nav=(v:View)=>{if(dirty&&editor&&v!=="mine")return setLeaveTo(v);go(v)};
  /* Edits to published slots and brand-new slots are both just "work I have not committed yet", so one
     action commits the lot. Edits go first: they are independent PATCHes, and publishing returns the
     full slot list, which then stands as the final truth. */
@@ -705,7 +657,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     slots=b.slots??slots;setDraft([]);trackAvailabilityEvent("availability_slot_publish");
    }
    if(entries.length)trackAvailabilityEvent("availability_slot_edit");
-   settle();setSelected(null);setView("manage");await refreshFind();
+   settle();setSelected(null);setView("mine");await refreshFind();
    setMessage(entries.length&&draft.length?"變更已儲存，新時段已發佈。":draft.length?"時段已發佈，推薦已更新。":entries.length>1?`${entries.length} 個時段已更新。`:"時段已更新。");
   }catch{settle();setMessage("網絡連線失敗，請再試一次。")}
   finally{savingRef.current=false;setSaving(false)}
@@ -773,8 +725,13 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     so there is one composition and the queue is simply the top of it. */
  return <section className="availability-page">
 <section className="hero small availability-hero"><div><p className="kicker">SCAA MATCHMAKING</p><h1>約戰</h1><p>搵一場啱你嘅球局，或者開一場等人加入。</p></div></section>
+{userPlayerId&&<SlidingToggleGroup as="nav" className="page-tabs availability-tab-nav" aria-label="配對內容" role="tablist">
+  <button type="button" role="tab" aria-selected={view==="book"} className={view==="book"?"active":""} onClick={()=>nav("book")}><span>約戰</span></button>
+  <button type="button" role="tab" aria-selected={view==="mine"} className={view==="mine"?"active":""} onClick={()=>nav("mine")}><span>我的空檔</span></button>
+  <button type="button" role="tab" aria-selected={view==="notify"} className={view==="notify"?"active":""} onClick={()=>nav("notify")}><span>通知設定</span></button>
+</SlidingToggleGroup>}
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
-{!editor&&<>
+{view==="book"&&<>
 {/* Whatever is waiting on this member, above everything else — an invite to answer, an offer to
     accept, a score to record. One band, never the whole screen. */}
 {queueItems.length>0&&userPlayerId&&<ResponseQueue items={queueItems}/>}
@@ -789,7 +746,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     They were four surfaces competing with the board for the same screen while answering questions
     nobody had asked yet. */}
 <Slots signedIn={Boolean(userPlayerId)} availabilityCount={own.length} availability={own}
-  onManageAvailability={()=>nav(own.length?"manage":"create")}
+  onManageAvailability={()=>nav("mine")}
   onRecord={(opponentId,playedOn)=>onRecordMatch?.(opponentId,playedOn)}
   onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>
 
@@ -836,14 +793,11 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   </>}
  </section>}
  <WaitingStrip items={waitingItems} cancellingId={cancellingInviteId} onCancel={id=>void cancelInviteAction(id)}/>
- {/* Sits under the board rather than beside it: painting is how a member starts, and a rule is what
-     they reach for once they notice they are painting the same evening every week. */}
- <RecurrenceEditor rules={rules} busy={rulesBusy} onAdd={input=>void addRule(input)} onRemove={id=>void removeRule(id)} onCopyLastWeek={()=>void copyLastWeek()}/>
- {/* Lives with the member's own settings rather than in the busy find tab: turning a channel off is
-     a considered decision, not something anyone does mid-search. */}
+ <details className="board-precise"><summary>用選單精確加入時段</summary><SlotComposer initialDate={date} onSave={x=>{setDraft(a=>mergeIntervals([...a,x]));setMessage("");trackAvailabilityEvent("availability_slot_draft_add")}}/></details>
+</section>}
+{view==="notify"&&userPlayerId&&<section className="availability-notify">
  <NotificationPrefsPanel/>
  <PushOptIn/>
- <details className="board-precise"><summary>用選單精確加入時段</summary><SlotComposer initialDate={date} onSave={x=>{setDraft(a=>mergeIntervals([...a,x]));setMessage("");trackAvailabilityEvent("availability_slot_draft_add")}}/></details>
 </section>}
 {confirmClear&&<ConfirmDialog kicker="刪除全部時段" titleId="clear-title" title={`刪除全部 ${own.length} 個時段？`} description="所有已公開的時段都會被取消，其他球員將不會再看到你的空檔。此操作無法復原。" onClose={()=>!clearing&&setConfirmClear(false)}><Button variant="secondary" disabled={clearing} onClick={()=>setConfirmClear(false)}>保留時段</Button><Button variant="danger" className="cancel-button" disabled={clearing} aria-busy={clearing} onClick={()=>void clearAll()}>{clearing&&<i className="button-spinner" aria-hidden="true"/>}<span>{clearing?"刪除中…":`刪除全部 ${own.length} 個`}</span></Button></ConfirmDialog>}
 {leaveTo&&<ConfirmDialog kicker="未儲存的變更" titleId="leave-title" title="離開後變更會消失" description={`${[pendingKeys.length?`${pendingKeys.length} 個時段變更`:"",draft.length?`${draft.length} 個新時段`:""].filter(Boolean).join("、")}尚未儲存。離開後這些變更不會保留。`} onClose={()=>setLeaveTo(null)}><Button variant="secondary" onClick={()=>setLeaveTo(null)}>留在此頁</Button><Button className="publish-button" disabled={saving} aria-busy={saving} onClick={()=>{const next=leaveTo;setLeaveTo(null);void commitAll().then(()=>go(next))}}>{saving&&<i className="button-spinner" aria-hidden="true"/>}<span>儲存後離開</span></Button><Button variant="danger" onClick={()=>{const next=leaveTo;discard();setLeaveTo(null);go(next)}}>捨棄變更</Button></ConfirmDialog>}
