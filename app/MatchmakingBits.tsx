@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from "react";
 import { PlayerBadge } from "./UiBits";
 import { BackdropSheet } from "./components/ui/Overlay";
 import { Button, IconButton, SegmentedControl } from "./components/ui/Primitives";
-import { disablePush, enablePush, pushState, registerServiceWorker, type PushState } from "./push-client";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { hkClock, hkDate, hkDayLabel, type Interval, type ReliabilitySignals } from "../lib/availability";
 
@@ -28,115 +27,6 @@ export function CardHead({title,hint,aside}:{title:string;hint?:string;aside?:Re
   </header>;
 }
 
-/* --- Notifications -------------------------------------------------------- */
-
-/** The permission ask, deliberately not fired on page load.
- *
- *  A browser prompt that appears before a member understands why is the fastest way to a permanent
- *  "block", and a blocked member cannot be asked again — the club would lose them from every future
- *  invite. So the ask is a card they choose to tap, it states the exact benefit, and it only appears
- *  once the member has a reason to care. Dismissal is remembered locally so it is an ask, not a nag. */
-const DISMISS_KEY="snooker.push.dismissed";
-
-export function PushOptIn({compact}:{compact?:boolean}){
-  const [state,setState]=useState<PushState|null>(null);
-  const [busy,setBusy]=useState(false);
-  const [dismissed,setDismissed]=useState(true);
-  useEffect(()=>{
-    void registerServiceWorker();
-    void pushState().then(setState);
-    setDismissed(window.localStorage.getItem(DISMISS_KEY)==="1");
-  },[]);
-  useEffect(()=>{if(state==="default"&&!dismissed)trackAvailabilityEvent("matchmaking_push_prompt_shown")},[state,dismissed]);
-  const dismiss=()=>{window.localStorage.setItem(DISMISS_KEY,"1");setDismissed(true);trackAvailabilityEvent("matchmaking_push_dismissed")};
-  const turnOn=async()=>{
-    setBusy(true);
-    try{const next=await enablePush();setState(next);if(next==="subscribed")trackAvailabilityEvent("matchmaking_push_enabled")}
-    finally{setBusy(false)}
-  };
-  if(state===null||state==="unsupported")return null;
-  if(state==="subscribed")return compact?null:<p className="push-status" role="status">
-    <span aria-hidden="true">🔔</span> 已開啟通知 · 有人約你會即時話你知
-    <Button variant="quiet" onClick={()=>void disablePush().then(setState)}>關閉</Button>
-  </p>;
-  /* A member who has actively blocked notifications cannot be re-prompted by any amount of UI, so
-     saying so plainly beats a button that would silently do nothing. */
-  if(state==="denied")return compact?null:<p className="push-status is-denied">通知已被瀏覽器封鎖 — 需要喺瀏覽器設定入面重新允許，先收到約波提示。</p>;
-  if(dismissed)return null;
-  /* A strip, not a card. Turning on notifications is setup, not matchmaking — it earns one line at
-     the edge of the member's attention, not a block competing with the game they came here to
-     arrange. It disappears for good once answered either way. */
-  return <div className="push-strip">
-    <span className="push-strip-copy"><b>開啟通知</b><small>有人約你打波即刻知，唔使開住個 App。</small></span>
-    <span className="push-strip-actions">
-      <Button disabled={busy} onClick={()=>void turnOn()}>{busy?"設定中…":"開啟"}</Button>
-      <Button variant="secondary" onClick={dismiss}>唔使</Button>
-    </span>
-  </div>;
-}
-
-export type NotificationPrefs={invites:boolean;openCalls:boolean;offers:boolean;results:boolean;emailFallback:boolean;quietFrom:number|null;quietTo:number|null};
-const PREF_LABELS:[keyof NotificationPrefs,string,string][]=[
-  ["invites","有人約我打波","邀請、接受、婉拒同改期"],
-  ["offers","夾到時間嘅配對","兩邊都答應先會確認"],
-  ["openCalls","有人開枱","只會通知嗰段時間得閒嘅你"],
-  ["results","賽果提醒","打完之後提你記低分數"],
-  ["emailFallback","收唔到推送時用電郵","例如冇裝 App 或者關咗推送"],
-];
-
-/** Per-channel control, because "turn it all off" should never be the only way to stop one kind of
- *  message. A member who finds open-call pushes noisy but still wants to know when somebody asks
- *  them directly has to be able to say exactly that — otherwise they switch everything off and the
- *  club loses them from the one channel that mattered.
- *
- *  Quiet hours default to off: this club plays until 02:00, so a late notification is normal here
- *  rather than a mistake, and imposing a night-time window would suppress the most useful messages. */
-export function NotificationPrefsPanel(){
-  const [prefs,setPrefs]=useState<NotificationPrefs|null>(null);
-  const [open,setOpen]=useState(false);
-  const [busy,setBusy]=useState(false);
-  useEffect(()=>{void fetch("/api/push/prefs").then(response=>response.ok?response.json():null).then(body=>{if(body?.prefs)setPrefs(body.prefs)}).catch(()=>{})},[]);
-  if(!prefs)return null;
-  const update=async(patch:Partial<NotificationPrefs>)=>{
-    const next={...prefs,...patch};
-    setPrefs(next);setBusy(true);
-    try{
-      const response=await fetch("/api/push/prefs",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify(patch)});
-      const body=await response.json();
-      if(body?.prefs)setPrefs(body.prefs);
-    }catch{/* the optimistic value stands; the next load reconciles it */}
-    finally{setBusy(false)}
-  };
-  const quiet=prefs.quietFrom!==null&&prefs.quietTo!==null;
-  return <section className="availability-card notification-prefs">
-    <header className="availability-grid-head">
-      <div><h3>通知設定</h3><small>揀你想收邊啲提示。</small></div>
-      <Button variant="quiet" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?"收起":"調整"}</Button>
-    </header>
-    {open&&<>
-      <ul className="pref-list">{PREF_LABELS.map(([key,label,hint])=>
-        <li key={key}>
-          <label>
-            <input type="checkbox" checked={Boolean(prefs[key])} disabled={busy} onChange={event=>void update({[key]:event.target.checked})}/>
-            <span><b>{label}</b><small>{hint}</small></span>
-          </label>
-        </li>)}
-      </ul>
-      <div className="pref-quiet">
-        <label>
-          <input type="checkbox" checked={quiet} disabled={busy} onChange={event=>void update(event.target.checked?{quietFrom:2,quietTo:10}:{quietFrom:null,quietTo:null})}/>
-          <span><b>免打擾時間</b><small>呢段時間唔會推送（球會開到凌晨兩點，預設唔開）</small></span>
-        </label>
-        {quiet&&<div className="pref-quiet-times">
-          <label><span>由</span><select value={prefs.quietFrom??2} disabled={busy} onChange={event=>void update({quietFrom:Number(event.target.value)})}>{Array.from({length:24},(_,hour)=><option key={hour} value={hour}>{String(hour).padStart(2,"0")}:00</option>)}</select></label>
-          <label><span>到</span><select value={prefs.quietTo??10} disabled={busy} onChange={event=>void update({quietTo:Number(event.target.value)})}>{Array.from({length:24},(_,hour)=><option key={hour} value={hour}>{String(hour).padStart(2,"0")}:00</option>)}</select></label>
-        </div>}
-      </div>
-    </>}
-  </section>;
-}
-
-/* --- "I'm free now" ------------------------------------------------------- */
 
 const DURATIONS=[{minutes:60,label:"1 小時"},{minutes:90,label:"1.5 小時"},{minutes:120,label:"2 小時"},{minutes:180,label:"3 小時"},{minutes:240,label:"4 小時"}];
 export const VENUE_CHIPS=["已訂枱","未訂枱","1 號枱","2 號枱","3 號枱"];

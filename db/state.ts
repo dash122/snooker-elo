@@ -4,6 +4,10 @@ export async function getState() {
   return backend.getState();
 }
 
+export async function getSettings() {
+  return backend.getSettings();
+}
+
 export async function putState(data: string) {
   return backend.putState(data);
 }

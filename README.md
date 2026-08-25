@@ -48,21 +48,7 @@ The server creates or upgrades the required auth and rating tables on first use.
 
 ### Notifications (optional)
 
-Matchmaking works without these, but members will only see invites while the app is open — which is the single biggest thing standing between an invite and a game. Generate a VAPID key pair once and set all three variables:
-
-```bash
-node scripts/generate-vapid-keys.mjs
-```
-
-```text
-VAPID_PUBLIC_KEY=...
-VAPID_PRIVATE_KEY=...
-VAPID_SUBJECT=mailto:you@example.com
-```
-
-Web push is implemented directly against `node:crypto` (RFC 8291 payload encryption, RFC 8292 VAPID), so it adds no dependencies. With the keys unset, every notification call is an inert no-op.
-
-An email fallback reaches members whose devices push cannot deliver to. Set either a Resend key or your own relay endpoint; with neither set, no mail is sent:
+Matchmaking sends every notification by email — no browser push, no per-member preferences. Set either a Resend key or your own relay endpoint; with neither set, notification calls are an inert no-op:
 
 ```text
 RESEND_API_KEY=...            # plus NOTIFY_EMAIL_FROM
@@ -71,8 +57,6 @@ NOTIFY_WEBHOOK_URL=...        # alternative: POST {to,subject,text} to your own 
 NOTIFY_WEBHOOK_TOKEN=...      # optional bearer token for the webhook
 NEXT_PUBLIC_SITE_URL=https://...   # used to deep-link from emails back into the app
 ```
-
-Notification delivery is per-member and per-channel; members control it in 約戰 → 我的時段 → 通知設定.
 
 ## Local development
 
