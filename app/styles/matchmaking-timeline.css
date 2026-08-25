@@ -94,6 +94,8 @@
   .mm-slot-when b{font-family:var(--font-display);font-size:var(--fs-h3);line-height:1;font-variant-numeric:tabular-nums}
   .mm-slot-when small{color:var(--ds-text-tertiary);font-size:var(--fs-label)}
   .mm-slot-rule{align-self:stretch;flex:0 0 1px;background:var(--ds-border-subtle)}
+  .mm-slot>.player-badge{flex:0 0 2rem;width:2rem;height:2rem;border-radius:50%}
+  .mm-slot .mm-row-copy{min-width:0}
   .mm-slot .mm-row-copy small.is-attention{color:var(--ds-warning);font-weight:700}
   .mm-slot-action{display:flex;flex:0 0 auto;align-items:center}
   .mm-slot-action button{min-height:2.75rem;padding-inline:var(--sp-4);border-radius:var(--ds-radius-control);
