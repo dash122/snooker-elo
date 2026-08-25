@@ -5,7 +5,7 @@ import { Button, ChipRow, IconButton, SegmentedControl, Skeleton } from "./compo
 import { BackdropSheet } from "./components/ui/Overlay";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant } from "../lib/availability";
-import { conditionChips, handoffMessage, handsLine, shareMessage, slotStatus, slotTakingHands,
+import { conditionChips, freshnessLabel, handoffMessage, handsLine, shareMessage, slotStatus, slotTakingHands,
   sortPostedSlots, takeActionLabel, visiblePostedSlots, weekendDates, whatsappShareUrl,
   type FillRule, type HandsView, type SlotConditions } from "../lib/slots";
 
@@ -41,7 +41,7 @@ type PostedSlot={
     with names, and only ever reaches its own poster. */
 type BoardSlot=PostedSlot&{player:Player;mine:boolean;hands:HandsView;acceptedPlayers:Player[];iRaised:boolean;iAccepted:boolean};
 type PendingHand={playerId:string;raisedAt:string;state:"raised"|"accepted";player:Player};
-type MineSlot=PostedSlot&{mine:true;filler:Player|null;hands:PendingHand[];counts:HandsView;acceptedPlayers:Player[]};
+type MineSlot=PostedSlot&{mine:true;player:Player|null;filler:Player|null;hands:PendingHand[];counts:HandsView;acceptedPlayers:Player[]};
 type MyHand={slotId:string;raisedAt:string;accepted:boolean;slot:PostedSlot&{player:Player}};
 type Board={
   signedIn:boolean; canAct?:boolean; board:BoardSlot[]; mine:MineSlot[]; hands:MyHand[];
@@ -60,7 +60,8 @@ type Entry={
   id:string;startAt:string;endAt:string;venue:string;createdAt:string;
   fillRule:FillRule;conditions:SlotConditions;filledBy:string|null;result:"pending"|"played"|"missed";
   cancelledAt?:string|null;closedAt?:string|null;
-  /** The poster. Absent on my own rows: the card says 你開嘅局 rather than naming me to myself. */
+  /** The poster, on every row including my own -- a member's own face is what tells their row
+      apart from everyone else's, alongside the green treatment `mine` earns it. */
   player:Player|null;
   mine:boolean;hands:HandsView;iRaised:boolean;iAccepted:boolean;
   /** Hands still waiting on a decision. Only ever non-zero on my own rows. */
@@ -68,7 +69,7 @@ type Entry={
 };
 
 const fromBoard=(slot:BoardSlot):Entry=>({...slot,player:slot.player,mine:false,waiting:0});
-const fromMine=(slot:MineSlot):Entry=>({...slot,player:null,mine:true,hands:slot.counts,
+const fromMine=(slot:MineSlot):Entry=>({...slot,player:slot.player,mine:true,hands:slot.counts,
   iRaised:false,iAccepted:false,waiting:slot.counts.waiting});
 
 const dateOf=(iso:string)=>hkDate(new Date(iso));
@@ -329,14 +330,18 @@ function TimelineRow({entry,canAct,busy,showDay,onRaise,onRetract,onOpenMine}:{
   const status=slotStatus(entry);
   const closed=Boolean(entry.closedAt)||status!=="open";
   const meta=entry.mine
-    ? entry.waiting>0?`${entry.waiting} 人舉手 · 等你回覆`:handsLine({hands:entry.hands,mine:true,iRaised:false,fillRule:entry.fillRule,createdAt:entry.createdAt})
+    ? entry.waiting>0?`${entry.waiting} 人舉手 · 等你回覆`:`${entry.hands.total} 人已報名 · ${freshnessLabel(entry.createdAt)}`
     : [entry.venue||"SCAA 會所",`${entry.hands.total} 人已報名`].filter(Boolean).join(" · ");
   return <article className={`mm-slot${entry.mine?" is-mine":""}${entry.iAccepted?" is-confirmed":""}${closed&&!entry.mine?" is-closed":""}`}>
-    <span className="mm-slot-when"><b>{hkClock(entry.startAt)}</b><small>{showDay?`${dayWord(entry)} · `:""}{spanHours(entry)} 個鐘</small></span>
+    <span className="mm-slot-when">
+      {showDay
+        ? <><b>{dayWord(entry)}</b><small>{hkClock(entry.startAt)} · {spanHours(entry)} 個鐘</small></>
+        : <><b>{hkClock(entry.startAt)}</b><small>{spanHours(entry)} 個鐘</small></>}
+    </span>
     <span className="mm-slot-rule" aria-hidden="true"/>
-    {!entry.mine&&entry.player&&<PlayerBadge player={entry.player}/>}
+    {entry.player&&<PlayerBadge player={entry.player}/>}
     <span className="mm-row-copy">
-      <b>{entry.mine?"你開嘅局":entry.player?.name??"球友"}</b>
+      <b>{entry.mine?entry.player?.name??"你":entry.player?.name??"球友"}</b>
       <small className={entry.mine&&entry.waiting>0?"is-attention":undefined}>{meta}</small>
     </span>
     <span className="mm-slot-action">
