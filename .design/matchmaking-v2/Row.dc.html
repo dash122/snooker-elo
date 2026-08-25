@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+  <style>
+    body{margin:0;font-family:"Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif;background:#f4f3ed;color:#132521;-webkit-font-smoothing:antialiased}
+    a{color:#155e52;text-decoration:none}a:hover{color:#185149}
+    .disp{font-family:"Barlow Condensed","Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif;font-variant-numeric:tabular-nums}
+    .chip{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12);color:#63736e;font-size:11px;font-weight:700}
+    .kick{margin:0;font-size:12px;letter-spacing:.16em;font-weight:700;color:#82908c}
+    .av{display:flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-size:12px;font-weight:700;flex:0 0 auto}
+  </style>
+</helmet>
+<div style="width:660px;height:760px;background:#f4f3ed;padding:28px 30px;box-sizing:border-box;display:flex;flex-direction:column;gap:20px">
+
+  <div style="display:flex;flex-direction:column;gap:4px">
+    <p class="kick">開局卡 · 資料密度</p>
+    <h1 class="disp" style="margin:0;font-size:28px;font-weight:700;letter-spacing:-.01em">一行入面應該講幾多？</h1>
+    <p style="margin:0;font-size:14px;color:#63736e;line-height:1.6;max-width:520px">下面每一項都已經喺 <b>/api/slots</b> 嘅回應入面，只係冇畫出嚟。加密度唔使加 API。</p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <p class="kick" style="color:#ad5149">而家</p>
+    <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;border:1px solid rgba(20,65,57,.12);border-radius:20px;background:#fffefa">
+      <span style="display:flex;flex-direction:column;align-items:center;gap:2px;width:70px;flex:0 0 auto"><b class="disp" style="font-size:22px;line-height:1">今晚</b><small style="font-size:12px;color:#82908c">20:00 · 2 個鐘</small></span>
+      <span style="align-self:stretch;width:1px;background:rgba(20,65,57,.12);flex:0 0 auto"></span>
+      <span class="av" style="width:34px;height:34px;background:#356e83">黃</span>
+      <span style="display:flex;flex-direction:column;gap:2px;flex-grow:1;min-width:0">
+        <b style="font-size:15px;font-weight:800">黃嘉俊</b>
+        <small style="font-size:13px;color:#63736e">已訂 3 號枱 · 2 人已報名</small>
+      </span>
+      <span style="display:flex;align-items:center;justify-content:center;height:44px;padding:0 18px;border-radius:12px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12);font-size:14px;font-weight:700;flex:0 0 auto">加入</span>
+    </div>
+    <p style="margin:0;font-size:13px;color:#63736e;line-height:1.7">冇講：幾點完 · 主人幾多分 · 已經有邊個加入 · 讓分／無煙／水平接近 · 舉手咗會即刻成事定要等人揀 · 幾時開嘅。「2 人已報名」係全部行都一樣嘅一句，分唔到邊場旺。</p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <p class="kick" style="color:#155e52">建議</p>
+    <div style="display:flex;gap:14px;padding:16px 16px 16px 18px;border:1px solid rgba(20,65,57,.12);border-radius:20px;background:#fffefa">
+      <span style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:64px;flex:0 0 auto">
+        <b class="disp" style="font-size:24px;line-height:1;font-weight:700">20:00</b>
+        <small class="disp" style="font-size:12px;color:#82908c">→ 22:00</small>
+      </span>
+      <span style="align-self:stretch;width:1px;background:rgba(20,65,57,.12);flex:0 0 auto"></span>
+      <span style="display:flex;flex-direction:column;gap:9px;flex-grow:1;min-width:0">
+        <span style="display:flex;align-items:center;gap:9px;min-width:0">
+          <span class="av" style="width:32px;height:32px;background:#356e83">黃</span>
+          <span style="display:flex;flex-direction:column;gap:1px;min-width:0;flex-grow:1">
+            <b style="font-size:15px;font-weight:800">黃嘉俊 <span class="disp" style="font-size:13px;font-weight:600;color:#82908c">1205</span></b>
+            <small style="font-size:12px;color:#63736e">已訂 3 號枱 · 25 分鐘前開</small>
+          </span>
+        </span>
+        <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="display:flex">
+            <span class="av" style="width:24px;height:24px;background:#a66f1d;font-size:11px;border:2px solid #fffefa">李</span>
+            <span class="av" style="width:24px;height:24px;background:#247d5d;font-size:11px;border:2px solid #fffefa;margin-left:-8px">何</span>
+          </span>
+          <small style="font-size:12px;color:#63736e">2 人已加入</small>
+          <span class="chip">讓分</span>
+          <span class="chip">無煙</span>
+        </span>
+      </span>
+      <span style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:4px;flex:0 0 auto">
+        <span style="display:flex;align-items:center;justify-content:center;height:44px;padding:0 18px;border-radius:12px;background:#155e52;color:#fffefa;font-size:14px;font-weight:700">加入</span>
+        <small style="font-size:11px;color:#82908c">第一個就算</small>
+      </span>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 24px;padding:18px 20px;border-radius:20px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+    <div style="display:flex;gap:10px"><b class="disp" style="font-size:14px;color:#155e52;flex:0 0 auto">→ 22:00</b><small style="font-size:12px;color:#63736e"><b>endAt</b> — 「2 個鐘」要心算，完場時間唔使</small></div>
+    <div style="display:flex;gap:10px"><b class="disp" style="font-size:14px;color:#155e52;flex:0 0 auto">1205</b><small style="font-size:12px;color:#63736e"><b>player.rating</b> — 而家淨係「最啱你」卡先見到</small></div>
+    <div style="display:flex;gap:10px"><b class="disp" style="font-size:14px;color:#155e52;flex:0 0 auto">頭像</b><small style="font-size:12px;color:#63736e"><b>acceptedPlayers</b> — 「同邊個打」比「幾多人」更關事</small></div>
+    <div style="display:flex;gap:10px"><b class="disp" style="font-size:14px;color:#155e52;flex:0 0 auto">chips</b><small style="font-size:12px;color:#63736e"><b>conditions</b> — 已經有 conditionChips()，行入面冇用過</small></div>
+    <div style="display:flex;gap:10px"><b class="disp" style="font-size:14px;color:#155e52;flex:0 0 auto">第一個就算</b><small style="font-size:12px;color:#63736e"><b>fillRule</b> — 撳「加入」之後會點，撳之前應該知</small></div>
+    <div style="display:flex;gap:10px"><b class="disp" style="font-size:14px;color:#155e52;flex:0 0 auto">25 分鐘前</b><small style="font-size:12px;color:#63736e"><b>freshnessLabel()</b> — 已經寫咗，淨係自己嘅局用緊</small></div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

@@ -5,6 +5,32 @@ import { sortBoard } from "../../../lib/slots";
 import { announceSlotPosted } from "../../../db/slot-actions";
 import { liveIntentsByPlayer } from "../../../db/intents";
 import { validateAvailabilityInterval } from "../../../lib/availability";
+import { getState } from "../../../db/state";
+import { proposeHandicap, type HandicapSettings } from "../../../lib/handicap";
+
+/* --- 讓分, said next to every name -------------------------------------------
+ *
+ * The same proposal the leaderboard and the session cards already compute (`lib/handicap.ts`), read
+ * for this viewer against whoever they are looking at here -- a poster on the board, someone already
+ * in a slot, a name on a waiting list. `withHandicap` is the one seam every one of those player
+ * objects passes through, so the number is never computed twice with two different settings. */
+
+type HandicapState = {settings?:Partial<HandicapSettings>};
+
+async function handicapSettings():Promise<HandicapSettings|null>{
+  const raw=await getState().catch(()=>null);
+  if(!raw)return null;
+  const state=JSON.parse(raw) as HandicapState;
+  const s=state.settings??{};
+  return {handicapPointsToElo:s.handicapPointsToElo??25,handicapMinimumElo:s.handicapMinimumElo??7,
+    handicapSensitivityRange:s.handicapSensitivityRange??16,handicapSensitivityWidth:s.handicapSensitivityWidth??250,
+    start:s.start};
+}
+
+function withHandicap<T extends {rating:number}>(player:T,myRating:number|null,settings:HandicapSettings|null):
+  T&{handicap:ReturnType<typeof proposeHandicap>|null}{
+  return {...player,handicap:myRating==null||!settings?null:proposeHandicap(myRating,player.rating,settings)};
+}
 
 /** 開局卡 — the board. One primitive for every persona: post a slot, raise a hand, get filled.
  *
@@ -64,13 +90,14 @@ export async function GET(){
   }
   const me=member.statePlayerId;
   try{
-    const [board,mine,hands,waitingForMe,wantTonight,openCount]=await Promise.all([
+    const [board,mine,hands,waitingForMe,wantTonight,openCount,settings]=await Promise.all([
       boardSlots(me),
       myPostedSlots(me),
       myHands(me),
       waitingForMeCount(me),
       liveIntentsByPlayer().then(byPlayer=>Object.keys(byPlayer).length).catch(()=>0),
       boardOpenCount(),
+      handicapSettings(),
     ]);
     /* The waiting list with names on it is owner-only, so it is fetched one card at a time rather
        than joined into the board query above — the board query must never be capable of returning
@@ -83,23 +110,31 @@ export async function GET(){
       handsForSlots(me,mine.map(item=>item.id)),
       playerProfiles([me]).then(map=>map.get(me)??null),
     ]);
+    const myRating=myProfile?.rating??null;
+    const rated=<T extends {rating:number}>(player:T)=>withHandicap(player,myRating,settings);
+    const boardWithHandicap=boardWithHands.map(slot=>({...slot,
+      player:rated(slot.player),
+      acceptedPlayers:slot.acceptedPlayers.map(rated),
+    }));
     const mineWithHands=mine.map(item=>{
       const summary=mineSummaries.get(item.id);
       return {...item,
         mine:true,
         /* The poster's own profile, so a member's own row can name and picture them the same as
            anyone else's -- distinguishing "your slot" from "somebody else's" is now the row's
-           colour, not the absence of a face. */
+           colour, not the absence of a face. Never run through `rated`: a proposal for a game
+           against yourself is not a thing. */
         player:myProfile,
-        filler:item.filledBy?fillers.get(item.filledBy)??null:null,
+        filler:item.filledBy?(f=>f?rated(f):null)(fillers.get(item.filledBy)??null):null,
         counts:{total:summary?.total??0,accepted:summary?.accepted??0,waiting:summary?.waiting??0},
-        acceptedPlayers:summary?.acceptedPlayers??[],
-        hands:mineHands.get(item.id)??[],
+        acceptedPlayers:(summary?.acceptedPlayers??[]).map(rated),
+        hands:(mineHands.get(item.id)??[]).map(hand=>({...hand,player:rated(hand.player)})),
       };
     });
+    const handsWithHandicap=hands.map(hand=>({...hand,slot:{...hand.slot,player:rated(hand.slot.player)}}));
     return Response.json({signedIn:true,canAct:true,
-      board:sortBoard(boardWithHands.map(slot=>({...slot,mine:false}))),
-      mine:mineWithHands,hands,waitingForMe,wantTonight,openCount},
+      board:sortBoard(boardWithHandicap.map(slot=>({...slot,mine:false}))),
+      mine:mineWithHands,hands:handsWithHandicap,waitingForMe,wantTonight,openCount},
       {headers:{"cache-control":"no-store"}});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"Board unavailable"},{status:500});
