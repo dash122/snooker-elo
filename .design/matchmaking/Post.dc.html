@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+  <style>
+    body{margin:0;font-family:"Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif;background:#f4f3ed;color:#132521;-webkit-font-smoothing:antialiased}
+    a{color:#155e52;text-decoration:none}a:hover{color:#185149}
+    .disp{font-family:"Barlow Condensed","Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif}
+  </style>
+</helmet>
+<div style="width:390px;min-height:844px;background:#082c27;display:flex;flex-direction:column;justify-content:flex-end">
+
+  <!-- dimmed feed behind the sheet -->
+  <div style="flex-grow:1;background:#f4f3ed;opacity:.28"></div>
+
+  <div style="display:flex;flex-direction:column;gap:20px;padding:20px 20px 28px;border-radius:24px 24px 0 0;background:#fffefa;box-shadow:0 -24px 70px rgba(5,34,29,.22)">
+    <span style="width:44px;height:4px;border-radius:999px;background:rgba(20,65,57,.24);align-self:center"></span>
+
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <span class="disp" style="font-size:12px;letter-spacing:.2em;font-weight:600;color:#9a6e24">開一場</span>
+      <b class="disp" style="font-size:26px;line-height:1.1;font-weight:700">你幾時得閒？</b>
+      <small style="font-size:13px;color:#63736e">揀個時間就得，其他嘢我哋幫你搞掂。</small>
+    </div>
+
+    <!-- STEP 1 · day -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#82908c">邊日</span>
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+        <span style="display:flex;align-items:center;justify-content:center;height:48px;border-radius:12px;background:#082c27;color:#f9f7ee;font-size:15px;font-weight:700">今晚</span>
+        <span style="display:flex;align-items:center;justify-content:center;height:48px;border-radius:12px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12);font-size:15px;font-weight:700">聽日</span>
+        <span style="display:flex;align-items:center;justify-content:center;height:48px;border-radius:12px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12);font-size:15px;font-weight:700">週六</span>
+        <span style="display:flex;align-items:center;justify-content:center;height:48px;border-radius:12px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12);font-size:14px;font-weight:700;color:#63736e">其他</span>
+      </div>
+    </div>
+
+    <!-- STEP 2 · time, presets not dropdowns -->
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#82908c">幾點</span>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+        <span style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:60px;border-radius:12px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12)"><b class="disp" style="font-size:19px;font-weight:700">18:00</b><small style="font-size:11px;color:#82908c">放工</small></span>
+        <span style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:60px;border-radius:12px;background:#0d443a;color:#f9f7ee"><b class="disp" style="font-size:19px;font-weight:700">19:30</b><small style="font-size:11px;color:#bdd0c9">最多人</small></span>
+        <span style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:60px;border-radius:12px;background:#f7f6ef;border:1px solid rgba(20,65,57,.12)"><b class="disp" style="font-size:19px;font-weight:700">21:00</b><small style="font-size:11px;color:#82908c">夜場</small></span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:12px;background:#f7f6ef">
+        <span style="font-size:13px;color:#63736e">打幾耐</span>
+        <span style="display:flex;align-items:center;gap:14px">
+          <span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#fffefa;border:1px solid rgba(20,65,57,.24);font-size:16px;font-weight:700;color:#63736e">−</span>
+          <b class="disp" style="font-size:19px;font-weight:700">2 個鐘</b>
+          <span style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#fffefa;border:1px solid rgba(20,65,57,.24);font-size:16px;font-weight:700;color:#63736e">＋</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- everything else folded away -->
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:12px;background:#fffefa;border:1px dashed rgba(20,65,57,.24)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#63736e" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+      <span style="display:flex;flex-direction:column;gap:1px;flex-grow:1">
+        <b style="font-size:14px;font-weight:700">枱位、讓分、想自己揀人</b>
+        <small style="font-size:12px;color:#82908c">唔揀都得 · 預設第一個舉手就成事</small>
+      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#63736e" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+    </div>
+
+    <a href="#" style="display:flex;align-items:center;justify-content:center;height:54px;border-radius:16px;background:#d5a94d;color:#153128;font-size:17px;font-weight:700;box-shadow:0 8px 20px rgba(151,103,31,.18)">開 今晚 19:30–21:30</a>
+    <small style="font-size:12px;color:#82908c;text-align:center">會即刻俾成個會所見到 · 隨時可以取消</small>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

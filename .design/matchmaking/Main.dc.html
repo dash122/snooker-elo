@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+  <style>
+    body{margin:0;font-family:"Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif;background:#f4f3ed;color:#132521;-webkit-font-smoothing:antialiased}
+    a{color:#155e52;text-decoration:none}a:hover{color:#185149}
+    .disp{font-family:"Barlow Condensed","Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif}
+  </style>
+</helmet>
+<div style="width:390px;min-height:844px;background:#f4f3ed;display:flex;flex-direction:column">
+
+  <!-- header -->
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:44px 20px 16px 20px;background:#082c27;color:#f9f7ee;border-radius:0 0 24px 24px">
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <span class="disp" style="font-size:12px;letter-spacing:.2em;font-weight:600;color:#bdd0c9">SCAA 約戰</span>
+      <span class="disp" style="font-size:30px;line-height:1;font-weight:700">今晚有 4 場</span>
+      <span style="font-size:13px;color:#bdd0c9">揀一場加入，或者開你自己嗰場。</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.12);flex:0 0 auto">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f9f7ee" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c0-3.6 3.4-6 7.5-6s7.5 2.4 7.5 6"/></svg>
+    </div>
+  </div>
+
+  <!-- ONE action banner: the only thing that can ever outrank the feed -->
+  <div style="display:flex;align-items:center;gap:12px;margin:16px 20px 0;padding:14px 16px;border-radius:20px;background:#eef6f0;border:1px solid #cfe0d5">
+    <span style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:#247d5d;color:#fff;font-weight:700;font-size:14px;flex:0 0 auto">陳</span>
+    <span style="display:flex;flex-direction:column;gap:2px;flex-grow:1;min-width:0">
+      <b style="font-size:15px;font-weight:700">陳志明 收咗你</b>
+      <small style="font-size:13px;color:#63736e">今晚 19:30 · 3 號枱</small>
+    </span>
+    <a href="#" style="display:flex;align-items:center;justify-content:center;height:44px;padding:0 16px;border-radius:12px;background:#155e52;color:#fffefa;font-size:14px;font-weight:700;flex:0 0 auto">WhatsApp</a>
+  </div>
+
+  <!-- ONE primary action -->
+  <div style="padding:16px 20px 0">
+    <a href="#" style="display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:16px;background:#d5a94d;color:#153128;font-size:16px;font-weight:700;box-shadow:0 8px 20px rgba(151,103,31,.18)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#153128" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      我得閒，開一場
+    </a>
+  </div>
+
+  <!-- day rail: chronological, no filter panel -->
+  <div style="display:flex;gap:8px;padding:18px 20px 0;overflow:hidden">
+    <span style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 14px;border-radius:12px;background:#082c27;color:#f9f7ee;flex:0 0 auto"><b class="disp" style="font-size:16px;font-weight:600">今晚</b><small style="font-size:11px;color:#bdd0c9">4 場</small></span>
+    <span style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 14px;border-radius:12px;background:#fffefa;border:1px solid rgba(20,65,57,.12);flex:0 0 auto"><b class="disp" style="font-size:16px;font-weight:600">聽日</b><small style="font-size:11px;color:#63736e">2 場</small></span>
+    <span style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 14px;border-radius:12px;background:#fffefa;border:1px solid rgba(20,65,57,.12);flex:0 0 auto"><b class="disp" style="font-size:16px;font-weight:600">週末</b><small style="font-size:11px;color:#63736e">5 場</small></span>
+    <span style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 14px;border-radius:12px;background:#fffefa;border:1px solid rgba(20,65,57,.12);flex:0 0 auto"><b class="disp" style="font-size:16px;font-weight:600">下星期</b><small style="font-size:11px;color:#63736e">1 場</small></span>
+  </div>
+
+  <!-- feed -->
+  <div style="display:flex;flex-direction:column;gap:12px;padding:16px 20px 28px">
+
+    <!-- best fit card -->
+    <div style="display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:20px;background:#0d443a;color:#f9f7ee;box-shadow:0 12px 36px rgba(9,47,40,.18)">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="width:6px;height:6px;border-radius:50%;background:#d5a94d"></span>
+        <span class="disp" style="font-size:12px;letter-spacing:.16em;font-weight:600;color:#d5a94d">最啱你</span>
+      </div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
+        <b class="disp" style="font-size:34px;line-height:1;font-weight:700">19:30–21:30</b>
+        <span style="font-size:13px;color:#bdd0c9;padding-bottom:3px">今晚</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#d5a94d;color:#153128;font-size:13px;font-weight:700;flex:0 0 auto">李</span>
+        <span style="display:flex;flex-direction:column;gap:1px;flex-grow:1;min-width:0">
+          <b style="font-size:14px;font-weight:700">李國強 開嘅局</b>
+          <small style="font-size:12px;color:#bdd0c9">1420 ELO · 同你差 35 分</small>
+        </span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <span style="padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.12);font-size:12px">SCAA 3 號枱</span>
+        <span style="padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.12);font-size:12px">2 人有興趣</span>
+      </div>
+      <a href="#" style="display:flex;align-items:center;justify-content:center;height:48px;border-radius:14px;background:#d5a94d;color:#153128;font-size:16px;font-weight:700">加入</a>
+    </div>
+
+    <!-- ordinary cards -->
+    <div style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:20px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+      <span style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:0 0 auto;width:62px">
+        <b class="disp" style="font-size:22px;line-height:1;font-weight:700">20:00</b>
+        <small style="font-size:11px;color:#82908c">2 個鐘</small>
+      </span>
+      <span style="width:1px;align-self:stretch;background:rgba(20,65,57,.12)"></span>
+      <span style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+        <b style="font-size:15px;font-weight:700">黃家俊</b>
+        <small style="font-size:12px;color:#63736e">SCAA 會所 · 1 人有興趣</small>
+      </span>
+      <a href="#" style="display:flex;align-items:center;justify-content:center;height:44px;padding:0 18px;border-radius:12px;background:#f7f6ef;border:1px solid rgba(20,65,57,.24);color:#132521;font-size:14px;font-weight:700;flex:0 0 auto">加入</a>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:20px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+      <span style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:0 0 auto;width:62px">
+        <b class="disp" style="font-size:22px;line-height:1;font-weight:700">21:00</b>
+        <small style="font-size:11px;color:#82908c">3 個鐘</small>
+      </span>
+      <span style="width:1px;align-self:stretch;background:rgba(20,65,57,.12)"></span>
+      <span style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+        <b style="font-size:15px;font-weight:700">你開嘅局</b>
+        <small style="font-size:12px;color:#a66f1d;font-weight:700">2 人舉手 · 等你回覆</small>
+      </span>
+      <a href="#" style="display:flex;align-items:center;justify-content:center;height:44px;padding:0 18px;border-radius:12px;background:#fff2d3;border:1px solid #f0d091;color:#8b5910;font-size:14px;font-weight:700;flex:0 0 auto">睇下</a>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:20px;background:#fffefa;border:1px solid rgba(20,65,57,.12);opacity:.72">
+      <span style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:0 0 auto;width:62px">
+        <b class="disp" style="font-size:22px;line-height:1;font-weight:700">19:00</b>
+        <small style="font-size:11px;color:#82908c">2 個鐘</small>
+      </span>
+      <span style="width:1px;align-self:stretch;background:rgba(20,65,57,.12)"></span>
+      <span style="display:flex;flex-direction:column;gap:3px;flex-grow:1;min-width:0">
+        <b style="font-size:15px;font-weight:700">周文健</b>
+        <small style="font-size:12px;color:#63736e">已滿 · 同 2 位球友</small>
+      </span>
+      <span style="display:flex;align-items:center;justify-content:center;height:44px;padding:0 14px;border-radius:12px;color:#82908c;font-size:13px;font-weight:700;flex:0 0 auto">已滿</span>
+    </div>
+
+    <!-- one quiet line for everything I already did my part on -->
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:16px;background:#f7f6ef">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#63736e" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 1.8"/></svg>
+      <span style="font-size:13px;color:#63736e;flex-grow:1">你舉咗手 2 場，等緊人回覆</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#63736e" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

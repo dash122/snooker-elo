@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+  <style>
+    body{margin:0;font-family:"Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif;background:#f4f3ed;color:#132521;-webkit-font-smoothing:antialiased}
+    a{color:#155e52;text-decoration:none}a:hover{color:#185149}
+    .disp{font-family:"Barlow Condensed","Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif}
+    .kick{font-family:"Barlow Condensed","Noto Sans TC",sans-serif;font-size:13px;letter-spacing:.18em;font-weight:600}
+  </style>
+</helmet>
+<div style="width:1240px;min-height:900px;background:#f4f3ed;padding:48px 56px;box-sizing:border-box;display:flex;flex-direction:column;gap:36px">
+
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <span class="kick" style="color:#9a6e24">約戰 · UX FLOW</span>
+    <b class="disp" style="font-size:44px;line-height:1;font-weight:700">一個問題，一個動作，一條路</b>
+    <span style="font-size:16px;color:#63736e;max-width:760px;text-wrap:pretty">會員嚟呢個 tab 只有一件事想做：<b>今晚／今個星期搵到一場波打</b>。而家佢要先揀模式、揀日、揀篩選、揀填充規則、再揀時段——五個決定先見到一個人名。</span>
+  </div>
+
+  <!-- teardown -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <div style="display:flex;flex-direction:column;gap:14px;padding:26px;border-radius:20px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+      <span class="kick" style="color:#ad5149">而家 · 3 套並行機制</span>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:7px;height:7px;border-radius:50%;background:#ad5149;margin-top:7px;flex:0 0 auto"></span><span style="font-size:14px"><b>空檔</b>（畫時段、14 日 board、每週規則）— 公開之後乜都冇發生</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:7px;height:7px;border-radius:50%;background:#ad5149;margin-top:7px;flex:0 0 auto"></span><span style="font-size:14px"><b>開局／舉手</b>（Slots）— 真正成事嘅機制，但被前者遮住</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:7px;height:7px;border-radius:50%;background:#ad5149;margin-top:7px;flex:0 0 auto"></span><span style="font-size:14px"><b>邀請／對盤／改時間</b>（invites、offers、counter）— 一對一協商，最易冷場</span></div>
+      </div>
+      <span style="height:1px;background:rgba(20,65,57,.12);margin:4px 0"></span>
+      <span class="kick" style="color:#ad5149">一屏 11 個控制項</span>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        <span style="padding:6px 11px;border-radius:999px;background:#fbecea;color:#ad5149;font-size:12.5px">找球局／我的招募</span>
+        <span style="padding:6px 11px;border-radius:999px;background:#fbecea;color:#ad5149;font-size:12.5px">今晚／明天／週末</span>
+        <span style="padding:6px 11px;border-radius:999px;background:#fbecea;color:#ad5149;font-size:12.5px">篩選面板</span>
+        <span style="padding:6px 11px;border-radius:999px;background:#fbecea;color:#ad5149;font-size:12.5px">空檔狀態條</span>
+        <span style="padding:6px 11px;border-radius:999px;background:#fbecea;color:#ad5149;font-size:12.5px">最適合你</span>
+        <span style="padding:6px 11px;border-radius:999px;background:#fbecea;color:#ad5149;font-size:12.5px">公開球局</span>
+        <span style="padding:6px 11px;border-radius:999px;background:#fbecea;color:#ad5149;font-size:12.5px">舉手托盤</span>
+        <span style="padding:6px 11px;border-radius:999px;background:#fbecea;color:#ad5149;font-size:12.5px">等緊回覆</span>
+        <span style="padding:6px 11px;border-radius:999px;background:#fbecea;color:#ad5149;font-size:12.5px">全員空檔表</span>
+        <span style="padding:6px 11px;border-radius:999px;background:#fbecea;color:#ad5149;font-size:12.5px">通知設定</span>
+        <span style="padding:6px 11px;border-radius:999px;background:#fbecea;color:#ad5149;font-size:12.5px">開局約人</span>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;padding:26px;border-radius:20px;background:#0d443a;color:#f9f7ee">
+      <span class="kick" style="color:#d5a94d">改成 · 1 個原始概念</span>
+      <b class="disp" style="font-size:30px;line-height:1.1;font-weight:700">一場局 = 一段公開時間</b>
+      <span style="font-size:14px;color:#bdd0c9;text-wrap:pretty">「公開空檔」同「開局」本身係同一件事，唔應該係兩個 feature。會員講一次「我今晚 19:30 得閒」，佢就同時係一張局卡、一個可以舉手嘅目標、同埋通知其他人嘅信號。</span>
+      <span style="height:1px;background:rgba(255,255,255,.12);margin:4px 0"></span>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:7px;height:7px;border-radius:50%;background:#d5a94d;margin-top:7px;flex:0 0 auto"></span><span style="font-size:14px"><b>一個主按鈕</b>：我得閒，開一場</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:7px;height:7px;border-radius:50%;background:#d5a94d;margin-top:7px;flex:0 0 auto"></span><span style="font-size:14px"><b>一條時間軸</b>：所有局按時間排，最啱你嗰張置頂</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:7px;height:7px;border-radius:50%;background:#d5a94d;margin-top:7px;flex:0 0 auto"></span><span style="font-size:14px"><b>一個回覆位</b>：所有等你答嘅嘢收成頂部一條 banner</span></div>
+        <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:7px;height:7px;border-radius:50%;background:#d5a94d;margin-top:7px;flex:0 0 auto"></span><span style="font-size:14px"><b>其餘全部收起</b>：篩選、週期規則、全員空檔表、通知設定 → 二級頁</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- happy path -->
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <span class="kick" style="color:#9a6e24">主線 · 加入一場（3 tap 之內）</span>
+    <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px">
+      <div style="display:flex;flex-direction:column;gap:8px;padding:20px;border-radius:18px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+        <b class="disp" style="font-size:26px;line-height:1;color:#d5a94d;font-weight:700">01</b>
+        <b style="font-size:15px;font-weight:700">開 tab</b>
+        <span style="font-size:13px;color:#63736e">第一屏就係今晚有邊幾場。冇模式要揀。</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;padding:20px;border-radius:18px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+        <b class="disp" style="font-size:26px;line-height:1;color:#d5a94d;font-weight:700">02</b>
+        <b style="font-size:15px;font-weight:700">㩒「加入」</b>
+        <span style="font-size:13px;color:#63736e">一 tap，唔使開 sheet、唔使打字、可以收返。</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;padding:20px;border-radius:18px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+        <b class="disp" style="font-size:26px;line-height:1;color:#d5a94d;font-weight:700">03</b>
+        <b style="font-size:15px;font-weight:700">開局嗰位收人</b>
+        <span style="font-size:13px;color:#63736e">預設「全部收」，冇人被拒絕，冇社交成本。</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;padding:20px;border-radius:18px;background:#0d443a;color:#f9f7ee">
+        <b class="disp" style="font-size:26px;line-height:1;color:#d5a94d;font-weight:700">04</b>
+        <b style="font-size:15px;font-weight:700">通知 → WhatsApp</b>
+        <span style="font-size:13px;color:#bdd0c9">app 嘅工作到此為止，交返俾人自己傾。</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;padding:20px;border-radius:18px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+        <b class="disp" style="font-size:26px;line-height:1;color:#d5a94d;font-weight:700">05</b>
+        <b style="font-size:15px;font-weight:700">打完問比分</b>
+        <span style="font-size:13px;color:#63736e">第二日自動彈返出嚟，ELO 先有數。</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- state rule -->
+  <div style="display:flex;gap:24px;padding:26px;border-radius:20px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+    <div style="display:flex;flex-direction:column;gap:8px;flex-grow:1">
+      <span class="kick" style="color:#9a6e24">屏幕狀態規則</span>
+      <span style="font-size:14px;color:#63736e;text-wrap:pretty">同一個 tab 只有四個狀態，永遠只有一個成立——唔再由會員揀模式。</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;flex-grow:3">
+      <div style="display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:14px;background:#fff2d3">
+        <b style="font-size:13.5px;font-weight:700;color:#8b5910">有人等你答</b>
+        <span style="font-size:12.5px;color:#8b5910">頂部 banner；feed 照樣睇得到</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:14px;background:#eef6f0">
+        <b style="font-size:13.5px;font-weight:700;color:#247d5d">已經夾好</b>
+        <span style="font-size:12.5px;color:#247d5d">WhatsApp 做主按鈕</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:14px;background:#f7f6ef">
+        <b style="font-size:13.5px;font-weight:700">有局可以加入</b>
+        <span style="font-size:12.5px;color:#63736e">時間軸 + 最啱你置頂</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:14px;background:#f7f6ef">
+        <b style="font-size:13.5px;font-weight:700">乜都未有</b>
+        <span style="font-size:12.5px;color:#63736e">會所脈搏 + 開一場</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

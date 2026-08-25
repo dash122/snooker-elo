@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+  <style>
+    body{margin:0;font-family:"Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif;background:#f4f3ed;color:#132521;-webkit-font-smoothing:antialiased}
+    a{color:#155e52;text-decoration:none}a:hover{color:#185149}
+    .disp{font-family:"Barlow Condensed","Noto Sans TC","PingFang TC",ui-sans-serif,sans-serif}
+  </style>
+</helmet>
+<div style="width:390px;min-height:844px;background:#f4f3ed;display:flex;flex-direction:column">
+
+  <div style="display:flex;align-items:center;gap:12px;padding:44px 20px 16px 20px;background:#082c27;color:#f9f7ee;border-radius:0 0 24px 24px">
+    <span style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);flex:0 0 auto">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f9f7ee" stroke-width="2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+    </span>
+    <span style="display:flex;flex-direction:column;gap:2px">
+      <span class="disp" style="font-size:12px;letter-spacing:.2em;font-weight:600;color:#bdd0c9">你開嘅局</span>
+      <b class="disp" style="font-size:24px;line-height:1;font-weight:700">今晚 21:00–00:00</b>
+    </span>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px;padding:20px">
+
+    <!-- the one decision: take everyone -->
+    <div style="display:flex;flex-direction:column;gap:14px;padding:18px;border-radius:20px;background:#fffefa;border:1px solid #f0d091;box-shadow:0 12px 36px rgba(9,47,40,.08)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <span style="display:flex;flex-direction:column;gap:2px">
+          <b style="font-size:16px;font-weight:700">2 人舉咗手</b>
+          <small style="font-size:12px;color:#82908c">得你自己見到呢個名單</small>
+        </span>
+        <span style="display:flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 9px;border-radius:999px;background:#fff2d3;color:#8b5910;font-size:13px;font-weight:700">2</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;background:#f7f6ef">
+          <span style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#1b62a8;color:#fff;font-size:13px;font-weight:700;flex:0 0 auto">黃</span>
+          <span style="display:flex;flex-direction:column;gap:1px;flex-grow:1;min-width:0">
+            <b style="font-size:14px;font-weight:700">黃家俊</b>
+            <small style="font-size:12px;color:#63736e">1385 ELO · 打過 4 次</small>
+          </span>
+          <span style="display:flex;align-items:center;justify-content:center;height:40px;padding:0 16px;border-radius:12px;background:#fffefa;border:1px solid rgba(20,65,57,.24);font-size:14px;font-weight:700;flex:0 0 auto">收</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;background:#f7f6ef">
+          <span style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#8a5a2b;color:#fff;font-size:13px;font-weight:700;flex:0 0 auto">羅</span>
+          <span style="display:flex;flex-direction:column;gap:1px;flex-grow:1;min-width:0">
+            <b style="font-size:14px;font-weight:700">羅嘉輝</b>
+            <small style="font-size:12px;color:#63736e">1442 ELO · 新加入</small>
+          </span>
+          <span style="display:flex;align-items:center;justify-content:center;height:40px;padding:0 16px;border-radius:12px;background:#fffefa;border:1px solid rgba(20,65,57,.24);font-size:14px;font-weight:700;flex:0 0 auto">收</span>
+        </div>
+      </div>
+
+      <a href="#" style="display:flex;align-items:center;justify-content:center;height:50px;border-radius:14px;background:#d5a94d;color:#153128;font-size:16px;font-weight:700">兩個都收</a>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:16px;background:#fffefa;border:1px solid rgba(20,65,57,.12)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#63736e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 15V3.5"/><path d="M8 7.5l4-4 4 4"/></svg>
+      <span style="font-size:14px;font-weight:700;flex-grow:1">分享落 WhatsApp 群</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#63736e" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+    </div>
+
+    <!-- after: hand-off, the app's job ends here -->
+    <div style="display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:20px;background:#eef6f0;border:1px solid #cfe0d5">
+      <span class="disp" style="font-size:12px;letter-spacing:.16em;font-weight:600;color:#247d5d">夾好之後</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#1b62a8;color:#fff;font-size:13px;font-weight:700;flex:0 0 auto">黃</span>
+        <span style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:#8a5a2b;color:#fff;font-size:13px;font-weight:700;flex:0 0 auto;margin-left:-16px">羅</span>
+        <span style="font-size:14px;font-weight:700;flex-grow:1;margin-left:4px">黃家俊、羅嘉輝</span>
+      </div>
+      <a href="#" style="display:flex;align-items:center;justify-content:center;height:48px;border-radius:14px;background:#155e52;color:#fffefa;font-size:15px;font-weight:700">WhatsApp 佢哋</a>
+      <small style="font-size:12px;color:#63736e;text-align:center">打完之後我哋會問你比分，唔使自己記得返嚟</small>
+    </div>
+
+    <span style="font-size:13px;color:#82908c;text-align:center;padding-top:4px">取消呢場</span>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
