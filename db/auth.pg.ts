@@ -47,7 +47,7 @@ export async function connectGoogleMember(memberEmail: string, googleId: string)
 export type GoogleDisconnectResult = "disconnected" | "not-linked" | "password-wrong" | "no-password";
 
 export async function disconnectGoogleMember(memberEmail: string, currentPassword: string): Promise<GoogleDisconnectResult> {
-  await ensureAuthSchema();
+  await Promise.all([ensureAuthSchema(), ensurePasswordSetSchema()]);
   const sql = getSql();
   const normalizedEmail = memberEmail.trim().toLowerCase();
   const rows = await sql<{ googleId: string | null; passwordSet: boolean; passwordHash: string; passwordSalt: string }[]>`
@@ -66,6 +66,26 @@ export async function disconnectGoogleMember(memberEmail: string, currentPasswor
 
 let schemaReady: Promise<unknown> | null = null;
 let preliminaryRatingSchemaReady: Promise<unknown> | null = null;
+let passwordSetSchemaReady: Promise<unknown> | null = null;
+
+// Newly added column (supabase/migrations/20260826000001_member_password_set.sql)
+// that a deploy can reach before that migration has actually been run against
+// the database — unlike the bootstraps below, this one is deliberately left
+// live rather than migration-only, because every write and read of
+// members.password_set would otherwise 500 (breaking signup entirely) until
+// someone applies the migration by hand. ADD COLUMN ... DEFAULT is a
+// catalog-only change in Postgres 11+, so it stays cheap even if concurrent
+// cold starts queue briefly on the advisory lock.
+function ensurePasswordSetSchema() {
+  passwordSetSchemaReady ??= (async () => {
+    const sql = getSql();
+    await sql.begin(async tx => {
+      await tx`SELECT pg_advisory_xact_lock(72591005)`;
+      await tx`ALTER TABLE members ADD COLUMN IF NOT EXISTS password_set BOOLEAN NOT NULL DEFAULT true`;
+    });
+  })().catch(error => { passwordSetSchemaReady = null; throw error; });
+  return passwordSetSchemaReady;
+}
 function ensurePreliminaryRatingSchema() {
   // Column is migration-owned now (see
   // supabase/migrations/20260821000000_auth_schema_runtime_ddl_cleanup.sql).
@@ -176,7 +196,7 @@ function parseCookie(cookie: string | null, name: string) {
 }
 
 export async function getCurrentMember(): Promise<MemberSession | null> {
-  await ensureAuthSchema();
+  await Promise.all([ensureAuthSchema(), ensurePasswordSetSchema()]);
   const token = parseCookie((await headers()).get("cookie"), SESSION_COOKIE);
   if (!token) return null;
   const tokenHash = await sha256(token);
@@ -253,7 +273,7 @@ export async function createMemberWithPlayer(input: {
   username: string; email: string; displayName: string; password: string | null;
   role: "admin" | "member"; player: NewSignupPlayer; auditText: string; googleId?: string;
 }) {
-  await Promise.all([ensureAuthSchema(), ensureStateSchema()]);
+  await Promise.all([ensureAuthSchema(), ensureStateSchema(), ensurePasswordSetSchema()]);
   const sql = getSql();
   const normalizedEmail = input.email.trim().toLowerCase();
   const normalizedUsername = input.username.trim().toLowerCase();
@@ -358,7 +378,7 @@ export async function savePreliminaryRating(email: string, preliminaryRating: nu
   return true;
 }
 export async function updateMember(email: string, input: { username?: string; newEmail?: string; password?: string; currentPassword?: string }) {
-  await ensureAuthSchema();
+  await Promise.all([ensureAuthSchema(), ensurePasswordSetSchema()]);
   const sql = getSql();
   const rows = await sql<{ passwordSet: boolean; passwordHash: string; passwordSalt: string }[]>`SELECT password_set AS "passwordSet", password_hash AS "passwordHash", password_salt AS "passwordSalt" FROM members WHERE email = ${email.toLowerCase()}`;
   const row = rows[0];
@@ -416,7 +436,7 @@ export async function syncMemberPlayerProfiles(players: { id: string; name: stri
 // Deactivation is reversible by an admin (active = true) but immediately ends
 // every session the member has open.
 export async function deactivateMember(email: string, currentPassword: string) {
-  await ensureAuthSchema();
+  await Promise.all([ensureAuthSchema(), ensurePasswordSetSchema()]);
   const sql = getSql();
   const normalized = email.toLowerCase();
   const rows = await sql<{ passwordSet: boolean; passwordHash: string; passwordSalt: string }[]>`SELECT password_set AS "passwordSet", password_hash AS "passwordHash", password_salt AS "passwordSalt" FROM members WHERE email = ${normalized}`;
