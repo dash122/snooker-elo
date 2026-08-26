@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { getSql } from "./sql";
+import { insertChunks } from "../lib/bulk-insert";
 
 type Player = { id:string; name:string; short:string; handicap:number|null; rating:number; colour?:string; avatar?:string|null; initialRating:number; preliminaryRating?:number|null; active:boolean; wins:number; losses:number; draws:number; framesWon:number; framesLost:number; lastChange:number; form:string[] };
 type Match = { id:string; a:string; b:string; a2?:string; b2?:string; mode?:string; teamAName?:string; teamBName?:string; scoreA:number; scoreB:number; playedOn:string; entryMode?:("match"|"aggregate"); frameEvidence?:number; performanceScore?:number; evidenceWeight?:number; handicapAdjustment?:number; overHandicapElo?:number; overHandicapMultiplier?:number; highBreaks?:{playerId:string;value:number}[]; actual:number; giver:string|null; official:number|null; extra:number; expectedA:number; beforeA:number; beforeB:number; beforeA2?:number; beforeB2?:number; afterA:number; afterB:number; afterA2?:number; afterB2?:number; deltaA:number; deltaB?:number; deltaA2?:number; deltaB2?:number; marginMultiplier?:number; status:("confirmed"|"void"); createdAt:string; tournamentId?:string; tournamentRound?:number; tournamentMatchIndex?:number };
@@ -226,7 +227,7 @@ export async function putState(data: string) {
         entity_id: entity.entityId,
         payload: tx.json(entity.payload as any),
       }));
-      await tx`INSERT INTO app_state_snapshot_entities ${tx(entities)} ON CONFLICT (content_hash) DO NOTHING`;
+      for (const chunk of insertChunks(entities)) await tx`INSERT INTO app_state_snapshot_entities ${tx(chunk)} ON CONFLICT (content_hash) DO NOTHING`;
       const items = snapshotEntities(state).map(entity => ({
         snapshot_id: snapshotId,
         entity_type: entity.entityType,
@@ -234,7 +235,7 @@ export async function putState(data: string) {
         content_hash: snapshotHash(entity.entityType, entity.entityId, entity.payload),
         position: entity.position,
       }));
-      await tx`INSERT INTO app_state_snapshot_items ${tx(items)}`;
+      for (const chunk of insertChunks(items)) await tx`INSERT INTO app_state_snapshot_items ${tx(chunk)}`;
     }
     await tx`DELETE FROM app_state_snapshots WHERE id NOT IN (SELECT id FROM app_state_snapshots ORDER BY saved_at DESC LIMIT 100)`;
     await tx`DELETE FROM app_state_snapshot_entities e WHERE NOT EXISTS (SELECT 1 FROM app_state_snapshot_items i WHERE i.content_hash = e.content_hash)`;
@@ -263,7 +264,7 @@ export async function putState(data: string) {
         frames_won: p.framesWon, frames_lost: p.framesLost, last_change: p.lastChange,
         form: tx.json(p.form), updated_at: new Date(),
       }));
-      await tx`INSERT INTO state_players ${tx(rows)}
+      for (const chunk of insertChunks(rows)) await tx`INSERT INTO state_players ${tx(chunk)}
         ON CONFLICT (id) DO UPDATE SET name=excluded.name,short=excluded.short,handicap=excluded.handicap,rating=excluded.rating,colour=excluded.colour,avatar=excluded.avatar,initial_rating=excluded.initial_rating,preliminary_rating=excluded.preliminary_rating,active=excluded.active,wins=excluded.wins,losses=excluded.losses,draws=excluded.draws,frames_won=excluded.frames_won,frames_lost=excluded.frames_lost,last_change=excluded.last_change,form=excluded.form,updated_at=excluded.updated_at`;
     }
     await tx`DELETE FROM state_players WHERE NOT (id = ANY(${playerIds}::text[]))`;
@@ -283,19 +284,19 @@ export async function putState(data: string) {
         margin_multiplier: m.marginMultiplier ?? null, tournament_id: m.tournamentId ?? null, tournament_round: m.tournamentRound ?? null, tournament_match_index: m.tournamentMatchIndex ?? null,
         status: m.status, created_at: m.createdAt, updated_at: new Date(),
       }));
-      await tx`INSERT INTO state_matches ${tx(rows)}
+      for (const chunk of insertChunks(rows)) await tx`INSERT INTO state_matches ${tx(chunk)}
         ON CONFLICT (id) DO UPDATE SET player_a=excluded.player_a,player_b=excluded.player_b,player_a2=excluded.player_a2,player_b2=excluded.player_b2,mode=excluded.mode,team_a_name=excluded.team_a_name,team_b_name=excluded.team_b_name,score_a=excluded.score_a,score_b=excluded.score_b,played_on=excluded.played_on,entry_mode=excluded.entry_mode,frame_evidence=excluded.frame_evidence,performance_score=excluded.performance_score,evidence_weight=excluded.evidence_weight,handicap_adjustment=excluded.handicap_adjustment,over_handicap_elo=excluded.over_handicap_elo,over_handicap_multiplier=excluded.over_handicap_multiplier,high_breaks=excluded.high_breaks,actual=excluded.actual,giver=excluded.giver,official=excluded.official,extra=excluded.extra,expected_a=excluded.expected_a,before_a=excluded.before_a,before_b=excluded.before_b,before_a2=excluded.before_a2,before_b2=excluded.before_b2,after_a=excluded.after_a,after_b=excluded.after_b,after_a2=excluded.after_a2,after_b2=excluded.after_b2,delta_a=excluded.delta_a,delta_b=excluded.delta_b,delta_a2=excluded.delta_a2,delta_b2=excluded.delta_b2,margin_multiplier=excluded.margin_multiplier,tournament_id=excluded.tournament_id,tournament_round=excluded.tournament_round,tournament_match_index=excluded.tournament_match_index,status=excluded.status,created_at=excluded.created_at,updated_at=excluded.updated_at`;
     }
 
     if (state.tournaments.length) {
       const rows = state.tournaments.map(t => ({ id: t.id, name: t.name, handicap_mode: t.handicapMode, signup_deadline: t.signupDeadline.length === 16 ? `${t.signupDeadline}:00+08:00` : t.signupDeadline, created_at: t.createdAt, created_by: t.createdBy ?? null, signups: tx.json(t.signups), draw: t.draw?.length ? tx.json(t.draw) : null, drawn_at: t.drawnAt ?? null, walkovers: t.walkovers?.length ? tx.json(t.walkovers) : null }));
-      await tx`INSERT INTO state_tournaments ${tx(rows)}
+      for (const chunk of insertChunks(rows)) await tx`INSERT INTO state_tournaments ${tx(chunk)}
         ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by,signups=excluded.signups,draw=excluded.draw,drawn_at=excluded.drawn_at,walkovers=excluded.walkovers`;
     }
     await tx`DELETE FROM state_tournaments WHERE NOT (id = ANY(${tournamentIds}::text[]))`;
     if (state.audits.length) {
       const rows = state.audits.map(a => ({ id: a.id, text: a.text, occurred_at: a.at }));
-      await tx`INSERT INTO state_audits ${tx(rows)}
+      for (const chunk of insertChunks(rows)) await tx`INSERT INTO state_audits ${tx(chunk)}
         ON CONFLICT (id) DO UPDATE SET text=excluded.text,occurred_at=excluded.occurred_at`;
     }
     await tx`DELETE FROM state_audits WHERE NOT (id = ANY(${auditIds}::text[]))`;
