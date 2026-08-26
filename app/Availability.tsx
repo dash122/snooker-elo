@@ -447,12 +447,16 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
     them. */
  useEffect(()=>{
   if(bootstrapState==="loading")return;
-  let cancelled=false;
+   let cancelled=false,polling=false;
   async function poll(){
+    if(polling)return;
+    polling=true;
+    try{
    if(userPlayerId)try{const r=await fetch("/api/invites");const b=await r.json();if(!cancelled&&r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}catch{/* keep the previous invites in view if a background poll fails */}
    /* An offer is time-critical in a way an invite is not — it exists because two people are free
       *now-ish* — so it rides the same 30-second poll rather than waiting for a reload. */
    if(userPlayerId)try{const r=await fetch("/api/offers");const b=await r.json();if(!cancelled&&r.ok)setOffers(b.offers??[]);}catch{/* last known offers stay on screen */}
+    }finally{polling=false}
   }
   if(bootstrapState==="failed")void poll();
   const id=window.setInterval(()=>{if(document.visibilityState==="visible")void poll()},30000);

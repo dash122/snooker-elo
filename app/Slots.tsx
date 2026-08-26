@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerBadge } from "./UiBits";
-import { Button, ChipRow, IconButton, Skeleton } from "./components/ui/Primitives";
+import { Button, ChipRow, IconButton } from "./components/ui/Primitives";
 import { BackdropSheet } from "./components/ui/Overlay";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant } from "../lib/availability";
@@ -742,7 +742,7 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
   availabilityCount?:number; availability?:AvailabilityWindow[]; onManageAvailability?:()=>void;
   initialData?:Board|null;
 }){
-  const [data,setData]=useState<Board|null>(initialData??null);
+  const [data,setData]=useState<Board>(()=>initialData??{signedIn,canAct:false,board:[],mine:[],hands:[]});
   const [composing,setComposing]=useState(false);
   const [editing,setEditing]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
@@ -756,20 +756,21 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
   const [filter,setFilter]=useState<RowFilter>("all");
   const [closedOpen,setClosedOpen]=useState(false);
   const [posted,setPosted]=useState<PostedConfirmation|null>(null);
+  const loadingRef=useRef(false);
 
   const load=useCallback(async()=>{
+    if(loadingRef.current)return;
+    loadingRef.current=true;
     const controller=new AbortController();
     const timeout=window.setTimeout(()=>controller.abort(),15000);
-    const fallback:Board={signedIn,canAct:false,board:[],mine:[],hands:[]};
     try{
       const response=await fetch("/api/slots",{signal:controller.signal});
       const body=await response.json().catch(()=>null) as Partial<Board>&{error?:string}|null;
-      if(!response.ok){setError(body?.error??"約戰資料暫時未能載入");setData(current=>current??fallback);return}
+      if(!response.ok){setError(body?.error??"約戰資料暫時未能載入");return}
       setData(body as Board);setError("");
     }catch(error){
       setError(error instanceof Error&&error.name==="AbortError"?"約戰資料載入較慢，請再試一次。":"網絡連線失敗，請再試一次。");
-      setData(current=>current??fallback);
-    }finally{window.clearTimeout(timeout)}
+    }finally{window.clearTimeout(timeout);loadingRef.current=false}
   },[signedIn]);
 
   /* Loads for everyone, signed in or not. "Is anybody playing tonight" is the question this screen
@@ -966,8 +967,6 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
     if(needsReading)return {kind:"hands",slot:needsReading,waiting:needsReading.counts.waiting};
     return null;
   },[mine,data]);
-
-  if(data===null)return <Skeleton height="300px" className="availability-skeleton"/>;
 
   const canAct=Boolean(data.canAct);
   const createSession=()=>{setError("");setComposing(true)};

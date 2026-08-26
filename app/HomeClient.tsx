@@ -505,6 +505,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const [recordMenuOpen,setRecordMenuOpen] = useState(false);
   const [pullDistance,setPullDistance] = useState(0);
   const [refreshing,setRefreshing] = useState(false);
+  const refreshingStateRef = useRef(false);
   const [draft,setDraft] = useState({mode:"1v1" as MatchMode,teamAName:"Team A",teamBName:"Team B",a:"",b:"",a2:"",b2:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[] as {playerId:string;value:number}[],tournamentId:"",tournamentRound:1,tournamentMatchIndex:1,cupSlotLocked:false});
   const [playerForm,setPlayerForm] = useState({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});
   const [managementMode,setManagementMode] = useState(false);
@@ -557,11 +558,14 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     }).catch(()=>{});
   },[initialData]);
   async function refreshData(){
+    if(refreshingStateRef.current)return;
+    refreshingStateRef.current=true;
     try{
       const r=await fetch("/api/state",{cache:"no-store"});
       const v=r.ok?await r.json():null;
       if(v?.players)setData(upgradeState(v).state);
     }catch{}
+    finally{refreshingStateRef.current=false}
   }
   useEffect(()=>{
     const timer=setInterval(()=>{
