@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addDaysHongKong, availabilityDensity, availabilityPeak, composeAvailabilityInterval, dayRangeHongKong, gamesPlayed, intervalFromHours, intersectIntervals, matchesBetween, mergeIntervals, inviteAwaitsOutcome, isInviteExpired, isOpenCallLive, nextAvailabilityStart, overlapMinutes, partitionInvites, partitionOpenCalls, rankOpponents, recommendationScore, validateAvailabilityInterval } from "../lib/availability.ts";
+import { addDaysHongKong, availabilityDensity, availabilityEndTimes, availabilityPeak, availabilityStartTimes, composeAvailabilityInterval, dayRangeHongKong, gamesPlayed, intervalFromHours, intersectIntervals, matchesBetween, mergeAvailabilitySlots, mergeIntervals, inviteAwaitsOutcome, isInviteExpired, isOpenCallLive, nextAvailabilityStart, overlapMinutes, partitionInvites, partitionOpenCalls, rankOpponents, recommendationScore, validateAvailabilityInterval } from "../lib/availability.ts";
 
 
 test("keeps a same-day slot on the day the member picked",()=>{
@@ -30,6 +30,20 @@ test("limits slots to the 10:00–02:00 Hong Kong playing window",()=>{
 });test("rolls a slot ending at or before its start into the next day",()=>{
   assert.deepEqual(composeAvailabilityInterval("2026-08-01","22:00","01:00"),{startAt:"2026-08-01T14:00:00.000Z",endAt:"2026-08-01T17:00:00.000Z"});
   assert.equal(composeAvailabilityInterval("2026-08-01","22:00","22:00").endAt,"2026-08-02T14:00:00.000Z");
+});
+test("filters end times by duration and keeps overnight choices chronological",()=>{
+  assert.deepEqual(availabilityStartTimes().slice(0,2),["10:00","10:30"]);
+  assert.equal(availabilityStartTimes().at(-1),"23:30");
+  assert.deepEqual(availabilityEndTimes("10:00").slice(-1)[0],{value:"22:00",label:"22:00",minutes:1320});
+  assert.deepEqual(availabilityEndTimes("23:30").map(option=>option.value),["00:00","00:30","01:00","01:30","02:00"]);
+  assert.equal(availabilityEndTimes("23:30").at(-1).minutes,1560);
+});
+test("does not merge availability windows with different preferences",()=>{
+  const merged=mergeAvailabilitySlots([
+    {startAt:"2026-08-01T10:00:00Z",endAt:"2026-08-01T12:00:00Z",conditions:{handicap:true}},
+    {startAt:"2026-08-01T11:00:00Z",endAt:"2026-08-01T13:00:00Z",conditions:{noSmoking:true}},
+  ]);
+  assert.equal(merged.length,2);
 });
 test("places a slot painted past midnight on the following morning",()=>{
   assert.deepEqual(intervalFromHours("2026-08-01",21,24.5),{startAt:"2026-08-01T13:00:00.000Z",endAt:"2026-08-01T16:30:00.000Z"});

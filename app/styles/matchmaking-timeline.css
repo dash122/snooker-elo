@@ -18,6 +18,7 @@
      personal empty state at once — four buttons for one job. */
   .mm-tab .mm-primary{display:flex;align-items:center;justify-content:center;gap:var(--sp-2);
     width:100%;min-height:3.25rem;border-radius:var(--ds-radius-control);font-size:var(--fs-body);font-weight:800}
+  .mm-tab .mm-primary>span{display:flex;align-items:center;justify-content:center;gap:var(--sp-2);white-space:nowrap}
   .mm-primary-mark{display:flex;flex:0 0 auto}
 
   /* --- The banner ----------------------------------------------------------

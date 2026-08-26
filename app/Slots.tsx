@@ -5,7 +5,7 @@ import { Button, ChipRow, IconButton, Skeleton } from "./components/ui/Primitive
 import { BackdropSheet } from "./components/ui/Overlay";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant } from "../lib/availability";
-import { conditionChips, freshnessLabel, handoffMessage, handsLine, shareMessage, slotStatus, slotTakingHands,
+import { conditionChips, handoffMessage, handsLine, shareMessage, slotStatus, slotTakingHands,
   sortPostedSlots, takeActionLabel, visiblePostedSlots, whatsappShareUrl,
   type FillRule, type HandsView, type SlotConditions } from "../lib/slots";
 import type { HandicapProposal } from "../lib/handicap";
@@ -37,11 +37,12 @@ import type { HandicapProposal } from "../lib/handicap";
     looking at their own name (a proposal against yourself is not a thing). */
 type Player={id:string;name:string;short?:string|null;rating:number;colour?:string|null;avatar?:string|null;handicap?:HandicapProposal|null};
 
-/** The short form for a name line: a level game says nothing (levelling is the default, not news),
-    an uneven one says who gives and how much -- "你讓" from the viewer's own side, in the same
-    arithmetic the leaderboard's 建議讓分 column already uses. */
-const handicapNote=(handicap:HandicapProposal|null|undefined):string|null=>
-  !handicap||handicap.direction==="level"?null
+/** The short form for a name line: an uneven game says who gives and how much -- "你讓" from the
+    viewer's own side, in the same arithmetic the leaderboard's 建議讓分 column already uses. Own
+    rows also show the level recommendation explicitly so their stats match every other row. */
+const handicapNote=(handicap:HandicapProposal|null|undefined,showLevel=false):string|null=>
+  !handicap||(handicap.direction==="level"&&!showLevel)?null
+    :handicap.direction==="level"?"平手"
     :handicap.direction==="give"?`你讓 ${handicap.points} 分`:`佢讓 ${Math.abs(handicap.points)} 分`;
 
 /** What pressing 加入 actually does, said before the tap rather than only after -- a row that reads
@@ -59,9 +60,8 @@ type BoardSlot=PostedSlot&{player:Player;mine:boolean;hands:HandsView;acceptedPl
 type PendingHand={playerId:string;raisedAt:string;state:"raised"|"accepted";player:Player};
 type MineSlot=PostedSlot&{mine:true;player:Player|null;filler:Player|null;hands:PendingHand[];counts:HandsView;acceptedPlayers:Player[]};
 type MyHand={slotId:string;raisedAt:string;accepted:boolean;slot:PostedSlot&{player:Player}};
-type Board={
+export type Board={
   signedIn:boolean; canAct?:boolean; board:BoardSlot[]; mine:MineSlot[]; hands:MyHand[];
-  waitingForMe?:number; wantTonight?:number; openCount?:number;
 };
 type AvailabilityWindow={startAt:string;endAt:string};
 
@@ -395,7 +395,6 @@ type RowFilter="all"|"level"|"handicap"|"tableBooked";
 type PostedConfirmation={id:string;startAt:string;endAt:string;venue:string;reach:number};
 
 type BannerItem=
-  |{kind:"handoff";slot:PostedSlot;opponent:Player|null}
   |{kind:"record";slotId:string;slot:PostedSlot;opponent:Player|null}
   |{kind:"hands";slot:MineSlot;waiting:number};
 
@@ -421,13 +420,7 @@ function ActionBanner({item,busy,onOpen,onResult}:{
       <Button variant="primary" disabled={busy} onClick={()=>onResult("played")}>打咗</Button>
     </span>
   </div>;
-  const text=item.opponent?handoffMessage({venue:item.slot.venue,whenLabel:when(item.slot)}):"";
-  return <div className="mm-banner is-confirmed">
-    {item.opponent?<PlayerBadge player={item.opponent}/>:<span className="mm-banner-mark" aria-hidden="true">✓</span>}
-    <span className="mm-banner-copy"><b>{item.opponent?`${item.opponent.name} 收咗你`:"已經夾好"}</b>
-      <small>{when(item.slot)}{item.slot.venue?` · ${item.slot.venue}`:""}</small></span>
-    <a className="mm-banner-primary" href={whatsappShareUrl(text)} target="_blank" rel="noreferrer">WhatsApp</a>
-  </div>;
+  return null;
 }
 
 /* --- The timeline ----------------------------------------------------------- */
@@ -446,9 +439,7 @@ function FeaturedCard({entry,overlap,canAct,busy,onRaise,onRetract}:{
         <small>{Math.round(entry.player?.rating??0)} ELO{handicapNote(entry.player?.handicap)?` · ${handicapNote(entry.player?.handicap)}`:""}{overlap>0?` · 同你重疊 ${durationLabel(overlap)}`:""}</small></span>
     </div>
     <div className="mm-featured-chips">{chips.map(chip=><span key={chip}>{chip}</span>)}</div>
-    {entry.iAccepted
-      ? <p className="mm-featured-state">已經收咗你，準備開波</p>
-      : entry.iRaised
+    {entry.iRaised
         ? <Button variant="secondary" className="sl-primary" disabled={busy} onClick={onRetract}>已舉手 · 收返</Button>
         : canAct
           ? <Button variant="primary" className="sl-primary" disabled={busy} onClick={onRaise}>加入</Button>
@@ -479,7 +470,7 @@ function TimelineRow({entry,canAct,busy,onRaise,onRetract,onOpenMine,onOpenDetai
   const status=slotStatus(entry);
   const closed=Boolean(entry.closedAt)||status!=="open";
   const meta=entry.mine
-    ? entry.waiting>0?`${entry.waiting} 人舉手 · 等你回覆`:`${entry.hands.total} 人已報名 · ${freshnessLabel(entry.createdAt)}`
+    ? entry.waiting>0?`${entry.waiting} 人舉手 · 等你回覆`:`${entry.hands.total} 人已報名`
     : entry.venue||"SCAA 會所";
   const openRow=()=>{if(entry.mine)onOpenMine();else onOpenDetail()};
   return <article className={`mm-slot${entry.mine?" is-mine":""}${entry.iAccepted?" is-confirmed":""}${closed&&!entry.mine?" is-closed":""}`}
@@ -491,8 +482,8 @@ function TimelineRow({entry,canAct,busy,onRaise,onRetract,onOpenMine,onOpenDetai
     {entry.player&&<PlayerBadge player={entry.player}/>}
     <span className="mm-row-copy">
       <b>{entry.mine?entry.player?.name??"你":entry.player?.name??"球友"}
-        {!entry.mine&&entry.player&&<span className="mm-row-elo">{Math.round(entry.player.rating)}</span>}
-        {!entry.mine&&handicapNote(entry.player?.handicap)&&<span className="mm-row-handicap">{handicapNote(entry.player?.handicap)}</span>}</b>
+        {entry.player&&<span className="mm-row-elo">{Math.round(entry.player.rating)}</span>}
+        {entry.player&&handicapNote(entry.player.handicap,entry.mine)&&<span className="mm-row-handicap">{handicapNote(entry.player.handicap,entry.mine)}</span>}</b>
       <span className="mm-row-sub">
         <small className={entry.mine&&entry.waiting>0?"is-attention":undefined}>{meta}</small>
         <AcceptedFaces players={entry.acceptedPlayers}/>
@@ -608,7 +599,7 @@ function BoardDetailSheet({entry,canAct,busy,onRaise,onRetract,onShare,onClose}:
   return <BackdropSheet onClose={onClose} labelledBy="slot-detail" className="sl-mine-sheet" shellClassName="match-entry-sheet">
     <p className="kicker">{player?.name??"球友"}開嘅局</p>
     <h2 id="slot-detail">{when(entry)}</h2>
-    <p className="sub">{entry.venue||"未講枱位"} · {freshnessLabel(entry.createdAt)}</p>
+    <p className="sub">{entry.venue||"未講枱位"}</p>
 
     {player&&<div className="mm-detail-who">
       <PlayerBadge player={player}/>
@@ -746,11 +737,12 @@ function DateRail({dates,selected,counts,total,onSelect}:{dates:string[];selecte
 
 /* --- The tab ----------------------------------------------------------------- */
 
-export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availability=[],onManageAvailability}: {
+export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availability=[],onManageAvailability,initialData}: {
   signedIn:boolean; onRecord:(opponentId:string,playedOn:string)=>void; onChanged:()=>void;
   availabilityCount?:number; availability?:AvailabilityWindow[]; onManageAvailability?:()=>void;
+  initialData?:Board|null;
 }){
-  const [data,setData]=useState<Board|null>(null);
+  const [data,setData]=useState<Board|null>(initialData??null);
   const [composing,setComposing]=useState(false);
   const [editing,setEditing]=useState<string|null>(null);
   const [busy,setBusy]=useState(false);
@@ -773,14 +765,19 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
     }catch{/* a failed poll leaves the last cards on screen rather than blanking the tab */}
   },[]);
 
+  useEffect(()=>{if(initialData!==undefined)setData(initialData)},[initialData]);
+
   /* Loads for everyone, signed in or not. "Is anybody playing tonight" is the question this screen
      is most often opened with, and the one it would be perverse to charge an account for — a club
      that looks empty to a visitor stays empty. */
   useEffect(()=>{
-    void load();
+    /* `undefined` means the parent bootstrap is still in flight. `null` means it failed, so fall
+       back to the standalone route; a board value means first paint is already hydrated. */
+    if(initialData===undefined)return;
+    if(initialData===null||initialData.signedIn!==signedIn)void load();
     const id=window.setInterval(()=>{if(document.visibilityState==="visible")void load()},45_000);
     return ()=>window.clearInterval(id);
-  },[load,signedIn]);
+  },[initialData,load,signedIn]);
 
   const create=async(input:{startAt:string;endAt:string;venue:string;fillRule:FillRule;conditions:SlotConditions})=>{
     setBusy(true);setError("");
@@ -948,7 +945,7 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
     return groups;
   },[filteredOpenRows,active]);
   const sectionLabel=(entryDate:string)=>
-    entryDate===today?"今晚":entryDate===addDaysHongKong(today,1)?"聽日":hkDayLabel(entryDate);
+    entryDate===today?"今晚":entryDate===addDaysHongKong(today,1)?"聽日":hkDayLabel(entryDate).replace(/[（）()]/g,"");
 
   const openHands=(data?.hands??[]).filter(hand=>!hand.accepted);
 
@@ -957,10 +954,6 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
   const banner=useMemo<BannerItem|null>(()=>{
     const toRecord=mine.find(item=>slotStatus(item)==="toRecord");
     const handRecord=(data?.hands??[]).find(hand=>hand.accepted&&slotStatus(hand.slot)==="toRecord");
-    const filledHand=(data?.hands??[]).find(hand=>hand.accepted&&slotStatus(hand.slot)==="filled");
-    const filledMine=mine.find(item=>slotStatus(item)==="filled");
-    if(filledHand)return {kind:"handoff",slot:filledHand.slot,opponent:filledHand.slot.player};
-    if(filledMine)return {kind:"handoff",slot:filledMine,opponent:filledMine.acceptedPlayers[0]??filledMine.filler};
     if(handRecord)return {kind:"record",slotId:handRecord.slotId,slot:handRecord.slot,opponent:handRecord.slot.player};
     if(toRecord)return {kind:"record",slotId:toRecord.id,slot:toRecord,opponent:toRecord.acceptedPlayers[0]??toRecord.filler};
     const needsReading=mine.find(item=>item.counts.waiting>0&&slotTakingHands(item));

@@ -59,7 +59,7 @@ const offerColumns=`o.id,o.start_at AS "startAt",o.end_at AS "endAt",o.venue,o.s
 /** Everything this member has been asked about. The opponent join flips on which side they are, and
     the other side's response is dropped on the floor before it ever leaves the server. */
 export async function listOffersFor(playerId:string):Promise<MutualOffer[]>{
-  await ensureSchema(); await expireStaleOffers(); const sql=getSql();
+  await ensureSchema(); const sql=getSql();
   const rows=await sql<any[]>`
     SELECT ${sql.unsafe(offerColumns)} FROM match_offers o
     JOIN state_players p ON p.id = CASE WHEN o.a_player_id=${playerId} THEN o.b_player_id ELSE o.a_player_id END
@@ -121,7 +121,8 @@ export async function respondOffer(id:string,playerId:string,answer:"yes"|"no"):
   await ensureSchema(); await ensureInviteSchema(); const sql=getSql();
   const outcome=await sql.begin(async tx=>{
     const rows=await tx<any[]>`SELECT id,a_player_id AS "aId",b_player_id AS "bId",a_response AS "aResponse",b_response AS "bResponse",start_at AS "startAt",end_at AS "endAt",venue
-      FROM match_offers WHERE id=${id} AND status='live' AND (a_player_id=${playerId} OR b_player_id=${playerId}) FOR UPDATE`;
+      FROM match_offers WHERE id=${id} AND status='live' AND start_at>now()-interval '30 minutes'
+        AND (a_player_id=${playerId} OR b_player_id=${playerId}) FOR UPDATE`;
     const row=rows[0];
     if(!row)return null;
     const mine=row.aId===playerId?"a":"b";

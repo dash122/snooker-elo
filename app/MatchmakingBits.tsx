@@ -1,10 +1,10 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlayerBadge } from "./UiBits";
 import { BackdropSheet } from "./components/ui/Overlay";
 import { Button, IconButton, SegmentedControl } from "./components/ui/Primitives";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
-import { hkClock, hkDate, hkDayLabel, type Interval, type ReliabilitySignals } from "../lib/availability";
+import { availabilityEndTimes, availabilityStartTimes, hkClock, hkDate, hkDayLabel, type IntentSignal, type Interval, type ReliabilitySignals } from "../lib/availability";
 
 const range=(x:Interval)=>`${hkClock(x.startAt)}–${hkClock(x.endAt)}`;
 const day=(iso:string)=>hkDayLabel(hkDate(new Date(iso)));
@@ -331,7 +331,7 @@ export function reliabilityChips(signals?:ReliabilitySignals){
 
 /* --- Counter-proposal ----------------------------------------------------- */
 
-const TIMES=Array.from({length:32},(_,index)=>`${String(10+Math.floor(index/2)).padStart(2,"0")}:${index%2?"30":"00"}`);
+const TIMES=availabilityStartTimes();
 
 /** "Not then — how about this instead?"
  *
@@ -342,14 +342,16 @@ export function CounterSheet({title,date,onSubmit,onClose,busy}:{title:string;da
   const [start,setStart]=useState("19:00");
   const [end,setEnd]=useState("21:00");
   const [venue,setVenue]=useState("");
+  const endTimes=useMemo(()=>availabilityEndTimes(start),[start]);
+  const changeStart=(value:string)=>{setStart(value);const options=availabilityEndTimes(value);if(!options.some(option=>option.value===end))setEnd(options.at(-1)?.value??"")};
   return <BackdropSheet onClose={onClose} labelledBy="counter-title">
       <p className="kicker">提議另一個時間</p>
       <h2 id="counter-title">{title}</h2>
       <p className="sub">唔使拒絕 — 直接提議一個就得嘅時間，對方確認就搞掂。</p>
       <div className="composer-times">
         <label><span>日期</span><input type="date" min={hkDate()} value={when} onChange={event=>setWhen(event.target.value)}/></label>
-        <label><span>開始</span><select value={start} onChange={event=>setStart(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>
-        <label><span>結束</span><select value={end} onChange={event=>setEnd(event.target.value)}>{TIMES.map(time=><option key={time}>{time}{time<=start?" · 次日":""}</option>)}</select></label>
+        <label><span>開始</span><select value={start} onChange={event=>changeStart(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>
+        <label><span>結束</span><select value={end} onChange={event=>setEnd(event.target.value)}>{endTimes.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       </div>
       <VenueField value={venue} onChange={setVenue}/>
       <Button variant="primary" className="full" disabled={busy} onClick={()=>onSubmit({date:when,start,end,venue})}>{busy?"送出中…":`提議 ${start}–${end}`}</Button>
@@ -374,6 +376,8 @@ export function RecurrenceEditor({rules,onAdd,onRemove,onCopyLastWeek,busy}:{
   const [startTime,setStartTime]=useState("19:00");
   const [endTime,setEndTime]=useState("22:00");
   const [open,setOpen]=useState(false);
+  const endTimes=useMemo(()=>availabilityEndTimes(startTime),[startTime]);
+  const changeStartTime=(value:string)=>{setStartTime(value);const options=availabilityEndTimes(value);if(!options.some(option=>option.value===endTime))setEndTime(options.at(-1)?.value??"")};
   return <section className="availability-card recurrence-card">
     <header className="availability-grid-head">
       <div><h3>每週固定時段</h3><small>設定一次，之後每個星期自動公開，唔使再畫。</small></div>
@@ -388,8 +392,8 @@ export function RecurrenceEditor({rules,onAdd,onRemove,onCopyLastWeek,busy}:{
       ?<div className="recurrence-composer availability-slot-form">
         <div className="composer-times">
           <label><span>星期</span><select value={weekday} onChange={event=>setWeekday(Number(event.target.value))}>{WEEKDAYS.map((label,index)=><option key={label} value={index}>{label}</option>)}</select></label>
-          <label><span>開始</span><select value={startTime} onChange={event=>setStartTime(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>
-          <label><span>結束</span><select value={endTime} onChange={event=>setEndTime(event.target.value)}>{TIMES.map(time=><option key={time}>{time}{time<=startTime?" · 次日":""}</option>)}</select></label>
+          <label><span>開始</span><select value={startTime} onChange={event=>changeStartTime(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>
+          <label><span>結束</span><select value={endTime} onChange={event=>setEndTime(event.target.value)}>{endTimes.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         </div>
         <p className="availability-form-hint">未來四星期會自動幫你公開。個別一次唔得閒，照樣可以喺上面個板取消嗰次。</p>
         <div className="availability-form-actions">
@@ -404,6 +408,13 @@ export function RecurrenceEditor({rules,onAdd,onRemove,onCopyLastWeek,busy}:{
 /* --- Club activity, outside the matchmaking tab --------------------------- */
 
 export type TonightSummary={free:number;openCalls:number;openSlots:number};
+export type MatchmakingSummary={
+  tonight:TonightSummary;
+  counts:{needsResponse:number;awaitingReply:number;upcoming:number;followUps:number;offers:number;openCalls:number}|null;
+  reliability:Record<string,ReliabilitySignals>;
+  intents:Record<string,IntentSignal>;
+  mine:IntentState;
+};
 
 /** What the club looks like right now, on the screen members actually land on.
  *
@@ -425,7 +436,7 @@ export function TonightStrip({summary,onOpen,signedIn}:{summary:TonightSummary|n
 /** Shared poller for the app-shell badge. Kept here rather than in the matchmaking tab because the
     entire point is to reach a member who is somewhere else in the app. */
 export function useMatchmakingSummary(signedIn:boolean,intervalMs=60000){
-  const [summary,setSummary]=useState<{tonight:TonightSummary;counts:{needsResponse:number;awaitingReply:number;upcoming:number;followUps:number;offers:number;openCalls:number}|null;reliability:Record<string,ReliabilitySignals>}|null>(null);
+  const [summary,setSummary]=useState<MatchmakingSummary|null>(null);
   const refresh=useCallback(async()=>{
     try{
       const response=await fetch("/api/matchmaking/summary");

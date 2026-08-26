@@ -543,6 +543,9 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   useEffect(()=>{
     const local = localStorage.getItem("scaa-draft");
     if(local) try { setDraft(JSON.parse(local)); } catch {}
+    /* The server already hydrated this page with the same state. Refetching it immediately adds five
+       database reads while the matchmaking summary and 約戰 board are trying to open. */
+    if(initialData)return;
     fetch("/api/state").then(r=>r.ok?r.json():null).then(v=>{
       if(!v?.players)return;
       const upgraded=upgradeState(v);
@@ -552,7 +555,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       setData(replayed);
       if(upgraded.changed||replayChanged)fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(replayed)}).catch(()=>{});
     }).catch(()=>{});
-  },[]);
+  },[initialData]);
   async function refreshData(){
     try{
       const r=await fetch("/api/state",{cache:"no-store"});
@@ -1048,7 +1051,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setTournamentForm({name:"",handicapMode:"suggested",signupDeadline:`${today}T23:59`});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setTournamentForm({name:tournament.name,handicapMode:tournament.handicapMode,signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onRefresh={refreshData}/>}
-      {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} tournaments={data.tournaments} provisionalGames={data.settings.provisionalGames} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecordMatch={(opponentId,date)=>newMatch("1v1",opponentId,date)} onActivity={refreshMatchmaking} onSignUpTournament={signUpTournament}/>} 
+      {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} provisionalGames={data.settings.provisionalGames} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecordMatch={(opponentId,date)=>newMatch("1v1",opponentId,date)} onActivity={refreshMatchmaking} matchmakingSummary={matchmakingSummary}/>}
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} managementMode={Boolean(isAdmin&&managementMode)} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
       </PageFrame>

@@ -119,7 +119,7 @@ export async function expireStaleInvites() {
 /** Both directions in one call — the caller splits into sent/received, since which side a member is
     on can flip invite to invite. */
 export async function listInvitesFor(playerId:string) {
-  await ensureSchema(); await expireStaleInvites(); const sql=getSql();
+  await ensureSchema(); const sql=getSql();
   const rows=await sql.unsafe(`SELECT ${inviteColumns} WHERE i.from_player_id=$1 OR i.to_player_id=$1 ORDER BY i.created_at DESC`,[playerId]);
   const all=rows.map(hydrate);
   return {
@@ -159,6 +159,7 @@ export async function respondInvite(id:string,playerId:string,action:"accept"|"d
       start_at=CASE WHEN ${action==="accept"} AND counter_start_at IS NOT NULL THEN counter_start_at ELSE start_at END,
       end_at=CASE WHEN ${action==="accept"} AND counter_end_at IS NOT NULL THEN counter_end_at ELSE end_at END
     WHERE id=${id} AND status='pending'
+      AND COALESCE(counter_start_at,start_at)>now()
       AND ((counter_by_id IS NULL AND to_player_id=${playerId})
         OR (counter_by_id IS NOT NULL AND counter_by_id<>${playerId} AND (from_player_id=${playerId} OR to_player_id=${playerId})))
     RETURNING id`;
@@ -180,7 +181,7 @@ export async function counterInvite(id:string,playerId:string,interval:{startAt:
   const rows=await sql<any[]>`UPDATE match_invites SET
       counter_start_at=${interval.startAt},counter_end_at=${interval.endAt},counter_by_id=${playerId},
       venue=COALESCE(${venue??null},venue)
-    WHERE id=${id} AND status='pending'
+    WHERE id=${id} AND status='pending' AND COALESCE(counter_start_at,start_at)>now()
       AND ((counter_by_id IS NULL AND to_player_id=${playerId})
         OR (counter_by_id IS NOT NULL AND counter_by_id<>${playerId} AND (from_player_id=${playerId} OR to_player_id=${playerId})))
     RETURNING id`;

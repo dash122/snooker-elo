@@ -1267,3 +1267,6 @@ body{font-size:var(--fs-body);line-height:1.65}:where(p,li,dd){text-wrap:pretty}
   .backdrop{z-index:100}
   .backdrop>.sheet{max-height:calc(100dvh - var(--ds-safe-top));padding-bottom:calc(1.5rem + var(--ds-safe-bottom));overscroll-behavior:contain;touch-action:pan-y}
 }
+
+/* Keep time labels compact inside the availability bars. */
+.slot-board .board-slot,.slot-board .board-ghost{font-size:11px}

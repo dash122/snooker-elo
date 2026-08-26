@@ -3,15 +3,14 @@ import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent
 import {PlayerBadge} from "./UiBits";
 import {BackdropSheet,ConfirmDialog} from "./components/ui/Overlay";
 import {Button,IconButton,SegmentedControl,SlidingToggleGroup} from "./components/ui/Primitives";
-import {Slots} from "./Slots";
-import {CounterSheet,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type QueueItem,type WaitingItem} from "./MatchmakingBits";
+import {Slots,type Board} from "./Slots";
+import {CounterSheet,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type MatchmakingSummary,type QueueItem,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
-import {addDaysHongKong,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeIntervals,nextAvailabilityStart,partitionInvites,partitionOffers,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type IntentSignal,type RankedOpponent,type MutualOffer,type ReliabilitySignals} from "../lib/availability";
+import {addDaysHongKong,availabilityEndTimes,availabilityStartTimes,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeAvailabilitySlots,nextAvailabilityStart,partitionInvites,partitionOffers,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type IntentSignal,type RankedOpponent,type MutualOffer,type ReliabilitySignals,type SlotConditions} from "../lib/availability";
 type Player={id:string;name:string;short:string;rating:number;colour?:string;avatar?:string|null};type Match={a:string;b:string;playedOn:string;status:"confirmed"|"void"};type Member=Player&{slots:AvailabilitySlot[]};type View="book"|"mine";
 type InviteStatus="pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";type InvitePlayer={id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null};
 type MatchInvite={id:string;startAt:string;endAt:string;message:string;status:InviteStatus;venue:string;createdAt:string;respondedAt:string|null;counter:{startAt:string;endAt:string;byPlayerId:string}|null;fromPlayer:InvitePlayer;toPlayer:InvitePlayer};
 type ListFilter="all"|"new"|"never"|"close";
-type Tournament={id:string;name:string;handicapMode:"suggested"|"none";signupDeadline:string;createdAt:string;createdBy?:string;signups:string[]};
 type OpponentCardVM={member:Member;difference:number;windows:Interval[];windowsCaption:string;isNew:boolean;games:number;neverEver:boolean;chips:string[];ranked?:RankedOpponent};
 const time=hkClock,dayLabel=hkDayLabel,range=(x:Interval)=>`${time(x.startAt)}–${time(x.endAt)}`,days=(start:string,horizon=7)=>Array.from({length:horizon},(_,i)=>addDaysHongKong(start,i)),fullDay=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"long",day:"numeric",weekday:"long"}).format(new Date(`${d}T00:00:00+08:00`));
 const durationLabel=(minutes:number)=>{const hours=Math.floor(minutes/60),rest=Math.round(minutes%60);return hours?`${hours} 小時${rest?` ${rest} 分鐘`:""}`:`${rest} 分鐘`};
@@ -44,8 +43,8 @@ function passesListFilter(filter:ListFilter,o:{isNew:boolean;neverEver:boolean;d
 function byPriority<T extends {isNew:boolean}>(list:T[],prioritizeNew:boolean){
  return prioritizeNew?[...list].sort((a,b)=>(b.isNew?1:0)-(a.isNew?1:0)):list;
 }
-const PROPOSE_START_TIMES=Array.from({length:28},(_,i)=>`${String(10+Math.floor(i/2)).padStart(2,"0")}:${i%2?"30":"00"}`);
-const PROPOSE_END_TIMES=Array.from({length:32},(_,i)=>`${String((10+Math.floor((i+1)/2))%24).padStart(2,"0")}:${(i+1)%2?"30":"00"}`);
+const PROPOSE_START_TIMES=availabilityStartTimes();
+const clockMinutes=(time:string)=>{const[h,m]=time.split(":").map(Number);return h*60+m};
 /* Defaults for any "propose a time" control. Hardcoding 19:00 meant that from 19:00 onwards — the
    exact hours a club fills up — the composer opened pre-loaded with a time the validator rejects,
    and the member's first action was an error message. Today's defaults start from the next pickable
@@ -56,32 +55,45 @@ function defaultProposalTimes(date:string,now=Date.now()){
  const next=nextAvailabilityStart(now);
  const start=PROPOSE_START_TIMES.find(t=>t>=next.time);
  if(!start)return evening;
- const end=PROPOSE_END_TIMES.find(t=>t>start)??PROPOSE_END_TIMES[PROPOSE_END_TIMES.length-1];
- return {start,end:start>=end?end:(PROPOSE_END_TIMES.find(t=>t>=addHours(start,2))??end)};
-}
-const addHours=(time:string,hours:number)=>{const[h,m]=time.split(":").map(Number);return `${String((h+hours)%24).padStart(2,"0")}:${String(m).padStart(2,"0")}`};
+ const options=availabilityEndTimes(start);
+ const end=options.find(option=>option.minutes>=clockMinutes(start)+120)?.value??options.at(-1)?.value??"21:00";
+ return {start,end};
+ }
 const ICEBREAKER_MESSAGE="歡迎入會！有冇興趣一齊打第一局？我哋可以由輕鬆嘅友誼賽開始。";
 /** The time an invite is actually about. A counter-proposal supersedes the original everywhere it is
     displayed, so every surface agrees on which hour the two are currently negotiating over. */
 const effectiveSlot=(invite:{startAt:string;endAt:string;counter?:{startAt:string;endAt:string}|null}):Interval=>invite.counter??{startAt:invite.startAt,endAt:invite.endAt};
-function SlotForm({initialDate,slot,onSave,onCancel}:{initialDate:string;slot?:AvailabilitySlot;onSave:(x:Interval)=>void;onCancel?:()=>void}){
- const[d,setD]=useState(slot?hkDate(new Date(slot.startAt)):initialDate),[s,setS]=useState(slot?time(slot.startAt):"19:00"),[e,setE]=useState(slot?time(slot.endAt):"21:00"),[error,setError]=useState("");
- const startTimes=Array.from({length:28},(_,i)=>`${String(10+Math.floor(i/2)).padStart(2,"0")}:${i%2?"30":"00"}`),endTimes=Array.from({length:32},(_,i)=>`${String((10+Math.floor((i+1)/2))%24).padStart(2,"0")}:${(i+1)%2?"30":"00"}`);
+type AvailabilityDraft=Interval&{conditions:SlotConditions};
+function PreferenceChips({conditions,onChange}:{conditions:SlotConditions;onChange:(conditions:SlotConditions)=>void}){
+ const toggle=(key:keyof SlotConditions)=>onChange({...conditions,[key]:!conditions[key]});
+ return <div className="availability-preferences"><span>對局偏好（可省略）</span><div className="sl-chips">
+   <button type="button" className={conditions.handicap?"sl-chip on":"sl-chip"} aria-pressed={Boolean(conditions.handicap)} onClick={()=>toggle("handicap")}>要讓分</button>
+   <button type="button" className={conditions.noSmoking?"sl-chip on":"sl-chip"} aria-pressed={Boolean(conditions.noSmoking)} onClick={()=>toggle("noSmoking")}>無煙</button>
+   <button type="button" className={conditions.levelOnly?"sl-chip on":"sl-chip"} aria-pressed={Boolean(conditions.levelOnly)} onClick={()=>toggle("levelOnly")}>水平接近</button>
+   <button type="button" className={conditions.tableBooked?"sl-chip on":"sl-chip"} aria-pressed={Boolean(conditions.tableBooked)} onClick={()=>toggle("tableBooked")}>已訂枱</button>
+ </div></div>;
+}
+function SlotForm({initialDate,slot,onSave,onCancel}:{initialDate:string;slot?:AvailabilitySlot;onSave:(x:AvailabilityDraft)=>void;onCancel?:()=>void}){
+ const[d,setD]=useState(slot?hkDate(new Date(slot.startAt)):initialDate),[s,setS]=useState(slot?time(slot.startAt):"19:00"),[e,setE]=useState(slot?time(slot.endAt):"21:00"),[conditions,setConditions]=useState<SlotConditions>(()=>slot?.conditions??{}),[error,setError]=useState("");
+  const startTimes=availabilityStartTimes(),endTimes=useMemo(()=>availabilityEndTimes(s),[s]);
+  const changeStart=(value:string)=>{setS(value);const options=availabilityEndTimes(value);if(!options.some(option=>option.value===e))setE(options.at(-1)?.value??"")};
  const next=e<=s;
  const preview=()=>{try{return validateAvailabilityInterval(composeAvailabilityInterval(d,s,e))}catch{return null}};
  const value=preview(),hours=value?Math.round((Date.parse(value.endAt)-Date.parse(value.startAt))/360000)/10:0;
- return <form className="slot-composer availability-slot-form" onSubmit={ev=>{ev.preventDefault();if(!value)return setError("請選擇香港時間上午 10 時至翌日凌晨 2 時內、至少 30 分鐘且不超過 12 小時的未來時段。");setError("");onSave(value)}}>
+ return <form className="slot-composer availability-slot-form" onSubmit={ev=>{ev.preventDefault();if(!value)return setError("請選擇香港時間上午 10 時至翌日凌晨 2 時內、至少 30 分鐘且不超過 12 小時的未來時段。");setError("");onSave({...value,conditions})}}>
   <div className="composer-times">
    <label><span>日期</span><input type="date" min={hkDate()} value={d} onChange={x=>setD(x.target.value)} required/></label>
-   <label><span>開始時間</span><select value={s} onChange={x=>setS(x.target.value)}>{startTimes.map(v=><option key={v}>{v}</option>)}</select></label>
-   <label><span>結束時間</span><select value={e} onChange={x=>setE(x.target.value)}>{endTimes.map(v=><option key={v}>{v}{v<=s?" · 次日":""}</option>)}</select></label>
+    <label><span>開始時間</span><select value={s} onChange={x=>changeStart(x.target.value)}>{startTimes.map(v=><option key={v}>{v}</option>)}</select></label>
+   <label><span>結束時間</span><select value={e} onChange={x=>setE(x.target.value)}>{endTimes.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
   </div>
   <div className="availability-form-preview" aria-live="polite"><span>時段預覽</span><b>{value?`${dayLabel(d)} ${time(value.startAt)}–${time(value.endAt)}`:"請完成日期及時間選擇"}</b>{value&&<small>{hours} 小時{next?" · 次日結束":""}</small>}</div>
+  <PreferenceChips conditions={conditions} onChange={setConditions}/>
   <p className="availability-form-hint">結束時間早於開始時間時，時段會在翌日結束。</p>
   {error&&<p className="availability-form-error" role="alert">{error}</p>}
   <div className="availability-form-actions"><Button>{slot?"儲存變更":"加入時段"}</Button>{onCancel&&<Button variant="secondary" type="button" onClick={onCancel}>取消</Button>}</div>
  </form>
-}const timelineRange=(items:Interval[],date:string)=>{void items;void date;return {lo:10,hi:26}};
+ }function SlotComposer({initialDate,onSave}:{initialDate:string;onSave:(x:AvailabilityDraft)=>void}){return <SlotForm initialDate={initialDate} onSave={onSave}/>}
+ const timelineRange=(items:Interval[],date:string)=>{void items;void date;return {lo:10,hi:26}};
 function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:string;counts:Record<string,number>;onSelect:(date:string)=>void}){
  const scrollRef=useRef<HTMLDivElement>(null);
  const move=(direction:-1|1)=>scrollRef.current?.scrollBy({left:direction*Math.max(220,scrollRef.current.clientWidth*.72),behavior:"smooth"});
@@ -128,7 +140,6 @@ function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:
 /* An open call: one member offering a table to the whole club rather than asking one person. The
    claim button is the entire point, so it stays primary and single-tap — a member should never have
    to open a sheet to say yes to a game that is already on offer. */
-function SlotComposer({initialDate,onSave}:{initialDate:string;onSave:(x:Interval)=>void}){return <SlotForm initialDate={initialDate} onSave={onSave}/>}
 /** The bottom-sheet-on-mobile / centered-modal-on-desktop invite composer, reusing the app's existing
     `.backdrop`/`.sheet` pattern rather than a one-off overlay. */
 function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,proposeStart,proposeEnd,onProposeStart,onProposeEnd,dateLabel,message,onMessageChange,venue,onVenueChange,onSend,onClose,sending,sendLabel}:{
@@ -138,8 +149,10 @@ function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,p
  dateLabel:string;message:string;onMessageChange:(value:string)=>void;
  venue:string;onVenueChange:(value:string)=>void;
  onSend:()=>void;onClose:()=>void;sending:boolean;sendLabel:string;
-}){
- return <BackdropSheet onClose={onClose} labelledBy="invite-sheet-title">
+  }){
+  const proposeEndTimes=useMemo(()=>availabilityEndTimes(proposeStart),[proposeStart]);
+  const changeProposeStart=(value:string)=>{onProposeStart(value);const options=availabilityEndTimes(value);if(!options.some(option=>option.value===proposeEnd))onProposeEnd(options.at(-1)?.value??"")};
+  return <BackdropSheet onClose={onClose} labelledBy="invite-sheet-title">
    <p className="kicker">邀請對局</p>
    <h2 id="invite-sheet-title">{opponent.member.name}</h2>
    <div className="invite-mode-toggle"><SegmentedControl label="邀請方式" value={mode} onChange={value=>onModeChange(value as typeof mode)}
@@ -151,9 +164,9 @@ function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,p
      </div>
     :<div className="invite-propose">
       <p className="sub">提議 {dateLabel} 一個具體時段，對方直接確認或改期。</p>
-      <div className="two">
-       <label>開始<select value={proposeStart} onChange={e=>onProposeStart(e.target.value)}>{PROPOSE_START_TIMES.map(t=><option key={t} value={t}>{t}</option>)}</select></label>
-       <label>結束<select value={proposeEnd} onChange={e=>onProposeEnd(e.target.value)}>{PROPOSE_END_TIMES.map(t=><option key={t} value={t}>{t}</option>)}</select></label>
+       <div className="two">
+        <label>開始<select value={proposeStart} onChange={e=>changeProposeStart(e.target.value)}>{PROPOSE_START_TIMES.map(t=><option key={t} value={t}>{t}</option>)}</select></label>
+        <label>結束<select value={proposeEnd} onChange={e=>onProposeEnd(e.target.value)}>{proposeEndTimes.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       </div>
      </div>}
    {opponent.isNew&&<button type="button" className="icebreaker-suggestion" onClick={()=>onMessageChange(ICEBREAKER_MESSAGE)}><span aria-hidden="true">★</span><span>呢位係新加入球友 — 加句「歡迎入會，一齊打第一局？」使佢更放心答應</span></button>}
@@ -170,12 +183,12 @@ const clockAt=(h:number)=>`${String(Math.floor(h)%24).padStart(2,"0")}:${h%1?"30
 const hoursOf=(date:string,iso:string)=>(Date.parse(iso)-Date.parse(dayRangeHongKong(date).startAt))/3600000;
 const snapHalf=(h:number)=>Math.round(h*2)/2;
 const MIN_HOURS=0.5,MAX_HOURS=12,TAP_HOURS=2;
-type BoardItem={key:string;id?:string;date:string;from:number;to:number;draft:boolean;pending?:boolean};
+ type BoardItem={key:string;id?:string;date:string;from:number;to:number;draft:boolean;pending?:boolean;conditions:SlotConditions};
 type Drag={key:string;date:string;from:number;to:number;mode:"create"|"start"|"end"};
 
 /* Painting on the track is the fast path; the buttons under a selected bar and the precise composer
    below the board are the equivalent paths for keyboards and screen readers, which cannot drag. */
-function SlotBoard({dates,items,lo,hi,soonest,selected,onSelect,onCreate,onResize}:{dates:string[];items:BoardItem[];lo:number;hi:number;soonest:number;selected:string|null;onSelect:(key:string|null)=>void;onCreate:(x:Interval)=>void;onResize:(item:BoardItem,x:Interval)=>void}){
+ function SlotBoard({dates,items,lo,hi,soonest,selected,onSelect,onCreate,onResize}:{dates:string[];items:BoardItem[];lo:number;hi:number;soonest:number;selected:string|null;onSelect:(key:string|null)=>void;onCreate:(x:AvailabilityDraft)=>void;onResize:(item:BoardItem,x:AvailabilityDraft)=>void}){
  const[drag,setDrag]=useState<Drag|null>(null);
  const span=hi-lo,pct=(h:number)=>`${(Math.max(lo,Math.min(hi,h))-lo)/span*100}%`;
  const width=(from:number,to:number)=>`${(Math.min(hi,to)-Math.max(lo,from))/span*100}%`;
@@ -198,7 +211,7 @@ function SlotBoard({dates,items,lo,hi,soonest,selected,onSelect,onCreate,onResiz
   to=Math.min(Math.max(to,from+MIN_HOURS),from+MAX_HOURS,26);
   if(to<=from)return;
   const item=items.find(i=>i.key===drag.key);
-  if(drag.mode==="create")onCreate(intervalFromHours(date,from,to));else if(item)onResize(item,intervalFromHours(date,from,to));
+   if(drag.mode==="create")onCreate({...intervalFromHours(date,from,to),conditions:{}});else if(item)onResize(item,{...intervalFromHours(date,from,to),conditions:item.conditions});
   ev.stopPropagation();
  };
  return <div className="slot-board" onPointerDown={()=>onSelect(null)}>
@@ -224,11 +237,11 @@ function SlotBoard({dates,items,lo,hi,soonest,selected,onSelect,onCreate,onResiz
  </div>;
 }
 const HORIZON=14;
-export default function Availability({userPlayerId,matches,tournaments,provisionalGames=10,onDirtyChange,jumpTo,onPlayer,onRecordMatch,onActivity,onSignUpTournament}:{userPlayerId?:string;matches:Match[];tournaments?:Tournament[];provisionalGames?:number;onDirtyChange?:(dirty:boolean)=>void;jumpTo?:{playerId:string;date:string}|null;onPlayer?:(playerId:string)=>void;onRecordMatch?:(opponentId:string,playedOn:string)=>void;
+export default function Availability({userPlayerId,matches,provisionalGames=10,onDirtyChange,jumpTo,onPlayer,onRecordMatch,onActivity,matchmakingSummary}:{userPlayerId?:string;matches:Match[];provisionalGames?:number;onDirtyChange?:(dirty:boolean)=>void;jumpTo?:{playerId:string;date:string}|null;onPlayer?:(playerId:string)=>void;onRecordMatch?:(opponentId:string,playedOn:string)=>void;
  /** Anything that changes what the shell's badge should say. The tab owns the truth while it is
     open, so it tells the shell rather than making the shell poll faster on the off-chance. */
- onActivity?:()=>void; onSignUpTournament?:(tournamentId:string)=>void}){
- const week=useMemo(()=>days(hkDate(),HORIZON),[]),[date,setDate]=useState(jumpTo?.date??hkDate()),[appliedJump,setAppliedJump]=useState(jumpTo??null),[members,setMembers]=useState<Member[]>([]),[counts,setCounts]=useState<Record<string,number>>({}),[own,setOwn]=useState<AvailabilitySlot[]>([]),[view,setView]=useState<View>("book"),[draft,setDraft]=useState<Interval[]>([]),[selected,setSelected]=useState<string|null>(null),[adjustments,setAdjustments]=useState<Record<string,Interval>>({}),[focus,setFocus]=useState<Interval|null>(null),[boardWide,setBoardWide]=useState(false),[pending,setPending]=useState<AvailabilitySlot|null>(null),[leaveTo,setLeaveTo]=useState<View|null>(null),[confirmClear,setConfirmClear]=useState(false),[clearing,setClearing]=useState(false),[saving,setSaving]=useState(false),[cancelling,setCancelling]=useState(false),[confirmingChange,setConfirmingChange]=useState(false),[message,setMessage]=useState(""),[recommendationNow]=useState(()=>Date.now());
+ onActivity?:()=>void;matchmakingSummary?:MatchmakingSummary|null}){
+  const week=useMemo(()=>days(hkDate(),HORIZON),[]),[date,setDate]=useState(jumpTo?.date??hkDate()),[appliedJump,setAppliedJump]=useState(jumpTo??null),[members,setMembers]=useState<Member[]>([]),[counts,setCounts]=useState<Record<string,number>>({}),[own,setOwn]=useState<AvailabilitySlot[]>([]),[view,setView]=useState<View>("book"),[draft,setDraft]=useState<AvailabilityDraft[]>([]),[selected,setSelected]=useState<string|null>(null),[adjustments,setAdjustments]=useState<Record<string,AvailabilityDraft>>({}),[focus,setFocus]=useState<Interval|null>(null),[boardWide,setBoardWide]=useState(false),[pending,setPending]=useState<AvailabilitySlot|null>(null),[leaveTo,setLeaveTo]=useState<View|null>(null),[confirmClear,setConfirmClear]=useState(false),[clearing,setClearing]=useState(false),[saving,setSaving]=useState(false),[cancelling,setCancelling]=useState(false),[confirmingChange,setConfirmingChange]=useState(false),[message,setMessage]=useState(""),[recommendationNow]=useState(()=>Date.now());
  const[filter,setFilter]=useState<ListFilter>("all"),[prioritizeNew,setPrioritizeNew]=useState(false),
   [invites,setInvites]=useState<{sent:MatchInvite[];received:MatchInvite[]}>({sent:[],received:[]}),
   [inviteFor,setInviteFor]=useState<string|null>(null),[inviteMode,setInviteMode]=useState<"simple"|"propose">("simple"),[selectedWindow,setSelectedWindow]=useState<Interval|null>(null),
@@ -246,13 +259,25 @@ export default function Availability({userPlayerId,matches,tournaments,provision
  /* The buckets below are time-dependent, and a member can sit on this screen while a slot starts or
     ends. A one-minute tick re-evaluates them so the follow-up prompt appears on its own. */
  const[tick,setTick]=useState(()=>Date.now());
+ const[bootstrapState,setBootstrapState]=useState<"loading"|"loaded"|"failed">("loading"),[bootstrapBoard,setBootstrapBoard]=useState<Board|null|undefined>(undefined);
  /* Bumped by anything that changes club state from outside the poll's own effect — going live in The
     Room, claiming a table there — so invites, calls and offers refresh immediately instead of at the
     next 30-second tick, which is long enough for a member to think their tap did nothing. */
  const[refreshNonce,setRefreshNonce]=useState(0);
  useEffect(()=>{const id=window.setInterval(()=>setTick(Date.now()),60000);return()=>window.clearInterval(id)},[]);
- const firstLoad=useRef(true),savingRef=useRef(false),cancellingRef=useRef(false),confirmingChangeRef=useRef(false),clearingRef=useRef(false);
- useEffect(()=>{const c=new AbortController();async function load(){try{const[selected,summary,mine]=await Promise.all([fetch(`/api/availability?date=${date}`,{signal:c.signal}).then(r=>r.json()),fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`,{signal:c.signal}).then(r=>r.json()),userPlayerId?fetch("/api/availability?me",{signal:c.signal}).then(r=>r.json()):Promise.resolve({slots:[]})]);if(selected.error)throw Error(selected.error);setMembers(selected.members);setCounts(summary.counts??{});setOwn(mine.slots??[]);setMessage("")}catch(e){if(e instanceof Error&&e.name!=="AbortError")setMessage(e.message)}finally{/* the session list owns its own loading state */}}if(firstLoad.current)firstLoad.current=false;else trackAvailabilityEvent("availability_date_select");void load();return()=>c.abort()},[date,userPlayerId,week]);
+ const firstLoad=useRef(true),bootstrapLoadedRef=useRef(false),savingRef=useRef(false),cancellingRef=useRef(false),confirmingChangeRef=useRef(false),clearingRef=useRef(false);
+ useEffect(()=>{const c=new AbortController();async function load(){try{
+  if(!bootstrapLoadedRef.current){
+   const response=await fetch(`/api/matchmaking/bootstrap?date=${date}&week=${week[0]}&days=${HORIZON}`,{signal:c.signal});
+   const body=await response.json();if(!response.ok||body.selected?.error)throw Error(body.selected?.error??body.error??"約戰資料暫時未能載入");
+   setMembers(body.selected?.members??[]);setCounts(body.calendar?.counts??{});setOwn(body.own?.slots??[]);
+   setInvites({sent:body.inbox?.sent??[],received:body.inbox?.received??[]});setOffers(body.mutual?.offers??[]);
+   setBootstrapBoard(Array.isArray(body.board?.board)?body.board:null);bootstrapLoadedRef.current=true;setBootstrapState("loaded");setMessage("");return;
+  }
+  const[selected,calendar,mine]=await Promise.all([fetch(`/api/availability?date=${date}`,{signal:c.signal}).then(r=>r.json()),fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`,{signal:c.signal}).then(r=>r.json()),userPlayerId?fetch("/api/availability?me",{signal:c.signal}).then(r=>r.json()):Promise.resolve({slots:[]})]);
+  if(selected.error)throw Error(selected.error);setMembers(selected.members);setCounts(calendar.counts??{});setOwn(mine.slots??[]);setMessage("");
+ }catch(e){if(e instanceof Error&&e.name!=="AbortError"){if(!bootstrapLoadedRef.current){bootstrapLoadedRef.current=true;setBootstrapBoard(null);setBootstrapState("failed")}setMessage(e.message)}}}
+ if(firstLoad.current)firstLoad.current=false;else trackAvailabilityEvent("availability_date_select");void load();return()=>c.abort()},[date,userPlayerId,week]);
  /* A profile card's "在可配對查看" button lands here with a target player and their nearest free day.
     Adjusted during render rather than in an effect: the jump can arrive while this tab is already
     open (card opened from the grid itself), so mount-time initial state alone would miss it, and an
@@ -271,7 +296,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     starts. Published and unpublished slots share the same geometry so they line up on one axis. */
  const soonest=useMemo(()=>nextAvailabilityStart().at,[own,draft]);
  const boardDates=useMemo(()=>week.slice(0,boardWide?HORIZON:7),[week,boardWide]);
- const boardItems=useMemo(()=>{const make=(key:string,x:Interval,id?:string):BoardItem=>{const calendarDate=hkDate(new Date(x.startAt)),calendarHour=hoursOf(calendarDate,x.startAt),d=calendarHour<2?addDaysHongKong(calendarDate,-1):calendarDate;return {key,id,date:d,from:hoursOf(d,x.startAt),to:hoursOf(d,x.endAt),draft:!id}};
+  const boardItems=useMemo(()=>{const make=(key:string,x:Interval&{conditions?:SlotConditions},id?:string):BoardItem=>{const calendarDate=hkDate(new Date(x.startAt)),calendarHour=hoursOf(calendarDate,x.startAt),d=calendarHour<2?addDaysHongKong(calendarDate,-1):calendarDate;return {key,id,date:d,from:hoursOf(d,x.startAt),to:hoursOf(d,x.endAt),draft:!id,conditions:x.conditions??{}}};
   return [...own.map(x=>make(x.id,x,x.id)),...draft.map(x=>make(x.startAt,x))].sort((a,b)=>a.date.localeCompare(b.date)||a.from-b.from)},[own,draft]);
  const boardRange={lo:10,hi:26};
  const active=useMemo(()=>boardItems.find(i=>i.key===selected)??null,[boardItems,selected]);
@@ -284,8 +309,8 @@ export default function Availability({userPlayerId,matches,tournaments,provision
  /* Edited slots and unpublished ones read as one pile of uncommitted work, listed in clock order so
     the summary matches the board top to bottom. */
  const uncommitted=useMemo(()=>[...pendingKeys.map(k=>adjustments[k]),...draft].sort((a,b)=>a.startAt.localeCompare(b.startAt)),[pendingKeys,adjustments,draft]);
- const adjusted=active&&adjustment?{...active,from:hoursOf(active.date,adjustment.startAt),to:hoursOf(active.date,adjustment.endAt)}:active;
- const displayedBoardItems=useMemo(()=>boardItems.map(item=>{const x=adjustments[item.key];return x?{...item,from:hoursOf(item.date,x.startAt),to:hoursOf(item.date,x.endAt),pending:true}:item}),[boardItems,adjustments]);
+ const adjusted=active&&adjustment?{...active,from:hoursOf(active.date,adjustment.startAt),to:hoursOf(active.date,adjustment.endAt),conditions:adjustment.conditions}:active;
+ const displayedBoardItems=useMemo(()=>boardItems.map(item=>{const x=adjustments[item.key];return x?{...item,from:hoursOf(item.date,x.startAt),to:hoursOf(item.date,x.endAt),conditions:x.conditions,pending:true}:item}),[boardItems,adjustments]);
  const rosterRange=useMemo(()=>timelineRange([...mine,...members.flatMap(m=>m.slots)],date),[mine,members,date]);
  /* Every overlapping opponent, ranked — the page recommends the whole list, not one name. Ranking
     lives in lib so it stays testable and so the focused band narrows the overlap it ranks on. */
@@ -421,6 +446,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     invisible to the sender the moment they leave "find", since nothing else in the app pushes it to
     them. */
  useEffect(()=>{
+  if(bootstrapState==="loading")return;
   let cancelled=false;
   async function poll(){
    if(userPlayerId)try{const r=await fetch("/api/invites");const b=await r.json();if(!cancelled&&r.ok)setInvites({sent:b.sent??[],received:b.received??[]});}catch{/* keep the previous invites in view if a background poll fails */}
@@ -428,25 +454,18 @@ export default function Availability({userPlayerId,matches,tournaments,provision
       *now-ish* — so it rides the same 30-second poll rather than waiting for a reload. */
    if(userPlayerId)try{const r=await fetch("/api/offers");const b=await r.json();if(!cancelled&&r.ok)setOffers(b.offers??[]);}catch{/* last known offers stay on screen */}
   }
-  void poll();
+  if(bootstrapState==="failed")void poll();
   const id=window.setInterval(()=>{if(document.visibilityState==="visible")void poll()},30000);
   return()=>{cancelled=true;window.clearInterval(id)};
- },[userPlayerId,refreshNonce]);
- /* Reliability changes over weeks, not seconds, so it is fetched once per mount rather than polled —
-    and it arrives before first paint of the shortlist so the ranking never visibly reshuffles. */
+ },[bootstrapState,userPlayerId,refreshNonce]);
+ /* The app shell already polls this summary for the navigation badge. Reuse that response for the
+    ranking and intent state instead of opening a second summary request from the tab itself. */
  useEffect(()=>{
-  let cancelled=false;
-  void (async()=>{try{const r=await fetch("/api/matchmaking/summary");const b=await r.json();if(!cancelled&&r.ok){setReliability(b.reliability??{});setIntentsByPlayer(b.intents??{})}}catch{/* ranking falls back to neutral signals */}})();
-  return()=>{cancelled=true};
- },[]);
- /* The member's own intent, separate from everyone else's — polled with the invite/offer inbox so
-    "free now" (which posts a `tonight` intent server-side) and an explicit withdrawal both show up
-    without a manual refresh. */
- const refreshMyIntent=async()=>{
-  if(!userPlayerId)return;
-  try{const r=await fetch("/api/intents");const b=await r.json();if(r.ok){setIntentsByPlayer(b.byPlayer??{});setMyIntent(b.mine?{id:b.mine.id,kind:b.mine.kind,expiresAt:b.mine.expiresAt}:null)}}catch{/* keep the previous state on a failed refresh */}
- };
- useEffect(()=>{void refreshMyIntent()},[userPlayerId]);
+  if(!matchmakingSummary)return;
+  setReliability(matchmakingSummary.reliability??{});
+  setIntentsByPlayer(matchmakingSummary.intents??{});
+  setMyIntent(matchmakingSummary.mine??null);
+ },[matchmakingSummary]);
  /* The sent state is a five-second affordance, not a permanent one — past that the invite belongs in
     the waiting strip like any other, and the card should go back to being a card. */
  useEffect(()=>{
@@ -662,7 +681,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   }catch{settle();setMessage("網絡連線失敗，請再試一次。")}
   finally{savingRef.current=false;setSaving(false)}
  };
- const update=async(id:string,x:Interval)=>{
+  const update=async(id:string,x:AvailabilityDraft)=>{
   const previous=own;
   setOwn(current=>current.map(slot=>slot.id===id?{...slot,...x,updatedAt:new Date().toISOString()}:slot));
   try{
@@ -675,19 +694,26 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     at 12 hours long, and never reaches back before the next bookable half hour. */
  const nudge=(item:BoardItem,startBy:number,endBy:number)=>{
   const held=adjustments[item.key];
-  const base=held?{from:hoursOf(item.date,held.startAt),to:hoursOf(item.date,held.endAt)}:item;
+   const base=held?{from:hoursOf(item.date,held.startAt),to:hoursOf(item.date,held.endAt),conditions:held.conditions}:item;
   const floor=Math.ceil(hoursOf(item.date,new Date(soonest).toISOString())*2)/2;
   const from=Math.max(Math.min(base.from+startBy,base.to-.5),floor,10),to=Math.min(Math.max(base.to+endBy,from+.5),from+12,26);
-  if(from===base.from&&to===base.to)return;
-  setAdjustments(a=>({...a,[item.key]:intervalFromHours(item.date,from,to)}));
+   if(from===base.from&&to===base.to)return;
+   setAdjustments(a=>({...a,[item.key]:{...intervalFromHours(item.date,from,to),conditions:base.conditions}}));
  };
  const dropAdjustment=(key:string)=>setAdjustments(a=>{const rest={...a};delete rest[key];return rest});
  const confirmNudge=async()=>{
   if(!active||!adjustment||confirmingChangeRef.current)return;
-  if(active.draft){setDraft(a=>mergeIntervals([...a.filter(v=>v.startAt!==active.key),adjustment]));setSelected(adjustment.startAt);dropAdjustment(active.key);return}
+   if(active.draft){setDraft(a=>mergeAvailabilitySlots([...a.filter(v=>v.startAt!==active.key),adjustment]));setSelected(adjustment.startAt);dropAdjustment(active.key);return}
   confirmingChangeRef.current=true;setConfirmingChange(true);
   try{if(await update(active.key,adjustment))dropAdjustment(active.key)}
-  finally{confirmingChangeRef.current=false;setConfirmingChange(false)}
+   finally{confirmingChangeRef.current=false;setConfirmingChange(false)}
+ };
+ const setActiveConditions=(conditions:SlotConditions)=>{
+  if(!active)return;
+  const current=adjustment??{...intervalFromHours(active.date,active.from,active.to),conditions:active.conditions};
+  const next={...current,conditions};
+  if(active.draft)setDraft(items=>mergeAvailabilitySlots([...items.filter(item=>item.startAt!==active.key),next]));
+  else setAdjustments(items=>({...items,[active.key]:next}));
  };
  const cancel=async()=>{
   if(!pending||cancellingRef.current)return;
@@ -723,12 +749,13 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     owed somebody a score could not look at tonight's games until they had settled it. Ranking the
     queue above the timeline says "this first" without taking the club away while it is unresolved,
     so there is one composition and the queue is simply the top of it. */
- return <section className="availability-page">
-<section className="hero small availability-hero"><div><p className="kicker">SCAA MATCHMAKING</p><h1>約戰</h1><p>搵一場啱你嘅球局，或者開一場等人加入。</p></div></section>
+ return <>
 {userPlayerId&&<SlidingToggleGroup as="nav" className="page-tabs home-view-nav" aria-label="配對內容" role="tablist">
   <button type="button" role="tab" aria-selected={view==="book"} className={view==="book"?"active":""} onClick={()=>nav("book")}><span>約戰</span></button>
   <button type="button" role="tab" aria-selected={view==="mine"} className={view==="mine"?"active":""} onClick={()=>nav("mine")}><span>我的空檔</span></button>
 </SlidingToggleGroup>}
+<section className="availability-page">
+<section className="hero small availability-hero"><div><p className="kicker">SCAA MATCHMAKING</p><h1>約戰</h1><p>搵一場啱你嘅球局，或者開一場等人加入。</p></div></section>
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
 {view==="book"&&<>
 {/* Whatever is waiting on this member, above everything else — an invite to answer, an offer to
@@ -744,7 +771,7 @@ export default function Availability({userPlayerId,matches,tournaments,provision
     prefs, invites already waiting on somebody else — now lives one level down, in the editor below.
     They were four surfaces competing with the board for the same screen while answering questions
     nobody had asked yet. */}
-<Slots signedIn={Boolean(userPlayerId)} availabilityCount={own.length} availability={own}
+<Slots signedIn={Boolean(userPlayerId)} availabilityCount={own.length} availability={own} initialData={bootstrapBoard}
   onManageAvailability={()=>nav("mine")}
   onRecord={(opponentId,playedOn)=>onRecordMatch?.(opponentId,playedOn)}
   onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>
@@ -758,20 +785,17 @@ export default function Availability({userPlayerId,matches,tournaments,provision
  <section className={`availability-card slot-board-card${draft.length||pendingKeys.length?" has-draft":""}`}>
   <SlotBoard dates={boardDates} items={displayedBoardItems} lo={boardRange.lo} hi={boardRange.hi} soonest={soonest} selected={selected}
    onSelect={key=>setSelected(key)}
-   onCreate={x=>{setDraft(a=>mergeIntervals([...a,x]));setSelected(null);setMessage("");trackAvailabilityEvent("availability_slot_draft_add")}}
-   onResize={(item,x)=>{if(item.draft){setDraft(a=>mergeIntervals([...a.filter(v=>v.startAt!==item.key),x]));setSelected(x.startAt)}else setAdjustments(a=>({...a,[item.key]:x}))}}/>
+   onCreate={x=>{setDraft(a=>mergeAvailabilitySlots([...a,x]));setSelected(x.startAt);setMessage("");trackAvailabilityEvent("availability_slot_draft_add")}}
+   onResize={(item,x)=>{if(item.draft){setDraft(a=>mergeAvailabilitySlots([...a.filter(v=>v.startAt!==item.key),x]));setSelected(x.startAt)}else{setAdjustments(a=>({...a,[item.key]:x}));setSelected(item.key)}}}/>
   {!own.length&&!draft.length&&<p className="board-hint">在上面任何一行拖曳，就能加入可配對時段。輕按一下等於兩小時。</p>}
   <div className="board-legend"><span><i className="legend-live"/>已公開</span><span><i className="legend-draft"/>未發佈／未儲存</span><Button variant="quiet" onClick={()=>setBoardWide(v=>!v)}>{boardWide?"只看未來 7 天":"顯示未來 14 天"}</Button></div>
  </section>
  {active&&adjusted&&<section className={`slot-detail${adjustment?" has-adjustment":""}`} role="group" aria-label="調整已選時段">
   <div><small>{fullDay(active.date)}</small><b>{clockAt(adjusted.from)}–{clockAt(adjusted.to)}</b><span>{durationLabel((adjusted.to-adjusted.from)*60)}{active.draft?" · 未發佈":""}{adjustment?" · 待確認":""}</span></div>
+  <PreferenceChips conditions={adjusted.conditions} onChange={setActiveConditions}/>
   <div className="slot-nudge"><small>開始</small><IconButton label="開始時間提早 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,-.5,0)}>−</IconButton><IconButton label="開始時間延後 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,.5,0)}>+</IconButton></div>
   <div className="slot-nudge"><small>結束</small><IconButton label="結束時間提早 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,0,-.5)}>−</IconButton><IconButton label="結束時間延後 30 分鐘" disabled={confirmingChange} onClick={()=>nudge(active,0,.5)}>+</IconButton></div>
    <span className="card-tools"><IconButton className="card-tool danger" label={`刪除 ${dayLabel(active.date)} ${clockAt(active.from)}–${clockAt(active.to)} 的時段`} onClick={()=>{const found=own.find(v=>v.id===active.key);if(active.draft)setDraft(a=>a.filter(v=>v.startAt!==active.key));else if(found)setPending(found);setSelected(null);dropAdjustment(active.key)}}>✕</IconButton></span>
-   {tournaments&&tournaments.length>0&&userPlayerId&&own.find(s=>s.id===active.key)&&<div className="slot-tournament-signups">
-      <small>對應盃賽</small>
-      <div className="tournament-actions-inline">{tournaments.map(t=>{const signed=Boolean(userPlayerId&&(t.signups||[]).includes(userPlayerId));return <Button key={t.id} variant="secondary" className={`tournament-action${signed?" signed":""}`} onClick={()=>onSignUpTournament?.(t.id)}>{signed?`取消 ${t.name}`:`報名 ${t.name}`}</Button>})}</div>
-   </div>}
    {adjustment&&<div className="slot-confirm-actions"><Button variant="secondary" disabled={confirmingChange} onClick={()=>dropAdjustment(active.key)}>取消變更</Button><Button className="publish-button" disabled={confirmingChange} aria-busy={confirmingChange} onClick={()=>void confirmNudge()}>{confirmingChange&&<i className="button-spinner" aria-hidden="true"/>}<span>{confirmingChange?"儲存中…":"確認變更"}</span></Button></div>}
  </section>}
  {uncommitted.length>0&&<div className="draft-bar" role="status"><div><b>{[pendingKeys.length?`${pendingKeys.length} 個變更`:"",draft.length?`${draft.length} 個新時段`:""].filter(Boolean).join(" · ")}未儲存</b>
@@ -792,11 +816,11 @@ export default function Availability({userPlayerId,matches,tournaments,provision
   </>}
  </section>}
  <WaitingStrip items={waitingItems} cancellingId={cancellingInviteId} onCancel={id=>void cancelInviteAction(id)}/>
- <details className="board-precise"><summary>用選單精確加入時段</summary><SlotComposer initialDate={date} onSave={x=>{setDraft(a=>mergeIntervals([...a,x]));setMessage("");trackAvailabilityEvent("availability_slot_draft_add")}}/></details>
+ <details className="board-precise"><summary>用選單精確加入時段</summary><SlotComposer initialDate={date} onSave={x=>{setDraft(a=>mergeAvailabilitySlots([...a,x]));setSelected(x.startAt);setMessage("");trackAvailabilityEvent("availability_slot_draft_add")}}/></details>
 </section>}
 {confirmClear&&<ConfirmDialog kicker="刪除全部時段" titleId="clear-title" title={`刪除全部 ${own.length} 個時段？`} description="所有已公開的時段都會被取消，其他球員將不會再看到你的空檔。此操作無法復原。" onClose={()=>!clearing&&setConfirmClear(false)}><Button variant="secondary" disabled={clearing} onClick={()=>setConfirmClear(false)}>保留時段</Button><Button variant="danger" className="cancel-button" disabled={clearing} aria-busy={clearing} onClick={()=>void clearAll()}>{clearing&&<i className="button-spinner" aria-hidden="true"/>}<span>{clearing?"刪除中…":`刪除全部 ${own.length} 個`}</span></Button></ConfirmDialog>}
 {leaveTo&&<ConfirmDialog kicker="未儲存的變更" titleId="leave-title" title="離開後變更會消失" description={`${[pendingKeys.length?`${pendingKeys.length} 個時段變更`:"",draft.length?`${draft.length} 個新時段`:""].filter(Boolean).join("、")}尚未儲存。離開後這些變更不會保留。`} onClose={()=>setLeaveTo(null)}><Button variant="secondary" onClick={()=>setLeaveTo(null)}>留在此頁</Button><Button className="publish-button" disabled={saving} aria-busy={saving} onClick={()=>{const next=leaveTo;setLeaveTo(null);void commitAll().then(()=>go(next))}}>{saving&&<i className="button-spinner" aria-hidden="true"/>}<span>儲存後離開</span></Button><Button variant="danger" onClick={()=>{const next=leaveTo;discard();setLeaveTo(null);go(next)}}>捨棄變更</Button></ConfirmDialog>}
 {pending&&<ConfirmDialog kicker="取消可配對時段" titleId="cancel-title" title={`${dayLabel(hkDate(new Date(pending.startAt)))} ${range(pending)}`} description="取消後，這段時間不會再出現在其他球員的配對結果中。" onClose={()=>setPending(null)}><Button variant="secondary" disabled={cancelling} onClick={()=>setPending(null)}>保留時段</Button><Button variant="danger" className="cancel-button" disabled={cancelling} aria-busy={cancelling} onClick={()=>void cancel()}>{cancelling&&<i className="button-spinner" aria-hidden="true"/>}<span>{cancelling?"取消中…":"確認取消"}</span></Button></ConfirmDialog>}
 {inviteFor&&activeOpponent&&<InviteSheet opponent={activeOpponent} mode={inviteMode} onModeChange={setInviteMode} selectedWindow={selectedWindow} onSelectWindow={setSelectedWindow} proposeStart={proposeStart} proposeEnd={proposeEnd} onProposeStart={setProposeStart} onProposeEnd={setProposeEnd} dateLabel={dayLabel(date)} message={inviteMessage} onMessageChange={setInviteMessage} venue={inviteVenue} onVenueChange={setInviteVenue} onSend={()=>void sendInviteAction()} onClose={closeInviteSheet} sending={sendingInvite} sendLabel={inviteMode==="simple"?(selectedWindow?`送出邀請 · ${range(selectedWindow)}`:"請先揀時段"):`提議 ${proposeStart}–${proposeEnd}`}/>}
 {counterFor&&<CounterSheet title={(counterFor.fromPlayer.id===userPlayerId?counterFor.toPlayer:counterFor.fromPlayer).name} date={hkDate(new Date(effectiveSlot(counterFor).startAt))} busy={counteringId===counterFor.id} onClose={()=>setCounterFor(null)} onSubmit={input=>void sendCounter(input)}/>}
-</section>}
+</section></>}

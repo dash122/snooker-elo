@@ -79,6 +79,14 @@ export async function listOpenCalls() {
   return rows.map(hydrate);
 }
 
+/** Count currently live calls for the app-shell summary without hydrating every call and player. */
+export async function openCallCount():Promise<number>{
+  await ensureSchema(); const sql=getSql();
+  const [row]=await sql<{count:string}[]>`SELECT count(*)::text AS count FROM open_calls
+    WHERE status='open' AND start_at>now()-interval '30 minutes' AND end_at>now()`;
+  return Number(row?.count??0);
+}
+
 export async function createOpenCall(playerId:string,interval:{startAt:string;endAt:string},message:string,venue="") {
   await ensureSchema(); await expireStaleOpenCalls(); const sql=getSql();
   const id=crypto.randomUUID();

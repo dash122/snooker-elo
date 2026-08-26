@@ -1,6 +1,56 @@
-export type AvailabilitySlot = { id:string; playerId:string; startAt:string; endAt:string; createdAt:string; updatedAt:string; cancelledAt?:string|null };
+export type SlotConditions = { handicap?:boolean; noSmoking?:boolean; frames?:number|null; levelOnly?:boolean; tableBooked?:boolean };
+export type AvailabilitySlot = { id:string; playerId:string; startAt:string; endAt:string; createdAt:string; updatedAt:string; cancelledAt?:string|null; conditions?:SlotConditions };
 
 export type Interval = { startAt:string; endAt:string };
+
+export const AVAILABILITY_MINUTES = 30;
+export const AVAILABILITY_MAX_MINUTES = 12 * 60;
+export const PLAYING_START_MINUTES = 10 * 60;
+export const PLAYING_END_MINUTES = 26 * 60;
+
+export type ClockOption = { value:string; label:string; minutes:number };
+
+const clockMinutes=(value:string)=>{
+  const [hours,minutes]=value.split(":").map(Number);
+  return hours*60+minutes;
+};
+
+const clockValue=(minutes:number)=>`${String(Math.floor(minutes/60)%24).padStart(2,"0")}:${String(minutes%60).padStart(2,"0")}`;
+
+/** Start choices are the club's chronological playing window, while end choices are ordered from
+    the selected start and carry only legal durations. Keeping the relative minutes on each option
+    means a 00:30 end after 23:30 still sorts after 23:30 rather than before it. */
+export function availabilityStartTimes(){
+  return Array.from({length:(24*60-PLAYING_START_MINUTES)/AVAILABILITY_MINUTES},(_,index)=>clockValue(PLAYING_START_MINUTES+index*AVAILABILITY_MINUTES));
+}
+
+export function availabilityEndTimes(start:string):ClockOption[]{
+  const startMinutes=clockMinutes(start);
+  if(!Number.isFinite(startMinutes))return [];
+  const latest=Math.min(startMinutes+AVAILABILITY_MAX_MINUTES,PLAYING_END_MINUTES);
+  return Array.from({length:Math.max(0,Math.floor((latest-startMinutes)/AVAILABILITY_MINUTES))},(_,index)=>{
+    const minutes=startMinutes+(index+1)*AVAILABILITY_MINUTES,value=clockValue(minutes);
+    return {value,label:minutes>=24*60?`${value} · 次日`:value,minutes};
+  });
+}
+
+/** Merge availability drafts without dropping the member's stated conditions. Adjacent or overlapping
+    windows with different preferences remain separate so a more specific preference is never erased. */
+export function mergeAvailabilitySlots<T extends Interval & {conditions?:SlotConditions}>(items:T[]):T[]{
+  const key=(conditions?:SlotConditions)=>JSON.stringify({handicap:Boolean(conditions?.handicap),noSmoking:Boolean(conditions?.noSmoking),frames:conditions?.frames??null,levelOnly:Boolean(conditions?.levelOnly),tableBooked:Boolean(conditions?.tableBooked)});
+  const sorted=items
+    .filter(item=>Date.parse(item.endAt)>Date.parse(item.startAt))
+    .map(item=>({...item,startAt:new Date(item.startAt).toISOString(),endAt:new Date(item.endAt).toISOString()}))
+    .sort((a,b)=>a.startAt.localeCompare(b.startAt));
+  const merged:T[]=[];
+  for(const item of sorted){
+    const previous=merged.at(-1);
+    if(previous&&key(previous.conditions)===key(item.conditions)&&Date.parse(item.startAt)<=Date.parse(previous.endAt)){
+      if(Date.parse(item.endAt)>Date.parse(previous.endAt))previous.endAt=item.endAt;
+    }else merged.push(item);
+  }
+  return merged;
+}
 
 const minute = 60_000;
 
@@ -13,15 +63,15 @@ export function validateAvailabilityInterval(input:Interval, now=Date.now()) {
   if(!Number.isFinite(startAt)||!Number.isFinite(endAt)) throw new Error("Invalid availability time");
   if(startAt<now-AVAILABILITY_GRACE_MINUTES*minute) throw new Error("Availability must start in the future");
   if(endAt<=startAt) throw new Error("End time must be after start time");
-  if(startAt%(30*minute)!==0 || endAt%(30*minute)!==0) throw new Error("Times must use 30-minute intervals");
+  if(startAt%(AVAILABILITY_MINUTES*minute)!==0 || endAt%(AVAILABILITY_MINUTES*minute)!==0) throw new Error("Times must use 30-minute intervals");
   const duration=(endAt-startAt)/minute;
-  if(duration<30) throw new Error("Availability must be at least 30 minutes");
-  if(duration>720) throw new Error("Availability cannot be longer than 12 hours");
+  if(duration<AVAILABILITY_MINUTES) throw new Error("Availability must be at least 30 minutes");
+  if(duration>AVAILABILITY_MAX_MINUTES) throw new Error("Availability cannot be longer than 12 hours");
   const date=hongKongDay.format(startAt),calendarDayStart=Date.parse(`${date}T00:00:00+08:00`);
   const calendarStartMinutes=(startAt-calendarDayStart)/minute;
   const playingDayStart=calendarDayStart-(calendarStartMinutes<120?24*60*minute:0);
   const startMinutes=(startAt-playingDayStart)/minute,endMinutes=(endAt-playingDayStart)/minute;
-  if(startMinutes<600||startMinutes>=1560||endMinutes>1560) throw new Error("Availability must be between 10:00 and 02:00 the next day");
+  if(startMinutes<PLAYING_START_MINUTES||startMinutes>=PLAYING_END_MINUTES||endMinutes>PLAYING_END_MINUTES) throw new Error("Availability must be between 10:00 and 02:00 the next day");
   return {startAt:new Date(startAt).toISOString(),endAt:new Date(endAt).toISOString()};
 }
 

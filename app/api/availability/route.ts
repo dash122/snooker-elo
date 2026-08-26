@@ -1,13 +1,24 @@
 import { requireMember } from "../../../db/auth";
 import { listAvailability, listAvailabilityCounts, listOwnAvailability, publishAvailability } from "../../../db/availability";
 import { announceAvailability } from "../../../db/matchmaking-actions.pg";
-import { addDaysHongKong, dayRangeHongKong, mergeIntervals, validateAvailabilityInterval } from "../../../lib/availability";
+import { addDaysHongKong, dayRangeHongKong, mergeAvailabilitySlots, validateAvailabilityInterval, type SlotConditions } from "../../../lib/availability";
+
+function conditions(value:unknown):SlotConditions {
+  if(!value||typeof value!=="object")return {};
+  const raw=value as Record<string,unknown>,out:SlotConditions={};
+  if(raw.handicap===true)out.handicap=true;
+  if(raw.noSmoking===true)out.noSmoking=true;
+  if(typeof raw.frames==="number"&&Number.isFinite(raw.frames)&&raw.frames>0)out.frames=Math.round(raw.frames);
+  if(raw.levelOnly===true)out.levelOnly=true;
+  if(raw.tableBooked===true)out.tableBooked=true;
+  return out;
+}
 
 function slots(body:unknown){
   const raw=(body as {slots?:unknown})?.slots;
   if(!Array.isArray(raw)||!raw.length||raw.length>24)throw new Error("Provide 1 to 24 slots");
-  const parsed=raw.map(item=>{const value=item as {startAt?:unknown;endAt?:unknown};return validateAvailabilityInterval({startAt:String(value.startAt),endAt:String(value.endAt)});});
-  return mergeIntervals(parsed);
+  const parsed=raw.map(item=>{const value=item as {startAt?:unknown;endAt?:unknown;conditions?:unknown};return {...validateAvailabilityInterval({startAt:String(value.startAt),endAt:String(value.endAt)}),conditions:conditions(value.conditions)};});
+  return mergeAvailabilitySlots(parsed);
 }
 /* Anchoring on Hong Kong midnight and reading the date back off the ISO string shifted the whole
    window a day earlier, so the last day of the strip never received a count. */

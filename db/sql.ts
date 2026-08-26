@@ -16,11 +16,25 @@ let sqlClient: ReturnType<typeof postgres> | null = null;
 // anything that looks like a connection problem.
 export function getSql() {
   if (!sqlClient) {
-    const url = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
-    if (!url) {
+    const configuredUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
+    if (!configuredUrl) {
       throw new Error(
         "No Postgres connection string found. Set POSTGRES_URL (Vercel's Supabase integration sets this automatically)."
       );
+    }
+    /* Supavisor's transaction pooler (6543) is ideal for short-lived serverless functions, but a
+       persistent local Vite process can leave responses stuck in ClientRead when several requests
+       share its long-lived Postgres.js pool. Supabase recommends session mode (5432) for persistent
+       IPv4 backends. Keep production on its configured mode and switch only local development. */
+    let url = configuredUrl;
+    try {
+      const parsed = new URL(configuredUrl);
+      if (process.env.NODE_ENV === "development" && parsed.hostname.endsWith(".pooler.supabase.com") && parsed.port === "6543") {
+        parsed.port = "5432";
+        url = parsed.toString();
+      }
+    } catch {
+      // The validation/logging block below reports an unparseable string without exposing it.
     }
     // Which database this process is talking to is worth knowing at startup,
     // but the connection string carries the password in userinfo — logging it
@@ -33,7 +47,19 @@ export function getSql() {
       console.log("Postgres: connection string set (unparseable, not logged)");
     }
     const isLocal = url.includes("127.0.0.1") || url.includes("localhost");
-    sqlClient = postgres(url, { ssl: isLocal ? false : "require", prepare: false });
+    /* Serverless functions are created in bursts when the 約戰 tab opens. Postgres.js defaults to
+       ten connections and opens another one for every concurrent query, so each tiny API function
+       could stampede Supabase's transaction pooler with its own ten-connection pool. A small,
+       bounded pool pays only a few remote TLS handshakes and queues excess reads locally. */
+    sqlClient = postgres(url, {
+      ssl: isLocal ? false : "require",
+      prepare: false,
+      /* Four leaves room for the app's transaction helpers and parallel read groups without the
+         pool-starvation seen at one or two, while still cutting the library default by 60%. */
+      max: 4,
+      idle_timeout: 20,
+      connect_timeout: 10,
+    });
   }
   return sqlClient;
 }

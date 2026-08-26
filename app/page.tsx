@@ -1,12 +1,14 @@
-import HomeClient, { type AppState } from "./HomeClient";
+import HomeClient from "./HomeClient";
 import { getCurrentMember, needsOnboarding } from "../db/auth";
-import { getState } from "../db/state";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  const [user, raw] = await Promise.all([getCurrentMember(), getState()]);
+  const user = await getCurrentMember();
   const onboardingPending = user ? await needsOnboarding(user.email) : false;
-  const initialData: AppState | null = raw ? JSON.parse(raw) : null;
-  return <HomeClient user={user ? { ...user, needsOnboarding: onboardingPending } : null} initialData={initialData} />;
+  /* Rendering the full club state on the server blocks Vite's event loop long enough that other
+     Supabase responses sit in ClientRead and eventually hit statement_timeout. HomeClient already
+     has a client-side /api/state hydration path; use it so the shell can respond immediately and
+     the database payload arrives through the fast, independently bounded API request. */
+  return <HomeClient user={user ? { ...user, needsOnboarding: onboardingPending } : null} initialData={null} />;
 }

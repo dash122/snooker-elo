@@ -118,6 +118,22 @@ export async function materialiseRecurrenceThrottled(intervalMs=10*60*1000){
   try{ return await materialiseRecurrence(); }catch{ lastSweep=0; return 0; }
 }
 
+/* The own-availability read needs to be fresh on the first visit, but repeating every occurrence's
+   idempotent INSERT on every tab open turns a cheap SELECT into a write fan-out. Keep a short per-
+   player throttle and share an in-flight sweep when React/browser requests arrive together. */
+const lastPlayerSweep=new Map<string,number>(),playerSweepInFlight=new Map<string,Promise<number>>();
+export function materialiseRecurrenceThrottledForPlayer(playerId:string,intervalMs=10*60*1000){
+  const running=playerSweepInFlight.get(playerId);
+  if(running)return running;
+  if(Date.now()-(lastPlayerSweep.get(playerId)??0)<intervalMs)return Promise.resolve(0);
+  const promise=materialiseRecurrence(playerId).then(count=>{
+    lastPlayerSweep.set(playerId,Date.now());
+    return count;
+  }).catch(()=>0).finally(()=>playerSweepInFlight.delete(playerId));
+  playerSweepInFlight.set(playerId,promise);
+  return promise;
+}
+
 /** "Same as last week" — the one-tap that turns a regular back on without opening the editor.
     Reads the slots the member actually published in the previous seven days and shifts them forward,
     skipping anything that would land in the past or collide with something already published. */

@@ -9,6 +9,10 @@
      component, and that no other page has. 約戰 now uses the same felt-baize `.hero` panel as the
      leaderboard, matches and players pages, so the page reads as one of them. */
 }
+
+.availability-preferences{display:grid;gap:var(--sp-1-5);min-width:0;flex:1 1 100%;padding-top:var(--sp-1)}
+.availability-preferences>span{color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:800;letter-spacing:.04em}
+.availability-preferences .sl-chips{margin-top:0}
 @layer components {
   .availability-date-selector,.availability-card,.session-card,.availability-manage-card,.availability-opponent-card{background:var(--ds-surface-primary);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-card);box-shadow:var(--ds-shadow-resting)}
   /* `.mm-card` deliberately excluded from the border-radius above: globals.css declares an

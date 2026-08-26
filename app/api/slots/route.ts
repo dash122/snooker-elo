@@ -1,9 +1,8 @@
 import { requireMember } from "../../../db/auth";
-import { boardSlots, boardOpenCount, createPostedSlot, myPostedSlots, playerProfiles, type SlotConditions, type FillRule } from "../../../db/availability";
-import { handSummaries, handsForSlots, myHands, waitingForMeCount, type SlotHandSummary } from "../../../db/slot-hands";
+import { boardSlots, createPostedSlot, myPostedSlots, playerProfiles, type SlotConditions, type FillRule } from "../../../db/availability";
+import { handSummaries, handsForSlots, myHands, type SlotHandSummary } from "../../../db/slot-hands";
 import { sortBoard } from "../../../lib/slots";
 import { announceSlotPosted } from "../../../db/slot-actions";
-import { liveIntentsByPlayer } from "../../../db/intents";
 import { validateAvailabilityInterval } from "../../../lib/availability";
 import { getSettings } from "../../../db/state";
 import { proposeHandicap, type HandicapSettings } from "../../../lib/handicap";
@@ -32,8 +31,8 @@ function withHandicap<T extends {rating:number}>(player:T,myRating:number|null,s
  *
  *  Returns everything the screen needs in one round trip: the club-wide board with a hand *count* on
  *  every row, this member's own posted slots (the private waiting list lives on each one), the hands
- *  this member has raised elsewhere, and the two counts that turn hidden demand into a reason to post
- *  — how many want a game tonight, and how many are waiting for this member specifically to open one.
+ *  this member has raised elsewhere. The app-shell summary owns the club-wide counts, so this route
+ *  stays focused on the board payload the tab actually renders.
  *
  *  Counts are public; the names of people still waiting are not. That split is the design: a card
  *  reading 「3 人舉咗手」 and a card saying nothing are different objects to somebody deciding whether
@@ -86,13 +85,10 @@ export async function GET(){
   }
   const me=member.statePlayerId;
   try{
-    const [board,mine,hands,waitingForMe,wantTonight,openCount,settings]=await Promise.all([
+    const [board,mine,hands,settings]=await Promise.all([
       boardSlots(me),
       myPostedSlots(me),
       myHands(me),
-      waitingForMeCount(me),
-      liveIntentsByPlayer().then(byPlayer=>Object.keys(byPlayer).length).catch(()=>0),
-      boardOpenCount(),
       handicapSettings(),
     ]);
     /* The waiting list with names on it is owner-only, so it is fetched one card at a time rather
@@ -124,11 +120,10 @@ export async function GET(){
       const summary=summaries.get(item.id);
       return {...item,
         mine:true,
-        /* The poster's own profile, so a member's own row can name and picture them the same as
-           anyone else's -- distinguishing "your slot" from "somebody else's" is now the row's
-           colour, not the absence of a face. Never run through `rated`: a proposal for a game
-           against yourself is not a thing. */
-        player:myProfile,
+        /* The poster's own profile, so a member's own row can name, picture and show the same ELO /
+           recommended handicap treatment as anyone else's -- distinguishing "your slot" from
+           "somebody else's" is the row's colour, not the absence of stats. */
+        player:myProfile?rated(myProfile):null,
         filler:item.filledBy?(f=>f?rated(f):null)(profiles.get(item.filledBy)??null):null,
         counts:{total:summary?.total??0,accepted:summary?.accepted??0,waiting:summary?.waiting??0},
         acceptedPlayers:(summary?.acceptedPlayers??[]).map(rated),
@@ -138,7 +133,7 @@ export async function GET(){
     const handsWithHandicap=hands.map(hand=>({...hand,slot:{...hand.slot,player:rated(hand.slot.player)}}));
     return Response.json({signedIn:true,canAct:true,
       board:sortBoard(boardWithHandicap.map(slot=>({...slot,mine:false}))),
-      mine:mineWithHands,hands:handsWithHandicap,waitingForMe,wantTonight,openCount},
+      mine:mineWithHands,hands:handsWithHandicap},
       {headers:{"cache-control":"no-store"}});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"Board unavailable"},{status:500});

@@ -1,6 +1,6 @@
 import { getSql } from "./sql";
-import { mergeIntervals, type AvailabilitySlot } from "../lib/availability";
-import { materialiseRecurrence, materialiseRecurrenceThrottled } from "./recurrence.pg";
+import { mergeAvailabilitySlots, type AvailabilitySlot } from "../lib/availability";
+import { materialiseRecurrence, materialiseRecurrenceThrottled, materialiseRecurrenceThrottledForPlayer } from "./recurrence.pg";
 
 export type AvailabilityMember = { id:string; name:string; short:string; rating:number; colour?:string|null; avatar?:string|null; slots:AvailabilitySlot[] };
 
@@ -65,11 +65,11 @@ async function ensureSchema(){
   return schemaReady;
 }
 
-function slot(row:any):AvailabilitySlot { return {id:row.id,playerId:row.playerId,startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString(),createdAt:new Date(row.createdAt).toISOString(),updatedAt:new Date(row.updatedAt).toISOString(),cancelledAt:row.cancelledAt?new Date(row.cancelledAt).toISOString():null}; }
+function slot(row:any):AvailabilitySlot { return {id:row.id,playerId:row.playerId,startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString(),createdAt:new Date(row.createdAt).toISOString(),updatedAt:new Date(row.updatedAt).toISOString(),cancelledAt:row.cancelledAt?new Date(row.cancelledAt).toISOString():null,conditions:readConditions(row.conditions)}; }
 
 export async function listAvailability(startAt:string,endAt:string){
   await ensureSchema(); await materialiseRecurrenceThrottled(); const sql=getSql();
-  const rows=await sql<any[]>`SELECT p.id AS "playerId",p.name,p.short,p.rating::float8 AS rating,p.colour,p.avatar,s.id,s.start_at AS "startAt",s.end_at AS "endAt",s.created_at AS "createdAt",s.updated_at AS "updatedAt",s.cancelled_at AS "cancelledAt"
+  const rows=await sql<any[]>`SELECT p.id AS "playerId",p.name,p.short,p.rating::float8 AS rating,p.colour,p.avatar,s.id,s.start_at AS "startAt",s.end_at AS "endAt",s.created_at AS "createdAt",s.updated_at AS "updatedAt",s.cancelled_at AS "cancelledAt",s.conditions
     FROM availability_slots s JOIN state_players p ON p.id=s.player_id
     WHERE s.cancelled_at IS NULL AND s.end_at > now() AND s.start_at < ${endAt} AND s.end_at > ${startAt} AND p.active=true
     ORDER BY p.name,s.start_at`;
@@ -78,41 +78,51 @@ export async function listAvailability(startAt:string,endAt:string){
   return [...grouped.values()];
 }
 
+/** Count members with a live availability window without loading player profiles or slot rows.
+ *  The app shell only needs the number for its tonight strip; the full rows belong to the tab. */
+export async function availabilityPlayerCount(startAt:string,endAt:string):Promise<number>{
+  await ensureSchema(); await materialiseRecurrenceThrottled(); const sql=getSql();
+  const [row]=await sql<{count:string}[]>`SELECT count(DISTINCT s.player_id)::text AS count
+    FROM availability_slots s JOIN state_players p ON p.id=s.player_id
+    WHERE s.cancelled_at IS NULL AND s.end_at > now() AND s.start_at < ${endAt} AND s.end_at > ${startAt} AND p.active=true`;
+  return Number(row?.count??0);
+}
+
 export async function listOwnAvailability(playerId:string){
   /* This member's own rules are expanded eagerly rather than on the throttled club-wide sweep: they
      are about to look at their own board, and a regular's Wednesday missing from it would read as
      the recurrence having quietly failed. */
-  await ensureSchema(); await materialiseRecurrence(playerId).catch(()=>0); const sql=getSql();
-  const rows=await sql<any[]>`SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt" FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() ORDER BY start_at`;
+  await ensureSchema(); await materialiseRecurrenceThrottledForPlayer(playerId); const sql=getSql();
+  const rows=await sql<any[]>`SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",conditions FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() ORDER BY start_at`;
   return rows.map(slot);
 }
 
 async function ownActiveSlots(tx:any,playerId:string){
-  const rows=await tx<any[]>`SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt" FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() ORDER BY start_at`;
+  const rows=await tx<any[]>`SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",conditions FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() ORDER BY start_at`;
   return rows.map(slot);
 }
 
-export async function publishAvailability(playerId:string,items:{startAt:string;endAt:string}[]){
+export async function publishAvailability(playerId:string,items:{startAt:string;endAt:string;conditions?:SlotConditions}[]){
   await ensureSchema(); const sql=getSql();
   return sql.begin(async tx=>{
-    const existing=await tx<any[]>`SELECT id,start_at AS "startAt",end_at AS "endAt" FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now()`;
+    const existing=await tx<any[]>`SELECT id,start_at AS "startAt",end_at AS "endAt",conditions FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now()`;
     const candidates=existing.filter(row=>items.some(item=>Date.parse(row.startAt)<=Date.parse(item.endAt)&&Date.parse(row.endAt)>=Date.parse(item.startAt)));
-    const merged=mergeIntervals([...items,...candidates.map(row=>({startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString()}))]);
+    const merged=mergeAvailabilitySlots([...items,...candidates.map(row=>({startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString(),conditions:readConditions(row.conditions)}))]);
     if(candidates.length)await tx`UPDATE availability_slots SET cancelled_at=now(),updated_at=now() WHERE id IN ${tx(candidates.map(row=>row.id))}`;
-    for(const item of merged){const id=crypto.randomUUID();await tx`INSERT INTO availability_slots (id,player_id,start_at,end_at) VALUES (${id},${playerId},${item.startAt},${item.endAt})`;}
+    for(const item of merged){const id=crypto.randomUUID();await tx`INSERT INTO availability_slots (id,player_id,start_at,end_at,conditions) VALUES (${id},${playerId},${item.startAt},${item.endAt},${JSON.stringify(readConditions(item.conditions))})`;}
     return ownActiveSlots(tx,playerId);
   });
 }
-export async function updateAvailability(id:string,playerId:string,item:{startAt:string;endAt:string}){
+export async function updateAvailability(id:string,playerId:string,item:{startAt:string;endAt:string;conditions?:SlotConditions}){
   await ensureSchema(); const sql=getSql();
   return sql.begin(async tx=>{
     const current=await tx<any[]>`SELECT id FROM availability_slots WHERE id=${id} AND player_id=${playerId} AND cancelled_at IS NULL AND end_at > now()`;
     if(!current[0])return null;
-    const existing=await tx<any[]>`SELECT id,start_at AS "startAt",end_at AS "endAt" FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() AND id != ${id}`;
+    const existing=await tx<any[]>`SELECT id,start_at AS "startAt",end_at AS "endAt",conditions FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() AND id != ${id}`;
     const candidates=existing.filter(row=>Date.parse(row.startAt)<=Date.parse(item.endAt)&&Date.parse(row.endAt)>=Date.parse(item.startAt));
-    const merged=mergeIntervals([item,...candidates.map(row=>({startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString()}))]);
+    const merged=mergeAvailabilitySlots([item,...candidates.map(row=>({startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString(),conditions:readConditions(row.conditions)}))]);
     await tx`UPDATE availability_slots SET cancelled_at=now(),updated_at=now() WHERE id=${id} OR id IN ${tx(candidates.length?candidates.map(row=>row.id):[id])}`;
-    for(const entry of merged){const newId=crypto.randomUUID();await tx`INSERT INTO availability_slots (id,player_id,start_at,end_at) VALUES (${newId},${playerId},${entry.startAt},${entry.endAt})`;}
+    for(const entry of merged){const newId=crypto.randomUUID();await tx`INSERT INTO availability_slots (id,player_id,start_at,end_at,conditions) VALUES (${newId},${playerId},${entry.startAt},${entry.endAt},${JSON.stringify(readConditions(entry.conditions))})`;}
     return ownActiveSlots(tx,playerId);
   });
 }
