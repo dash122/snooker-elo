@@ -68,22 +68,50 @@ let schemaReady: Promise<unknown> | null = null;
 let preliminaryRatingSchemaReady: Promise<unknown> | null = null;
 let passwordSetSchemaReady: Promise<unknown> | null = null;
 
-// Newly added column (supabase/migrations/20260826000001_member_password_set.sql)
-// that a deploy can reach before that migration has actually been run against
-// the database — unlike the bootstraps below, this one is deliberately left
-// live rather than migration-only, because every write and read of
-// members.password_set would otherwise 500 (breaking signup entirely) until
-// someone applies the migration by hand. ADD COLUMN ... DEFAULT is a
-// catalog-only change in Postgres 11+, so it stays cheap even if concurrent
-// cold starts queue briefly on the advisory lock.
+// supabase/migrations/20260826000001_member_password_set.sql owns this column.
+// The self-heal below stays because a deploy can reach the new code before that
+// migration has been applied, and every read of members.password_set would then
+// 500 — but it must never be an unconditional ALTER.
+//
+// It used to be one, and `getCurrentMember()` awaits it: the hottest path in the
+// app, on every page load and every authed API call. `ALTER TABLE members` needs
+// ACCESS EXCLUSIVE, so on each cold start it queued behind any open transaction
+// touching members — and, once queued, blocked every *later* reader of members
+// behind it too. With a four-connection pool that starves the whole instance:
+// pages stop opening and saves (which call requireMember first) hang, for
+// whoever's requests land on it, which is exactly the shape of "some people
+// can't open the app, and posting a match record doesn't save".
+//
+// So: probe the catalog first. That is a cheap, lock-free lookup, and in the
+// normal case (column present, i.e. always after the migration runs) no DDL is
+// issued at all. Only a genuinely missing column reaches the ALTER, and that
+// runs under a short lock_timeout so it gives up rather than parking an
+// ACCESS EXCLUSIVE request in front of every reader.
 function ensurePasswordSetSchema() {
   passwordSetSchemaReady ??= (async () => {
     const sql = getSql();
+    const [probe] = await sql<{ present: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'members'
+          AND column_name = 'password_set'
+      ) AS present`;
+    if (probe?.present) return;
     await sql.begin(async tx => {
-      await tx`SELECT pg_advisory_xact_lock(72591005)`;
+      // Fail fast instead of blocking readers: the migration is the real fix,
+      // and a later cold start retries this anyway.
+      await tx`SET LOCAL lock_timeout = '2s'`;
       await tx`ALTER TABLE members ADD COLUMN IF NOT EXISTS password_set BOOLEAN NOT NULL DEFAULT true`;
     });
-  })().catch(error => { passwordSetSchemaReady = null; throw error; });
+  })().catch(error => {
+    // Never take down a page load for this. If the column is in fact present,
+    // the caller's own query is unaffected; if it is genuinely missing, that
+    // query fails with an error that names the real problem. Clearing the cache
+    // lets the next request re-probe (and find it, once the migration lands).
+    passwordSetSchemaReady = null;
+    console.error("members.password_set self-heal failed:", error);
+  });
   return passwordSetSchemaReady;
 }
 function ensurePreliminaryRatingSchema() {
@@ -196,9 +224,12 @@ function parseCookie(cookie: string | null, name: string) {
 }
 
 export async function getCurrentMember(): Promise<MemberSession | null> {
-  await Promise.all([ensureAuthSchema(), ensurePasswordSetSchema()]);
+  // Read the cookie before touching the database: a signed-out visitor (and
+  // every request for a public page) has no session to look up, so it should
+  // cost no connection at all rather than a schema check and a round trip.
   const token = parseCookie((await headers()).get("cookie"), SESSION_COOKIE);
   if (!token) return null;
+  await Promise.all([ensureAuthSchema(), ensurePasswordSetSchema()]);
   const tokenHash = await sha256(token);
   const now = new Date().toISOString();
   const sql = getSql();
