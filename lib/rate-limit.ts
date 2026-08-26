@@ -28,3 +28,25 @@ export function checkAttempt(key: string, max = MAX_ATTEMPTS, windowMs = WINDOW_
   attempts.set(key, times);
   return true;
 }
+
+// Same window as checkAttempt but split into a read and a write: a login
+// endpoint wants to reject once a key is over budget without every
+// *successful* request also eating into that budget. Many members can share
+// one public IP (office wifi, mobile carrier NAT), so counting successes
+// against the same bucket as failures means one member's login can lock out
+// everyone else behind that IP. Call isBlocked before doing the real work,
+// then recordFailure only when it actually fails.
+export function isBlocked(key: string, max = MAX_ATTEMPTS, windowMs = WINDOW_MS): boolean {
+  const now = Date.now();
+  sweep(now);
+  const times = (attempts.get(key) ?? []).filter(t => now - t < windowMs);
+  attempts.set(key, times);
+  return times.length >= max;
+}
+
+export function recordFailure(key: string, windowMs = WINDOW_MS): void {
+  const now = Date.now();
+  const times = (attempts.get(key) ?? []).filter(t => now - t < windowMs);
+  times.push(now);
+  attempts.set(key, times);
+}
