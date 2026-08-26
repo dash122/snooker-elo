@@ -772,16 +772,15 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
     }finally{window.clearTimeout(timeout)}
   },[signedIn]);
 
-  useEffect(()=>{if(initialData!==undefined)setData(initialData)},[initialData]);
-
   /* Loads for everyone, signed in or not. "Is anybody playing tonight" is the question this screen
      is most often opened with, and the one it would be perverse to charge an account for — a club
      that looks empty to a visitor stays empty. */
   useEffect(()=>{
-    /* `undefined` means the parent bootstrap is still in flight. `null` means it failed, so fall
-       back to the standalone route; a board value means first paint is already hydrated. */
-    if(initialData===undefined)return;
-    if(initialData===null||initialData.signedIn!==signedIn)void load();
+     /* The board is allowed to load while the parent bootstrap is still in flight. `undefined` is not
+       a reason to wait: the slots endpoint is independent, and waiting here turns a slow bootstrap
+       into a blank page even when the board query itself is healthy. */
+     if(initialData&&initialData.signedIn===signedIn)setData(initialData);
+     else void load();
     const id=window.setInterval(()=>{if(document.visibilityState==="visible")void load()},45_000);
     return ()=>window.clearInterval(id);
   },[initialData,load,signedIn]);
