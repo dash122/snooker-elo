@@ -1,4 +1,5 @@
 import { getSql } from "./sql";
+import { insertChunks } from "../lib/bulk-insert";
 import { addDaysHongKong, composeAvailabilityInterval, hkDate, recurrenceDates, validateAvailabilityInterval } from "../lib/availability";
 
 /** Recurring availability — "每逢星期三 19:00–22:00".
@@ -92,18 +93,28 @@ export async function materialiseRecurrence(playerId?:string){
     :await sql<any[]>`SELECT id,player_id AS "playerId",weekday,start_time AS "startTime",end_time AS "endTime" FROM availability_recurrence WHERE active`;
   if(!rules.length)return 0;
   const today=hkDate();
-  let created=0;
+  const rows:{id:string;player_id:string;start_at:string;end_at:string}[]=[];
   for(const rule of rules){
     for(const date of recurrenceDates(Number(rule.weekday),today,RECURRENCE_HORIZON_DAYS)){
       let interval;
       /* A rule that is legal in general can still produce an illegal occurrence — today's, once the
          start time has passed. Skipping is right: the member is not "free 19:00–22:00" at 21:40. */
       try{ interval=validateAvailabilityInterval(composeAvailabilityInterval(date,rule.startTime,rule.endTime)); }catch{ continue; }
-      const rows=await sql<{id:string}[]>`INSERT INTO availability_slots (id,player_id,start_at,end_at)
-        VALUES (${slotId(rule.id,date)},${rule.playerId},${interval.startAt},${interval.endAt})
-        ON CONFLICT (id) DO NOTHING RETURNING id`;
-      if(rows[0])created+=1;
+      rows.push({id:slotId(rule.id,date),player_id:rule.playerId,start_at:interval.startAt,end_at:interval.endAt});
     }
+  }
+  if(!rows.length)return 0;
+  /* One statement, not one per occurrence. This sweep sits inside every availability read, and a
+     28-day horizon expands each weekly rule into four rows — so a per-row INSERT charged the read
+     4×(rules) sequential round trips, every one of them paid again on the next sweep even though
+     they all conflict and insert nothing. Against a remote pooled Postgres that is seconds of
+     latency on the path that renders 約戰, which is how the tab ended up timing out and showing an
+     empty board. Batched, it is a single round trip that does the same work. */
+  let created=0;
+  for(const chunk of insertChunks(rows)){
+    const inserted=await sql<{id:string}[]>`INSERT INTO availability_slots ${sql(chunk)}
+      ON CONFLICT (id) DO NOTHING RETURNING id`;
+    created+=inserted.length;
   }
   return created;
 }

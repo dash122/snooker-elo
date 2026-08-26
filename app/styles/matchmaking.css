@@ -76,3 +76,8 @@
     .availability-roster-toggle{width:100%;justify-content:center}
   }
 }
+
+/* A 約戰 load that fails is otherwise indistinguishable from a club where nobody is free, so the
+   notice carries its own way out rather than relying on the four-second `.availability-notice`. */
+.availability-load-error{margin:var(--sp-3) 0}
+.availability-load-error .ds-notice span{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3)}
