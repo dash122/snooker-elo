@@ -56,8 +56,9 @@ async function signUpMemberViaGoogle(input: { email: string; displayName: string
     username,
     email: input.email,
     displayName,
-    // Random and never surfaced — this account only ever signs in via Google.
-    password: crypto.randomUUID() + crypto.randomUUID(),
+    // No password at all — this account only ever signs in via Google, and
+    // nothing may later ask it to confirm with a password it never chose.
+    password: null,
     role: firstAccount ? "admin" : "member",
     player: { id: playerId, name: displayName, short, colour: "#52796f", rating: initialRating, initialRating },
     auditText: `Google 帳戶登入並建立球員：${displayName}`,

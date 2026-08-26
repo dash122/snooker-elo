@@ -10,7 +10,9 @@ export async function POST(request: Request) {
   if (String(body?.confirm ?? "").trim().toLowerCase() !== member.username) {
     return Response.json({ error: "confirm-mismatch", field: "confirm" }, { status: 400 });
   }
-  if (!currentPassword) return Response.json({ error: "password-required", field: "currentPassword" }, { status: 400 });
+  // Typing the username is the only confirmation a Google-created account can
+  // give — it has no password of its own.
+  if (member.hasPassword !== false && !currentPassword) return Response.json({ error: "password-required", field: "currentPassword" }, { status: 400 });
   // Never let the last active admin lock everyone out of the admin panel.
   if (member.role === "admin") {
     const admins = (await listMembers()).filter(row => row.role === "admin" && row.active);

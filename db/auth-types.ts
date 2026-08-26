@@ -7,6 +7,9 @@ export type MemberSession = {
   initials?: string | null;
   iconColour?: string | null;
   googleLinked?: boolean;
+  // false for an account created by Google sign-in: the stored password hash is
+  // a placeholder the member has never seen, so nothing may ask them for it.
+  hasPassword?: boolean;
   role: "admin" | "member";
 };
 

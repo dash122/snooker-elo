@@ -44,18 +44,21 @@ export async function connectGoogleMember(memberEmail: string, googleId: string)
   return "connected";
 }
 
-export type GoogleDisconnectResult = "disconnected" | "not-linked" | "password-wrong";
+export type GoogleDisconnectResult = "disconnected" | "not-linked" | "password-wrong" | "no-password";
 
 export async function disconnectGoogleMember(memberEmail: string, currentPassword: string): Promise<GoogleDisconnectResult> {
   await ensureAuthSchema();
   const sql = getSql();
   const normalizedEmail = memberEmail.trim().toLowerCase();
-  const rows = await sql<{ googleId: string | null; passwordHash: string; passwordSalt: string }[]>`
-    SELECT google_id AS "googleId", password_hash AS "passwordHash", password_salt AS "passwordSalt"
+  const rows = await sql<{ googleId: string | null; passwordSet: boolean; passwordHash: string; passwordSalt: string }[]>`
+    SELECT google_id AS "googleId", password_set AS "passwordSet", password_hash AS "passwordHash", password_salt AS "passwordSalt"
     FROM members WHERE email = ${normalizedEmail} AND active = true
   `;
   const member = rows[0];
   if (!member?.googleId) return "not-linked";
+  // Google is the only way into an account that never set a password —
+  // unlinking it would lock the member out for good.
+  if (!member.passwordSet) return "no-password";
   if (!currentPassword || await passwordDigest(currentPassword, member.passwordSalt) !== member.passwordHash) return "password-wrong";
   await sql`UPDATE members SET google_id = NULL WHERE email = ${normalizedEmail}`;
   return "disconnected";
@@ -180,7 +183,7 @@ export async function getCurrentMember(): Promise<MemberSession | null> {
   const now = new Date().toISOString();
   const sql = getSql();
   const rows = await sql<MemberSession[]>`
-    SELECT m.email, m.username, m.state_player_id AS "statePlayerId", m.display_name AS "displayName", m.avatar, m.initials, m.icon_colour AS "iconColour", m.role, (m.google_id IS NOT NULL) AS "googleLinked"
+    SELECT m.email, m.username, m.state_player_id AS "statePlayerId", m.display_name AS "displayName", m.avatar, m.initials, m.icon_colour AS "iconColour", m.role, (m.google_id IS NOT NULL) AS "googleLinked", m.password_set AS "hasPassword"
     FROM sessions s JOIN members m ON m.email = s.member_email
     WHERE s.token_hash = ${tokenHash} AND s.expires_at > ${now} AND m.active = true
   `;
@@ -244,7 +247,10 @@ export type NewSignupPlayer = {
 // member, best-effort delete player on failure" approach, which could leave
 // an orphaned player if the process crashed between the two writes.
 export async function createMemberWithPlayer(input: {
-  username: string; email: string; displayName: string; password: string;
+  // password null = the member never picks one (Google signup); the stored
+  // hash is then a placeholder no input can ever match, and password_set
+  // records that so the account isn't asked to confirm with it later.
+  username: string; email: string; displayName: string; password: string | null;
   role: "admin" | "member"; player: NewSignupPlayer; auditText: string; googleId?: string;
 }) {
   await Promise.all([ensureAuthSchema(), ensureStateSchema()]);
@@ -252,7 +258,7 @@ export async function createMemberWithPlayer(input: {
   const normalizedEmail = input.email.trim().toLowerCase();
   const normalizedUsername = input.username.trim().toLowerCase();
   const salt = randomHex(16);
-  const hash = await passwordDigest(input.password, salt);
+  const hash = input.password === null ? await passwordDigest(randomHex(32), salt) : await passwordDigest(input.password, salt);
   const now = new Date().toISOString();
   const p = input.player;
   await sql.begin(async tx => {
@@ -265,8 +271,8 @@ export async function createMemberWithPlayer(input: {
       INSERT INTO state_audits (id, text, occurred_at) VALUES (${crypto.randomUUID()}, ${input.auditText}, ${now})
     `;
     await tx`
-      INSERT INTO members (email, username, state_player_id, display_name, role, password_hash, password_salt, active, joined_at, last_seen_at, google_id)
-      VALUES (${normalizedEmail}, ${normalizedUsername}, ${p.id}, ${input.displayName.trim()}, ${input.role}, ${hash}, ${salt}, true, ${now}, ${now}, ${input.googleId ?? null})
+      INSERT INTO members (email, username, state_player_id, display_name, role, password_hash, password_salt, password_set, active, joined_at, last_seen_at, google_id)
+      VALUES (${normalizedEmail}, ${normalizedUsername}, ${p.id}, ${input.displayName.trim()}, ${input.role}, ${hash}, ${salt}, ${input.password !== null}, true, ${now}, ${now}, ${input.googleId ?? null})
     `;
   });
 }
@@ -279,7 +285,7 @@ export async function adminUpdateMember(email: string, input: { username: string
   if (input.password) {
     const salt = randomHex(16);
     const hash = await passwordDigest(input.password, salt);
-    await sql`UPDATE members SET username = ${input.username.trim().toLowerCase()}, email = ${newEmail}, display_name = ${input.displayName.trim()}, state_player_id = ${input.statePlayerId || null}, password_hash = ${hash}, password_salt = ${salt} WHERE email = ${oldEmail}`;
+    await sql`UPDATE members SET username = ${input.username.trim().toLowerCase()}, email = ${newEmail}, display_name = ${input.displayName.trim()}, state_player_id = ${input.statePlayerId || null}, password_hash = ${hash}, password_salt = ${salt}, password_set = true WHERE email = ${oldEmail}`;
   } else {
     await sql`UPDATE members SET username = ${input.username.trim().toLowerCase()}, email = ${newEmail}, display_name = ${input.displayName.trim()}, state_player_id = ${input.statePlayerId || null} WHERE email = ${oldEmail}`;
   }
@@ -354,15 +360,18 @@ export async function savePreliminaryRating(email: string, preliminaryRating: nu
 export async function updateMember(email: string, input: { username?: string; newEmail?: string; password?: string; currentPassword?: string }) {
   await ensureAuthSchema();
   const sql = getSql();
-  const rows = await sql<{ passwordHash: string; passwordSalt: string }[]>`SELECT password_hash AS "passwordHash", password_salt AS "passwordSalt" FROM members WHERE email = ${email.toLowerCase()}`;
+  const rows = await sql<{ passwordSet: boolean; passwordHash: string; passwordSalt: string }[]>`SELECT password_set AS "passwordSet", password_hash AS "passwordHash", password_salt AS "passwordSalt" FROM members WHERE email = ${email.toLowerCase()}`;
   const row = rows[0];
-  if (!row || !input.currentPassword || await passwordDigest(input.currentPassword, row.passwordSalt) !== row.passwordHash) return false;
+  if (!row) return false;
+  // A member who never set a password has nothing to confirm with; the signed-in
+  // session (only reachable through Google for such an account) is the proof.
+  if (row.passwordSet && (!input.currentPassword || await passwordDigest(input.currentPassword, row.passwordSalt) !== row.passwordHash)) return false;
   const username = input.username?.trim().toLowerCase() || null;
   const newEmail = input.newEmail?.trim().toLowerCase() || null;
   if (input.password) {
     const salt = randomHex(16);
     const hash = await passwordDigest(input.password, salt);
-    await sql`UPDATE members SET username = COALESCE(${username}, username), email = COALESCE(${newEmail}, email), password_hash = ${hash}, password_salt = ${salt} WHERE email = ${email.toLowerCase()}`;
+    await sql`UPDATE members SET username = COALESCE(${username}, username), email = COALESCE(${newEmail}, email), password_hash = ${hash}, password_salt = ${salt}, password_set = true WHERE email = ${email.toLowerCase()}`;
   } else {
     await sql`UPDATE members SET username = COALESCE(${username}, username), email = COALESCE(${newEmail}, email) WHERE email = ${email.toLowerCase()}`;
   }
@@ -410,9 +419,12 @@ export async function deactivateMember(email: string, currentPassword: string) {
   await ensureAuthSchema();
   const sql = getSql();
   const normalized = email.toLowerCase();
-  const rows = await sql<{ passwordHash: string; passwordSalt: string }[]>`SELECT password_hash AS "passwordHash", password_salt AS "passwordSalt" FROM members WHERE email = ${normalized}`;
+  const rows = await sql<{ passwordSet: boolean; passwordHash: string; passwordSalt: string }[]>`SELECT password_set AS "passwordSet", password_hash AS "passwordHash", password_salt AS "passwordSalt" FROM members WHERE email = ${normalized}`;
   const row = rows[0];
-  if (!row || await passwordDigest(currentPassword, row.passwordSalt) !== row.passwordHash) return false;
+  if (!row) return false;
+  // Password-less (Google) accounts confirm by typing their username instead —
+  // the route checks that before calling here.
+  if (row.passwordSet && await passwordDigest(currentPassword, row.passwordSalt) !== row.passwordHash) return false;
   await sql`UPDATE members SET active = false, deactivated_at = ${new Date().toISOString()} WHERE email = ${normalized}`;
   await sql`DELETE FROM sessions WHERE member_email = ${normalized}`;
   return true;
