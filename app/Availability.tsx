@@ -266,7 +266,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
  const[refreshNonce,setRefreshNonce]=useState(0);
  useEffect(()=>{const id=window.setInterval(()=>setTick(Date.now()),60000);return()=>window.clearInterval(id)},[]);
  const firstLoad=useRef(true),bootstrapLoadedRef=useRef(false),savingRef=useRef(false),cancellingRef=useRef(false),confirmingChangeRef=useRef(false),clearingRef=useRef(false);
- useEffect(()=>{const c=new AbortController();async function load(){try{
+ useEffect(()=>{const c=new AbortController();let timedOut=false;const timeout=window.setTimeout(()=>{timedOut=true;c.abort()},15000);async function load(){try{
   if(!bootstrapLoadedRef.current){
    const response=await fetch(`/api/matchmaking/bootstrap?date=${date}&week=${week[0]}&days=${HORIZON}`,{signal:c.signal});
    const body=await response.json();if(!response.ok||body.selected?.error)throw Error(body.selected?.error??body.error??"約戰資料暫時未能載入");
@@ -276,8 +276,8 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   }
   const[selected,calendar,mine]=await Promise.all([fetch(`/api/availability?date=${date}`,{signal:c.signal}).then(r=>r.json()),fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`,{signal:c.signal}).then(r=>r.json()),userPlayerId?fetch("/api/availability?me",{signal:c.signal}).then(r=>r.json()):Promise.resolve({slots:[]})]);
   if(selected.error)throw Error(selected.error);setMembers(selected.members);setCounts(calendar.counts??{});setOwn(mine.slots??[]);setMessage("");
- }catch(e){if(e instanceof Error&&e.name!=="AbortError"){if(!bootstrapLoadedRef.current){bootstrapLoadedRef.current=true;setBootstrapBoard(null);setBootstrapState("failed")}setMessage(e.message)}}}
- if(firstLoad.current)firstLoad.current=false;else trackAvailabilityEvent("availability_date_select");void load();return()=>c.abort()},[date,userPlayerId,week]);
+ }catch(e){if(e instanceof Error&&(e.name!=="AbortError"||timedOut)){if(!bootstrapLoadedRef.current){bootstrapLoadedRef.current=true;setBootstrapBoard(null);setBootstrapState("failed")}setMessage(timedOut?"約戰資料載入較慢，正在重試。":e.message)}}finally{window.clearTimeout(timeout)}}
+ if(firstLoad.current)firstLoad.current=false;else trackAvailabilityEvent("availability_date_select");void load();return()=>{window.clearTimeout(timeout);c.abort()}},[date,userPlayerId,week]);
  /* A profile card's "在可配對查看" button lands here with a target player and their nearest free day.
     Adjusted during render rather than in an effect: the jump can arrive while this tab is already
     open (card opened from the grid itself), so mount-time initial state alone would miss it, and an

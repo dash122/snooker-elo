@@ -758,12 +758,19 @@ export function Slots({signedIn,onRecord,onChanged,availabilityCount=0,availabil
   const [posted,setPosted]=useState<PostedConfirmation|null>(null);
 
   const load=useCallback(async()=>{
+    const controller=new AbortController();
+    const timeout=window.setTimeout(()=>controller.abort(),15000);
+    const fallback:Board={signedIn,canAct:false,board:[],mine:[],hands:[]};
     try{
-      const response=await fetch("/api/slots");
-      if(!response.ok)return;
-      setData(await response.json());
-    }catch{/* a failed poll leaves the last cards on screen rather than blanking the tab */}
-  },[]);
+      const response=await fetch("/api/slots",{signal:controller.signal});
+      const body=await response.json().catch(()=>null) as Partial<Board>&{error?:string}|null;
+      if(!response.ok){setError(body?.error??"約戰資料暫時未能載入");setData(current=>current??fallback);return}
+      setData(body as Board);setError("");
+    }catch(error){
+      setError(error instanceof Error&&error.name==="AbortError"?"約戰資料載入較慢，請再試一次。":"網絡連線失敗，請再試一次。");
+      setData(current=>current??fallback);
+    }finally{window.clearTimeout(timeout)}
+  },[signedIn]);
 
   useEffect(()=>{if(initialData!==undefined)setData(initialData)},[initialData]);
 
