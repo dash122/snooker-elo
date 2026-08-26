@@ -8,6 +8,7 @@ import { Button } from "../components/ui/Primitives";
 const zh = {
   email: "電郵",
   editProfile: "編輯資料", profileHint: "更改使用者名稱或電郵需輸入目前密碼。",
+  profileHintGoogle: "你以 Google 登入，更改資料不需要密碼。",
   avatar: "頭像", upload: "上傳圖片", remove: "移除",
   initials: "頭像縮寫", initialsHint: "留空則使用球員姓名自動產生。",
   colour: "圖示顏色", badgePreview: "球員圖示預覽",
@@ -16,6 +17,7 @@ const zh = {
   current: "目前密碼", save: "儲存變更", saving: "儲存中…", saved: "已儲存。", cancel: "取消",
   changePassword: "變更密碼", newPassword: "新密碼", confirmPassword: "確認新密碼", updatePassword: "更新密碼",
   passwordSaved: "密碼已更新。",
+  setPassword: "設定密碼", setPasswordHint: "你的帳戶以 Google 建立，尚未設定密碼。設定後即可同時使用密碼登入。", savePassword: "設定密碼",
   dangerTrigger: "停用帳戶", dangerHint: "停用後將立即登出，且無法再登入，需由管理員重新啟用。球員成績不會被刪除。",
   confirmLabel: "輸入使用者名稱以確認", deactivate: "確認停用",
 };
@@ -37,6 +39,7 @@ const errors: Record<string, string> = {
   "colour-unknown": "請從色板中選擇顏色。",
   "confirm-mismatch": "輸入的使用者名稱不符。",
   "last-admin": "您是唯一的管理員，無法停用帳戶。",
+  "no-password": "請先設定帳戶密碼。",
   unknown: "操作失敗，請稍後再試。",
 };
 
@@ -79,7 +82,7 @@ function readAvatar(file: File) {
   });
 }
 
-type Member = { username: string; email: string; displayName: string; avatar?: string | null; initials?: string | null; iconColour?: string | null; playerName?: string; googleLinked?: boolean };
+type Member = { username: string; email: string; displayName: string; avatar?: string | null; initials?: string | null; iconColour?: string | null; playerName?: string; googleLinked?: boolean; hasPassword?: boolean };
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return <label className={error ? "field-invalid" : undefined}>
@@ -89,11 +92,14 @@ function Field({ label, error, children }: { label: string; error?: string; chil
 }
 
 export default function AccountForms({ member, googleStatus }: { member: Member; googleStatus?: string }) {
+  // An account created by signing in with Google has no password of its own,
+  // so nothing on this page may ask it to confirm with one.
+  const hasPassword = member.hasPassword !== false;
   return <>
-    <GoogleConnection linked={Boolean(member.googleLinked)} status={googleStatus} />
-    <ProfileSection member={member} />
-    <PasswordSection />
-    <DangerZone username={member.username} />
+    <GoogleConnection linked={Boolean(member.googleLinked)} status={googleStatus} hasPassword={hasPassword} />
+    <ProfileSection member={member} hasPassword={hasPassword} />
+    <PasswordSection hasPassword={hasPassword} />
+    <DangerZone username={member.username} hasPassword={hasPassword} />
   </>;
 }
 
@@ -101,7 +107,7 @@ function GoogleMark() {
   return <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.85.87-3.04.87-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.73A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.19.29-1.73V4.94H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.06z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.94l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>;
 }
 
-function GoogleConnection({ linked, status }: { linked: boolean; status?: string }) {
+function GoogleConnection({ linked, status, hasPassword }: { linked: boolean; status?: string; hasPassword: boolean }) {
   const [isLinked, setIsLinked] = useState(linked);
   const [disconnecting, setDisconnecting] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -112,12 +118,12 @@ function GoogleConnection({ linked, status }: { linked: boolean; status?: string
 
   async function disconnect(event: React.FormEvent) {
     event.preventDefault();
-    if (!currentPassword) return setDisconnectError("請輸入目前密碼以確認。");
+    if (hasPassword && !currentPassword) return setDisconnectError("請輸入目前密碼以確認。");
     setDisconnectStatus("saving"); setDisconnectError("");
     const failure = await post("/api/account/google", { currentPassword });
     if (failure) {
       setDisconnectStatus("error");
-      setDisconnectError(failure.error === "password-wrong" ? "目前密碼不正確，Google 仍然保持連結。" : failure.error === "rate-limited" ? "嘗試次數過多，請稍後再試。" : failure.error === "not-linked" ? "Google 帳戶已經解除連結。" : "暫時未能解除連結，請稍後再試。");
+      setDisconnectError(failure.error === "password-wrong" ? "目前密碼不正確，Google 仍然保持連結。" : failure.error === "rate-limited" ? "嘗試次數過多，請稍後再試。" : failure.error === "no-password" ? "請先設定帳戶密碼，否則解除連結後將無法登入。" : failure.error === "not-linked" ? "Google 帳戶已經解除連結。" : "暫時未能解除連結，請稍後再試。");
       return;
     }
     setIsLinked(false); setDisconnecting(false); setCurrentPassword(""); setDisconnectStatus("success");
@@ -125,7 +131,7 @@ function GoogleConnection({ linked, status }: { linked: boolean; status?: string
 
   return <section className="google-connection" aria-labelledby="google-connection-title">
     <div className="google-connection-copy"><span className="google-mark"><GoogleMark /></span><div><h3 id="google-connection-title">Google 登入</h3><p>{isLinked ? "已連結。下次可直接使用 Google 安全登入。" : "連結後可免密碼登入；不會更改你的會員電郵或球員紀錄。"}</p></div></div>
-    {isLinked ? <div className="google-linked-actions"><span className="google-linked"><i aria-hidden="true">✓</i> 已連結</span><button type="button" className="google-disconnect-trigger" onClick={() => { setDisconnecting(true); setDisconnectStatus("idle"); }}>解除連結</button></div> : <a className="google-connect-button" href="/api/auth/google?intent=connect">連結 Google</a>}
+    {isLinked ? <div className="google-linked-actions"><span className="google-linked"><i aria-hidden="true">✓</i> 已連結</span>{hasPassword && <button type="button" className="google-disconnect-trigger" onClick={() => { setDisconnecting(true); setDisconnectStatus("idle"); }}>解除連結</button>}</div> : <a className="google-connect-button" href="/api/auth/google?intent=connect">連結 Google</a>}
     {disconnecting && <form className="google-disconnect-form" onSubmit={disconnect}>
       <p>解除後將無法使用 Google 登入。請輸入目前密碼，確認你仍可使用密碼登入帳戶。</p>
       <label htmlFor="google-disconnect-password">目前密碼<input id="google-disconnect-password" type="password" autoComplete="current-password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} aria-invalid={Boolean(disconnectError)} /></label>
@@ -138,7 +144,7 @@ function GoogleConnection({ linked, status }: { linked: boolean; status?: string
 
 // Read-only by default — most visits are to check a stat, not to edit
 // anything. Editing is an explicit second step.
-function ProfileSection({ member }: { member: Member }) {
+function ProfileSection({ member, hasPassword }: { member: Member; hasPassword: boolean }) {
   const [editing, setEditing] = useState(false);
   if (!editing) {
     return <section className="account-summary-row">
@@ -146,10 +152,10 @@ function ProfileSection({ member }: { member: Member }) {
       <Button variant="quiet" className="link-trigger" onClick={() => setEditing(true)}>{zh.editProfile}</Button>
     </section>;
   }
-  return <ProfileForm member={member} onDone={() => setEditing(false)} />;
+  return <ProfileForm member={member} hasPassword={hasPassword} onDone={() => setEditing(false)} />;
 }
 
-function ProfileForm({ member, onDone }: { member: Member; onDone: () => void }) {
+function ProfileForm({ member, hasPassword, onDone }: { member: Member; hasPassword: boolean; onDone: () => void }) {
   const [username, setUsername] = useState(member.username);
   const [email, setEmail] = useState(member.email);
   const [displayName, setDisplayName] = useState(member.displayName);
@@ -161,7 +167,7 @@ function ProfileForm({ member, onDone }: { member: Member; onDone: () => void })
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const identityChanged = username.trim().toLowerCase() !== member.username || email.trim().toLowerCase() !== member.email;
+  const identityChanged = hasPassword && (username.trim().toLowerCase() !== member.username || email.trim().toLowerCase() !== member.email);
 
   async function pickAvatar(file: File | undefined) {
     if (!file) return;
@@ -207,7 +213,7 @@ function ProfileForm({ member, onDone }: { member: Member; onDone: () => void })
   const autoInitials = deriveInitials(member.playerName ?? displayName);
   const shownInitials = initials.trim().toUpperCase() || autoInitials;
   return <form className="auth-form account-form" onSubmit={submit} noValidate>
-    <p className="account-form-hint">{zh.profileHint}</p>
+    <p className="account-form-hint">{hasPassword ? zh.profileHint : zh.profileHintGoogle}</p>
 
     <div className="avatar-picker">
       {avatar
@@ -270,17 +276,17 @@ function ProfileForm({ member, onDone }: { member: Member; onDone: () => void })
   </form>;
 }
 
-function PasswordSection() {
+function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
   const [editing, setEditing] = useState(false);
   if (!editing) {
     return <section className="account-summary-row">
-      <Button variant="quiet" className="link-trigger" onClick={() => setEditing(true)}>{zh.changePassword}</Button>
+      <Button variant="quiet" className="link-trigger" onClick={() => setEditing(true)}>{hasPassword ? zh.changePassword : zh.setPassword}</Button>
     </section>;
   }
-  return <PasswordForm onDone={() => setEditing(false)} />;
+  return <PasswordForm hasPassword={hasPassword} onDone={() => setEditing(false)} />;
 }
 
-function PasswordForm({ onDone }: { onDone: () => void }) {
+function PasswordForm({ hasPassword, onDone }: { hasPassword: boolean; onDone: () => void }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -297,7 +303,7 @@ function PasswordForm({ onDone }: { onDone: () => void }) {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     const found: Record<string, string> = { ...liveErrors };
-    if (!currentPassword) found.currentPassword = "password-required";
+    if (hasPassword && !currentPassword) found.currentPassword = "password-required";
     setFieldErrors(found);
     if (Object.keys(found).length) return;
 
@@ -313,9 +319,11 @@ function PasswordForm({ onDone }: { onDone: () => void }) {
   }
 
   return <form className="auth-form account-form" onSubmit={submit} noValidate>
-    <Field label={zh.current} error={errors_.currentPassword}>
-      <input value={currentPassword} type="password" autoComplete="current-password" onChange={event => setCurrentPassword(event.target.value)} />
-    </Field>
+    {hasPassword
+      ? <Field label={zh.current} error={errors_.currentPassword}>
+          <input value={currentPassword} type="password" autoComplete="current-password" onChange={event => setCurrentPassword(event.target.value)} />
+        </Field>
+      : <p className="account-form-hint">{zh.setPasswordHint}</p>}
     <Field label={zh.newPassword} error={errors_.password}>
       <input value={password} type="password" autoComplete="new-password" onChange={event => setPassword(event.target.value)} />
     </Field>
@@ -326,12 +334,12 @@ function PasswordForm({ onDone }: { onDone: () => void }) {
     {status === "saved" && <p className="form-success">{zh.passwordSaved}</p>}
     <div className="account-form-actions">
       <Button variant="quiet" onClick={onDone}>{zh.cancel}</Button>
-      <Button type="submit" disabled={status === "saving"}>{status === "saving" ? zh.saving : zh.updatePassword}</Button>
+      <Button type="submit" disabled={status === "saving"}>{status === "saving" ? zh.saving : hasPassword ? zh.updatePassword : zh.savePassword}</Button>
     </div>
   </form>;
 }
 
-function DangerZone({ username }: { username: string }) {
+function DangerZone({ username, hasPassword }: { username: string; hasPassword: boolean }) {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -342,7 +350,7 @@ function DangerZone({ username }: { username: string }) {
     event.preventDefault();
     const found: Record<string, string> = {};
     if (confirm.trim().toLowerCase() !== username) found.confirm = "confirm-mismatch";
-    if (!currentPassword) found.currentPassword = "password-required";
+    if (hasPassword && !currentPassword) found.currentPassword = "password-required";
     setFieldErrors(found);
     if (Object.keys(found).length) return;
 
@@ -367,9 +375,9 @@ function DangerZone({ username }: { username: string }) {
       <Field label={`${zh.confirmLabel}（${username}）`} error={fieldErrors.confirm}>
         <input value={confirm} onChange={event => setConfirm(event.target.value)} />
       </Field>
-      <Field label={zh.current} error={fieldErrors.currentPassword}>
+      {hasPassword && <Field label={zh.current} error={fieldErrors.currentPassword}>
         <input value={currentPassword} type="password" autoComplete="current-password" onChange={event => setCurrentPassword(event.target.value)} />
-      </Field>
+      </Field>}
       {fieldErrors.form && <p className="form-error">{message(fieldErrors.form)}</p>}
       <div className="account-danger-actions">
         <Button variant="quiet" onClick={() => { setOpen(false); setFieldErrors({}); }}>{zh.cancel}</Button>

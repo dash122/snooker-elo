@@ -14,6 +14,7 @@ export const members = sqliteTable("members", {
   role: text("role").notNull().default("member"),
   passwordHash: text("password_hash").notNull(),
   passwordSalt: text("password_salt").notNull(),
+  passwordSet: integer("password_set", { mode: "boolean" }).notNull().default(true),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
   joinedAt: text("joined_at").notNull(),
   lastSeenAt: text("last_seen_at").notNull(),

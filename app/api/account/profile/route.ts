@@ -52,9 +52,11 @@ export async function POST(request: Request) {
   if (problem) return fail(problem.error, problem.field);
 
   // Changing the identifiers used to sign in requires proving ownership;
-  // display name and avatar edits don't.
+  // display name and avatar edits don't. An account created by signing in with
+  // Google has no password to prove it with — the signed-in session is the
+  // proof there, otherwise those members could never edit these fields.
   const identityChanged = username.toLowerCase() !== member.username || email.toLowerCase() !== member.email;
-  if (identityChanged) {
+  if (identityChanged && member.hasPassword !== false) {
     const currentPassword = String(body.currentPassword ?? "");
     if (!currentPassword) return fail("password-required", "currentPassword");
     if (!await verifyCredentials(member.username, currentPassword)) return fail("password-wrong", "currentPassword");

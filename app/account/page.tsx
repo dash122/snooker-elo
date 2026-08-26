@@ -216,7 +216,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         <Surface className="account-panel account-settings">
           <div className="account-panel-head"><div><p className="kicker">{zh.settingsKicker}</p><h2>{zh.settings}</h2></div></div>
           <p className="account-settings-hint">{zh.settingsHint}</p>
-          <AccountForms googleStatus={params.google} member={{ username: member.username, email: member.email, displayName: member.displayName, avatar: member.avatar, initials: member.initials, iconColour: member.iconColour ?? player.colour, playerName: player.name, googleLinked: member.googleLinked }} />
+          <AccountForms googleStatus={params.google} member={{ username: member.username, email: member.email, displayName: member.displayName, avatar: member.avatar, initials: member.initials, iconColour: member.iconColour ?? player.colour, playerName: player.name, googleLinked: member.googleLinked, hasPassword: member.hasPassword }} />
         </Surface>
       </div>
     </div> : <div className="account-layout single">
@@ -228,7 +228,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
       <Surface className="account-panel account-settings">
         <div className="account-panel-head"><div><p className="kicker">{zh.settingsKicker}</p><h2>{zh.settings}</h2></div></div>
         <p className="account-settings-hint">{zh.settingsHint}</p>
-        <AccountForms googleStatus={params.google} member={{ username: member.username, email: member.email, displayName: member.displayName, avatar: member.avatar, initials: member.initials, iconColour: member.iconColour, googleLinked: member.googleLinked }} />
+        <AccountForms googleStatus={params.google} member={{ username: member.username, email: member.email, displayName: member.displayName, avatar: member.avatar, initials: member.initials, iconColour: member.iconColour, googleLinked: member.googleLinked, hasPassword: member.hasPassword }} />
       </Surface>
     </div>}
   </main>;
