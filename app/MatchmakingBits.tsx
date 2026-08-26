@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerBadge } from "./UiBits";
 import { BackdropSheet } from "./components/ui/Overlay";
 import { Button, IconButton, SegmentedControl } from "./components/ui/Primitives";
@@ -437,11 +437,15 @@ export function TonightStrip({summary,onOpen,signedIn}:{summary:TonightSummary|n
     entire point is to reach a member who is somewhere else in the app. */
 export function useMatchmakingSummary(signedIn:boolean,intervalMs=60000){
   const [summary,setSummary]=useState<MatchmakingSummary|null>(null);
+  const refreshingRef=useRef(false);
   const refresh=useCallback(async()=>{
+    if(refreshingRef.current)return;
+    refreshingRef.current=true;
     try{
       const response=await fetch("/api/matchmaking/summary");
       if(response.ok)setSummary(await response.json());
     }catch{/* the badge is an enhancement; a failed poll leaves the last known counts */}
+    finally{refreshingRef.current=false}
   },[]);
   useEffect(()=>{
     void refresh();
