@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {PlayerBadge} from "./UiBits";
 import {BackdropSheet,ConfirmDialog} from "./components/ui/Overlay";
-import {Button,IconButton,SegmentedControl,SlidingToggleGroup} from "./components/ui/Primitives";
+import {Button,IconButton,InlineNotice,SegmentedControl,SlidingToggleGroup} from "./components/ui/Primitives";
 import {Slots,type Board} from "./Slots";
 import {CounterSheet,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type MatchmakingSummary,type QueueItem,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
@@ -264,20 +264,35 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
     Room, claiming a table there — so invites, calls and offers refresh immediately instead of at the
     next 30-second tick, which is long enough for a member to think their tap did nothing. */
  const[refreshNonce,setRefreshNonce]=useState(0);
+ /* A load failure needs to outlive `message`, which clears itself after four seconds. Without its
+    own state the tab settled into a blank board with nothing on screen to say why, and no way back
+    other than reloading the page. `retryNonce` re-runs the load effect; `loadAttempts` bounds the
+    automatic ones so a genuinely down endpoint is not hammered. */
+ const[loadError,setLoadError]=useState(""),[retryNonce,setRetryNonce]=useState(0);
+ const loadAttempts=useRef(0);
  useEffect(()=>{const id=window.setInterval(()=>setTick(Date.now()),60000);return()=>window.clearInterval(id)},[]);
  const firstLoad=useRef(true),bootstrapLoadedRef=useRef(false),savingRef=useRef(false),cancellingRef=useRef(false),confirmingChangeRef=useRef(false),clearingRef=useRef(false);
- useEffect(()=>{const c=new AbortController();let timedOut=false;const timeout=window.setTimeout(()=>{timedOut=true;c.abort()},15000);async function load(){try{
+ useEffect(()=>{const c=new AbortController();let timedOut=false,retry:number|undefined;const timeout=window.setTimeout(()=>{timedOut=true;c.abort()},15000);async function load(){try{
   if(!bootstrapLoadedRef.current){
    const response=await fetch(`/api/matchmaking/bootstrap?date=${date}&week=${week[0]}&days=${HORIZON}`,{signal:c.signal});
    const body=await response.json();if(!response.ok||body.selected?.error)throw Error(body.selected?.error??body.error??"約戰資料暫時未能載入");
    setMembers(body.selected?.members??[]);setCounts(body.calendar?.counts??{});setOwn(body.own?.slots??[]);
    setInvites({sent:body.inbox?.sent??[],received:body.inbox?.received??[]});setOffers(body.mutual?.offers??[]);
-   setBootstrapBoard(Array.isArray(body.board?.board)?body.board:null);bootstrapLoadedRef.current=true;setBootstrapState("loaded");setMessage("");return;
+   setBootstrapBoard(Array.isArray(body.board?.board)?body.board:null);bootstrapLoadedRef.current=true;setBootstrapState("loaded");setMessage("");setLoadError("");loadAttempts.current=0;return;
   }
   const[selected,calendar,mine]=await Promise.all([fetch(`/api/availability?date=${date}`,{signal:c.signal}).then(r=>r.json()),fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`,{signal:c.signal}).then(r=>r.json()),userPlayerId?fetch("/api/availability?me",{signal:c.signal}).then(r=>r.json()):Promise.resolve({slots:[]})]);
-  if(selected.error)throw Error(selected.error);setMembers(selected.members);setCounts(calendar.counts??{});setOwn(mine.slots??[]);setMessage("");
- }catch(e){if(e instanceof Error&&(e.name!=="AbortError"||timedOut)){if(!bootstrapLoadedRef.current){bootstrapLoadedRef.current=true;setBootstrapBoard(null);setBootstrapState("failed")}setMessage(timedOut?"約戰資料載入較慢，正在重試。":e.message)}}finally{window.clearTimeout(timeout)}}
- if(firstLoad.current)firstLoad.current=false;else trackAvailabilityEvent("availability_date_select");void load();return()=>{window.clearTimeout(timeout);c.abort()}},[date,userPlayerId,week]);
+  if(selected.error)throw Error(selected.error);setMembers(selected.members);setCounts(calendar.counts??{});setOwn(mine.slots??[]);setMessage("");setLoadError("");loadAttempts.current=0;setBootstrapState("loaded");
+ }catch(e){if(e instanceof Error&&(e.name!=="AbortError"||timedOut)){
+   /* Marking the bootstrap done on failure is deliberate: the retry below then takes the lighter
+      per-endpoint path rather than re-running the whole fan-out that just timed out. */
+   if(!bootstrapLoadedRef.current){bootstrapLoadedRef.current=true;setBootstrapBoard(null)}
+   setBootstrapState("failed");
+   setLoadError(timedOut?"約戰資料載入逾時。":(e.message||"約戰資料暫時未能載入。"));
+   /* The old copy said 正在重試 while nothing retried. Retry for real, twice, backing off — then
+      leave it to the member, who now has a button instead of a blank screen. */
+   if(loadAttempts.current<2){const wait=2000*2**loadAttempts.current;loadAttempts.current+=1;retry=window.setTimeout(()=>setRetryNonce(value=>value+1),wait)}
+  }}finally{window.clearTimeout(timeout)}}
+ if(firstLoad.current)firstLoad.current=false;else trackAvailabilityEvent("availability_date_select");void load();return()=>{window.clearTimeout(timeout);if(retry!==undefined)window.clearTimeout(retry);c.abort()}},[date,userPlayerId,week,retryNonce]);
  /* A profile card's "在可配對查看" button lands here with a target player and their nearest free day.
     Adjusted during render rather than in an effect: the jump can arrive while this tab is already
     open (card opened from the grid itself), so mount-time initial state alone would miss it, and an
@@ -757,6 +772,12 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
 <section className="availability-page">
 <section className="hero small availability-hero"><div><p className="kicker">SCAA MATCHMAKING</p><h1>約戰</h1><p>搵一場啱你嘅球局，或者開一場等人加入。</p></div></section>
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
+{loadError&&<div className="availability-load-error">
+  <InlineNotice tone="warning" title="未能載入約戰資料">
+    {loadError}
+    <Button variant="secondary" onClick={()=>{loadAttempts.current=0;setLoadError("");setBootstrapState("loading");setRetryNonce(value=>value+1)}}>重試</Button>
+  </InlineNotice>
+</div>}
 {view==="book"&&<>
 {/* Whatever is waiting on this member, above everything else — an invite to answer, an offer to
     accept, a score to record. One band, never the whole screen. */}
