@@ -22,20 +22,9 @@ export function getSql() {
         "No Postgres connection string found. Set POSTGRES_URL (Vercel's Supabase integration sets this automatically)."
       );
     }
-    /* Supavisor's transaction pooler (6543) is ideal for short-lived serverless functions, but a
-       persistent local Vite process can leave responses stuck in ClientRead when several requests
-       share its long-lived Postgres.js pool. Supabase recommends session mode (5432) for persistent
-       IPv4 backends. Keep production on its configured mode and switch only local development. */
+    /* Keep the configured Supabase pooler mode. Some projects expose transaction pooling on 6543
+       but do not accept the same credentials or route on the session port 5432. */
     let url = configuredUrl;
-    try {
-      const parsed = new URL(configuredUrl);
-      if (process.env.NODE_ENV === "development" && parsed.hostname.endsWith(".pooler.supabase.com") && parsed.port === "6543") {
-        parsed.port = "5432";
-        url = parsed.toString();
-      }
-    } catch {
-      // The validation/logging block below reports an unparseable string without exposing it.
-    }
     // Which database this process is talking to is worth knowing at startup,
     // but the connection string carries the password in userinfo — logging it
     // whole leaks the credential into hosting and CI logs. Host and database
