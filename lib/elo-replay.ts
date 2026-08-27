@@ -105,40 +105,57 @@ function teamMemberIds(match: ReplayMatch, side: "A" | "B") {
   return (side === "A" ? [match.a, match.a2] : [match.b, match.b2]).filter(Boolean) as string[];
 }
 
-function teamLabel(match: ReplayMatch, players: ReplayPlayer[], side: "A" | "B") {
+type PlayerIndex = Map<string, ReplayPlayer>;
+
+function teamLabel(match: ReplayMatch, players: PlayerIndex, side: "A" | "B") {
   if (isEntertainmentMode(match.mode)) {
     const custom = (side === "A" ? match.teamAName : match.teamBName)?.trim();
     return custom || `Team ${side}`;
   }
-  return players.find(player => player.id === teamMemberIds(match, side)[0])?.short || "?";
+  return players.get(teamMemberIds(match, side)[0])?.short || "?";
 }
 
-function teamRating(match: ReplayMatch, players: ReplayPlayer[], side: "A" | "B") {
+function teamRating(match: ReplayMatch, players: PlayerIndex, side: "A" | "B") {
   const ratings = teamMemberIds(match, side)
-    .map(id => players.find(player => player.id === id)?.rating)
+    .map(id => players.get(id)?.rating)
     .filter((value): value is number => typeof value === "number");
   return ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : 0;
 }
 
-function teamHandicap(match: ReplayMatch, players: ReplayPlayer[], side: "A" | "B", settings: ReplaySettings) {
+function teamHandicap(match: ReplayMatch, players: PlayerIndex, side: "A" | "B", settings: ReplaySettings) {
   const team = teamMemberIds(match, side)
-    .map(id => players.find(player => player.id === id))
+    .map(id => players.get(id))
     .filter((player): player is ReplayPlayer => Boolean(player));
-  return team.length ? Math.round(team.reduce((sum, player) => sum + suggestedHandicap(player, players, handicapSettings(settings)), 0) / team.length) : null;
+  const roster = team.length ? [...players.values()] : [];
+  return team.length ? Math.round(team.reduce((sum, player) => sum + suggestedHandicap(player, roster, handicapSettings(settings)), 0) / team.length) : null;
 }
 
-function sameMatchup(left: ReplayMatch, right: ReplayMatch) {
-  const side = (match: ReplayMatch, which: "A" | "B") => new Set(teamMemberIds(match, which));
-  const equal = (first: Set<string>, second: Set<string>) => first.size === second.size && [...first].every(id => second.has(id));
-  return equal(side(left, "A"), side(right, "A")) && equal(side(left, "B"), side(right, "B"))
-    || equal(side(left, "A"), side(right, "B")) && equal(side(left, "B"), side(right, "A"));
+/* Repetition decay asks "how often have these two met in the last 30 days?", which used to be
+   answered by rescanning every earlier match for each match replayed — quadratic, and the reason a
+   club with a few thousand results could wedge the browser on load. The same answer comes out of a
+   per-matchup list of dates: the pairing is reduced to one order-independent key (either side may be
+   listed first, and a side's members are a set), so meetings are looked up rather than searched for. */
+export function matchupKey(match: Pick<ReplayMatch, "a" | "a2" | "b" | "b2">) {
+  const side = (which: "A" | "B") => [...new Set(teamMemberIds(match as ReplayMatch, which))].sort().join("+");
+  const [first, second] = [side("A"), side("B")].sort();
+  return `${first}|${second}`;
 }
 
-function priorMeetings(match: ReplayMatch, matches: ReplayMatch[], beforeDate: string) {
-  const cutoff = new Date(`${beforeDate}T00:00:00Z`).getTime() - 30 * 864e5;
-  return matches.filter(candidate => candidate.status === "confirmed"
-    && sameMatchup(match, candidate)
-    && new Date(`${candidate.playedOn || candidate.createdAt.slice(0, 10)}T00:00:00Z`).getTime() >= cutoff).length;
+export function matchDate(match: Pick<ReplayMatch, "playedOn" | "createdAt">) {
+  return new Date(`${match.playedOn || match.createdAt.slice(0, 10)}T00:00:00Z`).getTime();
+}
+
+/* `dates` is ascending (matches are replayed in date order), so the meetings still inside the window
+   are its tail — found by binary search for the first entry at or after the cutoff. */
+export function meetingsSince(dates: number[], cutoff: number) {
+  let low = 0;
+  let high = dates.length;
+  while (low < high) {
+    const mid = (low + high) >> 1;
+    if (dates[mid] < cutoff) low = mid + 1;
+    else high = mid;
+  }
+  return dates.length - low;
 }
 
 function calculateMatch(a: ReplayPlayer, b: ReplayPlayer, match: ReplayMatch, settings: ReplaySettings, repetitionCount: number, giverSide?: "A" | "B") {
@@ -193,8 +210,18 @@ export function replay<TPlayer extends ReplayPlayer, TMatch extends ReplayMatch>
     .filter(match => match.status === "confirmed")
     .sort((left, right) => (left.playedOn || left.createdAt).localeCompare(right.playedOn || right.createdAt) || left.createdAt.localeCompare(right.createdAt));
   const updated = new Map<string, TMatch>();
+  /* Meetings recorded per matchup, in replay order. Every ordered match counts towards repetition,
+     including ones skipped below for a missing player — the old prefix scan saw those too. */
+  const meetings = new Map<string, number[]>();
 
   for (const match of ordered) {
+    const key = matchupKey(match);
+    const history = meetings.get(key);
+    const priorDates = history ?? [];
+    if (!history) meetings.set(key, priorDates);
+    const playedAt = matchDate(match);
+    const repetitionCount = meetingsSince(priorDates, playedAt - 30 * 864e5);
+    priorDates.push(playedAt);
     const a = byId.get(match.a);
     const b = byId.get(match.b);
     if (!a || !b) continue;
@@ -202,8 +229,8 @@ export function replay<TPlayer extends ReplayPlayer, TMatch extends ReplayMatch>
     const b2 = match.b2 ? byId.get(match.b2) : null;
     if (isEntertainmentMode(match.mode)) {
       if (!a2 || !b2) continue;
-      const averageA = teamRating(match, rebuilt, "A");
-      const averageB = teamRating(match, rebuilt, "B");
+      const averageA = teamRating(match, byId, "A");
+      const averageB = teamRating(match, byId, "B");
       const snapshotA = neutralRatingSnapshot(a);
       const snapshotA2 = neutralRatingSnapshot(a2);
       const snapshotB = neutralRatingSnapshot(b);
@@ -230,9 +257,8 @@ export function replay<TPlayer extends ReplayPlayer, TMatch extends ReplayMatch>
 
     const teamA = a2 ? [a, a2] : [a];
     const teamB = b2 ? [b, b2] : [b];
-    const teamAEntity = a2 ? { ...a, id: "teamA", name: teamLabel(match, rebuilt, "A"), short: teamLabel(match, rebuilt, "A"), handicap: teamHandicap(match, rebuilt, "A", settings), rating: teamRating(match, rebuilt, "A") } : a;
-    const teamBEntity = b2 ? { ...b, id: "teamB", name: teamLabel(match, rebuilt, "B"), short: teamLabel(match, rebuilt, "B"), handicap: teamHandicap(match, rebuilt, "B", settings), rating: teamRating(match, rebuilt, "B") } : b;
-    const repetitionCount = priorMeetings(match, ordered.slice(0, ordered.indexOf(match)), match.playedOn || match.createdAt.slice(0, 10));
+    const teamAEntity = a2 ? { ...a, id: "teamA", name: teamLabel(match, byId, "A"), short: teamLabel(match, byId, "A"), handicap: teamHandicap(match, byId, "A", settings), rating: teamRating(match, byId, "A") } : a;
+    const teamBEntity = b2 ? { ...b, id: "teamB", name: teamLabel(match, byId, "B"), short: teamLabel(match, byId, "B"), handicap: teamHandicap(match, byId, "B", settings), rating: teamRating(match, byId, "B") } : b;
     const giverSide = match.giver && teamA.some(player => player.id === match.giver) ? "A" : match.giver && teamB.some(player => player.id === match.giver) ? "B" : undefined;
     const result = calculateMatch(teamAEntity, teamBEntity, match, settings, repetitionCount, giverSide);
     const resultA = match.scoreA === match.scoreB ? "D" : match.scoreA > match.scoreB ? "W" : "L";

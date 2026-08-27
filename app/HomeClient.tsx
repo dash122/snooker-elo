@@ -12,6 +12,7 @@ import { ShareGlyph, shareSheetTitle } from "./ShareSheet";
 import CupShareButtons from "./CupShareButtons";
 import { HANDICAP_ELO_PER_POINT, proposeHandicap, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
 import { calculateSnookerElo } from "../lib/snooker-elo";
+import { matchDate, matchupKey, meetingsSince } from "../lib/elo-replay";
 import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
 import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story-card";
 import ShareSheet from "./ShareSheet";
@@ -304,18 +305,6 @@ function handicapVerdict(me:Player,p:Player,s:Settings){
   const base=points===0?"平手":points>0?`建議我讓 ${points} 分`:`建議他讓 ${Math.abs(points)} 分`;
   return points!==0&&Math.abs(eloDifference)<30?`${base} · 勢均力敵`:base;
 }
-function sameMatchup(left:Match,right:Match){
-  const side=(match:Match,which:"A"|"B")=>new Set((which==="A"?[match.a,match.a2]:[match.b,match.b2]).filter((id):id is string=>Boolean(id)));
-  const equal=(first:Set<string>,second:Set<string>)=>first.size===second.size&&[...first].every(id=>second.has(id));
-  return equal(side(left,"A"),side(right,"A"))&&equal(side(left,"B"),side(right,"B"))
-    || equal(side(left,"A"),side(right,"B"))&&equal(side(left,"B"),side(right,"A"));
-}
-function priorMeetings(match:Match,matches:Match[],beforeDate:string,excludeId?:string){
-  const cutoff=new Date(`${beforeDate}T00:00:00Z`).getTime()-30*864e5;
-  return matches.filter(candidate=>candidate.id!==excludeId&&candidate.status==="confirmed"
-    &&sameMatchup(match,candidate)
-    &&new Date(`${candidate.playedOn||candidate.createdAt.slice(0,10)}T00:00:00Z`).getTime()>=cutoff).length;
-}
 function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings,giverSide?:"A"|"B"|null,repetitionCount=0) {
   const actual = giverSide === "A" ? points : giverSide === "B" ? -points
     : giver === a.id ? points : giver === b.id ? -points : 0;
@@ -350,7 +339,21 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
   const byId=new Map(rebuilt.map(p=>[p.id,p]));
   const ordered=[...matches].filter(m=>m.status==="confirmed").sort((x,y)=>(x.playedOn||x.createdAt).localeCompare(y.playedOn||y.createdAt)||x.createdAt.localeCompare(y.createdAt));
   const updated=new Map<string,Match>();
+  /* Repetition decay needs "how often have these two met in the last 30 days?" for every match.
+     Rescanning the earlier matches for each one is quadratic, which on a club with a few thousand
+     results is enough main-thread work to leave the browser sitting on 正在載入球會資料 forever.
+     Recording each meeting under an order-independent matchup key turns the question into a lookup.
+     Every ordered match is recorded, including ones skipped below for a missing player — the old
+     prefix scan saw those too. */
+  const meetings=new Map<string,number[]>();
   for(const m of ordered){
+    const key=matchupKey(m);
+    const history=meetings.get(key);
+    const priorDates=history??[];
+    if(!history)meetings.set(key,priorDates);
+    const playedAt=matchDate(m);
+    const repetitionCount=meetingsSince(priorDates,playedAt-30*864e5);
+    priorDates.push(playedAt);
     const a=byId.get(m.a),b=byId.get(m.b);
     if(!a||!b)continue;
     const a2=m.a2?byId.get(m.a2):null;
@@ -375,7 +378,6 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
     const teamAEntity = a2 ? {id:"teamA",name:teamLabel(m,state,"A"),short:teamLabel(m,state,"A"),handicap:teamHandicap(m,state,"A"),rating:teamRating(m,state,"A"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]} as Player : a;
     const teamBEntity = b2 ? {id:"teamB",name:teamLabel(m,state,"B"),short:teamLabel(m,state,"B"),handicap:teamHandicap(m,state,"B"),rating:teamRating(m,state,"B"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]} as Player : b;
     const giverSide = m.giver && teamA.some(p=>p.id===m.giver) ? "A" : m.giver && teamB.some(p=>p.id===m.giver) ? "B" : undefined;
-    const repetitionCount=priorMeetings(m,ordered.slice(0,ordered.indexOf(m)),m.playedOn||m.createdAt.slice(0,10));
     const result=calc(teamAEntity,teamBEntity,m.scoreA,m.scoreB,m.giver,Math.abs(m.actual),settings,giverSide,repetitionCount);
     const resultA=m.scoreA===m.scoreB?"D":m.scoreA>m.scoreB?"W":"L";
     const resultB=resultA==="D"?"D":resultA==="W"?"L":"W";
