@@ -18,7 +18,7 @@ import ShareSheet from "./ShareSheet";
 import { AppShell, PageFrame } from "./components/shell/AppShell";
 import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
 import { buildBracket, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, roundLabel, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
-import { Button, IconButton, SegmentedControl, SlidingToggleGroup, StatTile, Surface } from "./components/ui/Primitives";
+import { Button, IconButton, InlineNotice, SegmentedControl, SlidingToggleGroup, StatTile, Surface } from "./components/ui/Primitives";
 import { Sheet, ConfirmDialog } from "./components/ui/Overlay";
 
 type Player = {
@@ -118,6 +118,7 @@ type Settings = {
   modelVersion?: number;
 };
 export type AppState = { players: Player[]; matches: Match[]; tournaments: Tournament[]; settings: Settings; audits: { id: string; text: string; at: string }[] };
+type StateLoadStatus = "loading" | "ready" | "failed";
 
 const seed: AppState = {
   settings: {
@@ -475,6 +476,9 @@ function isInPastTenDays(playedOn:string){
 }
 export default function Home({user,initialData}:{user:{displayName:string;email:string;role:"admin"|"member";statePlayerId?:string;needsOnboarding?:boolean}|null;initialData?:AppState|null}) {
   const [data,setData] = useState<AppState>(initialData ?? seed);
+  const [stateLoadStatus,setStateLoadStatus] = useState<StateLoadStatus>(initialData ? "ready" : "loading");
+  const [stateLoadError,setStateLoadError] = useState("");
+  const [stateRetry,setStateRetry] = useState(0);
   const [tab,setTab] = useState("leaderboard");
   const [availabilityDirty,setAvailabilityDirty] = useState(false);
   const [leavingAvailability,setLeavingAvailability] = useState<string|null>(null);
@@ -547,16 +551,40 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     /* The server already hydrated this page with the same state. Refetching it immediately adds five
        database reads while the matchmaking summary and 約戰 board are trying to open. */
     if(initialData)return;
-    fetch("/api/state").then(r=>r.ok?r.json():null).then(v=>{
-      if(!v?.players)return;
-      const upgraded=upgradeState(v);
-      const loaded=upgraded.state;
-      const replayed={...loaded,...replay(loaded.players,loaded.matches,loaded.settings)};
-      const replayChanged=JSON.stringify({players:loaded.players,matches:loaded.matches})!==JSON.stringify({players:replayed.players,matches:replayed.matches});
-      setData(replayed);
-      if(upgraded.changed||replayChanged)fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(replayed)}).catch(()=>{});
-    }).catch(()=>{});
-  },[initialData]);
+    let cancelled=false;
+    let retryTimer:ReturnType<typeof setTimeout>|undefined;
+    let requestController:AbortController|undefined;
+    const load=async(attempt:number):Promise<void>=>{
+      requestController=new AbortController();
+      const timeout=setTimeout(()=>requestController?.abort(),15000);
+      try{
+        const response=await fetch("/api/state",{cache:"no-store",signal:requestController.signal});
+        const value=await response.json().catch(()=>null) as Record<string,unknown>|null;
+        if(!response.ok||!Array.isArray(value?.players)||!Array.isArray(value?.matches)){
+          throw new Error(typeof value?.error==="string"?value.error:"資料格式無效");
+        }
+        const upgraded=upgradeState(value as AppState);
+        const loaded=upgraded.state;
+        const replayed={...loaded,...replay(loaded.players,loaded.matches,loaded.settings)};
+        const replayChanged=JSON.stringify({players:loaded.players,matches:loaded.matches})!==JSON.stringify({players:replayed.players,matches:replayed.matches});
+        if(cancelled)return;
+        setData(replayed);
+        setStateLoadStatus("ready");
+        setStateLoadError("");
+        if(upgraded.changed||replayChanged)fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(replayed)}).catch(()=>{});
+      }catch(error){
+        if(cancelled)return;
+        if(attempt<2){
+          retryTimer=setTimeout(()=>void load(attempt+1),1000*2**attempt);
+          return;
+        }
+        setStateLoadStatus("failed");
+        setStateLoadError(error instanceof Error&&error.name==="AbortError"?"資料載入逾時。":"資料暫時未能載入。請稍後再試。");
+      }finally{clearTimeout(timeout)}
+    };
+    void load(0);
+    return()=>{cancelled=true;clearTimeout(retryTimer);requestController?.abort()};
+  },[initialData,stateRetry]);
   async function refreshData(){
     if(refreshingStateRef.current)return;
     refreshingStateRef.current=true;
@@ -1048,8 +1076,11 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     </div>
     <DesktopNavigation active={tab as Destination} onNavigate={goTab} badge={navBadge} badgeLabel={navBadgeLabel} signedIn={Boolean(user)} needsOnboarding={Boolean(user?.needsOnboarding)}/>
     <main>
-      <header><div className="mobile-brand-wrap"><div className="mobile-brand">SCAA <span>Snooker ELO</span></div>{user?.needsOnboarding&&<a className="onboarding-alert-link" href="/onboarding?reminder=1" aria-label="完成會員問卷" title="完成會員問卷">⚠️</a>}</div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
+      <header><div className="mobile-brand-wrap"><div className="mobile-brand">SCAA <span>Snooker ELO</span></div>{user?.needsOnboarding&&<a className="onboarding-alert-link" href="/onboarding?reminder=1" aria-label="完成會員問卷" title="完成會員問卷">⚠️</a>}</div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {stateLoadStatus==="loading"?"載入中…":stateLoadStatus==="failed"?"載入失敗":saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       <PageFrame className={`app-page-${tab}`}>
+      {stateLoadStatus==="loading"&&<InlineNotice title="正在載入球會資料">正在連接資料庫，請稍候。</InlineNotice>}
+      {stateLoadStatus==="failed"&&<InlineNotice tone="danger" title="未能載入球會資料"><span>{stateLoadError}</span> <Button variant="secondary" onClick={()=>{setStateLoadStatus("loading");setStateLoadError("");setStateRetry(value=>value+1)}}>重試</Button></InlineNotice>}
+      {stateLoadStatus==="ready"&&<>
       {/* The club's pulse, on the screen members actually open. Matchmaking used to live entirely
           behind a tab, so "is anyone playing tonight?" was unanswerable without going to look. */}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
@@ -1058,6 +1089,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {tab==="availability"&&<Availability userPlayerId={ownPlayerId} matches={data.matches} provisionalGames={data.settings.provisionalGames} onDirtyChange={setAvailabilityDirty} jumpTo={jumpToAvailability} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecordMatch={(opponentId,date)=>newMatch("1v1",opponentId,date)} onActivity={refreshMatchmaking} matchmakingSummary={matchmakingSummary}/>}
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} managementMode={Boolean(isAdmin&&managementMode)} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
+      </>}
       </PageFrame>
     </main>
     {/* Record sits dead centre as the one thing this app exists to do; the four content tabs split
