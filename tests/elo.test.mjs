@@ -150,3 +150,39 @@ test("signup validation follows the current club rules",()=>{
   assert.equal(checkDisallowedText("idiot"),"disallowed-text");
   assert.equal(checkDisallowedText("Tom! 1"),null);
 });
+
+/* The repetition window is what the replay's meeting index has to reproduce exactly: a rematch
+   inside 30 days is damped, one outside it is not, and the pairing is order-independent. */
+const replayPlayer=(id,rating)=>({id,name:id,short:id,handicap:null,rating,initialRating:rating,active:true,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]});
+const replayMatch=(id,a,b,playedOn)=>({id,a,b,scoreA:3,scoreB:1,playedOn,actual:0,giver:null,official:null,extra:0,expectedA:0,beforeA:0,beforeB:0,afterA:0,afterB:0,deltaA:0,status:"confirmed",createdAt:`${playedOn}T12:00:00.000Z`});
+
+test("a rematch inside the repetition window is damped, and one beyond it is not",()=>{
+  const roster=()=>[replayPlayer("a",1500),replayPlayer("b",1500)];
+  const near=replay(roster(),[replayMatch("m1","a","b","2026-01-01"),replayMatch("m2","a","b","2026-01-20")],{start:1500});
+  const far=replay(roster(),[replayMatch("m1","a","b","2026-01-01"),replayMatch("m2","a","b","2026-03-20")],{start:1500});
+  assert.ok(near.matches[1].deltaA<far.matches[1].deltaA);
+});
+
+test("repetition counts the same pairing with the sides reversed",()=>{
+  const roster=()=>[replayPlayer("a",1500),replayPlayer("b",1500)];
+  const repeated=replay(roster(),[replayMatch("m1","a","b","2026-01-01"),replayMatch("m2","b","a","2026-01-10")],{start:1500});
+  const fresh=replay(roster(),[replayMatch("m1","a","b","2026-01-01"),replayMatch("m2","b","a","2026-06-10")],{start:1500});
+  assert.ok(Math.abs(repeated.matches[1].deltaA)<Math.abs(fresh.matches[1].deltaA));
+});
+
+/* Replay runs on the client for every load and every save, so quadratic growth here shows up as a
+   club that can no longer open the app once it has a few thousand results behind it. */
+test("replay stays linear enough for a full club history",()=>{
+  const size=24;
+  const players=Array.from({length:size},(_,index)=>replayPlayer(`p${index}`,1500));
+  const matches=Array.from({length:4000},(_,index)=>{
+    const a=index%size;
+    const b=(index*7+1)%size;
+    const playedOn=new Date(Date.UTC(2024,0,1)+(index%600)*864e5).toISOString().slice(0,10);
+    return replayMatch(`m${index}`,`p${a}`,`p${b===a?(b+1)%size:b}`,playedOn);
+  });
+  const started=performance.now();
+  const rebuilt=replay(players,matches,{start:1500});
+  assert.equal(rebuilt.matches.length,4000);
+  assert.ok(performance.now()-started<2000,"4000 matches should replay in well under two seconds");
+});
