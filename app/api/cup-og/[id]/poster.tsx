@@ -10,7 +10,6 @@ import { cupOgNameLayout } from "../../../../lib/cup-og";
 export const FONT_STACK="Noto Sans TC";
 
 const GOLD="#e8c26a";
-const GOLD_DIM="#b98f3e";
 const HOT="#ff6b5a";
 const ball=(size:number,colour:string,left:number,top:number)=>
   <div style={{position:"absolute",left,top,width:size,height:size,borderRadius:size,background:colour,
@@ -31,13 +30,6 @@ export function poster(card:CupOgCard){
     {ball(150,"#a4192a",1018,132)}
     {ball(80,"#f2ede2",1012,300)}
     {ball(58,"#c8a227",1112,392)}
-
-    <div style={{display:"flex",alignItems:"center",gap:18}}>
-      <div style={{display:"flex",width:56,height:56,borderRadius:16,background:GOLD,color:"#0a3125",
-        alignItems:"center",justifyContent:"center",fontSize:34,fontWeight:900}}>S</div>
-      <div style={{display:"flex",fontSize:30,fontWeight:700,letterSpacing:2}}>SCAA SNOOKER</div>
-      <div style={{display:"flex",fontSize:26,color:GOLD_DIM,fontWeight:700}}>會友盃</div>
-    </div>
 
     <div style={{display:"flex",flexDirection:"column",gap:22}}>
       <div style={{display:"flex",gap:14,alignItems:"center"}}>

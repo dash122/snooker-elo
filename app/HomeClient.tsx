@@ -1776,6 +1776,17 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     };
   },[bracket,ownPlayerId,data.players]);
   const [openRound,setOpenRound]=useState(1);
+  /* Both entering and leaving a cup are one-tap actions with real consequences — a missed 報名 window
+     doesn't reopen, and a careless 取消報名 drops your seat in a bracket that may already be filling
+     up — so each gets a confirmation naming the cup, not a silent toggle. */
+  const [pendingSignup,setPendingSignup]=useState<{id:string;name:string;joined:boolean}|null>(null);
+  const confirmSignupDialog=pendingSignup&&<ConfirmDialog kicker={pendingSignup.joined?"取消報名":"確認報名"} titleId="cup-signup-confirm-title"
+    title={pendingSignup.joined?`確定取消「${pendingSignup.name}」的報名？`:`確定報名參加「${pendingSignup.name}」？`}
+    description={pendingSignup.joined?"取消後可重新報名，但截止後就無法再加入。":"截止後會按報名名單抽籤，屆時將不能取消。"}
+    onClose={()=>setPendingSignup(null)}>
+    <Button variant="secondary" onClick={()=>setPendingSignup(null)}>返回</Button>
+    <Button variant={pendingSignup.joined?"danger":"primary"} onClick={()=>{const id=pendingSignup.id;setPendingSignup(null);onSignUpTournament(id)}}>{pendingSignup.joined?"確定取消":"確定報名"}</Button>
+  </ConfirmDialog>;
   /* Tapping a node in the overview has to *land* somewhere, or the map is just decoration: it opens
      that round and scrolls its card into view, flashing it so the eye finds it after the jump. */
   const [focusTie,setFocusTie]=useState("");
@@ -1868,7 +1879,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
             <div className="cup-card-people">{item.signups.length>0&&avatarStack(item.signups)}<span>{item.signups.length} 人報名</span></div>
             <div className="cup-card-actions">
               {status==="signup"&&(ownPlayerId
-                ?<Button variant={itemSignedUp?"secondary":"primary"} className="cup-btn" onClick={()=>onSignUpTournament(item.id)}>{itemSignedUp?"取消報名":"立即報名"}</Button>
+                ?<Button variant={itemSignedUp?"secondary":"primary"} className="cup-btn" onClick={()=>setPendingSignup({id:item.id,name:item.name,joined:itemSignedUp})}>{itemSignedUp?"取消報名":"立即報名"}</Button>
                 :<a className="cup-btn primary" href="/login">登入後報名</a>)}
               <Button variant={status==="signup"?"secondary":"primary"} className="cup-btn" onClick={()=>setSelectedTournament(item.id)}>{status==="signup"?"睇對陣預覽":"睇賽程"}<span className="cup-btn-mark" aria-hidden="true">›</span></Button>
               {shareButton(item,"cup-btn ghost",true)}
@@ -1876,6 +1887,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
           </div>
         </Surface>;
       })}</div>}
+      {confirmSignupDialog}
     </section>;
   }
   if(!tournament)return null;
@@ -1993,7 +2005,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       <div className={`cup-signup${signedUp?" in":""}`}>
         <div><b>{signedUp?"你已報名":"報名參加"}</b><small>{signedUp?"截止後會自動抽籤，並通知你首圈對手。":"截止後按報名名單抽籤並建立對陣。"}</small></div>
         {ownPlayerId
-          ?<Button variant={signedUp?"secondary":"primary"} className="cup-btn" onClick={()=>onSignUpTournament(selectedTournament)}>{signedUp?"取消報名":"立即報名"}</Button>
+          ?<Button variant={signedUp?"secondary":"primary"} className="cup-btn" onClick={()=>setPendingSignup({id:selectedTournament,name:tournament.name,joined:signedUp})}>{signedUp?"取消報名":"立即報名"}</Button>
           :<a className="cup-btn primary" href="/login">登入後報名</a>}
       </div>
       {rosterPanel}
@@ -2039,6 +2051,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
           have; there, CupBracketChart carries the shape and the cards carry the detail. */}
       <div className="cup-tree"><TournamentBracketChart bracket={bracket} name={name} ownPlayerId={ownPlayerId} isAdmin={isAdmin} canManageMatch={canManageMatch} onEdit={onEdit} onRecordSlot={slot=>onRecordSlot(tournament,slot)} onWalkover={(slot,winnerId)=>onWalkover(tournament,slot,winnerId)}/></div>
     </>}
+    {confirmSignupDialog}
   </section>;
 }
 
