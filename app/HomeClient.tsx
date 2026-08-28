@@ -8,6 +8,7 @@ import { TonightStrip, actionableCount, useMatchmakingSummary } from "./Matchmak
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
+import { applyCupHandicap } from "../lib/cup-handicap-draft";
 import { ShareGlyph, shareSheetTitle } from "./ShareSheet";
 import CupShareButtons from "./CupShareButtons";
 import { HANDICAP_ELO_PER_POINT, proposeHandicap, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
@@ -2636,20 +2637,16 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
     setDraft((d:any)=>({...d,giver:"",points:0}));
     setCustomHandicap(false);
   };
+  /* A cup's handicap is the cup's, not the recorder's, so the draft is reconciled to it here rather
+     than left to the 讓分 controls (which are hidden in cup mode anyway). `applyCupHandicap` returns
+     the very same draft once the terms already match, so this settles after one pass instead of
+     feeding itself the re-render that used to take the page down — see lib/cup-handicap-draft.ts. */
+  const cupHandicapMode=isCupMode&&tournament?tournament.handicapMode:undefined;
   useEffect(()=>{
-    if(isCupMode && tournament && tournament.handicapMode === "suggested" && forecast){
-      if(fairActual!=null){
-        setDraft((d:any)=>({...d,giver:fairActual>=0?a.id:b.id,points:Math.abs(fairActual)}));
-        setCustomHandicap(false);
-      }
-    }
-  },[isCupMode,tournament,forecast,fairActual]);
-  useEffect(()=>{
-    if(isCupMode && tournament && tournament.handicapMode === "none"){
-      setDraft((d:any)=>({...d,giver:"",points:0}));
-      setCustomHandicap(false);
-    }
-  },[isCupMode,tournament]);
+    if(!cupHandicapMode)return;
+    setDraft((d:any)=>applyCupHandicap(d,{handicapMode:cupHandicapMode,fairActual,aId:a.id,bId:b.id}));
+    setCustomHandicap(false);
+  },[cupHandicapMode,fairActual,a.id,b.id,setDraft]);
   const changeScore=(key:"scoreA"|"scoreB",amount:number)=>setDraft((d:any)=>({...d,[key]:Math.max(0,+d[key]+amount)}));
   const totalFrames=+draft.scoreA + +draft.scoreB;
   const hasEloPreview=Boolean(forecast&&totalFrames>0);
