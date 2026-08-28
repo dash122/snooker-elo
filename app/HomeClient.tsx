@@ -882,7 +882,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     if(!isAdmin&&(!ownPlayerId||(a?.id!==ownPlayerId&&b?.id!==ownPlayerId&&a2?.id!==ownPlayerId&&b2?.id!==ownPlayerId))){setToast("你只能記錄或修改自己參與的比賽。");return;}
     const valid1v1 = draft.mode==="1v1";
     const valid2v2 = draft.mode==="2v2" && a && b && a2 && b2 && new Set([a.id,b.id,a2.id,b2.id]).size===4;
-    const validCup = draft.mode==="cup" && Boolean(draft.tournamentId&&a&&b) && Number(draft.tournamentRound)>=1 && Number(draft.tournamentMatchIndex)>=1;
+    const validCup = draft.mode==="cup" && Boolean(draft.tournamentId&&draft.a&&draft.b&&a&&b) && Number(draft.tournamentRound)>=1 && Number(draft.tournamentMatchIndex)>=1;
     if(!valid1v1 && !valid2v2 && !validCup){setToast("請選擇有效賽事配置；會友盃需選擇盃賽、輪次和場次。");return;}
     if(draft.scoreA<0||draft.scoreB<0||(+draft.scoreA+ +draft.scoreB)===0){setToast("比分總局數必須大於 0。");return;}
     if(!preview)return;
@@ -2625,7 +2625,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   },[hasEloPreview]);
   const validTeamSelection=Boolean(isTeamMode&&a2&&b2&&new Set([a.id,b.id,a2.id,b2.id]).size===4);
   const teamAName=(draft.teamAName?.trim()||"Team A"),teamBName=(draft.teamBName?.trim()||"Team B");
-  const valid=Boolean(a&&b&&a.id!==b.id&&totalFrames>0&&(!isTeamMode||validTeamSelection)&&(!isCupMode||Boolean(draft.tournamentId&&draft.tournamentRound&&draft.tournamentMatchIndex)));
+  const valid=Boolean(a&&b&&a.id!==b.id&&totalFrames>0&&(!isTeamMode||validTeamSelection)&&(!isCupMode||Boolean(draft.tournamentId&&draft.a&&draft.b&&draft.tournamentRound&&draft.tournamentMatchIndex)));
   const resultLabel=!valid?"輸入最終比分":draft.scoreA===draft.scoreB?`${draft.scoreA}–${draft.scoreB} 和局`:draft.scoreA>draft.scoreB?`${isTeamMode?teamAName:a.name} 勝 ${draft.scoreA}–${draft.scoreB}`:`${isTeamMode?teamBName:b.name} 勝 ${draft.scoreB}–${draft.scoreA}`;
   const handicapLabel=draft.giver&&+draft.points>0?`${draft.mode==="2v2"?([a.id,a2?.id].includes(draft.giver)?teamAName:teamBName):draft.giver===a?.id?a?.name:b?.name} 每局讓 ${draft.points} 分`:"沒有讓分";
   const dateLabel=draft.date===today?"今天":draft.date;
@@ -2638,6 +2638,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
         <option value="">選擇盃賽</option>
         {data.tournaments.map(t=> <option key={t.id} value={t.id}>{t.name}{t.signupDeadline?` · 截止 ${t.signupDeadline.replace("T"," ")}`:""}</option>)}
       </select></label>
+      {draft.tournamentId&&!cupBracket?.slots.length&&<p className="mm-note">此盃賽尚未抽籤（報名未截止或人數不足），暫時無法選擇對陣，請待抽籤後再記錄賽果。</p>}
     </div>}
     {cupSlotLocked&&<div className="cup-slot-banner"><small>{tournamentLabel}</small><b>{cupBracket?`${roundLabel(Number(draft.tournamentRound),cupBracket.rounds)} · 第 ${draft.tournamentMatchIndex} 場`:`第 ${draft.tournamentRound} 輪第 ${draft.tournamentMatchIndex} 場`}</b><span>對陣及場次由賽事對陣圖帶入，不可更改。</span></div>}
     <section className="match-players" aria-labelledby="match-players-title"><h3 id="match-players-title" className="visually-hidden">選擇球員</h3>
