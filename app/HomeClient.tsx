@@ -1099,6 +1099,28 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
      the frozen draw rather than re-running it — re-running would re-pair everyone already told who
      they are playing. Adding and removing stay closed after the draw: there is no box to put a new
      entrant in, and removing one deletes a tie somebody else is waiting on. */
+  /* Once the draw is frozen, a roster edit (swap, reshuffle, or a dragged reorder) goes through the
+     server so the entrants whose opponent actually moved get told again — the same job the initial
+     draw does. Before the freeze it is a plain edit of the sign-up list with nothing to announce, so
+     that path still writes straight through `persist`. */
+  async function submitRedraw(tournament:Tournament,body:{action:"shuffle"}|{action:"reorder";draggedId:string;targetId:string}|{action:"swap";outgoingId:string;incomingId:string},message:string){
+    if(!user){setToast("請先登入會員帳戶，才可更改球會資料。");return;}
+    setSaving(true);
+    try{
+      const r=await fetch(`/api/tournaments/${tournament.id}/redraw`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+      const json=await r.json().catch(()=>null);
+      if(!r.ok)throw new Error(typeof json?.error==="string"?json.error:"");
+      setToast(message);
+      if(toastTimer.current)clearTimeout(toastTimer.current);
+      toastTimer.current=setTimeout(()=>setToast(""),3200);
+      await refreshData();
+    }catch(error){
+      setToast(error instanceof Error&&error.message?error.message:"更新失敗，請重試。");
+    }finally{
+      setSaving(false);
+    }
+  }
+
   function editCupRoster(tournament:Tournament,outgoingId:string,incomingId:string){
     if(!isAdmin){setToast("只有管理員可以編輯報名名單。");return;}
     const playerName=(id:string)=>data.players.find(player=>player.id===id)?.name??"該球員";
@@ -1109,14 +1131,14 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       setData(next);persist(next,message,data);
     };
     if(outgoingId&&incomingId){
-      const text=`更換參賽球員：${tournament.name} — ${playerName(outgoingId)} → ${playerName(incomingId)}`,message="已更換參賽球員。";
+      const message="已更換參賽球員。";
       if(drawn){
-        const result=swapPlayer(tournament,outgoingId,incomingId,data.matches);
-        if(!result.ok){setToast(result.error);return}
-        const updated:Tournament={...tournament,signups:result.tournament.signups,draw:result.tournament.draw,walkovers:result.tournament.walkovers};
-        askConfirm({kicker:"更換參賽球員",title:`在「${tournament.name}」籤表中以「${playerName(incomingId)}」代替「${playerName(outgoingId)}」？`,description:"對陣會即時更新。",confirmLabel:"確定更換",onConfirm:()=>apply(updated,text,message)});
+        const precheck=swapPlayer(tournament,outgoingId,incomingId,data.matches);
+        if(!precheck.ok){setToast(precheck.error);return}
+        askConfirm({kicker:"更換參賽球員",title:`在「${tournament.name}」籤表中以「${playerName(incomingId)}」代替「${playerName(outgoingId)}」？`,description:"對陣會即時更新，受影響的球員會收到通知。",confirmLabel:"確定更換",onConfirm:()=>submitRedraw(tournament,{action:"swap",outgoingId,incomingId},message)});
       }else{
         if(tournament.signups.includes(incomingId)){setToast("該球員已在名單內。");return}
+        const text=`更換參賽球員：${tournament.name} — ${playerName(outgoingId)} → ${playerName(incomingId)}`;
         const updated:Tournament={...tournament,signups:tournament.signups.map(id=>id===outgoingId?incomingId:id)};
         askConfirm({kicker:"更換參賽球員",title:`在「${tournament.name}」報名名單中以「${playerName(incomingId)}」代替「${playerName(outgoingId)}」？`,description:"名單會即時更新。",confirmLabel:"確定更換",onConfirm:()=>apply(updated,text,message)});
       }
@@ -1139,14 +1161,12 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
      in the cup has a recorded result, so this is unavailable the instant it would matter. */
   function shuffleTournamentRoster(tournament:Tournament){
     if(!isAdmin){setToast("只有管理員可以重新抽籤。");return;}
-    const result=shuffleDraw(tournament,data.matches);
-    if(!result.ok){setToast(result.error);return}
-    const updated=result.tournament as Tournament;
-    askConfirm({kicker:"重新抽籤",title:`重新抽籤「${tournament.name}」？`,description:"會產生新的對陣，原本的對手安排將被取代。",confirmLabel:"確定重新抽籤",onConfirm:()=>{
-      const tournaments=data.tournaments.map(item=>item.id===tournament.id?updated:item);
-      const next={...data,tournaments,audits:[{id:crypto.randomUUID(),text:`重新抽籤：${tournament.name}`,at:new Date().toISOString()},...data.audits]};
-      setData(next);persist(next,"已重新抽籤。",data);
-    }});
+    // Cheap client-side pre-check only, so an admin who has just recorded a
+    // result gets an immediate "已有賽果" toast instead of a round trip — the
+    // write and the notifications to affected entrants still happen server-side.
+    const precheck=shuffleDraw(tournament,data.matches);
+    if(!precheck.ok){setToast(precheck.error);return}
+    askConfirm({kicker:"重新抽籤",title:`重新抽籤「${tournament.name}」？`,description:"會產生新的對陣，受影響的球員會收到通知。",confirmLabel:"確定重新抽籤",onConfirm:()=>submitRedraw(tournament,{action:"shuffle"},"已重新抽籤。")});
   }
 
   /* Dragging one name onto another is the same lever as the reshuffle button, aimed at one pair
@@ -1156,11 +1176,9 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
      dragging again. `reorderDraw` carries the same "nobody has played yet" guard as the shuffle. */
   function reorderTournamentRoster(tournament:Tournament,draggedId:string,targetId:string){
     if(!isAdmin)return;
-    const result=reorderDraw(tournament,draggedId,targetId,data.matches);
-    if(!result.ok){setToast(result.error);return}
-    const tournaments=data.tournaments.map(item=>item.id===tournament.id?result.tournament as Tournament:item);
-    const next={...data,tournaments,audits:[{id:crypto.randomUUID(),text:`調整籤表順序：${tournament.name}`,at:new Date().toISOString()},...data.audits]};
-    setData(next);persist(next,"已調整籤表順序。",data);
+    const precheck=reorderDraw(tournament,draggedId,targetId,data.matches);
+    if(!precheck.ok){setToast(precheck.error);return}
+    submitRedraw(tournament,{action:"reorder",draggedId,targetId},"已調整籤表順序。");
   }
 
   /* Signing up for a cup belongs to 比賽, not 約戰 — entering a competition and pitching a friendly
