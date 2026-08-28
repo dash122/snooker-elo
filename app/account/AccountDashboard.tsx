@@ -91,7 +91,7 @@ function matchRecords(player: Player, matches: Match[], players: Player[]): Matc
       opponent: opponentName, opponentShort: opponentPlayer?.short ?? deriveInitials(opponentName), opponentColour: opponentPlayer?.colour ?? null, opponentAvatar: null,
       opponentRating: opponentRatings.length ? opponentRatings.reduce((sum, value) => sum + value, 0) / opponentRatings.length : undefined,
       before, after, delta: after - before, handicap: (match.actual ?? 0) * (isA ? 1 : -1), expected: isA ? expectedA : 1 - expectedA,
-      highBreak: breaks.length ? Math.max(...breaks) : null,
+      highBreaks: breaks.slice().sort((a, b) => b - a),
     } satisfies MatchRecord;
   }).reverse();
 }
@@ -204,7 +204,8 @@ function AccountBody({ member, googleStatus, player, players, state }: { member:
   const games = player.wins + player.losses + player.draws;
   const frames = (player.framesWon ?? 0) + (player.framesLost ?? 0);
   const peak = points.length ? Math.max(...points.map(point => point.elo)) : 0;
-  const bestBreak = records.reduce<number | null>((best, record) => record.highBreak != null && (best == null || record.highBreak > best) ? record.highBreak : best, null);
+  const allBreaks = records.flatMap(record => record.highBreaks);
+  const bestBreak = allBreaks.length ? Math.max(...allBreaks) : null;
   const streak = longestStreak(ratedRecords.map(record => record.result).reverse());
   const bestGain = ratedRecords.reduce((best, record) => Math.max(best, record.delta), 0);
   const frameRate = frames ? Math.round(((player.framesWon ?? 0) / frames) * 100) : 0;
