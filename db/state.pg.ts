@@ -213,15 +213,15 @@ const VERSION_EXPRESSION = `md5(json_build_object(
       'settingsAt', (SELECT updated_at FROM state_settings WHERE id = true)
     )::text)`;
 
-/* getStateVersion/getStateDocument both read state_players.updated_at and
-   state_matches.updated_at. Those columns are migration-owned (see
-   supabase/migrations/20260828010000_state_players_matches_updated_at.sql), but a
-   deployment whose migration runner hasn't caught up yet — or a hand-rolled table —
-   can still be missing them, which fails every page that loads the club (account,
-   home, admin) with "column updated_at does not exist", not just saves. Unlike
-   ensureStateSchema this only runs the two cheap ALTER TABLEs the read path actually
-   needs, and only on that specific failure, so it doesn't reintroduce the cold-start
-   advisory-lock stall ensureStateSchema was disabled for. */
+/* getStateVersion/getStateDocument read state_players.updated_at, state_matches.updated_at
+   and state_tournaments.updated_at; putState writes all three. Those columns are
+   migration-owned (see supabase/migrations/20260828010000_state_players_matches_updated_at.sql
+   and 20260828000000_state_tournaments_updated_at.sql), but a deployment whose migration
+   runner hasn't caught up yet — or a hand-rolled table — can still be missing them, which
+   fails every page that loads the club (account, home, admin) and every save with "column
+   updated_at does not exist". Unlike ensureStateSchema this only runs the three cheap ALTER
+   TABLEs these paths actually need, so it doesn't reintroduce the cold-start advisory-lock
+   stall ensureStateSchema was disabled for. */
 let playersMatchesUpdatedAtReady: Promise<unknown> | null = null;
 function ensurePlayersMatchesUpdatedAtColumn() {
   playersMatchesUpdatedAtReady ??= (async () => {
@@ -230,6 +230,7 @@ function ensurePlayersMatchesUpdatedAtColumn() {
       await tx`SELECT pg_advisory_xact_lock(72591006)`;
       await tx`ALTER TABLE state_players ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`;
       await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`;
+      await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS updated_at timestamptz`;
     });
   })().catch(error => { playersMatchesUpdatedAtReady = null; throw error; });
   return playersMatchesUpdatedAtReady;
@@ -331,7 +332,12 @@ export async function getState(): Promise<string | null> {
 }
 
 export async function putState(data: string) {
-  await Promise.all([ensureStateSchema(), ensureProvisionalDeltaSchema()]);
+  // Proactive, not catch-and-retry like the read paths above: this transaction upserts
+  // state_players, state_matches and state_tournaments together, so a mid-transaction
+  // failure on the last of the three would still roll back the first two. Ensuring the
+  // column exists first (cached after the first call, so free on every save after) means
+  // one cold-start ALTER instead of a wasted, fully-rolled-back write.
+  await Promise.all([ensureStateSchema(), ensureProvisionalDeltaSchema(), ensurePlayersMatchesUpdatedAtColumn()]);
   const state = JSON.parse(data) as State;
   const sql = getSql();
   await sql.begin(async tx => {
