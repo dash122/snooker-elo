@@ -1,5 +1,5 @@
 import { requireMember, syncMemberPlayerProfiles } from "../../../db/auth";
-import { getState, putState, deleteState } from "../../../db/state";
+import { getState, getStateDocument, getStateVersion, putState, deleteState } from "../../../db/state";
 import { entertainmentOnlyWritePreservesOfficialState } from "../../../lib/entertainment-state";
 import { memberCanWrite } from "../../../lib/state-write-rules";
 
@@ -19,10 +19,25 @@ function storageError(error: unknown) {
   return Response.json({ error: message }, { status: 503 });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const data = await getState();
-    return Response.json(data ? JSON.parse(data) : defaultState, { headers: { "cache-control": "no-store" } });
+    /* The club document is the largest thing this app sends, and most page loads ask for a
+       copy of one that has not changed since the visitor's last one. A client holding a
+       cached copy sends its ETag; when the cheap version probe says nothing has moved we
+       answer 304 with no body — no document query, no megabytes over the wire. The fetch is
+       deliberately `no-store`, so the browser will not do this on its own; HomeClient sends
+       the header explicitly from its own cache. */
+    const cached = request.headers.get("if-none-match");
+    if (cached) {
+      const version = await getStateVersion();
+      if (cached.replace(/^W\//, "").replace(/"/g, "") === version) {
+        return new Response(null, { status: 304, headers: { etag: `"${version}"`, "cache-control": "no-store" } });
+      }
+    }
+    const { data, version } = await getStateDocument();
+    return Response.json(data ? JSON.parse(data) : defaultState, {
+      headers: { "cache-control": "no-store", etag: `"${version}"` },
+    });
   } catch (error) {
     return storageError(error);
   }

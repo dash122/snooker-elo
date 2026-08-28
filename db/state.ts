@@ -4,6 +4,16 @@ export async function getState() {
   return backend.getState();
 }
 
+/* Document plus its content version, from a single query — see state.pg.ts. */
+export async function getStateDocument() {
+  return backend.getStateDocument();
+}
+
+/* Cheap content version on its own, for answering a conditional GET. */
+export async function getStateVersion() {
+  return backend.getStateVersion();
+}
+
 export async function getSettings() {
   return backend.getSettings();
 }
