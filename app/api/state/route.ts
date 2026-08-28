@@ -13,6 +13,8 @@ const defaultState = {
 
 
 
+const AUDIT_LOG_LIMIT = 300;
+
 function storageError(error: unknown) {
   console.error("state storage error:", error);
   const message = error instanceof Error ? error.message : "storage unavailable";
@@ -60,7 +62,16 @@ export async function PUT(request: Request) {
     if (user.role !== "admin") {
       if (!memberCanWrite(current, parsedNext, user.statePlayerId)) return Response.json({ error: "You may only change your player profile or matches involving you" }, { status: 403 });
     }
-    await putState(data);
+    // The audit log is prepended to on every write and never trimmed, so a club with enough history
+    // eventually ships a body big enough to hit the platform's request-size limit — the write then
+    // fails before it ever reaches this handler, on the least forgiving action to retry: recording a
+    // match. Capping what actually gets stored keeps the payload bounded without touching what the UI
+    // already only ever shows the first 12 entries of.
+    if (Array.isArray(parsedNext?.audits) && parsedNext.audits.length > AUDIT_LOG_LIMIT) {
+      parsedNext.audits = parsedNext.audits.slice(0, AUDIT_LOG_LIMIT);
+    }
+    const capped = JSON.stringify(parsedNext);
+    await putState(capped);
     const next = parsedNext as { players?: { id: string; name: string; short: string; colour?: string | null }[] };
     await syncMemberPlayerProfiles(next.players ?? []);
     return Response.json({ ok: true });
