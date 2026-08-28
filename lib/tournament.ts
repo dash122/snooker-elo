@@ -205,6 +205,21 @@ export function shuffleDraw(tournament:TournamentLike,matches:CupMatchLike[]=[])
   return {ok:true,tournament:{...tournament,draw:shuffled,drawnAt:new Date().toISOString(),walkovers:[]}};
 }
 
+/** Move one entrant to sit where another one is, shifting the rest along — a drag-and-drop of the
+ *  roster list rather than a random re-roll. Shares `shuffleDraw`'s guard: refused once any cup tie
+ *  has a recorded result, for the same reason a reshuffle is. */
+export function reorderDraw(tournament:TournamentLike,draggedId:string,targetId:string,matches:CupMatchLike[]=[]):ShuffleResult {
+  const order=drawOrder(tournament);
+  if(order.length<2)return {ok:false,error:"報名人數不足兩人"};
+  if(!order.includes(draggedId)||!order.includes(targetId))return {ok:false,error:"該球員不在籤表內"};
+  if(draggedId===targetId)return {ok:true,tournament};
+  if(cupMatches(matches,tournament.id).length)return {ok:false,error:"已有賽果，不能調整籤表順序"};
+  const without=order.filter(id=>id!==draggedId);
+  const at=without.indexOf(targetId);
+  const reordered=[...without.slice(0,at),draggedId,...without.slice(at)];
+  return {ok:true,tournament:{...tournament,draw:reordered,drawnAt:tournament.drawnAt??new Date().toISOString()}};
+}
+
 export type SwapResult = {ok:true;tournament:TournamentLike;kind:"swap"|"substitute"}|{ok:false;error:string};
 
 /** Move a player in or out of a frozen draw, without re-running it.

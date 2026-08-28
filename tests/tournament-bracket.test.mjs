@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bracketShape, buildBracket, computeDraw, firstRoundPairings, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, roundLabel, shuffleDraw, signupsClosed, swapPlayer } from "../lib/tournament.ts";
+import { bracketShape, buildBracket, computeDraw, firstRoundPairings, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, reorderDraw, roundLabel, shuffleDraw, signupsClosed, swapPlayer } from "../lib/tournament.ts";
 
 const PAST = "2020-01-01T00:00";
 const FUTURE = "2999-01-01T00:00";
@@ -198,6 +198,28 @@ test("shuffling is refused once any tie has a recorded result", () => {
 
 test("shuffling is refused for fewer than two entrants", () => {
   assert.equal(shuffleDraw(cup({ signups: ["p1"], draw: ["p1"] }), []).ok, false);
+});
+
+test("dragging an entrant onto another moves it there, shifting the rest along", () => {
+  const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
+  const moved = reorderDraw(drawn, "p1", "p3", []);
+  assert.equal(moved.ok, true);
+  assert.deepEqual(moved.tournament.draw, ["p2", "p1", "p3", "p4"]);
+});
+
+test("dropping a player back on itself is a no-op", () => {
+  const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
+  const same = reorderDraw(drawn, "p2", "p2", []);
+  assert.equal(same.ok, true);
+  assert.deepEqual(same.tournament.draw, drawn.draw);
+});
+
+test("reordering is refused once any tie has a recorded result, or for an unknown entrant", () => {
+  const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
+  assert.equal(reorderDraw(drawn, "p9", "p1", []).ok, false);
+  const withResult = reorderDraw(drawn, "p3", "p4", [result(1, 1, "p1", "p2", 3, 0)]);
+  assert.equal(withResult.ok, false);
+  assert.equal(withResult.error, "已有賽果，不能調整籤表順序");
 });
 
 /* Honours — who a cup finish belongs to, and who it does not. */
