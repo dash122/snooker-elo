@@ -181,6 +181,30 @@ export function playerEliminated(bracket:Bracket,playerId:string|undefined):bool
   return involved.every(slot=>slot.settled&&slot.winner!==playerId);
 }
 
+export type ShuffleResult = {ok:true;tournament:TournamentLike}|{ok:false;error:string};
+
+/** Re-roll the draw order, for an admin who wants a different bracket than the one the hash gave
+ *  them — before or after the freeze, as long as nobody has actually played yet.
+ *
+ *  `computeDraw` is deterministic (seeded by the cup id), so there is no "shuffle again" lever on
+ *  it; this is that lever, applied to whatever order is currently in effect and written back as the
+ *  frozen `draw`. Refused once any cup tie has a recorded result: a played match names its two
+ *  players, and reshuffling out from under it would leave the scorecard pointing at a box the
+ *  bracket no longer agrees with. Walkovers are dropped with it — `buildBracket` already ignores one
+ *  declared for a player no longer in that slot, but a reshuffle is exactly the moment a stale entry
+ *  would otherwise wait to misfire against whoever moved in. */
+export function shuffleDraw(tournament:TournamentLike,matches:CupMatchLike[]=[]):ShuffleResult {
+  const order=drawOrder(tournament);
+  if(order.length<2)return {ok:false,error:"報名人數不足兩人"};
+  if(cupMatches(matches,tournament.id).length)return {ok:false,error:"已有賽果，不能重新抽籤"};
+  const shuffled=[...order];
+  for(let i=shuffled.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];
+  }
+  return {ok:true,tournament:{...tournament,draw:shuffled,drawnAt:new Date().toISOString(),walkovers:[]}};
+}
+
 export type SwapResult = {ok:true;tournament:TournamentLike;kind:"swap"|"substitute"}|{ok:false;error:string};
 
 /** Move a player in or out of a frozen draw, without re-running it.

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bracketShape, buildBracket, computeDraw, firstRoundPairings, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, roundLabel, signupsClosed, swapPlayer } from "../lib/tournament.ts";
+import { bracketShape, buildBracket, computeDraw, firstRoundPairings, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, roundLabel, shuffleDraw, signupsClosed, swapPlayer } from "../lib/tournament.ts";
 
 const PAST = "2020-01-01T00:00";
 const FUTURE = "2999-01-01T00:00";
@@ -170,6 +170,34 @@ test("swaps are refused for unknown, self-paired or already-played entrants", ()
   assert.equal(withResult.error, "該球員已有賽果，不能更換");
   assert.equal(swapPlayer(drawn, "p3", "p1", [result(1, 1, "p1", "p2", 3, 0)]).ok, false);
   assert.equal(swapPlayer(drawn, "p3", "p9", [result(1, 1, "p1", "p2", 3, 0)]).ok, true);
+});
+
+test("shuffling re-rolls the draw order and clears stale walkovers", () => {
+  const drawn = cup({ draw: ["p1", "p2", "p3", "p4"], walkovers: [{ round: 1, index: 1, winner: "p1" }] });
+  const shuffled = shuffleDraw(drawn, []);
+  assert.equal(shuffled.ok, true);
+  assert.equal(shuffled.tournament.draw.length, 4);
+  assert.deepEqual([...shuffled.tournament.draw].sort(), ["p1", "p2", "p3", "p4"]);
+  assert.deepEqual(shuffled.tournament.signups, drawn.signups);
+  assert.deepEqual(shuffled.tournament.walkovers, []);
+});
+
+test("shuffling an undrawn but closed cup freezes a fresh order", () => {
+  const closed = cup({ signups: ["p1", "p2", "p3", "p4"] });
+  const shuffled = shuffleDraw(closed, []);
+  assert.equal(shuffled.ok, true);
+  assert.deepEqual([...shuffled.tournament.draw].sort(), ["p1", "p2", "p3", "p4"]);
+});
+
+test("shuffling is refused once any tie has a recorded result", () => {
+  const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
+  const withResult = shuffleDraw(drawn, [result(1, 1, "p1", "p2", 3, 0)]);
+  assert.equal(withResult.ok, false);
+  assert.equal(withResult.error, "已有賽果，不能重新抽籤");
+});
+
+test("shuffling is refused for fewer than two entrants", () => {
+  assert.equal(shuffleDraw(cup({ signups: ["p1"], draw: ["p1"] }), []).ok, false);
 });
 
 /* Honours — who a cup finish belongs to, and who it does not. */
