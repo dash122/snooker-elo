@@ -213,9 +213,41 @@ const VERSION_EXPRESSION = `md5(json_build_object(
       'settingsAt', (SELECT updated_at FROM state_settings WHERE id = true)
     )::text)`;
 
+/* getStateVersion/getStateDocument both read state_players.updated_at and
+   state_matches.updated_at. Those columns are migration-owned (see
+   supabase/migrations/20260828010000_state_players_matches_updated_at.sql), but a
+   deployment whose migration runner hasn't caught up yet — or a hand-rolled table —
+   can still be missing them, which fails every page that loads the club (account,
+   home, admin) with "column updated_at does not exist", not just saves. Unlike
+   ensureStateSchema this only runs the two cheap ALTER TABLEs the read path actually
+   needs, and only on that specific failure, so it doesn't reintroduce the cold-start
+   advisory-lock stall ensureStateSchema was disabled for. */
+let playersMatchesUpdatedAtReady: Promise<unknown> | null = null;
+function ensurePlayersMatchesUpdatedAtColumn() {
+  playersMatchesUpdatedAtReady ??= (async () => {
+    const sql = getSql();
+    await sql.begin(async tx => {
+      await tx`SELECT pg_advisory_xact_lock(72591006)`;
+      await tx`ALTER TABLE state_players ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`;
+      await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`;
+    });
+  })().catch(error => { playersMatchesUpdatedAtReady = null; throw error; });
+  return playersMatchesUpdatedAtReady;
+}
+function isMissingUpdatedAtColumn(error: unknown) {
+  return error instanceof Error && /column .*updated_at.* does not exist/i.test(error.message);
+}
+
 export async function getStateVersion(): Promise<string> {
-  const rows = await getSql().unsafe<{ version: string }[]>(`SELECT ${VERSION_EXPRESSION} AS version`);
-  return rows[0]?.version ?? "";
+  try {
+    const rows = await getSql().unsafe<{ version: string }[]>(`SELECT ${VERSION_EXPRESSION} AS version`);
+    return rows[0]?.version ?? "";
+  } catch (error) {
+    if (!isMissingUpdatedAtColumn(error)) throw error;
+    await ensurePlayersMatchesUpdatedAtColumn();
+    const rows = await getSql().unsafe<{ version: string }[]>(`SELECT ${VERSION_EXPRESSION} AS version`);
+    return rows[0]?.version ?? "";
+  }
 }
 
 const STATE_DOCUMENT_QUERY = `
@@ -281,9 +313,17 @@ export async function getStateDocument(): Promise<{ data: string | null; version
      back text that needs no JS-side serialize. `to_json` (not `to_jsonb`) keeps the column
      order, so the parsed document is identical to the old one key for key; only
      json_build_object's whitespace between the five top-level keys differs. */
-  const rows = await sql.unsafe<{ data: string; empty: boolean; version: string }[]>(STATE_DOCUMENT_QUERY);
-  const row = rows[0];
-  return { data: !row || row.empty ? null : row.data, version: row?.version ?? "" };
+  try {
+    const rows = await sql.unsafe<{ data: string; empty: boolean; version: string }[]>(STATE_DOCUMENT_QUERY);
+    const row = rows[0];
+    return { data: !row || row.empty ? null : row.data, version: row?.version ?? "" };
+  } catch (error) {
+    if (!isMissingUpdatedAtColumn(error)) throw error;
+    await ensurePlayersMatchesUpdatedAtColumn();
+    const rows = await sql.unsafe<{ data: string; empty: boolean; version: string }[]>(STATE_DOCUMENT_QUERY);
+    const row = rows[0];
+    return { data: !row || row.empty ? null : row.data, version: row?.version ?? "" };
+  }
 }
 
 export async function getState(): Promise<string | null> {
