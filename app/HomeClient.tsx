@@ -122,6 +122,16 @@ type Settings = {
 export type AppState = { players: Player[]; matches: Match[]; tournaments: Tournament[]; settings: Settings; audits: { id: string; text: string; at: string }[] };
 type StateLoadStatus = "loading" | "ready" | "failed";
 const AUDIT_LOG_LIMIT = 300;
+// A hung request here (a stalled DB connection, a dropped network segment) must not be able to
+// wedge `saving` on forever — that leaves the header stuck on 儲存中 and blocks every later save,
+// since `saveMatch` no-ops while `saving` is true. Aborting after a bound turns a hang into an
+// ordinary failed-fetch error, which `persist`'s catch/finally already knows how to recover from.
+const STATE_FETCH_TIMEOUT_MS = 15000;
+function fetchWithTimeout(input:string,init?:RequestInit){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),STATE_FETCH_TIMEOUT_MS);
+  return fetch(input,{...init,signal:controller.signal}).finally(()=>clearTimeout(timer));
+}
 
 const seed: AppState = {
   settings: {
@@ -795,7 +805,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       // though nothing about this save was actually about their match. Pull
       // the latest matches first and merge back in anything we don't know
       // about yet, so an unrelated concurrent save can't masquerade as one.
-      const latest=await fetch("/api/state",{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null);
+      const latest=await fetchWithTimeout("/api/state",{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null);
       let payload=next;
       if(Array.isArray(latest?.matches)){
         // A match absent from `next` is only "unknown to us" — and worth
@@ -832,7 +842,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
         });
         if(missing.length||merged.some((t,i)=>t!==payload.tournaments[i]))payload={...payload,tournaments:[...merged,...missing]};
       }
-      const r=await fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+      const r=await fetchWithTimeout("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
       if(!r.ok){
         const body=await r.json().catch(()=>null);
         throw new Error(typeof body?.error==="string"?body.error:"");
