@@ -208,6 +208,15 @@ function deletedPlayerPlaceholder(id:string,startRating:number):Player{
   return {id,name:"已刪除球員",short:"?",handicap:null,rating:startRating,initialRating:startRating,
     active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]};
 }
+/* Same shape, different reason: a cup slot with no ready tie clears the draft's player id back to
+   "" rather than leaving a stale one selected. `data.players[0]`/`[1]` used to stand in for that
+   gap, which crashes the moment the club has fewer than two players (see above) and, worse, silently
+   showed an unrelated player as one of the two sides of a cup match nobody has actually been paired
+   for yet. An empty-id placeholder keeps the form rendering with an honest "no player yet" identity. */
+function unselectedPlayerPlaceholder(startRating:number):Player{
+  return {id:"",name:"未選擇球員",short:"?",handicap:null,rating:startRating,initialRating:startRating,
+    active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]};
+}
 function teamMemberIds(match: Match, side:"A"|"B"){ return side==="A"?[match.a,match.a2].filter(Boolean) as string[]:[match.b,match.b2].filter(Boolean) as string[]; }
 function teamLabel(match: Match,data:AppState,side:"A"|"B"){
   if(isEntertainmentMode(match.mode)){
@@ -844,8 +853,8 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   }
 
   const ranked=useMemo(()=>[...data.players].sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name)),[data]);
-  const a=data.players.find(p=>p.id===draft.a)??(draft.a?deletedPlayerPlaceholder(draft.a,data.settings.start):data.players[0]);
-  const b=data.players.find(p=>p.id===draft.b)??(draft.b?deletedPlayerPlaceholder(draft.b,data.settings.start):data.players[1]);
+  const a=data.players.find(p=>p.id===draft.a)??(draft.a?deletedPlayerPlaceholder(draft.a,data.settings.start):data.players[0]??unselectedPlayerPlaceholder(data.settings.start));
+  const b=data.players.find(p=>p.id===draft.b)??(draft.b?deletedPlayerPlaceholder(draft.b,data.settings.start):data.players[1]??unselectedPlayerPlaceholder(data.settings.start));
   const a2=data.players.find(p=>p.id===draft.a2);
   const b2=data.players.find(p=>p.id===draft.b2);
   const valid2v2 = draft.mode==="2v2" && a && b && a2 && b2 && new Set([a.id,b.id,a2.id,b2.id]).size===4;
