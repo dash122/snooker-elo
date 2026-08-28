@@ -22,7 +22,7 @@ export type MatchRecord = {
   delta: number;
   handicap: number;
   expected: number;
-  highBreak: number | null;
+  highBreaks: number[];
 };
 
 const PAGE = 8;
@@ -103,13 +103,13 @@ export default function MatchHistory({ records }: { records: MatchRecord[] }) {
                     <b>{record.mode==="2v2"?"不計 ELO":`${record.delta >= 0 ? "+" : ""}${Math.round(record.delta)}`}</b>
                     <small>{record.mode==="2v2"?"娛樂模式":`${Math.round(record.before)} → ${Math.round(record.after)}`}</small>
                   </span>
-                  {record.highBreak != null && <span className="match-row-break">單桿 {record.highBreak}</span>}
+                  {record.highBreaks.length > 0 && <span className="match-row-break">單桿 {record.highBreaks.join(" / ")}</span>}
                 </button>
                 {open && <dl className="match-row-detail">
                   <div><dt>讓分</dt><dd>{record.handicap === 0 ? "無" : record.handicap > 0 ? `你讓 ${record.handicap}` : `對手讓 ${Math.abs(record.handicap)}`}</dd></div>
                   <div><dt>賽前勝算</dt><dd>{Math.round(record.expected * 100)}%</dd></div>
                   <div><dt>局數</dt><dd>{record.score}</dd></div>
-                  <div><dt>最佳單桿</dt><dd>{record.highBreak ?? "—"}</dd></div>
+                  <div><dt>單桿</dt><dd>{record.highBreaks.length ? record.highBreaks.join(" / ") : "—"}</dd></div>
                 </dl>}
               </Surface>;
             })}
