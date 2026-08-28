@@ -60,7 +60,12 @@
    rest of the app uses for supporting figures. */
 .cup-roster ul.rated{grid-template-columns:repeat(auto-fill,minmax(13rem,1fr));gap:var(--sp-2-5)}.cup-roster-stat{display:flex;flex-wrap:wrap;flex:0 1 auto;justify-content:flex-end;gap:.125rem var(--sp-2);margin-left:auto;
   color:var(--ds-text-secondary);font-size:var(--fs-label);font-variant-numeric:tabular-nums}.cup-roster-stat i{margin-right:var(--sp-1);font-style:normal;opacity:.7}.cup-roster-stat em{font-style:normal;opacity:.7}.cup-roster-note{margin:var(--sp-3) 0 0;padding-top:var(--sp-3);border-top:1px solid var(--line);
-  color:var(--ds-text-secondary);font-size:var(--fs-caption);line-height:1.5}/* The terms of one tie, beside its number — the same 讓分 the cup will actually apply. */
+  color:var(--ds-text-secondary);font-size:var(--fs-caption);line-height:1.5}/* A row that can be dragged says so before the pointer even lands on it — the grip mark reads as
+   "pick me up" the way a select's chevron reads as "pick from a list", so nobody has to discover the
+   behaviour by accident. The drop target gets its own outline rather than reusing the drag source's
+   dimming, because a row can be both at once when the pointer passes back over itself. */
+.cup-roster li[draggable="true"]{cursor:grab}.cup-roster-handle{flex:0 0 auto;color:var(--ds-text-secondary);font-size:var(--fs-label);line-height:1;cursor:grab}
+.cup-roster li.dragging{opacity:.5}.cup-roster li.drag-over{outline:2px dashed var(--ds-accent-action);outline-offset:2px;border-radius:var(--radius-sm)}/* The terms of one tie, beside its number — the same 讓分 the cup will actually apply. */
 .cup-tie-handicap{padding:0 var(--sp-1-5);border-radius:999px;background:var(--ds-signup-wash);color:var(--ds-signup-text);
   font-size:var(--fs-label);font-weight:800}/* The admin's replace control rides in the roster row itself: the name and the swap are the same
    decision, so putting the picker anywhere else would mean matching them up by eye. */
