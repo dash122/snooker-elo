@@ -120,6 +120,7 @@ type Settings = {
 };
 export type AppState = { players: Player[]; matches: Match[]; tournaments: Tournament[]; settings: Settings; audits: { id: string; text: string; at: string }[] };
 type StateLoadStatus = "loading" | "ready" | "failed";
+const AUDIT_LOG_LIMIT = 300;
 
 const seed: AppState = {
   settings: {
@@ -760,9 +761,14 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   },[data.players]);
 
   // `undo` holds the pre-change snapshot; while the toast is on screen it can be persisted back.
-  async function persist(next:AppState,message:string,undo?:AppState) {
+  async function persist(rawNext:AppState,message:string,undo?:AppState) {
     if(!user){setToast("請先登入會員帳戶，才可更改球會資料。");return;}
     const baseline=data;
+    // The audit log is prepended to on every write and the UI only ever shows the first 12 entries,
+    // so an old club's full history is dead weight in every save from here on — weight that,
+    // uncapped, eventually pushes a save past the platform's request-size limit and fails the least
+    // forgiving action to retry: recording a match.
+    const next=rawNext.audits.length>AUDIT_LOG_LIMIT?{...rawNext,audits:rawNext.audits.slice(0,AUDIT_LOG_LIMIT)}:rawNext;
     setData(next); setSaving(true);
     if(toastTimer.current) clearTimeout(toastTimer.current);
     if(undoTimer.current) clearTimeout(undoTimer.current);
