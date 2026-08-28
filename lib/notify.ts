@@ -98,3 +98,16 @@ export function cupDrawn(cupName:string,opponent:string|null,roundName:string):N
     tag:`cup-draw:${cupName}`,url:"/?tab=matches&view=cup",urgency:"normal",
   };
 }
+
+/** The draw already landed, but an admin reshuffled it, dragged one name onto another, or swapped in
+ *  a reserve — anyone whose first-round opponent changed as a result needs telling again, the same
+ *  way the original draw told them, or they turn up ready to play whoever the old bracket said. Reuses
+ *  the `cup-draw` tag so an unread original-draw push is replaced rather than stacking a second one. */
+export function cupRedrawn(cupName:string,opponent:string|null,roundName:string):NotificationMessage {
+  return {
+    channel:"result",
+    title:`${cupName} 對陣更新咗`,
+    body:opponent?`${roundName}：你而家對 ${opponent} — 撳入去約時間、打完記低賽果。`:`${roundName}：你而家輪空，直接晉級下一圈。`,
+    tag:`cup-draw:${cupName}`,url:"/?tab=matches&view=cup",urgency:"normal",
+  };
+}
