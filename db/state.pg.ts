@@ -165,6 +165,10 @@ export function ensureStateSchema() {
       await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS draw jsonb`;
       await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS drawn_at timestamptz`;
       await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS walkovers jsonb`;
+      // Without this, edits that only touch signups (a player joining/withdrawing a cup) left
+      // every timestamp state_tournaments had untouched, so the /api/state version fingerprint
+      // below didn't move and clients kept serving a stale cached document past a real DB change.
+      await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS updated_at timestamptz`;
     });
   })().catch(error => { schemaReady = null; throw error; });
   return schemaReady;
@@ -197,7 +201,7 @@ const VERSION_EXPRESSION = `md5(json_build_object(
       'matches', (SELECT count(*) FROM state_matches),
       'matchesAt', (SELECT max(updated_at) FROM state_matches),
       'tournaments', (SELECT count(*) FROM state_tournaments),
-      'tournamentsAt', (SELECT greatest(max(created_at), max(drawn_at)) FROM state_tournaments),
+      'tournamentsAt', (SELECT greatest(max(created_at), max(drawn_at), max(updated_at)) FROM state_tournaments),
       'audits', (SELECT count(*) FROM state_audits),
       'auditsAt', (SELECT max(occurred_at) FROM state_audits),
       'settingsAt', (SELECT updated_at FROM state_settings WHERE id = true)
@@ -374,9 +378,9 @@ export async function putState(data: string) {
     }
 
     if (state.tournaments.length) {
-      const rows = state.tournaments.map(t => ({ id: t.id, name: t.name, handicap_mode: t.handicapMode, signup_deadline: t.signupDeadline.length === 16 ? `${t.signupDeadline}:00+08:00` : t.signupDeadline, created_at: t.createdAt, created_by: t.createdBy ?? null, signups: tx.json(t.signups), draw: t.draw?.length ? tx.json(t.draw) : null, drawn_at: t.drawnAt ?? null, walkovers: t.walkovers?.length ? tx.json(t.walkovers) : null }));
+      const rows = state.tournaments.map(t => ({ id: t.id, name: t.name, handicap_mode: t.handicapMode, signup_deadline: t.signupDeadline.length === 16 ? `${t.signupDeadline}:00+08:00` : t.signupDeadline, created_at: t.createdAt, created_by: t.createdBy ?? null, signups: tx.json(t.signups), draw: t.draw?.length ? tx.json(t.draw) : null, drawn_at: t.drawnAt ?? null, walkovers: t.walkovers?.length ? tx.json(t.walkovers) : null, updated_at: new Date() }));
       for (const chunk of insertChunks(rows)) await tx`INSERT INTO state_tournaments ${tx(chunk)}
-        ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by,signups=excluded.signups,draw=excluded.draw,drawn_at=excluded.drawn_at,walkovers=excluded.walkovers`;
+        ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by,signups=excluded.signups,draw=excluded.draw,drawn_at=excluded.drawn_at,walkovers=excluded.walkovers,updated_at=excluded.updated_at`;
     }
     await tx`DELETE FROM state_tournaments WHERE NOT (id = ANY(${tournamentIds}::text[]))`;
     if (state.audits.length) {
