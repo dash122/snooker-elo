@@ -30,7 +30,8 @@ export default function CupShareButtons({ name, state, url, entrants, champion, 
   url: string;
   entrants: StoryPerson[];
   champion: StoryPerson | null;
-  /** The whole tree, drawn on the story once the cup is finished. Ignored before then. */
+  /** The whole tree. It is the story card once the cup has been drawn — the draw card while it is
+      being played, the champion's record once it is over — and ignored while entries are still open. */
   bracket?: StoryBracketRound[];
   /** The WhatsApp button's weight. The cup page leads with it; the app's row already has a primary. */
   tone?: "primary" | "ghost";
@@ -66,7 +67,8 @@ export default function CupShareButtons({ name, state, url, entrants, champion, 
       </button>
       <button type="button" className="cup-btn ghost ig-btn" disabled={busy} onClick={() => void toStory()}>
         <ShareGlyph kind="instagram" />
-        <span>{busy ? "整緊圖…" : state.status === "signup" ? "IG 限時動態招兵" : "IG 限時動態"}</span>
+        <span>{busy ? "整緊圖…" : state.status === "signup" ? "IG 限時動態招兵"
+          : state.status === "live" ? "IG 限時動態出對陣" : "IG 限時動態"}</span>
       </button>
     </div>
     {note && <p className="cup-share-note" role="status">{note}</p>}
