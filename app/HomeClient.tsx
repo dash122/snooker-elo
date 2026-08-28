@@ -807,6 +807,31 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
         const missing=latest.matches.filter((m:Match)=>!knownIds.has(m.id));
         if(missing.length)payload={...next,matches:[...next.matches,...missing]};
       }
+      if(Array.isArray(latest?.tournaments)){
+        // Same problem, same fix, for tournaments: a cup someone else created,
+        // or a signup someone else toggled, since this client's last poll is
+        // invisible to `next`. Sending `next` as-is would silently delete that
+        // tournament — or roll its signup list back — the moment this save
+        // lands, and for a member write it also trips the "signup changed by
+        // someone other than me" permission check in state-write-rules.ts.
+        const knownIds=new Set([...payload.tournaments,...baseline.tournaments].map(t=>t.id));
+        const missing=latest.tournaments.filter((t:Tournament)=>!knownIds.has(t.id));
+        const known=new Map(baseline.tournaments.map((t:Tournament)=>[t.id,t]));
+        const merged=payload.tournaments.map(tournament=>{
+          const before=known.get(tournament.id);
+          const after=latest.tournaments.find((t:Tournament)=>t.id===tournament.id);
+          if(!before||!after)return tournament;
+          // Only carry forward signups we didn't already know about and didn't
+          // ourselves change — this save's own signup edit (if any) still wins.
+          const beforeSignups=new Set(before.signups??[]);
+          const oursSignups=new Set(tournament.signups??[]);
+          if(JSON.stringify([...beforeSignups].sort())!==JSON.stringify([...oursSignups].sort()))return tournament;
+          const afterSignups:string[]=after.signups??[];
+          if(JSON.stringify([...beforeSignups].sort())===JSON.stringify([...new Set(afterSignups)].sort()))return tournament;
+          return {...tournament,signups:afterSignups};
+        });
+        if(missing.length||merged.some((t,i)=>t!==payload.tournaments[i]))payload={...payload,tournaments:[...merged,...missing]};
+      }
       const r=await fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
       if(!r.ok){
         const body=await r.json().catch(()=>null);
