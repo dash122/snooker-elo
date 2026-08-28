@@ -147,6 +147,12 @@ export function ensureStateSchema() {
       // Added after the first release — existing deployments get it here rather
       // than depending on a migration having been run by hand.
       await tx`ALTER TABLE state_players ADD COLUMN IF NOT EXISTS avatar text`;
+      // Present in the baseline schema, but a deployment created before that baseline
+      // (or that had this table hand-rolled) can still be missing it — the upsert below
+      // always writes updated_at, so without this every match/player edit on such a
+      // deployment fails with "column updated_at does not exist".
+      await tx`ALTER TABLE state_players ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`;
+      await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()`;
       await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS player_a2 text`;
       await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS player_b2 text`;
       await tx`ALTER TABLE state_matches ADD COLUMN IF NOT EXISTS mode text`;
