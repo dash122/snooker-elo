@@ -7,5 +7,5 @@ const serverBundle = new URL("../dist/server/index.js", import.meta.url);
 test("builds the server bundle", async () => {
   await access(serverBundle);
   const { default: worker } = await import(serverBundle.href);
-  assert.ok(worker && typeof worker.fetch === "function");
+  assert.ok(typeof worker === "function");
 });
