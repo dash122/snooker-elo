@@ -245,12 +245,74 @@ const tree = [
   ] },
 ];
 
-test("a finished cup carries its bracket, and an unfinished one does not", () => {
+test("a drawn cup carries its bracket, and one still taking entries does not", () => {
   const done = cupStoryCard("盃", finishedState(), "https://x/c/1", [], cupPerson("陳大文"), tree);
   assert.equal(done.bracket, tree);
-  // Still recruiting: the tree would be half 待定, and it dates the moment it is posted.
-  const live = cupStoryCard("盃", cupState(), "https://x/c/1", [], null, tree);
-  assert.deepEqual(live.bracket, []);
+  // Drawn and being played: the tree is the news, so it rides on the card too.
+  const live = cupStoryCard("盃", liveState(), "https://x/c/1", [], null, tree);
+  assert.equal(live.bracket, tree);
+  // Still recruiting: there is nothing drawn yet, so there is nothing to draw.
+  const signup = cupStoryCard("盃", cupState(), "https://x/c/1", [], null, tree);
+  assert.deepEqual(signup.bracket, []);
+});
+
+/* --- The draw ---------------------------------------------------------------
+ *
+ * The moment a cup is drawn, the question in the group chat is "who did I get?". The card answers
+ * it with the tree rather than with a headline number. */
+
+const liveState = () => cupState({
+  signupDeadline: "2026-06-01T23:59", closed: true, drew: true, roundName: "準決賽",
+});
+const drawnTree = [
+  { name: "準決賽", ties: [
+    { seats: [{ name: "陳大文", score: null, won: false }, { name: "李小強", score: null, won: false }] },
+    { seats: [{ name: "黃志明", score: null, won: false }, { name: "何家豪", score: null, won: false }] },
+  ] },
+  { name: "決賽", ties: [
+    { seats: [{ name: "待定", score: null, won: false, pending: true },
+      { name: "待定", score: null, won: false, pending: true }] },
+  ] },
+];
+
+test("the drawn card leads with the bracket, not with the entry count", () => {
+  const card = cupStoryCard("南華會週年會友盃", liveState(), "https://x/c/1",
+    ["陳大文", "李小強"].map(cupPerson), null, drawnTree);
+  assert.equal(card.status, "live");
+  assert.equal(card.round, "準決賽");
+  const svg = cupStorySvg(card, hex);
+  assert.ok(svg.includes("對 陣 抽 籤"));
+  assert.ok(svg.includes("今 屆 對 陣 表"));
+  // Every drawn pairing is on the card, both rounds are named, and the field size is a footnote.
+  for (const name of ["陳大文", "李小強", "黃志明", "何家豪"]) assert.ok(svg.includes(name), name);
+  for (const round of ["準決賽", "決賽"]) assert.ok(svg.includes(round), round);
+  assert.ok(svg.includes("12 人參賽"));
+  // The old poster's giant entry number is gone — the tree is the headline now.
+  assert.ok(!svg.includes(`font-size="176"`));
+  // And the link a viewer cannot tap is still readable.
+  assert.ok(svg.includes("x/c/1"));
+  assert.match(svg, /連結貼紙/);
+});
+
+test("the round still being played is the lit column, and 待定 seats stay faint", () => {
+  const svg = cupStorySvg(cupStoryCard("盃", liveState(), "https://x/c/1", [], null, drawnTree), hex);
+  // 待定 is drawn, so the shape of the rest of the tree is visible, but at a third of the weight.
+  assert.ok(svg.includes("待定"));
+  assert.match(svg, /opacity="0.34"[^>]*>待定/);
+  // The semi-final column — the one with real opponents and no result — carries the lit backing.
+  assert.ok(svg.includes(`fill="rgba(232,194,106,.06)"`));
+});
+
+test("a drawn cup with no tree yet falls back to the poster rather than an empty frame", () => {
+  const svg = cupStorySvg(cupStoryCard("盃", liveState(), "https://x/c/1", [cupPerson("陳大文")], null, []), hex);
+  assert.ok(!svg.includes("對 陣 抽 籤"));
+});
+
+test("nothing on the drawn card is drawn outside the frame", () => {
+  const svg = cupStorySvg(cupStoryCard("盃", liveState(), "https://x/c/1",
+    ["陳大文", "李小強"].map(cupPerson), null, drawnTree), hex);
+  const coordinates = [...svg.matchAll(/ (?:x|cx)="(-?[\d.]+)"/g)].map(match => Number(match[1]));
+  assert.ok(Math.min(...coordinates) >= -340 && Math.max(...coordinates) <= STORY_WIDTH + 340);
 });
 
 test("the finished card draws the champion and every tie that produced them", () => {

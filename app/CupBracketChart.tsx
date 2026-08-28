@@ -49,7 +49,11 @@ export function storyBracket(chart:BracketChartData):StoryBracketRound[]{
     name:round.name,
     ties:round.nodes.map(node=>({
       dead:node.state==="dead",
-      seats:node.seats.map(seat=>({name:seatName(seat.player,node.state),score:seat.score,won:seat.won})),
+      /* 待定 is marked, not just named: on a freshly drawn cup the card draws the empty half of the
+         tree faintly so the first-round pairings stay the thing you read. A bye is a real outcome,
+         so it is not pending. */
+      seats:node.seats.map(seat=>({name:seatName(seat.player,node.state),score:seat.score,won:seat.won,
+        pending:!seat.player&&node.state!=="bye"})),
     })),
   }));
 }

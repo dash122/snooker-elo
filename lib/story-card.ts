@@ -88,7 +88,10 @@ export type RecordStoryCard = {
  *  tapped, so a tie is only ever two names, two scores and which one went through. `dead` marks a
  *  slot that a non-power-of-two field never plays — it keeps its place in the column so the tree's
  *  shape stays honest, and draws as nothing. */
-export type StoryBracketSeat = { name: string; score: number | null; won: boolean };
+export type StoryBracketSeat = { name: string; score: number | null; won: boolean;
+  /** A seat waiting on an earlier tie — 待定. Drawn faintly, so a fresh draw reads as a shape with
+      first-round names in it rather than as a wall of identical placeholders. */
+  pending?: boolean };
 export type StoryBracketTie = { seats: StoryBracketSeat[]; dead?: boolean };
 export type StoryBracketRound = { name: string; ties: StoryBracketTie[] };
 
@@ -100,6 +103,8 @@ export type CupStoryCard = {
   statusLabel: string;
   /** The clock, empty once entries have closed. */
   urgency: string;
+  /** 「首圈」 and the like — the round the cup is actually on. Empty unless it is being played. */
+  round: string;
   hot: boolean;
   /** The one big number: entries so far, or the size of the field once it is running. */
   headline: string;
@@ -108,7 +113,7 @@ export type CupStoryCard = {
   entrants: StoryPerson[];
   entrantsMore: number;
   champion: StoryPerson | null;
-  /** Drawn only on a finished cup, where the whole tree is the story. Empty otherwise. */
+  /** The tree. Drawn on a cup that has been drawn — live or finished — and empty before then. */
   bracket: StoryBracketRound[];
   cta: string;
   url: string;
@@ -439,7 +444,8 @@ export function recordStorySvg(card: RecordStoryCard, hex: (colour: string | nul
  *
  *  The elbows are the point. A column of scores is a table; a table with elbows is a bracket, and a
  *  bracket is the picture that says "this is a competition someone won". */
-function bracketPanel(rounds: StoryBracketRound[], x: number, y: number, width: number, height: number): string {
+function bracketPanel(rounds: StoryBracketRound[], x: number, y: number, width: number, height: number,
+  options: { title?: string; focus?: number } = {}): string {
   const columns = rounds.length;
   if (!columns) return "";
   const gap = columns > 4 ? 20 : 28;
@@ -469,15 +475,25 @@ function bracketPanel(rounds: StoryBracketRound[], x: number, y: number, width: 
   };
 
   const parts: string[] = [
-    text("賽 事 對 陣", x + width / 2, bodyY - 56, { size: 26, anchor: "middle", opacity: 0.42, weight: 700, spacing: 8 }),
+    text(options.title ?? "賽 事 對 陣", x + width / 2, bodyY - 56,
+      { size: 26, anchor: "middle", opacity: 0.42, weight: 700, spacing: 8 }),
   ];
 
   rounds.forEach((round, index) => {
     /* Pinned to the tree, not to the box: when a small draw centres itself the labels come with it
        rather than floating alone at the top of an empty panel. */
+    const lit = index === options.focus;
     parts.push(text(ellipsize(round.name, 24, columnWidth), columnX(index) + columnWidth / 2, bodyY - 16,
-      { size: 24, fill: GOLD_DIM, weight: 800, anchor: "middle", spacing: 2 }));
+      { size: 24, fill: lit ? GOLD_BRIGHT : GOLD_DIM, weight: 800, anchor: "middle", spacing: 2 }));
   });
+
+  /* The focused column — the round being played — gets a lit backing, so on a fresh draw the eye
+     lands on the ties that have opponents in them rather than on the empty half of the tree. */
+  if (options.focus != null && rounds[options.focus]) {
+    const left = columnX(options.focus) - 12;
+    parts.push(`<rect x="${left}" y="${bodyY - 40}" width="${columnWidth + 24}" height="${bodyHeight + 52}" rx="28"`
+      + ` fill="rgba(232,194,106,.06)" stroke="rgba(232,194,106,.24)" stroke-width="2"/>`);
+  }
 
   /* Elbows first, so a card always paints over the line that reaches it. */
   rounds.slice(0, -1).forEach((round, index) => {
@@ -510,8 +526,12 @@ function bracketPanel(rounds: StoryBracketRound[], x: number, y: number, width: 
       const nameWidth = columnWidth - pad * 2 - scoreSize * 1.4;
       const top = centreOf(index, position) - cardHeight / 2;
       const decided = tie.seats.some(seat => seat.won);
+      /* A tie waiting on both its feeders is drawn as an empty slot rather than as a card: on a
+         fresh draw it is the shape of the rounds to come, and it must not compete with the pairings
+         that actually have names in them. */
+      const waiting = tie.seats.length > 0 && tie.seats.every(seat => seat.pending);
       parts.push(`<rect x="${left}" y="${top}" width="${columnWidth}" height="${cardHeight}" rx="${Math.min(18, cardHeight / 3)}"`
-        + ` fill="rgba(255,255,255,.055)" stroke="rgba(255,255,255,.12)" stroke-width="2"/>`);
+        + ` fill="rgba(255,255,255,${waiting ? ".02" : ".055"})" stroke="rgba(255,255,255,${waiting ? ".06" : ".12"})" stroke-width="2"/>`);
       tie.seats.forEach((seat, side) => {
         const rowTop = top + 5 + seatHeight * side;
         const baseline = rowTop + seatHeight / 2 + nameSize * 0.36;
@@ -522,7 +542,8 @@ function bracketPanel(rounds: StoryBracketRound[], x: number, y: number, width: 
         }
         parts.push(text(ellipsize(seat.name, nameSize, nameWidth), left + pad, baseline, {
           size: nameSize, weight: seat.won ? 800 : 600,
-          fill: seat.won ? GOLD : INK, opacity: seat.won ? 1 : decided ? 0.52 : 0.8,
+          fill: seat.won ? GOLD : INK,
+          opacity: seat.won ? 1 : seat.pending ? 0.34 : decided ? 0.52 : 0.8,
         }));
         if (seat.score != null) {
           parts.push(text(String(seat.score), left + columnWidth - pad, baseline, {
@@ -614,6 +635,79 @@ function cupDoneSvg(card: CupStoryCard, hex: (colour: string | null) => string):
   return svgDocument(parts.join(""));
 }
 
+/** The freshly drawn cup: the bracket is the news.
+ *
+ *  A draw is the one moment in a cup's life when nothing has been won and everybody still wants to
+ *  look — the question in the group chat is "who did I get?", and the honest answer is a picture of
+ *  the tree, not a headline number. So this card spends almost the whole frame on the bracket: the
+ *  round being played is lit, its ties carry real names, and the empty half of the tree is drawn
+ *  faintly rather than hidden, because the shape of what is still to come is the other half of the
+ *  story ("win this and you are in the semi").
+ *
+ *  It keeps the wordmark, palette and drawn link button of the other two cup cards, so the three
+ *  read as one family. */
+function cupDrawSvg(card: CupStoryCard, hex: (colour: string | null) => string): string {
+  const parts: string[] = [wordmark(card.statusLabel)];
+
+  const nameSize = fitSize(card.name, 74, 44, 880);
+  parts.push(text(ellipsize(card.name, nameSize, 900), STORY_WIDTH / 2, 330, {
+    size: nameSize, weight: 900, anchor: "middle",
+  }));
+  parts.push(text("對 陣 抽 籤", STORY_WIDTH / 2, 392, {
+    size: 30, fill: GOLD, weight: 800, anchor: "middle", spacing: 12,
+  }));
+
+  /* The two facts a tree cannot state itself: how big the field is, and which round these ties are.
+     Everything else on the card is the drawing. */
+  parts.push(pillRow([
+    { label: `${card.headline} 人參賽` },
+    ...(card.round ? [{ label: card.round, tone: "gold" as const }] : []),
+  ], STORY_WIDTH / 2, 424, 30));
+
+  /* The round still being played: the first one holding a tie that has both opponents and no result.
+     That is the column a reader is looking for, so it is the column that gets lit. */
+  const focus = card.bracket.findIndex(round =>
+    round.ties.some(tie => !tie.dead && tie.seats.every(seat => !seat.pending) && !tie.seats.some(seat => seat.won)));
+
+  const panelTop = 566;
+  parts.push(bracketPanel(card.bracket, 56, panelTop, STORY_WIDTH - 112, 1352 - panelTop, {
+    title: "今 屆 對 陣 表",
+    focus: focus >= 0 ? focus : undefined,
+  }));
+
+  /* A handful of faces under the tree, at the size the tree can spare: a bracket is names, and a
+     name in a story is recognised far faster with the face the app already draws beside it. */
+  if (card.entrants.length) {
+    const radius = 34, gap = 16;
+    const shown = card.entrants.slice(0, 9);
+    const total = shown.length * radius * 2 + (shown.length - 1) * gap + (card.entrantsMore > 0 ? radius * 2 + gap : 0);
+    let cursor = STORY_WIDTH / 2 - total / 2 + radius;
+    for (const person of shown) {
+      parts.push(badge(person, cursor, 1404, radius, hex(person.colour)));
+      cursor += radius * 2 + gap;
+    }
+    if (card.entrantsMore > 0) {
+      parts.push(`<circle cx="${cursor}" cy="1404" r="${radius}" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.2)" stroke-width="2"/>`);
+      parts.push(text(`+${card.entrantsMore}`, cursor, 1416, { size: 26, weight: 800, anchor: "middle", opacity: 0.8 }));
+    }
+  }
+
+  parts.push(text(card.cta, STORY_WIDTH / 2, 1490, { size: 40, weight: 800, anchor: "middle" }));
+  const host = card.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const linkSize = fitSize(host, 36, 24, 800);
+  parts.push(`<rect x="100" y="1524" width="${STORY_WIDTH - 200}" height="104" rx="52"`
+    + ` fill="rgba(232,194,106,.12)" stroke="${GOLD}" stroke-width="3"/>`);
+  parts.push(text(ellipsize(host, linkSize, 800), STORY_WIDTH / 2, 1524 + 52 + linkSize * 0.36, {
+    size: linkSize, weight: 800, fill: GOLD, anchor: "middle",
+  }));
+  parts.push(text("開連結貼紙貼上，或者照打呢條網址", STORY_WIDTH / 2, SAFE_BOTTOM - 12, {
+    size: 30, anchor: "middle", opacity: 0.55,
+  }));
+
+  parts.push(balls());
+  return svgDocument(parts.join(""));
+}
+
 /** The cup, as a story.
  *
  *  Its job is different from the other two. A result card reports something that already happened to
@@ -629,6 +723,8 @@ export function cupStorySvg(card: CupStoryCard, hex: (colour: string | null) => 
   /* A finished cup is a different card entirely — see `cupDoneSvg`. It keeps the same wordmark,
      palette and link button, so the two read as one family rather than two apps. */
   if (card.status === "done" && card.champion) return cupDoneSvg(card, hex);
+  /* A cup that has been drawn is about its bracket, not about how many people entered. */
+  if (card.status === "live" && card.bracket.length) return cupDrawSvg(card, hex);
   const parts: string[] = [wordmark(card.statusLabel)];
 
   const nameSize = fitSize(card.name, 96, 52, 880);
@@ -714,6 +810,7 @@ export function cupStoryCard(name: string, state: CupShareState, url: string,
     kind: "cup",
     name, status: state.status, statusLabel,
     urgency: recruiting && state.urgency.label !== "報名開放中" ? state.urgency.label : "",
+    round: state.status === "live" ? state.roundName : "",
     hot: state.urgency.hot,
     headline: String(state.entrants),
     headlineLabel: recruiting ? "已報名人數"
@@ -723,10 +820,12 @@ export function cupStoryCard(name: string, state: CupShareState, url: string,
     entrants: state.status === "done" ? [] : entrants,
     entrantsMore: state.status === "done" ? 0 : Math.max(0, state.entrants - entrants.length),
     champion: state.status === "done" ? champion : null,
-    /* Only the finished card draws the tree. A cup still being played would be showing a bracket
-       that is half 待定, which flatters nobody and dates the moment it is posted. */
-    bracket: state.status === "done" ? bracket : [],
-    cta: recruiting ? "撳呢條連結即刻報名" : "撳呢條連結睇對陣同賽果",
+    /* Once the draw is made the tree is the card, live or finished. Before it there is nothing to
+       draw — a bracket of 待定 against 待定 is a diagram of a competition, not a competition. */
+    bracket: state.status === "done" || state.status === "live" ? bracket : [],
+    cta: recruiting ? "撳呢條連結即刻報名"
+      : state.status === "live" ? "撳呢條連結睇成個對陣表"
+      : "撳呢條連結睇對陣同賽果",
     url,
   };
 }
