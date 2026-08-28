@@ -1929,15 +1929,15 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       const standing=rosterStanding(id);
       return <li key={id}>
       <PlayerBadge player={player(id)??{short:"?"}}/><b>{name(id)}</b>
+      <span className="cup-roster-stat">
+        {standing.rating!=null?<><i>ELO</i>{standing.rating}</>:<em>未評分</em>}
+        {standing.handicap!=null&&tournament.handicapMode==="suggested"&&<><i>建議讓分</i>{standing.handicap}</>}
+      </span>
       {isAdmin&&<select className="cup-roster-edit" defaultValue="" onChange={rosterPick(id)} aria-label={`更換 ${name(id)}`}>
         <option value="">⋯</option>
         <optgroup label="換上">{spare.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
         {!drawn&&<option value="remove">移除</option>}
       </select>}
-      <span className="cup-roster-stat">
-        {standing.rating!=null?<><i>ELO</i>{standing.rating}</>:<em>未評分</em>}
-        {standing.handicap!=null&&tournament.handicapMode==="suggested"&&<><i>建議讓分</i>{standing.handicap}</>}
-      </span>
     </li>;})}</ul>
     {isAdmin&&<label className="cup-roster-add">
       <span>{drawn?"已抽籤，只可替換名單上的球員":"加入球員"}</span>
