@@ -88,6 +88,17 @@ export function bracketShape(entrants:number):{size:number;rounds:number} {
   return {size,rounds:Math.log2(size)};
 }
 
+/** Lays `order` out across `size` bracket boxes so byes split as evenly as possible between the two
+ *  halves — and recursively within each half — instead of piling up in whichever boxes happen to
+ *  come last. Applied at every level of the recursion, this is what keeps the draw's two sides (and
+ *  each side's own sub-brackets) within one bye of each other, not just the top-level split. */
+function seedPositions(order:string[],size:number):string[] {
+  if(size<=1)return order.length?[order[0]]:[""];
+  const half=size/2;
+  const top=Math.min(half,Math.ceil(order.length/2));
+  return [...seedPositions(order.slice(0,top),half),...seedPositions(order.slice(top),half)];
+}
+
 export function roundLabel(round:number,total:number):string {
   const remaining=total-round;
   return remaining<=0?"決賽":remaining===1?"四強":remaining===2?"八強":`${2**(remaining+1)}強`;
@@ -123,14 +134,15 @@ export function buildBracket<M extends CupMatchLike>(tournament:TournamentLike,m
   const order=closed?drawOrder(tournament):[];
   const {size,rounds}=bracketShape(order.length);
   if(!size)return {size:0,rounds:0,slots:[],champion:""};
+  const seeded=seedPositions(order,size);
   const played=cupMatches(matches,tournament.id);
   const walkovers=tournament.walkovers??[];
   const slots:BracketSlot<M>[]=[];
   const at=(round:number,index:number)=>slots.find(slot=>slot.round===round&&slot.index===index);
   for(let round=1;round<=rounds;round++){
     for(let index=1;index<=size/2**round;index++){
-      const first=round===1?order[(index-1)*2]??"":at(round-1,(index-1)*2+1)!.winner;
-      const second=round===1?order[(index-1)*2+1]??"":at(round-1,(index-1)*2+2)!.winner;
+      const first=round===1?seeded[(index-1)*2]??"":at(round-1,(index-1)*2+1)!.winner;
+      const second=round===1?seeded[(index-1)*2+1]??"":at(round-1,(index-1)*2+2)!.winner;
       const firstSettled=round===1||at(round-1,(index-1)*2+1)!.settled;
       const secondSettled=round===1||at(round-1,(index-1)*2+2)!.settled;
       const match=played.find(item=>(item.tournamentRound??1)===round&&(item.tournamentMatchIndex??1)===index);
