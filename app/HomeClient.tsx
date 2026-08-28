@@ -1907,16 +1907,29 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     if(value==="remove")onEditRoster(tournament,outgoingId,"");
     else if(value)onEditRoster(tournament,outgoingId,value);
   };
+  /* Same two numbers the shared cup page quotes — ELO and the club's suggested handicap — so a
+     member deciding whether to enter can see how beatable the field is without leaving the app. */
+  const rosterStanding=(id:string)=>{
+    const found=player(id);
+    if(!found)return {rating:null as number|null,handicap:null as number|null};
+    return {rating:Math.round(found.rating),handicap:Math.round(suggestedHandicap(found,data))};
+  };
   const rosterPanel=rosterIds.length>0||isAdmin?<div className="cup-roster">
     <h3>{drawn?"參賽名單":"報名名單"} <span>{rosterIds.length}</span></h3>
-    <ul>{rosterIds.map(id=><li key={id}>
+    <ul className="rated">{rosterIds.map(id=>{
+      const standing=rosterStanding(id);
+      return <li key={id}>
       <PlayerBadge player={player(id)??{short:"?"}}/><b>{name(id)}</b>
       {isAdmin&&<select className="cup-roster-edit" defaultValue="" onChange={rosterPick(id)} aria-label={`更換 ${name(id)}`}>
         <option value="">⋯</option>
         <optgroup label="換上">{spare.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
         {!drawn&&<option value="remove">移除</option>}
       </select>}
-    </li>)}</ul>
+      <span className="cup-roster-stat">
+        {standing.rating!=null?<><i>ELO</i>{standing.rating}</>:<em>未評分</em>}
+        {standing.handicap!=null&&tournament.handicapMode==="suggested"&&<><i>建議讓分</i>{standing.handicap}</>}
+      </span>
+    </li>;})}</ul>
     {isAdmin&&<label className="cup-roster-add">
       <span>{drawn?"已抽籤，只可替換名單上的球員":"加入球員"}</span>
       {!drawn&&<select defaultValue="" onChange={event=>{const value=event.target.value;event.target.value="";if(value)onEditRoster(tournament,"",value)}}>
