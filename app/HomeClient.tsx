@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type TouchEvent as ReactTouchEvent } from "react";
 import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import Availability from "./Availability";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
@@ -1852,6 +1852,35 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
      reset the moment the drag ends one way or another so a stale highlight can never survive it. */
   const [dragRosterId,setDragRosterId]=useState("");
   const [dragOverRosterId,setDragOverRosterId]=useState("");
+  /* HTML5 drag-and-drop has no touch backend, so it's silently inert on the PWA/mobile browsers
+     the club actually reorders draws from — this reimplements the same gesture by hand from the
+     handle's touch events, tracking the finger with elementFromPoint instead of native drag events. */
+  const touchDragId=useRef("");
+  const touchOverId=useRef("");
+  const onRosterHandleTouchStart=(id:string)=>(event:ReactTouchEvent)=>{
+    touchDragId.current=id;
+    touchOverId.current="";
+    setDragRosterId(id);
+  };
+  const onRosterHandleTouchMove=(event:ReactTouchEvent)=>{
+    if(!touchDragId.current)return;
+    event.preventDefault();
+    const touch=event.touches[0];
+    const el=document.elementFromPoint(touch.clientX,touch.clientY);
+    const row=el?.closest<HTMLElement>("[data-roster-id]");
+    const overId=row?.dataset.rosterId&&row.dataset.rosterId!==touchDragId.current?row.dataset.rosterId:"";
+    touchOverId.current=overId;
+    setDragOverRosterId(overId);
+  };
+  const onRosterHandleTouchEnd=(tournamentForDrop:Tournament)=>()=>{
+    if(touchDragId.current&&touchOverId.current){
+      onReorderRoster(tournamentForDrop,touchDragId.current,touchOverId.current);
+    }
+    touchDragId.current="";
+    touchOverId.current="";
+    setDragRosterId("");
+    setDragOverRosterId("");
+  };
   /* Both entering and leaving a cup are one-tap actions with real consequences — a missed 報名 window
      doesn't reopen, and a careless 取消報名 drops your seat in a bracket that may already be filling
      up — so each gets a confirmation naming the cup, not a silent toggle. */
@@ -1998,14 +2027,19 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     <ul className="rated">{rosterIds.map(id=>{
       const standing=rosterStanding(id);
       const draggable=isAdmin&&canShuffle;
-      return <li key={id} draggable={draggable}
+      return <li key={id} draggable={draggable} data-roster-id={id}
         className={`${dragRosterId&&dragRosterId!==id&&dragOverRosterId===id?"drag-over":""}${dragRosterId===id?" dragging":""}`.trim()||undefined}
         onDragStart={draggable?event=>{setDragRosterId(id);event.dataTransfer.effectAllowed="move"}:undefined}
         onDragOver={draggable&&dragRosterId&&dragRosterId!==id?event=>{event.preventDefault();setDragOverRosterId(id)}:undefined}
         onDragLeave={draggable&&dragOverRosterId===id?()=>setDragOverRosterId(""):undefined}
         onDrop={draggable&&dragRosterId&&dragRosterId!==id?event=>{event.preventDefault();onReorderRoster(tournament,dragRosterId,id);setDragRosterId("");setDragOverRosterId("")}:undefined}
         onDragEnd={draggable?()=>{setDragRosterId("");setDragOverRosterId("")}:undefined}>
-      {draggable&&<span className="cup-roster-handle" aria-hidden="true">⠿</span>}
+      {draggable&&<span className="cup-roster-handle" aria-hidden="true"
+        onTouchStart={onRosterHandleTouchStart(id)}
+        onTouchMove={onRosterHandleTouchMove}
+        onTouchEnd={onRosterHandleTouchEnd(tournament)}
+        onTouchCancel={onRosterHandleTouchEnd(tournament)}
+        style={{touchAction:"none"}}>⠿</span>}
       <PlayerBadge player={player(id)??{short:"?"}}/><b>{name(id)}</b>
       <span className="cup-roster-stat">
         {standing.rating!=null?<><i>ELO</i>{standing.rating}</>:<em>未評分</em>}
