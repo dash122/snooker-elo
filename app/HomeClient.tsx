@@ -467,6 +467,30 @@ function upgradeState(raw:AppState){
 }
 
 const today = new Date().toISOString().slice(0,10);
+/* Last-known club document, kept in localStorage so a return visit paints from it immediately
+   instead of sitting on 正在載入球會資料 for a cold serverless function plus a database read.
+   What is cached is the raw server document, not the replayed state: a deploy that changes the
+   rating replay must recompute from source, and restoring goes through exactly the same
+   upgrade + replay path as a network response. */
+const STATE_CACHE_KEY = "scaa-state-cache";
+type CachedDocument = { version:string; document:AppState };
+function readStateCache():CachedDocument|null{
+  try{
+    const raw=localStorage.getItem(STATE_CACHE_KEY);
+    if(!raw)return null;
+    const parsed=JSON.parse(raw) as CachedDocument|null;
+    if(!parsed?.version||!Array.isArray(parsed.document?.players)||!Array.isArray(parsed.document?.matches))return null;
+    return parsed;
+  }catch{ return null }
+}
+function writeStateCache(version:string,document:AppState){
+  if(!version)return;
+  try{ localStorage.setItem(STATE_CACHE_KEY,JSON.stringify({version,document})) }
+  /* A long enough history can exceed the origin's storage quota. Drop the key rather than
+     leaving a truncated or stale document behind; the next load simply goes to the network. */
+  catch{ try{ localStorage.removeItem(STATE_CACHE_KEY) }catch{} }
+}
+
 // Module scope, not render: reading the clock during render is impure.
 const thirtyDaysAgo = new Date(Date.now()-30*864e5).toISOString().slice(0,10);
 const tenDaysAgo = new Date(Date.now()-10*864e5).toISOString().slice(0,10);
@@ -481,6 +505,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const [stateLoadStatus,setStateLoadStatus] = useState<StateLoadStatus>(initialData ? "ready" : "loading");
   const [stateLoadError,setStateLoadError] = useState("");
   const [stateRetry,setStateRetry] = useState(0);
+  const [stateLoadAttempt,setStateLoadAttempt] = useState(0);
   const [tab,setTab] = useState("leaderboard");
   const [availabilityDirty,setAvailabilityDirty] = useState(false);
   const [leavingAvailability,setLeavingAvailability] = useState<string|null>(null);
@@ -538,6 +563,9 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     if(search.get("view")==="cup")setMatchesView("cup");
   },[]);
   const isAdmin=user?.role==="admin";
+  // Primitive, so the state loader's dependency list can name it without the prop's identity
+  // re-triggering a full club refetch on every parent render.
+  const signedIn=Boolean(user);
   const [tournamentForm,setTournamentForm] = useState<{name:string;handicapMode:"suggested"|"none";signupDeadline:string}>({name:"",handicapMode:"suggested",signupDeadline:`${today}T23:59`});
   const canManageMatch=(match:Match)=>Boolean(isAdmin||ownPlayerId&&isParticipant(match,ownPlayerId));
   /* A drawn cup tie is a thing the club is waiting on you for, exactly like an unanswered invite —
@@ -550,43 +578,74 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   useEffect(()=>{
     const local = localStorage.getItem("scaa-draft");
     if(local) try { setDraft(JSON.parse(local)); } catch {}
-    /* The server already hydrated this page with the same state. Refetching it immediately adds five
+    /* The server already hydrated this page with the same state. Refetching it immediately adds
        database reads while the matchmaking summary and 約戰 board are trying to open. */
     if(initialData)return;
     let cancelled=false;
     let retryTimer:ReturnType<typeof setTimeout>|undefined;
     let requestController:AbortController|undefined;
+    /* Show the cached club first, then reconcile with the server. The rating replay is the same
+       one the network path runs, so what is on screen is never a different calculation — only an
+       older set of matches, replaced the moment the server answers with something newer. */
+    const cached=readStateCache();
+    const apply=(document:AppState,version:string)=>{
+      const upgraded=upgradeState(document);
+      const loaded=upgraded.state;
+      const replayed={...loaded,...replay(loaded.players,loaded.matches,loaded.settings)};
+      setData(replayed);
+      setStateLoadStatus("ready");
+      setStateLoadError("");
+      return {upgraded,loaded,replayed,version};
+    };
+    if(cached) try{ apply(cached.document,cached.version) }catch{}
     const load=async(attempt:number):Promise<void>=>{
+      setStateLoadAttempt(attempt);
       requestController=new AbortController();
       const timeout=setTimeout(()=>requestController?.abort(),15000);
       try{
-        const response=await fetch("/api/state",{cache:"no-store",signal:requestController.signal});
+        const response=await fetch("/api/state",{
+          cache:"no-store",
+          signal:requestController.signal,
+          /* `no-store` opts out of the browser's own revalidation, so the conditional request is
+             made explicitly. An unchanged club then costs one small version query and an empty
+             304 instead of the whole document. */
+          headers:cached?{"if-none-match":`"${cached.version}"`}:undefined,
+        });
+        if(response.status===304&&cached){
+          if(!cancelled)setStateLoadStatus("ready");
+          return;
+        }
         const value=await response.json().catch(()=>null) as Record<string,unknown>|null;
         if(!response.ok||!Array.isArray(value?.players)||!Array.isArray(value?.matches)){
           throw new Error(typeof value?.error==="string"?value.error:"資料格式無效");
         }
-        const upgraded=upgradeState(value as AppState);
-        const loaded=upgraded.state;
-        const replayed={...loaded,...replay(loaded.players,loaded.matches,loaded.settings)};
-        const replayChanged=JSON.stringify({players:loaded.players,matches:loaded.matches})!==JSON.stringify({players:replayed.players,matches:replayed.matches});
         if(cancelled)return;
-        setData(replayed);
-        setStateLoadStatus("ready");
-        setStateLoadError("");
-        if(upgraded.changed||replayChanged)fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(replayed)}).catch(()=>{});
+        const document=value as AppState;
+        const version=(response.headers.get("etag")??"").replace(/^W\//,"").replace(/"/g,"");
+        const {upgraded,loaded,replayed}=apply(document,version);
+        writeStateCache(version,document);
+        const replayChanged=JSON.stringify({players:loaded.players,matches:loaded.matches})!==JSON.stringify({players:replayed.players,matches:replayed.matches});
+        /* Persisting the recomputed ratings keeps the server-rendered pages (/p, /m, /admin),
+           which read stored values without replaying, in step. Only a signed-in visitor can
+           write, so firing this for anyone else just spends a serverless invocation on a
+           guaranteed 401. */
+        if(signedIn&&(upgraded.changed||replayChanged))fetch("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(replayed)}).catch(()=>{});
       }catch(error){
         if(cancelled)return;
         if(attempt<2){
           retryTimer=setTimeout(()=>void load(attempt+1),1000*2**attempt);
           return;
         }
+        /* A visitor already looking at the cached club keeps it; a failed refresh is not a
+           reason to replace real data with an error. */
+        if(cached)return;
         setStateLoadStatus("failed");
         setStateLoadError(error instanceof Error&&error.name==="AbortError"?"資料載入逾時。":"資料暫時未能載入。請稍後再試。");
       }finally{clearTimeout(timeout)}
     };
     void load(0);
     return()=>{cancelled=true;clearTimeout(retryTimer);requestController?.abort()};
-  },[initialData,stateRetry]);
+  },[initialData,stateRetry,signedIn]);
   async function refreshData(){
     if(refreshingStateRef.current)return;
     refreshingStateRef.current=true;
@@ -1080,7 +1139,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     <main>
       <header><div className="mobile-brand-wrap"><div className="mobile-brand">SCAA <span>Snooker ELO</span></div>{user?.needsOnboarding&&<a className="onboarding-alert-link" href="/onboarding?reminder=1" aria-label="完成會員問卷" title="完成會員問卷">⚠️</a>}</div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {stateLoadStatus==="loading"?"載入中…":stateLoadStatus==="failed"?"載入失敗":saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       <PageFrame className={`app-page-${tab}`}>
-      {stateLoadStatus==="loading"&&<InlineNotice title="正在載入球會資料">正在連接資料庫，請稍候。</InlineNotice>}
+      {stateLoadStatus==="loading"&&<InlineNotice title="正在載入球會資料">{stateLoadAttempt>0?`正在重試連接資料庫（第 ${stateLoadAttempt+1} 次）…`:"正在連接資料庫，請稍候。"}</InlineNotice>}
       {stateLoadStatus==="failed"&&<InlineNotice tone="danger" title="未能載入球會資料"><span>{stateLoadError}</span> <Button variant="secondary" onClick={()=>{setStateLoadStatus("loading");setStateLoadError("");setStateRetry(value=>value+1)}}>重試</Button></InlineNotice>}
       {stateLoadStatus==="ready"&&<>
       {/* The club's pulse, on the screen members actually open. Matchmaking used to live entirely

@@ -181,18 +181,103 @@ export async function getSettings(): Promise<Record<string, unknown> | null> {
   return row?.data ?? null;
 }
 
-export async function getState(): Promise<string | null> {
-  await Promise.all([ensureStateSchema(), ensureProvisionalDeltaSchema()]);
+/* postgres.js decodes timestamptz to a Date, which JSON.stringify renders as
+   `2026-02-01T10:00:00.250Z`. Postgres' own default rendering is `+00:00`, so every timestamp
+   below is formatted explicitly to match what callers have always parsed. */
+const isoUtc = (column: string) => `to_char(${column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+
+/* A cheap "has anything changed?" fingerprint, used to answer a conditional GET without
+   building the whole document. Every save goes through putState, which always rewrites
+   state_settings.updated_at, so that timestamp alone moves on any ordinary edit; the counts
+   and per-table high-water marks are belt and braces for anything that writes a state table
+   directly. Rows are tiny, so this is orders of magnitude cheaper than the document query. */
+const VERSION_EXPRESSION = `md5(json_build_object(
+      'players', (SELECT count(*) FROM state_players),
+      'playersAt', (SELECT max(updated_at) FROM state_players),
+      'matches', (SELECT count(*) FROM state_matches),
+      'matchesAt', (SELECT max(updated_at) FROM state_matches),
+      'tournaments', (SELECT count(*) FROM state_tournaments),
+      'tournamentsAt', (SELECT greatest(max(created_at), max(drawn_at)) FROM state_tournaments),
+      'audits', (SELECT count(*) FROM state_audits),
+      'auditsAt', (SELECT max(occurred_at) FROM state_audits),
+      'settingsAt', (SELECT updated_at FROM state_settings WHERE id = true)
+    )::text)`;
+
+export async function getStateVersion(): Promise<string> {
+  const rows = await getSql().unsafe<{ version: string }[]>(`SELECT ${VERSION_EXPRESSION} AS version`);
+  return rows[0]?.version ?? "";
+}
+
+const STATE_DOCUMENT_QUERY = `
+    SELECT json_build_object(
+      'players', COALESCE((SELECT json_agg(to_json(p) ORDER BY p.name) FROM (
+        SELECT id, name, short, handicap::float8 AS handicap, rating::float8 AS rating, colour, avatar,
+               initial_rating::float8 AS "initialRating", preliminary_rating::float8 AS "preliminaryRating",
+               active, wins, losses, draws, frames_won AS "framesWon", frames_lost AS "framesLost",
+               last_change::float8 AS "lastChange", form
+        FROM state_players
+      ) p), '[]'::json),
+      'matches', COALESCE((SELECT json_agg(to_json(m) ORDER BY m."playedOn", m."createdAt", m.id) FROM (
+        SELECT id, player_a AS a, player_b AS b, player_a2 AS a2, player_b2 AS b2, mode,
+               team_a_name AS "teamAName", team_b_name AS "teamBName", score_a AS "scoreA", score_b AS "scoreB",
+               to_char(played_on, 'YYYY-MM-DD') AS "playedOn", entry_mode AS "entryMode",
+               frame_evidence::float8 AS "frameEvidence", performance_score::float8 AS "performanceScore",
+               evidence_weight::float8 AS "evidenceWeight", handicap_adjustment::float8 AS "handicapAdjustment",
+               over_handicap_elo::float8 AS "overHandicapElo", over_handicap_multiplier::float8 AS "overHandicapMultiplier",
+               high_breaks AS "highBreaks", actual::float8 AS actual, giver, official::float8 AS official,
+               extra::float8 AS extra, expected_a::float8 AS "expectedA", before_a::float8 AS "beforeA",
+               before_b::float8 AS "beforeB", before_a2::float8 AS "beforeA2", before_b2::float8 AS "beforeB2",
+               after_a::float8 AS "afterA", after_b::float8 AS "afterB", after_a2::float8 AS "afterA2",
+               after_b2::float8 AS "afterB2", delta_a::float8 AS "deltaA", delta_b::float8 AS "deltaB",
+               delta_a2::float8 AS "deltaA2", delta_b2::float8 AS "deltaB2",
+               margin_multiplier::float8 AS "marginMultiplier", tournament_id AS "tournamentId",
+               tournament_round AS "tournamentRound", tournament_match_index AS "tournamentMatchIndex", status,
+               ${isoUtc("created_at")} AS "createdAt"
+        FROM state_matches
+      ) m), '[]'::json),
+      'tournaments', COALESCE((SELECT json_agg(to_json(t) ORDER BY t."createdAt" DESC) FROM (
+        SELECT id, name, handicap_mode AS "handicapMode",
+               to_char(signup_deadline AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD"T"HH24:MI') AS "signupDeadline",
+               ${isoUtc("created_at")} AS "createdAt", created_by AS "createdBy",
+               signups, draw, ${isoUtc("drawn_at")} AS "drawnAt", walkovers
+        FROM state_tournaments
+      ) t), '[]'::json),
+      'settings', COALESCE((SELECT data FROM state_settings WHERE id = true), '{}'::jsonb),
+      'audits', COALESCE((SELECT json_agg(to_json(a) ORDER BY a.at DESC, a.id DESC) FROM (
+        SELECT id, text, ${isoUtc("occurred_at")} AS at
+        FROM state_audits
+      ) a), '[]'::json)
+    )::text AS data,
+    (NOT EXISTS (SELECT 1 FROM state_players)
+      AND NOT EXISTS (SELECT 1 FROM state_matches)
+      AND NOT EXISTS (SELECT 1 FROM state_tournaments)
+      AND NOT EXISTS (SELECT 1 FROM state_settings)
+      AND NOT EXISTS (SELECT 1 FROM state_audits)) AS empty,
+    ${VERSION_EXPRESSION} AS version
+  `;
+
+export async function getStateDocument(): Promise<{ data: string | null; version: string }> {
   const sql = getSql();
-  const [players, matches, tournaments, settings, audits] = await Promise.all([
-    sql<Player[]>`SELECT id, name, short, handicap::float8 AS handicap, rating::float8 AS rating, colour, avatar, initial_rating::float8 AS "initialRating", preliminary_rating::float8 AS "preliminaryRating", active, wins, losses, draws, frames_won AS "framesWon", frames_lost AS "framesLost", last_change::float8 AS "lastChange", form FROM state_players ORDER BY name`,
-    sql<Match[]>`SELECT id, player_a AS a, player_b AS b, player_a2 AS a2, player_b2 AS b2, mode, team_a_name AS "teamAName", team_b_name AS "teamBName", score_a AS "scoreA", score_b AS "scoreB", to_char(played_on, 'YYYY-MM-DD') AS "playedOn", entry_mode AS "entryMode", frame_evidence::float8 AS "frameEvidence", performance_score::float8 AS "performanceScore", evidence_weight::float8 AS "evidenceWeight", handicap_adjustment::float8 AS "handicapAdjustment", over_handicap_elo::float8 AS "overHandicapElo", over_handicap_multiplier::float8 AS "overHandicapMultiplier", high_breaks AS "highBreaks", actual::float8 AS actual, giver, official::float8 AS official, extra::float8 AS extra, expected_a::float8 AS "expectedA", before_a::float8 AS "beforeA", before_b::float8 AS "beforeB", before_a2::float8 AS "beforeA2", before_b2::float8 AS "beforeB2", after_a::float8 AS "afterA", after_b::float8 AS "afterB", after_a2::float8 AS "afterA2", after_b2::float8 AS "afterB2", delta_a::float8 AS "deltaA", delta_b::float8 AS "deltaB", delta_a2::float8 AS "deltaA2", delta_b2::float8 AS "deltaB2", margin_multiplier::float8 AS "marginMultiplier", tournament_id AS "tournamentId", tournament_round AS "tournamentRound", tournament_match_index AS "tournamentMatchIndex", status, created_at AS "createdAt" FROM state_matches ORDER BY played_on, created_at, id`,
-    sql<Tournament[]>`SELECT id, name, handicap_mode AS "handicapMode", to_char(signup_deadline AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD"T"HH24:MI') AS "signupDeadline", created_at AS "createdAt", created_by AS "createdBy", signups, draw, drawn_at AS "drawnAt", walkovers FROM state_tournaments ORDER BY created_at DESC`,
-    sql<{data:Record<string, unknown>}[]>`SELECT data FROM state_settings WHERE id = true`,
-    sql<{id:string;text:string;at:string}[]>`SELECT id, text, occurred_at AS at FROM state_audits ORDER BY occurred_at DESC, id DESC`,
-  ]);
-  if (!players.length && !matches.length && !tournaments.length && !settings.length && !audits.length) return null;
-  return JSON.stringify({ players, matches, tournaments, settings: settings[0]?.data ?? {}, audits });
+  /* One statement, not five.
+     
+     This used to fire five `SELECT`s through `Promise.all`, which meant five round trips to
+     Supabase *and* up to five of the pool's four connections (db/sql.ts) held at once. Every
+     page that calls getState() — the home page's /api/state hydration, /p/[id], /m/[id],
+     /admin, the sessions API — was therefore competing with itself for the pool while the
+     rest of the home page's endpoints queued behind it. Queued time counts against the
+     pooler's statement_timeout, which is how a merely slow load turns into a failed one.
+     
+     Assembling the document in Postgres costs one connection and one round trip, and hands
+     back text that needs no JS-side serialize. `to_json` (not `to_jsonb`) keeps the column
+     order, so the parsed document is identical to the old one key for key; only
+     json_build_object's whitespace between the five top-level keys differs. */
+  const rows = await sql.unsafe<{ data: string; empty: boolean; version: string }[]>(STATE_DOCUMENT_QUERY);
+  const row = rows[0];
+  return { data: !row || row.empty ? null : row.data, version: row?.version ?? "" };
+}
+
+export async function getState(): Promise<string | null> {
+  return (await getStateDocument()).data;
 }
 
 export async function putState(data: string) {
