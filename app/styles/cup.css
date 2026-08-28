@@ -10,7 +10,11 @@
 .cup{display:grid;gap:var(--sp-3-5);width:100%;min-width:0}.cup *{min-width:0}/* --- Shared furniture ----------------------------------------------------- */
 .cup-btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1-5);
   min-height:var(--control-md);padding:0 var(--sp-4);border:1px solid transparent;border-radius:var(--ds-radius-control);
-  font-size:var(--fs-sm);font-weight:800;text-decoration:none;white-space:nowrap}.cup-btn.primary{background:var(--ds-accent-action);color:var(--ds-text-on-brand);box-shadow:0 8px 24px var(--ds-accent-action-shadow)}.cup-btn.primary:active{transform:translateY(1px)}.cup-btn.ghost{border-color:var(--ds-border-strong);background:var(--ds-surface-primary);color:var(--ds-text-primary)}.cup-btn.sm{min-height:2.375rem;padding:0 var(--sp-3);font-size:var(--fs-caption)}/* The decorative glyph a cup button can carry — a chevron, an arrow — is bigger and lighter than the
+  font-size:var(--fs-sm);font-weight:800;text-decoration:none;white-space:nowrap}.cup-btn.primary{background:var(--ds-accent-action);color:var(--ds-text-on-brand);box-shadow:0 8px 24px var(--ds-accent-action-shadow)}.cup-btn.primary:active{transform:translateY(1px)}.cup-btn.ghost{border-color:var(--ds-border-strong);background:var(--ds-surface-primary);color:var(--ds-text-primary)}.cup-btn.sm{min-height:2.375rem;padding:0 var(--sp-3);font-size:var(--fs-caption)}/* `ds-button--secondary`'s flat grey-on-white reads as disabled next to the poster art and the gold
+   primary button it shares a row with — 取消報名 and 睇對陣預覽 need to look like something to press,
+   not like the greyed-out state of one. An accent-coloured outline gives them that without touching
+   the secondary variant anywhere else in the app. */
+.cup-btn.ds-button--secondary{border-color:var(--ds-accent-action);color:var(--ds-accent-action);background:var(--ds-surface-primary)}.cup-btn.ds-button--secondary:hover{background:var(--ds-success-wash)}/* The decorative glyph a cup button can carry — a chevron, an arrow — is bigger and lighter than the
    label beside it. Scoped to its own class rather than to `> span`, which caught any label a button
    wrapped in an element and quietly dropped it to 18px/400 next to its 800-weight neighbours. */
 .cup-btn .cup-btn-mark{font-size:1.125rem;font-weight:400;line-height:1}.cup-chip{display:inline-flex;align-items:center;min-height:1.5rem;padding:0 var(--sp-2);border-radius:999px;
