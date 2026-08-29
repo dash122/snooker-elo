@@ -66,7 +66,7 @@ export type ResultStoryCard = {
 export type RecordStoryCard = {
   kind: "record";
   person: StoryPerson;
-  /** "南華會週年會友盃 冠軍" and the like; empty for a player with no cup finish worth a badge. */
+  /** "南華會週年盃賽 冠軍" and the like; empty for a player with no cup finish worth a badge. */
   honour: string;
   rank: number;
   rating: number;
@@ -894,7 +894,7 @@ export function resultStoryCard(state: MatchShareState, url: string): ResultStor
   return {
     kind: "result",
     /* The cup's own name stays the headline and the round rides in the ribbon above it, so the two
-       never compete for the same line — 「南華會週年會友盃 · 準決賽」 on one row shrinks both. */
+       never compete for the same line — 「南華會週年盃賽 · 準決賽」 on one row shrinks both. */
     occasion: state.kind === "cup" ? state.cup!.name : state.kind === "fun" ? "潮拍 2v2 · 不計 ELO" : "球會對局",
     cupRound: state.cup?.round ?? "",
     playedOn: state.playedOn,

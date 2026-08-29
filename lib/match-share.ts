@@ -26,8 +26,8 @@ export type ShareSide = {
 
 /** The competition a match belonged to, and how far into it the match was.
  *
- *  The round is carried separately from the name because it is the part that earns the share. "會友盃"
- *  is a fixture; "會友盃 準決賽" is a story — and a semi-final that reads exactly like a Tuesday night
+ *  The round is carried separately from the name because it is the part that earns the share. "盃賽"
+ *  is a fixture; "盃賽 準決賽" is a story — and a semi-final that reads exactly like a Tuesday night
  *  frame is a result the app has failed to dress. */
 export type ShareCup = { name: string; round: string };
 

@@ -968,7 +968,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     const valid1v1 = draft.mode==="1v1";
     const valid2v2 = draft.mode==="2v2" && a && b && a2 && b2 && new Set([a.id,b.id,a2.id,b2.id]).size===4;
     const validCup = draft.mode==="cup" && Boolean(draft.tournamentId&&draft.a&&draft.b&&a&&b) && Number(draft.tournamentRound)>=1 && Number(draft.tournamentMatchIndex)>=1;
-    if(!valid1v1 && !valid2v2 && !validCup){setToast("請選擇有效賽事配置；會友盃需選擇盃賽、輪次和場次。");return;}
+    if(!valid1v1 && !valid2v2 && !validCup){setToast("請選擇有效賽事配置；盃賽紀錄需選擇盃賽、輪次和場次。");return;}
     if(draft.scoreA<0||draft.scoreB<0||(+draft.scoreA+ +draft.scoreB)===0){setToast("比分總局數必須大於 0。");return;}
     if(!preview)return;
     const now=new Date().toISOString(), id=editingMatch?.id??crypto.randomUUID();
@@ -993,7 +993,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     const rebuilt=replay(data.players,matches,settings);
     const action=editingMatch?"編輯":"記錄";
     const matchLabel=valid2v2?`${teamLabel(match,data,"A")} ${draft.scoreA}–${draft.scoreB} ${teamLabel(match,data,"B")}`:`${a.name} ${draft.scoreA}–${draft.scoreB} ${b.name}`;
-    const next={...data,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:`${action}${valid2v2?"潮拍娛樂賽":validCup?"會友盃賽果":"賽果"}：${matchLabel}${valid2v2?"；不影響 ELO":validCup?`；盃賽第 ${match.tournamentRound} 輪第 ${match.tournamentMatchIndex} 場`:"；重播歷史 ELO"}`,at:now},...data.audits]};
+    const next={...data,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:`${action}${valid2v2?"潮拍娛樂賽":validCup?"盃賽賽果":"賽果"}：${matchLabel}${valid2v2?"；不影響 ELO":validCup?`；盃賽第 ${match.tournamentRound} 輪第 ${match.tournamentMatchIndex} 場`:"；重播歷史 ELO"}`,at:now},...data.audits]};
     localStorage.removeItem("scaa-draft"); setEditingMatch(null); setModal(null);
     // Land on the saved card rather than a toast that vanishes: focus the list
     // on the recorder (or clear it, for an admin logging someone else's game)
@@ -1002,7 +1002,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     // range could otherwise hide the very match we just navigated to.
     setHeadToHead({a:ownPlayerId&&(match.a===ownPlayerId||match.b===ownPlayerId)?ownPlayerId:"",b:""});
     setHighlightMatch(id); setMatchesView("history"); setTab("matches");
-    persist(next,valid2v2?(editingMatch?"潮拍 2v2 已更新；ELO 與統計維持不變。":"潮拍 2v2 賽果已儲存；ELO 與統計維持不變。"):(validCup?(editingMatch?"會友盃賽果已更新。":"會友盃賽果已儲存。"):(editingMatch?"賽事已更新，所有後續 ELO 已重建。":"賽果已儲存，雙方 ELO 已更新。")));
+    persist(next,valid2v2?(editingMatch?"潮拍 2v2 已更新；ELO 與統計維持不變。":"潮拍 2v2 賽果已儲存；ELO 與統計維持不變。"):(validCup?(editingMatch?"盃賽賽果已更新。":"盃賽賽果已儲存。"):(editingMatch?"賽事已更新，所有後續 ELO 已重建。":"賽果已儲存，雙方 ELO 已更新。")));
   }
 
   function editMatch(m:Match){
@@ -1265,8 +1265,8 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
         if(deadline&&!Number.isNaN(deadline.getTime())&&deadline.getTime()<Date.now()){setToast("此盃賽報名已截止。");return}
         const snapshot=data;
         const nextTournaments = data.tournaments.map(t=>t.id===tournamentId?{...t,signups: (t.signups||[]).includes(ownPlayerId)?t.signups.filter(s=>s!==ownPlayerId):[... (t.signups||[]), ownPlayerId]}:t);
-        const next={...data,tournaments:nextTournaments,audits:[{id:crypto.randomUUID(),text:`${(nextTournaments.find(t=>t.id===tournamentId)?.signups||[]).includes(ownPlayerId)?'報名':'取消報名'} 會友盃：${nextTournaments.find(t=>t.id===tournamentId)?.name}`,at:new Date().toISOString()},...data.audits]};
-        setData(next);persist(next,(nextTournaments.find(t=>t.id===tournamentId)?.signups||[]).includes(ownPlayerId)?"已報名會友盃。":"已取消報名會友盃。",snapshot);
+        const next={...data,tournaments:nextTournaments,audits:[{id:crypto.randomUUID(),text:`${(nextTournaments.find(t=>t.id===tournamentId)?.signups||[]).includes(ownPlayerId)?'報名':'取消報名'} 盃賽：${nextTournaments.find(t=>t.id===tournamentId)?.name}`,at:new Date().toISOString()},...data.audits]};
+        setData(next);persist(next,(nextTournaments.find(t=>t.id===tournamentId)?.signups||[]).includes(ownPlayerId)?"已報名盃賽。":"已取消報名盃賽。",snapshot);
   };
 
   const navBadge=(id:string)=>id==="availability"?matchmakingBadge:id==="matches"?cupBadge:0;
@@ -1306,7 +1306,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     <div className={`record-speed-dial${recordMenuOpen?" open":""}`} aria-hidden={!recordMenuOpen}>
       <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={()=>newMatch("1v1")}><i>1v1</i><span><b>正式 1v1</b><small>賽果會改變實際 ELO 與球員統計</small></span></button>
       <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={()=>newMatch("2v2")}><i>2v2</i><span><b>潮拍 2v2</b><small>純娛樂模式，不影響目前 ELO 與統計</small></span></button>
-      <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={()=>newMatch("cup")}><i>會友盃</i><span><b>會友盃記錄</b><small>選擇盃賽場次並儲存，不可手動設定讓分</small></span></button>
+      <button type="button" tabIndex={recordMenuOpen?0:-1} onClick={()=>newMatch("cup")}><i>盃賽</i><span><b>盃賽記錄</b><small>選擇盃賽場次並儲存，不可手動設定讓分</small></span></button>
     </div>
     <MobileBottomNav active={tab as Destination} onNavigate={goTab} onRecord={()=>setRecordMenuOpen(open=>!open)} recordOpen={recordMenuOpen} badge={navBadge} badgeLabel={navBadgeLabel}/>
     {/* Share is the first modal kind migrated off this shared shell onto the `Sheet`
@@ -1326,7 +1326,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
         <section className={`sheet${modal==="deleteMatch"?" confirm-sheet":""}`} role="dialog" aria-modal="true">
           {modal==="match"&&<MatchForm data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} saving={saving} onSave={saveMatch}/>}
           {modal==="tournament"&&<div>
-            <p className="kicker">會友盃</p>
+            <p className="kicker">盃賽</p>
             <h2>{editingTournament?"編輯盃賽":"建立新盃賽"}</h2>
             <p className="sub">建立盃賽以便球員報名與賽事管理。</p>
             <form className="tournament-form" onSubmit={ev=>{ev.preventDefault();
@@ -2099,10 +2099,10 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     const cups=[...data.tournaments].sort((left,right)=>right.createdAt.localeCompare(left.createdAt));
     return <section className="cup">
       <div className="cup-intro">
-        <div><p className="sl-eyebrow">SCAA 會友盃</p><h2>盃賽</h2><p>報名、抽籤、對陣同賽果，一頁睇晒。</p></div>
+        <div><p className="sl-eyebrow">SCAA 盃賽</p><h2>盃賽</h2><p>報名、抽籤、對陣同賽果，一頁睇晒。</p></div>
         {isAdmin&&<Button onClick={onCreateTournament}>＋ 新增盃賽</Button>}
       </div>
-      {cups.length===0?<div className="cup-empty"><span aria-hidden="true">🏆</span><b>尚未有盃賽</b><p>{isAdmin?"建立第一個會友盃，球員即可報名。":"管理員建立盃賽後，你就可以在這裡報名。"}</p></div>
+      {cups.length===0?<div className="cup-empty"><span aria-hidden="true">🏆</span><b>尚未有盃賽</b><p>{isAdmin?"建立第一個盃賽，球員即可報名。":"管理員建立盃賽後，你就可以在這裡報名。"}</p></div>
       :<div className="cup-list">{cups.map(item=>{
         const status=cupStatus(item,data.matches),itemBracket=buildBracket<Match>(item,data.matches);
         const itemSlot=playerSlot(itemBracket,ownPlayerId),itemSignedUp=Boolean(ownPlayerId&&item.signups.includes(ownPlayerId));
