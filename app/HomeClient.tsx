@@ -2401,7 +2401,11 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
     if(!highlighted)return;
     card.current?.scrollIntoView({behavior:"smooth",block:"center"});
   },[highlighted]);
-  const topBreaks=(m.highBreaks??[]).filter(item=>item.value>0);
+  const breaksByPlayer=(m.highBreaks??[]).filter(item=>item.value>0).reduce((groups,item)=>{
+    const group=groups.find(g=>g.playerId===item.playerId);
+    if(group)group.values.push(item.value);else groups.push({playerId:item.playerId,values:[item.value]});
+    return groups;
+  },[] as {playerId:string;values:number[]}[]);
   const leftLabel = isEntertainmentMode(m.mode) ? teamLabel(m,data,"A") : name(m.a);
   const rightLabel = isEntertainmentMode(m.mode) ? teamLabel(m,data,"B") : name(m.b);
   const preMatchLeftElo=m.beforeA2==null?m.beforeA:(m.beforeA+m.beforeA2)/2;
@@ -2431,13 +2435,13 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
       eloLeft={isEntertainmentMode(m.mode)?undefined:{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={isEntertainmentMode(m.mode)?undefined:{before:m.beforeB,after:m.afterB,delta:m.deltaB??-m.deltaA}}/>
     {isEntertainmentMode(m.mode)&&<div className="match-team-rosters">{(["A","B"] as const).map(side=><div className={`match-team-roster ${side==="B"?"right":""}`} key={side}>{teamMemberIds(m,side).map(id=>{const player=data.players.find(item=>item.id===id);return <button type="button" key={id} onClick={()=>onPlayer(id)} aria-label={`查看 ${name(id)} 的球員卡`}><PlayerBadge player={player??{short:"?"}}/><span>{name(id)}</span></button>})}</div>)}</div>}
     <button type="button" className="match-summary-row" aria-expanded={open} aria-label={open?"收起比賽詳情":"展開比賽詳情"} onClick={()=>setOpen(value=>!value)}>
-      {!!topBreaks.length&&<span className="match-net-breaks">★ {topBreaks.map((item,index)=><Fragment key={`${item.playerId}-${index}`}>{index>0&&"、"}{name(item.playerId)} 單桿 {item.value}</Fragment>)}</span>}
+      {!!breaksByPlayer.length&&<span className="match-net-breaks">★ {breaksByPlayer.map((group,index)=><Fragment key={group.playerId}>{index>0&&"；"}{name(group.playerId)} 單桿 {group.values.join("、")}</Fragment>)}</span>}
       <span className="match-expand-toggle" aria-hidden="true"><i/></span>
     </button>
     </div>
     {open&&<div className="match-body">
     {isEntertainmentMode(m.mode)?<div className="elo-impact entertainment-impact"><small>娛樂賽記錄；不影響四位球員的 ELO 或統計。</small></div>:<div className="elo-impact" aria-label="本場 ELO 影響"><small>預測 {name(m.a)} 局數比例 {Math.round(m.expectedA*100)}%</small></div>}
-    {!!topBreaks.length&&<div className="match-breaks"><span>單桿</span>{topBreaks.map((item,index)=><b key={`${item.playerId}-${index}`}>{name(item.playerId)} {item.value}</b>)}</div>}
+    {!!breaksByPlayer.length&&<div className="match-breaks"><span>單桿</span>{breaksByPlayer.map(group=><b key={group.playerId}>{name(group.playerId)} {group.values.join("、")}</b>)}</div>}
     <div className="match-handicap-summary">
       <small>本場讓分</small>
       <b>{handicapText(m.actual)}</b>
