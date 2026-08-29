@@ -1,5 +1,5 @@
 import { requireMember, syncMemberPlayerProfiles } from "../../../db/auth";
-import { getState, getStateDocument, getStateVersion, putState, deleteState } from "../../../db/state";
+import { getStateDocument, getStateVersion, putState, deleteState } from "../../../db/state";
 import { entertainmentOnlyWritePreservesOfficialState } from "../../../lib/entertainment-state";
 import { memberCanWrite } from "../../../lib/state-write-rules";
 
@@ -49,8 +49,19 @@ export async function PUT(request: Request) {
   const user = await requireMember();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   try {
+    // Optimistic concurrency: a client that sends the version it last read is asserting
+    // "nothing else changed since I built this payload". Two members saving around the same
+    // time otherwise race silently — whoever's PUT lands second wins outright and the first
+    // save's changes (a different match, a different player edit) are gone with no error and
+    // no trace, because this handler always writes the client's full document as-is. Rejecting
+    // a stale base turns that silent loss into a 409 the client already knows how to recover
+    // from: refetch, re-merge its edit onto the latest document, retry.
+    const baseVersion = request.headers.get("if-match")?.replace(/^W\//, "").replace(/"/g, "");
     const data = await request.text();
-    const currentRaw = await getState();
+    const { data: currentRaw, version: currentVersion } = await getStateDocument();
+    if (baseVersion && baseVersion !== currentVersion) {
+      return Response.json({ error: "Club data changed since you loaded it. Please retry." }, { status: 409 });
+    }
     let parsedNext: any; try { parsedNext = JSON.parse(data); } catch { return Response.json({ error: "Invalid state" }, { status: 400 }); }
     const current = currentRaw ? JSON.parse(currentRaw) : null;
     // A normal save must never interpret a partial or failed client fetch as a
