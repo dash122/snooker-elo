@@ -12,6 +12,7 @@ import "./styles/match-entry-form.css";
 import "./styles/calendar.css";
 import "./styles/member-auth.css";
 import "./styles/admin-roster.css";
+import "./styles/admin-reports.css";
 import "./styles/member-dashboard.css";
 import "./styles/players-tab.css";
 import "./styles/modal-sheet.css";
