@@ -32,7 +32,7 @@ const STATUS_LABEL:Record<CupShareState["status"],string>={signup:"報名中",li
 export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:string;signedIn:boolean}){
   const [copied,setCopied]=useState(false);
   if(!cup)return <main className="share-page"><div className="share-card">
-    <p className="share-kicker">SCAA Snooker · 會友盃</p>
+    <p className="share-kicker">SCAA Snooker · 盃賽</p>
     <h1>搵唔到呢個盃賽</h1>
     <p className="share-note">連結可能已經失效，或者盃賽已被刪除。</p>
     <Link className="primary full share-cta" href="/">開啟 SCAA Snooker</Link>
@@ -62,7 +62,7 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
         <span className="cup-art-cup">🏆</span><i className="cup-art-ball red"/><i className="cup-art-ball white"/><i className="cup-art-arc"/>
       </div>
       <div className="cup-share-hero-body">
-        <p className="share-kicker">SCAA Snooker · 會友盃</p>
+        <p className="share-kicker">SCAA Snooker · 盃賽</p>
         <h1>{cup.name}</h1>
         <p className="cup-share-status"><span className={`cup-chip is-${share.status}`}>{STATUS_LABEL[share.status]}</span>
           {urgency.label&&share.status==="signup"&&<span className={`cup-urgency${urgency.hot?" hot":""}`}>{urgency.label}</span>}

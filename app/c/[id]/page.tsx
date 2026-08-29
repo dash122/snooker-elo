@@ -28,7 +28,7 @@ export async function generateMetadata({params}:{params:Promise<{id:string}>}):P
     /* WhatsApp reads Open Graph and nothing else; Telegram and iMessage follow the same tags, and the
        Twitter card keeps a summary_large_image rather than falling back to a bare link. */
     openGraph:{title,description,url,type:"website",siteName:"SCAA Snooker",locale:"zh_HK",
-      images:[{url:image,width:1200,height:630,alt:`${data.tournament.name}｜SCAA Snooker 會友盃`}]},
+      images:[{url:image,width:1200,height:630,alt:`${data.tournament.name}｜SCAA Snooker 盃賽`}]},
     twitter:{card:"summary_large_image",title,description,images:[image]},
     alternates:url?{canonical:url}:undefined,
   };
