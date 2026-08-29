@@ -1,6 +1,6 @@
 import { requireMember } from "../../../db/auth";
 import { createSession, listSessions, listAvailability } from "../../../db/availability";
-import { getState } from "../../../db/state";
+import { getMatchmakingSlice } from "../../../db/state";
 import { listInvitesFor } from "../../../db/invites";
 import { listOpenCalls } from "../../../db/open-calls";
 import { reliabilityByPlayer } from "../../../db/matchmaking.pg";
@@ -35,9 +35,11 @@ type ClubState={players:{id:string;name:string;short:string;rating:number;colour
   matches:{a:string;b:string;scoreA:number;scoreB:number;playedOn:string;status:"confirmed"|"void"}[];
   settings:{handicapPointsToElo:number;handicapMinimumElo:number;handicapSensitivityRange:number;handicapSensitivityWidth:number}};
 
+/* The projection above is exactly what getMatchmakingSlice selects. This route used to pull the
+   whole club document — every column of every match, plus tournaments and the audit log — and
+   throw all but these six fields away, on a route every open tab re-polls every 45 seconds. */
 async function clubState():Promise<ClubState|null>{
-  const raw=await getState();
-  return raw?JSON.parse(raw) as ClubState:null;
+  return await getMatchmakingSlice() as unknown as ClubState;
 }
 
 export async function GET(){
