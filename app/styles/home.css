@@ -42,3 +42,37 @@
 @media(max-width:820px){.recent-match-grid{margin-inline:-1rem;padding-inline:var(--sp-4);scroll-padding-left:1rem}}
 
 .recent-match-grid{padding-block:var(--sp-1)}
+
+/* 每月最高 tab of the high-break panel: a 12-month column chart plus the
+   selected month's record holder. Columns stay clickable buttons so the
+   detail card is reachable by keyboard, not hover alone. */
+.monthly-break{margin-top:var(--sp-2)}
+.monthly-break-plot{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--sp-2-5)}
+.monthly-break-axis{display:flex;flex-direction:column;justify-content:space-between;height:180px;color:var(--ds-text-secondary);font-size:var(--fs-label);font-variant-numeric:tabular-nums;text-align:right}
+.monthly-break-scroller{overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:thin}
+.monthly-break-scroller:focus-visible{outline:2px solid var(--gold-on-light);outline-offset:2px;border-radius:var(--radius-sm)}
+/* Twelve columns fill the width; anything older scrolls in from the left. */
+.monthly-break-columns{display:flex;gap:var(--sp-1-5);margin:0;padding:0;list-style:none}
+.monthly-break-columns li{flex:1 0 calc((100% - 11 * var(--sp-1-5)) / 12);display:flex;flex-direction:column;min-width:0;scroll-snap-align:end}
+.monthly-break-columns li>small{margin-top:var(--sp-1-5);color:var(--ds-text-secondary);font-size:var(--fs-label);text-align:center;white-space:nowrap}
+.monthly-break-columns li>small span{display:block;opacity:.75}
+.monthly-break-column{display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;height:180px;padding:0;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer}
+.monthly-break-column:disabled{cursor:default}
+.monthly-break-column>em{margin-bottom:var(--sp-1);color:var(--ds-text-secondary);font-size:var(--fs-label);font-style:normal;font-weight:800;font-variant-numeric:tabular-nums;text-align:center}
+.monthly-break-column>i{border-radius:6px 6px 0 0;background:linear-gradient(var(--ds-chart-primary),var(--ds-accent-action));transition:filter .18s ease}
+.monthly-break-column.century>i{background:linear-gradient(var(--century-badge-start),var(--century-badge-end))}
+.monthly-break-column:hover>i{filter:brightness(1.12)}
+.monthly-break-column.active>em{color:var(--gold-on-light)}
+.monthly-break-column.active>i{outline:2px solid var(--gold-on-light);outline-offset:1px}
+.monthly-break-gap{height:4px;border-radius:2px;background:var(--ds-border-muted);opacity:.6}
+.monthly-break-detail{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:var(--sp-3);margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);border:1px solid var(--line);border-radius:14px;background:var(--ds-surface-raised)}
+.monthly-break-detail>button{display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:var(--sp-2-5);min-width:0;padding:0;border:0;background:none;color:inherit;text-align:left;cursor:pointer}
+.monthly-break-detail span{min-width:0}
+.monthly-break-detail small,.monthly-break-detail b,.monthly-break-detail em{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.monthly-break-detail small{color:var(--gold-on-light);font-size:var(--fs-label);font-weight:800}
+.monthly-break-detail b{margin-top:2px;font-size:var(--fs-body)}
+.monthly-break-detail em{margin-top:2px;color:var(--ds-text-secondary);font-size:var(--fs-caption);font-style:normal}
+.monthly-break-detail>strong{color:var(--gold-on-light);font-size:var(--fs-stat);font-variant-numeric:tabular-nums}
+.monthly-break-hint{margin:var(--sp-4) 0 0;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+@media(max-width:820px){.break-records-panel .break-toggle button{font-size:var(--fs-label)}.monthly-break-column,.monthly-break-axis{height:150px}}
+@media(max-width:599px){.monthly-break-columns{gap:3px}.monthly-break-columns li{flex-basis:calc((100% - 33px) / 12)}.monthly-break-column>em{display:none}.monthly-break-detail{grid-template-columns:minmax(0,1fr) auto}}

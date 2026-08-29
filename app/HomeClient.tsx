@@ -1392,8 +1392,68 @@ function Overview({top,data,onPlayer}:{top:Player[];data:AppState;onPlayer:(p:Pl
   </section>;
 }
 
+type BreakRecord={player:Player;opponent:string;value:number;date:string;createdAt:string;key:string};
+type MonthlyBreak={month:string;record:BreakRecord|null};
+/** The highest break of every month from the first recorded break to today,
+ *  newest last. Months without a recorded break stay in the series as gaps so
+ *  the timeline reads evenly; the chart scrolls when there are more than a
+ *  screenful. */
+function monthlyBreakRecords(records:BreakRecord[]):MonthlyBreak[]{
+  const best=new Map<string,BreakRecord>();
+  // records arrive sorted by value desc, so the first hit for a month is its best.
+  for(const record of records){const month=record.date.slice(0,7);if(!best.has(month))best.set(month,record);}
+  const sorted=[...best.keys()].sort();
+  if(!sorted.length)return [];
+  const first=sorted[0],last=sorted[sorted.length-1];
+  // Run through today, unless a record is somehow dated ahead of it.
+  const end=last>today.slice(0,7)?last:today.slice(0,7);
+  const months:MonthlyBreak[]=[];
+  for(let month=first;month<=end;month=shiftMonth(month,1))months.push({month,record:best.get(month)??null});
+  return months;
+}
+/** Monthly high breaks as a column chart: the shape of the club's best month-to-month,
+ *  with the holder and opponent for whichever month is selected. */
+function MonthlyBreakChart({months,onPlayer}:{months:MonthlyBreak[];onPlayer:(p:Player)=>void}) {
+  const withRecord=months.filter(month=>month.record);
+  const lastIndex=months.map(month=>!!month.record).lastIndexOf(true);
+  const [selected,setSelected]=useState<number|null>(lastIndex>=0?lastIndex:null);
+  const active=selected!=null?months[selected]:null;
+  const scroller=useRef<HTMLDivElement>(null);
+  // The newest months matter most, so the track opens scrolled to its right end.
+  useEffect(()=>{const node=scroller.current;if(node)node.scrollLeft=node.scrollWidth;},[months.length]);
+  if(!withRecord.length)return <Empty text="尚未有單桿紀錄" sub="記錄賽果時加入單桿度數，這裡就會顯示每月最高。"/>;
+  const peak=Math.max(...withRecord.map(month=>month.record!.value));
+  const scale=Math.max(50,Math.ceil(peak/25)*25);
+  return <div className="monthly-break">
+    <div className="monthly-break-plot">
+      <div className="monthly-break-axis" aria-hidden="true"><span>{scale}</span><span>{scale/2}</span><span>0</span></div>
+      <div className="monthly-break-scroller" ref={scroller} tabIndex={0} role="group" aria-label={`每月最高單桿，${months[0].month} 至 ${months[months.length-1].month}，可左右捲動`}>
+      <ol className="monthly-break-columns">{months.map((month,index)=>{
+        const record=month.record;
+        const label=`${month.month.slice(0,4)} 年 ${Number(month.month.slice(5))} 月`;
+        return <li key={month.month}>
+          <button type="button" className={`monthly-break-column${selected===index?" active":""}${record?"":" empty"}${record&&record.value>=100?" century":""}`}
+            aria-pressed={selected===index} disabled={!record}
+            aria-label={record?`${label}，最高單桿 ${record.value} 分，${record.player.name} 對 ${record.opponent}`:`${label}，未有單桿紀錄`}
+            onClick={()=>setSelected(current=>current===index?null:index)}>
+            {record?<><em>{record.value}</em><i style={{height:`${Math.max(6,record.value/scale*100)}%`}}/></>:<i className="monthly-break-gap"/>}
+          </button>
+          <small>{Number(month.month.slice(5))}月{(index===0||month.month.endsWith("-01"))&&<span>{month.month.slice(2,4)}</span>}</small>
+        </li>})}</ol>
+      </div>
+    </div>
+    {active?.record?<div className="monthly-break-detail">
+      <button type="button" onClick={()=>onPlayer(active.record!.player)}>
+        <PlayerBadge player={active.record.player}/>
+        <span><small>{active.month.slice(0,4)} 年 {Number(active.month.slice(5))} 月最高單桿</small><b>{active.record.player.name}</b><em>對 {active.record.opponent} · {active.record.date}</em></span>
+      </button>
+      <strong>{active.record.value>=100&&<em className="century-badge" title="破百單桿">破百</em>}{active.record.value}</strong>
+    </div>:<p className="monthly-break-hint">點擊柱狀圖查看該月的單桿紀錄保持者。</p>}
+    <p className="chart-summary">{months[0].month.slice(0,4)} 年 {Number(months[0].month.slice(5))} 月至今，共 {months.length} 個月{months.length>12?"；可左右捲動查看更早月份。":"。"}</p>
+  </div>;
+}
 function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:Player[];data:AppState;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
-  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall"|"recent">("players"),[homeView,setHomeView]=useState<"ranking"|"breaks"|"recent">("ranking"),[officialOnly,setOfficialOnly]=useState(false);
+  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall"|"recent"|"monthly">("players"),[homeView,setHomeView]=useState<"ranking"|"breaks"|"recent">("ranking"),[officialOnly,setOfficialOnly]=useState(false);
   const confirmed=data.matches.filter(m=>m.status==="confirmed");
   const month=confirmed.filter(m=>m.playedOn.slice(0,7)===today.slice(0,7)).length,total=confirmed.length;
   // Toggling to 正式球手 re-sequences ranks among only the visible players,
@@ -1423,10 +1483,11 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
     return {
       overall:records.slice(0,10),
       players:records.filter(record=>seen.has(record.player.id)?false:(seen.add(record.player.id),true)).slice(0,10),
-      recent:records.filter(record=>isInPastThirtyDays(record.date)).slice(0,10)
+      recent:records.filter(record=>isInPastThirtyDays(record.date)).slice(0,10),
+      monthly:monthlyBreakRecords(records)
     };
   },[data.matches,data.players]);
-  const displayedBreaks=breakRecords[breakView];
+  const displayedBreaks=breakView==="monthly"?breakRecords.overall:breakRecords[breakView];
   const sortBy=(key:SortKey)=>{if(sort===key)setDir(x=>x==="asc"?"desc":"asc");else{setSort(key);setDir(key==="rank"||key==="name"?"asc":"desc")}};
   return <><section className="hero"><div><p className="kicker">SCAA CLUB RANKING</p><h1>讓每一局，<br/><span>都推動進步。</span></h1><p>追蹤實力、看見成長，找到旗鼓相當的對手。</p>
       <div className="podium-stats">
@@ -1458,9 +1519,9 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
         :<span className="elo"><b>{Math.round(p.rating)}</b><small className={swing>=0?"positive":"negative"}>{swing>=0?"+":""}{Math.round(swing)}</small><em className="elo-suggested">建議 {suggested}</em></span>}</button>})}</>}</Surface>
     </section></>}
     {homeView==="breaks"&&<section className="home-view-panel break-records-panel" aria-labelledby="break-records-title">
-      <div className="home-panel-head"><div><p className="kicker">HIGH BREAK RECORDS</p><h2 id="break-records-title">最高單桿紀錄</h2><p>查看每位球員的個人最佳、歷史最高，或近 30 日最高紀錄。</p></div><SlidingToggleGroup className="mini-toggle break-toggle" aria-label="單桿紀錄顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史最高</button><button aria-pressed={breakView==="recent"} className={breakView==="recent"?"active":""} onClick={()=>setBreakView("recent")}>近30日最高</button></SlidingToggleGroup></div>
-      <ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>對 {record.opponent}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title="破百單桿">破百</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
-      <p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":breakView==="overall"?"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。":`${thirtyDaysAgo} 至 ${today} 的最高單桿，同一球員可重複上榜。`}</p>
+      <div className="home-panel-head"><div><p className="kicker">HIGH BREAK RECORDS</p><h2 id="break-records-title">最高單桿紀錄</h2><p>查看每位球員的個人最佳、歷史最高，或近 30 日最高紀錄。</p></div><SlidingToggleGroup className="mini-toggle break-toggle" aria-label="單桿紀錄顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史最高</button><button aria-pressed={breakView==="recent"} className={breakView==="recent"?"active":""} onClick={()=>setBreakView("recent")}>近30日最高</button><button aria-pressed={breakView==="monthly"} className={breakView==="monthly"?"active":""} onClick={()=>setBreakView("monthly")}>每月最高</button></SlidingToggleGroup></div>
+      {breakView==="monthly"?<MonthlyBreakChart months={breakRecords.monthly} onPlayer={onPlayer}/>:<><ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>對 {record.opponent}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title="破百單桿">破百</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
+      <p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":breakView==="overall"?"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。":`${thirtyDaysAgo} 至 ${today} 的最高單桿，同一球員可重複上榜。`}</p></>}
     </section>}
     {homeView==="recent"&&<ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/>}</>;
 }
