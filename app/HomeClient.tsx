@@ -133,6 +133,51 @@ function fetchWithTimeout(input:string,init?:RequestInit){
   return fetch(input,{...init,signal:controller.signal}).finally(()=>clearTimeout(timer));
 }
 
+// The client only polls every 15s, so another member's match or signup saved in that window is
+// invisible to `next`. Sending `next` as-is would silently drop it from the payload — the server
+// then either overwrites it outright, or (for a member write) reads the missing match as
+// tampering with one that isn't theirs and rejects it — even though nothing about this save was
+// actually about that match. Pull the latest matches/tournaments first and merge back in anything
+// this save doesn't know about yet, so an unrelated concurrent save can't be clobbered or mistaken
+// for one.
+function mergeStatePayload(next:AppState,baseline:AppState,latest:Record<string,unknown>|null):AppState{
+  let payload=next;
+  if(Array.isArray(latest?.matches)){
+    // A match absent from `next` is only "unknown to us" — and worth restoring — if it was also
+    // absent from the snapshot this edit started from. One we already had and deliberately
+    // removed (a delete/edit) must stay gone, or every delete would silently resurrect the very
+    // match it just removed.
+    const knownIds=new Set([...next.matches,...baseline.matches].map(m=>m.id));
+    const missing=(latest.matches as Match[]).filter(m=>!knownIds.has(m.id));
+    if(missing.length)payload={...next,matches:[...next.matches,...missing]};
+  }
+  if(Array.isArray(latest?.tournaments)){
+    // Same problem, same fix, for tournaments: a cup someone else created, or a signup someone
+    // else toggled, since this client's last poll is invisible to `next`. Sending `next` as-is
+    // would silently delete that tournament — or roll its signup list back — the moment this
+    // save lands, and for a member write it also trips the "signup changed by someone other than
+    // me" permission check in state-write-rules.ts.
+    const knownIds=new Set([...payload.tournaments,...baseline.tournaments].map(t=>t.id));
+    const missing=(latest.tournaments as Tournament[]).filter(t=>!knownIds.has(t.id));
+    const known=new Map(baseline.tournaments.map(t=>[t.id,t]));
+    const merged=payload.tournaments.map(tournament=>{
+      const before=known.get(tournament.id);
+      const after=(latest.tournaments as Tournament[]).find(t=>t.id===tournament.id);
+      if(!before||!after)return tournament;
+      // Only carry forward signups we didn't already know about and didn't ourselves change —
+      // this save's own signup edit (if any) still wins.
+      const beforeSignups=new Set(before.signups??[]);
+      const oursSignups=new Set(tournament.signups??[]);
+      if(JSON.stringify([...beforeSignups].sort())!==JSON.stringify([...oursSignups].sort()))return tournament;
+      const afterSignups:string[]=after.signups??[];
+      if(JSON.stringify([...beforeSignups].sort())===JSON.stringify([...new Set(afterSignups)].sort()))return tournament;
+      return {...tournament,signups:afterSignups};
+    });
+    if(missing.length||merged.some((t,i)=>t!==payload.tournaments[i]))payload={...payload,tournaments:[...merged,...missing]};
+  }
+  return payload;
+}
+
 const seed: AppState = {
   settings: {
     start: 1500, provisionalGames:10,
@@ -798,54 +843,23 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     if(restorable)undoTimer.current=setTimeout(()=>setUndoSnapshot(null),2600);
     toastTimer.current=setTimeout(()=>{setToast("");setUndoSnapshot(null)},restorable?2600:3200);
     try {
-      // The client only polls every 15s, so another member's match saved in
-      // that window is invisible here. Sending `next` as-is would silently
-      // drop it from the payload, which the server reads as tampering with a
-      // match that isn't ours and rejects with a permission error — even
-      // though nothing about this save was actually about their match. Pull
-      // the latest matches first and merge back in anything we don't know
-      // about yet, so an unrelated concurrent save can't masquerade as one.
-      const latest=await fetchWithTimeout("/api/state",{cache:"no-store"}).then(r=>r.ok?r.json():null).catch(()=>null);
-      let payload=next;
-      if(Array.isArray(latest?.matches)){
-        // A match absent from `next` is only "unknown to us" — and worth
-        // restoring — if it was also absent from the snapshot this edit
-        // started from. One we already had and deliberately removed (a
-        // delete/edit) must stay gone, or every delete would silently
-        // resurrect the very match it just removed.
-        const knownIds=new Set([...next.matches,...baseline.matches].map(m=>m.id));
-        const missing=latest.matches.filter((m:Match)=>!knownIds.has(m.id));
-        if(missing.length)payload={...next,matches:[...next.matches,...missing]};
-      }
-      if(Array.isArray(latest?.tournaments)){
-        // Same problem, same fix, for tournaments: a cup someone else created,
-        // or a signup someone else toggled, since this client's last poll is
-        // invisible to `next`. Sending `next` as-is would silently delete that
-        // tournament — or roll its signup list back — the moment this save
-        // lands, and for a member write it also trips the "signup changed by
-        // someone other than me" permission check in state-write-rules.ts.
-        const knownIds=new Set([...payload.tournaments,...baseline.tournaments].map(t=>t.id));
-        const missing=latest.tournaments.filter((t:Tournament)=>!knownIds.has(t.id));
-        const known=new Map(baseline.tournaments.map((t:Tournament)=>[t.id,t]));
-        const merged=payload.tournaments.map(tournament=>{
-          const before=known.get(tournament.id);
-          const after=latest.tournaments.find((t:Tournament)=>t.id===tournament.id);
-          if(!before||!after)return tournament;
-          // Only carry forward signups we didn't already know about and didn't
-          // ourselves change — this save's own signup edit (if any) still wins.
-          const beforeSignups=new Set(before.signups??[]);
-          const oursSignups=new Set(tournament.signups??[]);
-          if(JSON.stringify([...beforeSignups].sort())!==JSON.stringify([...oursSignups].sort()))return tournament;
-          const afterSignups:string[]=after.signups??[];
-          if(JSON.stringify([...beforeSignups].sort())===JSON.stringify([...new Set(afterSignups)].sort()))return tournament;
-          return {...tournament,signups:afterSignups};
-        });
-        if(missing.length||merged.some((t,i)=>t!==payload.tournaments[i]))payload={...payload,tournaments:[...merged,...missing]};
-      }
-      const r=await fetchWithTimeout("/api/state",{method:"PUT",headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
-      if(!r.ok){
-        const body=await r.json().catch(()=>null);
-        throw new Error(typeof body?.error==="string"?body.error:"");
+      // Merging onto `latest` closes most of the gap, but two saves can still both fetch
+      // `latest` before either PUT lands — each merges onto the same base and one silently
+      // overwrites the other. The server rejects a PUT whose base version has moved on since,
+      // so a genuine race surfaces as a 409 here instead of a lost write; re-running the fetch
+      // + merge + PUT once against the now-current document resolves it in the common case.
+      for(let attempt=0;attempt<3;attempt++){
+        const latestResponse=await fetchWithTimeout("/api/state",{cache:"no-store"}).catch(()=>null);
+        const latest=latestResponse?.ok?await latestResponse.json().catch(()=>null):null;
+        const baseVersion=(latestResponse?.headers.get("etag")??"").replace(/^W\//,"").replace(/"/g,"");
+        const payload=mergeStatePayload(next,baseline,latest);
+        const r=await fetchWithTimeout("/api/state",{method:"PUT",headers:{"content-type":"application/json",...(baseVersion?{"if-match":`"${baseVersion}"`}:{})},body:JSON.stringify(payload)});
+        if(r.status===409&&attempt<2)continue;
+        if(!r.ok){
+          const body=await r.json().catch(()=>null);
+          throw new Error(typeof body?.error==="string"?body.error:"");
+        }
+        break;
       }
     } catch (error) {
       if(toastTimer.current)clearTimeout(toastTimer.current);
