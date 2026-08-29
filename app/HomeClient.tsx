@@ -2683,6 +2683,10 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   const hadEloPreview=useRef(false);
   const [breakOpen,setBreakOpen]=useState<Record<string,boolean>>({});
   const [customHandicap,setCustomHandicap]=useState(editing||Boolean(draft.giver));
+  /* Tracks whether the current giver/points are following "ELO 建議" (as opposed to "沒有讓分" or a
+     custom value), so that switching the opponent can re-derive them for the new pairing instead of
+     leaving stale values from the previous one behind. */
+  const [followingSuggestion,setFollowingSuggestion]=useState(false);
   const update=(k:string,v:any)=>setDraft((d:any)=>({...d,[k]:v}));
   const players=[...data.players].filter(p=>p.active).sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
   const isTeamMode=draft.mode==="2v2";
@@ -2759,10 +2763,12 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
     if(fairActual==null)return;
     setDraft((d:any)=>({...d,giver:fairActual>=0?a.id:b.id,points:Math.abs(fairActual)}));
     setCustomHandicap(false);
+    setFollowingSuggestion(true);
   };
   const setNoHandicap=()=>{
     setDraft((d:any)=>({...d,giver:"",points:0}));
     setCustomHandicap(false);
+    setFollowingSuggestion(false);
   };
   /* A cup's handicap is the cup's, not the recorder's, so the draft is reconciled to it here rather
      than left to the 讓分 controls (which are hidden in cup mode anyway). `applyCupHandicap` returns
@@ -2774,6 +2780,14 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
     setDraft((d:any)=>applyCupHandicap(d,{handicapMode:cupHandicapMode,fairActual,aId:a.id,bId:b.id}));
     setCustomHandicap(false);
   },[cupHandicapMode,fairActual,a.id,b.id,setDraft]);
+  /* Outside cup mode, "ELO 建議" is a snapshot taken at click time: it doesn't recompute on its own
+     when the opponent (or team) changes afterwards. Re-derive it here so the button and the points
+     shown stay in sync with whoever is currently selected, instead of showing a stale giver/points
+     pair the button no longer recognises as "active". */
+  useEffect(()=>{
+    if(cupHandicapMode||!followingSuggestion||fairActual==null)return;
+    setDraft((d:any)=>({...d,giver:fairActual>=0?a.id:b.id,points:Math.abs(fairActual)}));
+  },[cupHandicapMode,followingSuggestion,fairActual,a.id,b.id,setDraft]);
   const changeScore=(key:"scoreA"|"scoreB",amount:number)=>setDraft((d:any)=>({...d,[key]:Math.max(0,+d[key]+amount)}));
   const totalFrames=+draft.scoreA + +draft.scoreB;
   const hasEloPreview=Boolean(forecast&&totalFrames>0);
@@ -2849,7 +2863,7 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
         ? <div className="tournament-handicap-note"><b>盃賽模式</b><span>{tournament ? (tournament.handicapMode==="suggested" ? `自動套用建議讓分：每局 ${fairPoints} 分` : "此盃賽不設讓分") : "未選擇盃賽"}</span></div>
         : <>
             {validTeamSelection&&<div className="entertainment-handicap-note recommended"><b>建議讓分</b><span>{fairPoints===0?`${teamAName} 與 ${teamBName} 毋須讓分`:`${fairActual!>0?teamAName:teamBName} 每局讓 ${fairActual!>0?teamBName:teamAName} ${fairPoints} 分`}</span><small>{teamAHandicap!=null&&teamBHandicap!=null?`${teamAName} 平均 ${Math.round(teamAHandicap)} · ${teamBName} 平均 ${Math.round(teamBHandicap)}`:`隊伍平均 ELO 相差 ${Math.abs(teamEloDifference)}`}；按球員 ELO 建議讓分計算。</small></div>}
-            <SlidingToggleGroup className="handicap-segment"><button type="button" className={!draft.giver&&!customHandicap?"active":""} onClick={setNoHandicap}>沒有讓分</button><button type="button" disabled={fairActual==null} className={draft.giver&&+draft.points===fairPoints&&!customHandicap?"active":""} onClick={fairPoints===0?setNoHandicap:applyFair}>ELO 建議</button><button type="button" className={customHandicap?"active":""} onClick={()=>setCustomHandicap(value=>!value)}>自訂</button></SlidingToggleGroup>
+            <SlidingToggleGroup className="handicap-segment"><button type="button" className={!draft.giver&&!customHandicap?"active":""} onClick={setNoHandicap}>沒有讓分</button><button type="button" disabled={fairActual==null} className={draft.giver&&+draft.points===fairPoints&&!customHandicap?"active":""} onClick={fairPoints===0?setNoHandicap:applyFair}>ELO 建議</button><button type="button" className={customHandicap?"active":""} onClick={()=>{setCustomHandicap(value=>!value);setFollowingSuggestion(false);}}>自訂</button></SlidingToggleGroup>
             {customHandicap&&<div className="custom-handicap"><label>{draft.mode==="2v2"?"讓分隊伍":"讓分球員"}<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">沒有讓分</option><option value={a?.id}>{draft.mode==="2v2"?`${teamAName}（${a.name} / ${a2?.name}）`:a?.name}</option><option value={b?.id}>{draft.mode==="2v2"?`${teamBName}（${b.name} / ${b2?.name}）`:b?.name}</option></select></label><label>每局分數<input type="number" inputMode="numeric" min="0" step="1" value={draft.points} onChange={e=>update("points",Math.max(0,+e.target.value))}/></label></div>}
           </>
       }
