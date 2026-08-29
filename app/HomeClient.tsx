@@ -612,6 +612,10 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const [pullDistance,setPullDistance] = useState(0);
   const [refreshing,setRefreshing] = useState(false);
   const refreshingStateRef = useRef(false);
+  /* The version of the club document currently on screen, so the background poll below can ask
+     the server "still this one?" instead of re-downloading it. Kept in a ref rather than state
+     because nothing renders from it and every write to it would otherwise cost a render. */
+  const stateVersionRef = useRef("");
   const [draft,setDraft] = useState({mode:"1v1" as MatchMode,teamAName:"Team A",teamBName:"Team B",a:"",b:"",a2:"",b2:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[] as {playerId:string;value:number}[],tournamentId:"",tournamentRound:1,tournamentMatchIndex:1,cupSlotLocked:false});
   const [playerForm,setPlayerForm] = useState({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});
   const [managementMode,setManagementMode] = useState(false);
@@ -670,6 +674,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       setData(replayed);
       setStateLoadStatus("ready");
       setStateLoadError("");
+      if(version)stateVersionRef.current=version;
       return {upgraded,loaded,replayed,version};
     };
     if(cached) try{ apply(cached.document,cached.version) }catch{}
@@ -725,9 +730,20 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     if(refreshingStateRef.current)return;
     refreshingStateRef.current=true;
     try{
-      const r=await fetch("/api/state",{cache:"no-store"});
+      /* Conditional, like the initial load. This runs every 15 seconds in every visible tab, so
+         without the ETag it rebuilt and shipped the entire club document — every player, every
+         match, every audit entry — several times a minute per member, almost always to discover
+         nothing had changed. The server answers an unchanged club with an empty 304 costing one
+         indexed fingerprint query. */
+      const version=stateVersionRef.current;
+      const r=await fetch("/api/state",{cache:"no-store",headers:version?{"if-none-match":`"${version}"`}:undefined});
+      if(r.status===304)return;
       const v=r.ok?await r.json():null;
-      if(v?.players)setData(upgradeState(v).state);
+      if(v?.players){
+        const next=(r.headers.get("etag")??"").replace(/^W\//,"").replace(/"/g,"");
+        if(next)stateVersionRef.current=next;
+        setData(upgradeState(v).state);
+      }
     }catch{}
     finally{refreshingStateRef.current=false}
   }
@@ -865,9 +881,19 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       if(toastTimer.current)clearTimeout(toastTimer.current);
       if(undoTimer.current)clearTimeout(undoTimer.current);
       setUndoSnapshot(null);
-      const reason=error instanceof Error?error.message:"";
-      setToast(reason?`未能儲存：${reason}`:"未能連接伺服器；資料仍保留在此畫面，請稍後再試。");
-      toastTimer.current=setTimeout(()=>setToast(""),3200);
+      /* A timeout is not a failure, and must not be reported as one. fetchWithTimeout aborts the
+         request from this side; the write it was waiting on may well have committed on the server
+         a moment later. Two things were wrong with letting it fall through to the branch below.
+         The message was the browser's own untranslated internal string — "signal is aborted
+         without reason" — shown verbatim to the member. And it asserted the save had not
+         happened, when the truthful answer is that this tab stopped listening before finding out.
+         Telling them to reload is the only advice that is correct either way. */
+      const aborted=error instanceof Error&&error.name==="AbortError";
+      const reason=aborted?"":error instanceof Error?error.message:"";
+      setToast(aborted?"伺服器回應逾時，未能確認是否已儲存。請重新整理頁面查看最新資料。"
+        :reason?`未能儲存：${reason}`
+        :"未能連接伺服器；資料仍保留在此畫面，請稍後再試。");
+      toastTimer.current=setTimeout(()=>setToast(""),aborted?5200:3200);
     } finally { setSaving(false); }
   }
   useEffect(()=>()=>{if(toastTimer.current)clearTimeout(toastTimer.current);if(undoTimer.current)clearTimeout(undoTimer.current)},[]);

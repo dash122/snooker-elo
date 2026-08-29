@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { headers } from "next/headers";
 import type { MemberSession, MemberRow } from "./auth-types";
 import { getSql } from "./sql";
@@ -223,7 +224,16 @@ function parseCookie(cookie: string | null, name: string) {
   return item ? decodeURIComponent(item.slice(name.length + 1)) : null;
 }
 
-export async function getCurrentMember(): Promise<MemberSession | null> {
+/* Deduplicated per request, not cached across them.
+ *
+ * This is the hottest query in the app: 40-odd modules call requireMember(), and a single page
+ * render reaches it several times over — the layout's app shell, the page itself, and any nested
+ * server component that needs to know who is looking. Each of those was its own sessions-to-members
+ * round trip, holding one of the pool's four connections (db/sql.ts) while the rest of the render's
+ * queries queued behind it. React's cache() gives one lookup per request instead, with the same
+ * result handed to every caller; the scope ends with the request, so a signed-out visitor on the
+ * next one is never served a stale session. */
+export const getCurrentMember = cache(async function getCurrentMember(): Promise<MemberSession | null> {
   // Read the cookie before touching the database: a signed-out visitor (and
   // every request for a public page) has no session to look up, so it should
   // cost no connection at all rather than a schema check and a round trip.
@@ -239,7 +249,7 @@ export async function getCurrentMember(): Promise<MemberSession | null> {
     WHERE s.token_hash = ${tokenHash} AND s.expires_at > ${now} AND m.active = true
   `;
   return rows[0] ?? null;
-}
+});
 
 export async function requireMember(role?: "admin") {
   const member = await getCurrentMember();
