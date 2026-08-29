@@ -384,9 +384,14 @@ export async function putState(data: string) {
   // nothing and blocks no readers.
   const [, , hasUpdatedAt] = await Promise.all([ensureStateSchema(), ensureProvisionalDeltaSchema(), hasUpdatedAtColumns()]);
   const stamped = <T extends Record<string, unknown>>(row: T) => (hasUpdatedAt ? { ...row, updated_at: new Date() } : row);
-  const stampedSet = hasUpdatedAt ? ",updated_at=excluded.updated_at" : "";
   const state = JSON.parse(data) as State;
   const sql = getSql();
+  /* A nested sql`` fragment, NOT a string. postgres.js interpolates a plain JS string as a bind
+     parameter — `...excluded.form${",updated_at=excluded.updated_at"}` compiled to
+     `...excluded.form$469`, and every save died on "column excluded.form$469 does not exist".
+     Only a value that is itself a Query is spliced in as SQL (see stringifyValue in
+     postgres/src/types.js), so the two branches have to be fragments, empty one included. */
+  const stampedSet = hasUpdatedAt ? sql`,updated_at=excluded.updated_at` : sql``;
   await sql.begin(async tx => {
     // The database role can have a short lock_timeout configured globally.
     // State writes are intentionally serialized by the advisory lock below,
