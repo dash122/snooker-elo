@@ -31,10 +31,10 @@
       <div style="display: flex; flex-direction: column; gap: 6px;">
         <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">今晚 · 會所 · 19:00 起</div>
         <div style="display: flex; align-items: baseline; gap: 8px;">
-          <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 40px; font-weight: 700; line-height: 1; color: #132521; font-variant-numeric: tabular-nums;">{{f.range}}</span>
-          <span style="font-size: 14px; color: #63736e;">人</span>
+          <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 40px; font-weight: 700; line-height: 1; color: #132521; font-variant-numeric: tabular-nums;">{{f.big}}</span>
+          <span style="font-size: 14px; color: #63736e;">{{f.unit}}</span>
         </div>
-        <div style="font-size: 13px; color: #63736e;">{{f.floorLine}}</div>
+        <div style="font-size: 13px; color: #63736e;">{{f.estimate}}</div>
       </div>
       <div style="text-align: right; display: flex; flex-direction: column; gap: 4px;">
         <div style="font-size: 12px; color: #82908c;">開到檯機會</div>
@@ -171,8 +171,16 @@ class Component extends DCLogic {
 
     return {
       f: {
-        range: lo === hi ? String(lo) : lo + '–' + hi,
-        floorLine: totalFloor > 0 ? totalFloor + ' 人確定 · 其餘係估計' : '暫時未有人確定',
+        /* The floor takes the 40px slot and the estimate sits under it. The other
+           way round — which this artboard had at first — puts the optimistic
+           number in the dominant position and contradicts the rule the whole
+           design rests on: a member who travels on a figure that did not hold
+           never trusts the figure again, so the reliable half must lead. */
+        big: totalFloor > 0 ? String(totalFloor) : (hi > 0 ? (lo === hi ? String(lo) : lo + '–' + hi) : '—'),
+        unit: totalFloor > 0 ? '人確定' : (hi > 0 ? '人' : ''),
+        estimate: totalFloor > 0
+          ? '估計 ' + (lo === hi ? lo + ' 人' : lo + '–' + hi + ' 人')
+          : (hi > 0 ? '未有人確定，全部係估計' : '暫時未有人回覆'),
         band: { high: '高', mid: '中等', low: '偏低' }[chance],
         bandColour: { high: '#247d5d', mid: '#a66f1d', low: '#82908c' }[chance],
         sure: Math.max(totalFloor, 0.001),
