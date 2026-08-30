@@ -71,10 +71,10 @@ export default function MatchmakingFormation({onPlayer,onActivity}:{onPlayer?:(p
   const hasOwnAny=data.own.length>0;
 
   return <section className="mf-page">
-    <header className="mf-header">
+    <div className="mf-header">
       <div><p className="mf-kicker">SCAA MATCHMAKING</p><h1>搵到真正打得成的人</h1><p>先公開未來七日的時間，我們會把重疊最長、水平接近和較少交手的球友排在前面。</p></div>
       {data.signedIn&&<Button onClick={()=>setPublishOpen(true)}>＋ 公開空檔</Button>}
-    </header>
+    </div>
 
     <nav className="mf-days" aria-label="未來七日">
       {dates.map(date=><button key={date} type="button" aria-pressed={selectedDate===date} onClick={()=>setSelectedDate(date)}>
