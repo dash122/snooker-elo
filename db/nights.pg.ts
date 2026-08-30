@@ -18,9 +18,10 @@ import { forecastNight, isConfidence, nightWindow, normaliseQuorum, promotionsFo
  * makes it naturally idempotent: two members tapping at once serialise, and the second sees the
  * first's promotion already applied.
  *
- * Schema changes are migration-owned (drizzle/0005). Nothing here issues DDL — even idempotent
- * CREATE/ALTER statements take heavyweight relation locks, and running them on serverless cold
- * starts is what used to stall unrelated reads until lock_timeout. */
+ * Schema changes are migration-owned — see supabase/migrations/20260830000000_nights_attendance.sql.
+ * Nothing here issues DDL: even idempotent CREATE/ALTER statements take heavyweight relation locks,
+ * and running them on serverless cold starts is what used to stall unrelated reads until
+ * lock_timeout. */
 
 export type NightRow = { id:string; date:string; startAt:string; endAt:string };
 export type AttendanceRow = AttendanceSignal & { promotedAt:string|null };
@@ -186,9 +187,9 @@ async function readNightBoard(days:number,viewerId:string|null):Promise<NightBoa
 
 /* --- Before the migration has run -----------------------------------------
  *
- * Migrations in this repo are applied by hand — 0002 through 0004 are not even in drizzle's
- * journal — so a deploy carrying this code will reach production some time before 0005 reaches the
- * database. That window is not an edge case to shrug at: it is the normal order of events here.
+ * The code ships ahead of the schema: a deploy carrying this file reaches production some time
+ * before its migration reaches the database. That window is not an edge case to shrug at — it is
+ * the normal order of events here.
  *
  * A missing table is therefore reported as "this feature is not provisioned", not as an error and
  * not as an empty night. The distinction matters. An error card parks a red banner at the top of a

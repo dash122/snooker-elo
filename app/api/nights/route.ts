@@ -11,7 +11,7 @@ export async function GET(request:Request){
   const member=await requireMember();
   try{
     const board=await nightBoard(Number.isFinite(days)?days:7,member?.statePlayerId??null);
-    /* `null` means migration 0005 has not reached this database yet. Reported as its own state so
+    /* `null` means the nights migration has not reached this database yet. Reported as its own state so
        the client can render nothing, rather than an error banner or a board claiming an empty
        night — see `isMissingSchema`. */
     if(board===null)return Response.json({unavailable:true},{headers:{"cache-control":"no-store"}});
