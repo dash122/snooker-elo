@@ -18,181 +18,142 @@
 
 <div style="width: 390px; min-height: 1000px; background: radial-gradient(circle at 72% -6%, rgba(211,174,89,.13), transparent 34%), #f4f3ed; padding: 20px 16px 96px; display: flex; flex-direction: column; gap: 16px;">
 
-  <div style="display: flex; align-items: baseline; justify-content: space-between;">
-    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 600; letter-spacing: .2em; color: #9a6e24;">SCAA MATCHMAKING</div>
-    <div style="font-size: 12px; color: #82908c;">約戰</div>
+  <div style="display: flex; align-items: center; gap: 10px;">
+    <button type="button" style="width: 34px; height: 34px; border: 1px solid rgba(20,65,57,.12); border-radius: 10px; background: #fff; display: grid; place-items: center;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#63736e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div style="display: flex; flex-direction: column; gap: 1px;">
+      <b style="font-size: 16px; color: #132521;">SCAA</b>
+      <span style="font-size: 12px; color: #82908c;">灣仔 · 士碌架 6 檯</span>
+    </div>
   </div>
 
-  <!-- 場次 · the night card. The whole product for most members on most days:
-       read one number, tap one button, close the app. -->
-  <div style="background: #fff; border: 1px solid rgba(20,65,57,.12); border-radius: 20px; box-shadow: 0 12px 36px rgba(9,47,40,.08); padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+  <!-- One night at one venue. Two buttons, one count. No probability to
+       self-assess, no threshold to configure, no state the app changes for you. -->
+  <div style="background: #fff; border: 1px solid rgba(20,65,57,.12); border-radius: 20px; box-shadow: 0 12px 36px rgba(9,47,40,.08); padding: 22px 20px; display: flex; flex-direction: column; gap: 18px;">
 
-    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-        <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">今晚 · 會所 · 19:00 起</div>
-        <div style="display: flex; align-items: baseline; gap: 8px;">
-          <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 40px; font-weight: 700; line-height: 1; color: #132521; font-variant-numeric: tabular-nums;">{{f.big}}</span>
-          <span style="font-size: 14px; color: #63736e;">{{f.unit}}</span>
-        </div>
-        <div style="font-size: 13px; color: #63736e;">{{f.estimate}}</div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">今晚 · 19:00 之後</div>
+      <div style="display: flex; align-items: baseline; gap: 10px;">
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 52px; font-weight: 700; line-height: 1; color: {{v.countColour}}; font-variant-numeric: tabular-nums;">{{v.going}}</span>
+        <span style="font-size: 17px; font-weight: 500; color: #132521;">人會去</span>
       </div>
-      <div style="text-align: right; display: flex; flex-direction: column; gap: 4px;">
-        <div style="font-size: 12px; color: #82908c;">開到檯機會</div>
-        <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 700; color: {{f.bandColour}};">{{f.band}}</div>
-      </div>
+      <sc-if value="{{v.hasInterested}}" hint-placeholder-val="{{ true }}">
+        <span style="font-size: 14px; color: #63736e;">另外 {{v.interested}} 人有興趣</span>
+      </sc-if>
     </div>
 
-    <!-- Solid = committed, hatched = the estimate on top, empty = not answered. -->
-    <div style="display: flex; height: 22px; border-radius: 6px; overflow: hidden; background: #e9ece6;">
-      <div style="background: #155e52; flex-grow: {{f.sure}};"></div>
-      <div style="background: repeating-linear-gradient(135deg, #1d6a5e 0 5px, transparent 5px 10px); opacity: .55; flex-grow: {{f.maybe}};"></div>
-      <div style="flex-grow: {{f.gap}};"></div>
-    </div>
-
-    <div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: #63736e;">
-      <span style="display: flex; align-items: center; gap: 6px;"><i style="width: 10px; height: 10px; border-radius: 3px; background: #155e52; display: inline-block;"></i>一定去 {{f.high}}</span>
-      <span style="display: flex; align-items: center; gap: 6px;"><i style="width: 10px; height: 10px; border-radius: 3px; background: #1d6a5e; opacity: .55; display: inline-block;"></i>應該／睇下先 {{f.hedge}}</span>
-    </div>
-
-    <!-- Faces, not a roster. Only 一定去 is named; a hedge is counted, never attributed. -->
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <sc-for list="{{f.faces}}" as="p" hint-placeholder-count="2">
+    <!-- Faces do the work a number cannot: 「阿明會去」 moves people, 「8 人」 does not. -->
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <sc-for list="{{v.faces}}" as="p" hint-placeholder-count="4">
         <span style="display: flex; align-items: center; gap: 6px; background: #f7f6ef; border: 1px solid rgba(20,65,57,.12); border-radius: 999px; padding: 4px 12px 4px 4px;">
           <i style="width: 26px; height: 26px; border-radius: 50%; background: {{p.colour}}; color: #fff; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700;">{{p.short}}</i>
           <b style="font-size: 13px; font-weight: 500; color: #132521;">{{p.name}}</b>
         </span>
       </sc-for>
-      <sc-if value="{{f.noFaces}}" hint-placeholder-val="{{ false }}">
-        <span style="font-size: 13px; color: #82908c;">未有人確定</span>
+      <sc-if value="{{v.noFaces}}" hint-placeholder-val="{{ false }}">
+        <span style="font-size: 14px; color: #82908c;">未有人話會去。做第一個？</span>
       </sc-if>
     </div>
 
-    <!-- The dial. One tap is the whole interaction: no sheet, no form, no time window. -->
-    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-      <sc-for list="{{f.levels}}" as="lv" hint-placeholder-count="4">
-        <button type="button" onClick="{{ lv.pick }}"
-          style="flex: 1 1 80px; min-height: 46px; padding: 8px 10px; border: 1px solid {{lv.border}}; border-radius: 12px; background: {{lv.bg}}; color: {{lv.fg}}; font-size: 14px; font-weight: 600;">{{lv.label}}</button>
+    <!-- Two buttons. 有興趣 is not a probability claim — it is a subscription:
+         「夠人叫我」, without asking anybody for a number. -->
+    <div style="display: flex; gap: 10px;">
+      <button type="button" onClick="{{ v.pickGoing }}"
+        style="flex: 1; min-height: 54px; border: 1px solid {{v.goingBorder}}; border-radius: 14px; background: {{v.goingBg}}; color: {{v.goingFg}}; font-size: 16px; font-weight: 700;">{{v.goingLabel}}</button>
+      <button type="button" onClick="{{ v.pickInterested }}"
+        style="flex: 1; min-height: 54px; border: 1px solid {{v.intBorder}}; border-radius: 14px; background: {{v.intBg}}; color: {{v.intFg}}; font-size: 16px; font-weight: 600;">{{v.intLabel}}</button>
+    </div>
+
+    <div style="font-size: 13px; color: #63736e;">{{v.hint}}</div>
+  </div>
+
+  <!-- Other nights, as plain counts. No ranges, no confidence bands: a number
+       people can act on, or a blank. -->
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">呢間會 · 其他日子</div>
+    <div style="display: flex; gap: 8px;">
+      <sc-for list="{{v.week}}" as="d" hint-placeholder-count="5">
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 6px; border: 1px solid {{d.border}}; border-radius: 12px; background: {{d.bg}};">
+          <small style="font-size: 12px; color: #82908c;">{{d.day}}</small>
+          <strong style="font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 700; color: {{d.colour}}; font-variant-numeric: tabular-nums;">{{d.n}}</strong>
+        </div>
       </sc-for>
     </div>
-
-    <div style="font-size: 13px; color: #63736e; margin: 0;">{{f.hint}}</div>
   </div>
 
-  <!-- Seven floors and ranges. Answers 「邊晚最多人」 in one glance. -->
-  <div style="display: flex; gap: 8px; overflow: hidden;">
-    <sc-for list="{{f.week}}" as="d" hint-placeholder-count="5">
-      <div style="flex: 0 0 auto; min-width: 62px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 10px; border: 1px solid {{d.border}}; border-radius: 12px; background: {{d.bg}};">
-        <small style="font-size: 12px; color: #82908c;">{{d.day}}</small>
-        <strong style="font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; color: {{d.numColour}}; font-variant-numeric: tabular-nums;">{{d.n}}</strong>
-        <span style="font-size: 12px; color: #63736e;">{{d.sub}}</span>
-      </div>
-    </sc-for>
-  </div>
-
-  <!-- What already exists below the new card: the 開局卡 timeline, unchanged. -->
-  <div style="display: flex; flex-direction: column; gap: 8px; opacity: .55;">
-    <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">開局卡</div>
-    <div style="background: #fffefa; border: 1px solid rgba(20,65,57,.12); border-radius: 16px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center;">
-      <div style="display: flex; flex-direction: column; gap: 2px;">
-        <b style="font-size: 14px; color: #132521;">阿明 · 19:30–21:30</b>
-        <small style="font-size: 12px; color: #63736e;">第一個就算 · 你讓 12 分</small>
-      </div>
-      <span style="background: #155e52; color: #fff; border-radius: 12px; padding: 8px 14px; font-size: 13px; font-weight: 600;">加入</span>
+  <a href="#" style="display: flex; align-items: center; justify-content: space-between; background: #fffefa; border: 1px solid rgba(20,65,57,.12); border-radius: 16px; padding: 14px 16px; text-decoration: none;">
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <b style="font-size: 14px; color: #132521;">睇下其他波房</b>
+      <small style="font-size: 12px; color: #63736e;">旺角今晚 4 人 · 太子 1 人</small>
     </div>
-  </div>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#63736e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+  </a>
 
 </div>
 </x-dc>
 
-<script data-dc-script data-props='{"floor":{"editor":"int","default":2,"min":0,"max":6,"section":"場次狀態"},"hedges":{"editor":"int","default":3,"min":0,"max":8,"section":"場次狀態"}}'>
+<script data-dc-script data-props='{"going":{"editor":"int","default":8,"min":0,"max":14,"section":"今晚狀態"},"interested":{"editor":"int","default":3,"min":0,"max":10,"section":"今晚狀態"}}'>
 class Component extends DCLogic {
   renderVals() {
-    const floor = Math.max(0, this.props.floor ?? 2);
-    const hedges = Math.max(0, this.props.hedges ?? 3);
+    const baseGoing = Math.max(0, this.props.going ?? 8);
+    const baseInterested = Math.max(0, this.props.interested ?? 3);
     const mine = this.state && this.state.mine !== undefined ? this.state.mine : null;
 
-    /* The viewer's own tap counts too, so the number moves under their thumb —
-       that immediate payback is the whole reason a hedge is worth leaving. */
-    const myHigh = mine === 'high' ? 1 : 0;
-    const myHedge = (mine === 'mid' || mine === 'low') ? 1 : 0;
-    const totalFloor = floor + myHigh;
-    const totalHedge = hedges + myHedge;
-
-    /* Expected extra bodies from the hedges: 應該去 converts about half the time,
-       睇下先 about a fifth. Never added to the floor — only to the range. */
-    const extra = Math.round(totalHedge * 0.42);
-    const lo = totalFloor;
-    const hi = totalFloor + extra;
-    const chance = totalFloor >= 2 ? 'high' : (totalFloor + extra >= 3 ? 'mid' : 'low');
+    /* The viewer's own tap moves the count immediately — that payback is the
+       entire reason a tap is worth making. */
+    const going = baseGoing + (mine === 'going' ? 1 : 0);
+    const interested = baseInterested + (mine === 'interested' ? 1 : 0);
 
     const names = [
       { short: 'MI', name: '阿明', colour: '#155e52' },
       { short: 'SA', name: 'Sam', colour: '#1d6a5e' },
-      { short: 'KI', name: '阿King', colour: '#0d443a' },
+      { short: 'KE', name: '阿強', colour: '#0d443a' },
+      { short: 'WI', name: 'Wing', colour: '#247d5d' },
     ];
-    const faces = names.slice(0, Math.min(totalFloor, 3));
-    if (mine === 'high') faces[faces.length - 1] = { short: '你', name: '你', colour: '#a66f1d' };
+    const faces = names.slice(0, Math.min(going, 4));
+    if (mine === 'going') faces[faces.length - 1] = { short: '你', name: '你', colour: '#a66f1d' };
 
-    const levels = [
-      { id: 'high', label: '一定去' },
-      { id: 'mid', label: '應該去' },
-      { id: 'low', label: '睇下先' },
-      { id: 'out', label: '今晚唔得' },
-    ].map((lv) => {
-      const on = mine === lv.id;
-      const tone = { high: '#155e52', mid: '#1d6a5e', low: '#a66f1d', out: '#82908c' }[lv.id];
-      return {
-        ...lv,
-        pick: () => this.setState({ mine: on ? null : lv.id }),
-        bg: on ? tone : '#f7f6ef',
-        fg: on ? '#ffffff' : '#63736e',
-        border: on ? tone : 'rgba(20,65,57,.12)',
-      };
-    });
-
-    const hint = mine === null ? '撳一下就得。淨係計人數，冇人會追你。'
-      : mine === 'out' ? '知道喇，今晚唔會再提你。'
-      : mine === 'high' ? '你會顯示喺確定名單。'
-      : '只計人數，唔會顯示你個名。隨時可以改。';
+    const hint = mine === 'going'
+      ? '你已經喺名單上面。想改隨時撳返。'
+      : mine === 'interested'
+        ? '夠人我哋會叫你一次。冇人會追你。'
+        : '「有興趣」淨係一個訂閱 — 夠人先通知你，唔使你估幾成機會。';
 
     const week = [
-      { day: '今晚', n: hi, sub: totalFloor > 0 ? totalFloor + ' 實' : '未有人', on: true },
-      { day: '聽晚', n: 2, sub: '1 實', on: false },
-      { day: '週三', n: 6, sub: '4 實', on: false },
-      { day: '週四', n: 1, sub: '未有人', on: false },
-      { day: '週五', n: 3, sub: '1 實', on: false },
+      { day: '今晚', n: going, on: true },
+      { day: '聽晚', n: 2, on: false },
+      { day: '週三', n: 6, on: false },
+      { day: '週四', n: 0, on: false },
+      { day: '週五', n: 3, on: false },
     ].map((d) => ({
-      ...d,
-      n: d.n || '—',
+      day: d.day,
+      n: d.n > 0 ? String(d.n) : '—',
       bg: d.on ? '#fff' : '#f7f6ef',
       border: d.on ? '#155e52' : 'rgba(20,65,57,.12)',
-      numColour: d.n >= 4 ? '#247d5d' : '#132521',
+      colour: d.n >= 4 ? '#247d5d' : (d.n > 0 ? '#132521' : '#b3bdb8'),
     }));
 
     return {
-      f: {
-        /* The floor takes the 40px slot and the estimate sits under it. The other
-           way round — which this artboard had at first — puts the optimistic
-           number in the dominant position and contradicts the rule the whole
-           design rests on: a member who travels on a figure that did not hold
-           never trusts the figure again, so the reliable half must lead. */
-        big: totalFloor > 0 ? String(totalFloor) : (hi > 0 ? (lo === hi ? String(lo) : lo + '–' + hi) : '—'),
-        unit: totalFloor > 0 ? '人確定' : (hi > 0 ? '人' : ''),
-        estimate: totalFloor > 0
-          ? '估計 ' + (lo === hi ? lo + ' 人' : lo + '–' + hi + ' 人')
-          : (hi > 0 ? '未有人確定，全部係估計' : '暫時未有人回覆'),
-        band: { high: '高', mid: '中等', low: '偏低' }[chance],
-        bandColour: { high: '#247d5d', mid: '#a66f1d', low: '#82908c' }[chance],
-        sure: Math.max(totalFloor, 0.001),
-        maybe: Math.max(extra, 0.001),
-        gap: Math.max(8 - totalFloor - extra, 1),
-        high: totalFloor,
-        hedge: totalHedge,
+      v: {
+        going,
+        interested,
+        hasInterested: interested > 0,
+        countColour: going >= 2 ? '#132521' : '#82908c',
         faces,
         noFaces: faces.length === 0,
-        levels,
-        hint,
         week,
+        hint,
+        pickGoing: () => this.setState({ mine: mine === 'going' ? null : 'going' }),
+        pickInterested: () => this.setState({ mine: mine === 'interested' ? null : 'interested' }),
+        goingLabel: mine === 'going' ? '✓ 我會去' : '我會去',
+        goingBg: mine === 'going' ? '#155e52' : '#f7f6ef',
+        goingFg: mine === 'going' ? '#ffffff' : '#155e52',
+        goingBorder: mine === 'going' ? '#155e52' : 'rgba(20,65,57,.24)',
+        intLabel: mine === 'interested' ? '✓ 有興趣' : '有興趣',
+        intBg: mine === 'interested' ? '#a66f1d' : '#f7f6ef',
+        intFg: mine === 'interested' ? '#ffffff' : '#63736e',
+        intBorder: mine === 'interested' ? '#a66f1d' : 'rgba(20,65,57,.12)',
       },
     };
   }
