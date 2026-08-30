@@ -4,6 +4,8 @@ import {PlayerBadge} from "./UiBits";
 import {BackdropSheet,ConfirmDialog} from "./components/ui/Overlay";
 import {Button,IconButton,InlineNotice,SegmentedControl,SlidingToggleGroup} from "./components/ui/Primitives";
 import {Slots,type Board} from "./Slots";
+import { Nights } from "./Nights";
+import { Room } from "./Room";
 import {CounterSheet,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type MatchmakingSummary,type QueueItem,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
 import {addDaysHongKong,availabilityEndTimes,availabilityStartTimes,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeAvailabilitySlots,nextAvailabilityStart,partitionInvites,partitionOffers,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type IntentSignal,type RankedOpponent,type MutualOffer,type ReliabilitySignals,type SlotConditions} from "../lib/availability";
@@ -785,6 +787,13 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
 {view==="book"&&<>
 {/* Whatever is waiting on this member, above everything else — an invite to answer, an offer to
     accept, a score to record. One band, never the whole screen. */}
+{/* 場次 — 「今晚有無人」 above everything else.
+    Every other surface on this tab asks a member to author something before showing them any
+    evidence that it is worth authoring. This one shows the evidence first and asks for one tap, so
+    it goes above the queue: a member who is only deciding whether to leave the house should not
+    have to read past somebody else's invite to find out. */}
+<Nights signedIn={Boolean(userPlayerId)} onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>
+
 {queueItems.length>0&&userPlayerId&&<ResponseQueue items={queueItems}/>}
 
 {/* The tab itself: one timeline of 開局卡, mine inline among everyone else's, in clock order.
@@ -800,6 +809,14 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   onManageAvailability={()=>nav("mine")}
   onRecord={(opponentId,playedOn)=>onRecordMatch?.(opponentId,playedOn)}
   onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>
+
+{/* 現時喺會所 — live truth, which outranks any forecast the moment it exists.
+    This component was written months ago and then orphaned: nothing imported it, and only
+    `/api/room` survived, called by a screen that never rendered. It is the club's own answer to
+    「邊個而家喺度」, so it is restored here rather than rebuilt. */}
+{userPlayerId&&<Room signedIn={Boolean(userPlayerId)} onAsk={(playerId,slot)=>openInviteSheet(playerId,slot??undefined)}
+  onOpen={onPlayer} onClaim={id=>void claimCall(id)} claimingCallId={claimingCallId}
+  refreshKey={refreshNonce} onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>}
 
 </>}
 {/* One screen, one gesture: the board is the list, the editor and the composer at once. Nothing here
