@@ -126,7 +126,7 @@ export function Nights({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=>voi
   },[today]);
   const [board,setBoard]=useState<NightBoard[]>([]);
   const [selected,setSelected]=useState(today);
-  const [state,setState]=useState<"loading"|"ready"|"error">("loading");
+  const [state,setState]=useState<"loading"|"ready"|"error"|"unavailable">("loading");
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState("");
 
@@ -135,6 +135,10 @@ export function Nights({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=>voi
       const response=await fetch("/api/nights?days=7",{cache:"no-store"});
       const body=await response.json();
       if(!response.ok)throw new Error(body?.error??"場次資料暫時未能載入");
+      /* The table has not been migrated onto this database yet. Render nothing rather than an error
+         banner or an empty night — see `isMissingSchema` in db/nights.pg.ts for why absent is the
+         only honest state here. */
+      if(body?.unavailable){setState("unavailable");return}
       setBoard(body.board??[]);setState("ready");
     }catch{setState("error")}
   },[]);
@@ -165,6 +169,8 @@ export function Nights({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=>voi
     }catch(error){setMessage(error instanceof Error?error.message:"網絡連線失敗，請再試一次。")}
     finally{setBusy(false)}
   },[night,busy,onChanged]);
+
+  if(state==="unavailable")return null;
 
   if(state==="error")return <section className="nt-card nt-error">
     <p>場次資料暫時載入唔到。</p>

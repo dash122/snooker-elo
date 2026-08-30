@@ -128,7 +128,12 @@ async function playersByIds(ids:string[]):Promise<Record<string,NightPlayer>>{
  *  Nights with no signals at all are still returned. That is deliberate — a member planning ahead
  *  needs to see that Thursday is empty as much as that Wednesday is full, and an evening missing
  *  from the list reads as an error rather than as silence. */
-export async function nightBoard(days:number,viewerId:string|null):Promise<NightBoard[]>{
+export async function nightBoard(days:number,viewerId:string|null):Promise<NightBoard[]|null>{
+  try{ return await readNightBoard(days,viewerId) }
+  catch(error){ if(isMissingSchema(error))return null; throw error }
+}
+
+async function readNightBoard(days:number,viewerId:string|null):Promise<NightBoard[]>{
   const today=hkDate();
   const dates=Array.from({length:Math.max(1,Math.min(14,days))},(_,index)=>addDaysHongKong(today,index));
   const sql=getSql();
@@ -177,6 +182,23 @@ export async function nightBoard(days:number,viewerId:string|null):Promise<Night
       }:null,
     };
   });
+}
+
+/* --- Before the migration has run -----------------------------------------
+ *
+ * Migrations in this repo are applied by hand — 0002 through 0004 are not even in drizzle's
+ * journal — so a deploy carrying this code will reach production some time before 0005 reaches the
+ * database. That window is not an edge case to shrug at: it is the normal order of events here.
+ *
+ * A missing table is therefore reported as "this feature is not provisioned", not as an error and
+ * not as an empty night. The distinction matters. An error card parks a red banner at the top of a
+ * tab that otherwise works perfectly, and an empty board is worse still — 「暫時未有人回覆」 is a
+ * lie when the truth is that nobody was ever able to answer. Absent is the only honest state, so
+ * the section renders nothing at all until the table exists. */
+const UNDEFINED_TABLE = "42P01";
+
+export function isMissingSchema(error:unknown):boolean{
+  return Boolean(error&&typeof error==="object"&&"code" in error&&(error as {code?:string}).code===UNDEFINED_TABLE);
 }
 
 export type SignalResult = { board:NightBoard; promoted:string[] };

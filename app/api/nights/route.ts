@@ -11,6 +11,10 @@ export async function GET(request:Request){
   const member=await requireMember();
   try{
     const board=await nightBoard(Number.isFinite(days)?days:7,member?.statePlayerId??null);
+    /* `null` means migration 0005 has not reached this database yet. Reported as its own state so
+       the client can render nothing, rather than an error banner or a board claiming an empty
+       night — see `isMissingSchema`. */
+    if(board===null)return Response.json({unavailable:true},{headers:{"cache-control":"no-store"}});
     return Response.json({board,signedIn:Boolean(member?.statePlayerId)},{headers:{"cache-control":"no-store"}});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"場次資料暫時未能載入"},{status:500});
@@ -37,7 +41,7 @@ export async function POST(request:Request){
       upgradeAt:body.upgradeAt,
     });
     const board=await nightBoard(7,member.statePlayerId);
-    return Response.json({board,promoted,youWerePromoted:promoted.includes(member.statePlayerId)});
+    return Response.json({board:board??[],promoted,youWerePromoted:promoted.includes(member.statePlayerId)});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"暫時儲存唔到"},{status:400});
   }
@@ -51,5 +55,5 @@ export async function DELETE(request:Request){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return Response.json({error:"日期格式唔啱"},{status:400});
   await clearAttendance(member.statePlayerId,date);
   const board=await nightBoard(7,member.statePlayerId);
-  return Response.json({board});
+  return Response.json({board:board??[]});
 }
