@@ -1,0 +1,214 @@
+/* --- 場次 · the night board -------------------------------------------------
+ *
+ * One card, read top to bottom in the order a member decides in: how many, how sure, who, then
+ * their own answer, then the rest of the week. Nothing here scrolls horizontally except the week
+ * strip, which is a scroller on purpose. */
+
+.nt-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-5);
+  background: var(--ds-surface-raised);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px var(--ds-selected-shadow);
+}
+
+.nt-kicker {
+  display: block;
+  font-size: var(--fs-label);
+  letter-spacing: .08em;
+  color: var(--ds-text-tertiary);
+}
+
+.nt-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+/* The floor and the estimate, in that order and in one line. Tabular figures so the number does
+   not jitter sideways as it updates under the member's thumb. */
+.nt-headline {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-h3);
+  font-weight: 700;
+  color: var(--ds-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.nt-band { text-align: right; }
+.nt-band b { font-size: var(--fs-lead); font-weight: 700; }
+.nt-band-high { color: var(--ds-success); }
+.nt-band-mid { color: var(--ds-warning); }
+.nt-band-low { color: var(--ds-text-tertiary); }
+
+/* --- The bar ---------------------------------------------------------------
+ * Solid = committed, hatched = estimated on top, empty = the club that has not answered. */
+.nt-bar {
+  display: flex;
+  height: 22px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--ds-canvas-muted);
+}
+.nt-bar i { display: block; min-width: 3px; }
+.nt-bar-sure { background: var(--ds-accent-action); }
+.nt-bar-maybe {
+  background: repeating-linear-gradient(135deg,
+    var(--ds-chart-primary) 0 5px, transparent 5px 10px);
+  opacity: .55;
+}
+.nt-bar-gap { background: transparent; }
+
+.nt-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  font-size: var(--fs-caption);
+  color: var(--ds-text-secondary);
+}
+.nt-key span { display: flex; align-items: center; gap: var(--sp-1-5); }
+.nt-key i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.nt-key-sure { background: var(--ds-accent-action); }
+.nt-key-maybe { background: var(--ds-chart-primary); opacity: .55; }
+.nt-key-cond { background: var(--ds-accent-primary); }
+
+/* Faces, not a roster. Only members who committed appear — a hedge is counted, never named. */
+.nt-faces { display: flex; flex-wrap: wrap; gap: var(--sp-1-5); }
+
+/* --- The dial --------------------------------------------------------------
+ * Four equal targets, big enough for a thumb. Tapping the level you already hold clears it, so
+ * backing out costs exactly as much as opting in. */
+.nt-dial { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.nt-lv {
+  flex: 1 1 80px;
+  min-height: 46px;
+  padding: var(--sp-2) var(--sp-2-5);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 10px;
+  background: var(--ds-surface-secondary);
+  color: var(--ds-text-secondary);
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.nt-lv b { font-size: var(--fs-sm); font-weight: 600; }
+.nt-lv:hover:not(:disabled) { border-color: var(--ds-border-strong); }
+.nt-lv:disabled { opacity: .55; cursor: default; }
+.nt-lv.active { color: var(--ds-text-on-accent); border-color: transparent; }
+.nt-lv-high.active { background: var(--ds-accent-action); color: var(--ds-text-on-brand); }
+.nt-lv-mid.active { background: var(--ds-chart-primary); color: var(--ds-text-on-brand); }
+.nt-lv-low.active { background: var(--ds-accent-primary); color: var(--ds-text-on-accent); }
+.nt-lv-out.active { background: var(--ds-canvas-muted); color: var(--ds-text-primary); }
+
+/* --- 夠人就去 -------------------------------------------------------------
+ * Shown only where it means something: never on 一定去 (already committed) and never on 唔得
+ * (which it would contradict). */
+.nt-quorum {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px dashed var(--ds-border-strong);
+  border-radius: 10px;
+  background: var(--ds-surface-secondary);
+}
+.nt-quorum-head { display: flex; flex-direction: column; gap: var(--sp-1); }
+.nt-quorum-head span { font-size: var(--fs-sm); font-weight: 600; color: var(--ds-text-primary); }
+.nt-quorum-head small { font-size: var(--fs-caption); color: var(--ds-text-secondary); }
+
+.nt-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.nt-chip {
+  min-height: 36px;
+  padding: var(--sp-1-5) var(--sp-3);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 999px;
+  background: var(--ds-surface-raised);
+  color: var(--ds-text-secondary);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.nt-chip.active {
+  background: var(--ds-accent-action);
+  border-color: transparent;
+  color: var(--ds-text-on-brand);
+}
+.nt-chip:disabled { opacity: .55; cursor: default; }
+
+.nt-note, .nt-message { font-size: var(--fs-caption); color: var(--ds-text-secondary); margin: 0; }
+
+/* The club made this commitment on the member's behalf, so it is said plainly rather than left for
+   them to notice their own row changed. */
+.nt-promoted {
+  margin: 0;
+  padding: var(--sp-2-5) var(--sp-3);
+  border-radius: 8px;
+  background: var(--ds-success-wash);
+  border: 1px solid var(--ds-success-wash-border);
+  color: var(--ds-text-primary);
+  font-size: var(--fs-sm);
+}
+
+/* --- The week --------------------------------------------------------------
+ * Seven floors and ranges, which is what answers 「邊晚最多人」 at a glance. The horizontal scroll
+ * is contained here so the page body never scrolls sideways. */
+.nt-week {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--ds-border-subtle);
+  scrollbar-width: none;
+}
+.nt-week::-webkit-scrollbar { display: none; }
+.nt-day {
+  flex: 0 0 auto;
+  min-width: 66px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-2-5);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 10px;
+  background: var(--ds-surface-secondary);
+  cursor: pointer;
+}
+.nt-day small { font-size: var(--fs-label); color: var(--ds-text-tertiary); }
+.nt-day strong {
+  font-size: var(--fs-lead);
+  font-weight: 700;
+  color: var(--ds-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.nt-day span { font-size: var(--fs-label); color: var(--ds-text-secondary); }
+.nt-day.active {
+  border-color: var(--ds-accent-action);
+  background: var(--ds-surface-raised);
+  box-shadow: 0 0 0 1px var(--ds-accent-action) inset;
+}
+.nt-day.nt-band-high strong { color: var(--ds-success); }
+
+.nt-error { align-items: flex-start; }
+.nt-skeleton-bar {
+  height: 22px;
+  border-radius: 6px;
+  background: var(--ds-canvas-muted);
+}
+
+.nt-lv:focus-visible, .nt-chip:focus-visible, .nt-day:focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nt-lv { transition: none; }
+}
+
+@media (max-width: 599px) {
+  .nt-card { padding: var(--sp-4); gap: var(--sp-3-5); }
+  .nt-lv { flex: 1 1 calc(50% - var(--sp-2)); }
+}
