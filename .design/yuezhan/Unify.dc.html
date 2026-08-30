@@ -1,0 +1,127 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+           font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { color: #155e52; } a:hover { color: #185149; }
+  </style>
+</helmet>
+
+<div style="width: 1060px; background: radial-gradient(circle at 88% -4%, rgba(211,174,89,.12), transparent 30%), #f4f3ed; padding: 44px 48px 52px; display: flex; flex-direction: column; gap: 30px;">
+
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 600; letter-spacing: .2em; color: #9a6e24;">THE MERGE</div>
+    <h1 style="margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -.01em; color: #132521;">空檔同場次唔應該係兩樣嘢</h1>
+    <p style="margin: 0; max-width: 64ch; font-size: 15px; color: #63736e; line-height: 1.8;">我之前喺 <code style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; background: #e9ece6; padding: 1px 6px; border-radius: 4px;">availability_slots</code> 隔籬另起咗一張 <code style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; background: #e9ece6; padding: 1px 6px; border-radius: 4px;">night_attendance</code>。但打開個 baseline 一睇，前者<b style="color: #132521;">本來就已經有</b>開始時間、結束時間、場地同軟刪除——即係話啱嘅形狀一直都喺度，我起咗第二張冇時間、一日一格嘅表擺喺佢隔籬。</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 0 28px; align-items: center;">
+
+    <!-- Before -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 12px; letter-spacing: .08em; color: #ad5149;">而家 · 三樣互不相通嘅嘢</div>
+
+      <div style="background: #fff; border: 1px solid rgba(173,81,73,.3); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 5px;">
+        <code style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #132521; font-weight: 500;">availability_slots</code>
+        <span style="font-size: 13px; color: #63736e;">有 start_at / end_at / venue。要人手畫時段，冇人畫，所以係一個冇讀者嘅寫入。</span>
+      </div>
+
+      <div style="background: #fff; border: 1px solid rgba(173,81,73,.3); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 5px;">
+        <code style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #132521; font-weight: 500;">nights + night_attendance</code>
+        <span style="font-size: 13px; color: #63736e;">一日一行，冇時間。而且 <code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">UNIQUE(night_date)</code> 令全個產品一日得一個場次。</span>
+      </div>
+
+      <div style="background: #fff; border: 1px solid rgba(173,81,73,.3); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 5px;">
+        <code style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #132521; font-weight: 500;">match_invites / offers / open_calls</code>
+        <span style="font-size: 13px; color: #63736e;">全部一對一形狀，同上面兩樣冇任何供給關係。</span>
+      </div>
+    </div>
+
+    <div style="display: grid; place-items: center; color: #82908c;">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#155e52" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </div>
+
+    <!-- After -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 12px; letter-spacing: .08em; color: #247d5d;">提案 · 一張表</div>
+
+      <div style="background: #fff; border: 2px solid #247d5d; border-radius: 14px; padding: 18px 20px; box-shadow: 0 12px 36px rgba(9,47,40,.1); display: flex; flex-direction: column; gap: 10px;">
+        <code style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #132521; font-weight: 500;">availability_slots</code>
+        <div style="display: flex; flex-direction: column; gap: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: #63736e; line-height: 1.9;">
+          <span>start_at, end_at        <span style="color: #82908c;">← 已經有</span></span>
+          <span>cancelled_at            <span style="color: #82908c;">← 已經有</span></span>
+          <span style="color: #247d5d; font-weight: 500;">venue_id                ← text 改做 FK</span>
+          <span style="color: #247d5d; font-weight: 500;">commitment              ← 新：going | interested</span>
+        </div>
+        <span style="font-size: 13px; color: #63736e; line-height: 1.75;">一個成員講嘅嘢由頭到尾只有一種：<b style="color: #132521;">我幾時會喺邊間波房</b>。</span>
+      </div>
+
+      <div style="background: #eef6f0; border: 1px solid #cfe0d5; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 5px;">
+        <b style="font-size: 15px; color: #132521;">場次唔再係一張表，係一個查詢</b>
+        <span style="font-size: 13px; color: #63736e; line-height: 1.75;">「今晚 SCAA」＝ 揀出該場地、該日、未取消嘅 slot，再按時間睇重疊。冇 <code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">nights</code> 表，就冇一日一個場次嘅限制——一日幾多場，由數據自己講。</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- The effort ladder: the same row, three levels of effort. -->
+  <div style="display: flex; flex-direction: column; gap: 14px; border-top: 1px solid rgba(20,65,57,.12); padding-top: 26px;">
+    <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">同一張表，三種落力程度 — 呢個先係真正嘅協同</div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+
+      <div style="background: #fff; border: 1px solid rgba(20,65,57,.12); border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 700; color: #155e52;">1 下</span>
+        <b style="font-size: 15px; color: #132521;">撳「我會去」</b>
+        <span style="font-size: 13px; color: #63736e; line-height: 1.75;">寫入一個預設時段（例如今晚 18–22 點）。零決定。<b style="color: #132521;">但佢寫嘅係一個真正嘅時段</b>，所以佢即刻對其他人有用。</span>
+      </div>
+
+      <div style="background: #fff; border: 1px solid rgba(20,65,57,.12); border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 700; color: #155e52;">2 下</span>
+        <b style="font-size: 15px; color: #132521;">撳埋一個時段 chip</b>
+        <span style="font-size: 13px; color: #63736e; line-height: 1.75;">下午／6 點後／8 點後／10 點後。係修正，唔係問題——你唔撳都已經有嘢寫咗入去。</span>
+      </div>
+
+      <div style="background: #fff; border: 1px solid rgba(20,65,57,.12); border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 700; color: #155e52;">畫</span>
+        <b style="font-size: 15px; color: #132521;">用返現有嘅時段板</b>
+        <span style="font-size: 13px; color: #63736e; line-height: 1.75;">計劃型球友照樣可以拖曳精確時段。同一張表、同一個讀者——佢哋畫嘅嘢終於有人睇。</span>
+      </div>
+    </div>
+    <p style="margin: 4px 0 0; max-width: 78ch; font-size: 14px; color: #63736e; line-height: 1.8;">上一版「公開空檔」係一個冇讀者嘅寫入，所以冇人做。而家<b style="color: #132521;">最求其嗰一下撳，寫入嘅同計劃型手畫嘅係同一種資料</b>——兩者一齊餵同一個重疊查詢。呢個先係「空檔」同「約局」之間一直欠缺嘅供給關係。</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+    <div style="background: #fffefa; border: 1px solid rgba(20,65,57,.12); border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">要刪嘅嘢</div>
+      <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #63736e; line-height: 1.8;">
+        <span><code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">nights</code> 同 <code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">night_attendance</code> 兩張表（連埋嗰個 UNIQUE 限制）</span>
+        <span><code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">lib/nights.ts</code> 大部分：四級把握、加權、Poisson-binomial、衰減、升級 fixpoint</span>
+        <span><code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">db/nights.pg.ts</code> 嘅 calibration 查詢</span>
+      </div>
+    </div>
+    <div style="background: #fffefa; border: 1px solid rgba(20,65,57,.12); border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">要加嘅嘢</div>
+      <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #63736e; line-height: 1.8;">
+        <span><code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">venues</code> 表（名、地區、檯數）＋ <code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">venue_id</code> FK</span>
+        <span><code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">commitment</code> 欄位，預設 <code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">going</code>（現有的 slot 全部係 going）</span>
+        <span>一個純函式：一堆 slot → 逐個鐘嘅重疊 ＋ 最高重疊時段</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="background: #fff2d3; border: 1px solid rgba(166,111,29,.28); border-radius: 16px; padding: 18px 22px; display: flex; flex-direction: column; gap: 6px;">
+    <b style="font-size: 15px; color: #132521;">遷移上要小心嘅一點</b>
+    <span style="font-size: 13px; color: #8b5910; line-height: 1.8;">現有 <code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">availability_slots</code> 仲帶住 <code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">posted / fill_rule / filled_by / result</code> 呢套開局卡欄位。呢啲係舊嘅一對一機制，唔應該同 <code style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">commitment</code> 混淆——要決定係一次過拆走，定係先留住行多一排。呢個係實作前要拍板嘅事。</span>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
