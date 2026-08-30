@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+  <style>
+    body { margin: 0; font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+           font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { color: #155e52; } a:hover { color: #185149; }
+    button { font: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 390px; min-height: 1000px; background: radial-gradient(circle at 72% -6%, rgba(211,174,89,.13), transparent 34%), #f4f3ed; padding: 20px 16px 96px; display: flex; flex-direction: column; gap: 18px;">
+
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <span style="font-size: 12px; letter-spacing: .08em; color: #82908c;">指定 · 一對一</span>
+    <span style="font-size: 11px; font-weight: 700; color: #8b5910; background: #fff2d3; border: 1px solid rgba(166,111,29,.28); border-radius: 999px; padding: 2px 8px;">未做 · 提案</span>
+  </div>
+
+  <!-- The asker's side. This does NOT create an invite 阿明 must answer — it
+       writes an ordinary night signal with a target attached, so the ask is
+       already counted in the forecast whatever he does. -->
+  <div style="background: #fff; border: 1px solid rgba(20,65,57,.12); border-radius: 20px; box-shadow: 0 12px 36px rgba(9,47,40,.08); padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+    <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">你嗰邊</div>
+
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <i style="flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; background: #155e52; color: #fff; display: grid; place-items: center; font-style: normal; font-size: 13px; font-weight: 700;">MI</i>
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <b style="font-size: 16px; color: #132521;">阿明</b>
+        <span style="font-size: 13px; color: #63736e;">1520 · 佢讓你 12 分</span>
+      </div>
+    </div>
+
+    <div style="background: #f7f6ef; border: 1px solid rgba(20,65,57,.12); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;">
+      <b style="font-size: 14px; color: #132521;">已經話咗畀阿明知</b>
+      <span style="font-size: 13px; color: #63736e; line-height: 1.7;">你星期二會去，順便想搵佢打。佢唔使接受，唔使拒絕——佢照填自己嘅意向就當回應咗。</span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #63736e;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#247d5d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+      <span>你已經計咗入星期二嘅人數，無論佢覆唔覆。</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #63736e;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#82908c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <span>48 個鐘冇動靜就自動變返普通意向，唔會有人被拒絕。</span>
+    </div>
+  </div>
+
+  <!-- 阿明's side. A nudge he can answer by simply signalling, never by
+       rejecting a person. A target is visible only to its target. -->
+  <div style="background: #0d443a; border-radius: 20px; padding: 16px; box-shadow: 0 12px 36px rgba(9,47,40,.18); display: flex; gap: 12px; align-items: flex-start;">
+    <div style="flex: 0 0 auto; width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,.13); display: grid; place-items: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f0d091" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 3px;">
+      <b style="font-size: 14px; color: #f9f7ee;">阿 King 星期二會去，想搵你打</b>
+      <span style="font-size: 13px; color: #bdd0c9; line-height: 1.6;">想去就填個意向，唔想就唔使理——佢唔會知。</span>
+      <span style="font-size: 12px; color: #8faea5; margin-top: 4px;">SCAA 約戰 · 而家</span>
+    </div>
+  </div>
+
+  <div style="background: #fff; border: 1px solid rgba(20,65,57,.12); border-radius: 20px; box-shadow: 0 12px 36px rgba(9,47,40,.08); padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+    <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">阿明嗰邊 · 星期二</div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <i style="flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; background: #a66f1d; color: #fff; display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 700;">KI</i>
+      <span style="font-size: 14px; color: #132521;">阿 King 想搵你打</span>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <button type="button" style="flex: 1 1 80px; min-height: 46px; border: 1px solid rgba(20,65,57,.12); border-radius: 12px; background: #f7f6ef; color: #63736e; font-size: 14px; font-weight: 600;">一定去</button>
+      <button type="button" style="flex: 1 1 80px; min-height: 46px; border: 1px solid #1d6a5e; border-radius: 12px; background: #1d6a5e; color: #fff; font-size: 14px; font-weight: 600;">應該去</button>
+      <button type="button" style="flex: 1 1 80px; min-height: 46px; border: 1px solid rgba(20,65,57,.12); border-radius: 12px; background: #f7f6ef; color: #63736e; font-size: 14px; font-weight: 600;">睇下先</button>
+      <button type="button" style="flex: 1 1 80px; min-height: 46px; border: 1px solid rgba(20,65,57,.12); border-radius: 12px; background: #f7f6ef; color: #63736e; font-size: 14px; font-weight: 600;">今晚唔得</button>
+    </div>
+    <span style="font-size: 13px; color: #63736e;">冇「接受」，冇「拒絕」。填完就算回應咗。</span>
+  </div>
+
+  <div style="border-top: 1px solid rgba(20,65,57,.12); padding-top: 14px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">一對一經由場次傳遞，唔係繞過場次</div>
+    <p style="margin: 0; font-size: 13px; color: #63736e; line-height: 1.75;">一則一對一嘅邀請會<b style="color: #132521;">增加</b>場次預測，而唔係同佢爭；場次預測會<b style="color: #132521;">浮現</b>挑機型想搵嘅人。目前呢兩種行為喺五張互不相通嘅資料表，彼此毫無供給關係——呢個就係一直欠缺嘅協同效應。</p>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

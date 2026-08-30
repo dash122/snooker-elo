@@ -1,0 +1,194 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+  <style>
+    body { margin: 0; font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+           font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { color: #155e52; } a:hover { color: #185149; }
+    button { font: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 390px; min-height: 1000px; background: radial-gradient(circle at 72% -6%, rgba(211,174,89,.13), transparent 34%), #f4f3ed; padding: 20px 16px 96px; display: flex; flex-direction: column; gap: 16px;">
+
+  <div style="display: flex; align-items: baseline; justify-content: space-between;">
+    <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 14px; font-weight: 600; letter-spacing: .2em; color: #9a6e24;">SCAA MATCHMAKING</div>
+    <div style="font-size: 12px; color: #82908c;">約戰</div>
+  </div>
+
+  <!-- 場次 · the night card. The whole product for most members on most days:
+       read one number, tap one button, close the app. -->
+  <div style="background: #fff; border: 1px solid rgba(20,65,57,.12); border-radius: 20px; box-shadow: 0 12px 36px rgba(9,47,40,.08); padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">今晚 · 會所 · 19:00 起</div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 40px; font-weight: 700; line-height: 1; color: #132521; font-variant-numeric: tabular-nums;">{{f.range}}</span>
+          <span style="font-size: 14px; color: #63736e;">人</span>
+        </div>
+        <div style="font-size: 13px; color: #63736e;">{{f.floorLine}}</div>
+      </div>
+      <div style="text-align: right; display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 12px; color: #82908c;">開到檯機會</div>
+        <div style="font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 700; color: {{f.bandColour}};">{{f.band}}</div>
+      </div>
+    </div>
+
+    <!-- Solid = committed, hatched = the estimate on top, empty = not answered. -->
+    <div style="display: flex; height: 22px; border-radius: 6px; overflow: hidden; background: #e9ece6;">
+      <div style="background: #155e52; flex-grow: {{f.sure}};"></div>
+      <div style="background: repeating-linear-gradient(135deg, #1d6a5e 0 5px, transparent 5px 10px); opacity: .55; flex-grow: {{f.maybe}};"></div>
+      <div style="flex-grow: {{f.gap}};"></div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: #63736e;">
+      <span style="display: flex; align-items: center; gap: 6px;"><i style="width: 10px; height: 10px; border-radius: 3px; background: #155e52; display: inline-block;"></i>一定去 {{f.high}}</span>
+      <span style="display: flex; align-items: center; gap: 6px;"><i style="width: 10px; height: 10px; border-radius: 3px; background: #1d6a5e; opacity: .55; display: inline-block;"></i>應該／睇下先 {{f.hedge}}</span>
+    </div>
+
+    <!-- Faces, not a roster. Only 一定去 is named; a hedge is counted, never attributed. -->
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <sc-for list="{{f.faces}}" as="p" hint-placeholder-count="2">
+        <span style="display: flex; align-items: center; gap: 6px; background: #f7f6ef; border: 1px solid rgba(20,65,57,.12); border-radius: 999px; padding: 4px 12px 4px 4px;">
+          <i style="width: 26px; height: 26px; border-radius: 50%; background: {{p.colour}}; color: #fff; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700;">{{p.short}}</i>
+          <b style="font-size: 13px; font-weight: 500; color: #132521;">{{p.name}}</b>
+        </span>
+      </sc-for>
+      <sc-if value="{{f.noFaces}}" hint-placeholder-val="{{ false }}">
+        <span style="font-size: 13px; color: #82908c;">未有人確定</span>
+      </sc-if>
+    </div>
+
+    <!-- The dial. One tap is the whole interaction: no sheet, no form, no time window. -->
+    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <sc-for list="{{f.levels}}" as="lv" hint-placeholder-count="4">
+        <button type="button" onClick="{{ lv.pick }}"
+          style="flex: 1 1 80px; min-height: 46px; padding: 8px 10px; border: 1px solid {{lv.border}}; border-radius: 12px; background: {{lv.bg}}; color: {{lv.fg}}; font-size: 14px; font-weight: 600;">{{lv.label}}</button>
+      </sc-for>
+    </div>
+
+    <div style="font-size: 13px; color: #63736e; margin: 0;">{{f.hint}}</div>
+  </div>
+
+  <!-- Seven floors and ranges. Answers 「邊晚最多人」 in one glance. -->
+  <div style="display: flex; gap: 8px; overflow: hidden;">
+    <sc-for list="{{f.week}}" as="d" hint-placeholder-count="5">
+      <div style="flex: 0 0 auto; min-width: 62px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 10px; border: 1px solid {{d.border}}; border-radius: 12px; background: {{d.bg}};">
+        <small style="font-size: 12px; color: #82908c;">{{d.day}}</small>
+        <strong style="font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; color: {{d.numColour}}; font-variant-numeric: tabular-nums;">{{d.n}}</strong>
+        <span style="font-size: 12px; color: #63736e;">{{d.sub}}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <!-- What already exists below the new card: the 開局卡 timeline, unchanged. -->
+  <div style="display: flex; flex-direction: column; gap: 8px; opacity: .55;">
+    <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">開局卡</div>
+    <div style="background: #fffefa; border: 1px solid rgba(20,65,57,.12); border-radius: 16px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <b style="font-size: 14px; color: #132521;">阿明 · 19:30–21:30</b>
+        <small style="font-size: 12px; color: #63736e;">第一個就算 · 你讓 12 分</small>
+      </div>
+      <span style="background: #155e52; color: #fff; border-radius: 12px; padding: 8px 14px; font-size: 13px; font-weight: 600;">加入</span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"floor":{"editor":"int","default":2,"min":0,"max":6,"section":"場次狀態"},"hedges":{"editor":"int","default":3,"min":0,"max":8,"section":"場次狀態"}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const floor = Math.max(0, this.props.floor ?? 2);
+    const hedges = Math.max(0, this.props.hedges ?? 3);
+    const mine = this.state && this.state.mine !== undefined ? this.state.mine : null;
+
+    /* The viewer's own tap counts too, so the number moves under their thumb —
+       that immediate payback is the whole reason a hedge is worth leaving. */
+    const myHigh = mine === 'high' ? 1 : 0;
+    const myHedge = (mine === 'mid' || mine === 'low') ? 1 : 0;
+    const totalFloor = floor + myHigh;
+    const totalHedge = hedges + myHedge;
+
+    /* Expected extra bodies from the hedges: 應該去 converts about half the time,
+       睇下先 about a fifth. Never added to the floor — only to the range. */
+    const extra = Math.round(totalHedge * 0.42);
+    const lo = totalFloor;
+    const hi = totalFloor + extra;
+    const chance = totalFloor >= 2 ? 'high' : (totalFloor + extra >= 3 ? 'mid' : 'low');
+
+    const names = [
+      { short: 'MI', name: '阿明', colour: '#155e52' },
+      { short: 'SA', name: 'Sam', colour: '#1d6a5e' },
+      { short: 'KI', name: '阿King', colour: '#0d443a' },
+    ];
+    const faces = names.slice(0, Math.min(totalFloor, 3));
+    if (mine === 'high') faces[faces.length - 1] = { short: '你', name: '你', colour: '#a66f1d' };
+
+    const levels = [
+      { id: 'high', label: '一定去' },
+      { id: 'mid', label: '應該去' },
+      { id: 'low', label: '睇下先' },
+      { id: 'out', label: '今晚唔得' },
+    ].map((lv) => {
+      const on = mine === lv.id;
+      const tone = { high: '#155e52', mid: '#1d6a5e', low: '#a66f1d', out: '#82908c' }[lv.id];
+      return {
+        ...lv,
+        pick: () => this.setState({ mine: on ? null : lv.id }),
+        bg: on ? tone : '#f7f6ef',
+        fg: on ? '#ffffff' : '#63736e',
+        border: on ? tone : 'rgba(20,65,57,.12)',
+      };
+    });
+
+    const hint = mine === null ? '撳一下就得。淨係計人數，冇人會追你。'
+      : mine === 'out' ? '知道喇，今晚唔會再提你。'
+      : mine === 'high' ? '你會顯示喺確定名單。'
+      : '只計人數，唔會顯示你個名。隨時可以改。';
+
+    const week = [
+      { day: '今晚', n: hi, sub: totalFloor > 0 ? totalFloor + ' 實' : '未有人', on: true },
+      { day: '聽晚', n: 2, sub: '1 實', on: false },
+      { day: '週三', n: 6, sub: '4 實', on: false },
+      { day: '週四', n: 1, sub: '未有人', on: false },
+      { day: '週五', n: 3, sub: '1 實', on: false },
+    ].map((d) => ({
+      ...d,
+      n: d.n || '—',
+      bg: d.on ? '#fff' : '#f7f6ef',
+      border: d.on ? '#155e52' : 'rgba(20,65,57,.12)',
+      numColour: d.n >= 4 ? '#247d5d' : '#132521',
+    }));
+
+    return {
+      f: {
+        range: lo === hi ? String(lo) : lo + '–' + hi,
+        floorLine: totalFloor > 0 ? totalFloor + ' 人確定 · 其餘係估計' : '暫時未有人確定',
+        band: { high: '高', mid: '中等', low: '偏低' }[chance],
+        bandColour: { high: '#247d5d', mid: '#a66f1d', low: '#82908c' }[chance],
+        sure: Math.max(totalFloor, 0.001),
+        maybe: Math.max(extra, 0.001),
+        gap: Math.max(8 - totalFloor - extra, 1),
+        high: totalFloor,
+        hedge: totalHedge,
+        faces,
+        noFaces: faces.length === 0,
+        levels,
+        hint,
+        week,
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

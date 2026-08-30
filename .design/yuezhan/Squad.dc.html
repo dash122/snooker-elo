@@ -1,0 +1,108 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+  <style>
+    body { margin: 0; font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+           font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { color: #155e52; } a:hover { color: #185149; }
+    button { font: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 390px; min-height: 1000px; background: radial-gradient(circle at 72% -6%, rgba(211,174,89,.13), transparent 34%), #f4f3ed; padding: 20px 16px 96px; display: flex; flex-direction: column; gap: 16px;">
+
+  <div style="display: flex; align-items: center; gap: 8px;">
+    <span style="font-size: 12px; letter-spacing: .08em; color: #82908c;">開團</span>
+    <span style="font-size: 11px; font-weight: 700; color: #8b5910; background: #fff2d3; border: 1px solid rgba(166,111,29,.28); border-radius: 999px; padding: 2px 8px;">未做 · 提案</span>
+  </div>
+
+  <!-- 我的團. A squad is not a new mechanism: it is a set of attendance rows
+       sharing a squad_id plus a target size, so 成團 and 夠人就去 run through the
+       same threshold engine. A named threshold, in other words. -->
+  <div style="background: #fff; border: 1px solid rgba(20,65,57,.12); border-radius: 20px; box-shadow: 0 12px 36px rgba(9,47,40,.08); padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <b style="font-size: 18px; color: #132521;">星期三放工團</b>
+        <span style="font-size: 13px; color: #63736e;">今晚 19:30 · 會所 · 阿強開嘅</span>
+      </div>
+      <span style="flex: 0 0 auto; font-size: 11px; font-weight: 700; color: #63736e; background: #f7f6ef; border: 1px solid rgba(20,65,57,.12); border-radius: 999px; padding: 4px 10px;">常規團</span>
+    </div>
+
+    <!-- 尚差一位 is the strongest pull the screen has: the Kickstarter mechanic,
+         with faces on it. A reader can see their own tap is the one that lands. -->
+    <div style="display: flex; align-items: baseline; gap: 10px;">
+      <span style="font-family: 'Barlow Condensed', sans-serif; font-size: 34px; font-weight: 700; line-height: 1; color: #132521; font-variant-numeric: tabular-nums;">3 / 4</span>
+      <span style="font-size: 14px; font-weight: 600; color: #a66f1d;">尚差一位就成團</span>
+    </div>
+
+    <div style="display: flex; gap: 6px;">
+      <div style="flex: 1; height: 10px; border-radius: 999px; background: #155e52;"></div>
+      <div style="flex: 1; height: 10px; border-radius: 999px; background: #155e52;"></div>
+      <div style="flex: 1; height: 10px; border-radius: 999px; background: #155e52;"></div>
+      <div style="flex: 1; height: 10px; border-radius: 999px; background: #e9ece6; border: 1px dashed rgba(20,65,57,.24);"></div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <span style="display: flex; align-items: center; gap: 6px; background: #f7f6ef; border: 1px solid rgba(20,65,57,.12); border-radius: 999px; padding: 4px 12px 4px 4px;">
+        <i style="width: 26px; height: 26px; border-radius: 50%; background: #155e52; color: #fff; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700;">KE</i>
+        <b style="font-size: 13px; font-weight: 500; color: #132521;">阿強</b>
+      </span>
+      <span style="display: flex; align-items: center; gap: 6px; background: #f7f6ef; border: 1px solid rgba(20,65,57,.12); border-radius: 999px; padding: 4px 12px 4px 4px;">
+        <i style="width: 26px; height: 26px; border-radius: 50%; background: #1d6a5e; color: #fff; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700;">MI</i>
+        <b style="font-size: 13px; font-weight: 500; color: #132521;">阿明</b>
+      </span>
+      <span style="display: flex; align-items: center; gap: 6px; background: #f7f6ef; border: 1px solid rgba(20,65,57,.12); border-radius: 999px; padding: 4px 12px 4px 4px;">
+        <i style="width: 26px; height: 26px; border-radius: 50%; background: #0d443a; color: #fff; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700;">SA</i>
+        <b style="font-size: 13px; font-weight: 500; color: #132521;">Sam</b>
+      </span>
+      <span style="width: 34px; height: 34px; border-radius: 50%; border: 1px dashed rgba(20,65,57,.24); display: grid; place-items: center; color: #82908c; font-size: 18px;">＋</span>
+    </div>
+
+    <button type="button" style="width: 100%; min-height: 50px; border: 0; border-radius: 12px; background: #155e52; color: #fff; font-size: 15px; font-weight: 700; box-shadow: 0 10px 24px rgba(16,74,64,.19);">我入團 · 成團</button>
+  </div>
+
+  <!-- 公開團 is the growth engine: 「尚差一位，歡迎加入」 turns a stranger into a
+       team-mate, which is the only mechanism that reaches beyond an existing
+       circle of friends. Closed squads bring retention; open ones bring reach. -->
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">今晚公開團 · 邊個都可以入</div>
+
+    <div style="background: #fffefa; border: 1px solid rgba(20,65,57,.12); border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <b style="font-size: 14px; color: #132521;">阿 King 開嘅團 · 20:00</b>
+        <small style="font-size: 12px; color: #63736e;">2 / 4 · 尚差兩位 · 士碌架</small>
+      </div>
+      <button type="button" style="flex: 0 0 auto; min-height: 40px; padding: 0 16px; border: 1px solid #155e52; border-radius: 12px; background: #fff; color: #155e52; font-size: 14px; font-weight: 600;">加入</button>
+    </div>
+
+    <div style="background: #fffefa; border: 1px solid rgba(20,65,57,.12); border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <b style="font-size: 14px; color: #132521;">Wing 開嘅團 · 21:00</b>
+        <small style="font-size: 12px; color: #63736e;">3 / 4 · 尚差一位 · 中式八球</small>
+      </div>
+      <button type="button" style="flex: 0 0 auto; min-height: 40px; padding: 0 16px; border: 1px solid #155e52; border-radius: 12px; background: #fff; color: #155e52; font-size: 14px; font-weight: 600;">加入</button>
+    </div>
+  </div>
+
+  <button type="button" style="width: 100%; min-height: 48px; border: 1px dashed rgba(20,65,57,.24); border-radius: 12px; background: transparent; color: #155e52; font-size: 14px; font-weight: 600;">開一個新團</button>
+
+  <div style="border-top: 1px solid rgba(20,65,57,.12); padding-top: 14px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">兩條要決定嘅規矩</div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <p style="margin: 0; font-size: 13px; color: #63736e; line-height: 1.75;"><b style="color: #132521;">團員意向同時計入公開場次。</b>開團唔會將人由公開場次抽走，反而令公開嘅數字更準、更好睇。</p>
+      <p style="margin: 0; font-size: 13px; color: #63736e; line-height: 1.75;"><b style="color: #132521;">被拒絕必須無聲。</b>發起人可以唔接受某人，但被拒嘅一方只會見到「已滿」，永遠唔會收到一則「你被拒絕咗」。喺全港規模、大家唔相識嘅情況下，呢條比喺單一球會重要得多。</p>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
