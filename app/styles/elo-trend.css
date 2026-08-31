@@ -31,7 +31,8 @@
   .multi-trend-tooltip li b{flex:none;font-variant-numeric:tabular-nums}
 
   .trend-legend-actions{display:flex;justify-content:flex-end;margin-top:var(--sp-4)}
-  .trend-clear-btn{padding:var(--sp-1-5) var(--sp-2-5);border:1px solid var(--ds-border-subtle);border-radius:999px;background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:650}
+  .trend-clear-btn{padding:var(--sp-1-5) var(--sp-2-5);border:1px solid var(--ds-border-subtle);border-radius:999px;background:transparent;color:var(--ds-text-secondary)}
+  .trend-clear-btn span{font-size:var(--fs-label);font-weight:650}
   .trend-clear-btn:hover:not(:disabled){border-color:var(--ds-border-strong);color:var(--ds-text-primary)}
   .trend-clear-btn:disabled{opacity:.4}
 
