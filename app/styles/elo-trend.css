@@ -16,7 +16,7 @@
   .multi-trend-leader{stroke-width:1;stroke-dasharray:1.5 1.5;opacity:.55;vector-effect:non-scaling-stroke}
 
   .multi-trend-endlabels{position:absolute;inset:0;overflow:hidden;pointer-events:none}
-  .multi-trend-endlabel{position:absolute;max-width:21%;transform:translateY(-50%);display:flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-label);font-variant-numeric:tabular-nums}
+  .multi-trend-endlabel{position:absolute;max-width:21%;margin-left:var(--sp-1-5);transform:translateY(-50%);display:flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-label);font-variant-numeric:tabular-nums}
   .multi-trend-endlabel b{font-weight:650;color:currentColor;min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .multi-trend-endlabel span{flex:none;color:var(--ds-text-secondary)}
 
