@@ -3,6 +3,7 @@
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {Button,Chip,EmptyState,FormField,InlineNotice,Skeleton,Surface} from "./components/ui/Primitives";
 import {Sheet} from "./components/ui/Overlay";
+import {PlayerBadge} from "./UiBits";
 import {addDaysHongKong,availabilityEndTimes,availabilityStartTimes,hkClock,hkDate,hkDayLabel} from "../lib/availability";
 
 type Player={id:string;name:string;short:string;rating:number;colour:string|null;avatar:string|null};
@@ -19,10 +20,6 @@ const dateOf=(iso:string)=>hkDate(new Date(iso));
 const duration=(minutes:number)=>minutes>=120?`${Math.round(minutes/60*10)/10} 小時`:`${minutes} 分鐘`;
 const sessionStatus=(session:FormationSession)=>session.status==="full"?"已滿員":session.status==="playable"?"可以開局":session.myStatus==="pending"?"等候確認":"正在組成";
 const statusTone=(session:FormationSession)=>session.status==="full"||session.status==="playable"?"success":session.myStatus==="pending"?"warning":"neutral";
-
-function PlayerMark({player}:{player:Pick<Player,"short"|"name">}){
-  return <span className="mf-avatar" aria-hidden="true">{player.short||player.name.slice(0,2)}</span>;
-}
 
 export default function MatchmakingFormation({onPlayer,onActivity}:{onPlayer?:(playerId:string)=>void;onActivity?:()=>void}){
   const dates=useMemo(()=>Array.from({length:7},(_,index)=>addDaysHongKong(hkDate(),index)),[]);
@@ -90,8 +87,8 @@ export default function MatchmakingFormation({onPlayer,onActivity}:{onPlayer?:(p
       <section className="mf-section mf-my-activity">
         <div className="mf-section-head"><div><p className="mf-kicker">MY ACTIVITY</p><h2>我的安排</h2></div><Button variant="quiet" onClick={()=>setPublishOpen(true)}>{hasOwnAny?"新增空檔":"公開第一個空檔"}</Button></div>
         {sessions.map(session=><Surface key={session.id} className="mf-session-card">
-          <div className="mf-card-top"><div><Chip tone={statusTone(session)}>{sessionStatus(session)}</Chip><h3>{hkClock(session.startAt)}–{hkClock(session.endAt)}</h3><p>{session.venue?.name||"場地稍後決定"} · {session.acceptedCount}/{session.targetSize} 人</p></div><div className="mf-avatar-stack">{session.acceptedPlayers.slice(0,4).map(player=><PlayerMark key={player.id} player={player}/>)}</div></div>
-          {session.pendingRequests.length>0&&<div className="mf-requests"><b>{session.pendingRequests.length} 個加入申請</b>{session.pendingRequests.map(player=><div key={player.id} className="mf-request-row"><button type="button" className="mf-player-link" onClick={()=>onPlayer?.(player.id)}><PlayerMark player={player}/><span>{player.name}<small>ELO {Math.round(player.rating)}</small></span></button><span><Button variant="secondary" loading={busy===`decline:${session.id}:${player.id}`} onClick={()=>void respond(session.id,player.id,"decline")}>略過</Button><Button loading={busy===`accept:${session.id}:${player.id}`} onClick={()=>void respond(session.id,player.id,"accept")}>接受</Button></span></div>)}</div>}
+          <div className="mf-card-top"><div><Chip tone={statusTone(session)}>{sessionStatus(session)}</Chip><h3>{hkClock(session.startAt)}–{hkClock(session.endAt)}</h3><p>{session.venue?.name||"場地稍後決定"} · {session.acceptedCount}/{session.targetSize} 人</p></div><div className="mf-avatar-stack">{session.acceptedPlayers.slice(0,4).map(player=><PlayerBadge key={player.id} player={player}/>)}</div></div>
+          {session.pendingRequests.length>0&&<div className="mf-requests"><b>{session.pendingRequests.length} 個加入申請</b>{session.pendingRequests.map(player=><div key={player.id} className="mf-request-row"><button type="button" className="mf-player-link" onClick={()=>onPlayer?.(player.id)}><PlayerBadge player={player}/><span>{player.name}<small>ELO {Math.round(player.rating)}</small></span></button><span><Button variant="secondary" loading={busy===`decline:${session.id}:${player.id}`} onClick={()=>void respond(session.id,player.id,"decline")}>略過</Button><Button loading={busy===`accept:${session.id}:${player.id}`} onClick={()=>void respond(session.id,player.id,"accept")}>接受</Button></span></div>)}</div>}
           <Button variant="quiet" loading={busy===`leave:${session.id}`} onClick={()=>void mutate(`leave:${session.id}`,`/api/matchmaking/formation/sessions/${session.id}`,{method:"DELETE"},session.isHost?"場次已取消。":"已退出場次。")}>{session.isHost?"取消場次":"撤回／退出"}</Button>
         </Surface>)}
         {own.length>0&&<div className="mf-own-list">{own.map(item=><Surface key={item.id} className="mf-own-card"><div><b>{hkClock(item.startAt)}–{hkClock(item.endAt)}</b><span>{item.venue?.name||"場地未定"} · 目標 {item.targetSize} 人</span></div><Button variant="quiet" loading={busy===`cancel:${item.id}`} onClick={()=>void mutate(`cancel:${item.id}`,`/api/matchmaking/formation/availability/${item.id}`,{method:"DELETE"},"空檔已取消。")}>取消</Button></Surface>)}</div>}
@@ -105,7 +102,7 @@ export default function MatchmakingFormation({onPlayer,onActivity}:{onPlayer?:(p
         {!hasOwnAny?<EmptyState title="先公開你的時間" description="有了你的空檔，我們才能計算真正重疊至少一小時的球友。" action={<Button onClick={()=>setPublishOpen(true)}>公開空檔</Button>}/>
         :!opportunities.length?<EmptyState title="這日暫時沒有合適球友" description="你的空檔仍然公開；有人新增重疊時間後，機會會自動出現在這裡。" action={<Button variant="secondary" onClick={()=>setPublishOpen(true)}>新增其他日子</Button>}/>
         :<div className="mf-opportunity-list">{opportunities.map((item,index)=><Surface key={item.anchorSlotId} tone={index===0?"raised":"primary"} className="mf-opportunity-card">
-          <div className="mf-card-top"><button type="button" className="mf-player-link" onClick={()=>onPlayer?.(item.player.id)}><PlayerMark player={item.player}/><span><b>{item.player.name}</b><small>ELO {Math.round(item.player.rating)}</small></span></button>{index===0&&<Chip tone="accent">最佳選擇</Chip>}</div>
+          <div className="mf-card-top"><button type="button" className="mf-player-link" onClick={()=>onPlayer?.(item.player.id)}><PlayerBadge player={item.player}/><span><b>{item.player.name}</b><small>ELO {Math.round(item.player.rating)}</small></span></button>{index===0&&<Chip tone="accent">最佳選擇</Chip>}</div>
           <div className="mf-overlap"><strong>{duration(item.overlapMinutes)}</strong><span>可重疊時間</span><b>建議 {hkClock(item.proposedStartAt)}–{hkClock(item.proposedEndAt)}</b></div>
           <div className="mf-card-meta"><span>{item.compatiblePlayers>2?`${item.compatiblePlayers} 人可在同一小時碰面`:"適合一對一"}</span><span>{item.venue?.name||"場地稍後決定"}</span><span>目標 {item.targetSize} 人</span></div>
           <div className="mf-chips">{item.newOpponent&&<Chip tone="success">未交手過</Chip>}<Chip>ELO 差 {Math.round(item.eloDifference)}</Chip>{item.compatiblePlayers>2&&<Chip tone="warning">可組成群組</Chip>}</div>
@@ -125,7 +122,7 @@ export default function MatchmakingFormation({onPlayer,onActivity}:{onPlayer?:(p
     </Sheet>
 
     <Sheet open={Boolean(requesting)} title="申請加入" onClose={()=>!busy&&setRequesting(null)} className="mf-sheet">
-      {requesting&&<div className="mf-request-confirm"><div className="mf-request-person"><PlayerMark player={requesting.player}/><div><b>{requesting.player.name}</b><span>ELO {Math.round(requesting.player.rating)}</span></div></div><Surface><small>建議共同時間</small><h3>{hkDayLabel(dateOf(requesting.proposedStartAt))}</h3><b>{hkClock(requesting.proposedStartAt)}–{hkClock(requesting.proposedEndAt)}</b><p>{requesting.venue?.name||"場地稍後一起決定"} · 目標 {requesting.targetSize} 人</p></Surface><InlineNotice tone="info" title="送出後不會立即確認">{requesting.player.name} 接受後，場次才會變成「可以開局」。</InlineNotice><Button loading={busy===`request:${requesting.anchorSlotId}`} onClick={()=>void request()}>送出加入申請</Button></div>}
+      {requesting&&<div className="mf-request-confirm"><div className="mf-request-person"><PlayerBadge player={requesting.player}/><div><b>{requesting.player.name}</b><span>ELO {Math.round(requesting.player.rating)}</span></div></div><Surface><small>建議共同時間</small><h3>{hkDayLabel(dateOf(requesting.proposedStartAt))}</h3><b>{hkClock(requesting.proposedStartAt)}–{hkClock(requesting.proposedEndAt)}</b><p>{requesting.venue?.name||"場地稍後一起決定"} · 目標 {requesting.targetSize} 人</p></Surface><InlineNotice tone="info" title="送出後不會立即確認">{requesting.player.name} 接受後，場次才會變成「可以開局」。</InlineNotice><Button loading={busy===`request:${requesting.anchorSlotId}`} onClick={()=>void request()}>送出加入申請</Button></div>}
     </Sheet>
   </section>;
 }
