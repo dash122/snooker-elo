@@ -12,6 +12,8 @@
   .multi-trend-line{fill:none;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round;opacity:.92;transition:opacity var(--ds-duration-fast) var(--ds-ease-standard)}
   .multi-trend-plot:hover .multi-trend-line{opacity:.55}
   .multi-trend-dot{stroke:var(--ds-surface-raised);stroke-width:1;vector-effect:non-scaling-stroke}
+  .multi-trend-endpoint{stroke:var(--ds-surface-raised);stroke-width:.75;vector-effect:non-scaling-stroke}
+  .multi-trend-leader{stroke-width:1;stroke-dasharray:1.5 1.5;opacity:.55;vector-effect:non-scaling-stroke}
 
   .multi-trend-endlabels{position:absolute;inset:0;overflow:hidden;pointer-events:none}
   .multi-trend-endlabel{position:absolute;max-width:21%;transform:translateY(-50%);display:flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-label);font-variant-numeric:tabular-nums}
@@ -26,9 +28,15 @@
   .multi-trend-tooltip li{display:flex;align-items:center;gap:var(--sp-1-5);font-size:var(--fs-caption)}
   .multi-trend-tooltip li i{width:.55rem;height:.55rem;border-radius:50%;flex:none}
   .multi-trend-tooltip li span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .multi-trend-tooltip li b{font-variant-numeric:tabular-nums}
+  .multi-trend-tooltip li em{flex:none;font-style:normal;font-size:var(--fs-label);color:var(--ds-icon-muted);font-variant-numeric:tabular-nums}
+  .multi-trend-tooltip li b{flex:none;font-variant-numeric:tabular-nums}
 
-  .trend-legend{display:flex;flex-wrap:wrap;gap:var(--sp-1-5);list-style:none;margin:var(--sp-4) 0 0;padding:0}
+  .trend-legend-actions{display:flex;justify-content:flex-end;margin-top:var(--sp-4)}
+  .trend-clear-btn{padding:var(--sp-1-5) var(--sp-2-5);border:1px solid var(--ds-border-subtle);border-radius:999px;background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:650}
+  .trend-clear-btn:hover:not(:disabled){border-color:var(--ds-border-strong);color:var(--ds-text-primary)}
+  .trend-clear-btn:disabled{opacity:.4}
+
+  .trend-legend{display:flex;flex-wrap:wrap;gap:var(--sp-1-5);list-style:none;margin:var(--sp-2) 0 0;padding:0}
   .trend-legend-item{display:flex;align-items:center;gap:var(--sp-1-5);padding:var(--sp-1-5) var(--sp-2-5);border:1px solid var(--ds-border-subtle);border-radius:999px;background:var(--ds-surface-secondary);color:var(--ds-text-primary);transition:opacity var(--ds-duration-fast) var(--ds-ease-standard),border-color var(--ds-duration-fast) var(--ds-ease-standard)}
   .trend-legend-item:hover{border-color:var(--ds-border-strong)}
   .trend-legend-item i{width:.65rem;height:.65rem;border-radius:50%;flex:none}
