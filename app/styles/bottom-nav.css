@@ -63,11 +63,41 @@
     color:var(--me-bottom-nav-text);
     font-size:var(--fs-h3);
     -webkit-tap-highlight-color:transparent;
-    transition:color var(--ds-duration-toggle) var(--ds-ease-toggle),transform .18s ease;
+    /* Base transition governs the release: a springy overshoot so the glass
+       feels like it settles back rather than snapping. The quicker press-in
+       timing lives on :active below, since a state change picks up the
+       transition of the rule it is entering. */
+    transition:color var(--ds-duration-toggle) var(--ds-ease-toggle),
+      transform .5s cubic-bezier(.34,1.56,.64,1),
+      filter .35s ease;
+  }
+  /* Liquid highlight: a soft light bloom that blooms in under the touch point
+     while held, as if the glass is refracting light through the dent, then
+     fades back out on release. */
+  .bottom button::before{
+    content:"";
+    position:absolute;
+    inset:-.2rem;
+    z-index:0;
+    border-radius:1.375rem;
+    background:radial-gradient(120% 120% at 50% 18%,rgba(255,255,255,.85),rgba(255,255,255,0) 68%);
+    opacity:0;
+    transform:scale(.7);
+    transition:opacity .35s ease,transform .35s ease;
+    pointer-events:none;
   }
   .bottom button i{display:block;font-style:normal;line-height:1}
   .bottom small{display:block;font-size:var(--fs-label);font-weight:700;letter-spacing:.02em;margin-top:0}
-  .bottom button:active{transform:scale(.94)}
+  .bottom button:active{
+    transform:scale(.9);
+    filter:brightness(1.06);
+    transition:transform .12s cubic-bezier(.32,0,.67,0),filter .12s ease;
+  }
+  .bottom button:active::before{
+    opacity:1;
+    transform:scale(1);
+    transition:opacity .1s ease,transform .1s ease;
+  }
 
   /* One shared lens travels between destinations. Its measured transform keeps
      the motion accurate around the wider centre action instead of assuming five
@@ -114,13 +144,15 @@
     font-size:1.6875rem;
     font-weight:800;
     line-height:1;
-    transition:transform .16s ease,box-shadow .16s ease;
+    transition:transform .5s cubic-bezier(.34,1.56,.64,1),box-shadow .35s ease;
   }
   .bottom .bottom-record small{display:none}
-  .bottom .bottom-record:active{transform:none}
+  .bottom .bottom-record:active{transform:none;filter:none}
+  .bottom .bottom-record:active::before{content:none}
   .bottom .bottom-record:active i{
-    transform:translateY(1px) scale(.95);
+    transform:translateY(1px) scale(.92);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 0 0 .3125rem rgba(255,255,255,.5),0 4px 12px rgba(160,116,30,.34);
+    transition:transform .12s cubic-bezier(.32,0,.67,0),box-shadow .12s ease;
   }
   .bottom button:focus-visible{outline:none}
   .bottom button:not(.bottom-record):focus-visible{box-shadow:inset 0 0 0 2px var(--ds-focus)}
@@ -130,5 +162,5 @@
 @media(max-width:380px){.bottom .bottom-record{flex:0 0 3.75rem}.bottom .bottom-record i{width:3rem;height:3rem;font-size:var(--fs-stat);margin-top:-1.25rem}
 }
 
-@media(prefers-reduced-motion:reduce){.bottom button,.bottom>.sliding-toggle-thumb,.bottom .bottom-record i{transition:none}.bottom button:active{transform:none}
+@media(prefers-reduced-motion:reduce){.bottom button,.bottom button::before,.bottom>.sliding-toggle-thumb,.bottom .bottom-record i{transition:none}.bottom button:active{transform:none;filter:none}.bottom button:active::before{opacity:0;transform:scale(.7)}
 }

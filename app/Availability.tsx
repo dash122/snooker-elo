@@ -3,7 +3,8 @@ import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent
 import {PlayerBadge} from "./UiBits";
 import {BackdropSheet,ConfirmDialog} from "./components/ui/Overlay";
 import {Button,IconButton,InlineNotice,SegmentedControl,SlidingToggleGroup} from "./components/ui/Primitives";
-import {Slots,type Board} from "./Slots";
+import { VenueBoard } from "./VenueBoard";
+import { Room } from "./Room";
 import {CounterSheet,ResponseQueue,VenueField,WaitingStrip,reliabilityChips,type IntentState,type MatchmakingSummary,type QueueItem,type WaitingItem} from "./MatchmakingBits";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
 import {addDaysHongKong,availabilityEndTimes,availabilityStartTimes,composeAvailabilityInterval,dayRangeHongKong,gamesPlayed,hkClock,hkDate,hkDayLabel,intervalFromHours,intersectIntervals,matchesBetween,mergeAvailabilitySlots,nextAvailabilityStart,partitionInvites,partitionOffers,rankOpponents,validateAvailabilityInterval,type AvailabilitySlot,type Interval,type IntentSignal,type RankedOpponent,type MutualOffer,type ReliabilitySignals,type SlotConditions} from "../lib/availability";
@@ -259,7 +260,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
  /* The buckets below are time-dependent, and a member can sit on this screen while a slot starts or
     ends. A one-minute tick re-evaluates them so the follow-up prompt appears on its own. */
  const[tick,setTick]=useState(()=>Date.now());
- const[bootstrapState,setBootstrapState]=useState<"loading"|"loaded"|"failed">("loading"),[bootstrapBoard,setBootstrapBoard]=useState<Board|null|undefined>(undefined);
+ const[bootstrapState,setBootstrapState]=useState<"loading"|"loaded"|"failed">("loading");
  /* Bumped by anything that changes club state from outside the poll's own effect — going live in The
     Room, claiming a table there — so invites, calls and offers refresh immediately instead of at the
     next 30-second tick, which is long enough for a member to think their tap did nothing. */
@@ -278,14 +279,14 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    const body=await response.json();if(!response.ok||body.selected?.error)throw Error(body.selected?.error??body.error??"約戰資料暫時未能載入");
    setMembers(body.selected?.members??[]);setCounts(body.calendar?.counts??{});setOwn(body.own?.slots??[]);
    setInvites({sent:body.inbox?.sent??[],received:body.inbox?.received??[]});setOffers(body.mutual?.offers??[]);
-   setBootstrapBoard(Array.isArray(body.board?.board)?body.board:null);bootstrapLoadedRef.current=true;setBootstrapState("loaded");setMessage("");setLoadError("");loadAttempts.current=0;return;
+   bootstrapLoadedRef.current=true;setBootstrapState("loaded");setMessage("");setLoadError("");loadAttempts.current=0;return;
   }
   const[selected,calendar,mine]=await Promise.all([fetch(`/api/availability?date=${date}`,{signal:c.signal}).then(r=>r.json()),fetch(`/api/availability?week=${week[0]}&days=${HORIZON}`,{signal:c.signal}).then(r=>r.json()),userPlayerId?fetch("/api/availability?me",{signal:c.signal}).then(r=>r.json()):Promise.resolve({slots:[]})]);
   if(selected.error)throw Error(selected.error);setMembers(selected.members);setCounts(calendar.counts??{});setOwn(mine.slots??[]);setMessage("");setLoadError("");loadAttempts.current=0;setBootstrapState("loaded");
  }catch(e){if(e instanceof Error&&(e.name!=="AbortError"||timedOut)){
    /* Marking the bootstrap done on failure is deliberate: the retry below then takes the lighter
       per-endpoint path rather than re-running the whole fan-out that just timed out. */
-   if(!bootstrapLoadedRef.current){bootstrapLoadedRef.current=true;setBootstrapBoard(null)}
+   if(!bootstrapLoadedRef.current){bootstrapLoadedRef.current=true}
    setBootstrapState("failed");
    setLoadError(timedOut?"約戰資料載入逾時。":(e.message||"約戰資料暫時未能載入。"));
    /* The old copy said 正在重試 while nothing retried. Retry for real, twice, backing off — then
@@ -785,6 +786,13 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
 {view==="book"&&<>
 {/* Whatever is waiting on this member, above everything else — an invite to answer, an offer to
     accept, a score to record. One band, never the whole screen. */}
+{/* 場次 — 「今晚有無人」 above everything else.
+    Every other surface on this tab asks a member to author something before showing them any
+    evidence that it is worth authoring. This one shows the evidence first and asks for one tap, so
+    it goes above the queue: a member who is only deciding whether to leave the house should not
+    have to read past somebody else's invite to find out. */}
+<VenueBoard signedIn={Boolean(userPlayerId)} onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>
+
 {queueItems.length>0&&userPlayerId&&<ResponseQueue items={queueItems}/>}
 
 {/* The tab itself: one timeline of 開局卡, mine inline among everyone else's, in clock order.
@@ -796,10 +804,14 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
     prefs, invites already waiting on somebody else — now lives one level down, in the editor below.
     They were four surfaces competing with the board for the same screen while answering questions
     nobody had asked yet. */}
-<Slots signedIn={Boolean(userPlayerId)} availabilityCount={own.length} availability={own} initialData={bootstrapBoard}
-  onManageAvailability={()=>nav("mine")}
-  onRecord={(opponentId,playedOn)=>onRecordMatch?.(opponentId,playedOn)}
-  onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>
+
+{/* 現時喺會所 — live truth, which outranks any forecast the moment it exists.
+    This component was written months ago and then orphaned: nothing imported it, and only
+    `/api/room` survived, called by a screen that never rendered. It is the club's own answer to
+    「邊個而家喺度」, so it is restored here rather than rebuilt. */}
+{userPlayerId&&<Room signedIn={Boolean(userPlayerId)} onAsk={(playerId,slot)=>openInviteSheet(playerId,slot??undefined)}
+  onOpen={onPlayer} onClaim={id=>void claimCall(id)} claimingCallId={claimingCallId}
+  refreshKey={refreshNonce} onChanged={()=>{setRefreshNonce(value=>value+1);onActivity?.()}}/>}
 
 </>}
 {/* One screen, one gesture: the board is the list, the editor and the composer at once. Nothing here

@@ -63,14 +63,14 @@ export function cupOgCard(name:string,state:CupShareState):CupOgCard {
  *  Google's `css2?text=` endpoint returns a face containing only the glyphs asked for — a few
  *  kilobytes — which is why this list has to be exact rather than approximate. */
 export function cupOgGlyphs(card:CupOgCard):string {
-  const all=[card.status,card.urgency,card.name,card.standfirst,card.cta,"SCAA SNOOKER 會友盃",
+  const all=[card.status,card.urgency,card.name,card.standfirst,card.cta,"SCAA SNOOKER 盃賽",
     ...card.facts.flatMap(fact=>[fact.label,fact.value])].join("");
   return [...new Set(all)].join("");
 }
 
 /** The largest size that still fits the cup's name on one poster line, and how many lines it needs.
     A cup name is the one string here that must never be abbreviated, so it gives up type size
-    first — 「南華會週年會友盃紀念賽」 shrunk is still readable; truncated it is a different cup. */
+    first — 「南華會週年盃賽紀念賽」 shrunk is still readable; truncated it is a different cup. */
 export function cupOgNameLayout(name:string,maxWidth=840):{size:number;lines:string[]} {
   const width=(text:string,size:number)=>[...text].reduce((sum,character)=>
     sum+((character.codePointAt(0)??0)>0x2e80?size:size*0.56),0);

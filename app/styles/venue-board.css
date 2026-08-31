@@ -1,0 +1,154 @@
+/* --- 場次 · venue board -----------------------------------------------------
+   One card: who is at this venue, when, and the two buttons that answer it. */
+
+.vb-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-5);
+  background: var(--ds-surface-raised);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px var(--ds-selected-shadow);
+}
+
+.vb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.vb-kicker { display: block; font-size: var(--fs-label); letter-spacing: .08em; color: var(--ds-text-tertiary); }
+.vb-venue { margin: var(--sp-1) 0 0; font-size: var(--fs-h3); }
+.vb-venue-pick {
+  min-height: 40px;
+  padding: var(--sp-1-5) var(--sp-3);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 10px;
+  background: var(--ds-surface-secondary);
+  color: var(--ds-text-primary);
+  font-size: var(--fs-sm);
+}
+
+/* The number a member acts on. The all-day figure sits under it in small type, never beside it. */
+.vb-peak { display: flex; flex-direction: column; gap: var(--sp-1); }
+.vb-peak b { font-size: var(--fs-stat); color: var(--ds-text-primary); font-variant-numeric: tabular-nums; }
+.vb-peak small { font-size: var(--fs-caption); color: var(--ds-text-secondary); }
+
+/* --- The strip: half-hour columns ---------------------------------------- */
+.vb-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 82px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.vb-strip::-webkit-scrollbar { display: none; }
+.vb-col { flex: 1 0 16px; display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); height: 100%; }
+.vb-col-n {
+  font-size: var(--fs-label);
+  color: var(--ds-text-tertiary);
+  font-variant-numeric: tabular-nums;
+  min-height: 1em;
+}
+.vb-col-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: var(--ds-canvas-muted);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.vb-col-bar { display: block; background: var(--ds-chart-primary); }
+.vb-col-bar.peak { background: var(--ds-accent-action); }
+/* Interested stacks above going, hatched, so a subscription is visibly not attendance. */
+.vb-col-int {
+  display: block;
+  background: repeating-linear-gradient(135deg, var(--ds-accent-primary) 0 3px, transparent 3px 6px);
+  opacity: .7;
+}
+.vb-col.mine .vb-col-track { box-shadow: inset 0 0 0 2px var(--ds-accent-action); }
+.vb-col-t { font-size: var(--fs-label); color: var(--ds-text-tertiary); font-variant-numeric: tabular-nums; }
+
+.vb-faces { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.vb-face {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1-5);
+  padding: var(--sp-1) var(--sp-2-5) var(--sp-1) var(--sp-1);
+  background: var(--ds-surface-secondary);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 999px;
+}
+.vb-face b { font-size: var(--fs-caption); font-weight: 500; color: var(--ds-text-primary); }
+.vb-face small { font-size: var(--fs-label); color: var(--ds-text-tertiary); font-variant-numeric: tabular-nums; }
+
+/* --- Times: half-hour steps, start AND end -------------------------------- */
+.vb-times { display: flex; gap: var(--sp-3); }
+.vb-times label { flex: 1; display: flex; align-items: center; gap: var(--sp-2); }
+.vb-times span { font-size: var(--fs-sm); color: var(--ds-text-secondary); }
+.vb-times select {
+  flex: 1;
+  min-height: 48px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--ds-surface-raised);
+  color: var(--ds-text-primary);
+  font-size: var(--fs-input);
+  font-variant-numeric: tabular-nums;
+}
+
+.vb-actions { display: flex; gap: var(--sp-2-5); }
+.vb-actions button {
+  flex: 1;
+  min-height: 54px;
+  border-radius: 14px;
+  font-size: var(--fs-lead);
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.vb-actions button:disabled { opacity: .55; cursor: default; }
+.vb-go {
+  border: 1px solid var(--ds-border-strong);
+  background: var(--ds-surface-secondary);
+  color: var(--ds-accent-action);
+  font-weight: 700;
+}
+.vb-go.active { background: var(--ds-accent-action); border-color: transparent; color: var(--ds-text-on-brand); }
+.vb-int {
+  border: 1px solid var(--ds-border-subtle);
+  background: var(--ds-surface-secondary);
+  color: var(--ds-text-secondary);
+  font-weight: 600;
+}
+.vb-int.active { background: var(--ds-warning); border-color: transparent; color: var(--ds-text-on-brand); }
+
+.vb-hint, .vb-message { margin: 0; font-size: var(--fs-caption); color: var(--ds-text-secondary); }
+
+.vb-week { display: flex; gap: var(--sp-2); overflow-x: auto; padding-top: var(--sp-3); border-top: 1px solid var(--ds-border-subtle); scrollbar-width: none; }
+.vb-week::-webkit-scrollbar { display: none; }
+.vb-day {
+  flex: 1 0 auto;
+  min-width: 56px;
+  min-height: 44px;
+  padding: var(--sp-2);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: 10px;
+  background: var(--ds-surface-secondary);
+  cursor: pointer;
+}
+.vb-day small { font-size: var(--fs-label); color: var(--ds-text-secondary); }
+.vb-day.active { border-color: var(--ds-accent-action); background: var(--ds-surface-raised); box-shadow: 0 0 0 1px var(--ds-accent-action) inset; }
+.vb-day.active small { color: var(--ds-text-primary); font-weight: 600; }
+
+.vb-error { align-items: flex-start; }
+.vb-skeleton { height: 82px; border-radius: 6px; background: var(--ds-canvas-muted); }
+
+.vb-actions button:focus-visible, .vb-day:focus-visible, .vb-times select:focus-visible, .vb-venue-pick:focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) { .vb-actions button { transition: none; } }
+@media (max-width: 599px) {
+  .vb-card { padding: var(--sp-4); gap: var(--sp-3-5); }
+  .vb-times { flex-direction: column; gap: var(--sp-2); }
+}

@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+  <style>
+    body { margin: 0; font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+           font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { color: #155e52; } a:hover { color: #185149; }
+    button { font: inherit; cursor: pointer; }
+  </style>
+</helmet>
+
+<div style="width: 390px; min-height: 1000px; background: radial-gradient(circle at 72% -6%, rgba(211,174,89,.13), transparent 34%), #f4f3ed; padding: 20px 16px 96px; display: flex; flex-direction: column; gap: 20px;">
+
+  <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">「有興趣」換返嚟嘅嘢</div>
+
+  <!-- The whole payoff of 有興趣, and the only notification it ever produces.
+       Not a nag and not a status report: the one moment the answer changed. -->
+  <div style="background: #0d443a; border-radius: 20px; padding: 16px; box-shadow: 0 12px 36px rgba(9,47,40,.18); display: flex; gap: 12px; align-items: flex-start;">
+    <div style="flex: 0 0 auto; width: 36px; height: 36px; border-radius: 10px; background: radial-gradient(circle at 35% 30%, #f0d091, #d5a94d); display: grid; place-items: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0d443a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 3px;">
+      <b style="font-size: 14px; color: #f9f7ee;">SCAA 今晚夠人喇 — 4 人會去</b>
+      <span style="font-size: 13px; color: #bdd0c9; line-height: 1.6;">你話過有興趣。阿明、Sam、阿強同 Wing 會去。</span>
+      <span style="font-size: 12px; color: #8faea5; margin-top: 4px;">約戰 · 18:10</span>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 12px; background: #fff; border: 1px solid rgba(20,65,57,.12); border-radius: 20px; box-shadow: 0 12px 36px rgba(9,47,40,.08); padding: 20px;">
+    <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">規矩</div>
+
+    <div style="display: flex; gap: 12px; align-items: flex-start;">
+      <div style="flex: 0 0 auto; width: 26px; height: 26px; border-radius: 8px; background: #eef6f0; border: 1px solid #cfe0d5; display: grid; place-items: center; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; color: #247d5d;">1</div>
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <b style="font-size: 14px; color: #132521;">一個場次，最多一則</b>
+        <span style="font-size: 13px; color: #63736e; line-height: 1.7;">夠人嗰刻通知一次，之後唔會再嘈你。後續有人加入唔會再發。</span>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 12px; align-items: flex-start;">
+      <div style="flex: 0 0 auto; width: 26px; height: 26px; border-radius: 8px; background: #eef6f0; border: 1px solid #cfe0d5; display: grid; place-items: center; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; color: #247d5d;">2</div>
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <b style="font-size: 14px; color: #132521;">門檻係產品定，唔係你填</b>
+        <span style="font-size: 13px; color: #63736e; line-height: 1.7;">兩個人就有波打，所以夠兩個就叫你。你唔使諗一個數字，亦冇一個設定畫面。</span>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 12px; align-items: flex-start;">
+      <div style="flex: 0 0 auto; width: 26px; height: 26px; border-radius: 8px; background: #eef6f0; border: 1px solid #cfe0d5; display: grid; place-items: center; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; color: #247d5d;">3</div>
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <b style="font-size: 14px; color: #132521;">App 唔會幫你改狀態</b>
+        <span style="font-size: 13px; color: #63736e; line-height: 1.7;">「有興趣」永遠只係「有興趣」。要唔要去，最後嗰下一定係你自己撳。</span>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 12px; align-items: flex-start;">
+      <div style="flex: 0 0 auto; width: 26px; height: 26px; border-radius: 8px; background: #fbecea; border: 1px solid rgba(173,81,73,.28); display: grid; place-items: center;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ad5149" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 3px;">
+        <b style="font-size: 14px; color: #132521;">冇人會追你</b>
+        <span style="font-size: 13px; color: #63736e; line-height: 1.7;">話咗會去但冇出現，唔會有提示、唔會有記錄、唔會有人問你。一旦「甩底」要俾面子，人就會停止表態，唔係停止甩底。</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="border-top: 1px solid rgba(20,65,57,.12); padding-top: 14px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="font-size: 12px; letter-spacing: .08em; color: #82908c;">同上一版嘅分別</div>
+    <p style="margin: 0; font-size: 13px; color: #63736e; line-height: 1.8;">上一版要你自己評估一個機率（一定／應該／睇下先），再填一個門檻數字，然後 App 會喺你唔知情下幫你改狀態。而家「有興趣」淨係一個<b style="color: #132521;">訂閱</b>——「夠人叫我」——唔使你估幾成，亦冇任何嘢會代你決定。</p>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

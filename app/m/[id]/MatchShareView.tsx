@@ -5,7 +5,7 @@ import ShareSheet from "../../ShareSheet";
 import { shareScoreline, type MatchShareState } from "../../../lib/match-share";
 import type { ResultStoryCard } from "../../../lib/story-card";
 
-const OCCASION: Record<MatchShareState["kind"], string> = { cup: "會友盃", fun: "潮拍 2v2", rated: "球會對局" };
+const OCCASION: Record<MatchShareState["kind"], string> = { cup: "盃賽", fun: "潮拍 2v2", rated: "球會對局" };
 
 /** The page behind a shared result.
  *

@@ -11,6 +11,13 @@ export type AvailabilityEvent =
   /* The funnel the redesign is judged on. Each step is the one before it plus an act of commitment,
      so the drop-off between any two names a specific piece of friction rather than a vague "people
      don't use matchmaking". */
+  /* 場次 — publishing a window at a venue. This is now the same write as publishing availability
+     (one row in availability_slots), so these events measure the merged funnel rather than a
+     parallel one: how many members answer at all, at what effort, and whether the overlap they saw
+     was worth the trip. */
+  | "venue_board_view"
+  | "venue_slot_set"
+  | "venue_slot_cleared"
   | "matchmaking_free_now"
   | "matchmaking_invite_open"
   | "matchmaking_invite_send"
