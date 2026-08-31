@@ -1828,7 +1828,7 @@ function Matches({data,canManageMatch,onEdit,onVoid,onShare,onPlayer,view,setVie
     },{wins:0,losses:0,draws:0,net:0});
   },[matches,focusPlayer,pairSelected]);
   const headToHeadMatches=useMemo(
-    ()=>matches.filter(match=>matchMode(match)==="1v1").sort((left,right)=>right.playedOn.localeCompare(left.playedOn)||right.createdAt.localeCompare(left.createdAt)),
+    ()=>matches.filter(match=>matchMode(match)!=="2v2").sort((left,right)=>right.playedOn.localeCompare(left.playedOn)||right.createdAt.localeCompare(left.createdAt)),
     [matches]
   );
   const h2hStats=useMemo(()=>{
