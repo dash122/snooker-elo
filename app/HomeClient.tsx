@@ -1477,7 +1477,7 @@ function MonthlyBreakChart({months,onPlayer}:{months:MonthlyBreak[];onPlayer:(p:
   </div>;
 }
 function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:Player[];data:AppState;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
-  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall"|"recent"|"monthly">("players"),[homeView,setHomeView]=useState<"ranking"|"breaks"|"recent"|"trend">("ranking"),[officialOnly,setOfficialOnly]=useState(false);
+  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall"|"recent"|"monthly">("players"),[homeView,setHomeView]=useState<"ranking"|"breaks"|"recent">("ranking"),[officialOnly,setOfficialOnly]=useState(false),[rankingView,setRankingView]=useState<"table"|"trend">("table");
   const confirmed=data.matches.filter(m=>m.status==="confirmed");
   const month=confirmed.filter(m=>m.playedOn.slice(0,7)===today.slice(0,7)).length,total=confirmed.length;
   // Toggling to 正式球手 re-sequences ranks among only the visible players,
@@ -1524,12 +1524,16 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
       <button role="tab" aria-selected={homeView==="ranking"} className={homeView==="ranking"?"active":""} onClick={()=>setHomeView("ranking")}><span>目前排名</span></button>
       <button role="tab" aria-selected={homeView==="breaks"} className={homeView==="breaks"?"active":""} onClick={()=>setHomeView("breaks")}><span>最高單桿紀錄</span></button>
       <button role="tab" aria-selected={homeView==="recent"} className={homeView==="recent"?"active":""} onClick={()=>setHomeView("recent")}><span>近三十日統計</span></button>
-      <button role="tab" aria-selected={homeView==="trend"} className={homeView==="trend"?"active":""} onClick={()=>setHomeView("trend")}><span>ELO走勢</span></button>
     </SlidingToggleGroup>
     {homeView==="ranking"&&<>
     <Overview top={visibleRanked.slice(0,3)} data={data} onPlayer={onPlayer}/>
     <section className="home-view-panel ranking-panel" aria-labelledby="ranking-title">
-      <div className="home-panel-head"><div><p className="kicker">即時競爭形勢</p><h2 id="ranking-title">目前排名</h2><p>每場結果都會即時反映在 ELO 與近期狀態。</p></div><SlidingToggleGroup className="mini-toggle ranking-scope-toggle" aria-label="排名球員範圍"><button aria-pressed={!officialOnly} className={!officialOnly?"active":""} onClick={()=>setOfficialOnly(false)}>全部球員</button><button aria-pressed={officialOnly} className={officialOnly?"active":""} onClick={()=>setOfficialOnly(true)}>正式球手</button></SlidingToggleGroup></div>
+      <div className="home-panel-head"><div><p className="kicker">即時競爭形勢</p><h2 id="ranking-title">目前排名</h2><p>{rankingView==="table"?"每場結果都會即時反映在 ELO 與近期狀態。":"各球員 ELO 評分隨日期的走勢，取每日最後一場賽事後的評分。"}</p></div>
+      <div className="ranking-view-toggles">
+        <SlidingToggleGroup className="mini-toggle ranking-scope-toggle" aria-label="排名球員範圍"><button aria-pressed={!officialOnly} className={!officialOnly?"active":""} onClick={()=>setOfficialOnly(false)}>全部球員</button><button aria-pressed={officialOnly} className={officialOnly?"active":""} onClick={()=>setOfficialOnly(true)}>正式球手</button></SlidingToggleGroup>
+        <SlidingToggleGroup className="mini-toggle ranking-display-toggle" aria-label="排名顯示方式"><button aria-pressed={rankingView==="table"} className={rankingView==="table"?"active":""} onClick={()=>setRankingView("table")}>排名列表</button><button aria-pressed={rankingView==="trend"} className={rankingView==="trend"?"active":""} onClick={()=>setRankingView("trend")}>ELO走勢</button></SlidingToggleGroup>
+      </div></div>
+    {rankingView==="table"?<>
     <SortControls sort={sort} dir={dir} onSort={sortBy}/>
     <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?"尚未有正式球手":"尚未有球員"} sub={officialOnly?"未有球員完成臨時門檻，暫時未有正式評分。":"前往球員頁面新增第一位球員。"}/>:<><div className="table-head sortable"><button title="箭嘴為過去 10 天的排名升跌" onClick={()=>sortBy("rank")}>排名<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>球員<SortArrow active={sort==="name"} dir={dir}/></button><button title="最近五筆比賽；較近期結果權重較高" onClick={()=>sortBy("form")}>近況<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>場數／勝率<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>建議／正式評分<SortArrow active={sort==="suggested"} dir={dir}/></button><button title="ELO 及近10天ELO變化" onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
       <MobileSortHead sort={sort}/>
@@ -1542,49 +1546,80 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
         <span>{played} 場<small>{rate}% 勝率</small></span><span className="dual-rating"><b>{suggested}</b><small>正式 {p.handicap==null?"—":p.handicap}</small></span>
         {trailing?<span className="elo"><b className={trailing.cls}>{trailing.big}</b><small>{trailing.sub}</small></span>
         :<span className="elo"><b>{Math.round(p.rating)}</b><small className={swing>=0?"positive":"negative"}>{swing>=0?"+":""}{Math.round(swing)}</small><em className="elo-suggested">建議 {suggested}</em></span>}</button>})}</>}</Surface>
+    </>:<EloTrendChart players={visibleRanked} data={data}/>}
     </section></>}
     {homeView==="breaks"&&<section className="home-view-panel break-records-panel" aria-labelledby="break-records-title">
       <div className="home-panel-head"><div><p className="kicker">HIGH BREAK RECORDS</p><h2 id="break-records-title">最高單桿紀錄</h2><p>查看每位球員的個人最佳、歷史最高，或近 30 日最高紀錄。</p></div><SlidingToggleGroup className="mini-toggle break-toggle" aria-label="單桿紀錄顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史</button><button aria-pressed={breakView==="recent"} className={breakView==="recent"?"active":""} onClick={()=>setBreakView("recent")}>近30日</button><button aria-pressed={breakView==="monthly"} className={breakView==="monthly"?"active":""} onClick={()=>setBreakView("monthly")}>每月</button></SlidingToggleGroup></div>
       {breakView==="monthly"?<MonthlyBreakChart months={breakRecords.monthly} onPlayer={onPlayer}/>:<><ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>對 {record.opponent}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title="破百單桿">破百</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
       <p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":breakView==="overall"?"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。":`${thirtyDaysAgo} 至 ${today} 的最高單桿，同一球員可重複上榜。`}</p></>}
     </section>}
-    {homeView==="recent"&&<ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/>}
-    {homeView==="trend"&&<EloTrendPanel players={visibleRanked} data={data} onPlayer={onPlayer}/>}</>;
+    {homeView==="recent"&&<ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/>}</>;
 }
 
-function EloTrendPanel({players,data,onPlayer}:{players:Player[];data:AppState;onPlayer:(p:Player)=>void}) {
-  void onPlayer;
+function smoothTrendPath(points:{x:number;y:number}[]){
+  if(points.length===0) return "";
+  if(points.length===1) return `M ${points[0].x} ${points[0].y}`;
+  let d=`M ${points[0].x} ${points[0].y}`;
+  for(let i=0;i<points.length-1;i++){
+    const p0=points[i-1]??points[i],p1=points[i],p2=points[i+1],p3=points[i+2]??p2;
+    const c1x=p1.x+(p2.x-p0.x)/6,c1y=p1.y+(p2.y-p0.y)/6,c2x=p2.x-(p3.x-p1.x)/6,c2y=p2.y-(p3.y-p1.y)/6;
+    d+=` C ${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`;
+  }
+  return d;
+}
+function trendDateLabel(date:string){return date.slice(5).replace("-","/");}
+function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
   const ranked=useMemo(()=>[...players].sort((a,b)=>b.rating-a.rating),[players]);
   const [hiddenIds,setHiddenIds]=useState<Set<string>>(()=>new Set(ranked.slice(8).map(p=>p.id)));
+  const [activeIndex,setActiveIndex]=useState<number|null>(null);
+  const plotRef=useRef<HTMLDivElement>(null);
   const shownPlayers=ranked.filter(p=>!hiddenIds.has(p.id));
   const {dates,series}=useMemo(()=>eloTrendSeries(shownPlayers,data),[shownPlayers,data]);
-  const toggle=(id:string)=>setHiddenIds(current=>{const next=new Set(current);next.has(id)?next.delete(id):next.add(id);return next});
-  if(ranked.length===0) return <section className="home-view-panel trend-panel" aria-labelledby="trend-title">
-    <div className="home-panel-head"><div><p className="kicker">ELO TREND</p><h2 id="trend-title">ELO走勢</h2></div></div>
-    <Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>
-  </section>;
+  const toggle=(id:string)=>{setActiveIndex(null);setHiddenIds(current=>{const next=new Set(current);next.has(id)?next.delete(id):next.add(id);return next})};
+  if(ranked.length===0) return <Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>;
+  if(dates.length===0) return <Empty text="尚未有賽事紀錄" sub="累積賽事後即可查看 ELO 走勢。"/>;
   const values=series.flatMap(s=>s.values);
-  const rawMin=values.length?Math.min(...values):1000,rawMax=values.length?Math.max(...values):1000;
+  const rawMin=Math.min(...values),rawMax=Math.max(...values);
   const observed=Math.max(1,rawMax-rawMin),visualRange=Math.max(24,observed*1.15);
   const middle=(rawMin+rawMax)/2,min=middle-visualRange/2,max=middle+visualRange/2;
-  const x=(index:number)=>dates.length<=1?50:5+index/(dates.length-1)*90;
+  const x=(index:number)=>dates.length<=1?50:3+index/(dates.length-1)*94;
   const y=(value:number)=>54-(value-min)/(max-min)*46;
-  return <section className="home-view-panel trend-panel" aria-labelledby="trend-title">
-    <div className="home-panel-head"><div><p className="kicker">ELO TREND</p><h2 id="trend-title">ELO走勢</h2><p>各球員 ELO 評分隨日期的走勢，取每日最後一場賽事後的評分。</p></div></div>
-    {dates.length===0?<Empty text="尚未有賽事紀錄" sub="累積賽事後即可查看 ELO 走勢。"/>:<>
-    <div className="trend-plot multi-trend-plot">
-      <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label="ELO 走勢圖">
-        {[8,31,54].map(line=><line key={line} x1="5" y1={line} x2="95" y2={line} className="trend-grid"/>)}
-        {series.map(s=><polyline key={s.player.id} points={s.values.map((v,i)=>`${x(i)},${y(v)}`).join(" ")} className="multi-trend-line" style={{stroke:avatarHex(s.player.colour)}}/>)}
-      </svg>
+  const yTicks=[max,(max+middle)/2,middle,(middle+min)/2,min];
+  const xTickCount=Math.min(dates.length,6);
+  const xTickIndexes=Array.from(new Set(Array.from({length:xTickCount},(_,i)=>Math.round(i/(xTickCount-1||1)*(dates.length-1)))));
+  const updateActive=(clientX:number)=>{
+    const rect=plotRef.current?.getBoundingClientRect();
+    if(!rect||dates.length===0) return;
+    const fraction=Math.min(1,Math.max(0,(clientX-rect.left)/rect.width));
+    const raw=((fraction*100-3)/94)*(dates.length-1);
+    setActiveIndex(Math.min(dates.length-1,Math.max(0,Math.round(raw))));
+  };
+  const activeAbove=activeIndex!=null&&x(activeIndex)>62;
+  return <>
+    <div className="multi-trend-chart">
+      <div className="multi-trend-yaxis" aria-hidden="true">{yTicks.map((v,i)=><span key={i} style={{top:`${y(v)/60*100}%`}}>{Math.round(v)}</span>)}</div>
+      <div className="trend-plot multi-trend-plot" ref={plotRef}
+        onPointerMove={e=>updateActive(e.clientX)}
+        onPointerDown={e=>updateActive(e.clientX)}
+        onPointerLeave={()=>setActiveIndex(null)}>
+        <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label="各球員 ELO 走勢圖">
+          {yTicks.map((v,i)=><line key={i} x1="0" y1={y(v)} x2="100" y2={y(v)} className="trend-grid"/>)}
+          {activeIndex!=null&&<line x1={x(activeIndex)} y1="2" x2={x(activeIndex)} y2="58" className="trend-guide"/>}
+          {series.map(s=><path key={s.player.id} d={smoothTrendPath(s.values.map((v,i)=>({x:x(i),y:y(v)})))} className="multi-trend-line" style={{stroke:avatarHex(s.player.colour)}}/>)}
+          {activeIndex!=null&&series.map(s=><circle key={s.player.id} cx={x(activeIndex)} cy={y(s.values[activeIndex])} r="1.7" className="multi-trend-dot" style={{fill:avatarHex(s.player.colour)}}/>)}
+        </svg>
+        {activeIndex!=null&&<div className={`multi-trend-tooltip${activeAbove?" align-right":""}`} style={{left:`${x(activeIndex)}%`}} role="status">
+          <small>{trendDateLabel(dates[activeIndex])}</small>
+          <ul>{[...series].sort((a,b)=>b.values[activeIndex!]-a.values[activeIndex!]).map(s=><li key={s.player.id}><i style={{background:avatarHex(s.player.colour)}}/><span>{s.player.name}</span><b>{Math.round(s.values[activeIndex!])}</b></li>)}</ul>
+        </div>}
+      </div>
+      <div className="multi-trend-xaxis">{xTickIndexes.map(i=><span key={i} style={{left:`${x(i)}%`}}>{trendDateLabel(dates[i])}</span>)}</div>
     </div>
-    <div className="trend-scale"><span>{Math.round(max)}</span><span>{Math.round(middle)}</span><span>{Math.round(min)}</span></div>
     <ul className="trend-legend">{ranked.map(p=>{const hidden=hiddenIds.has(p.id);
       return <li key={p.id}><button type="button" className={`trend-legend-item${hidden?" hidden":""}`} aria-pressed={!hidden} onClick={()=>toggle(p.id)}><i style={{background:avatarHex(p.colour)}}/><span>{p.name}</span></button></li>})}
     </ul>
-    <p className="chart-summary">點按下方球員名稱可切換顯示；目前顯示 {shownPlayers.length} 位球員，共 {dates.length} 個有賽事的日期。</p>
-    </>}
-  </section>;
+    <p className="chart-summary">點按下方球員名稱可切換顯示；移至圖表可查看該日各球員的 ELO。目前顯示 {shownPlayers.length} 位球員，共 {dates.length} 個有賽事的日期。</p>
+  </>;
 }
 
 function RecentStatIcon({kind}:{kind:"matches"|"frames"|"players"|"average"|"active"|"elo"|"win"|"break"}) {
