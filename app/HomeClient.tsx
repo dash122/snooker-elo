@@ -336,10 +336,10 @@ function eloTrendSeries(players:Player[],data:AppState){
   const dates=Array.from(new Set(perPlayer.flatMap(x=>x.pts.map(pt=>pt.date)))).sort();
   const series=perPlayer.map(({player,pts})=>{
     let index=0,current=player.initialRating;
-    const values:number[]=[],counts:number[]=[];
+    const values:(number|null)[]=[],counts:number[]=[];
     for(const date of dates){
       while(index<pts.length&&pts[index].date<=date){current=pts[index].elo;index++}
-      values.push(current);
+      values.push(index===0?null:current);
       counts.push(index);
     }
     return {player,values,counts};
@@ -1593,7 +1593,7 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
     <Empty text="尚未有賽事紀錄" sub="所選球員累積賽事後即可查看 ELO 走勢。"/>
     {legend}
   </>;
-  const values=series.flatMap(s=>s.values);
+  const values=series.flatMap(s=>s.values).filter((v):v is number=>v!=null);
   const rawMin=Math.min(...values),rawMax=Math.max(...values);
   const observed=Math.max(1,rawMax-rawMin),visualRange=Math.max(24,observed*1.15);
   const middle=(rawMin+rawMax)/2,min=middle-visualRange/2,max=middle+visualRange/2;
@@ -1614,11 +1614,12 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
   const lastIndex=dates.length-1;
   const endLabels=(()=>{
     const minGap=9;
-    const sorted=[...series].sort((a,b)=>y(a.values[lastIndex])-y(b.values[lastIndex]));
-    const tops=sorted.map(s=>y(s.values[lastIndex])/60*100);
+    const lastValue=(s:typeof series[number])=>s.values[lastIndex]!;
+    const sorted=[...series].sort((a,b)=>y(lastValue(a))-y(lastValue(b)));
+    const tops=sorted.map(s=>y(lastValue(s))/60*100);
     for(let i=1;i<tops.length;i++) if(tops[i]-tops[i-1]<minGap) tops[i]=tops[i-1]+minGap;
     for(let i=tops.length-2;i>=0;i--) if(tops[i+1]-tops[i]<minGap) tops[i]=tops[i+1]-minGap;
-    return sorted.map((s,i)=>({player:s.player,value:s.values[lastIndex],anchor:y(s.values[lastIndex])/60*100,top:tops[i]}));
+    return sorted.map((s,i)=>({player:s.player,value:lastValue(s),anchor:y(lastValue(s))/60*100,top:tops[i]}));
   })();
   return <>
     <div className="multi-trend-chart">
@@ -1630,14 +1631,14 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
         <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label="各球員 ELO 走勢圖">
           {yTicks.map((v,i)=><line key={i} x1="0" y1={y(v)} x2="100" y2={y(v)} className="trend-grid"/>)}
           {activeIndex!=null&&<line x1={x(activeIndex)} y1="2" x2={x(activeIndex)} y2="58" className="trend-guide"/>}
-          {series.map(s=><polyline key={s.player.id} points={s.values.map((v,i)=>`${x(i)},${y(v)}`).join(" ")} className="multi-trend-line" style={{stroke:avatarHex(s.player.colour)}}/>)}
-          {activeIndex!=null&&series.map(s=><circle key={s.player.id} cx={x(activeIndex)} cy={y(s.values[activeIndex])} r="1.7" className="multi-trend-dot" style={{fill:avatarHex(s.player.colour)}}/>)}
+          {series.map(s=><polyline key={s.player.id} points={s.values.map((v,i)=>v==null?null:`${x(i)},${y(v)}`).filter((p):p is string=>p!=null).join(" ")} className="multi-trend-line" style={{stroke:avatarHex(s.player.colour)}}/>)}
+          {activeIndex!=null&&series.map(s=>s.values[activeIndex]!=null&&<circle key={s.player.id} cx={x(activeIndex)} cy={y(s.values[activeIndex]!)} r="1.7" className="multi-trend-dot" style={{fill:avatarHex(s.player.colour)}}/>)}
           {endLabels.map(({player,anchor,top})=>Math.abs(top-anchor)>0.6&&<line key={player.id} x1={x(lastIndex)} y1={anchor/100*60} x2={x(lastIndex)} y2={top/100*60} className="multi-trend-leader" style={{stroke:avatarHex(player.colour)}}/>)}
           {endLabels.map(({player,anchor})=><circle key={player.id} cx={x(lastIndex)} cy={anchor/100*60} r="1.4" className="multi-trend-endpoint" style={{fill:avatarHex(player.colour)}}/>)}
         </svg>
         {activeIndex!=null&&<div className={`multi-trend-tooltip${activeAbove?" align-right":""}`} style={{left:`${x(activeIndex)}%`}} role="status">
           <small>{trendDateLabel(dates[activeIndex])}</small>
-          <ul>{[...series].sort((a,b)=>b.values[activeIndex!]-a.values[activeIndex!]).map(s=><li key={s.player.id}><i style={{background:avatarHex(s.player.colour)}}/><span>{s.player.name}</span><em>{s.counts[activeIndex!]} 場</em><b>{Math.round(s.values[activeIndex!])}</b></li>)}</ul>
+          <ul>{[...series].filter(s=>s.values[activeIndex!]!=null).sort((a,b)=>b.values[activeIndex!]!-a.values[activeIndex!]!).map(s=><li key={s.player.id}><i style={{background:avatarHex(s.player.colour)}}/><span>{s.player.name}</span><em>{s.counts[activeIndex!]} 場</em><b>{Math.round(s.values[activeIndex!]!)}</b></li>)}</ul>
         </div>}
         <div className="multi-trend-endlabels" aria-hidden="true">{endLabels.map(({player,value,top})=><div key={player.id} className="multi-trend-endlabel" style={{left:`${x(lastIndex)}%`,top:`${top}%`,color:avatarHex(player.colour)}}><b>{narrow?player.short:player.name}</b><span>{Math.round(value)}</span></div>)}</div>
       </div>
