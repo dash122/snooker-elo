@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type TouchEvent as ReactTouchEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type TouchEvent as ReactTouchEvent } from "react";
 import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import MatchmakingFormation from "./MatchmakingFormation";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
@@ -1795,6 +1795,20 @@ const h2hKey=(first:string,second:string)=>[first,second].sort().join("|");
    per opponent, no horizontal scrolling and full-width tap targets. The grid is
    the same data for anyone with the width for it, and is reachable on a phone
    too (it scrolls sideways under a pinned name column). */
+/* A full-roster grid or heatmap runs wide fast — panning with two thumbs works but nobody
+   discovers it unassisted. Explicit +/- controls (with a tap-to-reset percentage) give the
+   same shrink-to-fit-more/grow-to-read power without relying on a gesture the toolbar can't
+   hint at. Scaling through a CSS variable — not a transform — keeps position:sticky headers
+   and row names working exactly as before, just at a different rem size. */
+const MATRIX_ZOOM_MIN=.7,MATRIX_ZOOM_MAX=1.8,MATRIX_ZOOM_STEP=.15;
+function MatrixZoomControls({zoom,setZoom}:{zoom:number;setZoom:(value:number)=>void}){
+  const clamp=(value:number)=>Math.min(MATRIX_ZOOM_MAX,Math.max(MATRIX_ZOOM_MIN,Math.round(value*100)/100));
+  return <div className="h2h-matrix-zoom" role="group" aria-label="矩陣縮放">
+    <IconButton label="縮小矩陣" onClick={()=>setZoom(clamp(zoom-MATRIX_ZOOM_STEP))} disabled={zoom<=MATRIX_ZOOM_MIN}>－</IconButton>
+    <button type="button" className="h2h-matrix-zoom-value" onClick={()=>setZoom(1)} aria-label="重設縮放至 100%">{Math.round(zoom*100)}%</button>
+    <IconButton label="放大矩陣" onClick={()=>setZoom(clamp(zoom+MATRIX_ZOOM_STEP))} disabled={zoom>=MATRIX_ZOOM_MAX}>＋</IconButton>
+  </div>;
+}
 function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayerId?:string;onOpenPair:(first:string,second:string)=>void}){
   const index=useMemo(()=>headToHeadIndex(data.matches),[data.matches]);
   // Only players who have actually met somebody: an all-players grid is mostly
@@ -1805,6 +1819,7 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
     return data.players.filter(player=>met.has(player.id)).sort((left,right)=>right.rating-left.rating||left.name.localeCompare(right.name,"zh-HK"));
   },[data.players,index]);
   const [mode,setMode]=useState<"list"|"grid"|"heatmap">("list");
+  const [zoom,setZoom]=useState(1);
   const [focusId,setFocusId]=useState("");
   const focus=players.find(player=>player.id===focusId)
     ??players.find(player=>player.id===ownPlayerId)
@@ -1826,7 +1841,7 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
   if(!focus)return <Empty text="尚未有對賽記錄" sub="記錄第一場 1v1 比賽後，球員之間的對賽矩陣會顯示在這裡。"/>;
   const shareOf=(record:H2HRecord,id:string)=>Math.round((record.wins[id]+record.draws/2)/Math.max(1,record.total)*100);
   const frameShareOf=(record:H2HRecord,id:string,otherId:string)=>Math.round(record.frames[id]/Math.max(1,record.frames[id]+record.frames[otherId])*100);
-  return <section className="h2h-matrix" aria-label="對賽矩陣">
+  return <section className="h2h-matrix" aria-label="對賽矩陣" style={{"--matrix-zoom":mode==="list"?1:zoom} as CSSProperties}>
     <div className="h2h-matrix-toolbar">
       <div className="h2h-matrix-focus">
         <span className="match-filter-label">球員</span>
@@ -1835,6 +1850,7 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
         </div>
       </div>
       <div className="h2h-matrix-modes"><SegmentedControl label="對賽矩陣顯示方式" value={mode} onChange={value=>setMode(value as typeof mode)} items={[{value:"list",label:"清單"},{value:"grid",label:"全隊網格"},{value:"heatmap",label:"勝率預測"}]}/></div>
+      {mode!=="list"&&<MatrixZoomControls zoom={zoom} setZoom={setZoom}/>}
     </div>
     {mode==="heatmap"?<WinRateHeatmap players={players} settings={data.settings} focusId={focus.id} onOpenPair={onOpenPair}/>
     :mode==="list"?<>
