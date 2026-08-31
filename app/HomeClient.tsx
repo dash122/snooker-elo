@@ -1580,7 +1580,7 @@ function useMediaQuery(query:string){
 function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
   const narrow=useMediaQuery("(max-width:599px)");
   const ranked=useMemo(()=>[...players].sort((a,b)=>b.rating-a.rating),[players]);
-  const [hiddenIds,setHiddenIds]=useState<Set<string>>(()=>new Set(ranked.slice(8).map(p=>p.id)));
+  const [hiddenIds,setHiddenIds]=useState<Set<string>>(()=>new Set(ranked.slice(5).map(p=>p.id)));
   const [activeIndex,setActiveIndex]=useState<number|null>(null);
   const plotRef=useRef<HTMLDivElement>(null);
   const shownPlayers=ranked.filter(p=>!hiddenIds.has(p.id));
@@ -1608,14 +1608,12 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
   const activeAbove=activeIndex!=null&&x(activeIndex)>lineEnd-16;
   const lastIndex=dates.length-1;
   const endLabels=(()=>{
-    const sorted=[...series].sort((a,b)=>b.values[lastIndex]-a.values[lastIndex]);
-    let prevTop=-Infinity;
-    return sorted.map(s=>{
-      let top=y(s.values[lastIndex])/60*100;
-      if(top-prevTop<9) top=prevTop+9;
-      prevTop=top;
-      return {player:s.player,value:s.values[lastIndex],top};
-    });
+    const minGap=9;
+    const sorted=[...series].sort((a,b)=>y(a.values[lastIndex])-y(b.values[lastIndex]));
+    const tops=sorted.map(s=>y(s.values[lastIndex])/60*100);
+    for(let i=1;i<tops.length;i++) if(tops[i]-tops[i-1]<minGap) tops[i]=tops[i-1]+minGap;
+    for(let i=tops.length-2;i>=0;i--) if(tops[i+1]-tops[i]<minGap) tops[i]=tops[i+1]-minGap;
+    return sorted.map((s,i)=>({player:s.player,value:s.values[lastIndex],anchor:y(s.values[lastIndex])/60*100,top:tops[i]}));
   })();
   return <>
     <div className="multi-trend-chart">
@@ -1629,6 +1627,8 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
           {activeIndex!=null&&<line x1={x(activeIndex)} y1="2" x2={x(activeIndex)} y2="58" className="trend-guide"/>}
           {series.map(s=><path key={s.player.id} d={smoothTrendPath(s.values.map((v,i)=>({x:x(i),y:y(v)})))} className="multi-trend-line" style={{stroke:avatarHex(s.player.colour)}}/>)}
           {activeIndex!=null&&series.map(s=><circle key={s.player.id} cx={x(activeIndex)} cy={y(s.values[activeIndex])} r="1.7" className="multi-trend-dot" style={{fill:avatarHex(s.player.colour)}}/>)}
+          {endLabels.map(({player,anchor,top})=>Math.abs(top-anchor)>0.6&&<line key={player.id} x1={x(lastIndex)} y1={anchor/100*60} x2={x(lastIndex)} y2={top/100*60} className="multi-trend-leader" style={{stroke:avatarHex(player.colour)}}/>)}
+          {endLabels.map(({player,anchor})=><circle key={player.id} cx={x(lastIndex)} cy={anchor/100*60} r="1.4" className="multi-trend-endpoint" style={{fill:avatarHex(player.colour)}}/>)}
         </svg>
         {activeIndex!=null&&<div className={`multi-trend-tooltip${activeAbove?" align-right":""}`} style={{left:`${x(activeIndex)}%`}} role="status">
           <small>{trendDateLabel(dates[activeIndex])}</small>

@@ -12,6 +12,8 @@
   .multi-trend-line{fill:none;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round;opacity:.92;transition:opacity var(--ds-duration-fast) var(--ds-ease-standard)}
   .multi-trend-plot:hover .multi-trend-line{opacity:.55}
   .multi-trend-dot{stroke:var(--ds-surface-raised);stroke-width:1;vector-effect:non-scaling-stroke}
+  .multi-trend-endpoint{stroke:var(--ds-surface-raised);stroke-width:.75;vector-effect:non-scaling-stroke}
+  .multi-trend-leader{stroke-width:1;stroke-dasharray:1.5 1.5;opacity:.55;vector-effect:non-scaling-stroke}
 
   .multi-trend-endlabels{position:absolute;inset:0;overflow:hidden;pointer-events:none}
   .multi-trend-endlabel{position:absolute;max-width:21%;transform:translateY(-50%);display:flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-label);font-variant-numeric:tabular-nums}
