@@ -336,11 +336,13 @@ function eloTrendSeries(players:Player[],data:AppState){
   const dates=Array.from(new Set(perPlayer.flatMap(x=>x.pts.map(pt=>pt.date)))).sort();
   const series=perPlayer.map(({player,pts})=>{
     let index=0,current=player.initialRating;
-    const values=dates.map(date=>{
+    const values:number[]=[],counts:number[]=[];
+    for(const date of dates){
       while(index<pts.length&&pts[index].date<=date){current=pts[index].elo;index++}
-      return current;
-    });
-    return {player,values};
+      values.push(current);
+      counts.push(index);
+    }
+    return {player,values,counts};
   });
   return {dates,series};
 }
@@ -1554,18 +1556,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
     {homeView==="recent"&&<ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/>}</>;
 }
 
-function smoothTrendPath(points:{x:number;y:number}[]){
-  if(points.length===0) return "";
-  if(points.length===1) return `M ${points[0].x} ${points[0].y}`;
-  let d=`M ${points[0].x} ${points[0].y}`;
-  for(let i=0;i<points.length-1;i++){
-    const p0=points[i-1]??points[i],p1=points[i],p2=points[i+1],p3=points[i+2]??p2;
-    const c1x=p1.x+(p2.x-p0.x)/6,c1y=p1.y+(p2.y-p0.y)/6,c2x=p2.x-(p3.x-p1.x)/6,c2y=p2.y-(p3.y-p1.y)/6;
-    d+=` C ${c1x} ${c1y} ${c2x} ${c2y} ${p2.x} ${p2.y}`;
-  }
-  return d;
-}
-function trendDateLabel(date:string){return date.slice(5).replace("-","/");}
+function trendDateLabel(date:string){return date.replace(/-/g,"/");}
 function trendAxisDateLabel(date:string){return `${date.slice(2,4)}/${date.slice(5).replace("-","/")}`;}
 function useMediaQuery(query:string){
   const [matches,setMatches]=useState(false);
@@ -1586,8 +1577,22 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
   const shownPlayers=ranked.filter(p=>!hiddenIds.has(p.id));
   const {dates,series}=useMemo(()=>eloTrendSeries(shownPlayers,data),[shownPlayers,data]);
   const toggle=(id:string)=>{setActiveIndex(null);setHiddenIds(current=>{const next=new Set(current);next.has(id)?next.delete(id):next.add(id);return next})};
+  const deselectAll=()=>{setActiveIndex(null);setHiddenIds(new Set(ranked.map(p=>p.id)))};
   if(ranked.length===0) return <Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>;
-  if(dates.length===0) return <Empty text="尚未有賽事紀錄" sub="累積賽事後即可查看 ELO 走勢。"/>;
+  const legend=<>
+    <div className="trend-legend-actions"><button type="button" className="trend-clear-btn" onClick={deselectAll} disabled={shownPlayers.length===0}>取消全選</button></div>
+    <ul className="trend-legend">{ranked.map(p=>{const hidden=hiddenIds.has(p.id);
+      return <li key={p.id}><button type="button" className={`trend-legend-item${hidden?" hidden":""}`} aria-pressed={!hidden} onClick={()=>toggle(p.id)}><i style={{background:avatarHex(p.colour)}}/><span>{p.name}</span><b>{Math.round(p.rating)}</b></button></li>})}
+    </ul>
+  </>;
+  if(shownPlayers.length===0) return <>
+    <Empty text="尚未選擇球員" sub="請於下方選擇至少一位球員以顯示 ELO 走勢。"/>
+    {legend}
+  </>;
+  if(dates.length===0) return <>
+    <Empty text="尚未有賽事紀錄" sub="所選球員累積賽事後即可查看 ELO 走勢。"/>
+    {legend}
+  </>;
   const values=series.flatMap(s=>s.values);
   const rawMin=Math.min(...values),rawMax=Math.max(...values);
   const observed=Math.max(1,rawMax-rawMin),visualRange=Math.max(24,observed*1.15);
@@ -1625,23 +1630,21 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
         <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label="各球員 ELO 走勢圖">
           {yTicks.map((v,i)=><line key={i} x1="0" y1={y(v)} x2="100" y2={y(v)} className="trend-grid"/>)}
           {activeIndex!=null&&<line x1={x(activeIndex)} y1="2" x2={x(activeIndex)} y2="58" className="trend-guide"/>}
-          {series.map(s=><path key={s.player.id} d={smoothTrendPath(s.values.map((v,i)=>({x:x(i),y:y(v)})))} className="multi-trend-line" style={{stroke:avatarHex(s.player.colour)}}/>)}
+          {series.map(s=><polyline key={s.player.id} points={s.values.map((v,i)=>`${x(i)},${y(v)}`).join(" ")} className="multi-trend-line" style={{stroke:avatarHex(s.player.colour)}}/>)}
           {activeIndex!=null&&series.map(s=><circle key={s.player.id} cx={x(activeIndex)} cy={y(s.values[activeIndex])} r="1.7" className="multi-trend-dot" style={{fill:avatarHex(s.player.colour)}}/>)}
           {endLabels.map(({player,anchor,top})=>Math.abs(top-anchor)>0.6&&<line key={player.id} x1={x(lastIndex)} y1={anchor/100*60} x2={x(lastIndex)} y2={top/100*60} className="multi-trend-leader" style={{stroke:avatarHex(player.colour)}}/>)}
           {endLabels.map(({player,anchor})=><circle key={player.id} cx={x(lastIndex)} cy={anchor/100*60} r="1.4" className="multi-trend-endpoint" style={{fill:avatarHex(player.colour)}}/>)}
         </svg>
         {activeIndex!=null&&<div className={`multi-trend-tooltip${activeAbove?" align-right":""}`} style={{left:`${x(activeIndex)}%`}} role="status">
           <small>{trendDateLabel(dates[activeIndex])}</small>
-          <ul>{[...series].sort((a,b)=>b.values[activeIndex!]-a.values[activeIndex!]).map(s=><li key={s.player.id}><i style={{background:avatarHex(s.player.colour)}}/><span>{s.player.name}</span><b>{Math.round(s.values[activeIndex!])}</b></li>)}</ul>
+          <ul>{[...series].sort((a,b)=>b.values[activeIndex!]-a.values[activeIndex!]).map(s=><li key={s.player.id}><i style={{background:avatarHex(s.player.colour)}}/><span>{s.player.name}</span><em>{s.counts[activeIndex!]} 場</em><b>{Math.round(s.values[activeIndex!])}</b></li>)}</ul>
         </div>}
         <div className="multi-trend-endlabels" aria-hidden="true">{endLabels.map(({player,value,top})=><div key={player.id} className="multi-trend-endlabel" style={{left:`${x(lastIndex)}%`,top:`${top}%`}}><i style={{background:avatarHex(player.colour)}}/><b>{narrow?player.short:player.name}</b><span>{Math.round(value)}</span></div>)}</div>
       </div>
       <div className="multi-trend-xaxis">{xTickIndexes.map(i=><span key={i} style={{left:`${x(i)}%`}}>{trendAxisDateLabel(dates[i])}</span>)}</div>
     </div>
-    <ul className="trend-legend">{ranked.map(p=>{const hidden=hiddenIds.has(p.id);
-      return <li key={p.id}><button type="button" className={`trend-legend-item${hidden?" hidden":""}`} aria-pressed={!hidden} onClick={()=>toggle(p.id)}><i style={{background:avatarHex(p.colour)}}/><span>{p.name}</span><b>{Math.round(p.rating)}</b></button></li>})}
-    </ul>
-    <p className="chart-summary">點按下方球員名稱可切換顯示；移至圖表可查看該日各球員的 ELO。目前顯示 {shownPlayers.length} 位球員，共 {dates.length} 個有賽事的日期。</p>
+    {legend}
+    <p className="chart-summary">點按下方球員名稱可切換顯示；移至圖表可查看該日各球員的 ELO 及累積場數。目前顯示 {shownPlayers.length} 位球員，共 {dates.length} 個有賽事的日期。</p>
   </>;
 }
 
