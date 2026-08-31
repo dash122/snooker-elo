@@ -2222,7 +2222,8 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
           question a member asks of a finished tie after the fact. */}
       <div className="cup-tie-head"><span className="cup-tie-no">第 {slot.index} 場</span>
         {slot.match&&<time className="cup-tie-date" dateTime={slot.match.playedOn}>{slot.match.playedOn}</time>}
-        {mine&&<span className="cup-tie-mine">你的賽事</span>}</div>
+        {mine&&<span className="cup-tie-mine">你的賽事</span>}
+        {slot.match&&canManageMatch(slot.match)&&<IconButton className="card-tool cup-tie-edit" label={`編輯 ${name(slot.a)} 對 ${name(slot.b)} 的賽果`} onClick={()=>onEdit(slot.match!)}>✎</IconButton>}</div>
       {([slot.a,slot.b] as const).map((id,side)=>{
         const won=Boolean(slot.winner&&slot.winner===id);
         return <div className={`cup-tie-side${won?" won":""}${id?"":" tbd"}`} key={side}>
@@ -2235,7 +2236,6 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       <div className="cup-tie-actions">
         {canRecord&&<Button variant="primary" className="cup-btn sm" onClick={()=>onRecordSlot(tournament,slot)}>記錄賽果</Button>}
         {canRecord&&mine&&<Button variant="secondary" className="cup-btn sm" onClick={()=>onArrange(opponentIn(slot,ownPlayerId))}>約時間</Button>}
-        {slot.match&&canManageMatch(slot.match)&&<Button variant="secondary" className="cup-btn sm" onClick={()=>onEdit(slot.match!)}>編輯賽果</Button>}
         {isAdmin&&slot.state==="ready"&&[slot.a,slot.b].map(id=><Button variant="secondary" className="cup-btn sm" key={id} onClick={()=>onWalkover(tournament,slot,id)}>判 {name(id)} 晉級</Button>)}
         {isAdmin&&slot.state==="walkover"&&<Button variant="secondary" className="cup-btn sm" onClick={()=>onWalkover(tournament,slot,"")}>取消判定</Button>}
       </div>
@@ -2371,6 +2371,7 @@ function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManageMatch
                that used to file a quarter-final result as a first-round one. */
             const canRecord=slot.state==="ready"&&Boolean(isAdmin||mine);
             return <div className={`bracket-match ${slot.state}${mine?" mine":""}`} key={`${round}-${slot.index}`}>
+              {match&&canManageMatch(match)&&<IconButton className="card-tool bracket-edit" label={`編輯 ${name(first)} 對 ${name(second)} 的賽果`} onClick={()=>onEdit(match)}>✎</IconButton>}
               <div className={`bracket-slot${winner&&winner===first?" winner":""}${!first?" tbd":""}`}><span>{first?name(first):"待定"}</span>{match&&<b>{scoreFor(match,first)}</b>}</div>
               <div className={`bracket-slot${winner&&winner===second?" winner":""}${!second?" tbd":""}`}><span>{second?name(second):"待定"}</span>{match&&<b>{scoreFor(match,second)}</b>}</div>
               {match&&<time className="bracket-date" dateTime={match.playedOn}>{match.playedOn}</time>}
@@ -2378,7 +2379,6 @@ function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManageMatch
               {slot.state==="walkover"&&<small className="bracket-bye">{name(slot.winner)} 因對手棄權晉級</small>}
               {slot.state==="waiting"&&<small className="bracket-bye">等待上一圈賽果</small>}
               {canRecord&&<Button variant="primary" className="bracket-record" onClick={()=>onRecordSlot(slot)}>記錄賽果</Button>}
-              {match&&canManageMatch(match)&&<Button variant="quiet" className="bracket-edit" onClick={()=>onEdit(match)}>編輯賽果</Button>}
               {isAdmin&&slot.state==="ready"&&<div className="bracket-walkover"><small>判定晉級</small><span>{[first,second].map(id=><Button variant="quiet" key={id} onClick={()=>onWalkover(slot,id)}>{name(id)}</Button>)}</span></div>}
               {isAdmin&&slot.state==="walkover"&&<Button variant="quiet" className="bracket-edit" onClick={()=>onWalkover(slot,"")}>取消判定</Button>}
             </div>;
