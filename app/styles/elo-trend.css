@@ -13,6 +13,12 @@
   .multi-trend-plot:hover .multi-trend-line{opacity:.55}
   .multi-trend-dot{stroke:var(--ds-surface-raised);stroke-width:1;vector-effect:non-scaling-stroke}
 
+  .multi-trend-endlabels{position:absolute;inset:0;pointer-events:none}
+  .multi-trend-endlabel{position:absolute;transform:translateY(-50%);display:flex;align-items:center;gap:var(--sp-1);max-width:9.5rem;font-size:var(--fs-label);font-variant-numeric:tabular-nums}
+  .multi-trend-endlabel i{width:.5rem;height:.5rem;border-radius:50%;flex:none}
+  .multi-trend-endlabel b{font-weight:650;color:var(--ds-text-primary);min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .multi-trend-endlabel span{flex:none;color:var(--ds-text-secondary)}
+
   .multi-trend-tooltip{position:absolute;z-index:5;top:var(--sp-1);min-width:9.5rem;max-height:236px;overflow:auto;padding:var(--sp-2) var(--sp-2-5);border:1px solid var(--ds-inverse-border);border-radius:var(--ds-radius-control);background:var(--ds-surface-inverse);color:white;box-shadow:var(--ds-shadow-floating);pointer-events:none;transform:translateX(-50%)}
   .multi-trend-tooltip.align-right{transform:translateX(-100%)}
   .multi-trend-tooltip small{display:block;margin-bottom:var(--sp-1-5);font-size:var(--fs-label);color:var(--ds-icon-muted);font-variant-numeric:tabular-nums}
@@ -35,5 +41,7 @@
     .multi-trend-yaxis,.multi-trend-plot{height:210px}
     .multi-trend-chart{grid-template-columns:2.1rem 1fr}
     .multi-trend-tooltip{max-height:186px}
+    .multi-trend-endlabel{max-width:6.5rem}
+    .multi-trend-endlabel b{max-width:3.5rem}
   }
 }

@@ -1566,6 +1566,7 @@ function smoothTrendPath(points:{x:number;y:number}[]){
   return d;
 }
 function trendDateLabel(date:string){return date.slice(5).replace("-","/");}
+function trendAxisDateLabel(date:string){return `${date.slice(2,4)}/${date.slice(5).replace("-","/")}`;}
 function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
   const ranked=useMemo(()=>[...players].sort((a,b)=>b.rating-a.rating),[players]);
   const [hiddenIds,setHiddenIds]=useState<Set<string>>(()=>new Set(ranked.slice(8).map(p=>p.id)));
@@ -1580,7 +1581,8 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
   const rawMin=Math.min(...values),rawMax=Math.max(...values);
   const observed=Math.max(1,rawMax-rawMin),visualRange=Math.max(24,observed*1.15);
   const middle=(rawMin+rawMax)/2,min=middle-visualRange/2,max=middle+visualRange/2;
-  const x=(index:number)=>dates.length<=1?50:3+index/(dates.length-1)*94;
+  const lineEnd=78;
+  const x=(index:number)=>dates.length<=1?50:3+index/(dates.length-1)*(lineEnd-3);
   const y=(value:number)=>54-(value-min)/(max-min)*46;
   const yTicks=[max,(max+middle)/2,middle,(middle+min)/2,min];
   const xTickCount=Math.min(dates.length,6);
@@ -1589,10 +1591,21 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
     const rect=plotRef.current?.getBoundingClientRect();
     if(!rect||dates.length===0) return;
     const fraction=Math.min(1,Math.max(0,(clientX-rect.left)/rect.width));
-    const raw=((fraction*100-3)/94)*(dates.length-1);
+    const raw=((fraction*100-3)/(lineEnd-3))*(dates.length-1);
     setActiveIndex(Math.min(dates.length-1,Math.max(0,Math.round(raw))));
   };
-  const activeAbove=activeIndex!=null&&x(activeIndex)>62;
+  const activeAbove=activeIndex!=null&&x(activeIndex)>lineEnd-16;
+  const lastIndex=dates.length-1;
+  const endLabels=(()=>{
+    const sorted=[...series].sort((a,b)=>b.values[lastIndex]-a.values[lastIndex]);
+    let prevTop=-Infinity;
+    return sorted.map(s=>{
+      let top=y(s.values[lastIndex])/60*100;
+      if(top-prevTop<9) top=prevTop+9;
+      prevTop=top;
+      return {player:s.player,value:s.values[lastIndex],top};
+    });
+  })();
   return <>
     <div className="multi-trend-chart">
       <div className="multi-trend-yaxis" aria-hidden="true">{yTicks.map((v,i)=><span key={i} style={{top:`${y(v)/60*100}%`}}>{Math.round(v)}</span>)}</div>
@@ -1610,8 +1623,9 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
           <small>{trendDateLabel(dates[activeIndex])}</small>
           <ul>{[...series].sort((a,b)=>b.values[activeIndex!]-a.values[activeIndex!]).map(s=><li key={s.player.id}><i style={{background:avatarHex(s.player.colour)}}/><span>{s.player.name}</span><b>{Math.round(s.values[activeIndex!])}</b></li>)}</ul>
         </div>}
+        <div className="multi-trend-endlabels" aria-hidden="true">{endLabels.map(({player,value,top})=><div key={player.id} className="multi-trend-endlabel" style={{left:`${x(lastIndex)}%`,top:`${top}%`}}><i style={{background:avatarHex(player.colour)}}/><b>{player.name}</b><span>{Math.round(value)}</span></div>)}</div>
       </div>
-      <div className="multi-trend-xaxis">{xTickIndexes.map(i=><span key={i} style={{left:`${x(i)}%`}}>{trendDateLabel(dates[i])}</span>)}</div>
+      <div className="multi-trend-xaxis">{xTickIndexes.map(i=><span key={i} style={{left:`${x(i)}%`}}>{trendAxisDateLabel(dates[i])}</span>)}</div>
     </div>
     <ul className="trend-legend">{ranked.map(p=>{const hidden=hiddenIds.has(p.id);
       return <li key={p.id}><button type="button" className={`trend-legend-item${hidden?" hidden":""}`} aria-pressed={!hidden} onClick={()=>toggle(p.id)}><i style={{background:avatarHex(p.colour)}}/><span>{p.name}</span><b>{Math.round(p.rating)}</b></button></li>})}
