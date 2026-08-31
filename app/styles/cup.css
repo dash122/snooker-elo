@@ -221,6 +221,13 @@
   padding:0 var(--sp-2);background:var(--ds-surface-primary);border-right:1px solid var(--line);text-align:left}.h2h-matrix-rowhead{display:flex;align-items:center;gap:var(--sp-2);min-width:0}.h2h-matrix-rowhead>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}.h2h-matrix-grid thead th:first-child{position:sticky;left:0;z-index:3;width:8.5rem;min-width:8.5rem;
   background:var(--ds-canvas-functional);border-right:1px solid var(--line)}.h2h-matrix-grid tr.focused th,.h2h-matrix-grid tr.focused td{background-color:var(--ds-canvas-functional)}.h2h-matrix-grid td button{width:100%;min-height:2.75rem;border:0;background:transparent;color:inherit;
   font:inherit}.h2h-matrix-grid td b{font-size:var(--fs-caption);font-weight:800}.h2h-matrix-grid td em{margin:0 .0625rem;color:var(--ds-text-secondary);font-style:normal}.h2h-matrix-grid td.ahead{background:rgba(18,61,55,.12);color:var(--ds-accent-action)}.h2h-matrix-grid td.behind{background:rgba(162,81,63,.12);color:var(--ds-danger)}.h2h-matrix-grid td.level{background:rgba(120,130,125,.1)}.h2h-matrix-grid td.none,.h2h-matrix-grid td.self{color:var(--ds-text-quaternary)}.h2h-matrix-legend{display:flex;flex-wrap:wrap;gap:var(--sp-3);color:var(--ds-text-secondary);font-size:var(--fs-label)}.h2h-matrix-legend span{display:flex;align-items:center;gap:var(--sp-1-5)}.h2h-matrix-legend i{width:.875rem;height:.875rem;border-radius:.25rem;border:1px solid var(--line)}.h2h-matrix-legend i.ahead{background:rgba(18,61,55,.12)}.h2h-matrix-legend i.behind{background:rgba(162,81,63,.12)}.h2h-matrix-legend i.level{background:rgba(120,130,125,.1)}.h2h-matrix-legend i.none{background:var(--ds-surface-primary)}
+/* Heatmap cells carry their colour inline (a continuous diverging scale, not a fixed
+   class), so this only adds the polish a plain <td> doesn't get for free: a soft
+   transition into view and a legend swatch that isn't boxed like the discrete grid's. */
+.h2h-heatmap td{transition:background-color .15s ease}
+.h2h-heatmap td button{font-variant-numeric:tabular-nums}
+.h2h-heatmap td b{font-size:var(--fs-sm);font-weight:800}
+.h2h-heatmap-legend i{border-radius:999px;border-color:transparent}
 
 @media(min-width:821px){.h2h-matrix-toolbar{grid-template-columns:minmax(0,18rem) auto;align-items:end;justify-content:space-between}.h2h-matrix-modes{justify-self:end;width:max-content}.h2h-matrix-modes:not(:has(.ds-segmented)) button{padding:0 var(--sp-4)}.h2h-matrix-grid tbody th,.h2h-matrix-grid thead th:first-child{width:10rem;min-width:10rem}.h2h-matrix-grid thead th,.h2h-matrix-grid tbody td{min-width:3.5rem}
 }/* ==========================================================================
