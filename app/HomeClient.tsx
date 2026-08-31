@@ -1567,7 +1567,18 @@ function smoothTrendPath(points:{x:number;y:number}[]){
 }
 function trendDateLabel(date:string){return date.slice(5).replace("-","/");}
 function trendAxisDateLabel(date:string){return `${date.slice(2,4)}/${date.slice(5).replace("-","/")}`;}
+function useMediaQuery(query:string){
+  const [matches,setMatches]=useState(false);
+  useEffect(()=>{
+    const mq=window.matchMedia(query),update=()=>setMatches(mq.matches);
+    update();
+    mq.addEventListener("change",update);
+    return ()=>mq.removeEventListener("change",update);
+  },[query]);
+  return matches;
+}
 function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
+  const narrow=useMediaQuery("(max-width:599px)");
   const ranked=useMemo(()=>[...players].sort((a,b)=>b.rating-a.rating),[players]);
   const [hiddenIds,setHiddenIds]=useState<Set<string>>(()=>new Set(ranked.slice(8).map(p=>p.id)));
   const [activeIndex,setActiveIndex]=useState<number|null>(null);
@@ -1585,7 +1596,7 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
   const x=(index:number)=>dates.length<=1?50:3+index/(dates.length-1)*(lineEnd-3);
   const y=(value:number)=>54-(value-min)/(max-min)*46;
   const yTicks=[max,(max+middle)/2,middle,(middle+min)/2,min];
-  const xTickCount=Math.min(dates.length,6);
+  const xTickCount=Math.min(dates.length,narrow?3:6);
   const xTickIndexes=Array.from(new Set(Array.from({length:xTickCount},(_,i)=>Math.round(i/(xTickCount-1||1)*(dates.length-1)))));
   const updateActive=(clientX:number)=>{
     const rect=plotRef.current?.getBoundingClientRect();
@@ -1623,7 +1634,7 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
           <small>{trendDateLabel(dates[activeIndex])}</small>
           <ul>{[...series].sort((a,b)=>b.values[activeIndex!]-a.values[activeIndex!]).map(s=><li key={s.player.id}><i style={{background:avatarHex(s.player.colour)}}/><span>{s.player.name}</span><b>{Math.round(s.values[activeIndex!])}</b></li>)}</ul>
         </div>}
-        <div className="multi-trend-endlabels" aria-hidden="true">{endLabels.map(({player,value,top})=><div key={player.id} className="multi-trend-endlabel" style={{left:`${x(lastIndex)}%`,top:`${top}%`}}><i style={{background:avatarHex(player.colour)}}/><b>{player.name}</b><span>{Math.round(value)}</span></div>)}</div>
+        <div className="multi-trend-endlabels" aria-hidden="true">{endLabels.map(({player,value,top})=><div key={player.id} className="multi-trend-endlabel" style={{left:`${x(lastIndex)}%`,top:`${top}%`}}><i style={{background:avatarHex(player.colour)}}/><b>{narrow?player.short:player.name}</b><span>{Math.round(value)}</span></div>)}</div>
       </div>
       <div className="multi-trend-xaxis">{xTickIndexes.map(i=><span key={i} style={{left:`${x(i)}%`}}>{trendAxisDateLabel(dates[i])}</span>)}</div>
     </div>
