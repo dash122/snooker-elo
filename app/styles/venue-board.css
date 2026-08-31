@@ -15,15 +15,40 @@
 .vb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
 .vb-kicker { display: block; font-size: var(--fs-label); letter-spacing: .08em; color: var(--ds-text-tertiary); }
 .vb-venue { margin: var(--sp-1) 0 0; font-size: var(--fs-h3); }
-.vb-venue-pick {
-  min-height: 40px;
-  padding: var(--sp-1-5) var(--sp-3);
+/* The directory row. The number is what a venue is worth tonight; the window under it is when. */
+.vb-venues { display: flex; gap: var(--sp-2); overflow-x: auto; scrollbar-width: none; }
+.vb-venues::-webkit-scrollbar { display: none; }
+.vb-venue-chip {
+  flex: 0 0 auto;
+  min-width: 92px;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--ds-border-subtle);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--ds-surface-secondary);
-  color: var(--ds-text-primary);
-  font-size: var(--fs-sm);
+  cursor: pointer;
+  text-align: left;
 }
+.vb-venue-chip b { font-size: var(--fs-caption); font-weight: 600; color: var(--ds-text-primary); }
+.vb-venue-chip strong {
+  font-size: var(--fs-lead);
+  font-weight: 700;
+  color: var(--ds-text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.vb-venue-chip small { font-size: var(--fs-label); color: var(--ds-text-tertiary); font-variant-numeric: tabular-nums; }
+.vb-venue-chip.active {
+  border-color: var(--ds-accent-action);
+  background: var(--ds-surface-raised);
+  box-shadow: 0 0 0 1px var(--ds-accent-action) inset;
+}
+.vb-venue-chip.active strong { color: var(--ds-accent-action); }
+.vb-venue-chip:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
 
 /* The number a member acts on. The all-day figure sits under it in small type, never beside it. */
 .vb-peak { display: flex; flex-direction: column; gap: var(--sp-1); }
@@ -143,7 +168,7 @@
 .vb-error { align-items: flex-start; }
 .vb-skeleton { height: 82px; border-radius: 6px; background: var(--ds-canvas-muted); }
 
-.vb-actions button:focus-visible, .vb-day:focus-visible, .vb-times select:focus-visible, .vb-venue-pick:focus-visible {
+.vb-actions button:focus-visible, .vb-day:focus-visible, .vb-times select:focus-visible {
   outline: 2px solid var(--ds-focus);
   outline-offset: 2px;
 }

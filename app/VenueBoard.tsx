@@ -157,13 +157,21 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
         <span className="vb-kicker">{dayLabel(date,today)} · {venue.district}</span>
         <h2 className="vb-venue">{venue.name}</h2>
       </div>
-      {venues.length>1&&<select className="vb-venue-pick" value={venue.id} aria-label="揀場地"
-        onChange={event=>{setVenueId(event.target.value);setMessage("")}}>
-        {venues.map(item=><option key={item.id} value={item.id}>
-          {item.name}{item.peak>0?` · ${item.peak} 人`:" · 未有人"}
-        </option>)}
-      </select>}
     </header>
+
+    {/* 今晚邊度有人 — ranked by peak overlap rather than distance. Any app can show a map and a table
+        count; this row is the only thing the product knows that nobody else does. Quiet venues stay
+        listed and say so: hiding them would make the row a lie and strand a new venue in a cold
+        start it could never climb out of. */}
+    {venues.length>1&&<div className="vb-venues" role="tablist" aria-label="揀場地">
+      {venues.map(item=><button key={item.id} type="button" role="tab" aria-selected={item.id===venue.id}
+        className={`vb-venue-chip${item.id===venue.id?" active":""}`}
+        onClick={()=>{setVenueId(item.id);setMessage("")}}>
+        <b>{item.name}</b>
+        <strong>{item.peak>0?item.peak:"—"}</strong>
+        <small>{item.peak>0?`${item.peakStart}–${item.peakEnd}`:"今晚未有人"}</small>
+      </button>)}
+    </div>}
 
     {/* The peak, and the window it falls in. The all-day figure follows in small type and only when
         it differs — a member acts on the first number, so it has to be the honest one. */}
