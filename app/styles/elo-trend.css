@@ -1,7 +1,6 @@
 @layer components {
   /* Leaderboard "ELO走勢" mode: multi-player rating-over-time line chart, embedded
      alongside the ranking table inside the 目前排名 panel. */
-  .ranking-view-toggles{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
 
   .multi-trend-chart{display:grid;grid-template-columns:2.5rem 1fr;grid-template-rows:1fr auto;column-gap:var(--sp-2);margin-top:var(--sp-3)}
   .multi-trend-yaxis{position:relative;grid-column:1;grid-row:1;height:260px}
@@ -14,6 +13,12 @@
   .multi-trend-plot:hover .multi-trend-line{opacity:.55}
   .multi-trend-dot{stroke:var(--ds-surface-raised);stroke-width:1;vector-effect:non-scaling-stroke}
 
+  .multi-trend-endlabels{position:absolute;inset:0;pointer-events:none}
+  .multi-trend-endlabel{position:absolute;transform:translateY(-50%);display:flex;align-items:center;gap:var(--sp-1);max-width:9.5rem;font-size:var(--fs-label);font-variant-numeric:tabular-nums}
+  .multi-trend-endlabel i{width:.5rem;height:.5rem;border-radius:50%;flex:none}
+  .multi-trend-endlabel b{font-weight:650;color:var(--ds-text-primary);min-width:0;flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .multi-trend-endlabel span{flex:none;color:var(--ds-text-secondary)}
+
   .multi-trend-tooltip{position:absolute;z-index:5;top:var(--sp-1);min-width:9.5rem;max-height:236px;overflow:auto;padding:var(--sp-2) var(--sp-2-5);border:1px solid var(--ds-inverse-border);border-radius:var(--ds-radius-control);background:var(--ds-surface-inverse);color:white;box-shadow:var(--ds-shadow-floating);pointer-events:none;transform:translateX(-50%)}
   .multi-trend-tooltip.align-right{transform:translateX(-100%)}
   .multi-trend-tooltip small{display:block;margin-bottom:var(--sp-1-5);font-size:var(--fs-label);color:var(--ds-icon-muted);font-variant-numeric:tabular-nums}
@@ -24,9 +29,11 @@
   .multi-trend-tooltip li b{font-variant-numeric:tabular-nums}
 
   .trend-legend{display:flex;flex-wrap:wrap;gap:var(--sp-1-5);list-style:none;margin:var(--sp-4) 0 0;padding:0}
-  .trend-legend-item{display:flex;align-items:center;gap:var(--sp-1-5);padding:var(--sp-1-5) var(--sp-2-5);border:1px solid var(--ds-border-subtle);border-radius:999px;background:var(--ds-surface-secondary);color:var(--ds-text-primary);font-size:var(--fs-caption);font-weight:650;transition:opacity var(--ds-duration-fast) var(--ds-ease-standard),border-color var(--ds-duration-fast) var(--ds-ease-standard)}
+  .trend-legend-item{display:flex;align-items:center;gap:var(--sp-1-5);padding:var(--sp-1-5) var(--sp-2-5);border:1px solid var(--ds-border-subtle);border-radius:999px;background:var(--ds-surface-secondary);color:var(--ds-text-primary);transition:opacity var(--ds-duration-fast) var(--ds-ease-standard),border-color var(--ds-duration-fast) var(--ds-ease-standard)}
   .trend-legend-item:hover{border-color:var(--ds-border-strong)}
   .trend-legend-item i{width:.65rem;height:.65rem;border-radius:50%;flex:none}
+  .trend-legend-item span{font-size:var(--fs-label);font-weight:650}
+  .trend-legend-item b{font-size:var(--fs-label);font-weight:650;color:var(--ds-text-secondary);font-variant-numeric:tabular-nums}
   .trend-legend-item.hidden{opacity:.4}
   .trend-legend-item.hidden i{background:var(--ds-text-inactive)!important}
 
@@ -34,5 +41,7 @@
     .multi-trend-yaxis,.multi-trend-plot{height:210px}
     .multi-trend-chart{grid-template-columns:2.1rem 1fr}
     .multi-trend-tooltip{max-height:186px}
+    .multi-trend-endlabel{max-width:6.5rem}
+    .multi-trend-endlabel b{max-width:3.5rem}
   }
 }
