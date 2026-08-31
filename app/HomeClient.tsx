@@ -1639,7 +1639,7 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
           <small>{trendDateLabel(dates[activeIndex])}</small>
           <ul>{[...series].sort((a,b)=>b.values[activeIndex!]-a.values[activeIndex!]).map(s=><li key={s.player.id}><i style={{background:avatarHex(s.player.colour)}}/><span>{s.player.name}</span><em>{s.counts[activeIndex!]} 場</em><b>{Math.round(s.values[activeIndex!])}</b></li>)}</ul>
         </div>}
-        <div className="multi-trend-endlabels" aria-hidden="true">{endLabels.map(({player,value,top})=><div key={player.id} className="multi-trend-endlabel" style={{left:`${x(lastIndex)}%`,top:`${top}%`}}><i style={{background:avatarHex(player.colour)}}/><b>{narrow?player.short:player.name}</b><span>{Math.round(value)}</span></div>)}</div>
+        <div className="multi-trend-endlabels" aria-hidden="true">{endLabels.map(({player,value,top})=><div key={player.id} className="multi-trend-endlabel" style={{left:`${x(lastIndex)}%`,top:`${top}%`,color:avatarHex(player.colour)}}><b>{narrow?player.short:player.name}</b><span>{Math.round(value)}</span></div>)}</div>
       </div>
       <div className="multi-trend-xaxis">{xTickIndexes.map(i=><span key={i} style={{left:`${x(i)}%`}}>{trendAxisDateLabel(dates[i])}</span>)}</div>
     </div>
