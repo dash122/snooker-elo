@@ -1849,8 +1849,10 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
           <PlayerCombobox players={players} value={focus.id} onChange={id=>{if(id)setFocusId(id)}} placeholder="選擇球員" ariaLabel="對賽矩陣主角球員"/>
         </div>
       </div>
-      <div className="h2h-matrix-modes"><SegmentedControl label="對賽矩陣顯示方式" value={mode} onChange={value=>setMode(value as typeof mode)} items={[{value:"list",label:"清單"},{value:"grid",label:"全隊網格"},{value:"heatmap",label:"勝率預測"}]}/></div>
-      {mode!=="list"&&<MatrixZoomControls zoom={zoom} setZoom={setZoom}/>}
+      <div className="h2h-matrix-modes-row">
+        <div className="h2h-matrix-modes"><SegmentedControl label="對賽矩陣顯示方式" value={mode} onChange={value=>setMode(value as typeof mode)} items={[{value:"list",label:"清單"},{value:"grid",label:"全隊網格"},{value:"heatmap",label:"勝率預測"}]}/></div>
+        {mode!=="list"&&<MatrixZoomControls zoom={zoom} setZoom={setZoom}/>}
+      </div>
     </div>
     {mode==="heatmap"?<WinRateHeatmap players={players} settings={data.settings} focusId={focus.id} onOpenPair={onOpenPair}/>
     :mode==="list"?<>
