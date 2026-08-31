@@ -1570,7 +1570,7 @@ function useMediaQuery(query:string){
 }
 function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
   const narrow=useMediaQuery("(max-width:599px)");
-  const ranked=useMemo(()=>[...players].sort((a,b)=>b.rating-a.rating),[players]);
+  const ranked=useMemo(()=>players.filter(p=>games(p)>0).sort((a,b)=>b.rating-a.rating),[players]);
   const [hiddenIds,setHiddenIds]=useState<Set<string>>(()=>new Set(ranked.slice(5).map(p=>p.id)));
   const [activeIndex,setActiveIndex]=useState<number|null>(null);
   const plotRef=useRef<HTMLDivElement>(null);
@@ -1578,9 +1578,11 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
   const {dates,series}=useMemo(()=>eloTrendSeries(shownPlayers,data),[shownPlayers,data]);
   const toggle=(id:string)=>{setActiveIndex(null);setHiddenIds(current=>{const next=new Set(current);next.has(id)?next.delete(id):next.add(id);return next})};
   const deselectAll=()=>{setActiveIndex(null);setHiddenIds(new Set(ranked.map(p=>p.id)))};
-  if(ranked.length===0) return <Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>;
+  if(ranked.length===0) return players.length===0
+    ? <Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>
+    : <Empty text="尚未有賽事紀錄" sub="累積賽事後即可查看 ELO 走勢。"/>;
   const legend=<>
-    <div className="trend-legend-actions"><button type="button" className="trend-clear-btn" onClick={deselectAll} disabled={shownPlayers.length===0}>取消全選</button></div>
+    <div className="trend-legend-actions"><button type="button" className="trend-clear-btn" onClick={deselectAll} disabled={shownPlayers.length===0}><span>取消全選</span></button></div>
     <ul className="trend-legend">{ranked.map(p=>{const hidden=hiddenIds.has(p.id);
       return <li key={p.id}><button type="button" className={`trend-legend-item${hidden?" hidden":""}`} aria-pressed={!hidden} onClick={()=>toggle(p.id)}><i style={{background:avatarHex(p.colour)}}/><span>{p.name}</span><b>{Math.round(p.rating)}</b></button></li>})}
     </ul>
