@@ -331,6 +331,19 @@ function playerTrendPoints(p:Player,data:AppState):EloTrendPoint[]{
     return {id:match.id,elo,before,delta,date:match.playedOn,opponent:opponentNames,opponentShort,score:`${ownScore}–${opponentScore}`,result:ownScore===opponentScore?"D":ownScore>opponentScore?"W":"L"} satisfies EloTrendPoint;
   })];
 }
+function eloTrendSeries(players:Player[],data:AppState){
+  const perPlayer=players.map(p=>({player:p,pts:playerTrendPoints(p,data).filter(pt=>pt.date!=="")}));
+  const dates=Array.from(new Set(perPlayer.flatMap(x=>x.pts.map(pt=>pt.date)))).sort();
+  const series=perPlayer.map(({player,pts})=>{
+    let index=0,current=player.initialRating;
+    const values=dates.map(date=>{
+      while(index<pts.length&&pts[index].date<=date){current=pts[index].elo;index++}
+      return current;
+    });
+    return {player,values};
+  });
+  return {dates,series};
+}
 function recentDelta(p:Player,data:AppState,count:number){
   return [...data.matches].filter(m=>!isEntertainmentMode(m.mode)&&isParticipant(m,p.id)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,count).reduce((sum,m)=>{
     const side=playerSide(m,p.id);
@@ -1464,7 +1477,7 @@ function MonthlyBreakChart({months,onPlayer}:{months:MonthlyBreak[];onPlayer:(p:
   </div>;
 }
 function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:Player[];data:AppState;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
-  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall"|"recent"|"monthly">("players"),[homeView,setHomeView]=useState<"ranking"|"breaks"|"recent">("ranking"),[officialOnly,setOfficialOnly]=useState(false);
+  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall"|"recent"|"monthly">("players"),[homeView,setHomeView]=useState<"ranking"|"breaks"|"recent"|"trend">("ranking"),[officialOnly,setOfficialOnly]=useState(false);
   const confirmed=data.matches.filter(m=>m.status==="confirmed");
   const month=confirmed.filter(m=>m.playedOn.slice(0,7)===today.slice(0,7)).length,total=confirmed.length;
   // Toggling to 正式球手 re-sequences ranks among only the visible players,
@@ -1511,6 +1524,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
       <button role="tab" aria-selected={homeView==="ranking"} className={homeView==="ranking"?"active":""} onClick={()=>setHomeView("ranking")}><span>目前排名</span></button>
       <button role="tab" aria-selected={homeView==="breaks"} className={homeView==="breaks"?"active":""} onClick={()=>setHomeView("breaks")}><span>最高單桿紀錄</span></button>
       <button role="tab" aria-selected={homeView==="recent"} className={homeView==="recent"?"active":""} onClick={()=>setHomeView("recent")}><span>近三十日統計</span></button>
+      <button role="tab" aria-selected={homeView==="trend"} className={homeView==="trend"?"active":""} onClick={()=>setHomeView("trend")}><span>ELO走勢</span></button>
     </SlidingToggleGroup>
     {homeView==="ranking"&&<>
     <Overview top={visibleRanked.slice(0,3)} data={data} onPlayer={onPlayer}/>
@@ -1534,7 +1548,43 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
       {breakView==="monthly"?<MonthlyBreakChart months={breakRecords.monthly} onPlayer={onPlayer}/>:<><ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>對 {record.opponent}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title="破百單桿">破百</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
       <p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":breakView==="overall"?"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。":`${thirtyDaysAgo} 至 ${today} 的最高單桿，同一球員可重複上榜。`}</p></>}
     </section>}
-    {homeView==="recent"&&<ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/>}</>;
+    {homeView==="recent"&&<ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/>}
+    {homeView==="trend"&&<EloTrendPanel players={visibleRanked} data={data} onPlayer={onPlayer}/>}</>;
+}
+
+function EloTrendPanel({players,data,onPlayer}:{players:Player[];data:AppState;onPlayer:(p:Player)=>void}) {
+  void onPlayer;
+  const ranked=useMemo(()=>[...players].sort((a,b)=>b.rating-a.rating),[players]);
+  const [hiddenIds,setHiddenIds]=useState<Set<string>>(()=>new Set(ranked.slice(8).map(p=>p.id)));
+  const shownPlayers=ranked.filter(p=>!hiddenIds.has(p.id));
+  const {dates,series}=useMemo(()=>eloTrendSeries(shownPlayers,data),[shownPlayers,data]);
+  const toggle=(id:string)=>setHiddenIds(current=>{const next=new Set(current);next.has(id)?next.delete(id):next.add(id);return next});
+  if(ranked.length===0) return <section className="home-view-panel trend-panel" aria-labelledby="trend-title">
+    <div className="home-panel-head"><div><p className="kicker">ELO TREND</p><h2 id="trend-title">ELO走勢</h2></div></div>
+    <Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>
+  </section>;
+  const values=series.flatMap(s=>s.values);
+  const rawMin=values.length?Math.min(...values):1000,rawMax=values.length?Math.max(...values):1000;
+  const observed=Math.max(1,rawMax-rawMin),visualRange=Math.max(24,observed*1.15);
+  const middle=(rawMin+rawMax)/2,min=middle-visualRange/2,max=middle+visualRange/2;
+  const x=(index:number)=>dates.length<=1?50:5+index/(dates.length-1)*90;
+  const y=(value:number)=>54-(value-min)/(max-min)*46;
+  return <section className="home-view-panel trend-panel" aria-labelledby="trend-title">
+    <div className="home-panel-head"><div><p className="kicker">ELO TREND</p><h2 id="trend-title">ELO走勢</h2><p>各球員 ELO 評分隨日期的走勢，取每日最後一場賽事後的評分。</p></div></div>
+    {dates.length===0?<Empty text="尚未有賽事紀錄" sub="累積賽事後即可查看 ELO 走勢。"/>:<>
+    <div className="trend-plot multi-trend-plot">
+      <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label="ELO 走勢圖">
+        {[8,31,54].map(line=><line key={line} x1="5" y1={line} x2="95" y2={line} className="trend-grid"/>)}
+        {series.map(s=><polyline key={s.player.id} points={s.values.map((v,i)=>`${x(i)},${y(v)}`).join(" ")} className="multi-trend-line" style={{stroke:avatarHex(s.player.colour)}}/>)}
+      </svg>
+    </div>
+    <div className="trend-scale"><span>{Math.round(max)}</span><span>{Math.round(middle)}</span><span>{Math.round(min)}</span></div>
+    <ul className="trend-legend">{ranked.map(p=>{const hidden=hiddenIds.has(p.id);
+      return <li key={p.id}><button type="button" className={`trend-legend-item${hidden?" hidden":""}`} aria-pressed={!hidden} onClick={()=>toggle(p.id)}><i style={{background:avatarHex(p.colour)}}/><span>{p.name}</span></button></li>})}
+    </ul>
+    <p className="chart-summary">點按下方球員名稱可切換顯示；目前顯示 {shownPlayers.length} 位球員，共 {dates.length} 個有賽事的日期。</p>
+    </>}
+  </section>;
 }
 
 function RecentStatIcon({kind}:{kind:"matches"|"frames"|"players"|"average"|"active"|"elo"|"win"|"break"}) {

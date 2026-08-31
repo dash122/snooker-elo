@@ -1,0 +1,12 @@
+@layer components {
+  /* Leaderboard "ELO走勢" toggle: multi-player rating-over-time line chart. */
+  .multi-trend-plot{height:260px}
+  .multi-trend-line{fill:none;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
+  .trend-panel .trend-scale{display:flex;justify-content:space-between;margin-top:var(--sp-1-5);font-size:var(--fs-label);color:var(--ds-text-secondary);font-variant-numeric:tabular-nums}
+  .trend-legend{display:flex;flex-wrap:wrap;gap:var(--sp-1-5);list-style:none;margin:var(--sp-4) 0 0;padding:0}
+  .trend-legend-item{display:flex;align-items:center;gap:var(--sp-1-5);padding:var(--sp-1-5) var(--sp-2-5);border:1px solid var(--ds-border-subtle);border-radius:999px;background:var(--ds-surface-secondary);color:var(--ds-text-primary);font-size:var(--fs-caption);font-weight:650}
+  .trend-legend-item i{width:.65rem;height:.65rem;border-radius:50%;flex:none}
+  .trend-legend-item.hidden{opacity:.4}
+  .trend-legend-item.hidden i{background:var(--ds-text-inactive)!important}
+  @media(max-width:820px){.multi-trend-plot{height:200px}}
+}

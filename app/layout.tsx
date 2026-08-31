@@ -23,6 +23,7 @@ import "./globals.css";
 import "./styles/bottom-nav.css";
 import "./styles/ranking-table-mobile.css";
 import "./styles/onboarding.css";
+import "./styles/elo-trend.css";
 import { AddToHomeScreen } from "./components/AddToHomeScreen";
 
 export const metadata: Metadata = {
