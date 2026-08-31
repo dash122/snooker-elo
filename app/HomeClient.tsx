@@ -1731,6 +1731,26 @@ function fadeHex(hex:string,alpha:number){
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+/* Projected win rate assumes a level match — no handicap, no frame evidence yet — so it
+   reduces to the bare ELO-gap probability the formula already produces for match previews.
+   Reusing calculateSnookerElo (rather than a second formula) keeps this in lockstep with
+   whatever the club tunes the real rating curve to. */
+function projectedWinRate(ratingA:number,ratingB:number,s:Settings){
+  return calculateSnookerElo({
+    ratingA, ratingB, handicapA:0, framesA:0, framesB:0,
+    handicapEloScale:s.handicapEloScale, handicapEloPerPoint:HANDICAP_ELO_PER_POINT, handicapEffectiveness:1,
+  }).probabilityA*100;
+}
+/* Diverging heat scale centred on the coin-flip: favoured players warm the brand green,
+   underdogs warm the same red used for "behind" elsewhere, intensity tracking distance
+   from 50/50 so a 51% toss-up reads as flat as the legend promises. */
+function winRateHeat(rate:number){
+  const diff=(rate-50)/50;
+  const intensity=Math.min(1,Math.abs(diff));
+  const hex=diff>=0?"#155e52":"#ad5149";
+  return {background:fadeHex(hex,.1+intensity*.55),color:intensity>.62?"#fff":undefined};
+}
+
 const monthGroupLabel=(month:string)=>{
   const [y,m]=month.split("-").map(Number);
   const now=new Date(),thisMonth=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
@@ -1784,7 +1804,7 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
     for(const key of index.keys()){const [first,second]=key.split("|");met.add(first);met.add(second)}
     return data.players.filter(player=>met.has(player.id)).sort((left,right)=>right.rating-left.rating||left.name.localeCompare(right.name,"zh-HK"));
   },[data.players,index]);
-  const [mode,setMode]=useState<"list"|"grid">("list");
+  const [mode,setMode]=useState<"list"|"grid"|"heatmap">("list");
   const [focusId,setFocusId]=useState("");
   const focus=players.find(player=>player.id===focusId)
     ??players.find(player=>player.id===ownPlayerId)
@@ -1814,9 +1834,10 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
           <PlayerCombobox players={players} value={focus.id} onChange={id=>{if(id)setFocusId(id)}} placeholder="選擇球員" ariaLabel="對賽矩陣主角球員"/>
         </div>
       </div>
-      <div className="h2h-matrix-modes"><SegmentedControl label="對賽矩陣顯示方式" value={mode} onChange={value=>setMode(value as typeof mode)} items={[{value:"list",label:"清單"},{value:"grid",label:"全隊網格"}]}/></div>
+      <div className="h2h-matrix-modes"><SegmentedControl label="對賽矩陣顯示方式" value={mode} onChange={value=>setMode(value as typeof mode)} items={[{value:"list",label:"清單"},{value:"grid",label:"全隊網格"},{value:"heatmap",label:"勝率預測"}]}/></div>
     </div>
-    {mode==="list"?<>
+    {mode==="heatmap"?<WinRateHeatmap players={players} settings={data.settings} focusId={focus.id} onOpenPair={onOpenPair}/>
+    :mode==="list"?<>
       <div className="h2h-matrix-summary">
         <div><small>對手</small><b>{rows.length}</b></div>
         <div><small>對賽場數</small><b>{totals.played}</b></div>
@@ -1868,6 +1889,41 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
       <div className="h2h-matrix-legend"><span><i className="ahead"/>領先</span><span><i className="level"/>均勢</span><span><i className="behind"/>落後</span><span><i className="none"/>未交手</span></div>
     </>}
   </section>;
+}
+
+/* "誰打得贏誰" as a straight-up ELO question, with the handicap that would actually be
+   applied on the night stripped out — the same probabilityA the match form previews,
+   read off every pair at once instead of one at a time. A diverging heat scale (green
+   favourite, red underdog, white toss-up) turns 排名 into a shape you can scan instead of
+   a column of numbers. */
+function WinRateHeatmap({players,settings,focusId,onOpenPair}:{players:Player[];settings:Settings;focusId:string;onOpenPair:(first:string,second:string)=>void}){
+  if(players.length<2)return <Empty text="尚未有足夠對賽記錄" sub="至少兩位球員記錄過 1v1 比賽後，勝率預測矩陣會顯示在這裡。"/>;
+  return <>
+    <p className="h2h-matrix-hint">假設沒有讓分，橫行球員對直行球員的預測勝率；顏色越深代表優勢越大。</p>
+    <div className="h2h-matrix-scroll">
+      <table className="h2h-matrix-grid h2h-heatmap">
+        <caption className="sr-only">球員之間的無讓分預測勝率矩陣，橫行球員對直行球員</caption>
+        <thead><tr><th scope="col"><span className="sr-only">球員</span></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
+        <tbody>{players.map(row=><tr key={row.id} className={row.id===focusId?"focused":""}>
+          <th scope="row"><span className="h2h-matrix-rowhead"><PlayerBadge player={row}/><span>{row.short||row.name}</span></span></th>
+          {players.map(column=>{
+            if(column.id===row.id)return <td key={column.id} className="self" aria-label="同一位球員">—</td>;
+            const rate=Math.round(projectedWinRate(row.rating,column.rating,settings));
+            return <td key={column.id} style={winRateHeat(rate)}>
+              <button type="button" onClick={()=>onOpenPair(row.id,column.id)} aria-label={`假設沒有讓分，${row.name} 對 ${column.name} 的預測勝率為 ${rate}%`}>
+                <b>{rate}%</b>
+              </button>
+            </td>;
+          })}
+        </tr>)}</tbody>
+      </table>
+    </div>
+    <div className="h2h-matrix-legend h2h-heatmap-legend">
+      <span><i style={winRateHeat(85)}/>大熱門</span>
+      <span><i style={winRateHeat(50)}/>勢均力敵</span>
+      <span><i style={winRateHeat(15)}/>大冷門</span>
+    </div>
+  </>;
 }
 
 function Matches({data,canManageMatch,onEdit,onVoid,onShare,onPlayer,view,setView,pair,setPair,highlight,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament,onRecordSlot,onArrange,onWalkover,onEditRoster,onShuffleRoster,onReorderRoster,onRefresh}:{data:AppState;canManageMatch:(match:Match)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onShare:(m:Match)=>void;onPlayer:(player:Player)=>void;view:"history"|"calendar"|"cup"|"matrix";setView:(view:"history"|"calendar"|"cup"|"matrix")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void;highlight:string|null;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string)=>void;onRecordSlot:(tournament:Tournament,slot:BracketSlot<Match>)=>void;onArrange:(opponentId:string)=>void;onWalkover:(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string)=>void;onEditRoster:(tournament:Tournament,outgoingId:string,incomingId:string)=>void;onShuffleRoster:(tournament:Tournament)=>void;onReorderRoster:(tournament:Tournament,draggedId:string,targetId:string)=>void;onRefresh:()=>void}) {
