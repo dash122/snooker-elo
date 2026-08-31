@@ -3,11 +3,18 @@ import {intersectIntervals, overlapMinutes, type Interval} from "./availability.
 export const MATCHMAKING_MIN_OVERLAP_MINUTES = 60;
 export const MATCHMAKING_HORIZON_DAYS = 7;
 
+/**
+ * The storage model still carries the old group-formation states for backwards compatibility, but
+ * the MVP has one job: get two people to a confirmed game. `forming` is therefore the only pending
+ * state and `full` is the member-facing confirmed state. `playable` remains understood so existing
+ * rows can be read safely during the migration window.
+ */
 export type FormationStatus = "forming"|"playable"|"full"|"cancelled"|"completed";
 
 export function formationStatus(accepted:number,targetSize:number):FormationStatus {
-  if(accepted>=targetSize)return "full";
-  if(accepted>=2)return "playable";
+  /* Option A is deliberately one-to-one. Keep the parameter for callers reading legacy rows, but
+     never let a client-selected group size change the confirmation rule. */
+  if(accepted>=2&&targetSize>=2)return "full";
   return "forming";
 }
 
@@ -27,36 +34,27 @@ export type FormationSlot = Interval & {
 
 export type CommonWindow = Interval & {playerIds:string[]};
 
-/** Find the strongest one-hour formation window around an anchor post.
+/** Find the strongest one-hour common window for one requester and one anchor post.
  *
- * The count is based on members who cover the whole hour, not everyone who appears somewhere on
- * the same date. That is the difference between a group that can actually meet and a busy-looking
- * calendar. Ties prefer the earlier window, which keeps the feed stable between refreshes.
+ * The earlier formation prototype searched for the hour covered by the largest possible group. The
+ * MVP has one-to-one matchmaking, so the only relevant people are the anchor and viewer. We prefer
+ * the longest overlap and then the earliest start to keep the recommendation stable between refreshes.
  */
 export function bestCommonWindow(anchor:FormationSlot,viewerId:string,slots:FormationSlot[],minimumMinutes=MATCHMAKING_MIN_OVERLAP_MINUTES):CommonWindow|null {
-  const step=30*60_000,minimum=minimumMinutes*60_000;
-  const start=Math.ceil(Date.parse(anchor.startAt)/step)*step;
-  const end=Date.parse(anchor.endAt);
-  let best:CommonWindow|null=null;
-  for(let at=start;at+minimum<=end;at+=step){
-    const until=at+minimum;
-    const players=new Set<string>();
-    for(const slot of slots){
-      if(!venuesCompatible(anchor.venueId,slot.venueId))continue;
-      if(Date.parse(slot.startAt)<=at&&Date.parse(slot.endAt)>=until)players.add(slot.playerId);
-    }
-    if(!players.has(anchor.playerId)||!players.has(viewerId))continue;
-    if(!best||players.size>best.playerIds.length){
-      best={startAt:new Date(at).toISOString(),endAt:new Date(until).toISOString(),playerIds:[...players].sort()};
-    }
-  }
-  return best;
+  const viewerSlots=slots.filter(slot=>slot.playerId===viewerId&&venuesCompatible(anchor.venueId,slot.venueId));
+  const overlaps=intersectIntervals([{startAt:anchor.startAt,endAt:anchor.endAt}],viewerSlots)
+    .filter(item=>overlapMinutes([item])>=minimumMinutes)
+    .sort((left,right)=>overlapMinutes([right])-overlapMinutes([left])||left.startAt.localeCompare(right.startAt));
+  const overlap=overlaps[0];
+  return overlap?{startAt:overlap.startAt,endAt:overlap.endAt,playerIds:[anchor.playerId,viewerId].sort()}:null;
 }
 
-export function opportunityScore(input:{compatiblePlayers:number;overlapMinutes:number;eloDifference:number;recentMatches:number}) {
-  const group=Math.min(Math.max(input.compatiblePlayers-2,0),4)*12;
-  const overlap=Math.min(input.overlapMinutes/180,1)*36;
-  const elo=Math.max(1-input.eloDifference/400,0)*22;
-  const variety=(1-Math.min(input.recentMatches,5)/5)*10;
-  return Math.round((group+overlap+elo+variety)*10)/10;
+export function opportunityScore(input:{compatiblePlayers?:number;overlapMinutes:number;eloDifference:number;recentMatches:number}) {
+  /* Ranking answers the one-to-one job, so group size is not a user-facing signal anymore. The
+     optional field keeps this helper source-compatible with callers/tests from the formation
+     prototype while ensuring it cannot outweigh a viable overlap. */
+  const overlap=Math.min(input.overlapMinutes/180,1)*50;
+  const elo=Math.max(1-input.eloDifference/400,0)*30;
+  const variety=(1-Math.min(input.recentMatches,5)/5)*20;
+  return Math.round((overlap+elo+variety)*10)/10;
 }

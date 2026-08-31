@@ -50,6 +50,20 @@ export function inviteCountered(by:string,slot:Interval,venue?:string|null):Noti
   return {channel:"invite",title:`${by} 提議改時間`,body:withVenue(`改為 ${when(slot)} — 睇下就唔就`,venue),tag:`invite:${by}`,urgency:urgencyFor(slot),ttl:untilSlot(slot)};
 }
 
+/** Option A formation messages. They reuse the invite channel so existing delivery preferences and
+ * email templates continue to work, while the copy describes a request that needs one clear answer. */
+export function gameRequestReceived(from:string,slot:Interval,venue?:string|null):NotificationMessage {
+  return {channel:"invite",title:`${from} 想同你打波`,body:withVenue(`${when(slot)} · 撳入去接受或婉拒`,venue),tag:`game-request:${from}`,url:"/?tab=availability",urgency:urgencyFor(slot),ttl:untilSlot(slot)};
+}
+
+export function gameRequestAccepted(by:string,slot:Interval,venue?:string|null):NotificationMessage {
+  return {channel:"invite",title:`${by} 接受咗約戰`,body:withVenue(`${when(slot)} · 對局已確認`,venue),tag:`game-confirmed:${by}`,url:"/?tab=availability",urgency:urgencyFor(slot),ttl:untilSlot(slot)};
+}
+
+export function gameRequestUnavailable(slot:Interval):NotificationMessage {
+  return {channel:"invite",title:"今次約戰未能確認",body:`${when(slot)} 嘅機會已經關閉；試下其他時間或球友。`,tag:`game-unavailable:${slot.startAt}`,url:"/?tab=availability",urgency:"low"};
+}
+
 export function openCallPosted(from:string,slot:Interval,message:string,venue?:string|null):NotificationMessage {
   return {
     channel:"openCall",title:`${from} 開枱搵人`,

@@ -4,66 +4,11 @@ import { materialiseRecurrence, materialiseRecurrenceThrottled, materialiseRecur
 
 export type AvailabilityMember = { id:string; name:string; short:string; rating:number; colour?:string|null; avatar?:string|null; slots:AvailabilitySlot[] };
 
-let schemaReady:Promise<unknown>|null=null;
-export async function ensureAvailabilitySchema(){ return ensureSchema(); }
-async function ensureSchema(){
-  // Schema changes are migration-owned. Even idempotent CREATE/ALTER statements
-  // acquire heavyweight relation locks, so running them on every serverless cold
-  // start can block unrelated state reads and match edits until lock_timeout.
-  return Promise.resolve();
-
-  schemaReady??=(async()=>{
-    const sql=getSql();
-    await sql`CREATE TABLE IF NOT EXISTS availability_slots (
-      id text PRIMARY KEY, player_id text NOT NULL REFERENCES state_players(id) ON DELETE RESTRICT,
-      start_at timestamptz NOT NULL, end_at timestamptz NOT NULL,
-      created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), cancelled_at timestamptz,
-      CHECK (end_at > start_at)
-    )`;
-    /* A slot is a session: the block of time a member set aside to play. `venue` and `note` are what
-       they would otherwise have had to type into an open call, which is now the same object. Added
-       after the table shipped, so bounded DDL for the same pooler reason as everywhere else. */
-    await sql.begin(async tx=>{
-      await tx`SET LOCAL lock_timeout = '4s'`;
-      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS venue text NOT NULL DEFAULT ''`;
-      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS note text NOT NULL DEFAULT ''`;
-    });
-    /* A posted slot — 開局卡 — is the same row as any other, marked so it stands for something more
-       than free time: a member composed it, chose who could fill it, and it can be raised on. Left
-       false for the plain calendar grid, so the two never have to be told apart by shape. Added
-       after the table shipped, so another bounded ALTER rather than a new table: a posted slot is a
-       session with a fill rule, not a different concept. */
-    await sql.begin(async tx=>{
-      await tx`SET LOCAL lock_timeout = '4s'`;
-      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS posted boolean NOT NULL DEFAULT false`;
-      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS fill_rule text NOT NULL DEFAULT 'first'`;
-      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS conditions jsonb NOT NULL DEFAULT '{}'::jsonb`;
-      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS filled_by text REFERENCES state_players(id)`;
-      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS filled_at timestamptz`;
-      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS result text NOT NULL DEFAULT 'pending'`;
-      /* 夠喇 · 唔再收. This column belongs to *this* bootstrap even though only `db/slot-hands.pg.ts`
-         writes it, because this file both reads it (POSTED_COLUMNS, `boardSlots`) and builds an
-         index whose predicate names it. Adding it from the other module meant every query here
-         depended on whichever module happened to be touched first in a given process — and the
-         index below, created in this same function, referenced a column that did not exist yet.
-         A column read here is created here. */
-      await tx`ALTER TABLE availability_slots ADD COLUMN IF NOT EXISTS closed_at timestamptz`;
-      await tx`ALTER TABLE availability_slots DROP CONSTRAINT IF EXISTS availability_slots_fill_rule_check`;
-      await tx`ALTER TABLE availability_slots ADD CONSTRAINT availability_slots_fill_rule_check CHECK (fill_rule IN ('first','review'))`;
-      await tx`ALTER TABLE availability_slots DROP CONSTRAINT IF EXISTS availability_slots_result_check`;
-      await tx`ALTER TABLE availability_slots ADD CONSTRAINT availability_slots_result_check CHECK (result IN ('pending','played','missed'))`;
-    });
-    await sql`CREATE INDEX IF NOT EXISTS availability_slots_active_range_idx ON availability_slots (start_at, end_at) WHERE cancelled_at IS NULL`;
-    await sql`CREATE INDEX IF NOT EXISTS availability_slots_player_active_idx ON availability_slots (player_id, start_at) WHERE cancelled_at IS NULL`;
-    /* The board: every post still taking hands, club-wide. Narrow on purpose — `posted` rows only,
-       nothing closed, cancelled or past — because this index exists for the one query that lists
-       what a member can still raise a hand on. Note it no longer excludes filled slots: taking
-       somebody does not close a table. */
-    await sql`CREATE INDEX IF NOT EXISTS availability_slots_board_idx ON availability_slots (start_at)
-      WHERE posted=true AND cancelled_at IS NULL AND closed_at IS NULL`;
-  })().catch(error=>{schemaReady=null;throw error;});
-  return schemaReady;
-}
+/* Schema changes are migration-owned. Keeping this as a no-op is intentional: even idempotent
+ * CREATE/ALTER statements acquire heavyweight relation locks, and running them on every serverless
+ * cold start can block the state and matchmaking reads that share this pool. */
+export async function ensureAvailabilitySchema(){ return Promise.resolve(); }
+async function ensureSchema(){ return Promise.resolve(); }
 
 function slot(row:any):AvailabilitySlot { return {id:row.id,playerId:row.playerId,startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString(),createdAt:new Date(row.createdAt).toISOString(),updatedAt:new Date(row.updatedAt).toISOString(),cancelledAt:row.cancelledAt?new Date(row.cancelledAt).toISOString():null,conditions:readConditions(row.conditions)}; }
 
@@ -319,24 +264,29 @@ export async function boardSlots(excludePlayerId:string,limit=40):Promise<BoardS
     player:{id:row.posterId,name:row.name,short:row.short,rating:Number(row.rating),colour:row.colour,avatar:row.avatar}}));
 }
 
-/** Count of distinct members with an open post ending after now, for "得 M 個開咗局" against the
-    zero-cost intent count it sits beside. */
+/** Count of distinct members with a live availability window.
+ *
+ * `posted` was part of the retired 開局卡 model. Availability rows are now the source of truth for
+ * matchmaking, so this count intentionally uses only columns that still exist in the unified schema.
+ */
 export async function boardOpenCount():Promise<number>{
   await ensureSchema(); const sql=getSql();
   const [row]=await sql<{count:string}[]>`SELECT count(DISTINCT player_id)::text AS count FROM availability_slots
-    WHERE posted=true AND cancelled_at IS NULL AND closed_at IS NULL AND end_at > now()`;
+    WHERE cancelled_at IS NULL AND end_at > now()`;
   return Number(row?.count??0);
 }
 
-/** How many 開局卡 are actually still joinable right now -- unlike `boardOpenCount` this counts rows,
-    not posters, and excludes anything already filled, so it answers "how many slots could I raise a
-    hand on" rather than "how many members have something up". Public (no `excludePlayerId`): the
-    club-wide nav badge this feeds is a discovery signal for a visitor as much as a member, same
-    reasoning as `tonight.free` on the summary endpoint it sits beside. */
+/** How many live availability windows the club has right now.
+ *
+ * The old implementation counted `posted` 開局卡 rows. That lifecycle was removed when availability
+ * and sessions were unified (see `20260830010000_venues_and_slot_commitment.sql`), so querying that
+ * column now takes down the shell's summary request on every page load. The summary only needs a
+ * liveliness signal; an active availability window is the canonical signal in the current schema.
+ */
 export async function openSlotsCount():Promise<number>{
   await ensureSchema(); const sql=getSql();
   const [row]=await sql<{count:string}[]>`SELECT count(*)::text AS count FROM availability_slots
-    WHERE posted=true AND cancelled_at IS NULL AND closed_at IS NULL AND filled_by IS NULL AND end_at > now()`;
+    WHERE cancelled_at IS NULL AND end_at > now()`;
   return Number(row?.count??0);
 }
 

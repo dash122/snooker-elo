@@ -45,6 +45,15 @@ export type AvailabilityEvent =
      per member. */
   | "session_created"
   | "session_cancelled"
+  /* Option A: the publish → opportunity → request → confirmation funnel. */
+  | "matchmaking_mvp_view"
+  | "matchmaking_mvp_opportunity_shown"
+  | "matchmaking_mvp_publish"
+  | "matchmaking_mvp_request_send"
+  | "matchmaking_mvp_request_accept"
+  | "matchmaking_mvp_request_decline"
+  | "matchmaking_mvp_request_withdraw"
+  | "matchmaking_mvp_game_confirmed"
   /* The Room, now the browse tier behind 睇另外 N 個選擇. `room_ask` carries the tier, so a poke at
      somebody whose availability was never confirmed is counted separately from an ask at somebody
      who said tonight out loud. */

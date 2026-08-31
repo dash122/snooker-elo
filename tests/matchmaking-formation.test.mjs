@@ -4,10 +4,11 @@ import {bestCommonWindow,formationStatus,opportunityScore,venuesCompatible,viabl
 
 const at=time=>`2026-09-01T${time}:00.000Z`;
 
-test("formation status separates merely forming, playable, and full",()=>{
-  assert.equal(formationStatus(1,4),"forming");
-  assert.equal(formationStatus(2,4),"playable");
-  assert.equal(formationStatus(4,4),"full");
+test("formation status confirms a game as soon as two players accept",()=>{
+  assert.equal(formationStatus(1,2),"forming");
+  assert.equal(formationStatus(2,2),"full");
+  /* Legacy target sizes cannot turn the MVP back into a group session. */
+  assert.equal(formationStatus(2,8),"full");
 });
 
 test("an unspecified venue stays compatible",()=>{
@@ -22,7 +23,7 @@ test("viable overlap enforces the one-hour product rule",()=>{
   assert.deepEqual(viableOverlap([{startAt:at("19:00"),endAt:at("21:30")}],[{startAt:at("20:00"),endAt:at("22:00")}]),[{startAt:at("20:00"),endAt:at("21:30")}]);
 });
 
-test("best common window counts only players who cover the same full hour",()=>{
+test("best common window uses only the anchor and requester",()=>{
   const anchor={id:"a",playerId:"host",startAt:at("19:00"),endAt:at("23:00"),venueId:null};
   const slots=[
     anchor,
@@ -31,11 +32,14 @@ test("best common window counts only players who cover the same full hour",()=>{
     {id:"c",playerId:"c",startAt:at("20:00"),endAt:at("21:00"),venueId:null},
     {id:"d",playerId:"d",startAt:at("21:00"),endAt:at("22:00"),venueId:null},
   ];
-  assert.deepEqual(bestCommonWindow(anchor,"viewer",slots),{startAt:at("20:00"),endAt:at("21:00"),playerIds:["b","c","host","viewer"]});
+  assert.deepEqual(bestCommonWindow(anchor,"viewer",slots),{startAt:at("19:30"),endAt:at("22:30"),playerIds:["host","viewer"]});
 });
 
-test("opportunity ranking rewards real group formation and longer overlap",()=>{
-  const pair=opportunityScore({compatiblePlayers:2,overlapMinutes:60,eloDifference:40,recentMatches:0});
-  const group=opportunityScore({compatiblePlayers:4,overlapMinutes:180,eloDifference:40,recentMatches:0});
-  assert.ok(group>pair);
+test("opportunity ranking rewards longer overlap and a close, fresh matchup",()=>{
+  const short=opportunityScore({compatiblePlayers:2,overlapMinutes:60,eloDifference:40,recentMatches:0});
+  const long=opportunityScore({compatiblePlayers:8,overlapMinutes:180,eloDifference:40,recentMatches:0});
+  const close=opportunityScore({overlapMinutes:180,eloDifference:20,recentMatches:0});
+  const repeated=opportunityScore({overlapMinutes:180,eloDifference:20,recentMatches:5});
+  assert.ok(long>short);
+  assert.ok(close>repeated);
 });

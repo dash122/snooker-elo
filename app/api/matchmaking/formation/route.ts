@@ -3,19 +3,19 @@ import {formationDashboard, publishFormationAvailability} from "../../../../db/m
 import {addDaysHongKong, composeAvailabilityInterval, hkDate, validateAvailabilityInterval} from "../../../../lib/availability";
 
 function publication(body:unknown) {
-  const input=body as {dates?:unknown;start?:unknown;end?:unknown;targetSize?:unknown;venueId?:unknown};
+  const input=body as {dates?:unknown;start?:unknown;end?:unknown;venueId?:unknown};
   if(!Array.isArray(input.dates)||input.dates.length<1||input.dates.length>7)throw new Error("請選擇一至七日。");
   const today=hkDate(),last=addDaysHongKong(today,6);
   const dates=[...new Set(input.dates.map(String))];
   if(dates.some(date=>date<today||date>last))throw new Error("只可以公開未來七日的空檔。");
   const start=String(input.start??""),end=String(input.end??"");
-  const targetSize=Number(input.targetSize);
-  if(!Number.isInteger(targetSize)||targetSize<2||targetSize>8)throw new Error("人數需要介乎二至八人。");
   const venueId=typeof input.venueId==="string"&&input.venueId.trim()?input.venueId.trim():null;
   return dates.map(date=>{
     const interval=validateAvailabilityInterval(composeAvailabilityInterval(date,start,end));
     if(Date.parse(interval.endAt)-Date.parse(interval.startAt)<60*60_000)throw new Error("空檔最少需要一小時。");
-    return {...interval,targetSize,venueId};
+    /* Option A is a one-to-one game. Keep target_size in storage for backwards compatibility, but
+       never make the member choose a group size in the MVP. */
+    return {...interval,targetSize:2,venueId};
   });
 }
 

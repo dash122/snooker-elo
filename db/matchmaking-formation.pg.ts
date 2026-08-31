@@ -39,13 +39,13 @@ export type FormationSession = {
   id:string;hostPlayerId:string;anchorSlotId:string;startAt:string;endAt:string;
   targetSize:number;status:FormationStatus;venue:{id:string;name:string}|null;
   acceptedCount:number;isHost:boolean;myStatus:string|null;
-  acceptedPlayers:SessionMemberRowView[];pendingRequests:SessionMemberRowView[];
+  acceptedPlayers:SessionMemberRowView[];opponent:SessionMemberRowView|null;pendingRequests:SessionMemberRowView[];
 };
 
 type SessionMemberRowView = {id:string;name:string;short:string;rating:number;avatar:string|null;colour:string|null};
 
 function slotView(row:SlotRow):FormationAvailability {
-  return {id:row.id,playerId:row.playerId,startAt:iso(row.startAt),endAt:iso(row.endAt),targetSize:Number(row.targetSize),venue:row.venueId?{id:row.venueId,name:row.venueName??""}:null};
+  return {id:row.id,playerId:row.playerId,startAt:iso(row.startAt),endAt:iso(row.endAt),targetSize:2,venue:row.venueId?{id:row.venueId,name:row.venueName??""}:null};
 }
 
 async function activeSlots():Promise<SlotRow[]> {
@@ -95,11 +95,13 @@ async function listSessions(playerId:string):Promise<FormationSession[]> {
     const mine=all.find(member=>member.playerId===playerId);
     const accepted=all.filter(member=>member.status==="accepted");
     const isHost=session.hostPlayerId===playerId;
+    const opponentMember=accepted.find(member=>member.playerId!==playerId);
     return {id:session.id,hostPlayerId:session.hostPlayerId,anchorSlotId:session.anchorSlotId,
-      startAt:iso(session.startAt),endAt:iso(session.endAt),targetSize:Number(session.targetSize),status:session.status,
+      startAt:iso(session.startAt),endAt:iso(session.endAt),targetSize:2,status:session.status,
       venue:session.venueId?{id:session.venueId,name:session.venueName??""}:null,
       acceptedCount:accepted.length,isHost,myStatus:mine?.status??null,
-      acceptedPlayers:accepted.map(view),pendingRequests:isHost?all.filter(member=>member.status==="pending").map(view):[]};
+      acceptedPlayers:accepted.map(view),opponent:opponentMember?view(opponentMember):null,
+      pendingRequests:isHost?all.filter(member=>member.status==="pending").map(view):[]};
   });
 }
 
@@ -111,11 +113,13 @@ export async function formationDashboard(playerId?:string|null) {
     sql<AnchorSessionRow[]>`SELECT anchor_slot_id AS "anchorSlotId",start_at AS "startAt",end_at AS "endAt",status
       FROM matchmaking_sessions WHERE status IN ('forming','playable','full') AND end_at>now()`,
   ]);
-  const publicDays:Record<string,number>={};
+  const publicDayPlayers=new Map<string,Set<string>>();
   for(const row of rows){
     const date=hkDate(new Date(row.startAt));
-    publicDays[date]=(publicDays[date]??0)+1;
+    const players=publicDayPlayers.get(date)??new Set<string>();
+    players.add(row.playerId);publicDayPlayers.set(date,players);
   }
+  const publicDays=Object.fromEntries([...publicDayPlayers.entries()].map(([date,players])=>[date,players.size]));
   if(!playerId)return {signedIn:false,own:[],opportunities:[],sessions:[],venues,publicDays};
   const ownRows=rows.filter(row=>row.playerId===playerId);
   const own=ownRows.map(slotView);
@@ -133,20 +137,26 @@ export async function formationDashboard(playerId?:string|null) {
     const overlaps=viableOverlap(matchingMine,[anchor]);
     if(!overlaps.length)continue;
     const active=sessionByAnchor.get(row.id);
-    if(active?.status==="full")continue;
-    const common:CommonWindow|null=active?{
-      startAt:iso(active.startAt),endAt:iso(active.endAt),
-      playerIds:[...new Set(formationSlots.filter(slot=>venuesCompatible(anchor.venueId,slot.venueId)&&Date.parse(slot.startAt)<=Date.parse(iso(active.startAt))&&Date.parse(slot.endAt)>=Date.parse(iso(active.endAt))).map(slot=>slot.playerId))].sort(),
-    }:bestCommonWindow(anchor,playerId,formationSlots);
+    if(active?.status==="full"||active?.status==="playable")continue;
+    const activeStart=active?iso(active.startAt):null,activeEnd=active?iso(active.endAt):null;
+    const viewerCoversActive=Boolean(activeStart&&activeEnd&&ownIntervals.some(slot=>
+      Date.parse(slot.startAt)<=Date.parse(activeStart)&&Date.parse(slot.endAt)>=Date.parse(activeEnd)&&
+      venuesCompatible(slot.venueId,anchor.venueId)));
+    const common:CommonWindow|null=active&&viewerCoversActive?{
+      startAt:activeStart!,endAt:activeEnd!,playerIds:[anchor.playerId,playerId].sort(),
+    }:active?null:bestCommonWindow(anchor,playerId,formationSlots);
     if(!common)continue;
     if(!common.playerIds.includes(playerId))continue;
+    const commonStart=Date.parse(common.startAt),commonEnd=Date.parse(common.endAt);
+    if(mySessions.some(session=>(session.status==="full"||session.status==="playable")&&
+      Date.parse(session.startAt)<commonEnd&&Date.parse(session.endAt)>commonStart))continue;
     const minutes=overlapMinutes(overlaps),record=history.get(row.playerId)??{lifetime:0,recent:0};
     const difference=Math.abs(myRating-Number(row.rating));
     opportunities.push({anchorSlotId:row.id,player:{id:row.playerId,name:row.name,short:row.short,rating:Number(row.rating),colour:row.colour,avatar:row.avatar},
       startAt:anchor.startAt,endAt:anchor.endAt,proposedStartAt:common.startAt,proposedEndAt:common.endAt,
-      targetSize:Number(row.targetSize),venue:row.venueId?{id:row.venueId,name:row.venueName??""}:null,
+      targetSize:2,venue:row.venueId?{id:row.venueId,name:row.venueName??""}:null,
       overlapMinutes:minutes,compatiblePlayers:common.playerIds.length,eloDifference:difference,newOpponent:record.lifetime===0,
-      score:opportunityScore({compatiblePlayers:common.playerIds.length,overlapMinutes:minutes,eloDifference:difference,recentMatches:record.recent})});
+      score:opportunityScore({overlapMinutes:minutes,eloDifference:difference,recentMatches:record.recent})});
   }
   opportunities.sort((a,b)=>b.score-a.score||b.compatiblePlayers-a.compatiblePlayers||a.startAt.localeCompare(b.startAt));
   return {signedIn:true,own,opportunities:opportunities.slice(0,16),sessions:mySessions,venues,publicDays};
@@ -167,7 +177,7 @@ export async function publishFormationAvailability(playerId:string,items:{startA
       }
       await tx`INSERT INTO availability_slots
         (id,player_id,start_at,end_at,conditions,venue_id,commitment,target_size)
-        VALUES (${crypto.randomUUID()},${playerId},${item.startAt},${item.endAt},${JSON.stringify(item.conditions??{})},${item.venueId},'going',${item.targetSize})`;
+        VALUES (${crypto.randomUUID()},${playerId},${item.startAt},${item.endAt},${JSON.stringify(item.conditions??{})},${item.venueId},'going',2)`;
     }
   });
 }
@@ -187,9 +197,12 @@ export async function cancelFormationAvailability(playerId:string,slotId:string)
 export async function requestFormationSession(playerId:string,input:{anchorSlotId:string;startAt:string;endAt:string}) {
   const sql=getSql();
   return sql.begin(async tx=>{
-    const [anchor]=await tx<{id:string;playerId:string;startAt:Date|string;endAt:Date|string;venueId:string|null;targetSize:number}[]>`
-      SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",venue_id AS "venueId",target_size AS "targetSize"
-      FROM availability_slots WHERE id=${input.anchorSlotId} AND cancelled_at IS NULL AND end_at>now() FOR UPDATE`;
+    const [anchor]=await tx<{id:string;playerId:string;playerName:string;startAt:Date|string;endAt:Date|string;venueId:string|null;venueName:string|null;targetSize:number}[]>`
+      SELECT s.id,s.player_id AS "playerId",p.name AS "playerName",s.start_at AS "startAt",s.end_at AS "endAt",
+        s.venue_id AS "venueId",v.name AS "venueName",s.target_size AS "targetSize"
+      FROM availability_slots s JOIN state_players p ON p.id=s.player_id
+      LEFT JOIN venues v ON v.id=s.venue_id
+      WHERE s.id=${input.anchorSlotId} AND s.cancelled_at IS NULL AND s.end_at>now() FOR UPDATE OF s`;
     if(!anchor)throw new Error("這個空檔已經關閉。");
     if(anchor.playerId===playerId)throw new Error("不需要加入自己的空檔。");
     let [session]=await tx<{id:string;status:FormationStatus;targetSize:number;startAt:Date|string;endAt:Date|string}[]>`SELECT id,status,target_size AS "targetSize",start_at AS "startAt",end_at AS "endAt"
@@ -206,16 +219,31 @@ export async function requestFormationSession(playerId:string,input:{anchorSlotI
         AND (venue_id IS NULL OR ${anchor.venueId}::text IS NULL OR venue_id=${anchor.venueId})
       ORDER BY start_at LIMIT 1 FOR UPDATE`;
     if(!mine)throw new Error("你的空檔與這個場次的確實時間不再重疊。");
+    const [conflict]=await tx<{id:string}[]>`SELECT s.id FROM matchmaking_sessions s
+      WHERE s.status IN ('playable','full')
+        AND s.start_at<${chosenEnd} AND s.end_at>${chosenStart}
+        AND (s.host_player_id=${playerId} OR EXISTS(
+          SELECT 1 FROM matchmaking_session_members m
+          WHERE m.session_id=s.id AND m.player_id=${playerId} AND m.status='accepted'))
+      LIMIT 1`;
+    if(conflict)throw new Error("你已經有一場確認中的對局重疊這段時間。");
     if(!session){
       const id=crypto.randomUUID();
       [session]=await tx<{id:string;status:FormationStatus;targetSize:number;startAt:Date|string;endAt:Date|string}[]>`INSERT INTO matchmaking_sessions
         (id,host_player_id,anchor_slot_id,start_at,end_at,venue_id,target_size,status)
-        VALUES (${id},${anchor.playerId},${anchor.id},${chosenStart},${chosenEnd},${anchor.venueId},${anchor.targetSize},'forming')
+        VALUES (${id},${anchor.playerId},${anchor.id},${chosenStart},${chosenEnd},${anchor.venueId},2,'forming')
         RETURNING id,status,target_size AS "targetSize",start_at AS "startAt",end_at AS "endAt"`;
       await tx`INSERT INTO matchmaking_session_members (session_id,player_id,availability_slot_id,role,status)
         VALUES (${id},${anchor.playerId},${anchor.id},'host','accepted')`;
     }
-    if(session.status==="full")throw new Error("這個場次已經滿員。");
+    if(session.status==="full"||session.status==="playable")throw new Error("這個對局已經確認。");
+    const [existing]=await tx<{status:string}[]>`SELECT status FROM matchmaking_session_members
+      WHERE session_id=${session.id} AND player_id=${playerId} AND role='member' FOR UPDATE`;
+    if(existing?.status==="pending")throw new Error("你已經送出申請，等對方回覆就可以。");
+    if(existing?.status==="accepted")throw new Error("這個對局已經確認。");
+    const [{count:pendingCount}]=await tx<{count:number|string}[]>`SELECT count(*)::int AS count
+      FROM matchmaking_session_members WHERE session_id=${session.id} AND role='member' AND status='pending'`;
+    if(Number(pendingCount)>0)throw new Error("這個空檔已有另一個申請，等對方處理後再試。");
     await tx`INSERT INTO matchmaking_session_members (session_id,player_id,availability_slot_id,role,status,requested_at,updated_at)
       VALUES (${session.id},${playerId},${mine.id},'member','pending',now(),now())
       ON CONFLICT (session_id,player_id) DO UPDATE SET
@@ -223,27 +251,33 @@ export async function requestFormationSession(playerId:string,input:{anchorSlotI
           WHEN matchmaking_session_members.status='accepted' THEN 'accepted' ELSE 'pending' END,
         requested_at=CASE WHEN matchmaking_session_members.status='accepted' THEN matchmaking_session_members.requested_at ELSE now() END,
         responded_at=NULL,updated_at=now()`;
-    return session.id;
+    return {sessionId:session.id,hostPlayerId:anchor.playerId,hostName:anchor.playerName,
+      requesterId:playerId,startAt:chosenStart,endAt:chosenEnd,venue:anchor.venueName??null};
   });
 }
 
 export async function respondFormationRequest(hostPlayerId:string,sessionId:string,requesterId:string,action:"accept"|"decline") {
   const sql=getSql();
   return sql.begin(async tx=>{
-    const [session]=await tx<{targetSize:number;status:FormationStatus}[]>`SELECT target_size AS "targetSize",status
-      FROM matchmaking_sessions WHERE id=${sessionId} AND host_player_id=${hostPlayerId} AND status IN ('forming','playable','full') FOR UPDATE`;
+    const [session]=await tx<{targetSize:number;status:FormationStatus;startAt:Date|string;endAt:Date|string;venueName:string|null}[]>`SELECT s.target_size AS "targetSize",s.status,
+        s.start_at AS "startAt",s.end_at AS "endAt",v.name AS "venueName"
+      FROM matchmaking_sessions s LEFT JOIN venues v ON v.id=s.venue_id
+      WHERE s.id=${sessionId} AND s.host_player_id=${hostPlayerId} AND s.status IN ('forming','playable','full') FOR UPDATE OF s`;
     if(!session)throw new Error("找不到可處理的場次。");
-    const [request]=await tx<{status:string}[]>`SELECT status FROM matchmaking_session_members
+    const [request]=await tx<{status:string;playerId:string}[]>`SELECT status,player_id AS "playerId" FROM matchmaking_session_members
       WHERE session_id=${sessionId} AND player_id=${requesterId} AND role='member' FOR UPDATE`;
     if(!request||request.status!=="pending")throw new Error("這個申請已經處理。");
     const [{count}]=await tx<{count:number|string}[]>`SELECT count(*)::int AS count FROM matchmaking_session_members
       WHERE session_id=${sessionId} AND status='accepted'`;
-    if(action==="accept"&&Number(count)>=Number(session.targetSize))throw new Error("這個場次已經滿員。");
+    if(action==="accept"&&Number(count)>=2)throw new Error("這個對局已經確認。");
     await tx`UPDATE matchmaking_session_members SET status=${action==="accept"?"accepted":"declined"},responded_at=now(),updated_at=now()
       WHERE session_id=${sessionId} AND player_id=${requesterId}`;
-    const accepted=Number(count)+(action==="accept"?1:0),status=formationStatus(accepted,Number(session.targetSize));
+    const accepted=Number(count)+(action==="accept"?1:0),status=formationStatus(accepted,2);
     await tx`UPDATE matchmaking_sessions SET status=${status},updated_at=now() WHERE id=${sessionId}`;
-    return status;
+    const [host]=await tx<{name:string}[]>`SELECT name FROM state_players WHERE id=${hostPlayerId}`;
+    const [requester]=await tx<{name:string}[]>`SELECT name FROM state_players WHERE id=${requesterId}`;
+    return {status,hostPlayerId,hostName:host?.name??"球友",requesterId,requesterName:requester?.name??"球友",
+      startAt:iso(session.startAt),endAt:iso(session.endAt),venue:session.venueName??null};
   });
 }
 
@@ -262,7 +296,7 @@ export async function leaveFormationSession(playerId:string,sessionId:string) {
     if(!changed.length)return false;
     const [{count}]=await tx<{count:number|string}[]>`SELECT count(*)::int AS count FROM matchmaking_session_members
       WHERE session_id=${sessionId} AND status='accepted'`;
-    await tx`UPDATE matchmaking_sessions SET status=${formationStatus(Number(count),Number(session.targetSize))},updated_at=now() WHERE id=${sessionId}`;
+    await tx`UPDATE matchmaking_sessions SET status=${formationStatus(Number(count),2)},updated_at=now() WHERE id=${sessionId}`;
     return true;
   });
 }
