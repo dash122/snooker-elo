@@ -254,6 +254,13 @@ test("reordering is refused during a live cup but remains available after comple
   assert.deepEqual(completed.tournament.rosterOrder, ["p1", "p2", "p4", "p3"]);
 });
 
+test("reordering an undrawn cup before the sign-up deadline is refused, so dragging can't freeze a draw early either", () => {
+  const open = cup({ signups: ["p1", "p2", "p3", "p4"], signupDeadline: FUTURE });
+  const reordered = reorderDraw(open, "p1", "p3", []);
+  assert.equal(reordered.ok, false);
+  assert.equal(reordered.error, "報名尚未截止，未能調整籤表順序");
+});
+
 /* Honours — who a cup finish belongs to, and who it does not. */
 
 const finished = () => ({

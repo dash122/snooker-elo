@@ -2487,7 +2487,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
      The bracket's own drag targets still use canShuffle, because completed scorecards must stay in
      their original seats. */
   const canShuffle=canManage&&deadlinePassed&&rosterIds.length>=2&&!hasCupResults;
-  const canArrangeRoster=canManage&&rosterIds.length>=2&&(!hasCupResults||status==="done");
+  const canArrangeRoster=canManage&&rosterIds.length>=2&&(status==="done"||(deadlinePassed&&!hasCupResults));
   const rosterPanel=rosterIds.length>0||canManage?<div className="cup-roster">
     <h3>{drawn?"參賽名單":"報名名單"} <span className="cup-roster-count">{rosterIds.length}</span>{canManage&&canShuffle&&<Button variant="secondary" className="cup-btn sm cup-roster-shuffle" onClick={()=>onShuffleRoster(tournament)}>重新抽籤</Button>}</h3>
     {lateSignups.length>0&&<InlineNotice tone="warning" title="報名時間在抽籤之後">{lateSignups.map(id=>name(id)).join("、")} 已報名，但抽籤時尚未報名，故未列入對陣圖。{canManage&&"如需加入，請使用下方「換上」功能替補至名單。"}</InlineNotice>}
