@@ -2697,13 +2697,17 @@ function CalendarView({data,canManageMatch,onPlayer,onEdit,onVoid,onShare}:{data
     return map;
   },[confirmed,month]);
   const maxCount=Math.max(1,...[...dayMatches.values()].map(list=>list.length));
+  const monthMatchCount=useMemo(()=>[...dayMatches.values()].reduce((total,matches)=>total+matches.length,0),[dayMatches]);
   const grid=useMemo(()=>monthGrid(month),[month]);
   const goToMonth=(next:string)=>{setMonth(next);setSelectedDay(null)};
   const selectedMatches=selectedDay?dayMatches.get(selectedDay)??[]:[];
   return <section className="calendar-view">
     <div className="calendar-nav">
       <IconButton className="calendar-nav-btn" label="上一個月" disabled={month<=bounds.min} onClick={()=>goToMonth(shiftMonth(month,-1))}>‹</IconButton>
-      <b>{monthLabel(month)}</b>
+      <div className="calendar-nav-title">
+        <b>{monthLabel(month)}</b>
+        <span className="calendar-month-total"><strong>{monthMatchCount}</strong> 場比賽</span>
+      </div>
       <IconButton className="calendar-nav-btn" label="下一個月" disabled={month>=bounds.max} onClick={()=>goToMonth(shiftMonth(month,1))}>›</IconButton>
     </div>
     <div className="calendar-body">
