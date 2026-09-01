@@ -1,5 +1,29 @@
 // Shared write-authorization rules for /api/state and unit tests.
 
+// A player who hasn't finished the rating questionnaire yet has no real
+// initial rating to play from — recording a match for them would seed the
+// ELO model off the 1500 placeholder and then have to be replayed once they
+// do finish it. Block any write that adds or edits a match involving such a
+// player, whoever submits it (self or admin); the questionnaire's own save
+// never touches state.matches, so it can never trip this itself.
+export function blockedByUnfinishedOnboarding(current: any, next: any): string | null {
+  const players = new Map(((next?.players ?? []) as any[]).map(player => [player.id, player]));
+  const unfinished = (id: unknown) => {
+    const player = typeof id === "string" ? players.get(id) : undefined;
+    return player && (player.preliminaryRating === null || player.preliminaryRating === undefined);
+  };
+  const before = new Map(((current?.matches ?? []) as any[]).map((match: any) => [match.id, match]));
+  for (const match of (next?.matches ?? []) as any[]) {
+    const previous = before.get(match.id);
+    if (previous && JSON.stringify(previous) === JSON.stringify(match)) continue;
+    for (const id of [match.a, match.b, match.a2, match.b2]) {
+      if (unfinished(id)) return players.get(id)?.name ?? "該球員";
+    }
+  }
+  return null;
+}
+
+
 // Rating fields are derived by replaying matches; settings are otherwise fully
 // admin-controlled, so a member write must leave them byte-for-byte identical.
 export function memberCanWrite(current: any, next: any, playerId?: string) {
