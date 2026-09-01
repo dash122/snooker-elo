@@ -294,20 +294,42 @@
 
 @media(max-width:599px){.story-preview{width:min(12rem,54%)}.match-share-side em{font-size:2rem}.record-share-stats{grid-template-columns:1fr 1fr}
 }/* --------------------------------------------------------------------------
-   A cup tie, marked as one
-   A semi-final that reads exactly like a Tuesday night frame is a result the
-   app has failed to dress. The treatment is deliberately two light things
-   rather than one heavy one: a gold edge on the board, which does the finding
-   when a member scrolls the history for the game they remember, and a chip
-   naming the round, which does the telling. Neither costs a row, and neither
-   competes with the scoreline — the score is still what the card is for.
+   A cup tie, dressed for the occasion
+   A tournament result should feel like part of the trophy record, not another
+   club-night frame. Faceted obsidian and champagne metal establish prestige
+   at a glance; the badge names the event while the scoreline stays dominant.
    -------------------------------------------------------------------------- */
-.match.is-cup .match-board{box-shadow:inset 3px 0 0 var(--ds-accent-primary)}.match.is-cup .match-board .match-when{padding-left:var(--sp-1)}.match-cup-badge{display:inline-flex;align-items:center;gap:var(--sp-1);min-width:0;max-width:13rem;
-  padding:var(--sp-1) var(--sp-2);border:1px solid rgba(232,194,106,.42);border-radius:999px;
-  background:rgba(232,194,106,.14);color:var(--ds-accent-soft);font-size:var(--fs-label);font-weight:800;line-height:1.35}/* The round is the fact worth reading, so it keeps full contrast and never truncates; the cup's own
+.match.is-cup{overflow:hidden;border-color:rgba(226,206,154,.32);background:#080a0b;
+  box-shadow:0 18px 44px rgba(3,5,6,.28),0 4px 12px rgba(3,5,6,.18)}
+.match.is-cup:before{content:"";position:absolute;inset:0 0 auto;height:1px;z-index:1;
+  background:linear-gradient(90deg,transparent 3%,rgba(211,221,219,.36) 22%,#f2ddb0 50%,rgba(211,221,219,.36) 78%,transparent 97%)}
+.match.is-cup .match-board{position:relative;
+  background:
+    linear-gradient(151deg,transparent 0 61%,rgba(255,255,255,.045) 61.2% 62%,transparent 62.2%),
+    linear-gradient(32deg,transparent 0 68%,rgba(218,226,224,.035) 68.2% 69%,transparent 69.2%),
+    linear-gradient(116deg,rgba(255,255,255,.055) 0%,transparent 24%),
+    radial-gradient(circle at 52% -30%,rgba(238,222,181,.13),transparent 43%),
+    linear-gradient(135deg,#202528 0%,#0d1012 46%,#171b1d 72%,#050607 100%);
+  box-shadow:inset 0 0 0 1px rgba(225,211,174,.18),inset 0 -24px 48px rgba(0,0,0,.28)}
+.match.is-cup .match-board:after{content:"";position:absolute;inset:0;height:auto;margin:0;pointer-events:none;
+  background:linear-gradient(105deg,transparent 28%,rgba(255,255,255,.055) 42%,transparent 54%);mix-blend-mode:screen}
+.match.is-cup .match-board>*{position:relative;z-index:1}
+.match.is-cup .match-board .match-when{color:rgba(239,242,241,.68)}
+.match.is-cup .match-body{color:#f3f0e8;background:linear-gradient(145deg,#15181a 0%,#090b0c 58%,#111416 100%);
+  box-shadow:inset 0 1px rgba(225,211,174,.14)}
+.match.is-cup .match-body .elo-impact{background:rgba(255,255,255,.055);color:#eee9dd}
+.match.is-cup .match-body .elo-impact small,.match.is-cup .match-handicap-summary small,.match.is-cup .match-handicap-summary span{color:rgba(239,242,241,.62)}
+.match.is-cup .match-handicap-summary{border-color:rgba(225,211,174,.2);background:rgba(255,255,255,.045)}
+.match.is-cup .match-handicap-summary b{color:#f7f2e7}
+.match.is-cup .match-added{border-color:rgba(225,211,174,.14);color:rgba(239,242,241,.48)}
+.match.is-cup:not(.void):hover{border-color:rgba(235,217,171,.55);box-shadow:0 24px 56px rgba(3,5,6,.35),0 6px 16px rgba(3,5,6,.22)}
+.match-cup-badge{display:inline-flex;align-items:center;gap:var(--sp-1);min-width:0;max-width:13rem;
+  padding:var(--sp-1) var(--sp-2-5);border:1px solid rgba(235,217,171,.42);border-radius:999px;
+  background:linear-gradient(145deg,rgba(255,255,255,.13),rgba(255,255,255,.035));color:#f4dfb2;font-size:var(--fs-label);font-weight:800;line-height:1.35;
+  box-shadow:inset 0 1px rgba(255,255,255,.14),0 3px 10px rgba(0,0,0,.24)}/* The round is the fact worth reading, so it keeps full contrast and never truncates; the cup's own
    name is context and gives way first on a narrow phone. */
-.match-cup-badge>b{flex:0 0 auto;color:#ffe7b4}.match-cup-badge>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-weight:700;opacity:.82}.cup-mark{flex:0 0 auto;width:.8rem;height:.8rem;fill:currentColor}/* The ribbon on the shared result page: the round in the break between two
+.match-cup-badge>b{flex:0 0 auto;color:#fff1c8;letter-spacing:.025em}.match-cup-badge>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:rgba(255,239,201,.78);font-weight:700}.cup-mark{flex:0 0 auto;width:.8rem;height:.8rem;fill:currentColor}/* The ribbon on the shared result page: the round in the break between two
    hairlines, matching the story card's own header so the page and the image a
    reader arrived from read as one thing. */
 .cup-ribbon{display:flex;align-items:center;justify-content:center;gap:var(--sp-3);margin:.1rem 0 var(--sp-1);
