@@ -2,7 +2,7 @@ import { requireMember } from "../../../../../db/auth";
 import { notifyPlayers } from "../../../../../db/notifications";
 import { getState, putState } from "../../../../../db/state";
 import { cupDrawn } from "../../../../../lib/notify";
-import { bracketShape, computeDraw, firstRoundPairings, roundLabel, signupsClosed, type TournamentLike } from "../../../../../lib/tournament";
+import { bracketShape, firstRoundPairings, randomizeDraw, roundLabel, signupsClosed, type TournamentLike } from "../../../../../lib/tournament";
 
 /** Freezing the draw is a server job, not a client one.
  *
@@ -29,7 +29,7 @@ export async function POST(_request:Request,{params}:{params:Promise<{id:string}
      and tenth callers must get the same draw back rather than a failure or a reshuffle. */
   if(tournament.draw?.length)return Response.json({ok:true,alreadyDrawn:true,draw:tournament.draw});
 
-  const draw=computeDraw(tournament);
+  const draw=randomizeDraw(tournament);
   if(draw.length<2)return Response.json({error:"報名人數不足兩人"},{status:409});
   const drawnAt=new Date().toISOString();
   const drawn={...tournament,draw,drawnAt};

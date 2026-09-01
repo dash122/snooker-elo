@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bracketShape, buildBracket, computeDraw, firstRoundPairings, formatTournamentDateTime, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, reorderDraw, roundLabel, shuffleDraw, signupsClosed, swapPlayer } from "../lib/tournament.ts";
+import { bracketShape, buildBracket, computeDraw, firstRoundPairings, formatTournamentDateTime, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, randomizeDraw, reorderDraw, roundLabel, shuffleDraw, signupsClosed, swapPlayer } from "../lib/tournament.ts";
 
 const PAST = "2020-01-01T00:00";
 const FUTURE = "2999-01-01T00:00";
@@ -45,10 +45,21 @@ test("round labels count backwards from the final", () => {
   assert.equal(roundLabel(1, 3), "八強");
 });
 
-test("the draw is deterministic and drops duplicate sign-ups", () => {
+test("the pre-freeze draw preview is stable and drops duplicate sign-ups", () => {
   const first = computeDraw(cup());
   assert.deepEqual(first, computeDraw(cup({ signups: [...cup().signups].reverse() })));
   assert.deepEqual(computeDraw(cup({ signups: ["p1", "p1", "p2"] })).length, 2);
+});
+
+test("the frozen draw randomises entrants instead of preserving signup order", () => {
+  const originalRandom = Math.random;
+  Math.random = () => 0;
+  try {
+    assert.deepEqual(randomizeDraw(cup()), ["p2", "p3", "p4", "p1"]);
+    assert.deepEqual(randomizeDraw(cup({ signups: ["p1", "p1", "p2"] })), ["p2", "p1"]);
+  } finally {
+    Math.random = originalRandom;
+  }
 });
 
 test("a stored draw pins the pairings even when the roster is edited afterwards", () => {

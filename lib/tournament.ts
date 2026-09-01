@@ -116,6 +116,18 @@ export function computeDraw(tournament:Pick<TournamentLike,"id"|"signups">):stri
   return [...new Set(tournament.signups??[])].sort((left,right)=>hash(`${tournament.id}:${left}`)-hash(`${tournament.id}:${right}`));
 }
 
+/** Randomise the entrants once when a closed cup is frozen. The deterministic `computeDraw` above
+ * remains useful for the brief pre-freeze preview, but the stored draw must not preserve signup
+ * order or give every cup with the same signup list the same bracket. */
+export function randomizeDraw(tournament:Pick<TournamentLike,"signups">):string[] {
+  const shuffled=[...new Set(tournament.signups??[])];
+  for(let i=shuffled.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];
+  }
+  return shuffled;
+}
+
 /** What the bracket should be built from: the frozen draw once it exists, otherwise the order the
     freeze would produce. Only meaningful after the deadline. */
 export function drawOrder(tournament:TournamentLike):string[] {

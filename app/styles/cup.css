@@ -358,3 +358,8 @@
 .tournament-cohosts-empty{margin:0;padding:var(--sp-3);border:1px dashed var(--line);border-radius:var(--radius-sm);color:var(--ds-text-secondary);font-size:var(--fs-caption);text-align:center}
 .tournament-cohosts.is-readonly{background:var(--ds-surface-primary)}
 @media(max-width:599px){.tournament-cohosts{padding:var(--sp-3)}.tournament-cohost-option{padding-inline:var(--sp-2)}}
+
+/* The shared Button primitive wraps its label in a span. Keep the roster count's badge treatment
+   from leaking into that label when the redraw control sits beside it in the heading. */
+.cup-roster h3 .cup-roster-shuffle>span{min-width:0;padding:0;border-radius:0;background:transparent;color:inherit;font-size:var(--fs-sm);font-weight:inherit;text-align:inherit}
+.cup-roster-remove{flex:0 0 auto;color:var(--ds-danger)}.cup-roster-remove:hover{background:var(--ds-danger-wash);color:var(--ds-danger)}

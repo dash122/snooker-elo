@@ -669,12 +669,9 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const canManageMatch=(match:Match)=>Boolean(isAdmin||ownPlayerId&&isParticipant(match,ownPlayerId));
   const canManageCup=(tournament:Tournament)=>canManageTournament(tournament,ownPlayerId,Boolean(isAdmin));
   const canManageCupHosts=(tournament:Tournament)=>Boolean(isAdmin||isTournamentHost(tournament,ownPlayerId));
-  /* A drawn cup tie is a thing the club is waiting on you for, exactly like an unanswered invite —
-     so it gets a badge on 比賽 rather than living behind two taps and a dropdown. */
-  const cupBadge=useMemo(()=>!ownPlayerId?0:data.tournaments.reduce((count,tournament)=>{
-    if(!signupsClosed(tournament))return count;
-    return count+(playerSlot(buildBracket<Match>(tournament,data.matches),ownPlayerId)?.state==="ready"?1:0);
-  },0),[data.tournaments,data.matches,ownPlayerId]);
+  /* Open cups are a discovery nudge: keep the number visible on 比賽 even for signed-out visitors,
+     because anyone can browse the cup and see the route to signing up. */
+  const openTournamentCount=useMemo(()=>data.tournaments.filter(tournament=>!signupsClosed(tournament)).length,[data.tournaments]);
 
   useEffect(()=>{
     const local = localStorage.getItem("scaa-draft");
@@ -903,13 +900,10 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       if(toastTimer.current)clearTimeout(toastTimer.current);
       if(undoTimer.current)clearTimeout(undoTimer.current);
       setUndoSnapshot(null);
-      /* A timeout is not a failure, and must not be reported as one. fetchWithTimeout aborts the
-         request from this side; the write it was waiting on may well have committed on the server
-         a moment later. Two things were wrong with letting it fall through to the branch below.
-         The message was the browser's own untranslated internal string — "signal is aborted
-         without reason" — shown verbatim to the member. And it asserted the save had not
-         happened, when the truthful answer is that this tab stopped listening before finding out.
-         Telling them to reload is the only advice that is correct either way. */
+      /* A timeout is not proof of failure. fetchWithTimeout aborts the request from this side; the
+         write it was waiting on may well have committed on the server a moment later. Confirm the
+         save marker below before showing an uncertainty notice. This also avoids surfacing the
+         browser's own untranslated abort text — "signal is aborted without reason" — to members. */
       const aborted=error instanceof Error&&error.name==="AbortError";
       if(aborted){
         /* PUT writes the state before it finishes syncing the member profile rows. If that
@@ -1313,10 +1307,11 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
         setData(next);persist(next,(nextTournaments.find(t=>t.id===tournamentId)?.signups||[]).includes(ownPlayerId)?"已報名盃賽。":"已取消報名盃賽。",snapshot);
   };
 
-  const navBadge=(id:string)=>id==="availability"?matchmakingBadge:id==="matches"?cupBadge:0;
+  const navBadge=(id:string)=>id==="availability"?matchmakingBadge:id==="matches"?openTournamentCount:0;
   /** The number on 約戰's badge means one of two different things depending on which source fed it
       (see `matchmakingBadge` above) — this says which, so a screen reader hears the right claim. */
   const navBadgeLabel=(id:string)=>{
+    if(id==="matches")return `${openTournamentCount} 個盃賽開放報名`;
     if(id!=="availability")return undefined;
     const actionable=actionableCount(matchmakingSummary?.counts);
     return actionable>0?`${actionable} 項待處理`:`${matchmakingBadge} 個開緊局`;
@@ -1705,10 +1700,10 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
           {yTicks.map((v,i)=><line key={i} x1="0" y1={y(v)} x2="100" y2={y(v)} className="trend-grid"/>)}
           {activeIndex!=null&&<line x1={x(activeIndex)} y1="2" x2={x(activeIndex)} y2="58" className="trend-guide"/>}
           {series.map(s=><polyline key={s.player.id} points={s.values.map((v,i)=>v==null?null:`${x(i)},${y(v)}`).filter((p):p is string=>p!=null).join(" ")} className="multi-trend-line" style={{stroke:avatarHex(s.player.colour)}}/>)}
-          {activeIndex!=null&&series.map(s=>s.values[activeIndex]!=null&&<circle key={s.player.id} cx={x(activeIndex)} cy={y(s.values[activeIndex]!)} r="1.7" className="multi-trend-dot" style={{fill:avatarHex(s.player.colour)}}/>)}
           {endLabels.map(({player,anchor,top})=>Math.abs(top-anchor)>0.6&&<line key={player.id} x1={x(lastIndex)} y1={anchor/100*60} x2={x(lastIndex)} y2={top/100*60} className="multi-trend-leader" style={{stroke:avatarHex(player.colour)}}/>)}
-          {endLabels.map(({player,anchor})=><circle key={player.id} cx={x(lastIndex)} cy={anchor/100*60} r="1.4" className="multi-trend-endpoint" style={{fill:avatarHex(player.colour)}}/>)}
         </svg>
+        {activeIndex!=null&&series.map(s=>s.values[activeIndex]!=null&&<span key={s.player.id} className="multi-trend-dot" style={{left:`${x(activeIndex)}%`,top:`${y(s.values[activeIndex]!)/60*100}%`,background:avatarHex(s.player.colour)}} aria-hidden="true"/>)}
+        {endLabels.map(({player,anchor})=><span key={player.id} className="multi-trend-endpoint" style={{left:`${x(lastIndex)}%`,top:`${anchor}%`,background:avatarHex(player.colour)}} aria-hidden="true"/>)}
         {activeIndex!=null&&<div className={`multi-trend-tooltip${activeAbove?" align-right":""}`} style={{left:`${x(activeIndex)}%`}} role="status">
           <small>{trendDateLabel(dates[activeIndex])}</small>
           <ul>{[...series].filter(s=>s.values[activeIndex!]!=null).sort((a,b)=>b.values[activeIndex!]!-a.values[activeIndex!]!).map(s=><li key={s.player.id}><i style={{background:avatarHex(s.player.colour)}}/><span>{s.player.name}</span><em>{s.counts[activeIndex!]} 場</em><b>{Math.round(s.values[activeIndex!]!)}</b></li>)}</ul>
@@ -2121,6 +2116,7 @@ function Matches({data,canManageMatch,canManageCup,onEdit,onVoid,onShare,onPlaye
     : {a:pair.b,b:""});
   const setOpponent=(id:string)=>setPair({...pair,b:id});
   const clearAll=()=>{setPair({a:"",b:""});setModeFilter("all")};
+  const openTournamentCount=data.tournaments.filter(tournament=>!signupsClosed(tournament)).length;
   // Grouped by month with a sticky header instead of a flat list — long
   // history stays scannable without repeating the full date on every row.
   const groups=useMemo(()=>{
@@ -2134,7 +2130,7 @@ function Matches({data,canManageMatch,canManageCup,onEdit,onVoid,onShare,onPlaye
   },[matches,comparing]);
   const newestMonth=groups.reduce((latest,group)=>group.key>latest?group.key:latest,"");
   return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽記錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
-    <SlidingToggleGroup className="page-tabs match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button><button role="tab" aria-selected={view==="matrix"} className={view==="matrix"?"active":""} onClick={()=>setView("matrix")}>對賽矩陣</button><button role="tab" aria-selected={view==="cup"} className={view==="cup"?"active":""} onClick={()=>setView("cup")}>盃賽紀錄</button></SlidingToggleGroup>
+    <SlidingToggleGroup className="page-tabs match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button><button role="tab" aria-selected={view==="matrix"} className={view==="matrix"?"active":""} onClick={()=>setView("matrix")}>對賽矩陣</button><button role="tab" aria-selected={view==="cup"} aria-label={`盃賽紀錄${openTournamentCount>0?`，${openTournamentCount} 個盃賽開放報名`:""}`} className={view==="cup"?"active":""} onClick={()=>setView("cup")}>盃賽紀錄{openTournamentCount>0&&<span className="match-tab-count" aria-hidden="true">{openTournamentCount>9?"9+":openTournamentCount}</span>}</button></SlidingToggleGroup>
     {view==="matrix"?<HeadToHeadMatrix data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{setPair({a:first,b:second});setModeFilter("all");setView("history")}}/> : view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid} onShare={onShare}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament} onRecordSlot={onRecordSlot} onArrange={onArrange} onWalkover={onWalkover} onEditRoster={onEditRoster} onShuffleRoster={onShuffleRoster} onReorderRoster={onReorderRoster} onRefresh={onRefresh}/> : <>
     <section className="match-filter-toolbar" aria-label="篩選及排序比賽記錄">
       <div className="match-filter-control player-control">
@@ -2418,8 +2414,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   const rosterPick=(outgoingId:string)=>(event:ChangeEvent<HTMLSelectElement>)=>{
     const value=event.target.value;
     event.target.value="";
-    if(value==="remove")onEditRoster(tournament,outgoingId,"");
-    else if(value)onEditRoster(tournament,outgoingId,value);
+    if(value)onEditRoster(tournament,outgoingId,value);
   };
   /* Same two numbers the shared cup page quotes — ELO and the club's suggested handicap — so a
      member deciding whether to enter can see how beatable the field is without leaving the app. */
@@ -2435,7 +2430,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   const canShuffle=canManage&&rosterIds.length>=2&&!hasCupResults;
   const canArrangeRoster=canManage&&rosterIds.length>=2&&(!hasCupResults||status==="done");
   const rosterPanel=rosterIds.length>0||canManage?<div className="cup-roster">
-    <h3>{drawn?"參賽名單":"報名名單"} <span>{rosterIds.length}</span>{canManage&&canShuffle&&<Button variant="secondary" className="cup-btn sm cup-roster-shuffle" onClick={()=>onShuffleRoster(tournament)}>重新抽籤</Button>}</h3>
+    <h3>{drawn?"參賽名單":"報名名單"} <span className="cup-roster-count">{rosterIds.length}</span>{canManage&&canShuffle&&<Button variant="secondary" className="cup-btn sm cup-roster-shuffle" onClick={()=>onShuffleRoster(tournament)}>重新抽籤</Button>}</h3>
     <ul className="rated">{rosterIds.map(id=>{
       const standing=rosterStanding(id);
       const draggable=canArrangeRoster;
@@ -2460,8 +2455,8 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       {canManage&&<select className="cup-roster-edit" defaultValue="" onChange={rosterPick(id)} aria-label={`更換 ${name(id)}`}>
         <option value="">⋯</option>
         <optgroup label="換上">{spare.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
-        {!drawn&&<option value="remove">移除</option>}
       </select>}
+      {canManage&&!drawn&&<Button variant="quiet" className="cup-btn sm cup-roster-remove" onClick={()=>onEditRoster(tournament,id,"")}>移除</Button>}
     </li>;})}</ul>
     {canManage&&canArrangeRoster&&<p className="cup-roster-note">拖曳球員名稱可調整名單順序{status!=="done"&&"，亦會更新對陣圖"}。</p>}
     {canManage&&<label className="cup-roster-add">

@@ -11,8 +11,11 @@
 
   .multi-trend-line{fill:none;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round;opacity:.92;transition:opacity var(--ds-duration-fast) var(--ds-ease-standard)}
   .multi-trend-plot:hover .multi-trend-line{opacity:.55}
-  .multi-trend-dot{stroke:var(--ds-surface-raised);stroke-width:1;vector-effect:non-scaling-stroke}
-  .multi-trend-endpoint{stroke:var(--ds-surface-raised);stroke-width:.75;vector-effect:non-scaling-stroke}
+  /* These markers sit over a non-uniformly scaled SVG. Keeping them as fixed-size HTML
+     elements prevents the wide desktop plot from stretching circles into ovals. */
+  .multi-trend-dot,.multi-trend-endpoint{position:absolute;z-index:3;display:block;transform:translate(-50%,-50%);border-radius:50%;box-sizing:border-box;pointer-events:none}
+  .multi-trend-dot{width:12px;height:12px;border:1px solid var(--ds-surface-raised)}
+  .multi-trend-endpoint{width:10px;height:10px;border:1px solid var(--ds-surface-raised)}
   .multi-trend-leader{stroke-width:1;stroke-dasharray:1.5 1.5;opacity:.55;vector-effect:non-scaling-stroke}
 
   .multi-trend-endlabels{position:absolute;inset:0;overflow:hidden;pointer-events:none}
