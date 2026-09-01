@@ -1272,8 +1272,9 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   }
 
   /* A draw an admin doesn't like — a lopsided pairing, a rivalry landing in round one — has one
-     remedy up to the moment somebody actually plays: re-roll it. `shuffleDraw` refuses once any tie
-     in the cup has a recorded result, so this is unavailable the instant it would matter. */
+     remedy from the moment sign-ups close up to the moment somebody actually plays: re-roll it.
+     `shuffleDraw` refuses before the deadline (freezing early would strand later sign-ups outside
+     the bracket) and once any tie in the cup has a recorded result. */
   function shuffleTournamentRoster(tournament:Tournament){
     if(!canManageCup(tournament)){setToast("只有盃賽主持人或協辦主持人可以重新抽籤。");return;}
     // Cheap client-side pre-check only, so an admin who has just recorded a
@@ -2485,7 +2486,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   /* A live bracket remains protected, while a completed cup can reorder its roster presentation.
      The bracket's own drag targets still use canShuffle, because completed scorecards must stay in
      their original seats. */
-  const canShuffle=canManage&&rosterIds.length>=2&&!hasCupResults;
+  const canShuffle=canManage&&deadlinePassed&&rosterIds.length>=2&&!hasCupResults;
   const canArrangeRoster=canManage&&rosterIds.length>=2&&(!hasCupResults||status==="done");
   const rosterPanel=rosterIds.length>0||canManage?<div className="cup-roster">
     <h3>{drawn?"參賽名單":"報名名單"} <span className="cup-roster-count">{rosterIds.length}</span>{canManage&&canShuffle&&<Button variant="secondary" className="cup-btn sm cup-roster-shuffle" onClick={()=>onShuffleRoster(tournament)}>重新抽籤</Button>}</h3>
