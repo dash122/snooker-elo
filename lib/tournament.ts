@@ -290,9 +290,15 @@ export function shuffleDraw(tournament:TournamentLike,matches:CupMatchLike[]=[])
 /** Move one entrant to sit where another one is, shifting the rest along — a drag-and-drop of the
  *  roster list rather than a random re-roll. Before completion it changes the frozen draw; after
  *  completion it changes only the roster presentation order, so recorded scorecards keep their
- *  original bracket seats. A partially played cup remains locked for the same reason a reshuffle is. */
+ *  original bracket seats. A partially played cup remains locked for the same reason a reshuffle is.
+ *
+ *  Refused before the sign-up deadline for the same reason `shuffleDraw` is: `drawOrder` falls back
+ *  to `computeDraw` when nothing is frozen yet, so reordering an undrawn cup would freeze one early
+ *  and strand any later signup outside it, same as the reshuffle button. Once the cup is complete the
+ *  deadline is long past, so `completed` never needs the same check. */
 export function reorderDraw(tournament:TournamentLike,draggedId:string,targetId:string,matches:CupMatchLike[]=[]):ShuffleResult {
   const completed=Boolean(buildBracket(tournament,matches).champion);
+  if(!completed&&!signupsClosed(tournament))return {ok:false,error:"報名尚未截止，未能調整籤表順序"};
   const order=completed?rosterOrder(tournament):drawOrder(tournament);
   if(order.length<2)return {ok:false,error:"報名人數不足兩人"};
   if(!order.includes(draggedId)||!order.includes(targetId))return {ok:false,error:"該球員不在籤表內"};
