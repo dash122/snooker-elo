@@ -65,7 +65,7 @@ export default function OnboardingWizard({ member, reminder = false }: { member:
     </ol>
     {step === "profile"
       ? <ProfileStep member={member} onDone={() => setStep("rating")} />
-      : <RatingStep displayName={member.displayName} onDone={setFinalRating} />}
+      : <RatingStep displayName={member.displayName} onBack={() => setStep("profile")} onDone={setFinalRating} />}
   </section></main>;
 }
 
@@ -148,7 +148,7 @@ function ProfileStep({ member, onDone }: { member: Member; onDone: () => void })
   </>;
 }
 
-function RatingStep({ displayName, onDone }: { displayName: string; onDone: (rating: number) => void }) {
+function RatingStep({ displayName, onBack, onDone }: { displayName: string; onBack: () => void; onDone: (rating: number) => void }) {
   const [q1, setQ1] = useState<string | null>(null);
   const [q2, setQ2] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -187,6 +187,9 @@ function RatingStep({ displayName, onDone }: { displayName: string; onDone: (rat
       </div>
     </div>
     {error && <p className="onboarding-error" role="alert">{error}</p>}
-    <Button className="onboarding-submit" onClick={submit} disabled={submitting || q1 === "700"}>{submitting ? "儲存中…" : "提交"}</Button>
+    <div className="onboarding-actions">
+      <Button variant="secondary" type="button" onClick={onBack}>返回上一步</Button>
+      <Button className="onboarding-submit" onClick={submit} disabled={submitting || q1 === "700"}>{submitting ? "儲存中…" : "提交"}</Button>
+    </div>
   </>;
 }
