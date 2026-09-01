@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentMember } from "../../../db/auth";
 import { getStateSummary } from "../../../db/state";
-import { eventCounts } from "../../../db/analytics";
+import { eventCounts, eventDailyMembers, eventMemberDetails } from "../../../db/analytics";
+import { EventAnalytics } from "./EventAnalytics";
+import type { EventDailyPoint, EventMemberDetail } from "../../../db/analytics";
 import { StatTile, Surface, EmptyState } from "../../components/ui/Primitives";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +25,13 @@ const WINDOWS = [
   { days: 90, label: zh.window90 },
 ] as const;
 
-export default async function AdminReportsPage({ searchParams }: { searchParams: Promise<{ window?: string }> }) {
+function reportHref(days:number,event?:string){
+  const params=new URLSearchParams({window:String(days)});
+  if(event)params.set("event",event);
+  return `/admin/reports?${params.toString()}`;
+}
+
+export default async function AdminReportsPage({ searchParams }: { searchParams: Promise<{ window?: string; event?: string }> }) {
   const user = await getCurrentMember();
   if (!user) redirect("/login");
   if (user.role !== "admin") redirect("/account");
@@ -32,6 +40,17 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
   const activeDays = WINDOWS.find(w => String(w.days) === p.window)?.days ?? 30;
 
   const [summary, counts] = await Promise.all([getStateSummary(), eventCounts(activeDays)]);
+  const selectedEvent = p.event && counts.some(row => row.event === p.event)
+    ? p.event
+    : counts[0]?.event ?? null;
+  let daily:EventDailyPoint[] = [];
+  let memberDetails:EventMemberDetail[] = [];
+  if(selectedEvent){
+    [daily,memberDetails]=await Promise.all([
+      eventDailyMembers(selectedEvent,activeDays),
+      eventMemberDetails(selectedEvent,activeDays),
+    ]);
+  }
 
   return <main className="auth-page admin-page">
     <section className="auth-card admin-card reports-card">
@@ -49,7 +68,7 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
       <div className="reports-head">
         <h2 className="reports-section-title">{zh.eventsTitle}</h2>
         <div className="reports-window-tabs" role="tablist" aria-label={zh.eventsTitle}>
-          {WINDOWS.map(w => <a key={w.days} href={`/admin/reports?window=${w.days}`}
+          {WINDOWS.map(w => <a key={w.days} href={reportHref(w.days,selectedEvent ?? undefined)}
             role="tab" aria-selected={w.days === activeDays}
             className={`reports-window-tab${w.days === activeDays ? " active" : ""}`}>{w.label}</a>)}
         </div>
@@ -61,13 +80,17 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
         : <Surface className="reports-table-wrap" padded={false}>
           <table className="reports-table">
             <thead><tr><th>{zh.colEvent}</th><th>{zh.colCount}</th><th>{zh.colPlayers}</th></tr></thead>
-            <tbody>{counts.map(row => <tr key={row.event}>
-              <td>{row.event}</td>
+            <tbody>{counts.map(row => <tr key={row.event} className={row.event === selectedEvent ? "selected" : undefined}>
+              <td className={row.event === selectedEvent ? "selected" : undefined}>
+                <a href={reportHref(activeDays,row.event)} aria-current={row.event === selectedEvent ? "true" : undefined}>{row.event}</a>
+              </td>
               <td>{row.count}</td>
               <td>{row.players}</td>
             </tr>)}</tbody>
           </table>
         </Surface>}
+
+      <EventAnalytics counts={counts} activeDays={activeDays} selectedEvent={selectedEvent} daily={daily} members={memberDetails}/>
 
       <a className="more admin-back" href="/admin">{zh.back}</a>
     </section>
