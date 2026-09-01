@@ -2314,6 +2314,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
      doesn't reopen, and a careless 取消報名 drops your seat in a bracket that may already be filling
      up — so each gets a confirmation naming the cup, not a silent toggle. */
   const [pendingSignup,setPendingSignup]=useState<{id:string;name:string;joined:boolean}|null>(null);
+  const [signupArrivalOn,setSignupArrivalOn]=useState(false);
   const [signupArrivalTime,setSignupArrivalTime]=useState("");
   /* Set once at sign-up or any time after — a plan can change, so this stays editable for as long
      as the member stays entered. Purely a courtesy to the other entrants; nothing reads it to gate
@@ -2322,16 +2323,24 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   const [arrivalDraft,setArrivalDraft]=useState("");
   const confirmSignupDialog=pendingSignup&&<ConfirmDialog kicker={pendingSignup.joined?"取消報名":"確認報名"} titleId="cup-signup-confirm-title"
     title={pendingSignup.joined?`確定取消「${pendingSignup.name}」的報名？`:`確定報名參加「${pendingSignup.name}」？`}
-    description={pendingSignup.joined?"取消後可重新報名，但截止後就無法再加入。":"截止後會按報名名單抽籤，屆時將不能取消。"}
-    onClose={()=>setPendingSignup(null)}>
-    {/* Optional and skippable — a member can always add or change it later from the cup page, so
-        this is a convenience offered at the moment it's top of mind, never a gate on signing up. */}
-    {!pendingSignup.joined&&<label className="cup-arrival-field">
-      <span>預計到達時間（可選）</span>
-      <input type="time" value={signupArrivalTime} onChange={event=>setSignupArrivalTime(event.target.value)}/>
-    </label>}
+    description={pendingSignup.joined?"取消後可重新報名，但截止後就無法再加入。":"截止前都可以隨時取消報名；報名後仍可隨時更改預計到達時間。"}
+    onClose={()=>setPendingSignup(null)}
+    extra={!pendingSignup.joined&&<div className="cup-arrival-toggle-block">
+      {/* Optional and skippable — a member can always add or change it later from the cup page, so
+          this is a convenience offered at the moment it's top of mind, never a gate on signing up. */}
+      <div className="cup-arrival-toggle-row" role="switch" aria-checked={signupArrivalOn} aria-label="分享預計到達時間" tabIndex={0}
+        onClick={()=>setSignupArrivalOn(value=>!value)}
+        onKeyDown={event=>{if(event.key===" "||event.key==="Enter"){event.preventDefault();setSignupArrivalOn(value=>!value)}}}>
+        <div className="cup-arrival-toggle-copy"><b>分享預計到達時間</b><small>可選 — 讓其他球員知道你大約幾點到場。</small></div>
+        <span className={`toggle-switch${signupArrivalOn?" on":""}`} aria-hidden="true"><i/></span>
+      </div>
+      {signupArrivalOn&&<label className="cup-arrival-field">
+        <span>預計到達時間</span>
+        <input type="time" autoFocus value={signupArrivalTime} onChange={event=>setSignupArrivalTime(event.target.value)}/>
+      </label>}
+    </div>}>
     <Button variant="secondary" onClick={()=>setPendingSignup(null)}>返回</Button>
-    <Button variant={pendingSignup.joined?"danger":"primary"} onClick={()=>{const id=pendingSignup.id,joined=pendingSignup.joined,arrivalTime=signupArrivalTime;setPendingSignup(null);setSignupArrivalTime("");onSignUpTournament(id,joined?undefined:(arrivalTime||undefined))}}>{pendingSignup.joined?"確定取消":"確定報名"}</Button>
+    <Button variant={pendingSignup.joined?"danger":"primary"} onClick={()=>{const id=pendingSignup.id,joined=pendingSignup.joined,arrivalTime=signupArrivalOn?signupArrivalTime:"";setPendingSignup(null);setSignupArrivalOn(false);setSignupArrivalTime("");onSignUpTournament(id,joined?undefined:(arrivalTime||undefined))}}>{pendingSignup.joined?"確定取消":"確定報名"}</Button>
   </ConfirmDialog>;
   /* Tapping a node in the overview has to *land* somewhere, or the map is just decoration: it opens
      that round and scrolls its card into view, flashing it so the eye finds it after the jump. */
@@ -2618,7 +2627,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       <div className={`cup-signup${signedUp?" in":""}`}>
         <div><b>{signedUp?"你已報名":"報名參加"}</b><small>{signedUp?"截止後會自動抽籤，並通知你首圈對手。":"截止後按報名名單抽籤並建立對陣。"}</small></div>
         {ownPlayerId
-          ?<Button variant={signedUp?"secondary":"primary"} className="cup-btn" onClick={()=>{setSignupArrivalTime("");setPendingSignup({id:selectedTournament,name:tournament.name,joined:signedUp})}}>{signedUp?"取消報名":"立即報名"}</Button>
+          ?<Button variant={signedUp?"secondary":"primary"} className="cup-btn" onClick={()=>{setSignupArrivalOn(false);setSignupArrivalTime("");setPendingSignup({id:selectedTournament,name:tournament.name,joined:signedUp})}}>{signedUp?"取消報名":"立即報名"}</Button>
           :<a className="cup-btn primary" href="/login">登入後報名</a>}
       </div>
       {arrivalEditor}
