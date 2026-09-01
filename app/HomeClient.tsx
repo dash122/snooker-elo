@@ -20,7 +20,7 @@ import ShareSheet from "./ShareSheet";
 import { AppShell, PageFrame } from "./components/shell/AppShell";
 import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
 import { buildBracket, cupMatches, currentRoundLabel, drawOrder, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, reorderDraw, roundLabel, shuffleDraw, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
-import { Button, IconButton, InlineNotice, SegmentedControl, SlidingToggleGroup, StatTile, Surface } from "./components/ui/Primitives";
+import { Button, IconButton, InlineNotice, SegmentedControl, Skeleton, SlidingToggleGroup, StatTile, Surface } from "./components/ui/Primitives";
 import { Sheet, ConfirmDialog } from "./components/ui/Overlay";
 
 type Player = {
@@ -1305,7 +1305,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
         <span>設定頭像同答幾條問題，即可取得初始評級 — 未完成前無法記錄比賽。</span>{" "}
         <a className="onboarding-notice-link" href="/onboarding?reminder=1">立即完成</a>
       </InlineNotice>}
-      {stateLoadStatus==="loading"&&<InlineNotice title="正在載入球會資料">{stateLoadAttempt>0?`正在重試連接資料庫（第 ${stateLoadAttempt+1} 次）…`:"正在連接資料庫，請稍候。"}</InlineNotice>}
+      {stateLoadStatus==="loading"&&<HomeLoadingSkeleton/>}
       {stateLoadStatus==="failed"&&<InlineNotice tone="danger" title="未能載入球會資料"><span>{stateLoadError}</span> <Button variant="secondary" onClick={()=>{setStateLoadStatus("loading");setStateLoadError("");setStateRetry(value=>value+1)}}>重試</Button></InlineNotice>}
       {stateLoadStatus==="ready"&&<>
       {/* The club's pulse, on the screen members actually open. Matchmaking used to live entirely
@@ -1558,6 +1558,27 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
       <p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":breakView==="overall"?"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。":`${thirtyDaysAgo} 至 ${today} 的最高單桿，同一球員可重複上榜。`}</p></>}
     </section>}
     {homeView==="recent"&&<ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/>}</>;
+}
+
+function HomeLoadingSkeleton() {
+  return <section className="home-loading-skeleton" aria-busy="true" aria-label="正在載入球會資料">
+    <span className="sr-only">正在載入球會資料</span>
+    <div className="home-loading-hero" aria-hidden="true">
+      <div className="home-loading-hero-copy">
+        <Skeleton width="8rem" height=".75rem" />
+        <Skeleton width="min(24rem, 80%)" height="clamp(3.8rem, 9vw, 5.2rem)" className="home-loading-title" />
+        <Skeleton width="min(30rem, 90%)" height="1rem" />
+        <div className="home-loading-stats"><Skeleton width="5rem" height="2.2rem" /><Skeleton width="5rem" height="2.2rem" /><Skeleton width="5rem" height="2.2rem" /></div>
+      </div>
+      <Skeleton width="13rem" height="4.5rem" className="home-loading-action" />
+    </div>
+    <div className="home-loading-tabs" aria-hidden="true"><Skeleton width="5.5rem" height="1rem" /><Skeleton width="7rem" height="1rem" /><Skeleton width="7rem" height="1rem" /></div>
+    <section className="home-loading-panel" aria-hidden="true">
+      <div className="home-loading-panel-head"><div><Skeleton width="7rem" height=".75rem" /><Skeleton width="8rem" height="1.9rem" /><Skeleton width="min(26rem, 90%)" height=".9rem" /></div><Skeleton width="14rem" height="2.75rem" className="home-loading-toggle" /></div>
+      <div className="home-loading-podium"><Skeleton height="8.5rem" /><Skeleton height="10rem" /><Skeleton height="8.5rem" /></div>
+      <div className="home-loading-table"><div className="home-loading-table-head"><Skeleton height=".75rem" /><Skeleton height=".75rem" /><Skeleton height=".75rem" /><Skeleton height=".75rem" /></div>{Array.from({length:5},(_,index)=><div className="home-loading-row" key={index}><Skeleton width="2rem" height="1rem" /><span><Skeleton width="2.75rem" height="2.75rem" className="home-loading-avatar" /><Skeleton width="7rem" height=".9rem" /></span><Skeleton width="5rem" height="1.2rem" /><Skeleton width="4rem" height="1.2rem" /></div>)}</div>
+    </section>
+  </section>;
 }
 
 function trendDateLabel(date:string){return date.replace(/-/g,"/");}
