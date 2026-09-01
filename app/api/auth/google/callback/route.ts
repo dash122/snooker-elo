@@ -99,7 +99,7 @@ export async function GET(request: Request) {
   if (outcome.status === "deactivated") return fail(request, "google-failed");
 
   const sessionCookie = await createSession(outcome.email);
-  const redirectTo = outcome.status === "created" ? "/login?welcome=1" : "/";
+  const redirectTo = outcome.status === "created" ? "/onboarding" : "/";
 
   return new Response(null, {
     status: 303,
