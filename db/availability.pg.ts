@@ -1,5 +1,5 @@
 import { getSql } from "./sql";
-import { mergeAvailabilitySlots, type AvailabilitySlot } from "../lib/availability";
+import { mergeAvailabilitySlots, type AvailabilitySlot, type SlotConditions } from "../lib/availability";
 import { materialiseRecurrence, materialiseRecurrenceThrottled, materialiseRecurrenceThrottledForPlayer } from "./recurrence.pg";
 
 export type AvailabilityMember = { id:string; name:string; short:string; rating:number; colour?:string|null; avatar?:string|null; slots:AvailabilitySlot[] };
@@ -8,6 +8,22 @@ export type AvailabilityMember = { id:string; name:string; short:string; rating:
  * CREATE/ALTER statements acquire heavyweight relation locks, and running them on every serverless
  * cold start can block the state and matchmaking reads that share this pool. */
 export async function ensureAvailabilitySchema(){ return Promise.resolve(); }
+
+/** Preferences ride on a slot as jsonb, so anything unrecognised is dropped rather than trusted back
+    out of the database. Re-exported because the API routes type their payloads with it. */
+export type { SlotConditions };
+
+function readConditions(value:unknown):SlotConditions {
+  if(!value||typeof value!=="object")return {};
+  const raw=value as Record<string,unknown>;
+  const out:SlotConditions={};
+  if(typeof raw.handicap==="boolean")out.handicap=raw.handicap;
+  if(typeof raw.noSmoking==="boolean")out.noSmoking=raw.noSmoking;
+  if(typeof raw.frames==="number"&&Number.isFinite(raw.frames))out.frames=raw.frames;
+  if(typeof raw.levelOnly==="boolean")out.levelOnly=raw.levelOnly;
+  if(typeof raw.tableBooked==="boolean")out.tableBooked=raw.tableBooked;
+  return out;
+}
 async function ensureSchema(){ return Promise.resolve(); }
 
 function slot(row:any):AvailabilitySlot { return {id:row.id,playerId:row.playerId,startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString(),createdAt:new Date(row.createdAt).toISOString(),updatedAt:new Date(row.updatedAt).toISOString(),cancelledAt:row.cancelledAt?new Date(row.cancelledAt).toISOString():null,conditions:readConditions(row.conditions)}; }
@@ -47,6 +63,15 @@ async function ownActiveSlots(tx:any,playerId:string){
   return rows.map(slot);
 }
 
+/** The venue a write lands at when the caller does not name one — 「我而家得閒」, the weekly rules,
+    and the intent routes, none of which asks which club. Read from the table rather than hard-coded
+    to SCAA, so adding a second club cannot silently pour its rows into the first one. */
+async function defaultVenueId(tx:any):Promise<string>{
+  const [row]=await tx`SELECT id FROM venues WHERE active ORDER BY created_at LIMIT 1`;
+  if(!row)throw new Error("未設定任何球會");
+  return row.id;
+}
+
 export async function publishAvailability(playerId:string,items:{startAt:string;endAt:string;conditions?:SlotConditions}[]){
   await ensureSchema(); const sql=getSql();
   return sql.begin(async tx=>{
@@ -54,7 +79,8 @@ export async function publishAvailability(playerId:string,items:{startAt:string;
     const candidates=existing.filter(row=>items.some(item=>Date.parse(row.startAt)<=Date.parse(item.endAt)&&Date.parse(row.endAt)>=Date.parse(item.startAt)));
     const merged=mergeAvailabilitySlots([...items,...candidates.map(row=>({startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString(),conditions:readConditions(row.conditions)}))]);
     if(candidates.length)await tx`UPDATE availability_slots SET cancelled_at=now(),updated_at=now() WHERE id IN ${tx(candidates.map(row=>row.id))}`;
-    for(const item of merged){const id=crypto.randomUUID();await tx`INSERT INTO availability_slots (id,player_id,start_at,end_at,conditions) VALUES (${id},${playerId},${item.startAt},${item.endAt},${JSON.stringify(readConditions(item.conditions))})`;}
+    const venueId=await defaultVenueId(tx);
+    for(const item of merged){const id=crypto.randomUUID();await tx`INSERT INTO availability_slots (id,player_id,venue_id,start_at,end_at,conditions) VALUES (${id},${playerId},${venueId},${item.startAt},${item.endAt},${JSON.stringify(readConditions(item.conditions))})`;}
     return ownActiveSlots(tx,playerId);
   });
 }
@@ -67,7 +93,8 @@ export async function updateAvailability(id:string,playerId:string,item:{startAt
     const candidates=existing.filter(row=>Date.parse(row.startAt)<=Date.parse(item.endAt)&&Date.parse(row.endAt)>=Date.parse(item.startAt));
     const merged=mergeAvailabilitySlots([item,...candidates.map(row=>({startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString(),conditions:readConditions(row.conditions)}))]);
     await tx`UPDATE availability_slots SET cancelled_at=now(),updated_at=now() WHERE id=${id} OR id IN ${tx(candidates.length?candidates.map(row=>row.id):[id])}`;
-    for(const entry of merged){const newId=crypto.randomUUID();await tx`INSERT INTO availability_slots (id,player_id,start_at,end_at,conditions) VALUES (${newId},${playerId},${entry.startAt},${entry.endAt},${JSON.stringify(readConditions(entry.conditions))})`;}
+    const venueId=await defaultVenueId(tx);
+    for(const entry of merged){const newId=crypto.randomUUID();await tx`INSERT INTO availability_slots (id,player_id,venue_id,start_at,end_at,conditions) VALUES (${newId},${playerId},${venueId},${entry.startAt},${entry.endAt},${JSON.stringify(readConditions(entry.conditions))})`;}
     return ownActiveSlots(tx,playerId);
   });
 }
@@ -105,18 +132,20 @@ export async function cancelAvailability(id:string,playerId:string){
 export type Session = AvailabilitySlot & { venue:string; note:string };
 
 function session(row:any):Session {
-  return {...slot(row),venue:row.venue??"",note:row.note??""};
+  return {...slot(row),venue:row.venueName??"",note:row.note??""};
 }
 
 /** This member's own sessions, newest window last. Finished ones are included: the card for a
     session that just ended is what asks for the score. */
 export async function listSessions(playerId:string,sinceHours=12):Promise<Session[]>{
   await ensureSchema(); await materialiseRecurrence(playerId).catch(()=>0); const sql=getSql();
-  const rows=await sql<any[]>`SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",
-      created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",venue,note
-    FROM availability_slots
-    WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() - ${`${sinceHours} hours`}::interval
-    ORDER BY start_at`;
+  /* `venue` was free text and is gone; the name now comes from the venue the slot points at. */
+  const rows=await sql<any[]>`SELECT s.id,s.player_id AS "playerId",s.start_at AS "startAt",s.end_at AS "endAt",
+      s.created_at AS "createdAt",s.updated_at AS "updatedAt",s.cancelled_at AS "cancelledAt",
+      s.conditions,v.name AS "venueName",s.note
+    FROM availability_slots s LEFT JOIN venues v ON v.id=s.venue_id
+    WHERE s.player_id=${playerId} AND s.cancelled_at IS NULL AND s.end_at > now() - ${`${sinceHours} hours`}::interval
+    ORDER BY s.start_at`;
   return rows.map(session);
 }
 
@@ -129,146 +158,22 @@ export async function createSession(playerId:string,input:{startAt:string;endAt:
       WHERE player_id=${playerId} AND cancelled_at IS NULL
         AND start_at < ${input.endAt} AND end_at > ${input.startAt} LIMIT 1`;
     if(clash.length)return null;
-    const [row]=await tx<any[]>`INSERT INTO availability_slots (id,player_id,start_at,end_at,venue,note)
-      VALUES (${crypto.randomUUID()},${playerId},${input.startAt},${input.endAt},${input.venue??""},${input.note??""})
+    const venueId=await defaultVenueId(tx);
+    const [row]=await tx<any[]>`INSERT INTO availability_slots (id,player_id,venue_id,start_at,end_at,note)
+      VALUES (${crypto.randomUUID()},${playerId},${venueId},${input.startAt},${input.endAt},${input.note??""})
       RETURNING id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",
-        created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",venue,note`;
-    return session(row);
+        created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",conditions,note`;
+    const [venue]=await tx<any[]>`SELECT name FROM venues WHERE id=${venueId}`;
+    return session({...row,venueName:venue?.name??""});
   });
 }
 
-/* --- Posted slots · 開局卡 ---------------------------------------------------
- *
- * The same rows as above, `posted=true`. What a session adds to plain availability, a posted slot
- * adds to a session: a fill rule the poster chose before anyone read a name, and the conditions that
- * make raising a hand safe to do without asking first.
- *
- * A slot is never filled by the poster choosing among visible names — see `db/slot-hands.pg.ts`. It
- * is filled either the instant a hand lands (`fill_rule='first'`) or by the poster picking from a
- * list nobody else ever sees (`fill_rule='review'`). Either way the losing hands are never told they
- * lost; they simply stop seeing the slot as theirs to raise on. */
+/* The 開局卡 layer that used to live here — posted slots, the board, sharing and results — read
+   `posted`, `fill_rule`, `filled_by`, `filled_at`, `result` and `closed_at`, every one of which the
+   場次 migration dropped. Nothing called it any more, so it goes rather than being ported. */
 
-export type SlotConditions = { handicap?:boolean; noSmoking?:boolean; frames?:number|null; levelOnly?:boolean; tableBooked?:boolean };
-export type FillRule = "first"|"review";
-export type PostedSlot = Session & {
-  fillRule:FillRule; conditions:SlotConditions;
-  filledBy:string|null; filledAt:string|null; result:"pending"|"played"|"missed";
-  /** 夠喇 · 唔再收 — the only thing besides cancelling or the clock that stops a slot taking hands.
-      Being filled does not: see `boardSlots`. */
-  closedAt:string|null;
-};
-
-function readConditions(value:unknown):SlotConditions {
-  if(!value||typeof value!=="object")return {};
-  const raw=value as Record<string,unknown>;
-  const out:SlotConditions={};
-  if(typeof raw.handicap==="boolean")out.handicap=raw.handicap;
-  if(typeof raw.noSmoking==="boolean")out.noSmoking=raw.noSmoking;
-  if(typeof raw.frames==="number"&&Number.isFinite(raw.frames))out.frames=raw.frames;
-  if(typeof raw.levelOnly==="boolean")out.levelOnly=raw.levelOnly;
-  if(typeof raw.tableBooked==="boolean")out.tableBooked=raw.tableBooked;
-  return out;
-}
-
-function postedSlot(row:any):PostedSlot {
-  return {...session(row),fillRule:row.fillRule==="review"?"review":"first",conditions:readConditions(row.conditions),
-    filledBy:row.filledBy??null,filledAt:row.filledAt?new Date(row.filledAt).toISOString():null,
-    closedAt:row.closedAt?new Date(row.closedAt).toISOString():null,
-    result:row.result==="played"||row.result==="missed"?row.result:"pending"};
-}
-
-const POSTED_COLUMNS=`id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",
-  created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",venue,note,
-  fill_rule AS "fillRule",conditions,filled_by AS "filledBy",filled_at AS "filledAt",result,
-  closed_at AS "closedAt"`;
-
-/** Post one: a session with a fill rule and conditions attached from the moment it exists, not
-    bolted on after. Overlap is refused for the same reason `createSession` refuses it — two open
-    posts covering the same evening would race for the same table. */
-export async function createPostedSlot(playerId:string,input:{startAt:string;endAt:string;venue?:string;note?:string;fillRule:FillRule;conditions:SlotConditions}):Promise<PostedSlot|null>{
-  await ensureSchema(); const sql=getSql();
-  return sql.begin(async tx=>{
-    const clash=await tx<any[]>`SELECT id FROM availability_slots
-      WHERE player_id=${playerId} AND cancelled_at IS NULL
-        AND start_at < ${input.endAt} AND end_at > ${input.startAt} LIMIT 1`;
-    if(clash.length)return null;
-    const [row]=await tx<any[]>`INSERT INTO availability_slots (id,player_id,start_at,end_at,venue,note,posted,fill_rule,conditions)
-      VALUES (${crypto.randomUUID()},${playerId},${input.startAt},${input.endAt},${input.venue??""},${input.note??""},true,${input.fillRule},${JSON.stringify(input.conditions)})
-      RETURNING ${tx.unsafe(POSTED_COLUMNS)}`;
-    return postedSlot(row);
-  });
-}
-
-/** Edit one — only while it is still open and nobody has been accepted yet. Once somebody is
-    accepted the time and place are a promise made to them, not a draft; the poster's only lever
-    from that point on is 取消 (cancel), same as before this existed. Overlap is refused the same
-    way `createPostedSlot` refuses it, checked against the poster's other active windows excluding
-    this one. */
-export async function editPostedSlot(playerId:string,id:string,input:{startAt:string;endAt:string;venue?:string;note?:string;fillRule:FillRule;conditions:SlotConditions}):Promise<PostedSlot|null>{
-  await ensureSchema(); const sql=getSql();
-  return sql.begin(async tx=>{
-    const [current]=await tx<any[]>`SELECT id FROM availability_slots
-      WHERE id=${id} AND player_id=${playerId} AND posted=true AND cancelled_at IS NULL AND filled_by IS NULL AND end_at > now()`;
-    if(!current)return null;
-    const clash=await tx<any[]>`SELECT id FROM availability_slots
-      WHERE player_id=${playerId} AND cancelled_at IS NULL AND id != ${id}
-        AND start_at < ${input.endAt} AND end_at > ${input.startAt} LIMIT 1`;
-    if(clash.length)return null;
-    const [row]=await tx<any[]>`UPDATE availability_slots SET
-        start_at=${input.startAt},end_at=${input.endAt},venue=${input.venue??""},note=${input.note??""},
-        fill_rule=${input.fillRule},conditions=${JSON.stringify(input.conditions)},updated_at=now()
-      WHERE id=${id} RETURNING ${tx.unsafe(POSTED_COLUMNS)}`;
-    return row?postedSlot(row):null;
-  });
-}
-
-/** This member's own posted slots — open, filled, or finished — newest window last. Includes hand
-    counts privately: nobody but the poster ever learns how many raised, or who, per `handsForSlot`
-    in `db/slot-hands.pg.ts`; this function only returns the slot itself. */
-export async function myPostedSlots(playerId:string,sinceHours=12):Promise<PostedSlot[]>{
-  await ensureSchema(); const sql=getSql();
-  const rows=await sql<any[]>`SELECT ${sql.unsafe(POSTED_COLUMNS)} FROM availability_slots
-    WHERE player_id=${playerId} AND posted=true AND cancelled_at IS NULL AND end_at > now() - ${`${sinceHours} hours`}::interval
-    ORDER BY start_at`;
-  return rows.map(postedSlot);
-}
-
-/** The board: every post still taking hands, soonest first.
- *
- *  Two changes from the first version of this query, and they are the same change twice. It used to
- *  exclude filled slots, so taking one person emptied the table; and it deliberately carried no hand
- *  count, on the reasoning that what others had done should not sway anyone.
- *
- *  Both proved too strong. A slot that took somebody is often *more* worth joining, not less — three
- *  round one table is a normal club night. And a card showing 「3 人舉咗手」 and a card showing
- *  nothing are not the same object to somebody deciding whether to bother: withholding the number
- *  does not make the board neutral, it makes it look dead, which is the exact problem the club has.
- *  So counts travel with every row (attached by the caller via `handSummaries`); *names* of people
- *  still waiting never do.
- *
- *  `excludePlayerId` is empty for a signed-out reader, who gets the whole board — see the API. */
-export type BoardSlot = PostedSlot & {player:{id:string;name:string;short:string;rating:number;colour:string|null;avatar:string|null}};
-
-export async function boardSlots(excludePlayerId:string,limit=40):Promise<BoardSlot[]>{
-  await ensureSchema(); const sql=getSql();
-  const rows=await sql<any[]>`SELECT s.id,s.player_id AS "playerId",s.start_at AS "startAt",s.end_at AS "endAt",
-      s.created_at AS "createdAt",s.updated_at AS "updatedAt",s.cancelled_at AS "cancelledAt",s.venue,s.note,
-      s.fill_rule AS "fillRule",s.conditions,s.filled_by AS "filledBy",s.filled_at AS "filledAt",s.result,
-      s.closed_at AS "closedAt",
-      p.id AS "posterId",p.name,p.short,p.rating::float8 AS rating,p.colour,p.avatar
-    FROM availability_slots s JOIN state_players p ON p.id=s.player_id
-    WHERE s.posted=true AND s.cancelled_at IS NULL AND s.closed_at IS NULL AND s.end_at > now() AND p.active=true
-      AND s.player_id != ${excludePlayerId}
-    ORDER BY s.start_at LIMIT ${limit}`;
-  return rows.map(row=>({...postedSlot(row),
-    player:{id:row.posterId,name:row.name,short:row.short,rating:Number(row.rating),colour:row.colour,avatar:row.avatar}}));
-}
-
-/** Count of distinct members with a live availability window.
- *
- * `posted` was part of the retired 開局卡 model. Availability rows are now the source of truth for
- * matchmaking, so this count intentionally uses only columns that still exist in the unified schema.
- */
+/** Distinct members with live availability, club-wide. No caller today, but it is the counterpart
+    to `openSlotsCount` and is guarded by tests/availability-schema-alignment. */
 export async function boardOpenCount():Promise<number>{
   await ensureSchema(); const sql=getSql();
   const [row]=await sql<{count:string}[]>`SELECT count(DISTINCT player_id)::text AS count FROM availability_slots
@@ -276,65 +181,9 @@ export async function boardOpenCount():Promise<number>{
   return Number(row?.count??0);
 }
 
-/** How many live availability windows the club has right now.
- *
- * The old implementation counted `posted` 開局卡 rows. That lifecycle was removed when availability
- * and sessions were unified (see `20260830010000_venues_and_slot_commitment.sql`), so querying that
- * column now takes down the shell's summary request on every page load. The summary only needs a
- * liveliness signal; an active availability window is the canonical signal in the current schema.
- */
 export async function openSlotsCount():Promise<number>{
   await ensureSchema(); const sql=getSql();
   const [row]=await sql<{count:string}[]>`SELECT count(*)::text AS count FROM availability_slots
     WHERE cancelled_at IS NULL AND end_at > now()`;
   return Number(row?.count??0);
-}
-
-/** The public preview behind a shared link — readable without signing in, like an open call always
-    was. Only ever a post that is still open: once filled or cancelled, the link should read as gone
-    rather than show a stranger who is now playing. */
-export async function sharedSlot(id:string):Promise<(PostedSlot&{player:{id:string;name:string;short:string;rating:number;colour?:string|null;avatar?:string|null}})|null>{
-  await ensureSchema(); const sql=getSql();
-  const [row]=await sql<any[]>`SELECT ${sql.unsafe(POSTED_COLUMNS)} FROM availability_slots
-    WHERE id=${id} AND posted=true AND cancelled_at IS NULL AND closed_at IS NULL AND end_at > now()`;
-  if(!row)return null;
-  const [player]=await sql<any[]>`SELECT id,name,short,rating::float8 AS rating,colour,avatar FROM state_players WHERE id=${row.playerId} AND active=true`;
-  if(!player)return null;
-  return {...postedSlot(row),player:{id:player.id,name:player.name,short:player.short,rating:Number(player.rating),colour:player.colour,avatar:player.avatar}};
-}
-
-/** One row, for the two people who need to see conditions and each other's contact path once a slot
-    is filled. Used for the hand-off card and for validating who may record a result. */
-export async function postedSlotById(id:string):Promise<PostedSlot|null>{
-  await ensureSchema(); const sql=getSql();
-  const [row]=await sql<any[]>`SELECT ${sql.unsafe(POSTED_COLUMNS)} FROM availability_slots WHERE id=${id} AND posted=true`;
-  return row?postedSlot(row):null;
-}
-
-/** Fill a slot with a specific player, inside the caller's transaction — used by both the instant
-    first-hand-wins path and the poster's manual pick, so the two never disagree about what "filled"
-    means. Refuses anything already filled: the caller is responsible for deciding what that means
-    for the hand that just lost the race. */
-export async function fillPostedSlotTx(tx:any,id:string,byPlayerId:string):Promise<PostedSlot|null>{
-  const rows=await tx<any[]>`UPDATE availability_slots SET filled_by=${byPlayerId},filled_at=now(),updated_at=now()
-    WHERE id=${id} AND posted=true AND cancelled_at IS NULL AND filled_by IS NULL AND end_at > now()
-    RETURNING ${tx.unsafe(POSTED_COLUMNS)}`;
-  return rows[0]?postedSlot(rows[0]):null;
-}
-
-/** Full player profiles for a batch of ids, keyed for a `Map` lookup — the join a route composes for
-    itself once it needs more than a name, same shape `/api/sessions` already builds from `state`. */
-export async function playerProfiles(ids:string[]):Promise<Map<string,{id:string;name:string;short:string;rating:number;colour:string|null;avatar:string|null}>>{
-  if(!ids.length)return new Map();
-  const sql=getSql();
-  const rows=await sql<any[]>`SELECT id,name,short,rating::float8 AS rating,colour,avatar FROM state_players WHERE id IN ${sql(ids)}`;
-  return new Map(rows.map(row=>[row.id,{id:row.id,name:row.name,short:row.short,rating:Number(row.rating),colour:row.colour,avatar:row.avatar}]));
-}
-
-export async function recordSlotResult(playerId:string,id:string,result:"played"|"missed"):Promise<PostedSlot|null>{
-  await ensureSchema(); const sql=getSql();
-  const rows=await sql<any[]>`UPDATE availability_slots SET result=${result},updated_at=now()
-    WHERE id=${id} AND posted=true AND filled_by IS NOT NULL AND (player_id=${playerId} OR filled_by=${playerId})
-    RETURNING ${sql.unsafe(POSTED_COLUMNS)}`;
-  return rows[0]?postedSlot(rows[0]):null;
 }

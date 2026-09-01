@@ -772,10 +772,10 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
  return <>
 {userPlayerId&&<SlidingToggleGroup as="nav" className="page-tabs home-view-nav" aria-label="配對內容" role="tablist">
   <button type="button" role="tab" aria-selected={view==="book"} className={view==="book"?"active":""} onClick={()=>nav("book")}><span>約戰</span></button>
-  <button type="button" role="tab" aria-selected={view==="mine"} className={view==="mine"?"active":""} onClick={()=>nav("mine")}><span>我的空檔</span></button>
+  <button type="button" role="tab" aria-selected={view==="mine"} className={view==="mine"?"active":""} onClick={()=>nav("mine")}><span>逐格編輯</span></button>
 </SlidingToggleGroup>}
 <section className="availability-page">
-<section className="hero small availability-hero"><div><p className="kicker">SCAA MATCHMAKING</p><h1>約戰</h1><p>搵一場啱你嘅球局，或者開一場等人加入。</p></div></section>
+<section className="hero small availability-hero"><div><p className="kicker">SCAA MATCHMAKING</p><h1>約戰</h1><p>睇下今晚幾點最多人，再話畀大家知你幾時到。</p></div></section>
 {message&&<p key={message} className="availability-notice" role="status">{message}</p>}
 {loadError&&<div className="availability-load-error">
   <InlineNotice tone="warning" title="未能載入約戰資料">
@@ -795,16 +795,6 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
 
 {queueItems.length>0&&userPlayerId&&<ResponseQueue items={queueItems}/>}
 
-{/* The tab itself: one timeline of 開局卡, mine inline among everyone else's, in clock order.
-    A member posts a slot — a block of time they are free — and the club raises hands on it. No name
-    is ever read off a public list before a slot is filled, which is the whole point: raising a hand
-    costs nothing, and confirming one does not mean reading past the others.
-
-    Everything that is not that — the whole-club availability grid, the weekly rules, notification
-    prefs, invites already waiting on somebody else — now lives one level down, in the editor below.
-    They were four surfaces competing with the board for the same screen while answering questions
-    nobody had asked yet. */}
-
 {/* 現時喺會所 — live truth, which outranks any forecast the moment it exists.
     This component was written months ago and then orphaned: nothing imported it, and only
     `/api/room` survived, called by a screen that never rendered. It is the club's own answer to
@@ -817,7 +807,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
 {/* One screen, one gesture: the board is the list, the editor and the composer at once. Nothing here
     navigates away, so a member can paint three evenings and publish them in a single pass. */}
 {editor&&userPlayerId&&<section className="availability-editor">
- <header className="availability-day-head"><div><h2>公開你的空閒時間</h2><small>拖曳加入時段，點按可調整或刪除。</small></div>
+ <header className="availability-day-head"><div><h2>逐格編輯你嘅時段</h2><small>想一次過畫幾晚就用呢度。寫入嘅同上面撳「我會去」係同一種資料。</small></div>
   <span className="slot-tally-group"><span className="slot-tally"><b>{own.length}</b>個已公開</span>{own.length>0&&<Button variant="quiet" className="clear-all-link" onClick={()=>setConfirmClear(true)}>全部刪除</Button>}</span></header>
  <section className={`availability-card slot-board-card${draft.length||pendingKeys.length?" has-draft":""}`}>
   <SlotBoard dates={boardDates} items={displayedBoardItems} lo={boardRange.lo} hi={boardRange.hi} soonest={soonest} selected={selected}
