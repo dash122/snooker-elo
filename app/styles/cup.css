@@ -361,8 +361,13 @@
 .cup-roster h3 .cup-roster-shuffle>span{min-width:0;padding:0;border-radius:0;background:transparent;color:inherit;font-size:var(--fs-sm);font-weight:inherit;text-align:inherit}
 
 /* --- Arrival time -------------------------------------------------------- */
-/* Set once at sign-up or any time after — a quiet chip rather than another form field, since it's
-   a courtesy for the other entrants and never a requirement to be in the cup. */
+/* Every native date/time-family input has been replaced with this pair of plain selects: unlike
+   a native time field, a select has no intrinsic minimum-width quirk (most visible on iOS Safari,
+   where a date/time control refuses to shrink below its own picker chrome no matter what CSS says)
+   — so this is the one time-entry control in the app guaranteed to stay inside its row. */
+.time-of-day-picker{display:flex;align-items:center;gap:var(--sp-1-5)}
+.time-of-day-picker select{min-width:0;flex:1 1 0;min-height:44px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:0 var(--sp-2);background:white;color:var(--ds-text-primary);font-size:var(--fs-input);font-variant-numeric:tabular-nums;text-align:center}
+.time-of-day-picker span{flex:0 0 auto;color:var(--ds-text-secondary);font-weight:800}
 /* Overrides .availability-dialog>div's flex-row treatment (meant for the button row) — this sits
    between the description and the actions, and needs to stack as an ordinary block instead. */
 .availability-dialog>.cup-arrival-toggle-block{display:block;margin:var(--sp-1) 0 var(--sp-4)}
@@ -373,15 +378,31 @@
 .cup-arrival-toggle-copy small{font-size:var(--fs-label);color:var(--ds-text-secondary);line-height:1.4}
 .cup-arrival-toggle-block .cup-arrival-field{margin:var(--sp-3) 0 0}
 .cup-arrival-field{display:block;margin:var(--sp-1) 0 var(--sp-3);font-size:var(--fs-sm);font-weight:700;color:var(--ds-text-secondary)}
-.cup-arrival-field input{display:block;width:100%;margin-top:var(--sp-1-5);min-height:44px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:0 var(--sp-3);background:white;color:var(--ds-text-primary);font-size:var(--fs-input)}
-.cup-arrival-chip{display:inline-flex;align-items:center;gap:var(--sp-1-5);margin-top:var(--sp-2-5);border:1px dashed var(--line);border-radius:999px;padding:var(--sp-1-5) var(--sp-3);background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:700}
-.cup-arrival-chip:hover{border-color:var(--ds-border-hover);color:var(--ds-accent-action)}
-.cup-arrival-chip span{font-size:.9em}
-.cup-arrival-editor{display:flex;align-items:flex-end;flex-wrap:wrap;gap:var(--sp-2-5);margin-top:var(--sp-2-5);padding:var(--sp-3);border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--ds-canvas-muted)}
-.cup-arrival-editor label{display:block;font-size:var(--fs-label);font-weight:800;color:var(--ds-text-secondary)}
-.cup-arrival-editor input{display:block;margin-top:var(--sp-1-5);min-height:44px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:0 var(--sp-3);background:white;color:var(--ds-text-primary);font-size:var(--fs-input)}
-.cup-arrival-editor-actions{display:flex;gap:var(--sp-1-5)}
+.cup-arrival-field .time-of-day-picker{margin-top:var(--sp-1-5)}
+
+/* The persistent post-sign-up card. Direct-manipulation presets (tap a chip, it's saved) read as
+   a courtesy exchanged with the field rather than a form to fill in and submit — the one control
+   that still needs typing, an exact custom time, is one tap away rather than the default path. */
+.cup-arrival-card{padding:var(--sp-3-5);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--ds-surface-primary)}
+.cup-arrival-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-3)}
+.cup-arrival-card-copy{display:grid;gap:2px;min-width:0}
+.cup-arrival-card-copy b{display:flex;align-items:center;gap:var(--sp-1-5);font-size:var(--fs-sm);font-weight:800;color:var(--ds-text-primary)}
+.cup-arrival-card-copy small{font-size:var(--fs-label);color:var(--ds-text-secondary);line-height:1.4}
+.cup-arrival-value{flex:0 0 auto;padding:var(--sp-1-5) var(--sp-3);border-radius:999px;background:var(--ds-success-wash);color:var(--ds-success);font-size:var(--fs-sm);font-weight:800;font-variant-numeric:tabular-nums}
+.cup-arrival-presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(5.5rem,1fr));gap:var(--sp-2);margin-top:var(--sp-3)}
+.cup-arrival-preset{display:grid;gap:1px;min-width:0;padding:var(--sp-2) var(--sp-1-5);border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--ds-surface-primary);text-align:center}
+.cup-arrival-preset b{font-size:var(--fs-sm);font-weight:800;color:var(--ds-text-primary);font-variant-numeric:tabular-nums}
+.cup-arrival-preset small{font-size:var(--fs-label);color:var(--ds-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cup-arrival-preset:hover{border-color:var(--ds-border-hover)}
+.cup-arrival-preset.active{border-color:var(--ds-accent-action);background:var(--ds-success-wash)}
+.cup-arrival-preset.active b,.cup-arrival-preset.active small{color:var(--ds-accent-action)}
+.cup-arrival-preset.is-custom b{font-weight:900}
+.cup-arrival-custom{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-2-5);margin-top:var(--sp-3);padding:var(--sp-3);border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--ds-canvas-muted)}
+.cup-arrival-custom .time-of-day-picker{flex:1 1 9rem;min-width:0}
+.cup-arrival-custom-actions{display:flex;flex:0 0 auto;gap:var(--sp-1-5)}
+.cup-arrival-clear{display:block;margin-top:var(--sp-2-5);border:0;background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+.cup-arrival-clear:hover{color:var(--ds-danger)}
+@media(max-width:380px){.cup-arrival-presets{grid-template-columns:repeat(2,1fr)}}
 .cup-roster-arrival{display:inline-flex;align-items:center;gap:2px;color:var(--ds-text-secondary)}
 .cup-roster-arrival i{font-style:normal;opacity:.85}
-@media(max-width:599px){.cup-arrival-editor{flex-direction:column;align-items:stretch}.cup-arrival-editor input{width:100%}.cup-arrival-editor-actions{width:100%}.cup-arrival-editor-actions .ds-button{flex:1}}
 .cup-roster-remove{flex:0 0 auto;color:var(--ds-danger)}.cup-roster-remove:hover{background:var(--ds-danger-wash);color:var(--ds-danger)}
