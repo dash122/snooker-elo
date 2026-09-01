@@ -30,7 +30,7 @@ export function Sheet({open,title,children,onClose,className=""}:{open:boolean;t
 /** Shared scaffold for the app's `.availability-dialog-backdrop`/`.availability-dialog`
     alertdialog pattern (destructive confirmations, unsaved-changes prompts). Owns its own
     focus trap + Escape handling so call sites stop re-implementing the same wiring. */
-export function ConfirmDialog({kicker,title,titleId,description,children,onClose}:{kicker:string;title:ReactNode;titleId:string;description:ReactNode;children:ReactNode;onClose:()=>void}){
+export function ConfirmDialog({kicker,title,titleId,description,extra,children,onClose}:{kicker:string;title:ReactNode;titleId:string;description:ReactNode;extra?:ReactNode;children:ReactNode;onClose:()=>void}){
   const ref=useRef<HTMLElement>(null);
   useEffect(()=>{
     const previous=document.activeElement as HTMLElement|null;
@@ -43,7 +43,7 @@ export function ConfirmDialog({kicker,title,titleId,description,children,onClose
     document.addEventListener("keydown",onKey);
     return()=>{document.removeEventListener("keydown",onKey);previous?.focus()}
   },[onClose]);
-  return <div className="availability-dialog-backdrop" onMouseDown={onClose}><section ref={ref as never} className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={event=>event.stopPropagation()}><small>{kicker}</small><h2 id={titleId}>{title}</h2><p>{description}</p><div>{children}</div></section></div>
+  return <div className="availability-dialog-backdrop" onMouseDown={onClose}><section ref={ref as never} className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={event=>event.stopPropagation()}><small>{kicker}</small><h2 id={titleId}>{title}</h2><p>{description}</p>{extra}<div>{children}</div></section></div>
 }
 export function BackdropSheet({onClose,labelledBy,className,shellClassName,children}:{onClose:()=>void;labelledBy?:string;className?:string;shellClassName?:string;children:ReactNode}){
   const sheetClassName=`sheet${shellClassName?"":" invite-sheet"}${className?` ${className}`:""}`;

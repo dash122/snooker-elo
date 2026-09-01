@@ -363,6 +363,15 @@
 /* --- Arrival time -------------------------------------------------------- */
 /* Set once at sign-up or any time after — a quiet chip rather than another form field, since it's
    a courtesy for the other entrants and never a requirement to be in the cup. */
+/* Overrides .availability-dialog>div's flex-row treatment (meant for the button row) — this sits
+   between the description and the actions, and needs to stack as an ordinary block instead. */
+.availability-dialog>.cup-arrival-toggle-block{display:block;margin:var(--sp-1) 0 var(--sp-4)}
+.cup-arrival-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);padding:var(--sp-3) var(--sp-3-5);border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--ds-canvas-muted);cursor:pointer}
+.cup-arrival-toggle-row:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px}
+.cup-arrival-toggle-copy{display:grid;gap:2px;min-width:0}
+.cup-arrival-toggle-copy b{font-size:var(--fs-sm);font-weight:800;color:var(--ds-text-primary)}
+.cup-arrival-toggle-copy small{font-size:var(--fs-label);color:var(--ds-text-secondary);line-height:1.4}
+.cup-arrival-toggle-block .cup-arrival-field{margin:var(--sp-3) 0 0}
 .cup-arrival-field{display:block;margin:var(--sp-1) 0 var(--sp-3);font-size:var(--fs-sm);font-weight:700;color:var(--ds-text-secondary)}
 .cup-arrival-field input{display:block;width:100%;margin-top:var(--sp-1-5);min-height:44px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:0 var(--sp-3);background:white;color:var(--ds-text-primary);font-size:var(--fs-input)}
 .cup-arrival-chip{display:inline-flex;align-items:center;gap:var(--sp-1-5);margin-top:var(--sp-2-5);border:1px dashed var(--line);border-radius:999px;padding:var(--sp-1-5) var(--sp-3);background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:700}
