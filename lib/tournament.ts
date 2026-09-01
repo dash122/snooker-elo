@@ -261,7 +261,7 @@ export function playerEliminated(bracket:Bracket,playerId:string|undefined):bool
 export type ShuffleResult = {ok:true;tournament:TournamentLike}|{ok:false;error:string};
 
 /** Re-roll the draw order, for an admin who wants a different bracket than the one the hash gave
- *  them — before or after the freeze, as long as nobody has actually played yet.
+ *  them — after the freeze, as long as nobody has actually played yet.
  *
  *  `computeDraw` is deterministic (seeded by the cup id), so there is no "shuffle again" lever on
  *  it; this is that lever, applied to whatever order is currently in effect and written back as the
@@ -269,8 +269,13 @@ export type ShuffleResult = {ok:true;tournament:TournamentLike}|{ok:false;error:
  *  players, and reshuffling out from under it would leave the scorecard pointing at a box the
  *  bracket no longer agrees with. Walkovers are dropped with it — `buildBracket` already ignores one
  *  declared for a player no longer in that slot, but a reshuffle is exactly the moment a stale entry
- *  would otherwise wait to misfire against whoever moved in. */
+ *  would otherwise wait to misfire against whoever moved in.
+ *
+ *  Also refused before the sign-up deadline: freezing a `draw` early snapshots the roster as it
+ *  stands, so anyone who signs up afterwards falls outside it — surfacing as a permanent "late
+ *  signup" once the deadline actually passes, even though sign-ups were still open when they joined. */
 export function shuffleDraw(tournament:TournamentLike,matches:CupMatchLike[]=[]):ShuffleResult {
+  if(!signupsClosed(tournament))return {ok:false,error:"報名尚未截止，未能重新抽籤"};
   const order=drawOrder(tournament);
   if(order.length<2)return {ok:false,error:"報名人數不足兩人"};
   if(cupMatches(matches,tournament.id).length)return {ok:false,error:"已有賽果，不能重新抽籤"};

@@ -219,6 +219,13 @@ test("shuffling is refused for fewer than two entrants", () => {
   assert.equal(shuffleDraw(cup({ signups: ["p1"], draw: ["p1"] }), []).ok, false);
 });
 
+test("shuffling before the sign-up deadline is refused, so a late signup can't be frozen out of a draw that hasn't happened yet", () => {
+  const open = cup({ signups: ["p1", "p2", "p3", "p4"], signupDeadline: FUTURE });
+  const shuffled = shuffleDraw(open, []);
+  assert.equal(shuffled.ok, false);
+  assert.equal(shuffled.error, "報名尚未截止，未能重新抽籤");
+});
+
 test("dragging an entrant onto another moves it there, shifting the rest along", () => {
   const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
   const moved = reorderDraw(drawn, "p1", "p3", []);
