@@ -384,10 +384,11 @@
    a courtesy exchanged with the field rather than a form to fill in and submit — the one control
    that still needs typing, an exact custom time, is one tap away rather than the default path. */
 .cup-arrival-card{padding:var(--sp-3-5);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--ds-surface-primary)}
-.cup-arrival-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-3)}
-.cup-arrival-card-copy{display:grid;gap:2px;min-width:0}
+.cup-arrival-card-head{display:flex;align-items:flex-start;flex-wrap:wrap;justify-content:space-between;gap:var(--sp-2-5) var(--sp-3)}
+.cup-arrival-card-copy{display:grid;gap:2px;min-width:0;flex:1 1 10rem}
 .cup-arrival-card-copy b{display:flex;align-items:center;gap:var(--sp-1-5);font-size:var(--fs-sm);font-weight:800;color:var(--ds-text-primary)}
 .cup-arrival-card-copy small{font-size:var(--fs-label);color:var(--ds-text-secondary);line-height:1.4}
+.cup-arrival-card-actions{display:flex;align-items:center;flex:0 0 auto;gap:var(--sp-2)}
 .cup-arrival-value{flex:0 0 auto;padding:var(--sp-1-5) var(--sp-3);border-radius:999px;background:var(--ds-success-wash);color:var(--ds-success);font-size:var(--fs-sm);font-weight:800;font-variant-numeric:tabular-nums}
 .cup-arrival-presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(5.5rem,1fr));gap:var(--sp-2);margin-top:var(--sp-3)}
 .cup-arrival-preset{display:grid;gap:1px;min-width:0;padding:var(--sp-2) var(--sp-1-5);border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--ds-surface-primary);text-align:center}

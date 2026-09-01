@@ -2340,12 +2340,13 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   const [signupArrivalHour,setSignupArrivalHour]=useState("18");
   const [signupArrivalMinute,setSignupArrivalMinute]=useState("00");
   const startAtTime=tournament?.startAt&&tournament.startAt.length>=16?tournament.startAt.slice(11,16):null;
+  const [arrivalPanelOpen,setArrivalPanelOpen]=useState(false);
   const [arrivalCustomOpen,setArrivalCustomOpen]=useState(false);
   const [arrivalCustomHour,setArrivalCustomHour]=useState("18");
   const [arrivalCustomMinute,setArrivalCustomMinute]=useState("00");
-  // Closes the custom picker across a tournament switch, so it never lingers open against a
-  // different cup's start time than the one it was opened for.
-  useEffect(()=>{setArrivalCustomOpen(false)},[selectedTournament]);
+  // Closes both panels across a tournament switch, so neither lingers open against a different
+  // cup's presets/start time than the one it was opened for.
+  useEffect(()=>{setArrivalPanelOpen(false);setArrivalCustomOpen(false)},[selectedTournament]);
   const confirmSignupDialog=pendingSignup&&<ConfirmDialog kicker={pendingSignup.joined?"取消報名":"確認報名"} titleId="cup-signup-confirm-title"
     title={pendingSignup.joined?`確定取消「${pendingSignup.name}」的報名？`:`確定報名參加「${pendingSignup.name}」？`}
     description={pendingSignup.joined?"取消後可重新報名，但截止後就無法再加入。":"截止前都可以隨時取消報名；報名後仍可隨時更改預計到達時間。"}
@@ -2598,7 +2599,11 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
      joining/leaving does, and stays open to change for as long as you're entered, deadline or not.
      Presets read relative to the cup's own start time (when the host set one) so a tap needs no
      typing at all; "自訂時間" is the one path that still needs input, and even that is two selects
-     rather than a native time field, so it can never be the thing overflowing its row again. */
+     rather than a native time field, so it can never be the thing overflowing its row again.
+
+     Collapsed by default: a card showing a live row of preset buttons invited stray taps from
+     members just scrolling past — "編輯" is a deliberate second step before any of them are even
+     on screen, and picking one (or confirming a custom time) collapses straight back. */
   const myArrivalTime=ownPlayerId?tournament.arrivalTimes?.[ownPlayerId]??"":"";
   const arrivalPresets=startAtTime?[
     {key:"early",label:"提早15分鐘",time:shiftHHMM(startAtTime,-15)},
@@ -2606,7 +2611,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     {key:"late15",label:"遲到15分鐘",time:shiftHHMM(startAtTime,15)},
     {key:"late30",label:"遲到30分鐘",time:shiftHHMM(startAtTime,30)},
   ]:[];
-  const applyArrival=(time:string)=>{onSetArrivalTime(tournament.id,time);setArrivalCustomOpen(false)};
+  const applyArrival=(time:string)=>{onSetArrivalTime(tournament.id,time);setArrivalCustomOpen(false);setArrivalPanelOpen(false)};
   const openArrivalCustom=()=>{
     if(arrivalCustomOpen){setArrivalCustomOpen(false);return}
     const [h,m]=(myArrivalTime||startAtTime||"18:00").split(":");
@@ -2618,24 +2623,29 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         <b><span aria-hidden="true">🕒</span> 到達時間</b>
         <small>{myArrivalTime?"已告知其他球員你預計到達的時間。":"可選 — 讓其他球員知道你大約幾點到場。"}</small>
       </div>
-      {myArrivalTime&&<span className="cup-arrival-value">{myArrivalTime}</span>}
-    </div>
-    <div className="cup-arrival-presets">
-      {arrivalPresets.map(preset=><button type="button" key={preset.key} className={`cup-arrival-preset${myArrivalTime===preset.time?" active":""}`} onClick={()=>applyArrival(preset.time)}>
-        <b>{preset.time}</b><small>{preset.label}</small>
-      </button>)}
-      <button type="button" className={`cup-arrival-preset is-custom${arrivalCustomOpen?" active":""}`} aria-expanded={arrivalCustomOpen} onClick={openArrivalCustom}>
-        <b aria-hidden="true">⋯</b><small>自訂時間</small>
-      </button>
-    </div>
-    {arrivalCustomOpen&&<div className="cup-arrival-custom">
-      <TimeOfDayPicker hour={arrivalCustomHour} minute={arrivalCustomMinute} onHour={setArrivalCustomHour} onMinute={setArrivalCustomMinute}/>
-      <div className="cup-arrival-custom-actions">
-        <Button variant="primary" className="cup-btn sm" onClick={()=>applyArrival(`${arrivalCustomHour}:${arrivalCustomMinute}`)}>確定</Button>
-        <Button variant="secondary" className="cup-btn sm" onClick={()=>setArrivalCustomOpen(false)}>取消</Button>
+      <div className="cup-arrival-card-actions">
+        {myArrivalTime&&<span className="cup-arrival-value">{myArrivalTime}</span>}
+        <Button variant="secondary" className="cup-btn sm" aria-expanded={arrivalPanelOpen} onClick={()=>{if(arrivalPanelOpen){setArrivalCustomOpen(false)}setArrivalPanelOpen(value=>!value)}}>{arrivalPanelOpen?"收起":myArrivalTime?"更改":"設定"}</Button>
       </div>
-    </div>}
-    {myArrivalTime&&<button type="button" className="cup-arrival-clear" onClick={()=>applyArrival("")}>清除到達時間</button>}
+    </div>
+    {arrivalPanelOpen&&<>
+      <div className="cup-arrival-presets">
+        {arrivalPresets.map(preset=><button type="button" key={preset.key} className={`cup-arrival-preset${myArrivalTime===preset.time?" active":""}`} onClick={()=>applyArrival(preset.time)}>
+          <b>{preset.time}</b><small>{preset.label}</small>
+        </button>)}
+        <button type="button" className={`cup-arrival-preset is-custom${arrivalCustomOpen?" active":""}`} aria-expanded={arrivalCustomOpen} onClick={openArrivalCustom}>
+          <b aria-hidden="true">⋯</b><small>自訂時間</small>
+        </button>
+      </div>
+      {arrivalCustomOpen&&<div className="cup-arrival-custom">
+        <TimeOfDayPicker hour={arrivalCustomHour} minute={arrivalCustomMinute} onHour={setArrivalCustomHour} onMinute={setArrivalCustomMinute}/>
+        <div className="cup-arrival-custom-actions">
+          <Button variant="primary" className="cup-btn sm" onClick={()=>applyArrival(`${arrivalCustomHour}:${arrivalCustomMinute}`)}>確定</Button>
+          <Button variant="secondary" className="cup-btn sm" onClick={()=>setArrivalCustomOpen(false)}>取消</Button>
+        </div>
+      </div>}
+      {myArrivalTime&&<button type="button" className="cup-arrival-clear" onClick={()=>applyArrival("")}>清除到達時間</button>}
+    </>}
   </div>;
   const shareState=shareStateOf(tournament);
   const shareUrgency=cupUrgency(shareState);
