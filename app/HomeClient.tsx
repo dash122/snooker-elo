@@ -2418,6 +2418,10 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   /* Once drawn, the list worth showing is the frozen draw. A completed cup may additionally carry
      a presentation order, but that order never feeds the bracket or its scorecards. */
   const rosterIds=drawn?rosterOrder(tournament):tournament.signups;
+  /* Signups that landed after the draw was frozen: the bracket never re-syncs with `signups` once
+     drawn (see rosterOrder's comment), so these members are registered but were left out of the
+     draw. Surface them rather than let them quietly vanish from 參賽名單. */
+  const lateSignups=drawn?tournament.signups.filter(id=>!rosterIds.includes(id)):[];
   const spare=data.players.filter(item=>item.active&&!rosterIds.includes(item.id)).sort((left,right)=>left.name.localeCompare(right.name));
   const rosterPick=(outgoingId:string)=>(event:ChangeEvent<HTMLSelectElement>)=>{
     const value=event.target.value;
@@ -2439,6 +2443,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   const canArrangeRoster=canManage&&rosterIds.length>=2&&(!hasCupResults||status==="done");
   const rosterPanel=rosterIds.length>0||canManage?<div className="cup-roster">
     <h3>{drawn?"參賽名單":"報名名單"} <span className="cup-roster-count">{rosterIds.length}</span>{canManage&&canShuffle&&<Button variant="secondary" className="cup-btn sm cup-roster-shuffle" onClick={()=>onShuffleRoster(tournament)}>重新抽籤</Button>}</h3>
+    {lateSignups.length>0&&<InlineNotice tone="warning" title="報名時間在抽籤之後">{lateSignups.map(id=>name(id)).join("、")} 已報名，但抽籤時尚未報名，故未列入對陣圖。{canManage&&"如需加入，請使用下方「換上」功能替補至名單。"}</InlineNotice>}
     <ul className="rated">{rosterIds.map(id=>{
       const standing=rosterStanding(id);
       const draggable=canArrangeRoster;
