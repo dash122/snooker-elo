@@ -321,6 +321,28 @@ function isMissingTournamentRosterOrderColumn(error: unknown) {
   return error instanceof Error && /column .*roster_order.* does not exist/i.test(error.message);
 }
 
+/* Same lock-free probe as co-hosts/roster-order above, and for the same reason: the column is
+   migration-owned and can land on the database on its own schedule, independent of when this code
+   deploys. Without this guard, a deploy that outruns the migration turns "sign up" into a 500 for
+   every member — and once probed, an existing tournament (finished or not) just round-trips an
+   empty arrivalTimes map, never an error. */
+let tournamentArrivalTimesPresent: Promise<boolean> | null = null;
+function hasTournamentArrivalTimes(): Promise<boolean> {
+  tournamentArrivalTimesPresent ??= (async () => {
+    const rows = await getSql()<{ present: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'state_tournaments' AND column_name = 'arrival_times'
+      ) AS present`;
+    return rows[0]?.present ?? false;
+  })().catch(error => { tournamentArrivalTimesPresent = null; throw error; });
+  return tournamentArrivalTimesPresent;
+}
+
+function isMissingTournamentArrivalTimesColumn(error: unknown) {
+  return error instanceof Error && /column .*arrival_times.* does not exist/i.test(error.message);
+}
+
 /* The start time migration was deployed after some app instances had already been provisioned.
    Catch up only when the catalog says the column is absent, then cache the result for the lifetime
    of this instance. The advisory lock makes simultaneous first requests safe; normal requests do
@@ -370,7 +392,7 @@ export async function getStateVersion(): Promise<string> {
   }
 }
 
-const stateDocumentQuery = (hasUpdatedAt: boolean, hasCoHosts: boolean, hasRosterOrder: boolean) => `
+const stateDocumentQuery = (hasUpdatedAt: boolean, hasCoHosts: boolean, hasRosterOrder: boolean, hasArrivalTimes: boolean) => `
     SELECT json_build_object(
       'players', COALESCE((SELECT json_agg(to_json(p) ORDER BY p.name) FROM (
         SELECT id, name, short, handicap::float8 AS handicap, rating::float8 AS rating, colour, avatar,
@@ -402,7 +424,7 @@ const stateDocumentQuery = (hasUpdatedAt: boolean, hasCoHosts: boolean, hasRoste
                to_char(start_at AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD"T"HH24:MI') AS "startAt",
                to_char(signup_deadline AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD"T"HH24:MI') AS "signupDeadline",
                ${isoUtc("created_at")} AS "createdAt", created_by AS "createdBy", ${hasCoHosts ? `co_hosts AS "coHosts",` : ""}${hasRosterOrder ? ` roster_order AS "rosterOrder",` : ""}
-               signups, draw, ${isoUtc("drawn_at")} AS "drawnAt", walkovers, arrival_times AS "arrivalTimes"
+               signups, draw, ${isoUtc("drawn_at")} AS "drawnAt", walkovers${hasArrivalTimes ? `, arrival_times AS "arrivalTimes"` : ""}
         FROM state_tournaments
       ) t), '[]'::json),
       'settings', COALESCE((SELECT data FROM state_settings WHERE id = true), '{}'::jsonb),
@@ -434,25 +456,26 @@ export async function getStateDocument(): Promise<{ data: string | null; version
      back text that needs no JS-side serialize. `to_json` (not `to_jsonb`) keeps the column
      order, so the parsed document is identical to the old one key for key; only
      json_build_object's whitespace between the five top-level keys differs. */
-  const run = async (hasUpdatedAt: boolean, hasCoHosts: boolean, hasRosterOrder: boolean) => {
-    const rows = await sql.unsafe<{ data: string; empty: boolean; version: string }[]>(stateDocumentQuery(hasUpdatedAt, hasCoHosts, hasRosterOrder));
+  const run = async (hasUpdatedAt: boolean, hasCoHosts: boolean, hasRosterOrder: boolean, hasArrivalTimes: boolean) => {
+    const rows = await sql.unsafe<{ data: string; empty: boolean; version: string }[]>(stateDocumentQuery(hasUpdatedAt, hasCoHosts, hasRosterOrder, hasArrivalTimes));
     const row = rows[0];
     return { data: !row || row.empty ? null : row.data, version: row?.version ?? "" };
   };
   try {
     await ensureTournamentStartAtSchema();
-    const [hasUpdatedAt, hasCoHosts, hasRosterOrder] = await Promise.all([hasUpdatedAtColumns(), hasTournamentCoHosts(), hasTournamentRosterOrder()]);
-    return await run(hasUpdatedAt, hasCoHosts, hasRosterOrder);
+    const [hasUpdatedAt, hasCoHosts, hasRosterOrder, hasArrivalTimes] = await Promise.all([hasUpdatedAtColumns(), hasTournamentCoHosts(), hasTournamentRosterOrder(), hasTournamentArrivalTimes()]);
+    return await run(hasUpdatedAt, hasCoHosts, hasRosterOrder, hasArrivalTimes);
   } catch (error) {
     if (isMissingTournamentStartAtColumn(error)) {
       tournamentStartAtPresent = null;
       await ensureTournamentStartAtSchema();
-    } else if (!isMissingUpdatedAtColumn(error) && !isMissingTournamentCoHostsColumn(error) && !isMissingTournamentRosterOrderColumn(error)) throw error;
+    } else if (!isMissingUpdatedAtColumn(error) && !isMissingTournamentCoHostsColumn(error) && !isMissingTournamentRosterOrderColumn(error) && !isMissingTournamentArrivalTimesColumn(error)) throw error;
     if (isMissingUpdatedAtColumn(error)) updatedAtColumnsPresent = null;
     if (isMissingTournamentCoHostsColumn(error)) tournamentCoHostsPresent = null;
     if (isMissingTournamentRosterOrderColumn(error)) tournamentRosterOrderPresent = null;
-    const [hasUpdatedAt, hasCoHosts, hasRosterOrder] = await Promise.all([hasUpdatedAtColumns(), hasTournamentCoHosts(), hasTournamentRosterOrder()]);
-    return run(hasUpdatedAt, hasCoHosts, hasRosterOrder);
+    if (isMissingTournamentArrivalTimesColumn(error)) tournamentArrivalTimesPresent = null;
+    const [hasUpdatedAt, hasCoHosts, hasRosterOrder, hasArrivalTimes] = await Promise.all([hasUpdatedAtColumns(), hasTournamentCoHosts(), hasTournamentRosterOrder(), hasTournamentArrivalTimes()]);
+    return run(hasUpdatedAt, hasCoHosts, hasRosterOrder, hasArrivalTimes);
   }
 }
 
@@ -466,7 +489,7 @@ export async function putState(data: string) {
   // last of the three would roll back the first two. The probe is a lock-free catalog read
   // (see hasUpdatedAtColumns), so unlike the ALTER it replaced it costs the write path
   // nothing and blocks no readers.
-  const [, , , hasUpdatedAt, hasCoHosts, hasRosterOrder] = await Promise.all([ensureStateSchema(), ensureProvisionalDeltaSchema(), ensureTournamentStartAtSchema(), hasUpdatedAtColumns(), hasTournamentCoHosts(), hasTournamentRosterOrder()]);
+  const [, , , hasUpdatedAt, hasCoHosts, hasRosterOrder, hasArrivalTimes] = await Promise.all([ensureStateSchema(), ensureProvisionalDeltaSchema(), ensureTournamentStartAtSchema(), hasUpdatedAtColumns(), hasTournamentCoHosts(), hasTournamentRosterOrder(), hasTournamentArrivalTimes()]);
   const stamped = <T extends Record<string, unknown>>(row: T) => (hasUpdatedAt ? { ...row, updated_at: new Date() } : row);
   const state = JSON.parse(data) as State;
   const sql = getSql();
@@ -591,12 +614,13 @@ export async function putState(data: string) {
         ...(hasRosterOrder ? { roster_order: t.rosterOrder?.length ? tx.json(t.rosterOrder) : null } : {}),
         signups: tx.json(t.signups), draw: t.draw?.length ? tx.json(t.draw) : null,
         drawn_at: t.drawnAt ?? null, walkovers: t.walkovers?.length ? tx.json(t.walkovers) : null,
-        arrival_times: tx.json(t.arrivalTimes ?? {}),
+        ...(hasArrivalTimes ? { arrival_times: tx.json(t.arrivalTimes ?? {}) } : {}),
       })).map(stamped);
       const coHostsSet = hasCoHosts ? sql`,co_hosts=excluded.co_hosts` : sql``;
       const rosterOrderSet = hasRosterOrder ? sql`,roster_order=excluded.roster_order` : sql``;
+      const arrivalTimesSet = hasArrivalTimes ? sql`,arrival_times=excluded.arrival_times` : sql``;
       for (const chunk of insertChunks(rows)) await tx`INSERT INTO state_tournaments ${tx(chunk)}
-        ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,start_at=excluded.start_at,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by${coHostsSet}${rosterOrderSet},signups=excluded.signups,draw=excluded.draw,drawn_at=excluded.drawn_at,walkovers=excluded.walkovers,arrival_times=excluded.arrival_times${stampedSet}`;
+        ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,start_at=excluded.start_at,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by${coHostsSet}${rosterOrderSet},signups=excluded.signups,draw=excluded.draw,drawn_at=excluded.drawn_at,walkovers=excluded.walkovers${arrivalTimesSet}${stampedSet}`;
     }
     await tx`DELETE FROM state_tournaments WHERE NOT (id = ANY(${tournamentIds}::text[]))`;
     if (state.audits.length) {
