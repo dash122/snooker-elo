@@ -92,7 +92,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
       <div className="admin-toolbar">
         <Link className="primary" href="/?tab=players&manage=1">{zh.playersOpen}</Link>
-        <Link className="primary" href="/admin/reports" reloadDocument>{zh.reportsOpen}</Link>
+        <a className="primary" href="/admin/reports">{zh.reportsOpen}</a>
       </div>
 
       {unlinked.length > 0 && <Surface className="admin-attention">
@@ -155,7 +155,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           : <SnapshotList snapshots={snapshots} restoreLabel={zh.restore} confirmMessage="確定要以此快照覆蓋目前所有資料嗎？此操作無法復原。" />}
       </details>
 
-      <Link className="more admin-back" href="/account" reloadDocument>{zh.back}</Link>
+      <a className="more admin-back" href="/account">{zh.back}</a>
     </section>
   </main>;
 }

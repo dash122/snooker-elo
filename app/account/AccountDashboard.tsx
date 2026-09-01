@@ -105,7 +105,7 @@ function AccountTopbar({ member }: { member: AccountMember }) {
   return <header className="account-topbar">
     <Link className="auth-brand" href="/">SCAA <span>Snooker ELO</span></Link>
     <nav className="account-topbar-links">
-      {member.role === "admin" && <Link href="/admin" reloadDocument>{zh.manage}</Link>}
+      {member.role === "admin" && <a href="/admin">{zh.manage}</a>}
       <Link href="/">{zh.leaderboard}</Link>
       <Link className="account-signout" href="/logout">{zh.signout}</Link>
     </nav>
