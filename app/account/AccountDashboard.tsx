@@ -7,7 +7,7 @@ import { avatarHex } from "../avatar-colours";
 import AccountForms from "./AccountForms";
 import MatchHistory, { type MatchRecord } from "./MatchHistory";
 import { deriveInitials, resolveInitials } from "../api/account/validate";
-import { Button, InlineNotice, StatTile, Surface } from "../components/ui/Primitives";
+import { Button, InlineNotice, Skeleton, StatTile, Surface } from "../components/ui/Primitives";
 
 type AccountMember = {
   email: string; username: string; displayName: string; role: "admin" | "member";
@@ -162,12 +162,14 @@ export default function AccountDashboard({ member, googleStatus }: { member: Acc
         <div className="member-avatar" style={{ background: avatarHex(member.iconColour ?? player?.colour) }}>{initials}</div>
         <div><p className="kicker">{zh.account}</p><h1>{member.displayName}</h1><p className="account-handle">@{member.username}<span className={`account-chip${member.role === "admin" ? " admin" : ""}`}>{member.role === "admin" ? zh.admin : zh.member}</span>{player && <span className="account-chip">{player.name}</span>}</p></div>
       </div>
-      {player && status === "ready" && <AccountMetrics player={player} players={players} state={state!} />}
+      {status === "ready" && player && <AccountMetrics player={player} players={players} state={state!} />}
+      {status === "loading" && <div className="account-hero-metrics account-hero-metrics-loading"><Skeleton height="3.5rem" /></div>}
     </section>
 
-    {status === "loading" && <Surface className="account-panel"><InlineNotice title="正在載入帳戶資料">正在連接資料庫，請稍候。</InlineNotice></Surface>}
     {status === "failed" && <Surface className="account-panel"><InlineNotice tone="danger" title="未能載入帳戶資料"><span>{error}</span> <Button variant="secondary" onClick={() => { setStatus("loading"); setError(""); setRetry(value => value + 1); }}>重試</Button></InlineNotice></Surface>}
+    {status === "loading" && <AccountLoadingBody />}
     {status === "ready" && <AccountBody member={member} googleStatus={googleStatus} player={player} players={players} state={state!} />}
+    {status === "failed" && <AccountSettings member={{ ...member, iconColour: member.iconColour ?? player?.colour }} googleStatus={googleStatus} />}
   </main>;
 }
 
@@ -186,6 +188,18 @@ function AccountMetrics({ player, players, state }: { player: Player; players: P
     <div><small>{zh.elo}</small><b>{Math.round(player.rating)}<em className={recentDelta >= 0 ? "positive" : "negative"}>{recentDelta >= 0 ? "+" : ""}{Math.round(recentDelta)}</em></b></div>
     <div><small>{zh.winRate}</small><b>{winRate}<em>%</em></b></div>
     <div><small>{zh.form}</small><b className="account-form-pills">{form.length ? form.map((result, index) => <i key={index} className={result.toLowerCase()}>{result}</i>) : <span className="account-form-none">—</span>}</b></div>
+  </div>;
+}
+
+function AccountLoadingBody() {
+  return <div className="account-layout">
+    <div className="account-column">
+      <Surface className="account-panel"><div className="account-panel-head"><div><p className="kicker">{zh.trendKicker}</p><h2>{zh.trend}</h2></div></div><Skeleton height="220px" /></Surface>
+      <Surface className="account-panel"><Skeleton height="8rem" /></Surface>
+    </div>
+    <div className="account-column">
+      <Surface className="account-panel account-stat-panel"><div className="account-panel-head"><div><p className="kicker">{zh.highlights}</p><h2>成績一覽</h2></div></div><Skeleton height="10rem" /></Surface>
+    </div>
   </div>;
 }
 
