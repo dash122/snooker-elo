@@ -11,6 +11,8 @@ export type Walkover = { round:number; index:number; winner:string; reason?:stri
 export type TournamentLike = {
   id:string;
   name:string;
+  startAt?:string|null;
+  createdBy?:string;
   signupDeadline:string;
   signups:string[];
   /** Frozen at the moment sign-ups close. Absent on a cup that has not been drawn yet — and the
@@ -20,8 +22,47 @@ export type TournamentLike = {
   /** Whether the cup plays off the club's suggested handicap or level. Read by anything that quotes
       a tie's terms — a handicap printed beside a level cup's tie is a number nobody plays to. */
   handicapMode?:"suggested"|"none";
+  /** Players who can manage this tournament alongside its creator. */
+  coHosts?:string[];
+  /** A post-completion presentation order for the roster. It never changes bracket seats. */
+  rosterOrder?:string[];
   walkovers?:Walkover[];
 };
+
+const HONG_KONG_TIME_ZONE="Asia/Hong_Kong";
+
+/** Format a tournament's stored Hong Kong wall-clock value for people, keeping the year out of the
+    way while the date is within one year of today. The stored value is deliberately parsed without
+    relying on the viewer's timezone — a member overseas must still see the club's time. */
+export function formatTournamentDateTime(value:string|undefined|null,now=new Date()):string {
+  if(!value)return "";
+  const match=/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/.exec(value);
+  if(!match)return value.replace("T"," ");
+  const [,year,month,day,hour,minute]=match;
+  const target=Date.parse(`${year}-${month}-${day}T12:00:00+08:00`);
+  if(!Number.isFinite(target))return value.replace("T"," ");
+  const currentParts=new Intl.DateTimeFormat("en-CA",{timeZone:HONG_KONG_TIME_ZONE,year:"numeric",month:"2-digit",day:"2-digit"})
+    .formatToParts(now).reduce<Record<string,string>>((parts,part)=>{if(part.type!=="literal")parts[part.type]=part.value;return parts},{});
+  const current=Date.parse(`${currentParts.year}-${currentParts.month}-${currentParts.day}T12:00:00+08:00`);
+  const lower=new Date(current);
+  const upper=new Date(current);
+  lower.setUTCFullYear(lower.getUTCFullYear()-1);
+  upper.setUTCFullYear(upper.getUTCFullYear()+1);
+  const includeYear=target<lower.getTime()||target>upper.getTime();
+  const dateText=`${includeYear?`${year}年`:""}${Number(month)}月${Number(day)}日`;
+  if(hour===undefined||minute===undefined)return dateText;
+  const numericHour=Number(hour);
+  const displayHour=numericHour%12||12;
+  return `${dateText} ${displayHour}:${minute}${numericHour>=12?"pm":"am"}`;
+}
+
+export function isTournamentHost(tournament:Pick<TournamentLike,"createdBy">,playerId:string|undefined):boolean {
+  return Boolean(playerId&&tournament.createdBy===playerId);
+}
+
+export function canManageTournament(tournament:Pick<TournamentLike,"createdBy"|"coHosts">,playerId:string|undefined,isAdmin=false):boolean {
+  return Boolean(isAdmin||isTournamentHost(tournament,playerId)||(playerId&&tournament.coHosts?.includes(playerId)));
+}
 
 export type CupMatchLike = {
   id?:string; a:string; b:string; scoreA:number; scoreB:number;
@@ -80,6 +121,15 @@ export function computeDraw(tournament:Pick<TournamentLike,"id"|"signups">):stri
 export function drawOrder(tournament:TournamentLike):string[] {
   const stored=tournament.draw?.filter(id=>Boolean(id))??[];
   return stored.length?stored:computeDraw(tournament);
+}
+
+/** The roster order shown after a cup is complete. Keep it separate from `draw`: changing a draw
+    after results would make the scorecards appear under the wrong pair of names. Unknown or stale
+    ids are ignored, while newly added ids in the frozen draw still appear at the end. */
+export function rosterOrder(tournament:TournamentLike):string[] {
+  const draw=drawOrder(tournament);
+  const preferred=[...new Set(tournament.rosterOrder??[])].filter(id=>draw.includes(id));
+  return [...preferred,...draw.filter(id=>!preferred.includes(id))];
 }
 
 export function bracketShape(entrants:number):{size:number;rounds:number} {
@@ -218,18 +268,22 @@ export function shuffleDraw(tournament:TournamentLike,matches:CupMatchLike[]=[])
 }
 
 /** Move one entrant to sit where another one is, shifting the rest along — a drag-and-drop of the
- *  roster list rather than a random re-roll. Shares `shuffleDraw`'s guard: refused once any cup tie
- *  has a recorded result, for the same reason a reshuffle is. */
+ *  roster list rather than a random re-roll. Before completion it changes the frozen draw; after
+ *  completion it changes only the roster presentation order, so recorded scorecards keep their
+ *  original bracket seats. A partially played cup remains locked for the same reason a reshuffle is. */
 export function reorderDraw(tournament:TournamentLike,draggedId:string,targetId:string,matches:CupMatchLike[]=[]):ShuffleResult {
-  const order=drawOrder(tournament);
+  const completed=Boolean(buildBracket(tournament,matches).champion);
+  const order=completed?rosterOrder(tournament):drawOrder(tournament);
   if(order.length<2)return {ok:false,error:"報名人數不足兩人"};
   if(!order.includes(draggedId)||!order.includes(targetId))return {ok:false,error:"該球員不在籤表內"};
   if(draggedId===targetId)return {ok:true,tournament};
-  if(cupMatches(matches,tournament.id).length)return {ok:false,error:"已有賽果，不能調整籤表順序"};
+  if(cupMatches(matches,tournament.id).length&&!completed)return {ok:false,error:"賽事進行中，完成後才可調整名單順序"};
   const without=order.filter(id=>id!==draggedId);
   const at=without.indexOf(targetId);
   const reordered=[...without.slice(0,at),draggedId,...without.slice(at)];
-  return {ok:true,tournament:{...tournament,draw:reordered,drawnAt:tournament.drawnAt??new Date().toISOString()}};
+  return completed
+    ? {ok:true,tournament:{...tournament,rosterOrder:reordered}}
+    : {ok:true,tournament:{...tournament,draw:reordered,drawnAt:tournament.drawnAt??new Date().toISOString()}};
 }
 
 export type SwapResult = {ok:true;tournament:TournamentLike;kind:"swap"|"substitute"}|{ok:false;error:string};

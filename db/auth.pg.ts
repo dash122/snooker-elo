@@ -414,7 +414,23 @@ export async function needsOnboarding(email: string) {
   await Promise.all([ensureAuthSchema(), ensurePreliminaryRatingSchema()]);
   const sql = getSql();
   const rows = await sql<{ needs: boolean }[]>`
-    SELECT (p.preliminary_rating IS NULL) AS needs
+    SELECT (
+      p.preliminary_rating IS NULL
+      AND (
+        p.id IS NULL
+        OR (
+          p.rating = p.initial_rating
+          AND p.initial_rating = COALESCE(
+            (SELECT (data->>'start')::numeric FROM state_settings WHERE id = true),
+            1500
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM state_matches sm
+            WHERE sm.player_a = p.id OR sm.player_b = p.id OR sm.player_a2 = p.id OR sm.player_b2 = p.id
+          )
+        )
+      )
+    ) AS needs
     FROM members m
     LEFT JOIN state_players p ON p.id = m.state_player_id
     WHERE m.email = ${email.trim().toLowerCase()} AND m.active = true

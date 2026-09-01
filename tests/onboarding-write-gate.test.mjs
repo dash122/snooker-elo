@@ -22,6 +22,45 @@ test("allows a new match once both participants have a preliminary rating", () =
   assert.equal(blockedByUnfinishedOnboarding(current, next), null);
 });
 
+test("still blocks a brand-new placeholder-rated player", () => {
+  const current = {
+    settings: { start: 1500 },
+    players: [
+      { id: "p1", name: "New member", rating: 1500, initialRating: 1500, preliminaryRating: null },
+      { id: "p2", name: "Bob", rating: 1500, initialRating: 1500, preliminaryRating: 1500 },
+    ],
+    matches: [],
+  };
+  const next = { ...current, matches: [{ id: "new", a: "p1", b: "p2", scoreA: 2, scoreB: 1 }] };
+  assert.equal(blockedByUnfinishedOnboarding(current, next), "New member");
+});
+
+test("allows a legacy rated player without a questionnaire marker", () => {
+  const current = {
+    settings: { start: 1500 },
+    players: [
+      { id: "p1", name: "Ryan", rating: 1612, initialRating: 1500, preliminaryRating: null },
+      { id: "p2", name: "Bob", rating: 1500, initialRating: 1500, preliminaryRating: 1500 },
+    ],
+    matches: [{ id: "old", a: "p1", b: "p2", scoreA: 2, scoreB: 1 }],
+  };
+  const next = { ...current, matches: [...current.matches, { id: "new", a: "p1", b: "p2", scoreA: 1, scoreB: 2 }] };
+  assert.equal(blockedByUnfinishedOnboarding(current, next), null);
+});
+
+test("allows a manually rated legacy player whose rating moved without history", () => {
+  const current = {
+    settings: { start: 1500 },
+    players: [
+      { id: "p1", name: "Ryan", rating: 1600, initialRating: 1500, preliminaryRating: null },
+      { id: "p2", name: "Bob", rating: 1500, initialRating: 1500, preliminaryRating: 1500 },
+    ],
+    matches: [],
+  };
+  const next = { ...current, matches: [{ id: "new", a: "p1", b: "p2", scoreA: 1, scoreB: 2 }] };
+  assert.equal(blockedByUnfinishedOnboarding(current, next), null);
+});
+
 test("does not block an unrelated, unchanged match just because some other player is unfinished", () => {
   const match = { id: "m1", a: "p2", b: "p3", scoreA: 2, scoreB: 1 };
   const current = { players: [player("p1", "Alice", null), player("p2", "Bob", 1500), player("p3", "Cara", 1500)], matches: [match] };

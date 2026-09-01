@@ -5,7 +5,7 @@ import { insertChunks } from "../lib/bulk-insert";
 type Player = { id:string; name:string; short:string; handicap:number|null; rating:number; colour?:string; avatar?:string|null; initialRating:number; preliminaryRating?:number|null; active:boolean; wins:number; losses:number; draws:number; framesWon:number; framesLost:number; lastChange:number; form:string[] };
 type Match = { id:string; a:string; b:string; a2?:string; b2?:string; mode?:string; teamAName?:string; teamBName?:string; scoreA:number; scoreB:number; playedOn:string; entryMode?:("match"|"aggregate"); frameEvidence?:number; performanceScore?:number; evidenceWeight?:number; handicapAdjustment?:number; overHandicapElo?:number; overHandicapMultiplier?:number; highBreaks?:{playerId:string;value:number}[]; actual:number; giver:string|null; official:number|null; extra:number; expectedA:number; beforeA:number; beforeB:number; beforeA2?:number; beforeB2?:number; afterA:number; afterB:number; afterA2?:number; afterB2?:number; deltaA:number; deltaB?:number; deltaA2?:number; deltaB2?:number; marginMultiplier?:number; status:("confirmed"|"void"); createdAt:string; tournamentId?:string; tournamentRound?:number; tournamentMatchIndex?:number };
 type Walkover = { round:number; index:number; winner:string; reason?:string };
-type Tournament = { id:string; name:string; handicapMode:"suggested"|"none"; signupDeadline:string; createdAt:string; createdBy?:string; signups:string[]; draw?:string[]|null; drawnAt?:string|null; walkovers?:Walkover[]|null };
+type Tournament = { id:string; name:string; handicapMode:"suggested"|"none"; startAt?:string|null; signupDeadline:string; createdAt:string; createdBy?:string; coHosts?:string[]|null; rosterOrder?:string[]|null; signups:string[]; draw?:string[]|null; drawnAt?:string|null; walkovers?:Walkover[]|null };
 type State = { players:Player[]; matches:Match[]; tournaments:Tournament[]; settings:Record<string, unknown>; audits:{id:string;text:string;at:string}[] };
 type SnapshotEntity = { entityType: "player"|"match"|"settings"|"tournament"|"audit"; entityId: string; position: number; payload: unknown };
 
@@ -142,7 +142,8 @@ export function ensureStateSchema() {
       await tx`UPDATE app_state_snapshots SET state = NULL WHERE state IS NOT NULL`;
       await tx`CREATE TABLE IF NOT EXISTS state_settings (id boolean PRIMARY KEY DEFAULT true CHECK (id), data jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now())`;
       await tx`CREATE TABLE IF NOT EXISTS state_audits (id text PRIMARY KEY, text text NOT NULL, occurred_at timestamptz NOT NULL)`;
-      await tx`CREATE TABLE IF NOT EXISTS state_tournaments (id text PRIMARY KEY, name text NOT NULL, handicap_mode text NOT NULL, signup_deadline timestamptz NOT NULL, created_at timestamptz NOT NULL, created_by text REFERENCES state_players(id) ON DELETE SET NULL, signups jsonb NOT NULL DEFAULT '[]'::jsonb)`;
+      await tx`CREATE TABLE IF NOT EXISTS state_tournaments (id text PRIMARY KEY, name text NOT NULL, handicap_mode text NOT NULL, start_at timestamptz, signup_deadline timestamptz NOT NULL, created_at timestamptz NOT NULL, created_by text REFERENCES state_players(id) ON DELETE SET NULL, signups jsonb NOT NULL DEFAULT '[]'::jsonb)`;
+      await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS start_at timestamptz`;
       await tx`DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'state_tournaments' AND column_name = 'signup_deadline' AND data_type = 'date') THEN ALTER TABLE state_tournaments ALTER COLUMN signup_deadline TYPE timestamptz USING signup_deadline::timestamp AT TIME ZONE 'Asia/Hong_Kong'; END IF; END $$`;
       // Added after the first release — existing deployments get it here rather
       // than depending on a migration having been run by hand.
@@ -171,6 +172,7 @@ export function ensureStateSchema() {
       await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS draw jsonb`;
       await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS drawn_at timestamptz`;
       await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS walkovers jsonb`;
+      await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS co_hosts jsonb NOT NULL DEFAULT '[]'::jsonb`;
       // Without this, edits that only touch signups (a player joining/withdrawing a cup) left
       // every timestamp state_tournaments had untouched, so the /api/state version fingerprint
       // below didn't move and clients kept serving a stale cached document past a real DB change.
@@ -280,6 +282,77 @@ function isMissingUpdatedAtColumn(error: unknown) {
   return error instanceof Error && /column .*updated_at.* does not exist/i.test(error.message);
 }
 
+/* Co-hosts were added after the first tournament schema. Keep the catalog probe lock-free so a
+   deployment that has the application code before the migration can still read and write ordinary
+   matches; once the migration is present, the same process starts round-tripping co-hosts. */
+let tournamentCoHostsPresent: Promise<boolean> | null = null;
+function hasTournamentCoHosts(): Promise<boolean> {
+  tournamentCoHostsPresent ??= (async () => {
+    const rows = await getSql()<{ present: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'state_tournaments' AND column_name = 'co_hosts'
+      ) AS present`;
+    return rows[0]?.present ?? false;
+  })().catch(error => { tournamentCoHostsPresent = null; throw error; });
+  return tournamentCoHostsPresent;
+}
+
+function isMissingTournamentCoHostsColumn(error: unknown) {
+  return error instanceof Error && /column .*co_hosts.* does not exist/i.test(error.message);
+}
+
+let tournamentRosterOrderPresent: Promise<boolean> | null = null;
+function hasTournamentRosterOrder(): Promise<boolean> {
+  tournamentRosterOrderPresent ??= (async () => {
+    const rows = await getSql()<{ present: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'state_tournaments' AND column_name = 'roster_order'
+      ) AS present`;
+    return rows[0]?.present ?? false;
+  })().catch(error => { tournamentRosterOrderPresent = null; throw error; });
+  return tournamentRosterOrderPresent;
+}
+
+function isMissingTournamentRosterOrderColumn(error: unknown) {
+  return error instanceof Error && /column .*roster_order.* does not exist/i.test(error.message);
+}
+
+/* The start time migration was deployed after some app instances had already been provisioned.
+   Catch up only when the catalog says the column is absent, then cache the result for the lifetime
+   of this instance. The advisory lock makes simultaneous first requests safe; normal requests do
+   not run ALTER TABLE. */
+let tournamentStartAtPresent: Promise<boolean> | null = null;
+function hasTournamentStartAt(): Promise<boolean> {
+  tournamentStartAtPresent ??= (async () => {
+    const rows = await getSql()<{ present: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'state_tournaments' AND column_name = 'start_at'
+      ) AS present`;
+    return rows[0]?.present ?? false;
+  })().catch(error => { tournamentStartAtPresent = null; throw error; });
+  return tournamentStartAtPresent;
+}
+
+function ensureTournamentStartAtSchema() {
+  return (async () => {
+    if (await hasTournamentStartAt()) return;
+    const sql = getSql();
+    await sql.begin(async tx => {
+      await tx`SELECT pg_advisory_xact_lock(72591004)`;
+      await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS start_at timestamptz`;
+    });
+    tournamentStartAtPresent = null;
+    if (!await hasTournamentStartAt()) throw new Error("Unable to add state_tournaments.start_at");
+  })();
+}
+
+function isMissingTournamentStartAtColumn(error: unknown) {
+  return error instanceof Error && /column .*start_at.* does not exist/i.test(error.message);
+}
+
 export async function getStateVersion(): Promise<string> {
   const query = (hasUpdatedAt: boolean) => `SELECT ${versionExpression(hasUpdatedAt)} AS version`;
   try {
@@ -295,7 +368,7 @@ export async function getStateVersion(): Promise<string> {
   }
 }
 
-const stateDocumentQuery = (hasUpdatedAt: boolean) => `
+const stateDocumentQuery = (hasUpdatedAt: boolean, hasCoHosts: boolean, hasRosterOrder: boolean) => `
     SELECT json_build_object(
       'players', COALESCE((SELECT json_agg(to_json(p) ORDER BY p.name) FROM (
         SELECT id, name, short, handicap::float8 AS handicap, rating::float8 AS rating, colour, avatar,
@@ -324,8 +397,9 @@ const stateDocumentQuery = (hasUpdatedAt: boolean) => `
       ) m), '[]'::json),
       'tournaments', COALESCE((SELECT json_agg(to_json(t) ORDER BY t."createdAt" DESC) FROM (
         SELECT id, name, handicap_mode AS "handicapMode",
+               to_char(start_at AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD"T"HH24:MI') AS "startAt",
                to_char(signup_deadline AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD"T"HH24:MI') AS "signupDeadline",
-               ${isoUtc("created_at")} AS "createdAt", created_by AS "createdBy",
+               ${isoUtc("created_at")} AS "createdAt", created_by AS "createdBy", ${hasCoHosts ? `co_hosts AS "coHosts",` : ""}${hasRosterOrder ? ` roster_order AS "rosterOrder",` : ""}
                signups, draw, ${isoUtc("drawn_at")} AS "drawnAt", walkovers
         FROM state_tournaments
       ) t), '[]'::json),
@@ -358,17 +432,25 @@ export async function getStateDocument(): Promise<{ data: string | null; version
      back text that needs no JS-side serialize. `to_json` (not `to_jsonb`) keeps the column
      order, so the parsed document is identical to the old one key for key; only
      json_build_object's whitespace between the five top-level keys differs. */
-  const run = async (hasUpdatedAt: boolean) => {
-    const rows = await sql.unsafe<{ data: string; empty: boolean; version: string }[]>(stateDocumentQuery(hasUpdatedAt));
+  const run = async (hasUpdatedAt: boolean, hasCoHosts: boolean, hasRosterOrder: boolean) => {
+    const rows = await sql.unsafe<{ data: string; empty: boolean; version: string }[]>(stateDocumentQuery(hasUpdatedAt, hasCoHosts, hasRosterOrder));
     const row = rows[0];
     return { data: !row || row.empty ? null : row.data, version: row?.version ?? "" };
   };
   try {
-    return await run(await hasUpdatedAtColumns());
+    await ensureTournamentStartAtSchema();
+    const [hasUpdatedAt, hasCoHosts, hasRosterOrder] = await Promise.all([hasUpdatedAtColumns(), hasTournamentCoHosts(), hasTournamentRosterOrder()]);
+    return await run(hasUpdatedAt, hasCoHosts, hasRosterOrder);
   } catch (error) {
-    if (!isMissingUpdatedAtColumn(error)) throw error;
-    updatedAtColumnsPresent = null;
-    return run(false);
+    if (isMissingTournamentStartAtColumn(error)) {
+      tournamentStartAtPresent = null;
+      await ensureTournamentStartAtSchema();
+    } else if (!isMissingUpdatedAtColumn(error) && !isMissingTournamentCoHostsColumn(error) && !isMissingTournamentRosterOrderColumn(error)) throw error;
+    if (isMissingUpdatedAtColumn(error)) updatedAtColumnsPresent = null;
+    if (isMissingTournamentCoHostsColumn(error)) tournamentCoHostsPresent = null;
+    if (isMissingTournamentRosterOrderColumn(error)) tournamentRosterOrderPresent = null;
+    const [hasUpdatedAt, hasCoHosts, hasRosterOrder] = await Promise.all([hasUpdatedAtColumns(), hasTournamentCoHosts(), hasTournamentRosterOrder()]);
+    return run(hasUpdatedAt, hasCoHosts, hasRosterOrder);
   }
 }
 
@@ -382,7 +464,7 @@ export async function putState(data: string) {
   // last of the three would roll back the first two. The probe is a lock-free catalog read
   // (see hasUpdatedAtColumns), so unlike the ALTER it replaced it costs the write path
   // nothing and blocks no readers.
-  const [, , hasUpdatedAt] = await Promise.all([ensureStateSchema(), ensureProvisionalDeltaSchema(), hasUpdatedAtColumns()]);
+  const [, , , hasUpdatedAt, hasCoHosts, hasRosterOrder] = await Promise.all([ensureStateSchema(), ensureProvisionalDeltaSchema(), ensureTournamentStartAtSchema(), hasUpdatedAtColumns(), hasTournamentCoHosts(), hasTournamentRosterOrder()]);
   const stamped = <T extends Record<string, unknown>>(row: T) => (hasUpdatedAt ? { ...row, updated_at: new Date() } : row);
   const state = JSON.parse(data) as State;
   const sql = getSql();
@@ -498,9 +580,20 @@ export async function putState(data: string) {
     }
 
     if (state.tournaments.length) {
-      const rows = state.tournaments.map(t => ({ id: t.id, name: t.name, handicap_mode: t.handicapMode, signup_deadline: t.signupDeadline.length === 16 ? `${t.signupDeadline}:00+08:00` : t.signupDeadline, created_at: t.createdAt, created_by: t.createdBy ?? null, signups: tx.json(t.signups), draw: t.draw?.length ? tx.json(t.draw) : null, drawn_at: t.drawnAt ?? null, walkovers: t.walkovers?.length ? tx.json(t.walkovers) : null })).map(stamped);
+      const rows = state.tournaments.map(t => ({
+        id: t.id, name: t.name, handicap_mode: t.handicapMode,
+        start_at: t.startAt ? (t.startAt.length === 16 ? `${t.startAt}:00+08:00` : t.startAt) : null,
+        signup_deadline: t.signupDeadline.length === 16 ? `${t.signupDeadline}:00+08:00` : t.signupDeadline,
+        created_at: t.createdAt, created_by: t.createdBy ?? null,
+        ...(hasCoHosts ? { co_hosts: tx.json(t.coHosts ?? []) } : {}),
+        ...(hasRosterOrder ? { roster_order: t.rosterOrder?.length ? tx.json(t.rosterOrder) : null } : {}),
+        signups: tx.json(t.signups), draw: t.draw?.length ? tx.json(t.draw) : null,
+        drawn_at: t.drawnAt ?? null, walkovers: t.walkovers?.length ? tx.json(t.walkovers) : null,
+      })).map(stamped);
+      const coHostsSet = hasCoHosts ? sql`,co_hosts=excluded.co_hosts` : sql``;
+      const rosterOrderSet = hasRosterOrder ? sql`,roster_order=excluded.roster_order` : sql``;
       for (const chunk of insertChunks(rows)) await tx`INSERT INTO state_tournaments ${tx(chunk)}
-        ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by,signups=excluded.signups,draw=excluded.draw,drawn_at=excluded.drawn_at,walkovers=excluded.walkovers${stampedSet}`;
+        ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,start_at=excluded.start_at,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by${coHostsSet}${rosterOrderSet},signups=excluded.signups,draw=excluded.draw,drawn_at=excluded.drawn_at,walkovers=excluded.walkovers${stampedSet}`;
     }
     await tx`DELETE FROM state_tournaments WHERE NOT (id = ANY(${tournamentIds}::text[]))`;
     if (state.audits.length) {

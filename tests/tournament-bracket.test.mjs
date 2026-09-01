@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bracketShape, buildBracket, computeDraw, firstRoundPairings, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, reorderDraw, roundLabel, shuffleDraw, signupsClosed, swapPlayer } from "../lib/tournament.ts";
+import { bracketShape, buildBracket, computeDraw, firstRoundPairings, formatTournamentDateTime, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, reorderDraw, roundLabel, shuffleDraw, signupsClosed, swapPlayer } from "../lib/tournament.ts";
 
 const PAST = "2020-01-01T00:00";
 const FUTURE = "2999-01-01T00:00";
@@ -22,6 +22,14 @@ test("sign-ups close on the Hong Kong deadline, not the viewer's midnight", () =
   assert.equal(signupsClosed({ signupDeadline: "2026-08-01" }, Date.parse("2026-08-01T15:58:00Z")), false);
   assert.equal(signupsClosed({ signupDeadline: "2026-08-01" }, Date.parse("2026-08-01T16:00:00Z")), true);
   assert.equal(signupsClosed({ signupDeadline: "" }), false);
+});
+
+test("tournament date/time uses Chinese dates, 12-hour clocks and a one-year year window", () => {
+  const now = new Date("2026-08-04T12:00:00+08:00");
+  assert.equal(formatTournamentDateTime("2026-09-05T20:30", now), "9月5日 8:30pm");
+  assert.equal(formatTournamentDateTime("2026-09-05T08:05", now), "9月5日 8:05am");
+  assert.equal(formatTournamentDateTime("2027-09-04T20:30", now), "2027年9月4日 8:30pm");
+  assert.equal(formatTournamentDateTime("2026-09-05", now), "9月5日");
 });
 
 test("bracket shape rounds up to a power of two", () => {
@@ -214,12 +222,18 @@ test("dropping a player back on itself is a no-op", () => {
   assert.deepEqual(same.tournament.draw, drawn.draw);
 });
 
-test("reordering is refused once any tie has a recorded result, or for an unknown entrant", () => {
+test("reordering is refused during a live cup but remains available after completion", () => {
   const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
   assert.equal(reorderDraw(drawn, "p9", "p1", []).ok, false);
   const withResult = reorderDraw(drawn, "p3", "p4", [result(1, 1, "p1", "p2", 3, 0)]);
   assert.equal(withResult.ok, false);
-  assert.equal(withResult.error, "已有賽果，不能調整籤表順序");
+  assert.equal(withResult.error, "賽事進行中，完成後才可調整名單順序");
+  const completed = reorderDraw(drawn, "p4", "p3", [
+    result(1, 1, "p1", "p2", 3, 0), result(1, 2, "p3", "p4", 3, 0), result(2, 1, "p1", "p3", 3, 0),
+  ]);
+  assert.equal(completed.ok, true);
+  assert.deepEqual(completed.tournament.draw, drawn.draw);
+  assert.deepEqual(completed.tournament.rosterOrder, ["p1", "p2", "p4", "p3"]);
 });
 
 /* Honours — who a cup finish belongs to, and who it does not. */

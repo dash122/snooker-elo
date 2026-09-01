@@ -6,8 +6,10 @@
  *  makes someone tap (how long is left to enter, or who is left in it), and the message text above
  *  the link is written the way a member would actually type it — Cantonese, short, with a reason.
  *
- *  Deliberately importless: this is wording, not bracket maths, and the caller — the share page for
- *  its meta tags, the app for its compose link — hands it the numbers it already has. */
+ *  The date display is shared with the tournament surfaces so a copied deadline and the page never
+ *  disagree about the club-local format. */
+
+import { formatTournamentDateTime } from "./tournament.ts";
 
 export type CupShareState = {
   status:"signup"|"live"|"done"|"short";
@@ -34,7 +36,7 @@ export type CupShareInput = {
   now?:number;
 };
 
-const dateText=(value:string)=>value.replace("T"," ").slice(0,16);
+const dateText=(value:string,now=Date.now())=>formatTournamentDateTime(value,new Date(now));
 const DAY=86400000;
 
 /** Days to the deadline. A naive `2026-08-20T23:59` is read as club-local time, exactly the way
@@ -50,7 +52,7 @@ export function cupShareState(input:CupShareInput):CupShareState {
   const daysLeft=daysUntil(input.signupDeadline,input.now??Date.now());
   return {
     status,entrants:input.entrants,
-    deadline:dateText(input.signupDeadline),
+    deadline:dateText(input.signupDeadline,input.now??Date.now()),
     roundName:input.roundName,
     championName:input.championName??"",
     daysLeft,urgency:urgencyFor(status,daysLeft),

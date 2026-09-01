@@ -59,7 +59,41 @@ test("member cannot edit tournament metadata",()=>{
   const current=baseState();
   const next=baseState();
   next.tournaments[0].name="其他盃賽";
-  assert.equal(memberCanWrite(current,next,"p1"),false);
+  assert.equal(memberCanWrite(current,next,"p2"),false);
+});
+
+test("member cannot edit tournament start time",()=>{
+  const current=baseState();
+  const next=baseState();
+  current.tournaments[0].startAt="2026-08-21T19:00";
+  next.tournaments[0].startAt="2026-08-22T19:00";
+  assert.equal(memberCanWrite(current,next,"p2"),false);
+});
+
+test("tournament host can edit metadata and delegate co-host access",()=>{
+  const current=baseState();
+  const next=baseState();
+  next.tournaments[0].name="主持人更新的盃賽";
+  next.tournaments[0].coHosts=["p2"];
+  assert.equal(memberCanWrite(current,next,"p1"),true);
+});
+
+test("co-host can edit tournament metadata and roster",()=>{
+  const current=baseState();
+  current.tournaments[0].coHosts=["p2"];
+  const next=baseState();
+  next.tournaments[0].coHosts=["p2"];
+  next.tournaments[0].name="協辦主持人更新的盃賽";
+  next.tournaments[0].signups=["p1","p2"];
+  assert.equal(memberCanWrite(current,next,"p2"),true);
+});
+
+test("co-host cannot change the co-host list",()=>{
+  const current=baseState();
+  current.tournaments[0].coHosts=["p2"];
+  const next=baseState();
+  next.tournaments[0].coHosts=["p1"];
+  assert.equal(memberCanWrite(current,next,"p2"),false);
 });
 
 test("member can save cup match if they are participant",()=>{
@@ -84,7 +118,7 @@ test("member cannot save unrelated cup match",()=>{
     status:"confirmed",entryMode:"match",createdAt:"2026-08-02T10:00:00.000Z",
     tournamentId:"t1",tournamentRound:1,tournamentMatchIndex:1,
   });
-  assert.equal(memberCanWrite(current,next,"p1"),false);
+  assert.equal(memberCanWrite(current,next,"p2"),false);
 });
 
 test("member cannot write the frozen draw",()=>{
@@ -92,7 +126,7 @@ test("member cannot write the frozen draw",()=>{
   const next=baseState();
   next.tournaments[0].draw=["p1","p2"];
   next.tournaments[0].drawnAt="2026-08-20T16:00:00.000Z";
-  assert.equal(memberCanWrite(current,next,"p1"),false);
+  assert.equal(memberCanWrite(current,next,"p2"),false);
 });
 
 test("member cannot reshuffle an existing draw",()=>{
@@ -100,7 +134,7 @@ test("member cannot reshuffle an existing draw",()=>{
   current.tournaments[0].draw=["p1","p2"];
   const next=baseState();
   next.tournaments[0].draw=["p2","p1"];
-  assert.equal(memberCanWrite(current,next,"p1"),false);
+  assert.equal(memberCanWrite(current,next,"p2"),false);
 });
 
 test("member cannot declare a walkover",()=>{
@@ -109,7 +143,7 @@ test("member cannot declare a walkover",()=>{
   const next=baseState();
   next.tournaments[0].draw=["p1","p2"];
   next.tournaments[0].walkovers=[{round:1,index:1,winner:"p1"}];
-  assert.equal(memberCanWrite(current,next,"p1"),false);
+  assert.equal(memberCanWrite(current,next,"p2"),false);
 });
 
 test("member cannot enter or leave a cup once it is drawn",()=>{
@@ -122,7 +156,7 @@ test("member cannot enter or leave a cup once it is drawn",()=>{
   const leaving=baseState();
   leaving.tournaments[0].draw=["p1","p2"];
   leaving.tournaments[0].signups=[];
-  assert.equal(memberCanWrite(current,leaving,"p1"),false);
+  assert.equal(memberCanWrite(current,leaving,"p2"),false);
 });
 
 test("an undrawn cup still accepts a member's own signup",()=>{

@@ -5,6 +5,7 @@ import CupBracketChart, { storyBracket, type BracketChartData } from "../../CupB
 import { PlayerBadge } from "../../UiBits";
 import type { StoryPerson } from "../../../lib/story-card";
 import { cupShareCta, cupUrgency, type CupShareState } from "../../../lib/cup-share";
+import { formatTournamentDateTime } from "../../../lib/tournament";
 import CupShareButtons from "../../CupShareButtons";
 
 type Badge = { id:string; name:string; short:string; colour?:string|null; avatar?:string|null;
@@ -16,7 +17,7 @@ type Tie = { index:number; state:string; playedOn:string; sides:Side[]; note:str
   handicap:string };
 
 export type SharedCup = {
-  id:string; name:string; share:CupShareState; handicapMode:"suggested"|"none";
+  id:string; name:string; startAt?:string|null; share:CupShareState; handicapMode:"suggested"|"none";
   roster:Badge[];
   rounds:{round:number;name:string;ties:Tie[]}[];
   champion:Badge|null;
@@ -66,6 +67,7 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
         <h1>{cup.name}</h1>
         <p className="cup-share-status"><span className={`cup-chip is-${share.status}`}>{STATUS_LABEL[share.status]}</span>
           {urgency.label&&share.status==="signup"&&<span className={`cup-urgency${urgency.hot?" hot":""}`}>{urgency.label}</span>}
+          {cup.startAt&&<span>開始：{formatTournamentDateTime(cup.startAt)}</span>}
           <span>{share.status==="signup"?`${share.entrants} 人報名 · ${share.deadline} 截止`
             :share.status==="done"?`${share.entrants} 人參賽 · 冠軍 ${cup.champion?.name??""}`
             :share.status==="short"?"報名人數不足":`${share.entrants} 人參賽 · 打到${share.roundName}`}</span></p>
