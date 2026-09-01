@@ -27,6 +27,9 @@ export type TournamentLike = {
   /** A post-completion presentation order for the roster. It never changes bracket seats. */
   rosterOrder?:string[];
   walkovers?:Walkover[];
+  /** Each entrant's own optional "when I'll arrive" (HH:MM), keyed by player id. Self-reported and
+      self-only to write — never required to sign up, and never touches the draw or roster order. */
+  arrivalTimes?:Record<string,string>|null;
 };
 
 const HONG_KONG_TIME_ZONE="Asia/Hong_Kong";

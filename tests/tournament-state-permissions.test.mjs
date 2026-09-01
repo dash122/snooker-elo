@@ -165,3 +165,36 @@ test("an undrawn cup still accepts a member's own signup",()=>{
   next.tournaments[0].signups=["p1","p2"];
   assert.equal(memberCanWrite(current,next,"p2"),true);
 });
+
+test("member can set only their own arrival time",()=>{
+  const current=baseState();
+  const next=baseState();
+  next.tournaments[0].arrivalTimes={p1:"18:30"};
+  assert.equal(memberCanWrite(current,next,"p1"),true);
+});
+
+test("member cannot set another entrant's arrival time",()=>{
+  const current=baseState();
+  current.tournaments[0].signups=["p1","p2"];
+  const next=baseState();
+  next.tournaments[0].signups=["p1","p2"];
+  next.tournaments[0].arrivalTimes={p1:"19:00"};
+  assert.equal(memberCanWrite(current,next,"p2"),false);
+});
+
+test("member can clear their own arrival time",()=>{
+  const current=baseState();
+  current.tournaments[0].arrivalTimes={p1:"18:30"};
+  const next=baseState();
+  next.tournaments[0].arrivalTimes={};
+  assert.equal(memberCanWrite(current,next,"p1"),true);
+});
+
+test("tournament host can set another entrant's arrival time",()=>{
+  const current=baseState();
+  current.tournaments[0].signups=["p1","p2"];
+  const next=baseState();
+  next.tournaments[0].signups=["p1","p2"];
+  next.tournaments[0].arrivalTimes={p2:"19:00"};
+  assert.equal(memberCanWrite(current,next,"p1"),true);
+});
