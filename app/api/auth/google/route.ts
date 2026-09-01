@@ -1,5 +1,6 @@
 import { checkAttempt } from "../../../../lib/rate-limit";
 import { getCurrentMember } from "../../../../db/auth";
+import { secureCookieAttribute } from "../../../../lib/auth-cookie";
 
 const SCOPE = "openid email profile";
 const STATE_COOKIE = "scaa_oauth_state";
@@ -37,8 +38,8 @@ export async function GET(request: Request) {
     status: 303,
     headers: [
       ["location", authUrl.toString()],
-      ["set-cookie", `${STATE_COOKIE}=${state}; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax; Max-Age=600`],
-      ["set-cookie", `${INTENT_COOKIE}=${intent}; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax; Max-Age=600`],
+      ["set-cookie", `${STATE_COOKIE}=${state}; Path=/api/auth/google; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=600`],
+      ["set-cookie", `${INTENT_COOKIE}=${intent}; Path=/api/auth/google; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=600`],
     ],
   });
 }

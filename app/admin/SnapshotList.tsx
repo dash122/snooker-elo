@@ -10,8 +10,8 @@ export default function SnapshotList({ snapshots, restoreLabel, confirmMessage }
   const [pendingForm, setPendingForm] = useState<HTMLFormElement | null>(null);
   const skipConfirm = useRef(false);
   return <>
-    <ul className="admin-player-list">{snapshots.map(snapshot =>
-      <li key={snapshot.id}>
+    <ul className="admin-player-list admin-snapshot-list">{snapshots.map(snapshot =>
+      <li key={snapshot.id} className="admin-snapshot-row">
         <b>{new Date(snapshot.savedAt).toLocaleString("zh-HK", { dateStyle: "medium", timeStyle: "short" })}</b>
         <form action="/api/admin/snapshots" method="post" onSubmit={(event) => {
           if (skipConfirm.current) { skipConfirm.current = false; return; }

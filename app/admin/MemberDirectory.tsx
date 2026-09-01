@@ -19,6 +19,8 @@ const zh = {
   count: (shown: number, total: number) => shown === total ? `${total} 個帳戶` : `${shown} / ${total} 個帳戶`,
   basics: "基本資料", profile: "球員檔案", security: "安全性",
   name: "顯示名稱", username: "使用者名稱", email: "電郵",
+  role: "帳戶類型",
+  rolePassword: "確認角色變更的管理員密碼", rolePasswordHint: "只有更改會員／管理員身份時需要重新輸入。",
   password: "新密碼", passwordHint: "留空則不更改密碼。",
   player: "連結球員檔案", none: "未連結", linked: "已連結",
   member: "會員", admin: "管理員",
@@ -107,6 +109,16 @@ export default function MemberDirectory({ members, players, currentEmail }: { me
                 name="statePlayerId" formId={`edit:${member.email}`} placeholder={zh.none} clearLabel={zh.none} />
             </label>
             <p className="admin-field-group">{zh.security}</p>
+            <label>{zh.role}<select name="role" defaultValue={member.role} onChange={event => {
+              const confirmation = event.currentTarget.form?.elements.namedItem("roleConfirmationPassword");
+              if (confirmation instanceof HTMLInputElement) {
+                const changed = event.currentTarget.value !== member.role;
+                confirmation.required = changed;
+                confirmation.setAttribute("aria-required", String(changed));
+              }
+            }}><option value="member">{zh.member}</option><option value="admin">{zh.admin}</option></select></label>
+            <label>{zh.rolePassword}<input name="roleConfirmationPassword" type="password" autoComplete="current-password" />
+              <small className="admin-field-hint">{zh.rolePasswordHint}</small></label>
             <label className="admin-field-wide">{zh.password}<input name="password" type="password" minLength={6} autoComplete="new-password" />
               <small className="admin-field-hint">{zh.passwordHint}</small></label>
             <div className="admin-edit-actions">

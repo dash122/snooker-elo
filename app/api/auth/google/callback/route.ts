@@ -1,11 +1,12 @@
 import { connectGoogleMember, createSession, getCurrentMember, resolveGoogleMember } from "../../../../../db/auth";
 import { signInOrSignUpWithGoogle } from "../../../../../db/signup";
 import { checkAttempt } from "../../../../../lib/rate-limit";
+import { secureCookieAttribute } from "../../../../../lib/auth-cookie";
 
 const STATE_COOKIE = "scaa_oauth_state";
 const INTENT_COOKIE = "scaa_oauth_intent";
-const clearStateCookie = `${STATE_COOKIE}=; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
-const clearIntentCookie = `${INTENT_COOKIE}=; Path=/api/auth/google; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+const clearStateCookie = `${STATE_COOKIE}=; Path=/api/auth/google; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=0`;
+const clearIntentCookie = `${INTENT_COOKIE}=; Path=/api/auth/google; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=0`;
 
 function parseCookie(cookieHeader: string | null, name: string) {
   const item = cookieHeader?.split(";").map(part => part.trim()).find(part => part.startsWith(`${name}=`));

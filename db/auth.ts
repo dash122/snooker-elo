@@ -60,7 +60,7 @@ export async function deleteMember(email: string) {
   return backend.deleteMember(email);
 }
 
-export async function adminUpdateMember(email: string, input: { username: string; newEmail: string; displayName: string; password?: string; statePlayerId?: string | null }) {
+export async function adminUpdateMember(email: string, input: { username: string; newEmail: string; displayName: string; password?: string; statePlayerId?: string | null; role?: "admin" | "member"; roleConfirmationPassword?: string; actingAdminEmail?: string }) {
   return backend.adminUpdateMember(email, input);
 }
 

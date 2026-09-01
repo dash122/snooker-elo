@@ -1,4 +1,5 @@
 import { deactivateMember, getCurrentMember, listMembers } from "../../../../db/auth";
+import { secureCookieAttribute } from "../../../../lib/auth-cookie";
 
 export async function POST(request: Request) {
   const member = await getCurrentMember();
@@ -23,6 +24,6 @@ export async function POST(request: Request) {
   if (!ok) return Response.json({ error: "password-wrong", field: "currentPassword" }, { status: 400 });
   // deactivateMember already dropped every session row; clear the stale cookie.
   return Response.json({ ok: true }, {
-    headers: { "set-cookie": "scaa_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0" },
+    headers: { "set-cookie": `scaa_session=; Path=/; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=0` },
   });
 }

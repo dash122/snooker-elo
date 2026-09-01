@@ -17,6 +17,7 @@ const zh = {
   invalid: "請檢查帳戶資料。",
   selfDelete: "無法刪除您目前登入的帳戶。",
   lastAdmin: "至少需要保留一位管理員帳戶。",
+  rolePassword: "更改帳戶類型需要重新輸入正確的管理員密碼。",
   hasMatches: "此球員已有比賽紀錄，無法刪除檔案。請先停用帳戶，或移除相關賽事後再試。",
   restored: "資料已還原至所選快照。",
   snapshotsSection: "資料備份快照", snapshotsSub: "系統每小時最多保留一個完整資料備份，最多保留 100 個。還原會以該時間點的資料覆蓋目前所有資料。",
@@ -73,6 +74,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         {p.error === "exists" ? zh.exists
           : p.error === "self-delete" ? zh.selfDelete
           : p.error === "last-admin" ? zh.lastAdmin
+          : p.error === "role-password" ? zh.rolePassword
           : p.error === "has-matches" ? zh.hasMatches
           : zh.invalid}
       </p>}

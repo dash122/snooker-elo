@@ -5,6 +5,7 @@ import { getSql } from "./sql";
 import { ensureStateSchema } from "./state.pg";
 import { getState, putState } from "./state";
 import { replay, type ReplayMatch, type ReplayPlayer, type ReplaySettings } from "../lib/elo-replay";
+import { secureCookieAttribute } from "../lib/auth-cookie";
 
 const SESSION_COOKIE = "scaa_session";
 const SESSION_DAYS = 30;
@@ -338,19 +339,62 @@ export async function createMemberWithPlayer(input: {
   });
 }
 
-export async function adminUpdateMember(email: string, input: { username: string; newEmail: string; displayName: string; password?: string; statePlayerId?: string | null }) {
+export async function adminUpdateMember(email: string, input: { username: string; newEmail: string; displayName: string; password?: string; statePlayerId?: string | null; role?: "admin" | "member"; roleConfirmationPassword?: string; actingAdminEmail?: string }) {
   await ensureAuthSchema();
   const sql = getSql();
   const oldEmail = email.trim().toLowerCase();
   const newEmail = input.newEmail.trim().toLowerCase();
-  if (input.password) {
+  if (input.role !== undefined && input.role !== "admin" && input.role !== "member") throw new Error("invalid-role");
+  const username = input.username.trim().toLowerCase();
+  const displayName = input.displayName.trim();
+  const statePlayerId = input.statePlayerId || null;
+  const passwordUpdate = input.password ? (() => {
     const salt = randomHex(16);
-    const hash = await passwordDigest(input.password, salt);
-    await sql`UPDATE members SET username = ${input.username.trim().toLowerCase()}, email = ${newEmail}, display_name = ${input.displayName.trim()}, state_player_id = ${input.statePlayerId || null}, password_hash = ${hash}, password_salt = ${salt}, password_set = true WHERE email = ${oldEmail}`;
-  } else {
-    await sql`UPDATE members SET username = ${input.username.trim().toLowerCase()}, email = ${newEmail}, display_name = ${input.displayName.trim()}, state_player_id = ${input.statePlayerId || null} WHERE email = ${oldEmail}`;
-  }
-  if (oldEmail !== newEmail) await sql`UPDATE sessions SET member_email = ${newEmail} WHERE member_email = ${oldEmail}`;
+    return { hash: passwordDigest(input.password, salt), salt };
+  })() : null;
+
+  await sql.begin(async tx => {
+    await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
+    const targetRows = await tx<{ role: "admin" | "member"; active: boolean }[]>`
+      SELECT role, active FROM members WHERE email = ${oldEmail} FOR UPDATE
+    `;
+    const target = targetRows[0];
+    if (!target) throw new Error("not-found");
+    const roleChanged = input.role !== undefined && input.role !== target.role;
+    if (roleChanged) {
+      if (!input.actingAdminEmail || !input.roleConfirmationPassword) throw new Error("role-password-wrong");
+      const confirmerRows = await tx<{ passwordHash: string; passwordSalt: string }[]>`
+        SELECT password_hash AS "passwordHash", password_salt AS "passwordSalt"
+        FROM members
+        WHERE email = ${input.actingAdminEmail.trim().toLowerCase()} AND role = 'admin' AND active = true
+      `;
+      const confirmer = confirmerRows[0];
+      if (!confirmer || await passwordDigest(input.roleConfirmationPassword, confirmer.passwordSalt) !== confirmer.passwordHash) {
+        throw new Error("role-password-wrong");
+      }
+      if (input.role === "member" && target.role === "admin" && target.active) {
+        // Lock all active admin rows while checking the count so two concurrent
+        // demotions cannot remove the final admin at the same time.
+        const admins = await tx<{ email: string }[]>`
+          SELECT email FROM members WHERE role = 'admin' AND active = true FOR UPDATE
+        `;
+        if (admins.length <= 1) throw new Error("last-admin");
+      }
+    }
+
+    if (passwordUpdate && input.role !== undefined) {
+      const { hash, salt } = passwordUpdate;
+      await tx`UPDATE members SET username = ${username}, email = ${newEmail}, display_name = ${displayName}, state_player_id = ${statePlayerId}, password_hash = ${await hash}, password_salt = ${salt}, password_set = true, role = ${input.role} WHERE email = ${oldEmail}`;
+    } else if (passwordUpdate) {
+      const { hash, salt } = passwordUpdate;
+      await tx`UPDATE members SET username = ${username}, email = ${newEmail}, display_name = ${displayName}, state_player_id = ${statePlayerId}, password_hash = ${await hash}, password_salt = ${salt}, password_set = true WHERE email = ${oldEmail}`;
+    } else if (input.role !== undefined) {
+      await tx`UPDATE members SET username = ${username}, email = ${newEmail}, display_name = ${displayName}, state_player_id = ${statePlayerId}, role = ${input.role} WHERE email = ${oldEmail}`;
+    } else {
+      await tx`UPDATE members SET username = ${username}, email = ${newEmail}, display_name = ${displayName}, state_player_id = ${statePlayerId} WHERE email = ${oldEmail}`;
+    }
+    if (oldEmail !== newEmail) await tx`UPDATE sessions SET member_email = ${newEmail} WHERE member_email = ${oldEmail}`;
+  });
   return true;
 }
 
@@ -525,7 +569,7 @@ export async function createSession(email: string) {
     VALUES (${tokenHash}, ${email.toLowerCase()}, ${expiresAt.toISOString()}, ${createdAt.toISOString()})
   `;
   await sql`UPDATE members SET last_seen_at = ${createdAt.toISOString()} WHERE email = ${email.toLowerCase()}`;
-  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`;
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}`;
 }
 
 export async function deleteCurrentSession() {
@@ -533,7 +577,7 @@ export async function deleteCurrentSession() {
   const sql = getSql();
   const token = parseCookie((await headers()).get("cookie"), SESSION_COOKIE);
   if (token) await sql`DELETE FROM sessions WHERE token_hash = ${await sha256(token)}`;
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=0`;
 }
 
 export async function listMembers(): Promise<MemberRow[]> {

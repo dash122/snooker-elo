@@ -80,11 +80,23 @@ export async function POST(request: Request) {
   }
   if (form.get("action") === "update") {
     const password = String(form.get("password") ?? "");
+    const requestedRole = form.get("role");
+    const role = requestedRole === "admin" || requestedRole === "member" ? requestedRole : undefined;
+    const roleConfirmationPassword = String(form.get("roleConfirmationPassword") ?? "");
     const statePlayerId = String(form.get("statePlayerId") ?? "");
     const displayName = String(form.get("displayName") ?? "").trim();
     const username = String(form.get("username") ?? "").trim();
-    if (!username || !email.includes("@") || displayName.length < 2 || (password && password.length < 6)) return Response.redirect(new URL("/admin?error=invalid", request.url), 303);
-    try { await adminUpdateMember(String(form.get("originalEmail") ?? email), { username, newEmail: email, displayName, password: password || undefined, statePlayerId: statePlayerId || null }); } catch { return Response.redirect(new URL("/admin?error=exists", request.url), 303); }
+    if (!username || !email.includes("@") || displayName.length < 2 || !role || (password && password.length < 6)) return Response.redirect(new URL("/admin?error=invalid", request.url), 303);
+    try {
+      await adminUpdateMember(String(form.get("originalEmail") ?? email), {
+        username, newEmail: email, displayName, password: password || undefined,
+        statePlayerId: statePlayerId || null, role, roleConfirmationPassword, actingAdminEmail: admin.email,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      const errorCode = message === "role-password-wrong" ? "role-password" : message === "last-admin" ? "last-admin" : message === "not-found" ? "invalid" : "exists";
+      return Response.redirect(new URL(`/admin?error=${errorCode}`, request.url), 303);
+    }
     if (statePlayerId) await syncPlayerName(statePlayerId, displayName);
     return Response.redirect(new URL(`/admin?updated=1&who=${encodeURIComponent(displayName)}`, request.url), 303);
   }
