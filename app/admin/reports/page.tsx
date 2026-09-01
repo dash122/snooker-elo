@@ -55,7 +55,7 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
       <div className="reports-head">
         <h2 className="reports-section-title">{zh.eventsTitle}</h2>
         <div className="reports-window-tabs" role="tablist" aria-label={zh.eventsTitle}>
-          {WINDOWS.map(w => <Link key={w.days} href={`/admin/reports?window=${w.days}`}
+          {WINDOWS.map(w => <Link key={w.days} href={`/admin/reports?window=${w.days}`} reloadDocument
             role="tab" aria-selected={w.days === activeDays}
             className={`reports-window-tab${w.days === activeDays ? " active" : ""}`}>{w.label}</Link>)}
         </div>
@@ -75,7 +75,7 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
           </table>
         </Surface>}
 
-      <Link className="more admin-back" href="/admin">{zh.back}</Link>
+      <Link className="more admin-back" href="/admin" reloadDocument>{zh.back}</Link>
     </section>
   </main>;
 }
