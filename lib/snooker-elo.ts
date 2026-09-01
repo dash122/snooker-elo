@@ -23,7 +23,7 @@ export type SnookerEloInput = {
   /** Point scale of the quadratic tail beyond the soft zone. Smaller values make an excessive
       handicap become decisive sooner. */
   excessHandicapCurveScale?: number;
-  /** ELO sensitivity applied to the frame-share performance gap. Defaults to 300. */
+  /** ELO sensitivity applied to the frame-share performance gap. Defaults to 250. */
   frameScaleCoefficient?: number;
   /** The "15" added to n in the logarithmic scaling factor. */
   frameScaleNumeratorOffset?: number;
@@ -60,7 +60,7 @@ export function calculateSnookerElo(input: SnookerEloInput): SnookerEloResult {
   const handicapEffectiveness = input.handicapEffectiveness ?? 1;
   const excessHandicapSoftZone = Math.max(0, input.excessHandicapSoftZone ?? 5);
   const excessHandicapCurveScale = Math.max(1, input.excessHandicapCurveScale ?? 26.5);
-  const frameScaleCoefficient = input.frameScaleCoefficient ?? 300;
+  const frameScaleCoefficient = input.frameScaleCoefficient ?? 250;
   const compressionWidthBase = input.compressionWidthBase ?? 3;
   const compressionWidthExponent = input.compressionWidthExponent ?? .1;
   const repetitionDecayBase = input.repetitionDecayBase ?? 2;

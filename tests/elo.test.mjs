@@ -8,10 +8,10 @@ import { checkDisplayName, checkEmail, checkUsername, checkDisallowedText } from
 test("matches the worked example with a fully effective handicap",()=>{
   const result=calculateSnookerElo({ratingA:1600,ratingB:1450,handicapA:-5,framesA:5,framesB:1,repetitionCount:3});
   assert.equal(Math.round(result.expectedFramesA*100)/100,3.17);
-  assert.equal(result.scale,300);
+  assert.equal(result.scale,250);
   assert.equal(Math.round(result.confidence*1000)/1000,.545);
   assert.equal(Math.round(result.repetitionFactor*1000)/1000,.743);
-  assert.equal(Math.round(result.deltaA*100)/100,37.03);
+  assert.equal(Math.round(result.deltaA*100)/100,30.86);
 });
 
 test("handicap increases Player A's expected frames",()=>{
@@ -49,7 +49,7 @@ test("reversing the result reverses the rating change",()=>{
 
 test("zero-frame input is neutral",()=>{
   assert.deepEqual(calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:0,framesB:0}),{
-    probabilityA:.5,expectedFramesA:0,scale:300,compressionWidth:3,repetitionFactor:1,actualFrameShare:.5,confidence:0,performance:0,bonus:0,deltaA:0,
+    probabilityA:.5,expectedFramesA:0,scale:250,compressionWidth:3,repetitionFactor:1,actualFrameShare:.5,confidence:0,performance:0,bonus:0,deltaA:0,
   });
 });
 
@@ -65,7 +65,7 @@ test("zero-score match previews update their frame-share forecast for handicap c
 
 test("performance sensitivity is configurable",()=>{
   const standard=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3});
-  const half=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,frameScaleCoefficient:150});
+  const half=calculateSnookerElo({ratingA:1500,ratingB:1500,handicapA:0,framesA:5,framesB:3,frameScaleCoefficient:125});
   assert.equal(half.deltaA,standard.deltaA/2);
 });
 

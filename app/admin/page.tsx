@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentMember, listMembers } from "../../db/auth";
-import { getState, listSnapshots } from "../../db/state";
+import { listAdminPlayers, listSnapshots } from "../../db/state";
 import MemberDirectory, { Avatar, type Member, type Player } from "./MemberDirectory";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
 import SnapshotList from "./SnapshotList";
@@ -41,8 +41,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const user = await getCurrentMember();
   if (!user) redirect("/login");
   if (user.role !== "admin") redirect("/account");
-  const [p, members, raw, snapshots] = await Promise.all([searchParams, listMembers(), getState(), listSnapshots(20)]);
-  const players: Player[] = raw ? (JSON.parse(raw) as { players?: Player[] }).players ?? [] : [];
+  const [p, members, players, snapshots] = await Promise.all([searchParams, listMembers(), listAdminPlayers(), listSnapshots(20)]);
   const linkedIds = new Set(players.map(player => player.id));
   const isLinked = (member: Member) => !!member.statePlayerId && linkedIds.has(member.statePlayerId);
   const unlinked = members.filter(member => member.active && !isLinked(member));

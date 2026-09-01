@@ -25,6 +25,16 @@ export async function getSettings() {
   return backend.getSettings();
 }
 
+export type { AdminPlayer, StateSummary } from "./state.pg";
+
+export async function listAdminPlayers() {
+  return backend.listAdminPlayers();
+}
+
+export async function getStateSummary() {
+  return backend.getStateSummary();
+}
+
 export async function putState(data: string) {
   return backend.putState(data);
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentMember } from "../../../db/auth";
-import { getState } from "../../../db/state";
+import { getStateSummary } from "../../../db/state";
 import { eventCounts } from "../../../db/analytics";
 import { StatTile, Surface, EmptyState } from "../../components/ui/Primitives";
 
@@ -17,8 +17,6 @@ const zh = {
   emptyTitle: "暫無事件紀錄", emptyDesc: "所選期間內沒有任何已記錄的事件。",
 };
 
-type State = { players?: unknown[]; matches?: unknown[]; tournaments?: unknown[] };
-
 const WINDOWS = [
   { days: 7, label: zh.window7 },
   { days: 30, label: zh.window30 },
@@ -33,11 +31,7 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
   const p = await searchParams;
   const activeDays = WINDOWS.find(w => String(w.days) === p.window)?.days ?? 30;
 
-  const [raw, counts] = await Promise.all([getState(), eventCounts(activeDays)]);
-  const state = raw ? (JSON.parse(raw) as State) : {};
-  const players = state.players ?? [];
-  const matches = state.matches ?? [];
-  const tournaments = state.tournaments ?? [];
+  const [summary, counts] = await Promise.all([getStateSummary(), eventCounts(activeDays)]);
 
   return <main className="auth-page admin-page">
     <section className="auth-card admin-card reports-card">
@@ -47,9 +41,9 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
 
       <h2 className="reports-section-title">{zh.overview}</h2>
       <div className="admin-stats">
-        <StatTile label={zh.statPlayers} value={players.length} />
-        <StatTile label={zh.statMatches} value={matches.length} />
-        <StatTile label={zh.statTournaments} value={tournaments.length} />
+        <StatTile label={zh.statPlayers} value={summary.players} />
+        <StatTile label={zh.statMatches} value={summary.matches} />
+        <StatTile label={zh.statTournaments} value={summary.tournaments} />
       </div>
 
       <div className="reports-head">

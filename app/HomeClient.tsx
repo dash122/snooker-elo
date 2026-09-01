@@ -187,11 +187,11 @@ function mergeStatePayload(next:AppState,baseline:AppState,latest:Record<string,
 const seed: AppState = {
   settings: {
     start: 1500, provisionalGames:10,
-    frameScaleCoefficient:300, frameScaleNumeratorOffset:15, frameScaleDenominator:10,
+    frameScaleCoefficient:250, frameScaleNumeratorOffset:15, frameScaleDenominator:10,
     handicapEloScale:1250, handicapPointsToElo:25, handicapMinimumElo:7,
     handicapSensitivityRange:16, handicapSensitivityWidth:250, compressionWidthBase:3,
     compressionWidthExponent:.1, repetitionDecayBase:2, repetitionDecayPeriod:7,
-    handicapEffectiveness:1, modelVersion:14,
+    handicapEffectiveness:1, modelVersion:15,
   },
   players: [],
   matches: [],
@@ -512,7 +512,12 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
 function upgradeState(raw:AppState){
   const nextRaw = { ...raw, tournaments: raw.tournaments ?? [] };
   const modelVersion=nextRaw.settings.modelVersion??1;
-  if(modelVersion>=14)return {state:nextRaw,changed:false};
+  if(modelVersion>=15)return {state:nextRaw,changed:false};
+  if(modelVersion>=14){
+    const settings={...nextRaw.settings,frameScaleCoefficient:250,modelVersion:15};
+    const rebuilt=replay(nextRaw.players,nextRaw.matches,settings);
+    return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"將表現敏感度由 300 調整至 250 並重播歷史評分",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
+  }
   if(modelVersion>=13){
     const settings={...nextRaw.settings,modelVersion:14};
     const rebuilt=replay(nextRaw.players,nextRaw.matches,settings);
@@ -543,7 +548,7 @@ function upgradeState(raw:AppState){
   const settings:Settings={
     start:1500,
     provisionalGames:stale.provisionalGames??10,
-    frameScaleCoefficient:300,
+    frameScaleCoefficient:250,
     frameScaleNumeratorOffset:stale.frameScaleNumeratorOffset??15,
     frameScaleDenominator:stale.frameScaleDenominator??stale.frameScaleBase??10,
     handicapEloScale:1250,
@@ -556,7 +561,7 @@ function upgradeState(raw:AppState){
     repetitionDecayBase:stale.repetitionDecayBase??2,
     repetitionDecayPeriod:stale.repetitionDecayPeriod??7,
     handicapEffectiveness:1,
-    modelVersion:14,
+    modelVersion:15,
   };
   const rebuilt=replay(players,nextRaw.matches,settings);
   return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"移除舊評分系統；以 1500 起始並套用可調整參數的 PDF Snooker Elo 公式",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
@@ -1442,7 +1447,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
             </form>
           </div>}
           {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} canEditRating={isAdmin} onSave={savePlayer}/>}
-          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const start=Number(settings.start ?? data.settings.start ?? 1500); const applied={...settings,start,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:14}; const rebuilt=replay(data.players.map(player=>({...player,initialRating:start,rating:start})),data.matches,applied); setModal(null); persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:`調整 Snooker Elo 公式參數；以 ${start} 起始並重播歷史評分`,at:new Date().toISOString()},...data.audits]},`設定已套用，歷史評分已從 ${start} 重播。`)}}/>}
+          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const start=Number(settings.start ?? data.settings.start ?? 1500); const applied={...settings,start,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:15}; const rebuilt=replay(data.players.map(player=>({...player,initialRating:start,rating:start})),data.matches,applied); setModal(null); persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:`調整 Snooker Elo 公式參數；以 ${start} 起始並重播歷史評分`,at:new Date().toISOString()},...data.audits]},`設定已套用，歷史評分已從 ${start} 重播。`)}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">會員功能</p><h2>先登入或建立帳戶</h2><p className="sub">記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。</p><div className="auth-buttons"><a className="primary" href="/login">登入</a><a className="more" href="/login?mode=signup">建立帳戶</a></div></>}
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
@@ -3162,7 +3167,7 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
   return <><section className="hero small"><div><p className="kicker">公開設定</p><h1>ELO 設定</h1><p>所有球員由 1500 起步；每場賽果只使用 PDF Snooker Elo 公式重播。以下參數只有管理員可以修改。</p></div><Button onClick={onEdit}>編輯設定</Button></section>
     <div className="settings-grid">
       <Surface as="div" className="setting"><small>起始 ELO</small><b>{s.start}</b></Surface>
-      <Surface as="div" className="setting"><small>表現敏感度（300）</small><b>{s.frameScaleCoefficient}</b></Surface>
+       <Surface as="div" className="setting"><small>表現敏感度（250）</small><b>{s.frameScaleCoefficient}</b></Surface>
       <Surface as="div" className="setting"><small>信心權重</small><b>局數 ÷（局數＋5）</b></Surface>
       <Surface as="div" className="setting"><small>讓分 ELO 尺度（500）</small><b>{s.handicapEloScale}</b></Surface>
       <Surface as="div" className="setting"><small>個人建議讓分換算（只供顯示）</small><b>{s.handicapPointsToElo}</b></Surface>
@@ -3401,7 +3406,7 @@ function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
     <p className="warning">起始 ELO 可修改，儲存後會以新參數從此起始值重播全部歷史 ELO。</p>
     <div className="settings-form-grid">
       <label className="settings-field"><span>起始 ELO</span><input type="number" step="10" min={1000} max={3000} value={s.start} onChange={e=>{const value=e.target.value===""?1500:Number(e.target.value);setS(current=>({...current,start:value}))}}/><small>所有現有球員會用此起始值重建評分。</small></label>
-      {field("frameScaleCoefficient","表現敏感度","ELO 變化 = 此數值 ×（實際局數百分比 − 預測百分比）× 信心權重。預設 300。",1,0)}
+      {field("frameScaleCoefficient","表現敏感度","ELO 變化 = 此數值 ×（實際局數百分比 − 預測百分比）× 信心權重。預設 250。",1,0)}
       {field("handicapEloScale","讓分 ELO 尺度","勝率公式分母，原值 500。數值越大，同樣 ELO 差距對勝率的影響越小。",10,1)}
       {field("handicapMinimumElo","讓分最低 ELO 值","高 ELO 區域時，每讓 1 分最少代表的 ELO，原值 7。",1,.1)}
       {field("handicapSensitivityRange","讓分敏感度範圍","低 ELO 與高 ELO 每讓 1 分的 ELO 差距範圍，原值 16。",1,0)}
@@ -3409,7 +3414,7 @@ function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
       {field("repetitionDecayBase","重複衰減底數","M(t) = 底數^(-t/週期)，PDF 原值 2。",.1,1)}
       {field("repetitionDecayPeriod","重複衰減週期","M(t) 的週期，PDF 原值 7。",.5,.1)}
     </div>
-    <Button className="full" onClick={()=>onSave({...s,provisionalGames:data.settings.provisionalGames,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:14})}>套用並重播歷史 ELO</Button>
+    <Button className="full" onClick={()=>onSave({...s,provisionalGames:data.settings.provisionalGames,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:15})}>套用並重播歷史 ELO</Button>
   </>;
 }
 type RivalSnapshot = {

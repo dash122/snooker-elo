@@ -195,6 +195,31 @@ export async function getSettings(): Promise<Record<string, unknown> | null> {
   return row?.data ?? null;
 }
 
+/** The small roster slice the admin account directory needs.
+ *
+ * The admin page used to load the complete club document just to resolve
+ * member-to-player links. That document includes every match, tournament and
+ * audit entry, and its version probes are especially expensive through the
+ * transaction pooler. Keep the admin hot path to the three columns it renders.
+ */
+export type AdminPlayer = { id: string; name: string; active: boolean };
+export async function listAdminPlayers(): Promise<AdminPlayer[]> {
+  const sql = getSql();
+  return sql<AdminPlayer[]>`SELECT id, name, active FROM state_players ORDER BY name`;
+}
+
+/** Counts for the admin usage overview, without materialising the club state. */
+export type StateSummary = { players: number; matches: number; tournaments: number };
+export async function getStateSummary(): Promise<StateSummary> {
+  const sql = getSql();
+  const [row] = await sql<StateSummary[]>`
+    SELECT
+      (SELECT count(*)::int FROM state_players) AS players,
+      (SELECT count(*)::int FROM state_matches) AS matches,
+      (SELECT count(*)::int FROM state_tournaments) AS tournaments`;
+  return row ?? { players: 0, matches: 0, tournaments: 0 };
+}
+
 /** The narrow slice matchmaking needs, instead of the whole club document.
  *
  *  /api/sessions ranks opponents, and every open 約戰 tab polls it on a 45-second timer. It was
