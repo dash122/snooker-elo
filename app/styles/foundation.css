@@ -4,6 +4,13 @@
   html,body{background:var(--ds-canvas-functional)}
   body{min-width:0}img,video,canvas,svg{max-width:100%}
   button,input,select,textarea{min-width:0;max-width:100%}
+  /* A <label> wrapping a field is almost always the flex/grid item that field's row lays out —
+     not the input itself — so without this, the label's default min-width:auto (its content's
+     intrinsic width) is what actually decides whether the row can shrink. That's the recurring
+     cause behind native date/time inputs "overflowing": the input itself gets max-width:100% from
+     the rule above, but 100% of an unshrunk label is still wider than the row, so it pokes out
+     anyway. One rule here closes the gap for every current and future field row at once. */
+  label{min-width:0}
   button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
     outline:3px solid color-mix(in srgb,var(--ds-focus) 72%,transparent);outline-offset:3px}
 }
