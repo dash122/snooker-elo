@@ -16,14 +16,18 @@ let sqlClient: ReturnType<typeof postgres> | null = null;
 // anything that looks like a connection problem.
 export function getSql() {
   if (!sqlClient) {
-    const configuredUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
+    // The local vinext process is long-lived, so use Supavisor session mode when
+    // the integration has provided it. Production serverless requests should
+    // keep using the transaction pooler via POSTGRES_URL.
+    const configuredUrl = process.env.NODE_ENV !== "production"
+      ? process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.SUPABASE_DB_URL
+      : process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
     if (!configuredUrl) {
       throw new Error(
         "No Postgres connection string found. Set POSTGRES_URL (Vercel's Supabase integration sets this automatically)."
       );
     }
-    /* Keep the configured Supabase pooler mode. Some projects expose transaction pooling on 6543
-       but do not accept the same credentials or route on the session port 5432. */
+    /* Keep SSL enabled for every remote Supabase connection. */
     let url = configuredUrl;
     // Which database this process is talking to is worth knowing at startup,
     // but the connection string carries the password in userinfo — logging it
