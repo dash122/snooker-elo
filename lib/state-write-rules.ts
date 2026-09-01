@@ -97,6 +97,18 @@ export function memberCanWrite(current: any, next: any, playerId?: string) {
         for (const signup of beforeSignups) if (!afterSignups.has(signup)) return false;
       }
     }
+    // Arrival time is self-reported: a member may only ever write their own entry, never anyone
+    // else's — managing the roster is a different privilege from knowing when someone shows up.
+    const beforeArrival = (beforeTournament.arrivalTimes ?? {}) as Record<string, unknown>;
+    const afterArrival = (afterTournament.arrivalTimes ?? {}) as Record<string, unknown>;
+    if (JSON.stringify(beforeArrival) !== JSON.stringify(afterArrival) && !isTournamentManager(beforeTournament)) {
+      if (!playerId) return false;
+      const keys = new Set([...Object.keys(beforeArrival), ...Object.keys(afterArrival)]);
+      for (const key of keys) {
+        if (key === playerId) continue;
+        if (JSON.stringify(beforeArrival[key]) !== JSON.stringify(afterArrival[key])) return false;
+      }
+    }
   }
 
   return true;

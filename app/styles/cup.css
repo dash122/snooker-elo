@@ -359,4 +359,20 @@
 /* The shared Button primitive wraps its label in a span. Keep the roster count's badge treatment
    from leaking into that label when the redraw control sits beside it in the heading. */
 .cup-roster h3 .cup-roster-shuffle>span{min-width:0;padding:0;border-radius:0;background:transparent;color:inherit;font-size:var(--fs-sm);font-weight:inherit;text-align:inherit}
+
+/* --- Arrival time -------------------------------------------------------- */
+/* Set once at sign-up or any time after — a quiet chip rather than another form field, since it's
+   a courtesy for the other entrants and never a requirement to be in the cup. */
+.cup-arrival-field{display:block;margin:var(--sp-1) 0 var(--sp-3);font-size:var(--fs-sm);font-weight:700;color:var(--ds-text-secondary)}
+.cup-arrival-field input{display:block;width:100%;margin-top:var(--sp-1-5);min-height:44px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:0 var(--sp-3);background:white;color:var(--ds-text-primary);font-size:var(--fs-input)}
+.cup-arrival-chip{display:inline-flex;align-items:center;gap:var(--sp-1-5);margin-top:var(--sp-2-5);border:1px dashed var(--line);border-radius:999px;padding:var(--sp-1-5) var(--sp-3);background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:700}
+.cup-arrival-chip:hover{border-color:var(--ds-border-hover);color:var(--ds-accent-action)}
+.cup-arrival-chip span{font-size:.9em}
+.cup-arrival-editor{display:flex;align-items:flex-end;flex-wrap:wrap;gap:var(--sp-2-5);margin-top:var(--sp-2-5);padding:var(--sp-3);border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--ds-canvas-muted)}
+.cup-arrival-editor label{display:block;font-size:var(--fs-label);font-weight:800;color:var(--ds-text-secondary)}
+.cup-arrival-editor input{display:block;margin-top:var(--sp-1-5);min-height:44px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:0 var(--sp-3);background:white;color:var(--ds-text-primary);font-size:var(--fs-input)}
+.cup-arrival-editor-actions{display:flex;gap:var(--sp-1-5)}
+.cup-roster-arrival{display:inline-flex;align-items:center;gap:2px;color:var(--ds-text-secondary)}
+.cup-roster-arrival i{font-style:normal;opacity:.85}
+@media(max-width:599px){.cup-arrival-editor{flex-direction:column;align-items:stretch}.cup-arrival-editor input{width:100%}.cup-arrival-editor-actions{width:100%}.cup-arrival-editor-actions .ds-button{flex:1}}
 .cup-roster-remove{flex:0 0 auto;color:var(--ds-danger)}.cup-roster-remove:hover{background:var(--ds-danger-wash);color:var(--ds-danger)}

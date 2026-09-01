@@ -5,7 +5,7 @@ import { insertChunks } from "../lib/bulk-insert";
 type Player = { id:string; name:string; short:string; handicap:number|null; rating:number; colour?:string; avatar?:string|null; initialRating:number; preliminaryRating?:number|null; active:boolean; wins:number; losses:number; draws:number; framesWon:number; framesLost:number; lastChange:number; form:string[] };
 type Match = { id:string; a:string; b:string; a2?:string; b2?:string; mode?:string; teamAName?:string; teamBName?:string; scoreA:number; scoreB:number; playedOn:string; entryMode?:("match"|"aggregate"); frameEvidence?:number; performanceScore?:number; evidenceWeight?:number; handicapAdjustment?:number; overHandicapElo?:number; overHandicapMultiplier?:number; highBreaks?:{playerId:string;value:number}[]; actual:number; giver:string|null; official:number|null; extra:number; expectedA:number; beforeA:number; beforeB:number; beforeA2?:number; beforeB2?:number; afterA:number; afterB:number; afterA2?:number; afterB2?:number; deltaA:number; deltaB?:number; deltaA2?:number; deltaB2?:number; marginMultiplier?:number; status:("confirmed"|"void"); createdAt:string; tournamentId?:string; tournamentRound?:number; tournamentMatchIndex?:number };
 type Walkover = { round:number; index:number; winner:string; reason?:string };
-type Tournament = { id:string; name:string; handicapMode:"suggested"|"none"; startAt?:string|null; signupDeadline:string; createdAt:string; createdBy?:string; coHosts?:string[]|null; rosterOrder?:string[]|null; signups:string[]; draw?:string[]|null; drawnAt?:string|null; walkovers?:Walkover[]|null };
+type Tournament = { id:string; name:string; handicapMode:"suggested"|"none"; startAt?:string|null; signupDeadline:string; createdAt:string; createdBy?:string; coHosts?:string[]|null; rosterOrder?:string[]|null; signups:string[]; draw?:string[]|null; drawnAt?:string|null; walkovers?:Walkover[]|null; arrivalTimes?:Record<string,string>|null };
 type State = { players:Player[]; matches:Match[]; tournaments:Tournament[]; settings:Record<string, unknown>; audits:{id:string;text:string;at:string}[] };
 type SnapshotEntity = { entityType: "player"|"match"|"settings"|"tournament"|"audit"; entityId: string; position: number; payload: unknown };
 
@@ -173,6 +173,8 @@ export function ensureStateSchema() {
       await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS drawn_at timestamptz`;
       await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS walkovers jsonb`;
       await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS co_hosts jsonb NOT NULL DEFAULT '[]'::jsonb`;
+      // Each entrant's own optional "when I'll arrive" — self-reported, keyed by player id.
+      await tx`ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS arrival_times jsonb NOT NULL DEFAULT '{}'::jsonb`;
       // Without this, edits that only touch signups (a player joining/withdrawing a cup) left
       // every timestamp state_tournaments had untouched, so the /api/state version fingerprint
       // below didn't move and clients kept serving a stale cached document past a real DB change.
@@ -400,7 +402,7 @@ const stateDocumentQuery = (hasUpdatedAt: boolean, hasCoHosts: boolean, hasRoste
                to_char(start_at AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD"T"HH24:MI') AS "startAt",
                to_char(signup_deadline AT TIME ZONE 'Asia/Hong_Kong', 'YYYY-MM-DD"T"HH24:MI') AS "signupDeadline",
                ${isoUtc("created_at")} AS "createdAt", created_by AS "createdBy", ${hasCoHosts ? `co_hosts AS "coHosts",` : ""}${hasRosterOrder ? ` roster_order AS "rosterOrder",` : ""}
-               signups, draw, ${isoUtc("drawn_at")} AS "drawnAt", walkovers
+               signups, draw, ${isoUtc("drawn_at")} AS "drawnAt", walkovers, arrival_times AS "arrivalTimes"
         FROM state_tournaments
       ) t), '[]'::json),
       'settings', COALESCE((SELECT data FROM state_settings WHERE id = true), '{}'::jsonb),
@@ -589,11 +591,12 @@ export async function putState(data: string) {
         ...(hasRosterOrder ? { roster_order: t.rosterOrder?.length ? tx.json(t.rosterOrder) : null } : {}),
         signups: tx.json(t.signups), draw: t.draw?.length ? tx.json(t.draw) : null,
         drawn_at: t.drawnAt ?? null, walkovers: t.walkovers?.length ? tx.json(t.walkovers) : null,
+        arrival_times: tx.json(t.arrivalTimes ?? {}),
       })).map(stamped);
       const coHostsSet = hasCoHosts ? sql`,co_hosts=excluded.co_hosts` : sql``;
       const rosterOrderSet = hasRosterOrder ? sql`,roster_order=excluded.roster_order` : sql``;
       for (const chunk of insertChunks(rows)) await tx`INSERT INTO state_tournaments ${tx(chunk)}
-        ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,start_at=excluded.start_at,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by${coHostsSet}${rosterOrderSet},signups=excluded.signups,draw=excluded.draw,drawn_at=excluded.drawn_at,walkovers=excluded.walkovers${stampedSet}`;
+        ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,start_at=excluded.start_at,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by${coHostsSet}${rosterOrderSet},signups=excluded.signups,draw=excluded.draw,drawn_at=excluded.drawn_at,walkovers=excluded.walkovers,arrival_times=excluded.arrival_times${stampedSet}`;
     }
     await tx`DELETE FROM state_tournaments WHERE NOT (id = ANY(${tournamentIds}::text[]))`;
     if (state.audits.length) {
