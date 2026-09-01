@@ -20,7 +20,7 @@ const zh = {
   rolePassword: "更改帳戶類型需要重新輸入正確的管理員密碼。",
   hasMatches: "此球員已有比賽紀錄，無法刪除檔案。請先停用帳戶，或移除相關賽事後再試。",
   restored: "資料已還原至所選快照。",
-  snapshotsSection: "資料備份快照", snapshotsSub: "系統每小時最多保留一個完整資料備份，最多保留 100 個。還原會以該時間點的資料覆蓋目前所有資料。",
+  snapshotsSection: "資料備份快照", snapshotsSub: "系統每小時最多保留一個完整資料備份，最多保留 100 個；此頁顯示最近 20 個。還原會以該時間點的資料覆蓋目前所有資料。",
   snapshotsEmpty: "暫無備份快照。", restore: "還原",
   settings: "ELO 設定", playersOpen: "管理球員及個人起始 ELO", reportsOpen: "使用統計報告", statAccounts: "帳戶總數", statAdmins: "管理員", statUnlinked: "待連結球員檔案", statAllLinked: "全部已連結",
   statNoAccount: "球員待開帳戶", statAllHaveAccounts: "球員全部已開帳戶",

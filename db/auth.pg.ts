@@ -355,6 +355,11 @@ export async function adminUpdateMember(email: string, input: { username: string
 
   await sql.begin(async tx => {
     await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
+    if (input.role !== undefined) {
+      // Role edits need one shared lock so concurrent demotions cannot each
+      // observe the same last-admin count (and cannot deadlock on row order).
+      await tx`SELECT pg_advisory_xact_lock(72591006)`;
+    }
     const targetRows = await tx<{ role: "admin" | "member"; active: boolean }[]>`
       SELECT role, active FROM members WHERE email = ${oldEmail} FOR UPDATE
     `;
