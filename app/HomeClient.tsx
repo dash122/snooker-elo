@@ -1301,6 +1301,10 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     <main>
       <header><div className="mobile-brand-wrap"><div className="mobile-brand">SCAA <span>Snooker ELO</span></div>{user?.needsOnboarding&&<a className="onboarding-alert-link" href="/onboarding?reminder=1" aria-label="完成會員問卷" title="完成會員問卷">⚠️</a>}</div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {stateLoadStatus==="loading"?"載入中…":stateLoadStatus==="failed"?"載入失敗":saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       <PageFrame className={`app-page-${tab}`}>
+      {user?.needsOnboarding&&<InlineNotice tone="warning" title="完成新會員設定">
+        <span>設定頭像同答幾條問題，即可取得初始評級 — 未完成前無法記錄比賽。</span>{" "}
+        <a className="onboarding-notice-link" href="/onboarding?reminder=1">立即完成</a>
+      </InlineNotice>}
       {stateLoadStatus==="loading"&&<InlineNotice title="正在載入球會資料">{stateLoadAttempt>0?`正在重試連接資料庫（第 ${stateLoadAttempt+1} 次）…`:"正在連接資料庫，請稍候。"}</InlineNotice>}
       {stateLoadStatus==="failed"&&<InlineNotice tone="danger" title="未能載入球會資料"><span>{stateLoadError}</span> <Button variant="secondary" onClick={()=>{setStateLoadStatus("loading");setStateLoadError("");setStateRetry(value=>value+1)}}>重試</Button></InlineNotice>}
       {stateLoadStatus==="ready"&&<>
