@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, SlidingToggleGroup } from "./components/ui/Primitives";
 
 export type SortKey = "rank"|"name"|"rating"|"change"|"form"|"official"|"suggested"|"games"|"winRate"|"frameRate";
@@ -87,6 +87,7 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
 }) {
   const [query,setQuery]=useState("");
   const [open,setOpen]=useState(false);
+  const listId=useId();
   const inputRef=useRef<HTMLInputElement>(null);
   const containerRef=useRef<HTMLDivElement>(null);
   const selected=players.find(p=>p.id===value);
@@ -103,12 +104,11 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
   const startOpen=()=>{setQuery("");setOpen(true);requestAnimationFrame(()=>inputRef.current?.focus())};
   useEffect(()=>{
     if(autoOpenSignal)startOpen();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   },[autoOpenSignal]);
   const pick=(id:string)=>{onChange(id);setQuery("");setOpen(false)};
   return <div className={`player-combobox${renderTrigger?" as-trigger":""}`} ref={containerRef}>
     {renderTrigger&&!open?renderTrigger(selected,startOpen):
-      <input ref={inputRef} type="text" role="combobox" aria-expanded={open} aria-label={ariaLabel} placeholder={placeholder} autoComplete="off"
+      <input ref={inputRef} type="text" role="combobox" aria-expanded={open} aria-controls={listId} aria-label={ariaLabel} placeholder={placeholder} autoComplete="off"
         value={open?query:(selected?.name??"")}
         onFocus={()=>{if(!open){setQuery("");setOpen(true)}}}
         onChange={event=>{setQuery(event.target.value);setOpen(true)}}
@@ -116,7 +116,7 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
           if(event.key==="Escape")setOpen(false);
           if(event.key==="Enter"&&filtered.length===1){pick(filtered[0].id);event.preventDefault()}
         }}/>}
-    {open&&<ul className="player-combobox-list" role="listbox">
+    {open&&<ul id={listId} className="player-combobox-list" role="listbox">
       {allowClear&&<li role="option" aria-selected={!value}><button type="button" onMouseDown={event=>event.preventDefault()} onClick={()=>pick("")}>{clearLabel??placeholder}</button></li>}
       {filtered.length===0?<li className="player-combobox-empty">沒有符合的球員</li>:filtered.map(p=><li key={p.id} role="option" aria-selected={p.id===value}><button type="button" onMouseDown={event=>event.preventDefault()} onClick={()=>pick(p.id)}>{p.name}</button></li>)}
     </ul>}

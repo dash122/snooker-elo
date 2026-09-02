@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type TouchEvent as ReactTouchEvent } from "react";
-import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type TouchEvent as ReactTouchEvent } from "react";
+import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import MatchmakingFormation from "./MatchmakingFormation";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
@@ -247,12 +247,6 @@ function sortPlayers(players:Player[],data:AppState,key:SortKey,dir:"asc"|"desc"
   });
 }
 function matchMode(match: Match): MatchMode { return match.mode ?? "1v1"; }
-function matchParticipants(match: Match){
-  const result=[match.a,match.b];
-  if(match.a2)result.push(match.a2);
-  if(match.b2)result.push(match.b2);
-  return result;
-}
 function isParticipant(match: Match,id:string){
   return match.a===id||match.b===id||match.a2===id||match.b2===id;
 }
@@ -606,13 +600,13 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const [stateLoadStatus,setStateLoadStatus] = useState<StateLoadStatus>(initialData ? "ready" : "loading");
   const [stateLoadError,setStateLoadError] = useState("");
   const [stateRetry,setStateRetry] = useState(0);
-  const [stateLoadAttempt,setStateLoadAttempt] = useState(0);
+  const [,setStateLoadAttempt] = useState(0);
   const [tab,setTab] = useState("leaderboard");
   const [availabilityDirty,setAvailabilityDirty] = useState(false);
   const [leavingAvailability,setLeavingAvailability] = useState<string|null>(null);
   const [pendingConfirm,setPendingConfirm] = useState<{kicker:string;title:string;description:string;confirmLabel:string;onConfirm:()=>void}|null>(null);
   const askConfirm=(opts:{kicker:string;title:string;description:string;confirmLabel:string;onConfirm:()=>void})=>setPendingConfirm(opts);
-  const [jumpToAvailability,setJumpToAvailability] = useState<{playerId:string;date:string}|null>(null);
+  const [,setJumpToAvailability] = useState<{playerId:string;date:string}|null>(null);
   const [matchesView,setMatchesView] = useState<"history"|"calendar"|"cup"|"matrix">("history");
   const [headToHead,setHeadToHead] = useState({a:"",b:""});
   const [highlightMatch,setHighlightMatch] = useState<string|null>(null);
@@ -1673,7 +1667,7 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
   const plotRef=useRef<HTMLDivElement>(null);
   const shownPlayers=ranked.filter(p=>!hiddenIds.has(p.id));
   const {dates,series}=useMemo(()=>eloTrendSeries(shownPlayers,data),[shownPlayers,data]);
-  const toggle=(id:string)=>{setActiveIndex(null);setHiddenIds(current=>{const next=new Set(current);next.has(id)?next.delete(id):next.add(id);return next})};
+  const toggle=(id:string)=>{setActiveIndex(null);setHiddenIds(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next})};
   const deselectAll=()=>{setActiveIndex(null);setHiddenIds(new Set(ranked.map(p=>p.id)))};
   if(ranked.length===0) return players.length===0
     ? <Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>
@@ -2088,8 +2082,8 @@ function Matches({data,canManageMatch,canManageCup,onEdit,onVoid,onShare,onPlaye
   const pairSelected=Boolean(a&&opponent&&a.id!==opponent.id);
   const comparing=pairSelected&&modeFilter!=="2v2";
   const filteringShared2v2=pairSelected&&modeFilter==="2v2";
-  const matchesMode=(match:Match)=>modeFilter==="all"||matchMode(match)===modeFilter;
   const matches=useMemo(()=>{
+    const matchesMode=(match:Match)=>modeFilter==="all"||matchMode(match)===modeFilter;
     if(comparing){
       return data.matches
         .filter(m=>matchesMode(m)&&m.status==="confirmed"&&(
@@ -2111,18 +2105,6 @@ function Matches({data,canManageMatch,canManageCup,onEdit,onVoid,onShare,onPlaye
         return sortDirection==="asc"?(primary||tieBreak):-(primary||tieBreak);
       });
   },[data.matches,sortBy,sortDirection,modeFilter,focusPlayer,comparing,filteringShared2v2,a,opponent]);
-  // When one player is in focus, their record across the filtered set is the
-  // headline; the raw list alone makes you tally it yourself.
-  const focusSummary=useMemo(()=>{
-    if(!focusPlayer||pairSelected)return null;
-    return matches.reduce((total,m)=>{
-      if(m.status!=="confirmed"||isEntertainmentMode(m.mode))return total;
-      const first=m.a===focusPlayer,own=first?m.scoreA:m.scoreB,other=first?m.scoreB:m.scoreA;
-      total.net+=first?m.deltaA:-m.deltaA;
-      if(own>other)total.wins++;else if(own<other)total.losses++;else total.draws++;
-      return total;
-    },{wins:0,losses:0,draws:0,net:0});
-  },[matches,focusPlayer,pairSelected]);
   const headToHeadMatches=useMemo(
     ()=>matches.filter(match=>matchMode(match)!=="2v2").sort((left,right)=>right.playedOn.localeCompare(left.playedOn)||right.createdAt.localeCompare(left.createdAt)),
     [matches]
@@ -2270,7 +2252,7 @@ function TimeOfDayPicker({hour,minute,onHour,onMinute}:{hour:string;minute:strin
    round-by-round list below is the primary one. Both read the same bracket. */
 function CupBracketView({data,selectedTournament,setSelectedTournament,canManageMatch,canManageCup,onEdit,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament,onSetArrivalTime,onRecordSlot,onArrange,onWalkover,onEditRoster,onShuffleRoster,onReorderRoster,onRefresh}:{data:AppState;selectedTournament:string;setSelectedTournament:(id:string)=>void;canManageMatch:(match:Match)=>boolean;canManageCup:(tournament:Tournament)=>boolean;onEdit:(match:Match)=>void;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string,arrivalTime?:string)=>void;onSetArrivalTime:(tournamentId:string,arrivalTime:string)=>void;onRecordSlot:(tournament:Tournament,slot:BracketSlot<Match>)=>void;onArrange:(opponentId:string)=>void;onWalkover:(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string)=>void;onEditRoster:(tournament:Tournament,outgoingId:string,incomingId:string)=>void;onShuffleRoster:(tournament:Tournament)=>void;onReorderRoster:(tournament:Tournament,draggedId:string,targetId:string)=>void;onRefresh:()=>void}){
   const tournament=data.tournaments.find(item=>item.id===selectedTournament);
-  const player=(id:string)=>data.players.find(item=>item.id===id);
+  const player=useCallback((id:string)=>data.players.find(item=>item.id===id),[data.players]);
   const name=(id:string)=>player(id)?.name??"待定";
   const deadlineText=(value:string)=>formatTournamentDateTime(value);
   const deadlinePassed=Boolean(tournament&&signupsClosed(tournament));
@@ -2301,7 +2283,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       })),
       champion:bracket.champion?player(bracket.champion)??{short:"?"}:null,
     };
-  },[bracket,ownPlayerId,data.players]);
+  },[bracket,ownPlayerId,player]);
   const [openRound,setOpenRound]=useState(1);
   /* Which roster row is mid-drag and which one it is currently poised over — purely visual state,
      reset the moment the drag ends one way or another so a stale highlight can never survive it. */
@@ -2312,7 +2294,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
      handle's touch events, tracking the finger with elementFromPoint instead of native drag events. */
   const touchDragId=useRef("");
   const touchOverId=useRef("");
-  const onRosterHandleTouchStart=(id:string)=>(event:ReactTouchEvent)=>{
+  const onRosterHandleTouchStart=(id:string)=>()=>{
     touchDragId.current=id;
     touchOverId.current="";
     setDragRosterId(id);
@@ -3214,7 +3196,6 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   })();
   const forecast=livePreview??preview;
   const tournament=data.tournaments.find(t=>t.id===draft.tournamentId);
-  const tournamentHandicap=isCupMode&&tournament?.handicapMode==="suggested";
   /* Locked when the form was opened from a bracket box: the pairing, round and match number came
      from the tie itself, so there is nothing here to choose and no way to file the result against
      the wrong slot. */

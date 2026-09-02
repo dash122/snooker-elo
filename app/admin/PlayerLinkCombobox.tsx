@@ -13,7 +13,11 @@ type Player = { id: string; name: string };
  */
 export default function PlayerLinkCombobox({ players, initialValue, name, formId, placeholder, clearLabel }: { players: Player[]; initialValue: string; name: string; formId: string; placeholder: string; clearLabel: string }) {
   const [value, setValue] = useState(initialValue);
-  useEffect(() => setValue(initialValue), [initialValue]);
+  const [prevInitialValue, setPrevInitialValue] = useState(initialValue);
+  if (initialValue !== prevInitialValue) {
+    setPrevInitialValue(initialValue);
+    setValue(initialValue);
+  }
   useEffect(() => {
     const form = document.querySelector(`[data-player-link-form="${CSS.escape(formId)}"]`);
     if (!form) return;
