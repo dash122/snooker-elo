@@ -2526,8 +2526,8 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         <div className="cup-roster-player-copy">
           <b>{name(id)}</b>
           <span className="cup-roster-stat">
-            {standing.rating!=null?<><i>ELO</i>{standing.rating}</>:<em>未評分</em>}
-            {standing.handicap!=null&&tournament.handicapMode==="suggested"&&<><i>評分</i>{standing.handicap}</>}
+            {standing.rating!=null?<span className="cup-roster-stat-item"><i>ELO</i>{standing.rating}</span>:<em>未評分</em>}
+            {standing.handicap!=null&&tournament.handicapMode==="suggested"&&<span className="cup-roster-stat-item"><i>評分</i>{standing.handicap}</span>}
             {tournament.arrivalTimes?.[id]&&<span className="cup-roster-arrival"><i aria-hidden="true">🕒</i>{tournament.arrivalTimes[id]}</span>}
           </span>
         </div>
