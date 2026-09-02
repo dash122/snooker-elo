@@ -255,8 +255,8 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   [inviteVenue,setInviteVenue]=useState(""),
   [counterFor,setCounterFor]=useState<MatchInvite|null>(null),[counteringId,setCounteringId]=useState<string|null>(null),
   [reliability,setReliability]=useState<Record<string,ReliabilitySignals>>({}),
-  [intentsByPlayer,setIntentsByPlayer]=useState<Record<string,IntentSignal>>({}),[myIntent,setMyIntent]=useState<IntentState>(null),[intentBusy,setIntentBusy]=useState(false),
-  [showBoard,setShowBoard]=useState(false),[sentAsk,setSentAsk]=useState<{key:string;inviteId:string}|null>(null);
+  [intentsByPlayer,setIntentsByPlayer]=useState<Record<string,IntentSignal>>({}),[myIntent,setMyIntent]=useState<IntentState>(null),
+  [showBoard,setShowBoard]=useState(false);
  /* The buckets below are time-dependent, and a member can sit on this screen while a slot starts or
     ends. A one-minute tick re-evaluates them so the follow-up prompt appears on its own. */
  const[tick,setTick]=useState(()=>Date.now());
@@ -310,7 +310,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
  const mine=useMemo(()=>{const r=dayRangeHongKong(date);return own.filter(s=>Date.parse(s.startAt)<Date.parse(r.endAt)&&Date.parse(s.endAt)>Date.parse(r.startAt))},[own,date]);
  /* The board reads chronologically top to bottom: today's row first, each slot placed on the day it
     starts. Published and unpublished slots share the same geometry so they line up on one axis. */
- const soonest=useMemo(()=>nextAvailabilityStart().at,[own,draft]);
+ const soonest=useMemo(()=>nextAvailabilityStart().at,[]);
  const boardDates=useMemo(()=>week.slice(0,boardWide?HORIZON:7),[week,boardWide]);
   const boardItems=useMemo(()=>{const make=(key:string,x:Interval&{conditions?:SlotConditions},id?:string):BoardItem=>{const calendarDate=hkDate(new Date(x.startAt)),calendarHour=hoursOf(calendarDate,x.startAt),d=calendarHour<2?addDaysHongKong(calendarDate,-1):calendarDate;return {key,id,date:d,from:hoursOf(d,x.startAt),to:hoursOf(d,x.endAt),draft:!id,conditions:x.conditions??{}}};
   return [...own.map(x=>make(x.id,x,x.id)),...draft.map(x=>make(x.startAt,x))].sort((a,b)=>a.date.localeCompare(b.date)||a.from-b.from)},[own,draft]);
@@ -395,7 +395,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
     offer to accept are the same thing to a member — something waiting on them — and differ only in
     which buttons the row carries. Results sort first because they already happened; everything else
     goes by when it is due. */
- const queueItems=useMemo<QueueItem[]>(()=>{
+ const queueItems=((): QueueItem[]=>{
   if(!userPlayerId)return [];
   const across=(invite:MatchInvite)=>invite.fromPlayer.id===userPlayerId?invite.toPlayer:invite.fromPlayer;
   const results:QueueItem[]=buckets.followUps.map(invite=>{
@@ -432,7 +432,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
     {label:"打！",tone:"primary" as const,onClick:()=>void answerOffer(offer.id,"yes")},
    ]}));
   return [...results,...[...invites,...asks].sort((a,b)=>a.startAt.localeCompare(b.startAt))];
- },[userPlayerId,buckets.followUps,buckets.needsResponse,liveOffers.awaitingMe,closingInviteId,respondingId,answeringOfferId,onRecordMatch]);
+ })();
  /* Work I have already done my part on. Information, not a task — so it collapses to one line. */
  const waitingItems=useMemo<WaitingItem[]>(()=>{
   if(!userPlayerId)return [];
@@ -486,24 +486,6 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   setIntentsByPlayer(matchmakingSummary.intents??{});
   setMyIntent(matchmakingSummary.mine??null);
  },[matchmakingSummary]);
- /* The sent state is a five-second affordance, not a permanent one — past that the invite belongs in
-    the waiting strip like any other, and the card should go back to being a card. */
- useEffect(()=>{
-  if(!sentAsk)return;
-  const timer=window.setTimeout(()=>setSentAsk(null),5000);
-  return()=>window.clearTimeout(timer);
- },[sentAsk]);
- const postIntentAction=async(kind:"window"|"standby")=>{
-  if(intentBusy)return;
-  setIntentBusy(true);
-  try{
-   const r=await fetch("/api/intents",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kind})});
-   const b=await r.json();
-   if(r.ok){setMyIntent({id:b.intent.id,kind:b.intent.kind,expiresAt:b.intent.expiresAt});setIntentsByPlayer(m=>({...m,[userPlayerId!]:{kind}}));trackAvailabilityEvent("matchmaking_intent_posted",{kind})}
-   else setMessage(b.error??"暫時未能更新。");
-  }catch{setMessage("網絡連線失敗，請再試一次。")}
-  finally{setIntentBusy(false)}
- };
  const openInviteSheet=(playerId:string,window?:Interval)=>{
   const opponent=[...shortlist,...browseList].find(o=>o.member.id===playerId);
   const times=defaultProposalTimes(date);
@@ -538,30 +520,6 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setRespondingId(null)}
  };
- /* --- The one-tap ask -------------------------------------------------------
-    The old path opened a five-field sheet (mode, window, start, end, venue, message) for a case
-    where the app already knows the opponent, the time and often the table. Asking a member to fill
-    in what we already know is how a 20-second job became a form. So the primary action sends, and
-    the way back is an undo that sits where the card was rather than a confirmation in front of it.
-
-    Nothing is composed by the member: the invite goes out with no message at all, which is what
-    lets it read as the club proposing a fixture rather than a person putting themselves forward. */
- const quickAsk=async(item:{key:string;opponentId:string;slot:Interval})=>{
-  if(sendingInvite)return;
-  setSendingInvite(true);setInviteFor(item.opponentId);setMessage("");
-  try{
-   const r=await fetch("/api/invites",{method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify({toPlayerId:item.opponentId,startAt:item.slot.startAt,endAt:item.slot.endAt,message:"",venue:""})});
-   const b=await r.json();
-   if(!r.ok){setMessage(b.error??"邀請未能送出，請再試一次。");return;}
-   trackAvailabilityEvent("matchmaking_invite_send",{mode:"one-tap",hasVenue:false});
-   if(b.invite?.id)setSentAsk({key:item.key,inviteId:b.invite.id});
-   await refreshInvites();
-  }catch{setMessage("網絡連線失敗，請再試一次。")}
-  finally{setSendingInvite(false);setInviteFor(null)}
- };
- /* Undo is the whole reason one tap is safe. It cancels the invite outright rather than marking it
-    withdrawn, so the other member never sees anything at all if it happens quickly. */
  /* "今晚" on the cold-open screen is the same act as the free-now button: publish the next two hours,
     put a table up, and ask the best-matched people. One tap, no duration picker in the way. */
  /* "Not this week" is a statement about my own week, not about the person asking. So it declines the

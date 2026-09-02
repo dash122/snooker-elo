@@ -51,7 +51,7 @@ export default function MemberDirectory({ members, players, currentEmail }: { me
   const playerName = useMemo(() => new Map(players.map(player => [player.id, player.name])), [players]);
   const linkOf = (member: Member) => (member.statePlayerId && playerName.get(member.statePlayerId)) || null;
 
-  const shown = useMemo(() => {
+  const shown = (() => {
     const q = query.trim().toLowerCase();
     return members.filter(member => {
       if (filter === "admins" && member.role !== "admin") return false;
@@ -59,7 +59,7 @@ export default function MemberDirectory({ members, players, currentEmail }: { me
       if (!q) return true;
       return [member.displayName, member.username, member.email].some(field => field.toLowerCase().includes(q));
     });
-  }, [members, query, filter, playerName]);
+  })();
 
   const unlinkedCount = members.filter(member => !linkOf(member)).length;
   const adminCount = members.filter(member => member.role === "admin").length;

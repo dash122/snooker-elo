@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentMember, listMembers } from "../../db/auth";
 import { listAdminPlayers, listSnapshots } from "../../db/state";
-import MemberDirectory, { Avatar, type Member, type Player } from "./MemberDirectory";
+import MemberDirectory, { Avatar, type Member } from "./MemberDirectory";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
 import SnapshotList from "./SnapshotList";
 import { Button, StatTile, Surface } from "../components/ui/Primitives";
