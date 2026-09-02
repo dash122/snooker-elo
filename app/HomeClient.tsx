@@ -1078,11 +1078,11 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   function savePlayer(){
     if(!isAdmin&&(!editingPlayer||editingPlayer.id!==ownPlayerId)){setToast("你只能修改自己的球員資料。");return;}
     if(!playerForm.name.trim()||!playerForm.short.trim()){setToast("請輸入顯示名稱及縮寫。");return;}
-    const requestedRating=Number(playerForm.rating);
+    const requestedRating=playerForm.rating.trim()===""?NaN:Number(playerForm.rating);
     const rating=editingPlayer
       ? isAdmin&&Number.isFinite(requestedRating)?requestedRating:editingPlayer.initialRating
       : isAdmin&&Number.isFinite(requestedRating)?requestedRating:data.settings.start;
-    if(!Number.isFinite(rating)||rating<1000||rating>3000){setToast("個人起始 ELO 必須介乎 1000 至 3000。");return;}
+    if(!Number.isFinite(rating)||rating<200||rating>3000){setToast("個人起始 ELO 必須介乎 200 至 3000。");return;}
     const p:Player=editingPlayer
       ? {...editingPlayer,name:playerForm.name.trim(),short:playerForm.short.toUpperCase().slice(0,3),handicap:playerForm.handicap===""?null:+playerForm.handicap,initialRating:rating,colour:playerForm.colour||DEFAULT_AVATAR}
       : {id:crypto.randomUUID(),name:playerForm.name.trim(),short:playerForm.short.toUpperCase().slice(0,3),colour:playerForm.colour||DEFAULT_AVATAR,
