@@ -47,7 +47,7 @@ export default async function SharedCupPage({params}:{params:Promise<{id:string}
   };
   const cup:SharedCup={
     id,name:tournament.name,startAt:tournament.startAt,share,
-    roster:(tournament.signups??[]).map(badge),
+    roster:(tournament.signups??[]).map(playerId=>({...badge(playerId),arrival:tournament.arrivalTimes?.[playerId]??null})),
     /* Named on the cup, not on each tie: the mode is a property of the competition, and repeating
        「建議讓分」 on sixteen rows would say it fifteen times too often. */
     handicapMode:tournament.handicapMode==="none"?"none":"suggested",
