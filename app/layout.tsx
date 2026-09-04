@@ -25,6 +25,7 @@ import "./styles/ranking-table-mobile.css";
 import "./styles/onboarding.css";
 import "./styles/elo-trend.css";
 import "./styles/guest-intro.css";
+import "./styles/shootout.css";
 import { AddToHomeScreen } from "./components/AddToHomeScreen";
 
 export const metadata: Metadata = {
