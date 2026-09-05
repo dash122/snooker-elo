@@ -1,0 +1,151 @@
+/* Final app-shell refinements. Keep feature layouts and the shared brand assets intact. */
+.ds-app-shell {
+  background: var(--ds-canvas-functional);
+  --club-control-height: 2.75rem;
+}
+.ds-app-shell ::selection { background: var(--ds-accent-pale); color: var(--ds-text-primary); }
+.ds-app-shell :is(input, textarea) { caret-color: var(--ds-accent-action); }
+.ds-app-shell :is(a, button) { -webkit-tap-highlight-color: transparent; }
+.ds-app-shell a { text-underline-offset: .22em; }
+.ds-app-shell :is(.hero h1, .home-panel-head h2) { letter-spacing: -.025em; text-wrap: balance; }
+.ds-app-shell .hero.small { padding-block: var(--sp-6); }
+.ds-app-shell .hero.small h1 { line-height: 1.2; }
+.ds-app-shell .home-panel-head .kicker,
+.ds-app-shell .hero.small .kicker { display: none; }
+.ds-app-shell .home-panel-head h2 { font-size: var(--fs-h2); line-height: 1.35; }
+.ds-app-shell .home-panel-head p:not(.kicker) { line-height: 1.7; }
+.ds-app-shell :is(.home-view-panel, .table-card, .match, .player-card, .setting, .audit) {
+  box-shadow: none;
+  border-radius: var(--radius-md);
+}
+.ds-app-shell .home-view-panel { background: var(--ds-surface-primary); }
+.ds-app-shell .ranking-panel .table-card { border: 0; background: transparent; }
+.ds-app-shell .ranking-panel .row { border-radius: 0; }
+.ds-app-shell .ranking-panel .row.top { border-radius: var(--radius-sm); background: var(--ds-highlight-wash); }
+.ds-app-shell .ranking-panel .elo b { font-family: var(--font-display); font-size: var(--fs-stat); font-variant-numeric: tabular-nums; }
+.ds-app-shell :is(.mini-toggle, .match-view-toggle) button { min-height: var(--club-control-height); }
+.ds-app-shell .home-view-nav { box-shadow: none; }
+.ds-app-shell .home-view-nav button { min-height: 3rem; }
+.ds-app-shell .recent-stats-panel { background: var(--ds-surface-primary); }
+.ds-app-shell .recent-stats-panel::before,
+.ds-app-shell .recent-stat-metrics > div::after { content: none; }
+.ds-app-shell :is(.recent-stat-metrics > div, .recent-focus-grid button, .recent-chart-card, .recent-detail-card) {
+  background: var(--ds-surface-raised);
+  box-shadow: none;
+  border-radius: var(--radius-md);
+}
+.ds-app-shell .recent-focus-grid button:hover,
+.ds-app-shell .recent-detail-card:hover { transform: none; background: var(--ds-success-wash); }
+.ds-app-shell .guest-intro {
+  display: block;
+  margin-block: var(--sp-2) var(--sp-4);
+  padding: 0;
+  color: var(--ds-text-primary);
+  background: var(--ds-surface-primary);
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+.guest-intro-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-height: 5rem;
+  padding: var(--sp-4);
+  padding-right: 4rem;
+  list-style: none;
+  cursor: pointer;
+}
+.guest-intro-disclosure > summary::-webkit-details-marker { display: none; }
+.guest-intro-disclosure > summary b,
+.guest-intro-disclosure > summary small { display: block; }
+.guest-intro-disclosure > summary b { font-size: var(--fs-body); }
+.guest-intro-disclosure > summary small { margin-top: var(--sp-1); color: var(--ds-text-secondary); font-size: var(--fs-caption); line-height: 1.5; }
+.guest-intro-disclosure > summary svg { flex: none; color: var(--ds-accent-action); transition: transform .2s ease; }
+.guest-intro-disclosure[open] > summary svg { transform: rotate(180deg); }
+.guest-intro-disclosure > summary:focus-visible { outline: 3px solid var(--ds-focus); outline-offset: 2px; border-radius: var(--radius-md); }
+.guest-intro-content { display: grid; gap: var(--sp-4); padding: var(--sp-4); padding-top: 0; }
+.ds-app-shell .guest-intro-close { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; top: var(--sp-4); right: var(--sp-1); background: transparent; color: var(--ds-text-secondary); }
+.ds-app-shell .guest-intro-close:hover { color: var(--ds-accent-action); background: var(--ds-canvas-muted); }
+.ds-app-shell .guest-intro-lead,
+.ds-app-shell .guest-intro-features small { color: var(--ds-text-secondary); }
+.ds-app-shell .guest-intro-features button { border: 0; border-radius: var(--radius-sm); background: var(--ds-canvas-functional); }
+.ds-app-shell .guest-intro-features button:hover { background: var(--ds-canvas-muted); }
+.ds-app-shell .guest-intro-features i { color: var(--ds-accent-action); }
+
+@media (min-width: 821px) {
+  .ds-app-shell .side { background: var(--ds-canvas-brand); box-shadow: none; }
+  .ds-app-shell .side nav { gap: var(--sp-2); }
+  .ds-app-shell .side nav button { min-height: 3.5rem; border-radius: var(--radius-sm); }
+  .ds-app-shell .side nav button.active { background: var(--ds-surface-featured); color: var(--ds-accent-pale); box-shadow: inset 0 0 0 1px var(--ds-inverse-border); }
+  .ds-app-shell .side nav button:not(.active):hover { background: var(--ds-surface-featured); color: var(--ds-text-on-brand); }
+  .ds-app-shell .home-view-panel { padding: var(--sp-6); }
+  .ds-app-shell .ranking-panel .row { min-height: 5rem; }
+}
+
+@media (max-width: 820px) {
+  .ds-app-shell > main { padding-bottom: calc(6.5rem + env(safe-area-inset-bottom)); }
+  .ds-app-shell > main > header { min-height: 4.5rem; height: auto; gap: var(--sp-2); padding-block: var(--sp-2); }
+  .ds-app-shell .account-actions { gap: var(--sp-2); min-width: 0; }
+  .ds-app-shell .account-link { min-height: var(--club-control-height); max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ds-app-shell .header-settings { min-width: var(--club-control-height); min-height: var(--club-control-height); }
+  .ds-app-shell .app-page-leaderboard > .hero { margin-inline: 0; border-radius: var(--radius-md); min-height: 0; padding: var(--sp-6) var(--sp-5); box-shadow: none; }
+  .ds-app-shell .app-page-leaderboard > .hero h1 { font-size: clamp(2rem, 8.5vw, 3rem); line-height: 1.15; letter-spacing: -.025em; }
+  .ds-app-shell .app-page-leaderboard > .hero p:not(.kicker) { font-size: var(--fs-sm); line-height: 1.7; color: var(--ds-text-on-brand-secondary); }
+  .ds-app-shell .app-page-leaderboard > .hero .podium-stats { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--ds-inverse-border); }
+  .ds-app-shell .app-page-leaderboard > .hero .podium-stats > span { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
+  .ds-app-shell .app-page-leaderboard > .hero .podium-stats b { font-size: var(--fs-stat); }
+  .ds-app-shell .app-page-leaderboard > .hero .podium-stats small { font-size: var(--fs-label); color: var(--ds-text-on-brand-secondary); }
+  .ds-app-shell .home-view-nav { margin-block: var(--sp-5); padding: var(--sp-1); border-radius: var(--radius-sm); background: var(--ds-canvas-muted); }
+  .ds-app-shell .home-view-nav button { padding-inline: var(--sp-1); font-size: var(--fs-label); white-space: normal; line-height: 1.45; }
+  .ds-app-shell .page-tabs button { min-height: var(--club-control-height); padding-inline: var(--sp-1); white-space: normal; }
+  .ds-app-shell .page-tabs button > span { white-space: normal; overflow: visible; text-overflow: clip; }
+  .ds-app-shell .home-panel-head { gap: var(--sp-4); align-items: stretch; }
+  .ds-app-shell .home-view-panel { padding: var(--sp-4); }
+  .ds-app-shell .home-panel-head p:not(.kicker) { font-size: var(--fs-caption); }
+  .ds-app-shell .ranking-scope-toggle { display: flex; width: 100%; }
+  .ds-app-shell .ranking-scope-toggle button { flex: 1; padding-inline: var(--sp-2); font-size: var(--fs-label); }
+  .ds-app-shell .ranking-panel .table-card { padding: 0; }
+  .ds-app-shell .ranking-panel .row { min-height: 4.75rem; padding-inline: var(--sp-1); }
+  .ds-app-shell .ranking-panel .person { gap: var(--sp-2); }
+  .ds-app-shell .ranking-panel .person b { line-height: 1.45; }
+  .ds-app-shell :is(.filters input, .filters select, .sheet input, .sheet select, .sheet textarea) { font-size: var(--fs-body); min-height: var(--club-control-height); }
+  .ds-app-shell .empty { padding: var(--sp-6) var(--sp-4); }
+  .ds-app-shell .sheet { padding-bottom: calc(var(--sp-6) + env(safe-area-inset-bottom)); }
+
+  /* A stable dock: equal destinations, a persistent action label, and one selected state. */
+  .ds-app-shell .bottom {
+    left: max(.75rem, env(safe-area-inset-left));
+    right: max(.75rem, env(safe-area-inset-right));
+    bottom: calc(.5rem + env(safe-area-inset-bottom));
+    height: 4.5rem;
+    padding: var(--sp-1);
+    border-radius: var(--radius-md);
+    background: var(--ds-surface-primary);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: var(--ds-shadow-resting);
+  }
+  .ds-app-shell .bottom button { flex: 1 1 0; min-height: var(--club-control-height); gap: var(--sp-1); color: var(--ds-text-secondary); border-radius: var(--radius-sm); }
+  .ds-app-shell .bottom button::before { content: none; }
+  .ds-app-shell .bottom button:active { transform: none; }
+  .ds-app-shell .bottom > .sliding-toggle-thumb { background: var(--ds-success-wash); box-shadow: none; border-radius: var(--radius-sm); }
+  .ds-app-shell .bottom .active { color: var(--ds-accent-action); }
+  .ds-app-shell .bottom small { display: block; font-size: var(--fs-label); line-height: 1.3; }
+  .ds-app-shell .bottom .bottom-record i { width: 2rem; height: 2rem; margin: 0; border-radius: var(--radius-sm); background: var(--ds-accent-action); color: var(--ds-text-on-brand); box-shadow: none; }
+  .ds-app-shell .bottom .bottom-record small { display: block; color: var(--ds-accent-action); }
+  .ds-app-shell .bottom .bottom-record:active i { box-shadow: none; }
+  .ds-app-shell .bottom .bottom-record:focus-visible i { outline: 3px solid var(--ds-focus); outline-offset: 2px; }
+  .ds-app-shell .record-speed-dial { bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 380px) {
+  .ds-app-shell .mobile-brand .site-brand-wordmark { width: 5.75rem; }
+  .ds-app-shell .mobile-brand .site-brand-mark { width: 30px; height: 30px; }
+  .ds-app-shell .account-actions { gap: var(--sp-1); }
+  .ds-app-shell .account-link { font-size: var(--fs-label); padding-inline: var(--sp-2); }
+  .ds-app-shell .home-view-panel { padding-inline: var(--sp-3); }
+  .ds-app-shell .ranking-panel :is(.row, .row-head-mobile) { grid-template-columns: 1.5rem minmax(0, 1fr) 3.125rem 3rem; column-gap: var(--sp-1); }
+  .ds-app-shell .ranking-panel .row > .form { width: 3.125rem; }
+}
