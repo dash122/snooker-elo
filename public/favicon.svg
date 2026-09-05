@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
-  <title id="title">SCAA Snooker ELO</title>
-  <rect width="64" height="64" rx="14" fill="#082d27"/>
-  <path fill="#d6aa59" d="m40 15 1-9 6 5 5-7 3 8 7-4-2 10z"/>
-  <path d="M5 59 23 41" stroke="#d6aa59" stroke-width="4"/>
-  <circle cx="28" cy="36" r="6" fill="#fffdf8"/>
-  <circle cx="40" cy="24" r="6" fill="#c6423a"/>
-  <circle cx="52" cy="12" r="6.5" fill="#041f1b" stroke="#d6aa59" stroke-width="1.5"/>
+  <title id="title">Snooker ELO</title>
+  <defs><linearGradient id="felt" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1d6a5e"/><stop offset="1" stop-color="#082d27"/></linearGradient><radialGradient id="white"><stop stop-color="#fffdf8"/><stop offset="1" stop-color="#d8ceb8"/></radialGradient></defs>
+  <rect width="64" height="64" rx="14" fill="url(#felt)"/>
+  <path d="M2 61 31 34" stroke="#cda767" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="42" cy="22" r="10" fill="#a72e32"/>
+  <circle cx="31" cy="37" r="13" fill="url(#white)"/>
+  <circle cx="27" cy="33" r="3" fill="#fff" opacity=".8"/>
 </svg>

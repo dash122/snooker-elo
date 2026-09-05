@@ -2,6 +2,7 @@ import Link from "next/link";
 import PasswordField from "./PasswordField";
 import SignupForm from "./SignupForm";
 import { Button, SlidingToggleGroup } from "../components/ui/Primitives";
+import { BrandLogo } from "../components/BrandLogo";
 
 type User = { displayName: string; role: "admin" | "member" };
 
@@ -20,7 +21,7 @@ export default function AuthExperience({
     return (
       <main className="auth-experience">
         <section className="auth-welcome-card">
-          <Link className="auth-brand" href="/">SCAA <span>Snooker ELO</span></Link>
+          <BrandLogo className="auth-brand"/>
           {welcome ? (
             <>
               <p className="kicker">歡迎加入</p>
@@ -47,7 +48,7 @@ export default function AuthExperience({
   return (
     <main className="auth-experience">
       <section className="auth-story" aria-label="會員功能介紹">
-        <Link className="auth-brand auth-brand-light" href="/">SCAA <span>Snooker ELO</span></Link>
+        <BrandLogo className="auth-brand auth-brand-light"/>
         <div>
           <p className="kicker">MEMBERS’ TABLE</p>
           <h1>每場比賽，<br/>都成為你的紀錄。</h1>
@@ -63,7 +64,7 @@ export default function AuthExperience({
 
       <section className="auth-panel">
         <div className="auth-panel-inner">
-          <Link className="auth-mobile-brand" href="/">SCAA <span>Snooker ELO</span></Link>
+          <BrandLogo className="auth-mobile-brand" compact/>
           <SlidingToggleGroup as="nav" className="auth-tabs" aria-label="帳戶選項">
             <Link href="/login" aria-current={!signup ? "page" : undefined}>登入</Link>
             <Link href="/login?mode=signup" aria-current={signup ? "page" : undefined}>註冊</Link>

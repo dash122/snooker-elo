@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogo } from "../components/BrandLogo";
 import { redirect } from "next/navigation";
 import { getCurrentMember, listMembers } from "../../db/auth";
 import { listAdminPlayers, listSnapshots } from "../../db/state";
@@ -60,7 +61,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
   return <main className="auth-page admin-page">
     <section className="auth-card admin-card">
-      <Link className="auth-brand" href="/">SCAA <span>Snooker ELO</span></Link>
+      <BrandLogo className="auth-brand"/>
       <p className="kicker">{zh.kicker}</p>
       <h1>{zh.title}</h1>
 

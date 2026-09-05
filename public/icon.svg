@@ -1,11 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
-  <title id="title">SCAA Snooker ELO Championship Shot</title>
-  <desc id="description">A cue lines up the white, red, and black snooker balls, with a gold championship crown on deep green cloth.</desc>
-  <rect width="512" height="512" rx="112" fill="#082d27"/>
-  <path fill="#d6aa59" d="m322 121 12-66 48 39 35-55 28 63 55-31-14 70z"/>
-  <path d="M40 472 178 334" stroke="#d6aa59" stroke-width="28" stroke-linecap="square"/>
-  <path d="m170 342 18-18" stroke="#fffdf8" stroke-width="28"/>
-  <circle cx="218" cy="294" r="43" fill="#fffdf8"/>
-  <circle cx="309" cy="203" r="45" fill="#c6423a"/>
-  <circle cx="400" cy="112" r="49" fill="#041f1b" stroke="#d6aa59" stroke-width="8"/>
+  <title id="title">Snooker ELO</title>
+  <desc id="description">A cue lines up a white and red snooker ball on deep green cloth.</desc>
+  <defs><linearGradient id="felt" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1d6a5e"/><stop offset="1" stop-color="#082d27"/></linearGradient><radialGradient id="white"><stop stop-color="#fffdf8"/><stop offset="1" stop-color="#d8ceb8"/></radialGradient></defs>
+  <rect width="512" height="512" rx="112" fill="url(#felt)"/>
+  <path d="M16 496 248 280" stroke="#cda767" stroke-width="38" stroke-linecap="round"/>
+  <circle cx="336" cy="176" r="80" fill="#a72e32"/>
+  <circle cx="248" cy="296" r="104" fill="url(#white)"/>
+  <circle cx="214" cy="262" r="22" fill="#fff" opacity=".8"/>
 </svg>
