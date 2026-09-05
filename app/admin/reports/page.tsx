@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { BrandLogo } from "../../components/BrandLogo";
 import { redirect } from "next/navigation";
 import { getCurrentMember } from "../../../db/auth";
@@ -6,7 +5,8 @@ import { getStateSummary } from "../../../db/state";
 import { eventCounts, eventDailyMembers, eventMemberDetails } from "../../../db/analytics";
 import { EventAnalytics } from "./EventAnalytics";
 import type { EventDailyPoint, EventMemberDetail } from "../../../db/analytics";
-import { StatTile, Surface, EmptyState } from "../../components/ui/Primitives";
+import { ButtonLink, StatTile, Surface, EmptyState } from "../../components/ui/Primitives";
+import { SectionHeader } from "../../components/shell/AppShell";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +59,7 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
       <p className="kicker">{zh.kicker}</p>
       <h1>{zh.title}</h1>
 
-      <h2 className="reports-section-title">{zh.overview}</h2>
+      <SectionHeader title={zh.overview} />
       <div className="admin-stats">
         <StatTile label={zh.statPlayers} value={summary.players} />
         <StatTile label={zh.statMatches} value={summary.matches} />
@@ -67,14 +67,13 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
       </div>
 
       <div className="reports-head">
-        <h2 className="reports-section-title">{zh.eventsTitle}</h2>
+        <SectionHeader title={zh.eventsTitle} description={zh.eventsSub} />
         <div className="reports-window-tabs" role="tablist" aria-label={zh.eventsTitle}>
           {WINDOWS.map(w => <a key={w.days} href={reportHref(w.days,selectedEvent ?? undefined)}
             role="tab" aria-selected={w.days === activeDays}
             className={`reports-window-tab${w.days === activeDays ? " active" : ""}`}>{w.label}</a>)}
         </div>
       </div>
-      <p className="admin-section-sub">{zh.eventsSub}</p>
 
       {counts.length === 0
         ? <EmptyState title={zh.emptyTitle} description={zh.emptyDesc} />
@@ -93,7 +92,7 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
 
       <EventAnalytics counts={counts} activeDays={activeDays} selectedEvent={selectedEvent} daily={daily} members={memberDetails}/>
 
-      <a className="more admin-back" href="/admin">{zh.back}</a>
+      <ButtonLink className="admin-back" variant="quiet" href="/admin">{zh.back}</ButtonLink>
     </section>
   </main>;
 }

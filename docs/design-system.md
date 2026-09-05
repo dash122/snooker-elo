@@ -1447,3 +1447,22 @@ Verified `npm run build`, `npm run lint:css` (514/0, unchanged from the merge ba
 **Left open:** this is one button out of 307. The pattern is now proven (name the missing token,
 confirm zero blast radius, accept the small normalisation, leave what doesn't actually match
 alone) — the next pass can repeat it page by page rather than re-deriving the approach.
+
+## Cross-page convergence pass (2026-09-05)
+
+The account and administration areas now share the same interface vocabulary instead of
+recreating it per feature. `ButtonLink` gives navigation actions the same variants, spacing,
+focus treatment, and touch target as buttons. `SectionHeader` owns page-section title,
+description, and metadata layout. Account performance, history, statistics, and settings use it,
+as do the reporting overview and event sections. Match-history filters now use the common
+`SegmentedControl`.
+
+System feedback also converged on `InlineNotice` in the admin flow. The primitive now uses a full
+subtle border and a tone marker, so information, success, warning, and error states keep the same
+geometry. Empty states and overlay close controls use stroke icons rather than font glyphs, which
+keeps their alignment and rendering consistent across platforms. `PageHero.eyebrow` is optional;
+new page heroes should lead directly with the page title.
+
+Use these shared components for new work and migrate an existing local pattern when it appears in
+three or more places. Keep feature-specific composition in the feature stylesheet; shared control
+shape, spacing, state, and interaction belong in `app/styles/components.css`.
