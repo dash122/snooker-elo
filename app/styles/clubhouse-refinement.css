@@ -98,7 +98,7 @@
   .ds-app-shell .app-page-leaderboard > .hero .podium-stats b { font-size: var(--fs-stat); }
   .ds-app-shell .app-page-leaderboard > .hero .podium-stats small { font-size: var(--fs-label); color: var(--ds-text-on-brand-secondary); }
   .ds-app-shell .home-view-nav { margin-block: var(--sp-5); padding: var(--sp-1); border-radius: var(--radius-sm); background: var(--ds-canvas-muted); }
-  .ds-app-shell .home-view-nav button { padding-inline: var(--sp-1); font-size: var(--fs-label); white-space: normal; line-height: 1.45; }
+  .ds-app-shell .home-view-nav button { padding-inline: var(--sp-1); font-size: var(--fs-sm); white-space: normal; line-height: 1.45; }
   .ds-app-shell .page-tabs button { min-height: var(--club-control-height); padding-inline: var(--sp-1); white-space: normal; }
   .ds-app-shell .page-tabs button > span { white-space: normal; overflow: visible; text-overflow: clip; }
   .ds-app-shell .home-panel-head { gap: var(--sp-4); align-items: stretch; }
