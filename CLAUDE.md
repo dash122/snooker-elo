@@ -23,6 +23,13 @@ nearest step. ≤2px/>32px are outside the scale on purpose.
 **Colour** — use a `--ds-*` token from `app/styles/tokens.css`. Hex is lint-blocked;
 add a named token if the colour you need doesn't exist yet.
 
+**Shape, elevation, motion, control size** — `--radius-2xs`…`--radius-xl`/`--radius-pill`
+for corners; `--ds-elevation-1`…`-6` for shadows (pick by how far off the page the
+thing sits — ring/inset/sheen shadows are edges, not elevation, and stay literal);
+`--ds-duration-*` + `--ds-ease-*` for transitions; and `--control-sm` 36px /
+`--control-md` 44px (the standard tap target) / `--control-lg` 50px for the height of
+every button, chip, toggle, tab and form control. Nothing tappable goes below 36px.
+
 **Breakpoints** — only four, fixed: `max-width: 380px` (narrow phone, sparingly),
 `599px`, `820px`, `1180px`, and `min-width: 821px`. Nothing else.
 

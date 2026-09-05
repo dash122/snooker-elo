@@ -33,7 +33,20 @@ Plus three fixed sizes that don't step:
 | `--fs-display` | 32px | hero headings, empty-state glyphs |
 | `--fs-display-lg` | 38px | the primary ranking hero only |
 
-Nothing resolves below 11px. It isn't legible on a phone.
+Nothing resolves below 11px. It isn't legible on a phone — **but the scale only holds where
+something names a role.** Relative sizing compounds off whatever it inherits and slips under the
+floor with nothing in the CSS to grep for:
+
+```css
+.ds-field small { }                  /* ❌ <small> defaults to `smaller` ≈ .83em → 10.8px */
+.ds-field small { font-size: var(--fs-label); }   /* ✅ names the role */
+```
+
+`smaller`/`larger`, bare `em`, and unstyled `<small>`, `<sub>` and `<sup>` are all this shape. A
+codemod that replaces literals cannot see them, because there is no literal — so when a component
+nests text inside one of those elements, give it a token explicitly. Two live cases were found this
+way (`FormField`'s hint and error text at 10.8px, the guide's formula subscripts at 9.2px); a lint
+rule for it would be worth having.
 Landing-page heroes that must scale with the viewport may use `clamp()` — that's the one exception.
 
 ## Spacing — eleven steps
@@ -48,6 +61,32 @@ on the type scale. Values ≤2px (icon/baseline optical nudges) and >32px (large
 spacing) are outside this scale on purpose — don't force them onto it.
 `stylelint` warns (not yet blocks) if a `padding`/`margin`/`gap` declaration uses a literal value that
 exactly matches one of these eleven numbers instead of the token — same maturity model as colour.
+
+## Elevation — six steps, one hue
+
+`--ds-elevation-1` … `--ds-elevation-6`. Picking a step is answering "how far off the page is this",
+not choosing a look, so blur and alpha rise together and the hue never changes:
+
+| Token | Use for |
+| --- | --- |
+| `--ds-elevation-1` | hairline lift — chips, pressed states, dense rows |
+| `--ds-elevation-2` | raised control — pills, active tabs, small cards |
+| `--ds-elevation-3` | resting panel — the default card shadow (`--ds-shadow-resting`, `--shadow`) |
+| `--ds-elevation-4` | hover / lifted card (`--shadow-hover`) |
+| `--ds-elevation-5` | popovers, drag state (`--shadow-lift`) |
+| `--ds-elevation-6` | modals, sheets, anything over a scrim (`--ds-shadow-floating`) |
+
+Ring, inset, and sheen shadows (`--shadow-focus-ring`, `--shadow-inset-top-sheen`,
+`--shadow-row-hairline`) are drawing an *edge*, not elevation, and stay literal.
+
+## Control heights — three steps
+
+`--control-sm` 36px · `--control-md` 44px · `--control-lg` 50px
+
+Every button, chip, toggle, tab, and form control names one of these. `--control-md` is the standard
+tap target; `--control-lg` is for primary commitments and all text inputs; `--control-sm` is the floor
+— nothing tappable goes below it, and on a phone it should be the exception rather than the default.
+If a rule pins `height` as well as `min-height`, both name the same token.
 
 ## Breakpoints — four tiers, and only four
 
@@ -1466,3 +1505,72 @@ new page heroes should lead directly with the page title.
 Use these shared components for new work and migrate an existing local pattern when it appears in
 three or more places. Keep feature-specific composition in the feature stylesheet; shared control
 shape, spacing, state, and interaction belong in `app/styles/components.css`.
+
+## Type, radius, elevation, motion and control heights, standardised (2026-09-05)
+
+Five scales were still drifting far enough that the same UI role rendered differently depending on
+which page it was on. Each pass below took the nearest existing step; no new scale was invented, and
+only elevation gained tokens (there was no ladder to name before).
+
+**Type.** 380 literal `font-size` declarations across 12 files onto the eight `--fs-*` roles: 79
+distinct values → 8, token adoption 74% → 97%. The largest group was ~110 declarations *below* the
+scale's 12px floor (`11px` ×52, `.7rem`, `.72rem`, `11.5px`, `.6875rem`…) — the exact type that is
+hardest to read on a phone. They now sit on `--fs-label`, which the responsive scale steps per tier
+instead of every component guessing. The eight remaining literals are decorative glyphs above 43px
+and two `em` multipliers; neither is a type role.
+
+**Radius.** 56 distinct literals (2–28px) onto the seven `--radius-*` steps. The two hero surfaces had
+each invented their own `clamp()` radius for the same role and now share `--radius-xl`. `50%`, `0`,
+`inherit` and `calc()` are left alone.
+
+**Elevation.** The `--ds-elevation-*` ladder above replaces ~60 green drop shadows, each invented for
+one component (blur 1–80px, alpha .04–.28, four different greens). The pre-existing shadow names in
+`globals.css` are now aliases onto it, so call sites read the same.
+
+**Motion.** Durations onto `--ds-duration-*` and easings onto `--ds-ease-standard`.
+`--snooker-ease`/`--snooker-press` were within rounding distance of the `--ds-ease-*` tokens and now
+alias them. The `prefers-reduced-motion` override in `foundation.css` keeps its literal `.01ms`: it
+has to beat every animation at any specificity, not match the system.
+
+**Control heights.** Fifteen different button heights (28…54px) across 96 rules onto the three-step
+ladder. On a phone this is not only tidiness: everything that was 28–34px now clears 36px, and the
+40–42px group reaches the 44px tap target.
+
+### The `PageHero` bug this surfaced
+
+`PageHero` renders a `<header>`, so `header{height:74px}` and `main>header{height:calc(68px +
+safe-area)}` in `@layer legacy` were sizing it. Layer order beats specificity and legacy is declared
+last, so `.ds-page-hero` could not win however specific it got: the hero was locked to the top bar's
+height and its description and action rendered *outside* the dark panel, over the section beneath.
+`.density-card>header` had already needed a local `height:auto;min-height:0` to escape the same trap.
+Excluding `.ds-page-hero` from those four bare-`header` rules fixes it for every call site at once.
+
+Worth remembering as a general shape: a bare element selector in `@layer legacy` silently outranks
+any class in `@layer components`. When a primitive renders a semantic element (`header`, `main`,
+`section`, `footer`), check `globals.css` for a bare rule on it before assuming the primitive's own
+CSS applies.
+
+## Rendering found what the metrics could not (2026-09-05)
+
+Everything in the standardisation pass above was measurable, and the scoreboard improved on every
+row while three real bugs were live. Recording them because they share a shape.
+
+1. **The codemod re-broke `html{font-size:16px}`**, rewriting it to `var(--fs-body)` — a correct-
+   looking tokenisation that reintroduced the root compounding bug from the 2026-08-16 pass.
+   `--fs-label` went to 9.9px on a phone and every rem-based spacing and control token shrank ~10%
+   with it. Nothing in build, tests, lint, or the metrics table moved.
+2. **Relative font-size keywords** (the section above) put `FormField`'s hints at 10.8px and the
+   guide's formula subscripts at 9.2px. No literal to find, so no pass could have caught them.
+3. **A bare `header` rule in `@layer legacy`** outranked `.ds-page-hero` on layer order and broke
+   `PageHero` on every viewport.
+
+The common thread: each was a value the CSS never states, so a tool that reads the CSS cannot see
+it. They only appear once something renders. Two practical consequences:
+
+- `npm run design:metrics` measures whether values are *named*, not whether the result is *right*.
+  It is a debt tracker, not a test. Treat a green scoreboard as necessary and never sufficient.
+- Check against real data, not an empty database. Standing up a local Postgres is cheap: create a
+  database, apply `supabase/migrations/*.sql` in order (strip `transaction_timeout` and create the
+  `anon`/`authenticated` roles — both Supabase-only), seed a few players and matches, then point
+  `POSTGRES_URL` at it. A pass over the routes at 390px afterwards is worth more than any number in
+  the table.

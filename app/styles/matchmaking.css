@@ -16,7 +16,7 @@
 @layer components {
   .availability-date-selector,.availability-card,.session-card,.availability-manage-card,.availability-opponent-card{background:var(--ds-surface-primary);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-card);box-shadow:var(--ds-shadow-resting)}
   /* `.mm-card` deliberately excluded from the border-radius above: globals.css declares an
-     unlayered `.mm-card{border-radius:17px}` (unconditional, no media query), and per the
+     unlayered `.mm-card{border-radius:var(--radius-md)}` (unconditional, no media query), and per the
      cascade-layer spec an unlayered declaration always beats a layered one for the same
      property, regardless of specificity -- so a layered border-radius here (base or the mobile
      re-declaration below) could never actually apply. Kept the other properties, which globals.css
@@ -49,7 +49,7 @@
      is shared by non-availability forms too, so it can't safely be re-scoped with an ancestor class; kept as a deliberate
      escape hatch. `.availability-form-actions`/`.sheet-actions` have no such collision but are batched into the same
      declaration for a single mobile stacking rule. */
-  .composer-times,.availability-form-actions,.sheet-actions{grid-template-columns:1fr!important;display:grid!important}.availability-form-actions button,.sheet-actions button{width:100%;min-height:3rem}.availability-dialog{width:min(calc(100vw - 1.5rem),32rem);margin:auto}}
+  .composer-times,.availability-form-actions,.sheet-actions{grid-template-columns:1fr!important;display:grid!important}.availability-form-actions button,.sheet-actions button{width:100%;min-height:var(--control-lg)}.availability-dialog{width:min(calc(100vw - 1.5rem),32rem);margin:auto}}
   @media(max-width:599px){.availability-page .hero h1,.availability-page .availability-hero h1{font-size:var(--fs-display)}.availability-date-strip button{flex-basis:4.25rem}.availability-card,.mm-card,.session-card{padding:var(--sp-3-5)}}
 }
 /* Same unlayered-vs-layered issue as `.hero` above: globals.css never sets `display` for this button,
@@ -67,7 +67,7 @@
   .sl-toolbar .sl-mode-switch{flex:1 1 16rem;min-width:0}
   .sl-toolbar .sl-new-session{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;min-height:3rem;padding-inline:var(--sp-4);border-radius:var(--ds-radius-control);font-size:var(--fs-sm);white-space:nowrap}
   .availability-roster{margin-block:var(--sp-4)}
-  .availability-roster-toggle{display:inline-flex;align-items:center;gap:var(--sp-2);min-height:2.75rem;padding:0 var(--sp-3);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary);color:var(--ds-text-primary);font-size:var(--fs-sm);font-weight:700}
+  .availability-roster-toggle{display:inline-flex;align-items:center;gap:var(--sp-2);min-height:var(--control-md);padding:0 var(--sp-3);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary);color:var(--ds-text-primary);font-size:var(--fs-sm);font-weight:700}
   .availability-roster-toggle[aria-expanded="true"]{border-color:var(--ds-accent-primary);color:var(--ds-accent-text)}
   .availability-roster .availability-date-selector{margin-top:var(--sp-3)}
   @media(max-width:599px){
