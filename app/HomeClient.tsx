@@ -2428,6 +2428,14 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   if(!selectedTournament){
     const cups=[...data.tournaments].sort((left,right)=>right.createdAt.localeCompare(left.createdAt));
     const cupEntries=cups.map(item=>({item,status:cupStatus(item,data.matches)}));
+    const championTable=Array.from(cupEntries.reduce((table,{item,status})=>{
+      if(status!=="done")return table;
+      const championId=buildBracket<Match>(item,data.matches).champion;
+      if(!championId)return table;
+      const previous=table.get(championId);
+      table.set(championId,{playerId:championId,titles:(previous?.titles??0)+1,lastTitle:item.name,lastWonAt:item.startAt??item.createdAt});
+      return table;
+    },new Map<string,{playerId:string;titles:number;lastTitle:string;lastWonAt:string}>()).values()).sort((left,right)=>right.titles-left.titles||right.lastWonAt.localeCompare(left.lastWonAt)||name(left.playerId).localeCompare(name(right.playerId),"zh-HK"));
     const cupSections=[
       {id:"active",label:"報名中／進行中賽事",entries:cupEntries.filter(entry=>entry.status!=="done")},
       {id:"done",label:"已完成賽事",entries:cupEntries.filter(entry=>entry.status==="done")},
@@ -2437,6 +2445,23 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         <div><p className="sl-eyebrow">SCAA 盃賽</p><h2>盃賽</h2><p>報名、抽籤、對陣同賽果，一頁睇晒。</p></div>
         {isAdmin&&<Button onClick={onCreateTournament}>＋ 新增盃賽</Button>}
       </div>
+      {championTable.length>0&&<section className="cup-honours" aria-labelledby="cup-honours-title">
+        <div className="cup-honours-head">
+          <div><p className="sl-eyebrow">Hall of champions</p><h3 id="cup-honours-title">歷屆冠軍榜</h3></div>
+          <span>{cupEntries.filter(entry=>entry.status==="done").length} 屆賽事</span>
+        </div>
+        <ol className="cup-honours-list">
+          {championTable.map((champion,index)=>{
+            const championPlayer=player(champion.playerId)??{short:"?"};
+            return <li className={index===0?"is-leader":""} key={champion.playerId}>
+              <span className="cup-honours-rank" aria-label={`第 ${index+1} 名`}>{index===0?"♛":String(index+1).padStart(2,"0")}</span>
+              <PlayerBadge player={championPlayer}/>
+              <span className="cup-honours-player"><b>{name(champion.playerId)}</b><small>最近勝出 · {champion.lastTitle}</small></span>
+              <span className="cup-honours-count"><b>{champion.titles}</b><small>次冠軍</small></span>
+            </li>;
+          })}
+        </ol>
+      </section>}
       {cups.length===0?<div className="cup-empty"><span aria-hidden="true">🏆</span><b>尚未有盃賽</b><p>{isAdmin?"建立第一個盃賽，球員即可報名。":"管理員建立盃賽後，你就可以在這裡報名。"}</p></div>
       :<div className="cup-sections">{cupSections.map(section=><section className="cup-section" aria-labelledby={`cup-section-${section.id}`} key={section.id}>
         <div className="cup-section-divider"><h3 id={`cup-section-${section.id}`}>{section.label}</h3></div>
