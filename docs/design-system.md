@@ -33,7 +33,20 @@ Plus three fixed sizes that don't step:
 | `--fs-display` | 32px | hero headings, empty-state glyphs |
 | `--fs-display-lg` | 38px | the primary ranking hero only |
 
-Nothing resolves below 11px. It isn't legible on a phone.
+Nothing resolves below 11px. It isn't legible on a phone — **but the scale only holds where
+something names a role.** Relative sizing compounds off whatever it inherits and slips under the
+floor with nothing in the CSS to grep for:
+
+```css
+.ds-field small { }                  /* ❌ <small> defaults to `smaller` ≈ .83em → 10.8px */
+.ds-field small { font-size: var(--fs-label); }   /* ✅ names the role */
+```
+
+`smaller`/`larger`, bare `em`, and unstyled `<small>`, `<sub>` and `<sup>` are all this shape. A
+codemod that replaces literals cannot see them, because there is no literal — so when a component
+nests text inside one of those elements, give it a token explicitly. Two live cases were found this
+way (`FormField`'s hint and error text at 10.8px, the guide's formula subscripts at 9.2px); a lint
+rule for it would be worth having.
 Landing-page heroes that must scale with the viewport may use `clamp()` — that's the one exception.
 
 ## Spacing — eleven steps
@@ -1536,3 +1549,28 @@ Worth remembering as a general shape: a bare element selector in `@layer legacy`
 any class in `@layer components`. When a primitive renders a semantic element (`header`, `main`,
 `section`, `footer`), check `globals.css` for a bare rule on it before assuming the primitive's own
 CSS applies.
+
+## Rendering found what the metrics could not (2026-09-05)
+
+Everything in the standardisation pass above was measurable, and the scoreboard improved on every
+row while three real bugs were live. Recording them because they share a shape.
+
+1. **The codemod re-broke `html{font-size:16px}`**, rewriting it to `var(--fs-body)` — a correct-
+   looking tokenisation that reintroduced the root compounding bug from the 2026-08-16 pass.
+   `--fs-label` went to 9.9px on a phone and every rem-based spacing and control token shrank ~10%
+   with it. Nothing in build, tests, lint, or the metrics table moved.
+2. **Relative font-size keywords** (the section above) put `FormField`'s hints at 10.8px and the
+   guide's formula subscripts at 9.2px. No literal to find, so no pass could have caught them.
+3. **A bare `header` rule in `@layer legacy`** outranked `.ds-page-hero` on layer order and broke
+   `PageHero` on every viewport.
+
+The common thread: each was a value the CSS never states, so a tool that reads the CSS cannot see
+it. They only appear once something renders. Two practical consequences:
+
+- `npm run design:metrics` measures whether values are *named*, not whether the result is *right*.
+  It is a debt tracker, not a test. Treat a green scoreboard as necessary and never sufficient.
+- Check against real data, not an empty database. Standing up a local Postgres is cheap: create a
+  database, apply `supabase/migrations/*.sql` in order (strip `transaction_timeout` and create the
+  `anon`/`authenticated` roles — both Supabase-only), seed a few players and matches, then point
+  `POSTGRES_URL` at it. A pass over the routes at 390px afterwards is worth more than any number in
+  the table.
