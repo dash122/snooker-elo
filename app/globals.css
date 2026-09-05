@@ -1281,3 +1281,71 @@ main.account-page{margin-inline:auto}
 
 /* Red registration nudge shown in both match navigation entry points. */
 .match-tab-count{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:var(--sp-1-5);padding:0 var(--sp-1-5);border-radius:var(--radius-xs);background:var(--ds-danger);color:var(--ds-surface-raised);font-size:var(--fs-label);font-variant-numeric:tabular-nums;line-height:1;vertical-align:middle;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+
+/* Home arrival — let the real room, not dashboard chrome, set the scene. The
+   image is deliberately atmospheric and non-informational; every fact remains
+   readable text above it. */
+.app-page-leaderboard>.hero{
+  position:relative;
+  isolation:isolate;
+  min-height:21rem;
+  overflow:hidden;
+  padding:clamp(2rem,4.5vw,4.25rem) clamp(1.5rem,4vw,3.5rem);
+  border-radius:clamp(1.25rem,2.6vw,2rem);
+  background:
+    linear-gradient(90deg,rgba(3,24,21,.97) 0%,rgba(5,38,33,.9) 42%,rgba(5,38,33,.34) 73%,rgba(5,24,21,.18) 100%),
+    linear-gradient(0deg,rgba(2,18,16,.72),transparent 62%),
+    url('/snooker-club-hero.webp') 68% 52%/cover no-repeat;
+  color:#fff;
+  box-shadow:0 1.35rem 3.5rem rgba(5,35,31,.22);
+}
+.app-page-leaderboard>.hero::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  background:linear-gradient(115deg,rgba(255,255,255,.07),transparent 24% 78%,rgba(218,174,75,.12));
+  pointer-events:none;
+}
+.app-page-leaderboard>.hero>div{max-width:38rem}
+.app-page-leaderboard>.hero h1{max-width:14em;color:#fff;text-wrap:balance;text-shadow:0 2px 24px rgba(0,0,0,.22)}
+.app-page-leaderboard>.hero h1 span{color:#e1b94f}
+.app-page-leaderboard>.hero p:not(.kicker){max-width:34rem;color:rgba(244,250,247,.8);font-size:clamp(.82rem,1.1vw,.96rem);line-height:1.65}
+.app-page-leaderboard>.hero .podium-stats{color:#fff}
+.app-page-leaderboard>.hero .podium-stats small{color:rgba(244,250,247,.68)}
+.app-page-leaderboard>.hero .hero-action{
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(12,54,47,.72);
+  -webkit-backdrop-filter:blur(16px) saturate(125%);
+  backdrop-filter:blur(16px) saturate(125%);
+  box-shadow:0 .9rem 2rem rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.12);
+}
+.app-page-leaderboard>.hero .hero-action:hover{background:rgba(18,75,65,.88);transform:translateY(-2px)}
+
+@media(max-width:820px){
+  .app-page-leaderboard>.hero{
+    min-height:15.75rem;
+    margin-inline:calc(-1 * var(--page-gutter));
+    padding:1.7rem var(--page-gutter) 1.55rem;
+    border-radius:0 0 1.5rem 1.5rem;
+    background:
+      linear-gradient(90deg,rgba(3,24,21,.96) 0%,rgba(4,31,27,.88) 58%,rgba(4,31,27,.38) 100%),
+      linear-gradient(0deg,rgba(2,18,16,.65),transparent 60%),
+      url('/snooker-club-hero.webp') 64% 50%/cover no-repeat;
+    box-shadow:0 .9rem 2.3rem rgba(5,35,31,.18);
+  }
+  .app-page-leaderboard>.hero h1{font-size:clamp(2.25rem,10.8vw,3rem);line-height:.96;letter-spacing:-.04em}
+  .app-page-leaderboard>.hero p:not(.kicker){max-width:25rem;font-size:.8rem;line-height:1.55}
+  .app-page-leaderboard>.hero .podium-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem;margin-top:1rem}
+  .app-page-leaderboard>.hero .podium-stats>span{min-width:0}
+  .app-page-leaderboard>.hero .podium-stats b{font-size:1.25rem}
+  .app-page-leaderboard>.hero .podium-stats small{font-size:.65rem;white-space:nowrap}
+  .app-page-leaderboard>.home-view-nav{margin-top:0}
+}
+
+@media(max-width:380px){
+  .app-page-leaderboard>.hero{min-height:15rem;padding-top:1.4rem;background-position:60% 50%}
+  .app-page-leaderboard>.hero h1{font-size:2.15rem}
+  .app-page-leaderboard>.hero p:not(.kicker){font-size:.75rem}
+  .app-page-leaderboard>.hero .podium-stats small{font-size:.59rem}
+}
