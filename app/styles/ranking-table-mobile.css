@@ -36,5 +36,5 @@
   .person{min-width:0}
   .person b{display:block;min-width:0;max-width:100%;white-space:normal;overflow-wrap:break-word;word-break:normal;line-height:1.2}
   .row>.form{width:3.75rem;justify-content:flex-end;gap:.125rem}
-  .row>.form i{max-width:.75rem;width:.75rem;height:.75rem;border-radius:.25rem}
+  .row>.form i{max-width:.75rem;width:.75rem;height:.75rem;border-radius:var(--radius-2xs)}
 }

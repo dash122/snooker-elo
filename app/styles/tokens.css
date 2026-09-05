@@ -36,8 +36,31 @@
     --ds-signup-wash:#eaf1ff;--ds-signup-text:#2b5fa8;--ds-accent-pale:#f7e3b5;
     --ds-chart-positive:#3b9b72;--ds-chart-negative:#cc6c62;
     --ds-radius-control:.75rem;--ds-radius-card:1.25rem;--ds-radius-sheet:1.5rem;
-    --ds-shadow-resting:0 12px 36px rgba(9,47,40,.08);
-    --ds-shadow-floating:0 24px 70px rgba(5,34,29,.22);
+    /* --- Elevation — six steps, one hue -----------------------------------
+       Replaces ~60 hand-typed green drop shadows that had each been invented
+       for a single component (blur 1-80px, alpha .04-.28, four different
+       greens). A reader parses elevation as "how far off the page is this",
+       so the ladder keeps one hue and lets blur and alpha rise together;
+       picking a step is choosing that distance, not a look.
+
+         1  hairline lift — chips, pressed states, dense rows
+         2  raised control — pills, active tabs, small cards
+         3  resting panel — the default card shadow
+         4  hover/lifted card
+         5  popovers, drag state
+         6  modals, sheets, anything over a scrim
+
+       Ring, inset, and sheen shadows are not elevation and stay literal. */
+    --ds-elevation-1:0 1px 4px rgba(15,45,39,.08);
+    --ds-elevation-2:0 4px 12px rgba(15,45,39,.1);
+    --ds-elevation-3:0 8px 24px rgba(15,45,39,.1);
+    --ds-elevation-4:0 14px 32px rgba(15,45,39,.16);
+    --ds-elevation-5:0 20px 48px rgba(15,45,39,.2);
+    --ds-elevation-6:0 28px 72px rgba(5,34,29,.26);
+    /* The two original shadow names, kept so existing call sites read the same,
+       now pointing at their step on the ladder. */
+    --ds-shadow-resting:var(--ds-elevation-3);
+    --ds-shadow-floating:var(--ds-elevation-6);
     --ds-space-page:clamp(1.75rem,4vw,4rem);--ds-space-section:clamp(2rem,4vw,3.5rem);
     --ds-content-max:80rem;--ds-nav-width:15.5rem;--ds-mobile-nav-height:4.5rem;
     /* Page-wrapper width scale, named during the container-standardisation pass

@@ -8,7 +8,7 @@
 .reports-table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
 .reports-table th,.reports-table td{padding:var(--sp-2-5) var(--sp-3);text-align:left;border-bottom:1px solid var(--ds-border-subtle)}
 .reports-table th{color:var(--ds-text-secondary);font-weight:600}
-.reports-table tbody tr{transition:background var(--ds-duration-fast) ease}
+.reports-table tbody tr{transition:background var(--ds-duration-fast) var(--ds-ease-standard)}
 .reports-table tbody tr:hover,.reports-table tbody tr.selected{background:var(--ds-highlight-wash)}
 .reports-table tbody tr.selected td:first-child a{color:var(--ds-accent-action);font-weight:800}
 .reports-table tbody tr.selected td:first-child a::before{content:"";display:inline-block;width:.45rem;height:.45rem;margin:0 var(--sp-2) .08rem 0;border-radius:50%;background:var(--ds-accent-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--ds-accent-primary) 18%,transparent)}
@@ -46,7 +46,7 @@
 .reports-chart-axis{stroke:var(--ds-border-strong);stroke-width:1}
 .reports-chart-area{fill:var(--ds-chart-fill);opacity:.58}
 .reports-chart-line{fill:none;stroke:var(--ds-chart-primary);stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round}
-.reports-chart-point{fill:var(--ds-surface-primary);stroke:var(--ds-chart-primary);stroke-width:2;cursor:pointer;transition:r var(--ds-duration-fast) ease,stroke var(--ds-duration-fast) ease}
+.reports-chart-point{fill:var(--ds-surface-primary);stroke:var(--ds-chart-primary);stroke-width:2;cursor:pointer;transition:r var(--ds-duration-fast) var(--ds-ease-standard),stroke var(--ds-duration-fast) var(--ds-ease-standard)}
 .reports-chart-point:hover,.reports-chart-point.active{fill:var(--ds-accent-primary);stroke:var(--ds-surface-primary);stroke-width:2.5}
 .reports-chart-point:focus-visible{outline:none;fill:var(--ds-accent-primary);stroke:var(--ds-focus);stroke-width:3}
 .reports-chart-tooltip{position:absolute;z-index:2;min-width:9rem;transform:translate(-50%,-100%);display:grid;gap:var(--sp-1);padding:var(--sp-2-5) var(--sp-3);border:1px solid var(--ds-inverse-border);border-radius:var(--radius-sm);background:var(--ds-surface-inverse);color:var(--ds-text-on-brand);box-shadow:var(--ds-shadow-floating);pointer-events:none}

@@ -19,7 +19,7 @@
     justify-content:space-between;
     align-items:stretch;
     border:0;
-    border-radius:1.75rem;
+    border-radius:var(--radius-xl);
     background:
       linear-gradient(to bottom,rgba(255,255,255,.74) 0%,rgba(255,255,255,.42) 42%,rgba(255,255,255,.48) 100%),
       rgba(248,250,247,.7);
@@ -58,7 +58,7 @@
     gap:.125rem;
     padding:0;
     border:0;
-    border-radius:1.375rem;
+    border-radius:var(--radius-xl);
     background:transparent;
     color:var(--me-bottom-nav-text);
     font-size:var(--fs-h3);
@@ -69,7 +69,7 @@
        transition of the rule it is entering. */
     transition:color var(--ds-duration-toggle) var(--ds-ease-toggle),
       transform .5s cubic-bezier(.34,1.56,.64,1),
-      filter .35s ease;
+      filter var(--ds-duration-toggle) var(--ds-ease-standard);
   }
   /* Liquid highlight: a soft light bloom that blooms in under the touch point
      while held, as if the glass is refracting light through the dent, then
@@ -79,11 +79,11 @@
     position:absolute;
     inset:-.2rem;
     z-index:0;
-    border-radius:1.375rem;
+    border-radius:var(--radius-xl);
     background:radial-gradient(120% 120% at 50% 18%,rgba(255,255,255,.85),rgba(255,255,255,0) 68%);
     opacity:0;
     transform:scale(.7);
-    transition:opacity .35s ease,transform .35s ease;
+    transition:opacity var(--ds-duration-toggle) var(--ds-ease-standard),transform var(--ds-duration-toggle) var(--ds-ease-standard);
     pointer-events:none;
   }
   .bottom button i{display:block;font-style:normal;line-height:1}
@@ -91,12 +91,12 @@
   .bottom button:active{
     transform:scale(.9);
     filter:brightness(1.06);
-    transition:transform .12s cubic-bezier(.32,0,.67,0),filter .12s ease;
+    transition:transform var(--ds-duration-fast) cubic-bezier(.32,0,.67,0),filter var(--ds-duration-fast) var(--ds-ease-standard);
   }
   .bottom button:active::before{
     opacity:1;
     transform:scale(1);
-    transition:opacity .1s ease,transform .1s ease;
+    transition:opacity var(--ds-duration-fast) var(--ds-ease-standard),transform var(--ds-duration-fast) var(--ds-ease-standard);
   }
 
   /* One shared lens travels between destinations. Its measured transform keeps
@@ -114,7 +114,7 @@
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.85),0 2px 8px rgba(5,35,31,.10);
     opacity:1;
     transform:translate3d(var(--toggle-x),var(--toggle-y),0) scale(.92,.88);
-    transition:transform var(--ds-duration-toggle) var(--ds-ease-toggle),opacity var(--ds-duration-fast) ease;
+    transition:transform var(--ds-duration-toggle) var(--ds-ease-toggle),opacity var(--ds-duration-fast) var(--ds-ease-standard);
     pointer-events:none;
   }
   .bottom.no-selection>.sliding-toggle-thumb{opacity:0}
@@ -141,10 +141,10 @@
       0 0 0 .3125rem rgba(255,255,255,.55),
       0 8px 22px rgba(160,116,30,.42),
       0 2px 6px rgba(5,35,31,.18);
-    font-size:1.6875rem;
+    font-size:var(--fs-h2);
     font-weight:800;
     line-height:1;
-    transition:transform .5s cubic-bezier(.34,1.56,.64,1),box-shadow .35s ease;
+    transition:transform .5s cubic-bezier(.34,1.56,.64,1),box-shadow var(--ds-duration-toggle) var(--ds-ease-standard);
   }
   .bottom .bottom-record small{display:none}
   .bottom .bottom-record:active{transform:none;filter:none}
@@ -152,7 +152,7 @@
   .bottom .bottom-record:active i{
     transform:translateY(1px) scale(.92);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 0 0 .3125rem rgba(255,255,255,.5),0 4px 12px rgba(160,116,30,.34);
-    transition:transform .12s cubic-bezier(.32,0,.67,0),box-shadow .12s ease;
+    transition:transform var(--ds-duration-fast) cubic-bezier(.32,0,.67,0),box-shadow var(--ds-duration-fast) var(--ds-ease-standard);
   }
   .bottom button:focus-visible{outline:none}
   .bottom button:not(.bottom-record):focus-visible{box-shadow:inset 0 0 0 2px var(--ds-focus)}

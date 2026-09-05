@@ -63,21 +63,21 @@
   .mm-featured-kicker i{width:.375rem;height:.375rem;border-radius:50%;background:var(--ds-accent-primary)}
   .mm-featured-when{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-3)}
   .mm-featured-when b{font-family:var(--font-display);font-size:var(--fs-display);line-height:1;font-variant-numeric:tabular-nums}
-  .mm-featured-when span{padding-bottom:.2rem;color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption)}
+  .mm-featured-when span{padding-bottom:var(--sp-1);color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption)}
   .mm-featured-who{display:flex;align-items:center;gap:var(--sp-2-5);min-width:0}
   .mm-featured-who>.player-badge{flex:0 0 2.25rem;width:2.25rem;height:2.25rem;border-radius:50%}
   .mm-featured-who span{min-width:0}
   .mm-featured-who b{display:block;font-size:var(--fs-sm);font-weight:800}
   .mm-featured-who small{display:block;margin-top:2px;color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption)}
   .mm-featured-chips{display:flex;flex-wrap:wrap;gap:var(--sp-1-5)}
-  .mm-featured-chips span{padding:var(--sp-1) var(--sp-2-5);border-radius:999px;
+  .mm-featured-chips span{padding:var(--sp-1) var(--sp-2-5);border-radius:var(--radius-pill);
     background:var(--ds-inverse-border);font-size:var(--fs-caption)}
   .mm-featured-state{margin:0;color:var(--ds-text-on-brand-secondary);font-size:var(--fs-sm);font-weight:700}
   .mm-featured .sl-primary{margin-top:0}
   /* The one place on this tab where a button sits on a dark card, not a light one -- the same
      situation the felt-baize `.hero` panels solve with a gold CTA (`.hero .primary`) rather than the
      app's usual teal, because teal-on-baize has no contrast to speak of. Same fix, same reason. */
-  .mm-featured .ds-button--primary,.mm-featured a.primary{background:var(--ball-yellow);color:var(--baize-deep);box-shadow:0 10px 22px rgba(0,0,0,.24)}
+  .mm-featured .ds-button--primary,.mm-featured a.primary{background:var(--ball-yellow);color:var(--baize-deep);box-shadow:var(--ds-elevation-4)}
   .mm-featured .ds-button--primary:hover{background:var(--hero-primary-hover)}
 
   /* --- The timeline --------------------------------------------------------
@@ -100,7 +100,7 @@
   .mm-slot .mm-row-copy small.is-attention{color:var(--ds-warning);font-weight:700}
   .mm-row-elo{margin-left:var(--sp-1-5);font-family:var(--font-display);font-size:var(--fs-caption);
     font-weight:600;color:var(--ds-text-tertiary);font-variant-numeric:tabular-nums}
-  .mm-row-handicap{margin-left:var(--sp-1-5);padding:1px var(--sp-1-5);border-radius:999px;
+  .mm-row-handicap{margin-left:var(--sp-1-5);padding:1px var(--sp-1-5);border-radius:var(--radius-pill);
     background:var(--ds-warning-wash);color:var(--ds-warning-wash-text);font-size:var(--fs-label);font-weight:700}
   .mm-slot-action{display:flex;flex:0 0 auto;align-items:center}
   .mm-slot-action button{min-height:2.75rem;padding-inline:var(--sp-4);border-radius:var(--ds-radius-control);
@@ -209,7 +209,7 @@
   .mm-filter-row{display:flex;gap:var(--sp-1-5);overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
   .mm-filter-row::-webkit-scrollbar{display:none}
   .mm-filter-chip{flex:0 0 auto;display:inline-flex;align-items:center;height:1.875rem;padding:0 var(--sp-3);
-    border:1px solid var(--ds-border-subtle);border-radius:999px;background:var(--ds-surface-primary);
+    border:1px solid var(--ds-border-subtle);border-radius:var(--radius-pill);background:var(--ds-surface-primary);
     color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700;white-space:nowrap}
   .mm-filter-chip.active{background:var(--ds-surface-featured);border-color:var(--ds-surface-featured);color:var(--ds-text-on-brand)}
 

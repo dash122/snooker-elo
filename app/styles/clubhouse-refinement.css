@@ -62,7 +62,7 @@
 .guest-intro-disclosure > summary small { display: block; }
 .guest-intro-disclosure > summary b { font-size: var(--fs-body); }
 .guest-intro-disclosure > summary small { margin-top: var(--sp-1); color: var(--ds-text-secondary); font-size: var(--fs-caption); line-height: 1.5; }
-.guest-intro-disclosure > summary svg { flex: none; color: var(--ds-accent-action); transition: transform .2s ease; }
+.guest-intro-disclosure > summary svg { flex: none; color: var(--ds-accent-action); transition:transform var(--ds-duration-standard) var(--ds-ease-standard); }
 .guest-intro-disclosure[open] > summary svg { transform: rotate(180deg); }
 .guest-intro-disclosure > summary:focus-visible { outline: 3px solid var(--ds-focus); outline-offset: 2px; border-radius: var(--radius-md); }
 .guest-intro-content { display: grid; gap: var(--sp-4); padding: var(--sp-4); padding-top: 0; }

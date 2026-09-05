@@ -16,7 +16,7 @@
 @layer components {
   .availability-date-selector,.availability-card,.session-card,.availability-manage-card,.availability-opponent-card{background:var(--ds-surface-primary);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-card);box-shadow:var(--ds-shadow-resting)}
   /* `.mm-card` deliberately excluded from the border-radius above: globals.css declares an
-     unlayered `.mm-card{border-radius:17px}` (unconditional, no media query), and per the
+     unlayered `.mm-card{border-radius:var(--radius-md)}` (unconditional, no media query), and per the
      cascade-layer spec an unlayered declaration always beats a layered one for the same
      property, regardless of specificity -- so a layered border-radius here (base or the mobile
      re-declaration below) could never actually apply. Kept the other properties, which globals.css

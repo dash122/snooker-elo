@@ -8,7 +8,7 @@
   padding: var(--sp-5);
   background: var(--ds-surface-raised);
   border: 1px solid var(--ds-border-subtle);
-  border-radius: 14px;
+  border-radius:var(--radius-md);
   box-shadow: 0 1px 2px var(--ds-selected-shadow);
 }
 
@@ -79,7 +79,7 @@
   flex-direction: column;
   justify-content: flex-end;
   background: var(--ds-canvas-muted);
-  border-radius: 3px;
+  border-radius:var(--radius-2xs);
   overflow: hidden;
 }
 .vb-col-bar { display: block; background: var(--ds-chart-primary); }
@@ -101,7 +101,7 @@
   padding: var(--sp-1) var(--sp-2-5) var(--sp-1) var(--sp-1);
   background: var(--ds-surface-secondary);
   border: 1px solid var(--ds-border-subtle);
-  border-radius: 999px;
+  border-radius:var(--radius-pill);
 }
 .vb-face b { font-size: var(--fs-caption); font-weight: 500; color: var(--ds-text-primary); }
 .vb-face small { font-size: var(--fs-label); color: var(--ds-text-tertiary); font-variant-numeric: tabular-nums; }
@@ -126,10 +126,10 @@
 .vb-actions button {
   flex: 1;
   min-height: 54px;
-  border-radius: 14px;
+  border-radius:var(--radius-md);
   font-size: var(--fs-lead);
   cursor: pointer;
-  transition: background .15s ease, color .15s ease, border-color .15s ease;
+  transition:background var(--ds-duration-fast) var(--ds-ease-standard), color var(--ds-duration-fast) var(--ds-ease-standard), border-color var(--ds-duration-fast) var(--ds-ease-standard);
 }
 .vb-actions button:disabled { opacity: .55; cursor: default; }
 .vb-go {
@@ -157,7 +157,7 @@
   min-height: 44px;
   padding: var(--sp-2);
   border: 1px solid var(--ds-border-subtle);
-  border-radius: 10px;
+  border-radius:var(--radius-sm);
   background: var(--ds-surface-secondary);
   cursor: pointer;
 }
@@ -166,7 +166,7 @@
 .vb-day.active small { color: var(--ds-text-primary); font-weight: 600; }
 
 .vb-error { align-items: flex-start; }
-.vb-skeleton { height: 82px; border-radius: 6px; background: var(--ds-canvas-muted); }
+.vb-skeleton { height: 82px; border-radius:var(--radius-xs); background: var(--ds-canvas-muted); }
 
 .vb-actions button:focus-visible, .vb-day:focus-visible, .vb-times select:focus-visible {
   outline: 2px solid var(--ds-focus);
