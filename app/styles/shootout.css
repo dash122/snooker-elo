@@ -468,7 +468,7 @@
   .shootout-button--switch.is-expired {background: var(--ds-danger); color: var(--ds-text-on-danger);}
   .shootout-button--switch.is-expired:hover:not(:disabled) {background: color-mix(in srgb, var(--ds-danger) 85%, black);}
   .shootout-secondary-actions {display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2-5); margin-top: var(--sp-2-5);}
-  .shootout-secondary-actions .shootout-button {width: 100%; min-height: 3.25rem; border-color: rgba(189,208,201,.2); color: var(--ds-text-on-brand-secondary);}
+  .shootout-secondary-actions .shootout-button {width: 100%; min-height:var(--control-lg); border-color: rgba(189,208,201,.2); color: var(--ds-text-on-brand-secondary);}
   .shootout-secondary-actions .shootout-button:hover:not(:disabled) {border-color: rgba(189,208,201,.42); background: rgba(189,208,201,.08); color: var(--ds-text-on-brand);}
   .shootout-correction-button {min-height: var(--control-md); display: flex; align-items: center; justify-content: center; gap: var(--sp-2); width: 100%; margin-top: var(--sp-3); border: 0; background: transparent; color: var(--ds-accent-soft); font-size: var(--fs-label); font-weight: 800;}
   .shootout-correction-button:hover {color: var(--ds-text-on-brand); text-decoration: underline; text-underline-offset: 3px;}
@@ -544,7 +544,7 @@
   .shootout-live-error span,
   .shootout-restored-note span {min-width: 0; line-height: 1.4;}
   .shootout-live-error button,
-  .shootout-restored-note button {flex: 0 0 auto; min-height: 2rem; border: 0; border-radius: var(--radius-xs); background: transparent; color: inherit; font-size: inherit; font-weight: 900; text-decoration: underline; text-underline-offset: 3px;}
+  .shootout-restored-note button {flex: 0 0 auto; min-height:var(--control-sm); border: 0; border-radius: var(--radius-xs); background: transparent; color: inherit; font-size: inherit; font-weight: 900; text-decoration: underline; text-underline-offset: 3px;}
   .shootout-live-error button {display: grid; place-items: center; width: 2rem;}
   .shootout-live-error button svg {width: 1rem; height: 1rem;}
   .shootout-restored-note > svg {width: 1.1rem; height: 1.1rem; flex: 0 0 auto; color: var(--shootout-green);}

@@ -25,7 +25,7 @@
 .ds-app-shell .ranking-panel .elo b { font-family: var(--font-display); font-size: var(--fs-stat); font-variant-numeric: tabular-nums; }
 .ds-app-shell :is(.mini-toggle, .match-view-toggle) button { min-height: var(--club-control-height); }
 .ds-app-shell .home-view-nav { box-shadow: none; }
-.ds-app-shell .home-view-nav button { min-height: 3rem; }
+.ds-app-shell .home-view-nav button { min-height:var(--control-lg); }
 .ds-app-shell .recent-stats-panel { background: var(--ds-surface-primary); }
 .ds-app-shell .recent-stats-panel::before,
 .ds-app-shell .recent-stat-metrics > div::after { content: none; }

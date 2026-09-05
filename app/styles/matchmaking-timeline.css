@@ -17,7 +17,7 @@
      used to appear in the toolbar, the cold start, the demand banner and the
      personal empty state at once — four buttons for one job. */
   .mm-tab .mm-primary{display:flex;align-items:center;justify-content:center;gap:var(--sp-2);
-    width:100%;min-height:3.25rem;border-radius:var(--ds-radius-control);font-size:var(--fs-body);font-weight:800}
+    width:100%;min-height:var(--control-lg);border-radius:var(--ds-radius-control);font-size:var(--fs-body);font-weight:800}
   .mm-tab .mm-primary>span{display:flex;align-items:center;justify-content:center;gap:var(--sp-2);white-space:nowrap}
   .mm-primary-mark{display:flex;flex:0 0 auto}
 
@@ -40,7 +40,7 @@
   .mm-banner-copy small{display:block;margin-top:2px;color:var(--ds-text-secondary);font-size:var(--fs-caption);font-variant-numeric:tabular-nums}
   .mm-banner.is-attention .mm-banner-copy b{color:var(--ds-warning-wash-text)}
   .mm-banner-actions{display:flex;flex:0 0 auto;gap:var(--sp-2)}
-  .mm-banner button,.mm-banner-primary{flex:0 0 auto;min-height:2.75rem;padding-inline:var(--sp-4);
+  .mm-banner button,.mm-banner-primary{flex:0 0 auto;min-height:var(--control-md);padding-inline:var(--sp-4);
     border-radius:var(--ds-radius-control);font-size:var(--fs-sm);font-weight:700;white-space:nowrap}
   .mm-banner-primary{display:inline-flex;align-items:center;background:var(--ds-accent-action);
     color:var(--ds-text-on-brand);text-decoration:none}
@@ -103,7 +103,7 @@
   .mm-row-handicap{margin-left:var(--sp-1-5);padding:1px var(--sp-1-5);border-radius:var(--radius-pill);
     background:var(--ds-warning-wash);color:var(--ds-warning-wash-text);font-size:var(--fs-label);font-weight:700}
   .mm-slot-action{display:flex;flex:0 0 auto;align-items:center}
-  .mm-slot-action button{min-height:2.75rem;padding-inline:var(--sp-4);border-radius:var(--ds-radius-control);
+  .mm-slot-action button{min-height:var(--control-md);padding-inline:var(--sp-4);border-radius:var(--ds-radius-control);
     font-size:var(--fs-sm);font-weight:700}
   .mm-slot-done{color:var(--ds-text-tertiary);font-size:var(--fs-caption);font-weight:700}
   .mm-slot-login{display:inline-flex;align-items:center;min-height:2.75rem;padding-inline:var(--sp-3);
@@ -135,7 +135,7 @@
   .mm-waiting-head>span:nth-child(2){flex:1 1 auto}
   .mm-waiting-mark{display:flex;flex:0 0 auto}
   .mm-tab .mm-quiet-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);
-    width:100%;min-height:2.75rem;padding:0 var(--sp-4);border:1px solid var(--ds-border-subtle);
+    width:100%;min-height:var(--control-md);padding:0 var(--sp-4);border:1px solid var(--ds-border-subtle);
     border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary);
     color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700}
   .mm-row.is-quiet{justify-content:center;background:transparent;border-style:dashed}
@@ -239,7 +239,7 @@
   .mm-stepper-controls b small{display:block;margin-top:1px;font-family:inherit;font-size:var(--fs-label);
     font-weight:600;color:var(--ds-text-tertiary)}
   .mm-duration-presets{display:flex;gap:var(--sp-2);margin-top:var(--sp-2)}
-  .mm-duration-chip{flex:1 1 0;display:flex;align-items:center;justify-content:center;min-height:2.25rem;
+  .mm-duration-chip{flex:1 1 0;display:flex;align-items:center;justify-content:center;min-height:var(--control-sm);
     border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);background:var(--ds-surface-primary);
     color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700}
   .mm-duration-chip.active{background:var(--ds-surface-featured);border-color:var(--ds-surface-featured);color:var(--ds-text-on-brand)}

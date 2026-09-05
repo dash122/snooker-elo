@@ -1,5 +1,5 @@
 @layer components {
-  .ds-button,.ds-icon-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);min-height:44px;border-radius:var(--ds-radius-control);border:1px solid transparent;font-weight:800;transition:transform var(--ds-duration-fast) var(--ds-ease-standard),background var(--ds-duration-fast) var(--ds-ease-standard)}
+  .ds-button,.ds-icon-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);min-height:var(--control-md);border-radius:var(--ds-radius-control);border:1px solid transparent;font-weight:800;transition:transform var(--ds-duration-fast) var(--ds-ease-standard),background var(--ds-duration-fast) var(--ds-ease-standard)}
   .ds-button{padding:var(--sp-3) var(--sp-4)}.ds-button:active,.ds-icon-button:active{transform:translateY(1px) scale(.98)}
   /* `@layer legacy`'s `button,input,select{font:inherit}` always wins over any font-size set
      directly on `.ds-button` (unlayered beats named layers, and legacy is declared last of all
@@ -10,7 +10,7 @@
   .ds-button--featured{background:var(--ds-accent-primary);color:var(--ds-text-on-accent);box-shadow:0 8px 24px var(--ds-accent-shadow)}.ds-button--featured:hover{background:var(--ds-accent-primary-hover)}
   .ds-button--secondary{background:var(--ds-surface-primary);color:var(--ds-text-primary);border-color:var(--ds-border-strong)}
   .ds-button--quiet{background:transparent;color:var(--ds-text-primary)}.ds-button--danger{background:var(--ds-danger);color:var(--ds-text-on-danger)}
-  .ds-button:disabled{opacity:.5;cursor:not-allowed;transform:none}.ds-icon-button{width:44px;padding:0;background:var(--ds-surface-primary);color:var(--ds-text-primary);border-color:var(--ds-border-subtle)}
+  .ds-button:disabled{opacity:.5;cursor:not-allowed;transform:none}.ds-icon-button{width:var(--control-md);padding:0;background:var(--ds-surface-primary);color:var(--ds-text-primary);border-color:var(--ds-border-subtle)}
   .ds-spinner{width:1rem;height:1rem;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:ds-spin .7s linear infinite}@keyframes ds-spin{to{transform:rotate(360deg)}}
   .ds-surface{min-width:0;padding:var(--sp-4-5);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-card);background:var(--ds-surface-primary);color:var(--ds-text-primary)}
   .ds-surface--raised{background:var(--ds-surface-raised);box-shadow:var(--ds-shadow-resting)}
@@ -18,21 +18,33 @@
   .ds-surface--unpadded{padding:0}
   .ds-segmented{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:var(--sp-1);padding:var(--sp-1);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);background:var(--ds-canvas-muted);isolation:isolate}
   .ds-segmented__indicator{position:absolute;z-index:0;top:var(--sp-1);bottom:var(--sp-1);left:var(--sp-1);width:var(--segment-width);border-radius:calc(var(--ds-radius-control) - .2rem);background:var(--ds-surface-primary);box-shadow:0 2px 10px var(--ds-selected-shadow);transform:translateX(var(--segment-translate));transition:transform var(--ds-duration-toggle) var(--ds-ease-toggle)}
-  .ds-segmented button{position:relative;z-index:1;min-height:44px;min-width:0;padding:var(--sp-2);border:0;border-radius:calc(var(--ds-radius-control) - .2rem);background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--ds-duration-toggle) var(--ds-ease-toggle)}
+  .ds-segmented button{position:relative;z-index:1;min-height:var(--control-md);min-width:0;padding:var(--sp-2);border:0;border-radius:calc(var(--ds-radius-control) - .2rem);background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--ds-duration-toggle) var(--ds-ease-toggle)}
   .ds-segmented button>span{font-weight:800}
   .ds-segmented button[aria-selected=true]{background:transparent;color:var(--ds-accent-action);box-shadow:none}
   .ds-field{display:grid;gap:var(--sp-2);color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:750}
-  .ds-field input,.ds-field select,.ds-field textarea{width:100%;min-height:48px;padding:var(--sp-3) var(--sp-3);border:1px solid var(--ds-border-strong);border-radius:var(--ds-radius-control);background:var(--ds-surface-raised);color:var(--ds-text-primary);font-size:var(--fs-input)}
+  /* --control-lg is the height every other form control in the app already uses
+     (`.auth-form input`, `.sheet input`, `.filters input`, `.admin-search`), so the
+     primitive matches them rather than sitting 2px short of the ladder. */
+  .ds-field input,.ds-field select,.ds-field textarea{width:100%;min-height:var(--control-lg);padding:var(--sp-3);border:1px solid var(--ds-border-strong);border-radius:var(--ds-radius-control);background:var(--ds-surface-raised);color:var(--ds-text-primary);font-size:var(--fs-input)}
   .ds-field small{color:var(--ds-text-tertiary);font-weight:500}.ds-field--error input{border-color:var(--ds-danger)}.ds-field--error small{color:var(--ds-danger)}
-  .ds-empty{display:grid;justify-items:center;padding:2.5rem var(--sp-4);text-align:center;border:1px dashed var(--ds-border-strong);border-radius:var(--ds-radius-card)}
+  .ds-empty{display:grid;justify-items:center;padding:var(--sp-6) var(--sp-4);text-align:center;border:1px dashed var(--ds-border-strong);border-radius:var(--ds-radius-card)}
   .ds-empty>svg{width:2.75rem;height:2.75rem;color:var(--ds-accent-primary);fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round}.ds-empty h3{margin:var(--sp-2) 0 0}.ds-empty p{max-width:32rem;margin:var(--sp-1-5) 0 var(--sp-4);color:var(--ds-text-secondary)}
-  .ds-notice{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:var(--sp-3);padding:var(--sp-3-5) var(--sp-4);border:1px solid color-mix(in srgb,var(--ds-info) 28%,var(--ds-border-subtle));border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary)}.ds-notice>i{width:.65rem;height:.65rem;margin-top:var(--sp-1-5);border-radius:50%;background:var(--ds-info)}.ds-notice>div{display:grid;gap:var(--sp-1)}.ds-notice b{color:var(--ds-text-primary)}.ds-notice span{color:var(--ds-text-secondary)}.ds-notice--success{border-color:color-mix(in srgb,var(--ds-success) 28%,var(--ds-border-subtle))}.ds-notice--success>i{background:var(--ds-success)}.ds-notice--warning{border-color:color-mix(in srgb,var(--ds-warning) 32%,var(--ds-border-subtle))}.ds-notice--warning>i{background:var(--ds-warning)}.ds-notice--danger{border-color:color-mix(in srgb,var(--ds-danger) 28%,var(--ds-border-subtle))}.ds-notice--danger>i{background:var(--ds-danger)}
+  .ds-notice{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:var(--sp-3);padding:var(--sp-3-5) var(--sp-4);border:1px solid color-mix(in srgb,var(--ds-info) 28%,var(--ds-border-subtle));border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary)}.ds-notice>i{width:var(--sp-2-5);height:var(--sp-2-5);margin-top:var(--sp-1-5);border-radius:50%;background:var(--ds-info)}.ds-notice>div{display:grid;gap:var(--sp-1)}.ds-notice b{color:var(--ds-text-primary)}.ds-notice span{color:var(--ds-text-secondary)}.ds-notice--success{border-color:color-mix(in srgb,var(--ds-success) 28%,var(--ds-border-subtle))}.ds-notice--success>i{background:var(--ds-success)}.ds-notice--warning{border-color:color-mix(in srgb,var(--ds-warning) 32%,var(--ds-border-subtle))}.ds-notice--warning>i{background:var(--ds-warning)}.ds-notice--danger{border-color:color-mix(in srgb,var(--ds-danger) 28%,var(--ds-border-subtle))}.ds-notice--danger>i{background:var(--ds-danger)}
   .ds-skeleton{display:block;border-radius:var(--radius-2xs);background:linear-gradient(100deg,var(--ds-canvas-muted) 30%,var(--ds-surface-primary) 50%,var(--ds-canvas-muted) 70%);background-size:200% 100%;animation:ds-shimmer 1.2s infinite}@keyframes ds-shimmer{to{background-position:-200% 0}}
   .ds-overlay{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:var(--sp-4);background:var(--ds-overlay)}
-  .ds-dialog,.ds-sheet{position:relative;width:min(36rem,100%);max-height:calc(100dvh - 2rem);overflow:auto;padding:var(--sp-5);border-radius:var(--ds-radius-sheet);background:var(--ds-surface-primary);box-shadow:var(--ds-shadow-floating)}
-  .ds-dialog-close{position:absolute;top:.65rem;right:.65rem;border:0;background:transparent}.ds-dialog-close svg,.close svg{width:1.35rem;height:1.35rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
-  .ds-page-hero{display:flex;justify-content:space-between;gap:var(--sp-6);padding:clamp(1.5rem,4vw,3rem);border-radius:var(--ds-radius-card);color:var(--ds-text-on-brand);background:radial-gradient(28rem 14rem at 86% 10%,var(--ds-hero-glow),transparent 68%),linear-gradient(135deg,var(--ds-canvas-brand),var(--ds-canvas-brand-deep))}
-  .ds-page-hero p{margin:0;color:var(--ds-accent-primary);font-size:var(--fs-caption);font-weight:850;letter-spacing:.14em}.ds-page-hero h1{margin:var(--sp-1-5) 0;font-size:clamp(2rem,6vw,4rem)}.ds-page-hero span{color:var(--ds-text-on-brand-secondary)}
+  .ds-dialog,.ds-sheet{position:relative;width:min(36rem,100%);max-height:calc(100dvh - var(--sp-6));overflow:auto;padding:var(--sp-5);border-radius:var(--ds-radius-sheet);background:var(--ds-surface-primary);box-shadow:var(--ds-shadow-floating)}
+  /* The close button is absolutely positioned over the top-right corner, so the
+     heading has to reserve its width or a long title runs underneath the ×.
+     `.a2hs-sheet h2` was carrying its own copy of this margin; it belongs on the
+     primitive so every dialog and sheet gets it. */
+  .ds-dialog>h2,.ds-sheet>h2{margin-inline-end:var(--control-md)}
+  .ds-dialog-close{position:absolute;top:var(--sp-2-5);right:var(--sp-2-5);border:0;background:transparent}.ds-dialog-close svg,.close svg{width:1.35rem;height:1.35rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+  /* The text column has to be allowed to shrink (`min-width:0`) or its longest
+     unbreakable word sets the flex basis and squeezes the action off the row;
+     below the phone boundary the two stack instead of competing for ~390px. */
+  .ds-page-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-5);padding:clamp(1.5rem,4vw,3rem);border-radius:var(--ds-radius-card);color:var(--ds-text-on-brand);background:radial-gradient(28rem 14rem at 86% 10%,var(--ds-hero-glow),transparent 68%),linear-gradient(135deg,var(--ds-canvas-brand),var(--ds-canvas-brand-deep))}
+  .ds-page-hero>div{min-width:0}.ds-page-hero>:last-child{flex:none}
+  .ds-page-hero p{margin:0;color:var(--ds-accent-primary);font-size:var(--fs-caption);font-weight:850;letter-spacing:.14em}.ds-page-hero h1{margin:var(--sp-1-5) 0;font-size:var(--fs-display-lg);line-height:1.15}.ds-page-hero span{display:block;color:var(--ds-text-on-brand-secondary);font-size:var(--fs-sm);line-height:1.55}
   .ds-section-header{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-4);margin-bottom:var(--sp-3-5)}.ds-section-header h2{margin:0;font-family:var(--font-display);font-size:var(--fs-h3);color:var(--ds-canvas-brand)}.ds-section-header p{max-width:46rem;margin:var(--sp-1-5) 0 0;color:var(--ds-text-secondary);font-size:var(--fs-sm);line-height:1.6}.ds-section-header__meta{flex:none;padding:var(--sp-1) var(--sp-2-5);border-radius:var(--radius-pill);background:var(--ds-canvas-muted);color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:800}
   .ds-stat-tile{display:block}
   .ds-stat-tile small{display:block;font-size:var(--fs-label);color:var(--ds-text-secondary);font-weight:700}
@@ -50,12 +62,15 @@
      `.sheet-shell>.sheet` rule needed (see app/styles/modal-sheet.css) generalised here
      for the primitive's own consumers. */
   @media(max-width:820px){.ds-overlay--sheet{align-items:end;padding:0}.ds-sheet{width:100%;max-height:calc(100dvh - var(--ds-safe-top));padding-bottom:calc(1.5rem + var(--ds-safe-bottom));border-radius:var(--ds-radius-sheet) var(--ds-radius-sheet) 0 0;overscroll-behavior:contain;touch-action:pan-y}.ds-mobile-nav{padding-bottom:var(--ds-safe-bottom)}.ds-page-hero{margin-inline:calc(-1 * var(--ds-space-page));padding-inline:var(--ds-space-page);border-radius:0}}
+  @media(max-width:599px){.ds-page-hero{flex-direction:column;gap:var(--sp-4)}.ds-page-hero h1{font-size:var(--fs-display)}}
   @media(prefers-reduced-motion:reduce){.ds-segmented__indicator,.ds-segmented button{transition:none}}
 }
 
 /* iOS "add to home screen" coach mark. Content only — the overlay/backdrop/sheet
    chrome now comes from the shared `Sheet` primitive (app/components/ui/Overlay.tsx). */
-.a2hs-sheet h2{margin:0 2.5rem var(--sp-1-5) 0;font-size:var(--fs-h3)}
+/* The right margin that used to be here now comes from `.ds-sheet>h2`, which
+   reserves the close button's width for every sheet rather than this one. */
+.a2hs-sheet h2{margin-block:0 var(--sp-1-5);font-size:var(--fs-h3)}
 .a2hs-sheet>p{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-sm);line-height:1.6}
 .a2hs-steps{display:grid;gap:var(--sp-2);margin:var(--sp-4) 0 var(--sp-4-5);padding-left:var(--sp-4-5);color:var(--ds-text-primary);font-size:var(--fs-body)}
 .a2hs-steps li{line-height:1.5}.a2hs-steps svg{vertical-align:-.2em;margin-left:var(--sp-1);color:var(--ds-accent-primary)}
