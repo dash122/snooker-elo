@@ -108,6 +108,8 @@
   .ds-app-shell .ranking-scope-toggle button { flex: 1; padding-inline: var(--sp-2); font-size: var(--fs-label); }
   .ds-app-shell .ranking-panel .table-card { padding: 0; }
   .ds-app-shell .ranking-panel .row { min-height: 4.75rem; padding-inline: var(--sp-1); }
+  /* On phones the suggested handicap sits at --fs-label (12px); cap the ELO number at 1.5x that (--fs-lead, 18px) so it doesn't dwarf it. */
+  .ds-app-shell .ranking-panel .elo b { font-size: var(--fs-lead); }
   .ds-app-shell .ranking-panel .person { gap: var(--sp-2); }
   .ds-app-shell .ranking-panel .person b { line-height: 1.45; }
   .ds-app-shell :is(.filters input, .filters select, .sheet input, .sheet select, .sheet textarea) { font-size: var(--fs-body); min-height: var(--club-control-height); }
