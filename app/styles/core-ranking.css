@@ -27,7 +27,7 @@
   .table-head{background:var(--ds-surface-secondary);border-bottom:1px solid var(--ds-border-subtle)}.table-head button{color:var(--ds-text-secondary)}
   .player-row{transition:background var(--ds-duration-fast) var(--ds-ease-standard)}.player-row:hover{background:var(--ds-surface-secondary)}
   .player-row .rank,.player-row .rating{font-variant-numeric:tabular-nums}
-  .table-card .row .elo b{font-size:var(--fs-body)}
+  .table-card .row .elo b{font-size:var(--fs-sm)}
   .mini-toggle,.sort-controls{background:var(--ds-surface-secondary);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control)}.mini-toggle button.active,.sort-controls button.active{background:var(--ds-surface-raised);color:var(--ds-text-primary);box-shadow:0 3px 12px var(--ds-selected-shadow)}
 
   /* Player detail is an identity moment, while the statistics beneath remain functional. */
