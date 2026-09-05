@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { BrandLogo } from "../components/BrandLogo";
 import { redirect } from "next/navigation";
 import { getCurrentMember, listMembers } from "../../db/auth";
@@ -6,7 +5,7 @@ import { listAdminPlayers, listSnapshots } from "../../db/state";
 import MemberDirectory, { Avatar, type Member } from "./MemberDirectory";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
 import SnapshotList from "./SnapshotList";
-import { Button, StatTile, Surface } from "../components/ui/Primitives";
+import { Button, ButtonLink, InlineNotice, StatTile, Surface } from "../components/ui/Primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -65,19 +64,19 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       <p className="kicker">{zh.kicker}</p>
       <h1>{zh.title}</h1>
 
-      {p.created && <p className="form-success">{note(zh.created)}</p>}
-      {p.updated && <p className="form-success">{note(zh.updated)}</p>}
-      {p.linked && <p className="form-success">{note(zh.linkedOne)}</p>}
-      {p.deleted && <p className="form-success">{note(zh.deleted)}</p>}
-      {p.restored && <p className="form-success">{zh.restored}</p>}
-      {p.error && <p className="form-error">
+      {p.created && <InlineNotice tone="success" title="完成">{note(zh.created)}</InlineNotice>}
+      {p.updated && <InlineNotice tone="success" title="完成">{note(zh.updated)}</InlineNotice>}
+      {p.linked && <InlineNotice tone="success" title="完成">{note(zh.linkedOne)}</InlineNotice>}
+      {p.deleted && <InlineNotice tone="success" title="完成">{note(zh.deleted)}</InlineNotice>}
+      {p.restored && <InlineNotice tone="success" title="完成">{zh.restored}</InlineNotice>}
+      {p.error && <InlineNotice tone="danger" title="未能完成">
         {p.error === "exists" ? zh.exists
           : p.error === "self-delete" ? zh.selfDelete
           : p.error === "last-admin" ? zh.lastAdmin
           : p.error === "role-password" ? zh.rolePassword
           : p.error === "has-matches" ? zh.hasMatches
           : zh.invalid}
-      </p>}
+      </InlineNotice>}
 
       <div className="admin-stats">
         <StatTile label={zh.statAccounts} value={members.length} />
@@ -91,8 +90,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </div>
 
       <div className="admin-toolbar">
-        <Link className="primary" href="/?tab=players&manage=1">{zh.playersOpen}</Link>
-        <a className="primary" href="/admin/reports">{zh.reportsOpen}</a>
+        <ButtonLink href="/?tab=players&manage=1">{zh.playersOpen}</ButtonLink>
+        <ButtonLink href="/admin/reports" variant="secondary">{zh.reportsOpen}</ButtonLink>
       </div>
 
       {unlinked.length > 0 && <Surface className="admin-attention">
@@ -120,7 +119,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <li key={player.id}>
             <span className="admin-avatar" aria-hidden="true">{player.name.slice(0, 2).toUpperCase()}</span>
             <b>{player.name}</b>
-            <Link className="more" href={`/admin?player=${encodeURIComponent(player.id)}#create`}>{zh.createAccount}</Link>
+            <ButtonLink className="more" variant="quiet" href={`/admin?player=${encodeURIComponent(player.id)}#create`}>{zh.createAccount}</ButtonLink>
           </li>)}
         </ul>
       </Surface>}
@@ -155,7 +154,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           : <SnapshotList snapshots={snapshots} restoreLabel={zh.restore} confirmMessage="確定要以此快照覆蓋目前所有資料嗎？此操作無法復原。" />}
       </details>
 
-      <a className="more admin-back" href="/account">{zh.back}</a>
+      <ButtonLink className="admin-back" variant="quiet" href="/account">{zh.back}</ButtonLink>
     </section>
   </main>;
 }

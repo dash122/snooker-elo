@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { PlayerBadge } from "../UiBits";
-import { EmptyState, Surface } from "../components/ui/Primitives";
+import { EmptyState, SegmentedControl, Surface } from "../components/ui/Primitives";
+import { SectionHeader } from "../components/shell/AppShell";
 
 export type MatchRecord = {
   id: string;
@@ -66,22 +67,12 @@ export default function MatchHistory({ records }: { records: MatchRecord[] }) {
   }), [records]);
 
   return <Surface className="account-panel match-history">
-    <div className="account-panel-head">
-      <div><p className="kicker">賽事紀錄</p><h2>我的每一場</h2></div>
-      <span>{records.length} 場</span>
-    </div>
+    <SectionHeader title="我的每一場" description="按賽果篩選，點選任何一場查看讓分與賽前勝算。" meta={`${records.length} 場`} />
 
     {records.length === 0
       ? <EmptyState title="尚未有比賽紀錄" description="完成第一場後，這裡會列出每場的對手、比分與 ELO 變化。" />
       : <>
-        <div className="match-history-filters" role="tablist" aria-label="賽果篩選">
-          {filters.map(option => <button key={option.id} type="button" role="tab"
-            aria-selected={filter === option.id}
-            className={filter === option.id ? "active" : undefined}
-            onClick={() => { setFilter(option.id); setShown(PAGE); setOpenId(null); }}>
-            {option.label}<small>{counts[option.id]}</small>
-          </button>)}
-        </div>
+        <SegmentedControl label="賽果篩選" value={filter} items={filters.map(option=>({value:option.id,label:`${option.label} ${counts[option.id]}`}))} onChange={value=>{setFilter(value as Filter);setShown(PAGE);setOpenId(null)}} />
 
         {visible.length === 0
           ? <EmptyState title="沒有符合的賽果" description="試試其他篩選條件。" />

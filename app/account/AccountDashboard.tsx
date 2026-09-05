@@ -9,6 +9,7 @@ import AccountForms from "./AccountForms";
 import MatchHistory, { type MatchRecord } from "./MatchHistory";
 import { deriveInitials, resolveInitials } from "../api/account/validate";
 import { Button, InlineNotice, Skeleton, StatTile, Surface } from "../components/ui/Primitives";
+import { SectionHeader } from "../components/shell/AppShell";
 
 type AccountMember = {
   email: string; username: string; displayName: string; role: "admin" | "member";
@@ -195,11 +196,11 @@ function AccountMetrics({ player, players, state }: { player: Player; players: P
 function AccountLoadingBody() {
   return <div className="account-layout">
     <div className="account-column">
-      <Surface className="account-panel"><div className="account-panel-head"><div><p className="kicker">{zh.trendKicker}</p><h2>{zh.trend}</h2></div></div><Skeleton height="220px" /></Surface>
+      <Surface className="account-panel"><SectionHeader title={zh.trend} /><Skeleton height="220px" /></Surface>
       <Surface className="account-panel"><Skeleton height="8rem" /></Surface>
     </div>
     <div className="account-column">
-      <Surface className="account-panel account-stat-panel"><div className="account-panel-head"><div><p className="kicker">{zh.highlights}</p><h2>成績一覽</h2></div></div><Skeleton height="10rem" /></Surface>
+      <Surface className="account-panel account-stat-panel"><SectionHeader title="成績一覽" /><Skeleton height="10rem" /></Surface>
     </div>
   </div>;
 }
@@ -226,14 +227,14 @@ function AccountBody({ member, googleStatus, player, players, state }: { member:
   const frameRate = frames ? Math.round(((player.framesWon ?? 0) / frames) * 100) : 0;
 
   return <div className="account-layout">
-    <div className="account-column"><Surface className="account-panel"><div className="account-panel-head"><div><p className="kicker">{zh.trendKicker}</p><h2>{zh.trend}</h2></div><span>{zh.peak} {Math.round(peak)}</span></div><InteractiveEloChart points={points} label={`${player.name} 的 ELO 走勢`} /></Surface><MatchHistory records={records} /></div>
+    <div className="account-column"><Surface className="account-panel"><SectionHeader title={zh.trend} meta={`${zh.peak} ${Math.round(peak)}`} /><InteractiveEloChart points={points} label={`${player.name} 的 ELO 走勢`} /></Surface><MatchHistory records={records} /></div>
     <div className="account-column">
-      <Surface className="account-panel account-stat-panel"><div className="account-panel-head"><div><p className="kicker">{zh.highlights}</p><h2>成績一覽</h2></div></div><div className="account-stat-grid"><StatTile label={zh.record} value={`${player.wins}/${player.losses}/${player.draws}`} /><StatTile label={zh.games} value={games} /><StatTile label={zh.frames} value={`${frameRate}%`} /><StatTile label={zh.handicap} value={player.handicap ?? "—"} /><StatTile label={zh.start} value={Math.round(player.initialRating ?? player.rating)} /><StatTile label={zh.peak} value={Math.round(peak)} /></div><ul className="account-highlights"><li><span>{zh.bestBreak}</span><b>{bestBreak ?? "—"}</b></li><li><span>{zh.streak}</span><b>{streak ? `${streak} 場` : "—"}</b></li><li><span>{zh.bestGain}</span><b className={bestGain > 0 ? "positive" : undefined}>{bestGain > 0 ? `+${Math.round(bestGain)}` : "—"}</b></li></ul></Surface>
+      <Surface className="account-panel account-stat-panel"><SectionHeader title="成績一覽" /><div className="account-stat-grid"><StatTile label={zh.record} value={`${player.wins}/${player.losses}/${player.draws}`} /><StatTile label={zh.games} value={games} /><StatTile label={zh.frames} value={`${frameRate}%`} /><StatTile label={zh.handicap} value={player.handicap ?? "—"} /><StatTile label={zh.start} value={Math.round(player.initialRating ?? player.rating)} /><StatTile label={zh.peak} value={Math.round(peak)} /></div><ul className="account-highlights"><li><span>{zh.bestBreak}</span><b>{bestBreak ?? "—"}</b></li><li><span>{zh.streak}</span><b>{streak ? `${streak} 場` : "—"}</b></li><li><span>{zh.bestGain}</span><b className={bestGain > 0 ? "positive" : undefined}>{bestGain > 0 ? `+${Math.round(bestGain)}` : "—"}</b></li></ul></Surface>
       <AccountSettings member={{ ...member, iconColour: member.iconColour ?? player.colour, playerName: player.name }} googleStatus={googleStatus} />
     </div>
   </div>;
 }
 
 function AccountSettings({ member, googleStatus }: { member: AccountMember & { playerName?: string }; googleStatus?: string }) {
-  return <Surface className="account-panel account-settings"><div className="account-panel-head"><div><p className="kicker">{zh.settingsKicker}</p><h2>{zh.settings}</h2></div></div><p className="account-settings-hint">{zh.settingsHint}</p><AccountForms googleStatus={googleStatus} member={member} /></Surface>;
+  return <Surface className="account-panel account-settings"><SectionHeader title={zh.settings} description={zh.settingsHint} /><AccountForms googleStatus={googleStatus} member={member} /></Surface>;
 }
