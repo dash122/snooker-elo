@@ -152,7 +152,7 @@ export function reconcileShootout(state: ShootoutState, now: number): ShootoutSt
   if (state.status === "live" && view.status === "expired") {
     next = withEvent(next, "expiry", now, "出桿鐘時間已過", state.activePlayer ?? undefined);
   }
-  if (state.status !== "complete" && view.status === "complete") {
+  if (view.status === "complete") {
     next = withEvent(next, "complete", now, "比賽時間完結");
     next = {...next, matchClockPaused: true, shotClockPaused: true};
   }
