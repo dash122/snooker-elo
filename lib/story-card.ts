@@ -289,12 +289,6 @@ function balls(): string {
     + ball(942, 1812, 38, "#f2ede2", 0.32);
 }
 
-function callToAction(url: string): string {
-  const host = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  return text("撳連結睇全會排名同賽果", STORY_WIDTH / 2, SAFE_BOTTOM - 44, { size: 40, weight: 700, anchor: "middle", opacity: 0.9 })
-    + text(ellipsize(host, 30, 880), STORY_WIDTH / 2, SAFE_BOTTOM + 6, { size: 30, fill: GOLD, weight: 600, anchor: "middle" });
-}
-
 function svgDocument(body: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${STORY_WIDTH}" height="${STORY_HEIGHT}"`
     + ` viewBox="0 0 ${STORY_WIDTH} ${STORY_HEIGHT}" font-family="${FONT}">`

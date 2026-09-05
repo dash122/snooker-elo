@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BrandLogo } from "../components/BrandLogo";
 import { useEffect, useState } from "react";
 import { InteractiveEloChart, type EloTrendPoint } from "../UiBits";
 import { avatarHex } from "../avatar-colours";
@@ -103,7 +104,7 @@ function longestStreak(results: ("W" | "L" | "D")[]) {
 
 function AccountTopbar({ member }: { member: AccountMember }) {
   return <header className="account-topbar">
-    <Link className="auth-brand" href="/">SCAA <span>Snooker ELO</span></Link>
+    <BrandLogo className="auth-brand"/>
     <nav className="account-topbar-links">
       {member.role === "admin" && <a href="/admin">{zh.manage}</a>}
       <Link href="/">{zh.leaderboard}</Link>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, SlidingToggleGroup } from "./components/ui/Primitives";
 
 export type SortKey = "rank"|"name"|"rating"|"change"|"form"|"official"|"suggested"|"games"|"winRate"|"frameRate";
@@ -87,6 +87,7 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
 }) {
   const [query,setQuery]=useState("");
   const [open,setOpen]=useState(false);
+  const listId=useId();
   const inputRef=useRef<HTMLInputElement>(null);
   const containerRef=useRef<HTMLDivElement>(null);
   const selected=players.find(p=>p.id===value);
@@ -103,12 +104,11 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
   const startOpen=()=>{setQuery("");setOpen(true);requestAnimationFrame(()=>inputRef.current?.focus())};
   useEffect(()=>{
     if(autoOpenSignal)startOpen();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   },[autoOpenSignal]);
   const pick=(id:string)=>{onChange(id);setQuery("");setOpen(false)};
   return <div className={`player-combobox${renderTrigger?" as-trigger":""}`} ref={containerRef}>
     {renderTrigger&&!open?renderTrigger(selected,startOpen):
-      <input ref={inputRef} type="text" role="combobox" aria-expanded={open} aria-label={ariaLabel} placeholder={placeholder} autoComplete="off"
+      <input ref={inputRef} type="text" role="combobox" aria-expanded={open} aria-controls={listId} aria-label={ariaLabel} placeholder={placeholder} autoComplete="off"
         value={open?query:(selected?.name??"")}
         onFocus={()=>{if(!open){setQuery("");setOpen(true)}}}
         onChange={event=>{setQuery(event.target.value);setOpen(true)}}
@@ -116,7 +116,7 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
           if(event.key==="Escape")setOpen(false);
           if(event.key==="Enter"&&filtered.length===1){pick(filtered[0].id);event.preventDefault()}
         }}/>}
-    {open&&<ul className="player-combobox-list" role="listbox">
+    {open&&<ul id={listId} className="player-combobox-list" role="listbox">
       {allowClear&&<li role="option" aria-selected={!value}><button type="button" onMouseDown={event=>event.preventDefault()} onClick={()=>pick("")}>{clearLabel??placeholder}</button></li>}
       {filtered.length===0?<li className="player-combobox-empty">沒有符合的球員</li>:filtered.map(p=><li key={p.id} role="option" aria-selected={p.id===value}><button type="button" onMouseDown={event=>event.preventDefault()} onClick={()=>pick(p.id)}>{p.name}</button></li>)}
     </ul>}
@@ -304,7 +304,7 @@ export function Term({label,tip}:{label:string;tip:string}) {
 
 export function PlayerForm({form,setForm,editing,canEditRating=false,onSave}:{form:any;setForm:any;editing:boolean;canEditRating?:boolean;onSave:()=>void}) {
   const update=(key:string,value:string)=>setForm((current:any)=>({...current,[key]:value}));
-  return <><p className="kicker">公開管理</p><h2>{editing?"編輯球員":"新增球員"}</h2><p className="sub">所有球員沒有賽事記錄時會使用預設起始 ELO；管理員也可以為個別球員設定自己的起始 ELO。</p><label>顯示名稱<input value={form.name} onChange={event=>update("name",event.target.value)}/></label><label>短名稱／縮寫<input maxLength={3} value={form.short} onChange={event=>update("short",event.target.value)}/></label>{canEditRating&&<label>個人起始 ELO<input type="number" min="1000" max="3000" step="10" value={form.rating} onChange={event=>update("rating",event.target.value)}/><small>儲存後會從此起始值重播這位球員的歷史賽事。</small></label>}<label>正式讓分<input type="number" step="2" value={form.handicap} onChange={event=>update("handicap",event.target.value)}/></label>
+  return <><p className="kicker">公開管理</p><h2>{editing?"編輯球員":"新增球員"}</h2><p className="sub">所有球員沒有賽事記錄時會使用預設起始 ELO；管理員也可以為個別球員設定自己的起始 ELO。</p><label>顯示名稱<input value={form.name} onChange={event=>update("name",event.target.value)}/></label><label>短名稱／縮寫<input maxLength={3} value={form.short} onChange={event=>update("short",event.target.value)}/></label>{canEditRating&&<label>個人起始 ELO<input type="number" min="200" max="3000" step="10" value={form.rating} onChange={event=>update("rating",event.target.value)}/><small>儲存後會從此起始值重播這位球員的歷史賽事。</small></label>}<label>正式讓分<input type="number" step="2" value={form.handicap} onChange={event=>update("handicap",event.target.value)}/></label>
     <div className="colour-field"><span className="colour-field-label">圖示顏色</span>
       <div className="colour-preview"><i style={avatarStyle(form.colour)}>{(form.short||"?").toUpperCase().slice(0,3)}</i><small>{AVATAR_COLOURS.find(option=>option.id===(form.colour||DEFAULT_AVATAR))?.name}</small></div>
       <div className="colour-grid" role="radiogroup" aria-label="圖示顏色">{AVATAR_COLOURS.map(option=><button key={option.id} type="button" role="radio" aria-checked={(form.colour||DEFAULT_AVATAR)===option.id} aria-label={option.name} title={option.name} className={`colour-swatch${(form.colour||DEFAULT_AVATAR)===option.id?" active":""}`} style={{background:option.hex}} onClick={()=>update("colour",option.id)}/>)}</div>

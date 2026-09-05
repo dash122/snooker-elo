@@ -10,7 +10,7 @@ import CupShareButtons from "../../CupShareButtons";
 
 type Badge = { id:string; name:string; short:string; colour?:string|null; avatar?:string|null;
   /** Null for a player the club has never rated — printed as 未評分 rather than as a zero. */
-  rating?:number|null; handicap?:number|null };
+  rating?:number|null; handicap?:number|null; arrival?:string|null };
 type Side = { player:Badge|null; score:number|null; won:boolean };
 type Tie = { index:number; state:string; playedOn:string; sides:Side[]; note:string;
   /** 「讓 6 分」 or 「平手」 for this pairing, empty in a cup that plays level. */
@@ -101,11 +101,17 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
     {cup.roster.length>0&&<section className="cup-roster">
       <h3>{share.status==="signup"?"報名名單":"參賽名單"} <span>{cup.roster.length}</span></h3>
       <ul className="rated">{cup.roster.map(entry=><li key={entry.id}>
-        <PlayerBadge player={entry}/><b>{entry.name}</b>
-        <span className="cup-roster-stat">
-          {entry.rating!=null?<><i>ELO</i>{entry.rating}</>:<em>未評分</em>}
-          {entry.handicap!=null&&cup.handicapMode==="suggested"&&<><i>建議讓分</i>{entry.handicap}</>}
-        </span>
+        <div className="cup-roster-player">
+          <PlayerBadge player={entry}/>
+          <div className="cup-roster-player-copy">
+            <b>{entry.name}</b>
+            <span className="cup-roster-stat">
+              {entry.rating!=null?<span className="cup-roster-stat-item"><i>ELO</i>{entry.rating}</span>:<em>未評分</em>}
+              {entry.handicap!=null&&cup.handicapMode==="suggested"&&<span className="cup-roster-stat-item"><i>建議讓分</i>{entry.handicap}</span>}
+              {entry.arrival&&<span className="cup-roster-arrival"><i aria-hidden="true">🕒</i>{entry.arrival}</span>}
+            </span>
+          </div>
+        </div>
       </li>)}</ul>
       <p className="cup-roster-note">{cup.handicapMode==="suggested"
         ?"建議讓分由球會 ELO 計出，本盃賽每場自動套用。"

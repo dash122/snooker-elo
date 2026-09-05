@@ -16,8 +16,6 @@ export function useAvailabilityCheck(field: "username" | "email", value: string,
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!isValid) {
-      setTaken(false);
-      setChecking(false);
       requestId.current++;
       return;
     }
@@ -37,8 +35,7 @@ export function useAvailabilityCheck(field: "username" | "email", value: string,
       }
     }, CHECK_DEBOUNCE_MS);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [field, value, isValid]);
 
-  return { taken, checking };
+  return { taken: isValid && taken, checking: isValid && checking };
 }

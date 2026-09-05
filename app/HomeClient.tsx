@@ -1,8 +1,9 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type TouchEvent as ReactTouchEvent } from "react";
-import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, Term, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type TouchEvent as ReactTouchEvent } from "react";
+import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import MatchmakingFormation from "./MatchmakingFormation";
+import GuestIntro from "./GuestIntro";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
@@ -19,6 +20,7 @@ import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story
 import ShareSheet from "./ShareSheet";
 import { AppShell, PageFrame } from "./components/shell/AppShell";
 import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
+import { BrandLogo } from "./components/BrandLogo";
 import { buildBracket, canManageTournament, cupMatches, currentRoundLabel, formatTournamentDateTime, isTournamentHost, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, reorderDraw, rosterOrder, roundLabel, shuffleDraw, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 import { Button, IconButton, InlineNotice, SegmentedControl, Skeleton, SlidingToggleGroup, StatTile, Surface } from "./components/ui/Primitives";
 import { Sheet, ConfirmDialog } from "./components/ui/Overlay";
@@ -247,12 +249,6 @@ function sortPlayers(players:Player[],data:AppState,key:SortKey,dir:"asc"|"desc"
   });
 }
 function matchMode(match: Match): MatchMode { return match.mode ?? "1v1"; }
-function matchParticipants(match: Match){
-  const result=[match.a,match.b];
-  if(match.a2)result.push(match.a2);
-  if(match.b2)result.push(match.b2);
-  return result;
-}
 function isParticipant(match: Match,id:string){
   return match.a===id||match.b===id||match.a2===id||match.b2===id;
 }
@@ -606,13 +602,13 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const [stateLoadStatus,setStateLoadStatus] = useState<StateLoadStatus>(initialData ? "ready" : "loading");
   const [stateLoadError,setStateLoadError] = useState("");
   const [stateRetry,setStateRetry] = useState(0);
-  const [stateLoadAttempt,setStateLoadAttempt] = useState(0);
+  const [,setStateLoadAttempt] = useState(0);
   const [tab,setTab] = useState("leaderboard");
   const [availabilityDirty,setAvailabilityDirty] = useState(false);
   const [leavingAvailability,setLeavingAvailability] = useState<string|null>(null);
   const [pendingConfirm,setPendingConfirm] = useState<{kicker:string;title:string;description:string;confirmLabel:string;onConfirm:()=>void}|null>(null);
   const askConfirm=(opts:{kicker:string;title:string;description:string;confirmLabel:string;onConfirm:()=>void})=>setPendingConfirm(opts);
-  const [jumpToAvailability,setJumpToAvailability] = useState<{playerId:string;date:string}|null>(null);
+  const [,setJumpToAvailability] = useState<{playerId:string;date:string}|null>(null);
   const [matchesView,setMatchesView] = useState<"history"|"calendar"|"cup"|"matrix">("history");
   const [headToHead,setHeadToHead] = useState({a:"",b:""});
   const [highlightMatch,setHighlightMatch] = useState<string|null>(null);
@@ -1083,11 +1079,11 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   function savePlayer(){
     if(!isAdmin&&(!editingPlayer||editingPlayer.id!==ownPlayerId)){setToast("你只能修改自己的球員資料。");return;}
     if(!playerForm.name.trim()||!playerForm.short.trim()){setToast("請輸入顯示名稱及縮寫。");return;}
-    const requestedRating=Number(playerForm.rating);
+    const requestedRating=playerForm.rating.trim()===""?NaN:Number(playerForm.rating);
     const rating=editingPlayer
       ? isAdmin&&Number.isFinite(requestedRating)?requestedRating:editingPlayer.initialRating
       : isAdmin&&Number.isFinite(requestedRating)?requestedRating:data.settings.start;
-    if(!Number.isFinite(rating)||rating<1000||rating>3000){setToast("個人起始 ELO 必須介乎 1000 至 3000。");return;}
+    if(!Number.isFinite(rating)||rating<200||rating>3000){setToast("個人起始 ELO 必須介乎 200 至 3000。");return;}
     const p:Player=editingPlayer
       ? {...editingPlayer,name:playerForm.name.trim(),short:playerForm.short.toUpperCase().slice(0,3),handicap:playerForm.handicap===""?null:+playerForm.handicap,initialRating:rating,colour:playerForm.colour||DEFAULT_AVATAR}
       : {id:crypto.randomUUID(),name:playerForm.name.trim(),short:playerForm.short.toUpperCase().slice(0,3),colour:playerForm.colour||DEFAULT_AVATAR,
@@ -1354,7 +1350,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     </div>
     <DesktopNavigation active={tab as Destination} onNavigate={goTab} badge={navBadge} badgeLabel={navBadgeLabel} signedIn={Boolean(user)} needsOnboarding={Boolean(user?.needsOnboarding)}/>
     <main>
-      <header><div className="mobile-brand-wrap"><div className="mobile-brand">SCAA <span>Snooker ELO</span></div>{user?.needsOnboarding&&<a className="onboarding-alert-link" href="/onboarding?reminder=1" aria-label="完成會員問卷" title="完成會員問卷">⚠️</a>}</div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {stateLoadStatus==="loading"?"載入中…":stateLoadStatus==="failed"?"載入失敗":saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
+      <header><div className="mobile-brand-wrap"><BrandLogo className="mobile-brand" compact/>{user?.needsOnboarding&&<a className="onboarding-alert-link" href="/onboarding?reminder=1" aria-label="完成會員問卷" title="完成會員問卷">⚠️</a>}</div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {stateLoadStatus==="loading"?"載入中…":stateLoadStatus==="failed"?"載入失敗":saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
       <PageFrame className={`app-page-${tab}`}>
       {user?.needsOnboarding&&<InlineNotice tone="warning" title="完成新會員設定">
         <span>設定頭像同答幾條問題，即可取得初始評級 — 未完成前無法記錄比賽。</span>{" "}
@@ -1365,6 +1361,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {stateLoadStatus==="ready"&&<>
       {/* The club's pulse, on the screen members actually open. Matchmaking used to live entirely
           behind a tab, so "is anyone playing tonight?" was unanswerable without going to look. */}
+      {tab==="leaderboard"&&!user&&<GuestIntro onNavigate={goTab}/>}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
@@ -1673,7 +1670,7 @@ function EloTrendChart({players,data}:{players:Player[];data:AppState}) {
   const plotRef=useRef<HTMLDivElement>(null);
   const shownPlayers=ranked.filter(p=>!hiddenIds.has(p.id));
   const {dates,series}=useMemo(()=>eloTrendSeries(shownPlayers,data),[shownPlayers,data]);
-  const toggle=(id:string)=>{setActiveIndex(null);setHiddenIds(current=>{const next=new Set(current);next.has(id)?next.delete(id):next.add(id);return next})};
+  const toggle=(id:string)=>{setActiveIndex(null);setHiddenIds(current=>{const next=new Set(current);if(next.has(id))next.delete(id);else next.add(id);return next})};
   const deselectAll=()=>{setActiveIndex(null);setHiddenIds(new Set(ranked.map(p=>p.id)))};
   if(ranked.length===0) return players.length===0
     ? <Empty text="尚未有球員" sub="前往球員頁面新增第一位球員。"/>
@@ -2088,8 +2085,8 @@ function Matches({data,canManageMatch,canManageCup,onEdit,onVoid,onShare,onPlaye
   const pairSelected=Boolean(a&&opponent&&a.id!==opponent.id);
   const comparing=pairSelected&&modeFilter!=="2v2";
   const filteringShared2v2=pairSelected&&modeFilter==="2v2";
-  const matchesMode=(match:Match)=>modeFilter==="all"||matchMode(match)===modeFilter;
   const matches=useMemo(()=>{
+    const matchesMode=(match:Match)=>modeFilter==="all"||matchMode(match)===modeFilter;
     if(comparing){
       return data.matches
         .filter(m=>matchesMode(m)&&m.status==="confirmed"&&(
@@ -2111,18 +2108,6 @@ function Matches({data,canManageMatch,canManageCup,onEdit,onVoid,onShare,onPlaye
         return sortDirection==="asc"?(primary||tieBreak):-(primary||tieBreak);
       });
   },[data.matches,sortBy,sortDirection,modeFilter,focusPlayer,comparing,filteringShared2v2,a,opponent]);
-  // When one player is in focus, their record across the filtered set is the
-  // headline; the raw list alone makes you tally it yourself.
-  const focusSummary=useMemo(()=>{
-    if(!focusPlayer||pairSelected)return null;
-    return matches.reduce((total,m)=>{
-      if(m.status!=="confirmed"||isEntertainmentMode(m.mode))return total;
-      const first=m.a===focusPlayer,own=first?m.scoreA:m.scoreB,other=first?m.scoreB:m.scoreA;
-      total.net+=first?m.deltaA:-m.deltaA;
-      if(own>other)total.wins++;else if(own<other)total.losses++;else total.draws++;
-      return total;
-    },{wins:0,losses:0,draws:0,net:0});
-  },[matches,focusPlayer,pairSelected]);
   const headToHeadMatches=useMemo(
     ()=>matches.filter(match=>matchMode(match)!=="2v2").sort((left,right)=>right.playedOn.localeCompare(left.playedOn)||right.createdAt.localeCompare(left.createdAt)),
     [matches]
@@ -2270,7 +2255,7 @@ function TimeOfDayPicker({hour,minute,onHour,onMinute}:{hour:string;minute:strin
    round-by-round list below is the primary one. Both read the same bracket. */
 function CupBracketView({data,selectedTournament,setSelectedTournament,canManageMatch,canManageCup,onEdit,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament,onSetArrivalTime,onRecordSlot,onArrange,onWalkover,onEditRoster,onShuffleRoster,onReorderRoster,onRefresh}:{data:AppState;selectedTournament:string;setSelectedTournament:(id:string)=>void;canManageMatch:(match:Match)=>boolean;canManageCup:(tournament:Tournament)=>boolean;onEdit:(match:Match)=>void;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string,arrivalTime?:string)=>void;onSetArrivalTime:(tournamentId:string,arrivalTime:string)=>void;onRecordSlot:(tournament:Tournament,slot:BracketSlot<Match>)=>void;onArrange:(opponentId:string)=>void;onWalkover:(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string)=>void;onEditRoster:(tournament:Tournament,outgoingId:string,incomingId:string)=>void;onShuffleRoster:(tournament:Tournament)=>void;onReorderRoster:(tournament:Tournament,draggedId:string,targetId:string)=>void;onRefresh:()=>void}){
   const tournament=data.tournaments.find(item=>item.id===selectedTournament);
-  const player=(id:string)=>data.players.find(item=>item.id===id);
+  const player=useCallback((id:string)=>data.players.find(item=>item.id===id),[data.players]);
   const name=(id:string)=>player(id)?.name??"待定";
   const deadlineText=(value:string)=>formatTournamentDateTime(value);
   const deadlinePassed=Boolean(tournament&&signupsClosed(tournament));
@@ -2301,7 +2286,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       })),
       champion:bracket.champion?player(bracket.champion)??{short:"?"}:null,
     };
-  },[bracket,ownPlayerId,data.players]);
+  },[bracket,ownPlayerId,player]);
   const [openRound,setOpenRound]=useState(1);
   /* Which roster row is mid-drag and which one it is currently poised over — purely visual state,
      reset the moment the drag ends one way or another so a stale highlight can never survive it. */
@@ -2312,7 +2297,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
      handle's touch events, tracking the finger with elementFromPoint instead of native drag events. */
   const touchDragId=useRef("");
   const touchOverId=useRef("");
-  const onRosterHandleTouchStart=(id:string)=>(event:ReactTouchEvent)=>{
+  const onRosterHandleTouchStart=(id:string)=>()=>{
     touchDragId.current=id;
     touchOverId.current="";
     setDragRosterId(id);
@@ -2443,6 +2428,14 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   if(!selectedTournament){
     const cups=[...data.tournaments].sort((left,right)=>right.createdAt.localeCompare(left.createdAt));
     const cupEntries=cups.map(item=>({item,status:cupStatus(item,data.matches)}));
+    const championTable=Array.from(cupEntries.reduce((table,{item,status})=>{
+      if(status!=="done")return table;
+      const championId=buildBracket<Match>(item,data.matches).champion;
+      if(!championId)return table;
+      const previous=table.get(championId);
+      table.set(championId,{playerId:championId,titles:(previous?.titles??0)+1,lastTitle:item.name,lastWonAt:item.startAt??item.createdAt});
+      return table;
+    },new Map<string,{playerId:string;titles:number;lastTitle:string;lastWonAt:string}>()).values()).sort((left,right)=>right.titles-left.titles||right.lastWonAt.localeCompare(left.lastWonAt)||name(left.playerId).localeCompare(name(right.playerId),"zh-HK"));
     const cupSections=[
       {id:"active",label:"報名中／進行中賽事",entries:cupEntries.filter(entry=>entry.status!=="done")},
       {id:"done",label:"已完成賽事",entries:cupEntries.filter(entry=>entry.status==="done")},
@@ -2452,6 +2445,23 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         <div><p className="sl-eyebrow">SCAA 盃賽</p><h2>盃賽</h2><p>報名、抽籤、對陣同賽果，一頁睇晒。</p></div>
         {isAdmin&&<Button onClick={onCreateTournament}>＋ 新增盃賽</Button>}
       </div>
+      {championTable.length>0&&<section className="cup-honours" aria-labelledby="cup-honours-title">
+        <div className="cup-honours-head">
+          <div><p className="sl-eyebrow">Hall of champions</p><h3 id="cup-honours-title">歷屆冠軍榜</h3></div>
+          <span>{cupEntries.filter(entry=>entry.status==="done").length} 屆賽事</span>
+        </div>
+        <ol className="cup-honours-list">
+          {championTable.map((champion,index)=>{
+            const championPlayer=player(champion.playerId)??{short:"?"};
+            return <li className={index===0?"is-leader":""} key={champion.playerId}>
+              <span className="cup-honours-rank" aria-label={`第 ${index+1} 名`}>{index===0?"♛":String(index+1).padStart(2,"0")}</span>
+              <PlayerBadge player={championPlayer}/>
+              <span className="cup-honours-player"><b>{name(champion.playerId)}</b><small>最近勝出 · {champion.lastTitle}</small></span>
+              <span className="cup-honours-count"><b>{champion.titles}</b><small>次冠軍</small></span>
+            </li>;
+          })}
+        </ol>
+      </section>}
       {cups.length===0?<div className="cup-empty"><span aria-hidden="true">🏆</span><b>尚未有盃賽</b><p>{isAdmin?"建立第一個盃賽，球員即可報名。":"管理員建立盃賽後，你就可以在這裡報名。"}</p></div>
       :<div className="cup-sections">{cupSections.map(section=><section className="cup-section" aria-labelledby={`cup-section-${section.id}`} key={section.id}>
         <div className="cup-section-divider"><h3 id={`cup-section-${section.id}`}>{section.label}</h3></div>
@@ -2542,8 +2552,8 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         <div className="cup-roster-player-copy">
           <b>{name(id)}</b>
           <span className="cup-roster-stat">
-            {standing.rating!=null?<><i>ELO</i>{standing.rating}</>:<em>未評分</em>}
-            {standing.handicap!=null&&tournament.handicapMode==="suggested"&&<><i>評分</i>{standing.handicap}</>}
+            {standing.rating!=null?<span className="cup-roster-stat-item"><i>ELO</i>{standing.rating}</span>:<em>未評分</em>}
+            {standing.handicap!=null&&tournament.handicapMode==="suggested"&&<span className="cup-roster-stat-item"><i>評分</i>{standing.handicap}</span>}
             {tournament.arrivalTimes?.[id]&&<span className="cup-roster-arrival"><i aria-hidden="true">🕒</i>{tournament.arrivalTimes[id]}</span>}
           </span>
         </div>
@@ -3214,7 +3224,6 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   })();
   const forecast=livePreview??preview;
   const tournament=data.tournaments.find(t=>t.id===draft.tournamentId);
-  const tournamentHandicap=isCupMode&&tournament?.handicapMode==="suggested";
   /* Locked when the form was opened from a bracket box: the pairing, round and match number came
      from the tie itself, so there is nothing here to choose and no way to file the result against
      the wrong slot. */
