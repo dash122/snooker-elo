@@ -1589,7 +1589,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
   },[data.matches,data.players]);
   const displayedBreaks=breakView==="monthly"?breakRecords.overall:breakRecords[breakView];
   const sortBy=(key:SortKey)=>{if(sort===key)setDir(x=>x==="asc"?"desc":"asc");else{setSort(key);setDir(key==="rank"||key==="name"?"asc":"desc")}};
-  return <><section className="hero"><div><p className="kicker">SCAA CLUB RANKING</p><h1>讓每一局，<br/><span>都推動進步。</span></h1><p>追蹤實力、看見成長，找到旗鼓相當的對手。</p>
+  return <><section className="hero"><div><h1>讓每一局，<br/><span>都推動進步。</span></h1><p>追蹤實力、看見成長，找到旗鼓相當的對手。</p>
       <div className="podium-stats">
         <span><b>{ranked.length}</b><small>活躍球員</small></span>
         <span><b>{month}</b><small>本月比賽</small></span>
