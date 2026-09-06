@@ -3103,12 +3103,12 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
       <div className="players-search"><input type="text" value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜尋姓名或縮寫" aria-label="搜尋球員"/></div>
       <button type="button" className="players-sort-btn" onClick={cycleSort}>排序 · {sortLabels[sort]}</button>
     </div>
-    <SlidingToggleGroup className="ds-toggle-control players-filter-toggle" role="tablist" aria-label="球員篩選">
+    <div className="players-chips" role="tablist" aria-label="球員篩選">
       {chipDefs.map(([id,label])=>{
         const n=counts[id],isEmpty=n===0&&id!=="all",isActive=activeChip===id&&!isEmpty;
-        return <button key={id} type="button" role="tab" aria-selected={isActive} disabled={isEmpty} className={isEmpty?"is-empty":""} onClick={()=>setChip(id)}>{label} {n}</button>;
+        return <button key={id} type="button" role="tab" aria-selected={isActive} disabled={isEmpty} className={`players-chip${isActive?" active":""}${isEmpty?" is-empty":""}`} onClick={()=>setChip(id)}>{label} {n}</button>;
       })}
-    </SlidingToggleGroup>
+    </div>
     <div className="players-list-head">
       <span>{filtered.length} 位球員</span>
       {canAdd&&<Button variant="primary" className="players-add-btn" onClick={onAdd}>＋ 新增球員</Button>}
