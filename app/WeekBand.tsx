@@ -241,7 +241,16 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
       <Button variant="secondary" onClick={()=>{setState("loading");setReloadToken(value=>value+1)}}>重試</Button>
     </InlineNotice>
   </section>;
-  if(state==="loading"||!data||!day)return <section className="wb-card" aria-busy="true"><div className="wb-skeleton"/></section>;
+  /* 骨架只代表「還在載入」。一份載得到卻沒有日子的回應，如果也畫骨架，就會變成一張永遠停在
+     載入中的空白卡片 —— 與壞掉無法分辨，而且沒有任何可以做的事。那是另一條通往同一個症狀的
+     路徑，所以在這裡分開處理，而不是靠上面的逾時兜底。 */
+  if(state==="loading")return <section className="wb-card" aria-busy="true"><div className="wb-skeleton"/></section>;
+  if(!data||!day)return <section className="wb-card wb-error">
+    <InlineNotice tone="warning" title="未能載入本週的時段資料">
+      其他球員的時段暫時載入不到，你仍然可以用下面的「公開空檔」公開自己的時間。
+      <Button variant="secondary" onClick={()=>{setState("loading");setReloadToken(value=>value+1)}}>重試</Button>
+    </InlineNotice>
+  </section>;
 
   const {gate,stats}=data;
   const locked=gate.locked||gate.anonymous;
