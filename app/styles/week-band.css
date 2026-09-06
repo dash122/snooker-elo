@@ -1,0 +1,168 @@
+@layer components {
+  /* --- 時段軸 ------------------------------------------------------------
+     One lit object rather than a stack of cards: the band carries the club's
+     density and the member's own window in the same rectangle, because they
+     are the same question asked in two directions. Everything else on the
+     card is subordinate to it. */
+
+  .wb-card{display:grid;gap:var(--sp-3);width:min(100%,var(--ds-page-compact));margin:0 auto;
+    padding:0 0 var(--sp-4);border-radius:var(--ds-radius-card);background:var(--ds-surface-primary);
+    border:1px solid var(--ds-border-subtle);box-shadow:var(--ds-elevation-3);overflow:hidden}
+  .wb-skeleton{height:22rem;background:var(--ds-surface-secondary);animation:wb-pulse 1.4s var(--ds-ease-standard) infinite}
+  @keyframes wb-pulse{50%{opacity:.55}}
+  @media (prefers-reduced-motion:reduce){.wb-skeleton{animation:none}}
+  .wb-error{padding:var(--sp-4)}
+
+  .wb-head{display:grid;gap:var(--sp-1);padding:var(--sp-4) var(--sp-4) var(--sp-3);
+    background:var(--ds-canvas-brand);color:var(--ds-text-on-brand)}
+  .wb-kicker{margin:0;font-size:var(--fs-label);letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ds-accent-primary)}
+  .wb-head h2{margin:0;font-size:var(--fs-h2);letter-spacing:-.02em;line-height:1.25}
+  .wb-head p{margin:0;font-size:var(--fs-sm);color:var(--ds-text-on-brand-secondary);line-height:1.55}
+
+  /* --- 七晚密度 ---------------------------------------------------------- */
+  .wb-week{display:grid;grid-template-columns:repeat(7,1fr);gap:var(--sp-1);
+    padding:var(--sp-2) var(--sp-3) var(--sp-1);background:var(--ds-canvas-brand);align-items:end}
+  .wb-day{display:grid;gap:var(--sp-1);justify-items:center;align-content:end;position:relative;
+    min-height:var(--control-md);padding:var(--sp-1) 2px var(--sp-1-5);border:0;border-radius:var(--radius-sm);
+    background:none;color:var(--ds-text-on-brand);cursor:pointer;
+    transition:background var(--ds-duration-fast) var(--ds-ease-standard)}
+  .wb-day.active{background:var(--ds-inverse-wash)}
+  .wb-day b{font-size:var(--fs-body);font-weight:750;line-height:1;font-variant-numeric:tabular-nums}
+  .wb-day small{font-size:var(--fs-label);color:var(--ds-text-on-brand-secondary);letter-spacing:.04em}
+  .wb-day.active small{color:var(--ds-text-on-brand);font-weight:750}
+  .wb-day-bar{display:block;width:100%;max-width:24px;border-radius:var(--radius-2xs) var(--radius-2xs) 2px 2px;
+    background:var(--ds-chart-primary)}
+  .wb-day-bar.hot{background:var(--ds-accent-primary)}
+  .wb-day-bar.cold{background:var(--ds-icon-muted)}
+  .wb-day-mark{position:absolute;top:2px;width:14px;height:3px;border-radius:2px;background:var(--ds-accent-primary)}
+  .wb-week-foot{display:flex;justify-content:space-between;gap:var(--sp-2);margin:0;
+    padding:0 var(--sp-4) var(--sp-3);background:var(--ds-canvas-brand);
+    color:var(--ds-text-on-brand-secondary);font-size:var(--fs-label);letter-spacing:.04em}
+
+  /* --- 時段軸本體 -------------------------------------------------------- */
+  .wb-band-wrap{display:grid;gap:var(--sp-2);padding:0 var(--sp-3) var(--sp-1);background:var(--ds-canvas-brand)}
+  .wb-band{position:relative;border-radius:var(--radius-lg);overflow:hidden;touch-action:none;
+    user-select:none;cursor:crosshair;background:linear-gradient(180deg,var(--ds-surface-featured),var(--ds-canvas-brand-deep));
+    box-shadow:inset 0 0 0 1px var(--ds-inverse-border),inset 0 12px 26px rgba(0,0,0,.28)}
+  .wb-band.is-readonly{cursor:default}
+  .wb-band:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px}
+  .wb-band-head{display:flex;justify-content:space-between;align-items:baseline;margin:0;
+    padding:var(--sp-2) var(--sp-2-5) 0;color:var(--ds-text-on-brand-secondary);
+    font-size:var(--fs-label);letter-spacing:.1em;text-transform:uppercase}
+  .wb-band-head b{color:var(--ds-accent-primary);font-weight:750}
+  .wb-cols{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;align-items:end;
+    height:92px;gap:2px;padding:0 var(--sp-1)}
+  .wb-col{height:100%;display:flex;align-items:flex-end}
+  .wb-col i{display:block;width:100%;border-radius:var(--radius-2xs) var(--radius-2xs) 0 0;
+    background:var(--ds-text-muted-teal)}
+  .wb-col i.is-peak{background:var(--ds-accent-primary)}
+  .wb-mine{position:absolute;top:0;bottom:0;pointer-events:none;border-radius:var(--radius-sm);
+    border:1.5px solid var(--ds-accent-primary);
+    background:linear-gradient(180deg,var(--ds-accent-veil),var(--ds-accent-veil-soft))}
+  .wb-mine.is-draft{border-style:dashed;border-color:var(--ds-text-on-brand);
+    background:linear-gradient(180deg,var(--ds-inverse-wash),var(--ds-inverse-wash-soft))}
+  .wb-mine b{position:absolute;left:50%;top:0;transform:translate(-50%,-100%);white-space:nowrap;
+    font-size:var(--fs-label);letter-spacing:.04em;color:var(--ds-accent-soft)}
+  .wb-mine.is-draft b{color:var(--ds-text-on-brand)}
+  .wb-grip{position:absolute;top:50%;width:5px;height:26px;border-radius:3px;transform:translateY(-50%);
+    background:var(--ds-accent-primary)}
+  .wb-mine.is-draft .wb-grip{background:var(--ds-text-on-brand)}
+  .wb-grip.start{left:-3px}
+  .wb-grip.end{right:-3px}
+  .wb-axis{display:flex;justify-content:space-between;margin:0;padding:var(--sp-1) var(--sp-2) var(--sp-2);
+    color:var(--ds-text-on-brand-secondary);font-size:var(--fs-label);letter-spacing:.06em}
+  .wb-band-note{margin:0;color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption);text-align:center}
+  .wb-fields-toggle{justify-self:center;color:var(--ds-text-on-brand-secondary)}
+
+  /* 拖曳的後備：同一個 window，另一種輸入方式。 */
+  .wb-fields{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);padding-bottom:var(--sp-2)}
+  .wb-fields label{display:grid;gap:var(--sp-1);color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption)}
+  .wb-fields select{height:var(--control-md);padding:0 var(--sp-2);border-radius:var(--radius-sm);
+    border:1px solid var(--ds-inverse-border);background:var(--ds-surface-inverse);
+    color:var(--ds-text-on-brand);font-size:var(--fs-input)}
+
+  /* --- 這一格的答案 ------------------------------------------------------ */
+  .wb-readout{display:grid;gap:var(--sp-1-5);margin:0 var(--sp-3);padding:var(--sp-3);
+    border-radius:var(--radius-lg);border:1px solid var(--ds-accent-soft);
+    background:linear-gradient(135deg,var(--ds-surface-featured),var(--ds-canvas-brand));
+    color:var(--ds-text-on-brand)}
+  .wb-readout-n{display:flex;align-items:baseline;gap:var(--sp-2);margin:0}
+  .wb-readout-n b{font-size:var(--fs-stat);line-height:.85;color:var(--ds-accent-primary);
+    font-variant-numeric:tabular-nums}
+  .wb-readout-n span{font-size:var(--fs-sm);font-weight:750}
+  .wb-readout small{font-size:var(--fs-caption);color:var(--ds-text-on-brand-secondary)}
+  .wb-faces{display:flex}
+  .wb-faces>*{margin-left:-8px;border:2px solid var(--ds-surface-featured);border-radius:var(--radius-pill)}
+  .wb-faces>*:first-child{margin-left:0}
+
+  /* --- 名單 -------------------------------------------------------------- */
+  .wb-list{display:grid;gap:var(--sp-1);margin:0 var(--sp-3);padding:var(--sp-3);
+    border-radius:var(--radius-lg);border:1px solid var(--ds-border-subtle);background:var(--ds-surface-secondary)}
+  .wb-list-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2)}
+  .wb-list-head h3{margin:0;font-size:var(--fs-lead)}
+  .wb-list-head>span{color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
+  .wb-row{display:flex;align-items:center;gap:var(--sp-2-5);padding:var(--sp-2) 0;
+    border-top:1px solid var(--ds-border-subtle)}
+  .wb-row:nth-of-type(2){border-top:0}
+  .wb-who{display:grid;gap:2px;flex:1 1 auto;min-width:0}
+  .wb-who b,.wb-who-link{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:var(--fs-sm);font-weight:750}
+  .wb-who-link{padding:0;border:0;background:none;color:var(--ds-text-primary);text-align:left;
+    text-decoration:underline;text-decoration-color:var(--ds-border-strong);text-underline-offset:3px}
+  .wb-who small{color:var(--ds-text-tertiary);font-size:var(--fs-caption);font-variant-numeric:tabular-nums}
+  .wb-chips{display:flex;flex-wrap:wrap;gap:var(--sp-1)}
+  .wb-chip{padding:1px var(--sp-1-5);border-radius:var(--radius-pill);border:1px solid var(--ds-border-strong);
+    color:var(--ds-text-secondary);font-size:var(--fs-label);white-space:nowrap}
+  .wb-chip.live{border-color:var(--ds-success-wash-border);background:var(--ds-success-wash);color:var(--ds-success)}
+  .wb-ask{flex:0 0 auto;min-height:var(--control-sm)}
+  .wb-ask.is-locked{display:grid;place-items:center;min-width:var(--control-sm);height:var(--control-sm);
+    padding:0 var(--sp-2);border:1.5px dashed var(--ds-border-strong);border-radius:var(--radius-sm);
+    background:none;color:var(--ds-text-tertiary);cursor:pointer}
+
+  /* 上鎖只是表現層 — 伺服器根本沒有送出姓名。 */
+  .wb-row.is-locked .wb-who b,.wb-row.is-locked .wb-who small{filter:blur(4.5px);user-select:none}
+  .wb-row.is-locked>:first-child{filter:blur(5px)}
+  .wb-gate-line{margin:var(--sp-2) 0 0;color:var(--ds-text-tertiary);font-size:var(--fs-caption);text-align:center}
+
+  /* --- 確認 -------------------------------------------------------------- */
+  .wb-presence{display:flex;align-items:center;gap:var(--sp-2-5);margin:0 var(--sp-3);flex-wrap:wrap}
+  .wb-presence small{flex:1 1 12rem;min-width:0;color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
+
+  .wb-message{margin:0 var(--sp-3);color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+  .wb-commit{position:sticky;bottom:0;z-index:2;padding:var(--sp-2) var(--sp-3) var(--sp-2-5);
+    background:linear-gradient(180deg,transparent,var(--ds-surface-primary) 34%)}
+  .wb-commit-button{width:100%;min-height:var(--control-lg)}
+  .wb-commit-button.is-primary{display:grid;gap:0;place-content:center;text-align:center}
+  .wb-commit-button small{font-size:var(--fs-label);font-weight:500;opacity:.8}
+
+  .wb-apply{display:grid;gap:var(--sp-2);margin:0 var(--sp-3)}
+  .wb-apply>p{margin:0;font-size:var(--fs-caption);color:var(--ds-text-secondary)}
+  .wb-apply-row{display:flex;gap:var(--sp-1-5);overflow-x:auto;padding-bottom:var(--sp-1);
+    scrollbar-width:none;overscroll-behavior-inline:contain}
+  .wb-apply-row::-webkit-scrollbar{display:none}
+  .wb-apply-row button{flex:0 0 auto;height:var(--control-sm);padding:0 var(--sp-2-5);
+    border:1px solid var(--ds-border-strong);border-radius:var(--radius-pill);
+    background:var(--ds-surface-secondary);color:var(--ds-text-secondary);font-size:var(--fs-caption);
+    white-space:nowrap;cursor:pointer}
+  .wb-apply-row button.is-done{background:var(--ds-accent-action);border-color:var(--ds-accent-action);
+    color:var(--ds-text-on-brand);font-weight:750;cursor:default}
+
+  .wb-streak{display:flex;align-items:center;gap:var(--sp-2-5);margin:0 var(--sp-3);padding:var(--sp-3);
+    border-radius:var(--radius-lg);border:1px solid var(--ds-border-subtle);background:var(--ds-surface-secondary)}
+  .wb-streak-n{font-size:var(--fs-stat);line-height:.85;font-weight:750;color:var(--ds-accent-primary);
+    font-variant-numeric:tabular-nums}
+  .wb-streak div{display:grid;gap:2px;min-width:0}
+  .wb-streak b{font-size:var(--fs-sm)}
+  .wb-streak small{color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
+
+  @media (max-width: 599px){
+    .wb-cols{height:78px}
+    .wb-readout-n b{font-size:var(--fs-h2)}
+    .wb-fields{grid-template-columns:1fr}
+  }
+  @media (max-width: 380px){
+    .wb-day small{font-size:var(--fs-label)}
+    .wb-cols{height:68px}
+  }
+}

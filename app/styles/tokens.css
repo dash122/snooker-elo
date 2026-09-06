@@ -19,6 +19,11 @@
        --green-hover/the .primary class's own shadow -- zero visual diff. */
     --ds-accent-action:#155e52;--ds-accent-action-hover:#185149;
     --ds-accent-action-shadow:rgba(18,61,55,.16);
+    /* Washes over the brand-dark ground. Named during the 時段軸 work: the band paints the
+       member's own window and the selected night on top of --ds-canvas-brand, and both need a
+       translucent fill rather than a solid one so the club's density stays readable underneath. */
+    --ds-inverse-wash:rgba(249,247,238,.1);--ds-inverse-wash-soft:rgba(249,247,238,.04);
+    --ds-accent-veil:rgba(213,169,77,.24);--ds-accent-veil-soft:rgba(213,169,77,.08);
     --ds-overlay:rgba(3,25,21,.7);--ds-featured-glow:rgba(77,155,126,.25);
     --ds-hero-glow:rgba(85,165,134,.25);--ds-inverse-border:rgba(255,255,255,.12);
     --ds-text-on-danger:#fff;--ds-text-on-brand-secondary:#bdd0c9;
