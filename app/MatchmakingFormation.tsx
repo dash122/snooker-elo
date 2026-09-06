@@ -4,6 +4,7 @@ import {useCallback,useEffect,useMemo,useState} from "react";
 import {Button,Chip,EmptyState,FormField,InlineNotice,Skeleton,Surface} from "./components/ui/Primitives";
 import {Sheet} from "./components/ui/Overlay";
 import {PlayerBadge} from "./UiBits";
+import {WeekBand} from "./WeekBand";
 import {addDaysHongKong,availabilityEndTimes,availabilityStartTimes,hkClock,hkDate,hkDayLabel} from "../lib/availability";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
 
@@ -18,7 +19,7 @@ type Dashboard={signedIn:boolean;own:Availability[];opportunities:Opportunity[];
 const EMPTY:Dashboard={signedIn:false,own:[],opportunities:[],sessions:[],venues:[],publicDays:{}};
 const dateOf=(iso:string)=>hkDate(new Date(iso));
 const duration=(minutes:number)=>minutes>=120?`${Math.round(minutes/60*10)/10} 小時`:`${minutes} 分鐘`;
-const sessionStatus=(session:FormationSession)=>session.status==="full"||session.status==="playable"?"對局已確認":session.myStatus==="pending"?"等待對方回覆":session.myStatus==="declined"?"今次未能約成":session.myStatus==="withdrawn"?"已退出":"等待對方回覆";
+const sessionStatus=(session:FormationSession)=>session.status==="full"||session.status==="playable"?"對局已確認":session.myStatus==="pending"?"等待對方回覆":session.myStatus==="declined"?"這次未能約成":session.myStatus==="withdrawn"?"已退出":"等待對方回覆";
 const statusTone=(session:FormationSession)=>session.status==="full"||session.status==="playable"?"success":session.myStatus==="pending"?"warning":session.myStatus==="declined"?"danger":"neutral";
 const sessionHint=(session:FormationSession)=>session.status==="full"||session.status==="playable"?"兩位球員已確認":session.myStatus==="declined"?"可以再試其他球友":session.myStatus==="withdrawn"?"你已退出這次約戰":"等待對方回覆";
 const canLeaveSession=(session:FormationSession)=>session.isHost||session.myStatus==="pending"||session.myStatus==="accepted";
@@ -59,6 +60,15 @@ export default function MatchmakingFormation({onPlayer,onActivity,onRecord}:{onP
     const ok=await mutate("publish","/api/matchmaking/formation",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({dates:publishDates,start,end:effectiveEnd,venueId:venueId||null})},"空檔已公開；有合適球友時我們會通知你。");
     if(ok){trackAvailabilityEvent("matchmaking_mvp_publish",{days:publishDates.length,start,end:effectiveEnd});setPublishOpen(false);setSelectedDate(publishDates[0]??dates[0])}
   };
+  /* 時段軸寫入時段用的是這條路徑，而不是 /api/availability：formation 的端點會一併處理場地與
+     時段衝突，而兩者寫的都是同一張 availability_slots，所以時段軸讀到的仍然是同一份資料。 */
+  const publishWindow=useCallback(async(date:string,startClock:string,endClock:string)=>{
+    const ok=await mutate("publish","/api/matchmaking/formation",{method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({dates:[date],start:startClock,end:endClock,venueId:venueId||null})},"已公開你的時段。");
+    if(ok)trackAvailabilityEvent("matchmaking_mvp_publish",{days:1,start:startClock,end:endClock});
+    return ok;
+  },[mutate,venueId]);
+
   const request=async()=>{
     if(!requesting)return;
     const ok=await mutate(`request:${requesting.anchorSlotId}`,"/api/matchmaking/formation/sessions",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({anchorSlotId:requesting.anchorSlotId,startAt:requesting.proposedStartAt,endAt:requesting.proposedEndAt})},`已向 ${requesting.player.name} 送出約戰，等對方回覆。`);
@@ -81,15 +91,19 @@ export default function MatchmakingFormation({onPlayer,onActivity,onRecord}:{onP
 
   return <section className="mf-page">
     <div className="mf-header">
-      <div><p className="mf-kicker">SCAA MATCHMAKING</p><h1>想打一場波？</h1><p>公開你有空的時間，我們幫你搵一位時間夾到、水平接近的球友。</p></div>
+      <div><p className="mf-kicker">SCAA MATCHMAKING</p><h1>想打一場球？</h1><p>公開你有空的時間，我們為你找一位時間重疊、水平接近的球友。</p></div>
       {data.signedIn&&<Button onClick={()=>setPublishOpen(true)}>＋ 公開空檔</Button>}
     </div>
 
-    <nav className="mf-days" aria-label="未來七日">
-      {dates.map(date=><button key={date} type="button" aria-pressed={selectedDate===date} onClick={()=>setSelectedDate(date)}>
-        <small>{date===dates[0]?"今日":hkDayLabel(date).split(" ").at(-1)}</small><b>{Number(date.slice(-2))}</b><span>{data.publicDays[date]??0} 人</span>
-      </button>)}
-    </nav>
+    {/* 原本的日期列已由時段軸的週密度條取代 — 兩個日期選擇器操作同一個 selectedDate，
+        正是這次改版要消滅的重複。密度條還多答一件事：那一晚同時在場的人數，而非全日人次。 */}
+
+    {/* 一個手勢，同時是查詢，也是宣告。舊版要先公開時段才看得到任何人（「先公開你的時間」），
+        回報永遠在承諾之後；時段軸把「這段時間有誰重疊」放到公開之前回答。名單留給下面那張
+        真的可以送出邀請的清單，時段軸只負責密度、重疊人數與寫入。 */}
+    <WeekBand signedIn={data.signedIn} showList={false} refreshKey={data.own.length}
+      onPublish={publishWindow} onSelectDate={setSelectedDate} onOpenPlayer={onPlayer}
+      onChanged={()=>{void load();onActivity?.()}}/>
 
     {message&&<InlineNotice tone="success" title="已更新">{message}</InlineNotice>}
     {error&&<InlineNotice tone="warning" title="未能完成"><span>{error}</span><Button variant="quiet" onClick={()=>void load()}>重試</Button></InlineNotice>}
@@ -118,8 +132,8 @@ export default function MatchmakingFormation({onPlayer,onActivity,onRecord}:{onP
           <div className="mf-card-top"><button type="button" className="mf-player-link" onClick={()=>onPlayer?.(item.player.id)}><PlayerBadge player={item.player}/><span><b>{item.player.name}</b><small>ELO {Math.round(item.player.rating)}</small></span></button>{index===0&&<Chip tone="accent">最佳選擇</Chip>}</div>
           <div className="mf-overlap"><strong>{duration(item.overlapMinutes)}</strong><span>可重疊時間</span><b>建議 {hkClock(item.proposedStartAt)}–{hkClock(item.proposedEndAt)}</b></div>
           <div className="mf-card-meta"><span>{item.venue?.name||"場地稍後決定"}</span><span>相差 {Math.round(item.eloDifference)} ELO</span></div>
-          <div className="mf-chips">{item.newOpponent&&<Chip tone="success">未交手過</Chip>}<Chip tone="success">時間夾到</Chip></div>
-          <Button className="mf-card-action" onClick={()=>setRequesting(item)}>約佢打波 <span aria-hidden="true">→</span></Button>
+          <div className="mf-chips">{item.newOpponent&&<Chip tone="success">未交手過</Chip>}<Chip tone="success">時間重疊</Chip></div>
+          <Button className="mf-card-action" onClick={()=>setRequesting(item)}>邀請對局 <span aria-hidden="true">→</span></Button>
         </Surface>)}</div>}
       </section>
     </>}
