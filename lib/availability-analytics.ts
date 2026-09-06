@@ -18,6 +18,13 @@ export type AvailabilityEvent =
   /* 時段軸 — the merged journey. `week_band_view` is every arrival on the tab; `publish` is the one
      gesture that is simultaneously a declaration and the unlocking of the list, so the ratio between
      them is the whole redesign's scoreboard. */
+  /* 開局板 — the funnel that replaced the formation flow. Three events because the journey has three
+     moments: arriving, opening a 局, and joining one. The ratio of `join` to `create` is the one
+     that says whether merge-at-input is working: a club where everyone creates and nobody joins is
+     a club that has gone back to six people opening six 局. */
+  | "open_board_view"
+  | "open_board_create"
+  | "open_board_join"
   | "week_band_view"
   | "week_band_publish"
   | "week_band_withdraw"
