@@ -35,10 +35,11 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/brand/snooker-elo-flaticon/snooker-elo-flaticon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/snooker-elo-flaticon/snooker-elo-flaticon-64.png", sizes: "64x64", type: "image/png" },
       { url: "/favicon.ico", sizes: "any" },
     ],
-    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+    apple: [{ url: "/brand/snooker-elo-flaticon/snooker-elo-flaticon-180.png", sizes: "180x180", type: "image/png" }],
   },
   appleWebApp: {
     title: "Snooker ELO",

@@ -1605,7 +1605,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
     <Overview top={visibleRanked.slice(0,3)} data={data} onPlayer={onPlayer}/>
     <section className="home-view-panel ranking-panel" aria-labelledby="ranking-title">
       <div className="home-panel-head"><div><p className="kicker">即時競爭形勢</p><h2 id="ranking-title">目前排名</h2><p>{rankingMode==="trend"?"各球員 ELO 評分隨日期的走勢，取每日最後一場賽事後的評分。":"每場結果都會即時反映在 ELO 與近期狀態。"}</p></div>
-      <SlidingToggleGroup className="mini-toggle ranking-scope-toggle" aria-label="排名顯示方式"><button aria-pressed={rankingMode==="all"} className={rankingMode==="all"?"active":""} onClick={()=>setRankingMode("all")}>全部球員</button><button aria-pressed={rankingMode==="official"} className={rankingMode==="official"?"active":""} onClick={()=>setRankingMode("official")}>正式球手</button><button aria-pressed={rankingMode==="trend"} className={rankingMode==="trend"?"active":""} onClick={()=>setRankingMode("trend")}>ELO走勢</button></SlidingToggleGroup></div>
+      <SlidingToggleGroup className="ds-toggle-control ranking-scope-toggle" aria-label="排名顯示方式"><button aria-pressed={rankingMode==="all"} className={rankingMode==="all"?"active":""} onClick={()=>setRankingMode("all")}>全部球員</button><button aria-pressed={rankingMode==="official"} className={rankingMode==="official"?"active":""} onClick={()=>setRankingMode("official")}>正式球手</button><button aria-pressed={rankingMode==="trend"} className={rankingMode==="trend"?"active":""} onClick={()=>setRankingMode("trend")}>ELO走勢</button></SlidingToggleGroup></div>
     {rankingMode!=="trend"?<>
     <SortControls sort={sort} dir={dir} onSort={sortBy}/>
     <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?"尚未有正式球手":"尚未有球員"} sub={officialOnly?"未有球員完成臨時門檻，暫時未有正式評分。":"前往球員頁面新增第一位球員。"}/>:<><div className="table-head sortable"><button title="箭嘴為過去 10 天的排名升跌" onClick={()=>sortBy("rank")}>排名<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>球員<SortArrow active={sort==="name"} dir={dir}/></button><button title="最近五筆比賽；較近期結果權重較高" onClick={()=>sortBy("form")}>近況<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>場數／勝率<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>建議／正式評分<SortArrow active={sort==="suggested"} dir={dir}/></button><button title="ELO 及近10天ELO變化" onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
@@ -1622,7 +1622,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
     </>:<EloTrendChart players={visibleRanked} data={data}/>}
     </section></>}
     {homeView==="breaks"&&<section className="home-view-panel break-records-panel" aria-labelledby="break-records-title">
-      <div className="home-panel-head"><div><p className="kicker">HIGH BREAK RECORDS</p><h2 id="break-records-title">最高單桿紀錄</h2><p>查看每位球員的個人最佳、歷史最高，或近 30 日最高紀錄。</p></div><SlidingToggleGroup className="mini-toggle break-toggle" aria-label="單桿紀錄顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史</button><button aria-pressed={breakView==="recent"} className={breakView==="recent"?"active":""} onClick={()=>setBreakView("recent")}>近30日</button><button aria-pressed={breakView==="monthly"} className={breakView==="monthly"?"active":""} onClick={()=>setBreakView("monthly")}>每月</button></SlidingToggleGroup></div>
+      <div className="home-panel-head"><div><p className="kicker">HIGH BREAK RECORDS</p><h2 id="break-records-title">最高單桿紀錄</h2><p>查看每位球員的個人最佳、歷史最高，或近 30 日最高紀錄。</p></div><SlidingToggleGroup className="ds-toggle-control break-toggle" aria-label="單桿紀錄顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史</button><button aria-pressed={breakView==="recent"} className={breakView==="recent"?"active":""} onClick={()=>setBreakView("recent")}>近30日</button><button aria-pressed={breakView==="monthly"} className={breakView==="monthly"?"active":""} onClick={()=>setBreakView("monthly")}>每月</button></SlidingToggleGroup></div>
       {breakView==="monthly"?<MonthlyBreakChart months={breakRecords.monthly} onPlayer={onPlayer}/>:<><ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>對 {record.opponent}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title="破百單桿">破百</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
       <p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":breakView==="overall"?"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。":`${thirtyDaysAgo} 至 ${today} 的最高單桿，同一球員可重複上榜。`}</p></>}
     </section>}
@@ -3103,12 +3103,12 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
       <div className="players-search"><input type="text" value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜尋姓名或縮寫" aria-label="搜尋球員"/></div>
       <button type="button" className="players-sort-btn" onClick={cycleSort}>排序 · {sortLabels[sort]}</button>
     </div>
-    <div className="players-chips" role="tablist" aria-label="球員篩選">
+    <SlidingToggleGroup className="ds-toggle-control players-filter-toggle" role="tablist" aria-label="球員篩選">
       {chipDefs.map(([id,label])=>{
         const n=counts[id],isEmpty=n===0&&id!=="all",isActive=activeChip===id&&!isEmpty;
-        return <button key={id} type="button" role="tab" aria-selected={isActive} disabled={isEmpty} className={`players-chip${isActive?" active":""}${isEmpty?" empty":""}`} onClick={()=>setChip(id)}>{label} {n}</button>;
+        return <button key={id} type="button" role="tab" aria-selected={isActive} disabled={isEmpty} className={isEmpty?"is-empty":""} onClick={()=>setChip(id)}>{label} {n}</button>;
       })}
-    </div>
+    </SlidingToggleGroup>
     <div className="players-list-head">
       <span>{filtered.length} 位球員</span>
       {canAdd&&<Button variant="primary" className="players-add-btn" onClick={onAdd}>＋ 新增球員</Button>}
@@ -3516,7 +3516,7 @@ function BreakMilestoneChart({player,data}:{player:Player;data:AppState}){
     </div>
     <div className="break-chart-x-axis" aria-hidden="true">{tickIndexes.map(index=><span key={index} style={{left:`${x(index)}%`}}>{points[index].period}</span>)}</div>
     <p className="chart-summary">{mode==="personal"?`共 ${points.length} 次個人最佳里程碑。`:`共 ${points.length} 個有賽事記錄月份；N/A 代表該月未記錄單桿。`}</p>
-    <SlidingToggleGroup className="mini-toggle break-milestone-toggle" aria-label="高桿圖表顯示方式"><button type="button" aria-pressed={mode==="personal"} className={mode==="personal"?"active":""} onClick={()=>{setMode("personal");setActiveIndex(null)}}>個人最佳</button><button type="button" aria-pressed={mode==="monthly"} className={mode==="monthly"?"active":""} onClick={()=>{setMode("monthly");setActiveIndex(null)}}>每月最高</button></SlidingToggleGroup>
+    <SlidingToggleGroup className="ds-toggle-control break-milestone-toggle" aria-label="高桿圖表顯示方式"><button type="button" aria-pressed={mode==="personal"} className={mode==="personal"?"active":""} onClick={()=>{setMode("personal");setActiveIndex(null)}}>個人最佳</button><button type="button" aria-pressed={mode==="monthly"} className={mode==="monthly"?"active":""} onClick={()=>{setMode("monthly");setActiveIndex(null)}}>每月最高</button></SlidingToggleGroup>
   </div>;
 }
 

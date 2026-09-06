@@ -25,7 +25,7 @@
 .ds-app-shell .ranking-panel .elo b { font-family: var(--font-display); font-size: var(--fs-stat); font-variant-numeric: tabular-nums; }
 .ds-app-shell :is(.mini-toggle, .match-view-toggle) button { min-height: var(--club-control-height); }
 .ds-app-shell .home-view-nav { box-shadow: none; }
-.ds-app-shell .home-view-nav button { min-height:var(--control-lg); }
+
 .ds-app-shell .recent-stats-panel { background: var(--ds-surface-primary); }
 .ds-app-shell .recent-stats-panel::before,
 .ds-app-shell .recent-stat-metrics > div::after { content: none; }
@@ -97,15 +97,15 @@
   .ds-app-shell .app-page-leaderboard > .hero .podium-stats > span { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
   .ds-app-shell .app-page-leaderboard > .hero .podium-stats b { font-size: var(--fs-stat); }
   .ds-app-shell .app-page-leaderboard > .hero .podium-stats small { font-size: var(--fs-label); color: var(--ds-text-on-brand-secondary); }
-  .ds-app-shell .home-view-nav { margin-block: var(--sp-5); padding: var(--sp-1); border-radius: var(--radius-sm); background: var(--ds-canvas-muted); }
-  .ds-app-shell .home-view-nav button { padding-inline: var(--sp-1); font-size: var(--fs-sm); white-space: normal; line-height: 1.45; }
+
+
   .ds-app-shell .page-tabs button { min-height: var(--club-control-height); padding-inline: var(--sp-1); white-space: normal; }
   .ds-app-shell .page-tabs button > span { white-space: normal; overflow: visible; text-overflow: clip; }
   .ds-app-shell .home-panel-head { gap: var(--sp-4); align-items: stretch; }
   .ds-app-shell .home-view-panel { padding: var(--sp-4); }
   .ds-app-shell .home-panel-head p:not(.kicker) { font-size: var(--fs-caption); }
   .ds-app-shell .ranking-scope-toggle { display: flex; width: 100%; }
-  .ds-app-shell .ranking-scope-toggle button { flex: 1; padding-inline: var(--sp-2); font-size: var(--fs-label); }
+  .ds-app-shell .ranking-scope-toggle button { flex: 1; padding-inline: var(--sp-2); }
   .ds-app-shell .ranking-panel .table-card { padding: 0; }
   .ds-app-shell .ranking-panel .row { min-height: 4.75rem; padding-inline: var(--sp-1); }
   /* On phones the suggested handicap sits at --fs-label (12px); cap the ELO number at 1.5x that (--fs-lead, 18px) so it doesn't dwarf it. */

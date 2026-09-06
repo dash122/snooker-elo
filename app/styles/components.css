@@ -21,6 +21,13 @@
   .ds-segmented button{position:relative;z-index:1;min-height:var(--control-md);min-width:0;padding:var(--sp-2);border:0;border-radius:calc(var(--ds-radius-control) - .2rem);background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--ds-duration-toggle) var(--ds-ease-toggle)}
   .ds-segmented button>span{font-weight:800}
   .ds-segmented button[aria-selected=true]{background:transparent;color:var(--ds-accent-action);box-shadow:none}
+  /* One compact control contract for secondary choices. Feature pages may still
+     choose their layout (for example, sticky page tabs), but the typography,
+     tap target and selected surface stay shared. */
+  .sliding-toggle-group.ds-toggle-control{display:flex;align-items:stretch;gap:var(--sp-1);padding:var(--sp-1);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);background:var(--ds-canvas-muted);isolation:isolate}
+  .sliding-toggle-group.ds-toggle-control>button{flex:1 1 0;min-width:0;min-height:var(--control-md);padding:0 var(--sp-3);border:0;border-radius:var(--radius-sm);background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:800;line-height:1.2;white-space:nowrap;transition:color var(--ds-duration-toggle) var(--ds-ease-toggle)}
+  .sliding-toggle-group.ds-toggle-control>button:disabled{opacity:.48;cursor:not-allowed}
+  .sliding-toggle-group.ds-toggle-control>.sliding-toggle-thumb{border-radius:var(--radius-sm);background:var(--ds-surface-primary);box-shadow:0 2px 10px var(--ds-selected-shadow)}
   .ds-field{display:grid;gap:var(--sp-2);color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:750}
   /* --control-lg is the height every other form control in the app already uses
      (`.auth-form input`, `.sheet input`, `.filters input`, `.admin-search`), so the
