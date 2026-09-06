@@ -1,6 +1,6 @@
 import { requireMember } from "../../../../db/auth";
 import { listAvailability, listOwnAvailability } from "../../../../db/availability";
-import { livePresence, myPresence } from "../../../../db/presence.pg";
+import { livePresence } from "../../../../db/presence.pg";
 import { clubPublishedThisWeek, memberJoinedAt, publishStreak } from "../../../../db/week-band.pg";
 import { addDaysHongKong, dayRangeHongKong, hkDate } from "../../../../lib/availability";
 import { BAND_COLUMNS, instantColumn, ratingBand } from "../../../../lib/week-band";
@@ -55,15 +55,26 @@ export async function GET(request:Request){
     const from=dayRangeHongKong(dates[0]).startAt;
     const to=dayRangeHongKong(addDaysHongKong(dates[dates.length-1],1)).endAt;
 
-    const [members,mine,presence,stats,clubCount,joined,mineAtClub]=await Promise.all([
+    /* Two waves, not one seven-wide fan-out. The pool is capped at four connections
+       (`db/sql.ts`), so issuing every query at once made this route contend with itself and, on a
+       cold start, queue behind the presence DDL that used to run here — the tab's first paint then
+       hung with no way back. The first wave is what the band cannot render without; the second is
+       decoration, and every part of it degrades to a harmless default rather than failing the read. */
+    const [members,mine]=await Promise.all([
       listAvailability(from,to),
       me?listOwnAvailability(me):Promise.resolve([]),
+    ]);
+
+    const [presence,stats,clubCount,joined]=await Promise.all([
       livePresence().catch(()=>({} as Record<string,unknown>)),
-      me?publishStreak(me):Promise.resolve({weeks:0,publishedThisWeek:false}),
+      me?publishStreak(me).catch(()=>({weeks:0,publishedThisWeek:false})):Promise.resolve({weeks:0,publishedThisWeek:false}),
       clubPublishedThisWeek().catch(()=>0),
       member?memberJoinedAt(member.email).catch(()=>null):Promise.resolve(null),
-      me?myPresence(me).catch(()=>null):Promise.resolve(null),
     ]);
+
+    /* Own presence is a lookup in the map we already have, not a second query against the same
+       table — `livePresence()` is keyed by player id and includes the reader. */
+    const mineAtClub=Boolean(me&&Object.prototype.hasOwnProperty.call(presence,me));
 
     /* Published anything still to come? That, and only that, is what lifts the gate — the same slots
        everyone else is reading, so the exchange is symmetric by construction. */
@@ -111,7 +122,7 @@ export async function GET(request:Request){
       gate:{locked,anonymous,inGrace,hasPublished},
       stats:{streakWeeks:stats.weeks,publishedThisWeek:stats.publishedThisWeek,clubPublishedThisWeek:clubCount},
       /* 「現正在會所」在名單上是別人的狀態，這裡是自己的 — 只顯示不能設定的話，那一行永遠不會亮。 */
-      atClub:Boolean(mineAtClub),
+      atClub:mineAtClub,
       me,
     },{headers:{"cache-control":"no-store"}});
   }catch(error){

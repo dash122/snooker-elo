@@ -102,17 +102,23 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
   const [reloadToken,setReloadToken]=useState(0);
   useEffect(()=>{
     let live=true;
+    /* A request that never answers used to leave the skeleton on screen for ever, which is
+       indistinguishable from a broken tab and gives the member nothing to do about it. Ten seconds
+       is past any healthy response here; after that this is an error with a retry, not a wait. */
+    const abort=new AbortController();
+    const timer=setTimeout(()=>abort.abort(),10_000);
     (async()=>{
       try{
-        const response=await fetch(`/api/matchmaking/week?start=${today}`,{cache:"no-store"});
+        const response=await fetch(`/api/matchmaking/week?start=${today}`,{cache:"no-store",signal:abort.signal});
         const body=await response.json();
         if(!live)return;
         if(!response.ok)throw new Error(body?.error);
         setData(body);setState("ready");
       }catch{if(live)setState("error")}
+      finally{clearTimeout(timer)}
     })();
     trackAvailabilityEvent("week_band_view");
-    return ()=>{live=false};
+    return ()=>{live=false;clearTimeout(timer);abort.abort()};
   },[today,refreshKey,nonce,reloadToken]);
 
   const day=data?.days[selected]??null;
@@ -230,8 +236,8 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
   },[day,onChanged]);
 
   if(state==="error")return <section className="wb-card wb-error">
-    <InlineNotice tone="warning" title="未能載入約戰資料">
-      請檢查網絡後再試一次。
+    <InlineNotice tone="warning" title="未能載入本週的時段資料">
+      其他球員的時段暫時載入不到，你仍然可以用下面的「公開空檔」公開自己的時間。
       <Button variant="secondary" onClick={()=>{setState("loading");setReloadToken(value=>value+1)}}>重試</Button>
     </InlineNotice>
   </section>;
@@ -293,9 +299,13 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
         </div>
         <p className="wb-axis"><span>17:00</span><span>20:00</span><span>23:00</span><span>01:00</span></p>
       </div>
-      <p className="wb-band-note">{signedIn
-        ? published&&!touched?"拖動即可修改已公開的時段。":"拖出你有空的時間。深色柱是會所人最多的時候。"
-        : "登入之後即可公開你的時段。"}</p>
+      <p className="wb-band-note">{!signedIn
+        ? "登入之後即可公開你的時段。"
+        : peak===0
+          /* 全會所都沒有人公開時，柱是空的 —— 那不是壞掉，而是這一晚真的還沒有人。與其讓會員盯著
+             一條空白的軸猜，不如直接說出來，並告訴他先公開仍然有用。 */
+          ? "這一晚還沒有人公開時段。你先公開，其他人就能看到你。"
+          : published&&!touched?"拖動即可修改已公開的時段。":"拖出你有空的時間。深色柱是會所人最多的時候。"}</p>
       {signedIn&&<>
         <Button variant="quiet" className="wb-fields-toggle" aria-expanded={showFields}
           onClick={()=>setShowFields(value=>!value)}>
