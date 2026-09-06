@@ -22,19 +22,15 @@ export const PRESENCE_MINUTES = 90;
 
 export type Presence = { playerId:string; arrivedAt:string; expiresAt:string };
 
-let schemaReady:Promise<unknown>|null=null;
-async function ensureSchema(){
-  schemaReady??=(async()=>{
-    const sql=getSql();
-    await sql`CREATE TABLE IF NOT EXISTS club_presence (
-      player_id text PRIMARY KEY REFERENCES state_players(id) ON DELETE CASCADE,
-      arrived_at timestamptz NOT NULL DEFAULT now(),
-      expires_at timestamptz NOT NULL
-    )`;
-    await sql`CREATE INDEX IF NOT EXISTS club_presence_live_idx ON club_presence (expires_at)`;
-  })().catch(error=>{schemaReady=null;throw error;});
-  return schemaReady;
-}
+/* Schema is migration-owned: `club_presence` is created by
+ * `supabase/migrations/20260810000000_baseline.sql`. This used to run
+ * `CREATE TABLE IF NOT EXISTS` plus `CREATE INDEX IF NOT EXISTS` on every cold start, which is the
+ * same hazard `tests/auth-hot-path-ddl.test.mjs` was written about: even idempotent DDL takes heavy
+ * relation locks, and with the pool capped at four connections one blocked lock starves every other
+ * reader on the instance. That stayed harmless only while presence was read by `/api/room`, which
+ * nothing rendered; the moment 約戰 reads presence on first paint it sits in front of the whole tab.
+ * Keeping this a no-op is deliberate — see the identical note in `db/availability.pg.ts`. */
+async function ensureSchema(){ return Promise.resolve(); }
 
 export async function ensurePresenceSchema(){ return ensureSchema(); }
 
