@@ -15,12 +15,12 @@ type OpponentCardVM={member:Member;difference:number;windows:Interval[];windowsC
 const time=hkClock,dayLabel=hkDayLabel,range=(x:Interval)=>`${time(x.startAt)}–${time(x.endAt)}`,days=(start:string,horizon=7)=>Array.from({length:horizon},(_,i)=>addDaysHongKong(start,i));
 const durationLabel=(minutes:number)=>{const hours=Math.floor(minutes/60),rest=Math.round(minutes%60);return hours?`${hours} 小時${rest?` ${rest} 分鐘`:""}`:`${rest} 分鐘`};
 /* Shared by both the overlap-ranked shortlist and the no-overlap-yet browse tier, so the same
-   opponent reads identically ("新加入", "從沒交手", …) no matter which tier is showing them. */
+   opponent reads identically ("新會員", "從未交手", …) no matter which tier is showing them. */
 function buildOpponentChips(o:{isNew:boolean;games:number;difference:number;neverEver:boolean;recentZero:boolean}){
  const chips:string[]=[];
- if(o.isNew)chips.push(`新加入 · ${o.games} 場`);
+ if(o.isNew)chips.push(`新會員 · ${o.games} 場`);
  if(o.difference<50)chips.push("ELO 相近");
- if(o.neverEver)chips.push("從沒交手");else if(o.recentZero)chips.push("近期未交手");
+ if(o.neverEver)chips.push("從未交手");else if(o.recentZero)chips.push("近期未交手");
  return chips;
 }
 /** The one chip that answers "why now" rather than "why them" — the reason the deck's redesign
@@ -28,9 +28,9 @@ function buildOpponentChips(o:{isNew:boolean;games:number;difference:number;neve
     intent is unmeasured, not uninterested, so absence renders nothing rather than a negative claim. */
 function intentChip(intent?:IntentSignal){
  if(!intent)return [];
- if(intent.kind==="tonight")return ["佢今晚想打"];
- if(intent.kind==="window")return ["佢呢個星期想打"];
- return ["佢話有啱就打"];
+ if(intent.kind==="tonight")return ["今晚想打球"];
+ if(intent.kind==="window")return ["本週想打球"];
+ return ["時間合適即可"];
 }
 function passesListFilter(filter:ListFilter,o:{isNew:boolean;neverEver:boolean;difference:number}){
  if(filter==="new")return o.isNew;
@@ -59,7 +59,7 @@ function defaultProposalTimes(date:string,now=Date.now()){
  const end=options.find(option=>option.minutes>=clockMinutes(start)+120)?.value??options.at(-1)?.value??"21:00";
  return {start,end};
  }
-const ICEBREAKER_MESSAGE="歡迎入會！有冇興趣一齊打第一局？我哋可以由輕鬆嘅友誼賽開始。";
+const ICEBREAKER_MESSAGE="歡迎入會！有興趣一起打第一局嗎？我們可以從輕鬆的友誼賽開始。";
 /** The time an invite is actually about. A counter-proposal supersedes the original everywhere it is
     displayed, so every surface agrees on which hour the two are currently negotiating over. */
 const effectiveSlot=(invite:{startAt:string;endAt:string;counter?:{startAt:string;endAt:string}|null}):Interval=>invite.counter??{startAt:invite.startAt,endAt:invite.endAt};
@@ -73,7 +73,7 @@ function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:
   <div className="availability-date-strip-wrap">
    <IconButton className="availability-date-scroll-button previous" label="向前捲動日期" onClick={()=>move(-1)}>‹</IconButton>
    <div className="availability-date-strip" role="tablist" aria-label="選擇日期，左右滑動查看更多" ref={scrollRef}>
-    {dates.map((value,index)=>{const active=value===selected,count=counts[value]??0,weekday=new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",weekday:"short"}).format(new Date(`${value}T00:00:00+08:00`));return <button type="button" key={value} role="tab" aria-label={`${index===0?"今天":index===1?"明天":weekday}，${Number(value.slice(5,7))}月${Number(value.slice(8,10))}日，${count} 位球員有空`} aria-selected={active} aria-current={active?"date":undefined} className={active?"active":""} onClick={()=>onSelect(value)}><small>{index===0?"今天":index===1?"明天":weekday}</small><span>{Number(value.slice(5,7))}/{Number(value.slice(8,10))}</span><strong>{count} 位</strong></button>})}
+    {dates.map((value,index)=>{const active=value===selected,count=counts[value]??0,weekday=new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",weekday:"short"}).format(new Date(`${value}T00:00:00+08:00`));return <button type="button" key={value} role="tab" aria-label={`${index===0?"今日":index===1?"明日":weekday}，${Number(value.slice(5,7))}月${Number(value.slice(8,10))}日，${count} 位球員有空`} aria-selected={active} aria-current={active?"date":undefined} className={active?"active":""} onClick={()=>onSelect(value)}><small>{index===0?"今日":index===1?"明日":weekday}</small><span>{Number(value.slice(5,7))}/{Number(value.slice(8,10))}</span><strong>{count} 位</strong></button>})}
    </div>
    <IconButton className="availability-date-scroll-button next" label="向後捲動日期" onClick={()=>move(1)}>›</IconButton>
   </div>
@@ -129,7 +129,7 @@ function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,p
      items={[{value:"simple",label:"快速邀請"},{value:"propose",label:"提議時段"}]}/></div>
    {mode==="simple"
     ?<div className="invite-window-list">
-      <p className="sub">{opponent.windows.length?"佢公開嘅得閒時段，揀一個一鍵送出：":"對方今日未公開時段 — 可以改用「提議時段」直接建議時間。"}</p>
+      <p className="sub">{opponent.windows.length?"對方公開的時段，選一個即可送出：":"對方今日未公開時段 — 可改用「提議時段」直接建議時間。"}</p>
       {opponent.windows.map(w=><button type="button" key={w.startAt} className={`invite-window-option${selectedWindow?.startAt===w.startAt?" active":""}`} onClick={()=>onSelectWindow(w)}><span>{dayLabel(hkDate(new Date(w.startAt)))} {range(w)}</span>{selectedWindow?.startAt===w.startAt&&<span aria-hidden="true">✓</span>}</button>)}
      </div>
     :<div className="invite-propose">
@@ -139,7 +139,7 @@ function InviteSheet({opponent,mode,onModeChange,selectedWindow,onSelectWindow,p
         <label>結束<select value={proposeEnd} onChange={e=>onProposeEnd(e.target.value)}>{proposeEndTimes.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       </div>
      </div>}
-   {opponent.isNew&&<button type="button" className="icebreaker-suggestion" onClick={()=>onMessageChange(ICEBREAKER_MESSAGE)}><span aria-hidden="true">★</span><span>呢位係新加入球友 — 加句「歡迎入會，一齊打第一局？」使佢更放心答應</span></button>}
+   {opponent.isNew&&<button type="button" className="icebreaker-suggestion" onClick={()=>onMessageChange(ICEBREAKER_MESSAGE)}><span aria-hidden="true">★</span><span>這位是新會員 — 加一句「歡迎入會，一起打第一局？」會讓對方更放心答應</span></button>}
    {/* Naming the table turns a vague "let's play" into something the other side can just turn up to,
        which is the difference between an accepted invite and a game that actually happens. */}
    <VenueField value={venue} onChange={onVenueChange}/>
@@ -305,16 +305,16 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   const results:QueueItem[]=buckets.followUps.map(invite=>{
    const other=across(invite);
    return {id:`r-${invite.id}`,kind:"result" as const,person:other,startAt:invite.startAt,endAt:invite.endAt,venue:invite.venue,
-    reason:"呢場打咗未？記錄咗先計 ELO。",busy:closingInviteId===invite.id,
+    reason:"這一場打了嗎？記錄之後才計算 ELO。",busy:closingInviteId===invite.id,
     actions:[
-     {label:"冇打成",tone:"secondary" as const,onClick:()=>void closeInviteOutcome(invite.id,"missed")},
+     {label:"未有對局",tone:"secondary" as const,onClick:()=>void closeInviteOutcome(invite.id,"missed")},
      ...(onRecordMatch?[{label:"記錄比分",tone:"primary" as const,onClick:()=>onRecordMatch(other.id,hkDate(new Date(invite.startAt)))}]:[]),
     ]};
   });
   const invites:QueueItem[]=buckets.needsResponse.map(invite=>{
    const other=across(invite),slot=effectiveSlot(invite);
    return {id:`i-${invite.id}`,kind:"invite" as const,person:other,startAt:slot.startAt,endAt:slot.endAt,venue:invite.venue,
-    reason:invite.counter?"提議改時間":"想約你打波",
+    reason:invite.counter?"提議改時間":"想邀你打球",
     note:invite.counter?`原本 ${range(invite)}${invite.message?` · ${invite.message}`:""}`:invite.message||undefined,
     busy:respondingId===invite.id,
     /* Three doors, and which one is easiest to reach is the whole design.
@@ -324,16 +324,16 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
        difference is what makes saying no survivable in a club where everyone meets at the same table. */
     actions:[
      {label:"改時間",tone:"secondary" as const,onClick:()=>setCounterFor(invite)},
-     {label:"今個星期唔打",tone:"secondary" as const,onClick:()=>void declineForTheWeek(invite.id)},
+     {label:"本週不打球",tone:"secondary" as const,onClick:()=>void declineForTheWeek(invite.id)},
      {label:invite.counter?"接受新時間":"接受",tone:"primary" as const,onClick:()=>void respondToInvite(invite.id,"accept")},
     ]};
   });
   const asks:QueueItem[]=liveOffers.awaitingMe.map(offer=>({
    id:`o-${offer.id}`,kind:"offer" as const,person:offer.opponent,startAt:offer.startAt,endAt:offer.endAt,venue:offer.venue,
-   reason:"大家時間夾到 · 答「唔得閒」對方唔會知",busy:answeringOfferId===offer.id,
+   reason:"雙方時間吻合 · 回覆「未能出席」對方不會知道",busy:answeringOfferId===offer.id,
    actions:[
-    {label:"唔得閒",tone:"secondary" as const,onClick:()=>void answerOffer(offer.id,"no")},
-    {label:"打！",tone:"primary" as const,onClick:()=>void answerOffer(offer.id,"yes")},
+    {label:"未能出席",tone:"secondary" as const,onClick:()=>void answerOffer(offer.id,"no")},
+    {label:"應戰",tone:"primary" as const,onClick:()=>void answerOffer(offer.id,"yes")},
    ]}));
   return [...results,...[...invites,...asks].sort((a,b)=>a.startAt.localeCompare(b.startAt))];
  })();
@@ -400,7 +400,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   if(!inviteFor||sendingInvite)return;
   let interval:Interval;
   if(inviteMode==="simple"){if(!selectedWindow)return;interval=selectedWindow;}
-  else{try{interval=validateAvailabilityInterval(composeAvailabilityInterval(date,proposeStart,proposeEnd));}catch{setMessage("請揀一個未開始、香港時間上午 10 時至翌日凌晨 2 時之間的時段。");return;}}
+  else{try{interval=validateAvailabilityInterval(composeAvailabilityInterval(date,proposeStart,proposeEnd));}catch{setMessage("請選擇一個尚未開始、香港時間上午 10 時至翌日凌晨 2 時之間的時段。");return;}}
   setSendingInvite(true);setMessage("");
   try{
    const r=await fetch("/api/invites",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({toPlayerId:inviteFor,startAt:interval.startAt,endAt:interval.endAt,message:inviteMessage,venue:inviteVenue})});
@@ -464,7 +464,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    /* Three outcomes, three different things worth saying: it is on, it is pending the other side,
       or it is quietly gone. The middle one matters most — a member who says yes and sees nothing
       happen assumes the feature is broken. */
-   setMessage(b.matched?"對局已確認！":answer==="yes"?"已回覆，等對方答應就即刻confirm。":"知道喇，唔會再提呢個配對。");
+   setMessage(b.matched?"對局已確認！":answer==="yes"?"已回覆，等對方答應就即刻confirm。":"知道了，不會再提示這個配對。");
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setAnsweringOfferId(null)}
  };
@@ -478,7 +478,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
   if(!counterFor||counteringId)return;
   let interval:Interval;
   try{interval=validateAvailabilityInterval(composeAvailabilityInterval(input.date,input.start,input.end));}
-  catch{setMessage("請揀一個未開始、香港時間上午 10 時至翌日凌晨 2 時之間的時段。");return;}
+  catch{setMessage("請選擇一個尚未開始、香港時間上午 10 時至翌日凌晨 2 時之間的時段。");return;}
   setCounteringId(counterFor.id);setMessage("");
   try{
    const r=await fetch(`/api/invites/${counterFor.id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({action:"counter",...interval,venue:input.venue})});
@@ -498,7 +498,7 @@ export default function Availability({userPlayerId,matches,provisionalGames=10,o
    const b=await r.json();
    if(!r.ok){setMessage(b.error??"未能更新，請再試一次。");return;}
    trackAvailabilityEvent(outcome==="played"?"matchmaking_result_played":"matchmaking_result_missed");
-   await refreshInvites();setMessage(outcome==="played"?"多謝，已記低你哋打咗。":"已記低今次冇打成。");
+   await refreshInvites();setMessage(outcome==="played"?"多謝，已記錄這場對局。":"已記錄這次未有對局。");
   }catch{setMessage("網絡連線失敗，請再試一次。")}
   finally{setClosingInviteId(null)}
  };

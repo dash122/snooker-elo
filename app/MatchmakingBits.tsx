@@ -70,13 +70,13 @@ export function FreeNowPanel({onDone,disabled}:{onDone:(result:{offers:number;br
       items={DURATIONS.map(item=>({value:String(item.minutes),label:item.label}))}/>
     <Button variant="primary" className="free-now-button" disabled={busy||disabled} aria-busy={busy} onClick={()=>void go()}>
       {busy&&<i className="button-spinner" aria-hidden="true"/>}
-      <span>{busy?"發緊…":`我而家得閒 · ${minutes/60} 小時`}</span>
+      <span>{busy?"傳送中…":`我現在有空 · ${minutes/60} 小時`}</span>
     </Button>
     <Button variant="quiet" className="free-now-toggle" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?"收起":"加枱位或留言"}</Button>
     {open&&<div className="free-now-details">
       <VenueField value={venue} onChange={setVenue}/>
       <label className="invite-message-field"><span>留言（可省略）</span>
-        <textarea rows={2} maxLength={300} value={message} placeholder="例如：訂咗枱，隨時開波" onChange={event=>setMessage(event.target.value)}/></label>
+        <textarea rows={2} maxLength={300} value={message} placeholder="例如：已訂枱，隨時可以開始" onChange={event=>setMessage(event.target.value)}/></label>
     </div>}
     {error&&<p className="availability-form-error" role="alert">{error}</p>}
   </div>;
@@ -84,9 +84,9 @@ export function FreeNowPanel({onDone,disabled}:{onDone:(result:{offers:number;br
 
 /* --- Intent ----------------------------------------------------------------
  *
- * "得閒" and "想打" are different questions. The find tab already answers the first one (the grid,
+ * "有空" and "想打" are different questions. The find tab already answers the first one (the grid,
  * the shortlist); this answers the second, and it sits on the result rather than gating it — a
- * member who never touches this still sees a shortlist, just one that cannot yet say "佢正想搵局"
+ * member who never touches this still sees a shortlist, just one that cannot yet say "正在找對手"
  * about anyone. Principle 01 (意圖先於功能) without principle 02's mistake of putting a form in
  * front of the screen a member actually came for. */
 
@@ -98,9 +98,9 @@ export type IntentState={id:string;kind:"tonight"|"window"|"standby";expiresAt:s
  *  page's job, so it gets the headline rather than a band above the real content. The two buttons
  *  are the only navigation the screen has; everything else on it is already an answer. */
 export function IntentAsk({onPost,busy,todayLabel}:{onPost:(kind:"tonight"|"window")=>void;busy:boolean;todayLabel:string}){
-  return <section className="mm-ask" aria-label="想唔想打波">
+  return <section className="mm-ask" aria-label="想打球嗎">
     <h2>想打波？</h2>
-    <p>話畀會所知，我哋即刻幫你搵夾得到嘅對手。</p>
+    <p>告知會所之後，我們立即為你尋找時間吻合的對手。</p>
     <div className="mm-ask-actions">
       <Button disabled={busy} onClick={()=>onPost("tonight")}>今晚<small>{todayLabel}</small></Button>
       <Button variant="secondary" disabled={busy} onClick={()=>onPost("window")}>呢個星期</Button>
@@ -115,7 +115,7 @@ export function IntentAsk({onPost,busy,todayLabel}:{onPost:(kind:"tonight"|"wind
  * shopping for an opponent, they want a game — so the time leads, the person qualifies it, and the
  * reasons are the smallest thing on the card rather than a row of four chips competing for the eye.
  *
- * The button says what will happen ("約佢 · 今晚 7:30"), not which subsystem it calls ("邀請對局"). */
+ * The button says what will happen ("邀請 · 今晚 7:30"), not which subsystem it calls ("邀請對局"). */
 
 export type PlayableCardKind="claim"|"keen"|"overlap";
 export type PlayableCardVM={
@@ -126,7 +126,7 @@ export type PlayableCardVM={
   reasons:string[];
 };
 
-const KIND_TAG:Record<PlayableCardKind,string>={claim:"一撳即成 · 開咗枱",keen:"佢今晚都想打",overlap:"夾到時間"};
+const KIND_TAG:Record<PlayableCardKind,string>={claim:"一按即成 · 已開枱",keen:"對方今晚也想打球",overlap:"時間吻合"};
 
 export function PlayableCard({item,onAct,onOpen,busy,actionLabel,sent,onUndo,onCustomise}:{
   item:PlayableCardVM; onAct:()=>void; onOpen?:(playerId:string)=>void; busy?:boolean;
@@ -176,19 +176,19 @@ export function SearchingCard({asked,seen,exits,onWithdraw,busy}:{
 }){
   const progress=asked?Math.min(100,Math.round((seen/Math.max(asked,1))*100)):0;
   return <section className="availability-card mm-card mm-searching" aria-label="搵緊對手">
-    <CardHead title="搵緊你嘅對手" hint="有人應承就即刻通知你。"/>
+    <CardHead title="正在為你尋找對手" hint="有人應承就即刻通知你。"/>
     <div className="mm-searching-state">
       <div className="mm-prog" role="img" aria-label={`${asked} 位球友收到，${seen} 位睇咗`}>
         <i style={{width:`${Math.max(progress,asked?8:0)}%`}}/>
       </div>
       <p className="mm-searching-copy">
         {asked>0
-          ?<><b>{asked} 位</b>夾得到嘅球友收到咗{seen>0&&<> · <b>{seen} 位</b>睇咗</>}</>
+          ?<><b>{asked} 位</b>時間吻合的球友已收到{seen>0&&<> · <b>{seen} 位</b>已閱</>}</>
           :<>已話畀會所知你想打波。</>}
       </p>
     </div>
     <div className="mm-exits">{exits}</div>
-    <Button variant="quiet" className="mm-withdraw" disabled={busy} onClick={onWithdraw}>收回，暫時唔打住</Button>
+    <Button variant="quiet" className="mm-withdraw" disabled={busy} onClick={onWithdraw}>收回，暫時不打</Button>
   </section>;
 }
 
@@ -237,7 +237,7 @@ export type QueueItem={
 export function ResponseQueue({items}:{items:QueueItem[]}){
   if(!items.length)return null;
   return <section className="availability-card mm-card is-attention" aria-label="等你回覆">
-    <CardHead title="等你回覆" hint="處理完呢度，就冇嘢等緊你。" aside={<span className="mm-count">{items.length}</span>}/>
+    <CardHead title="等你回覆" hint="處理完這裡，就沒有待辦事項了。" aside={<span className="mm-count">{items.length}</span>}/>
     <ul className="mm-rows">{items.map(item=>
       <li key={item.id} className={`mm-row is-${item.kind}`}>
         <PlayerBadge player={item.person}/>
@@ -275,7 +275,7 @@ export function NextUpCard({game,others,onRecord,onCancel,cancelling,onFreeNow,o
     <CardHead title="登入後即可約戰" hint="連結球員檔案，就可以公開時間、收邀請同接受開枱。"/>
   </section>;
   if(game)return <section className="availability-card mm-card is-confirmed">
-    <CardHead title="你嘅下一局" aside={others>0?<span className="mm-count">再 +{others}</span>:undefined}/>
+    <CardHead title="你的下一局" aside={others>0?<span className="mm-count">再 +{others}</span>:undefined}/>
     <div className="next-up">
       <PlayerBadge player={game.opponent}/>
       <div className="next-up-copy">
@@ -289,8 +289,8 @@ export function NextUpCard({game,others,onRecord,onCancel,cancelling,onFreeNow,o
     </div>
   </section>;
   return <section className="availability-card mm-card is-idle">
-    <CardHead title="而家得閒？" hint="一撳就公開你嘅時間、開一張全會所睇到嘅枱，同埋問夾得到嘅球友。"
-      aside={<Button variant="quiet" onClick={onEditSlots}>{slotCount?`我嘅時段 · ${slotCount}`:"排定期時段"}</Button>}/>
+    <CardHead title="現在有空嗎？" hint="一按即可公開你的時間，開一張全會所看得到的枱，並詢問時間吻合的球友。"
+      aside={<Button variant="quiet" onClick={onEditSlots}>{slotCount?`我的時段 · ${slotCount}`:"排定期時段"}</Button>}/>
     <FreeNowPanel onDone={onFreeNow}/>
   </section>;
 }
@@ -347,7 +347,7 @@ export function CounterSheet({title,date,onSubmit,onClose,busy}:{title:string;da
   return <BackdropSheet onClose={onClose} labelledBy="counter-title">
       <p className="kicker">提議另一個時間</p>
       <h2 id="counter-title">{title}</h2>
-      <p className="sub">唔使拒絕 — 直接提議一個就得嘅時間，對方確認就搞掂。</p>
+      <p className="sub">不必拒絕 — 直接提議一個可行的時間，對方確認即可。</p>
       <div className="composer-times">
         <label><span>日期</span><input type="date" min={hkDate()} value={when} onChange={event=>setWhen(event.target.value)}/></label>
         <label><span>開始</span><select value={start} onChange={event=>changeStart(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>
@@ -380,7 +380,7 @@ export function RecurrenceEditor({rules,onAdd,onRemove,onCopyLastWeek,busy}:{
   const changeStartTime=(value:string)=>{setStartTime(value);const options=availabilityEndTimes(value);if(!options.some(option=>option.value===endTime))setEndTime(options.at(-1)?.value??"")};
   return <section className="availability-card recurrence-card">
     <header className="availability-grid-head">
-      <div><h3>每週固定時段</h3><small>設定一次，之後每個星期自動公開，唔使再畫。</small></div>
+      <div><h3>每週固定時段</h3><small>設定一次，之後每星期自動公開，不必再重複填寫。</small></div>
       <Button variant="quiet" onClick={()=>onCopyLastWeek()} disabled={busy}>同上星期一樣</Button>
     </header>
     {rules.length>0&&<ul className="recurrence-list">{rules.map(rule=>
@@ -395,7 +395,7 @@ export function RecurrenceEditor({rules,onAdd,onRemove,onCopyLastWeek,busy}:{
           <label><span>開始</span><select value={startTime} onChange={event=>changeStartTime(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>
           <label><span>結束</span><select value={endTime} onChange={event=>setEndTime(event.target.value)}>{endTimes.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         </div>
-        <p className="availability-form-hint">未來四星期會自動幫你公開。個別一次唔得閒，照樣可以喺上面個板取消嗰次。</p>
+        <p className="availability-form-hint">未來四星期會自動為你公開。個別一次未能出席，仍可在上方的板取消該次。</p>
         <div className="availability-form-actions">
           <Button disabled={busy} onClick={()=>{onAdd({weekday,startTime,endTime});setOpen(false)}}>加入每週時段</Button>
           <Button variant="secondary" onClick={()=>setOpen(false)}>取消</Button>
@@ -426,8 +426,8 @@ export function TonightStrip({summary,onOpen,signedIn}:{summary:TonightSummary|n
   return <button type="button" className="tonight-strip" onClick={onOpen}>
     <span className="tonight-dot" aria-hidden="true"/>
     <span className="tonight-copy">
-      <b>{summary.free?`今晚有 ${summary.free} 位球員得閒`:"今晚有人開緊枱"}</b>
-      <small>{summary.openCalls?`${summary.openCalls} 張枱等緊人 · ${signedIn?"撳入去接受":"登入即可接受"}`:signedIn?"撳入去搵對手":"登入即可約戰"}</small>
+      <b>{summary.free?`今晚有 ${summary.free} 位球員有空`:"今晚有人正在開枱"}</b>
+      <small>{summary.openCalls?`${summary.openCalls} 張枱等緊人 · ${signedIn?"按入接受":"登入即可接受"}`:signedIn?"按入尋找對手":"登入即可約戰"}</small>
     </span>
     <span className="tonight-go" aria-hidden="true">›</span>
   </button>;
