@@ -111,14 +111,17 @@ export default function MatchmakingFormation({onPlayer,onActivity,onRecord}:{onP
       <Surface tone="featured" className="mf-signin"><p className="mf-kicker">MEMBERS ONLY</p><h2>登入後才可以找到和你時間重疊的球友</h2><p>目前未來七日已有 {Object.values(data.publicDays).reduce((sum,value)=>sum+value,0)} 個公開空檔。</p><a className="ds-button ds-button--featured" href="/login"><span>登入開始約戰</span></a></Surface>
     :<>
       <section className="mf-section mf-my-activity">
-        <div className="mf-section-head"><div><p className="mf-kicker">MY ACTIVITY</p><h2>我的安排</h2></div><Button variant="quiet" onClick={()=>setPublishOpen(true)}>{hasOwnAny?"新增空檔":"公開第一個空檔"}</Button></div>
+        <div className="mf-section-head"><div><p className="mf-kicker">MY ACTIVITY</p><h2>我的安排</h2></div></div>
         {sessions.map(session=><Surface key={session.id} className="mf-session-card">
           <div className="mf-card-top"><div><Chip tone={statusTone(session)}>{sessionStatus(session)}</Chip><h3>{hkClock(session.startAt)}–{hkClock(session.endAt)}</h3><p>{session.venue?.name||"場地稍後決定"} · {sessionHint(session)}</p></div><div className="mf-avatar-stack">{session.acceptedPlayers.slice(0,2).map(player=><PlayerBadge key={player.id} player={player}/>)}</div></div>
           {session.pendingRequests.length>0&&<div className="mf-requests"><b>{session.pendingRequests.length} 個約戰申請</b>{session.pendingRequests.map(player=><div key={player.id} className="mf-request-row"><button type="button" className="mf-player-link" onClick={()=>onPlayer?.(player.id)}><PlayerBadge player={player}/><span>{player.name}<small>ELO {Math.round(player.rating)}</small></span></button><span><Button variant="secondary" loading={busy===`decline:${session.id}:${player.id}`} onClick={()=>void respond(session.id,player.id,"decline")}>婉拒</Button><Button loading={busy===`accept:${session.id}:${player.id}`} onClick={()=>void respond(session.id,player.id,"accept")}>接受</Button></span></div>)}</div>}
           {(session.status==="full"||session.status==="playable")&&session.opponent&&onRecord&&<Button onClick={()=>onRecord(session.opponent!.id)}>記錄賽果</Button>}
           {canLeaveSession(session)&&<Button variant="quiet" loading={busy===`leave:${session.id}`} onClick={()=>void leave(session)}>{session.isHost?"取消約戰":"撤回／退出"}</Button>}
         </Surface>)}
-        {own.length>0&&<div className="mf-own-list">{own.map(item=><Surface key={item.id} className="mf-own-card"><div><b>{hkClock(item.startAt)}–{hkClock(item.endAt)}</b><span>{item.venue?.name||"場地未定"}</span></div><Button variant="quiet" loading={busy===`cancel:${item.id}`} onClick={()=>void mutate(`cancel:${item.id}`,`/api/matchmaking/formation/availability/${item.id}`,{method:"DELETE"},"空檔已取消。")}>取消</Button></Surface>)}</div>}
+        {own.map(item=><Surface key={item.id} className="mf-session-card">
+          <div className="mf-card-top"><div><Chip tone="neutral">已公開，等待配對</Chip><h3>{hkClock(item.startAt)}–{hkClock(item.endAt)}</h3><p>{item.venue?.name||"場地未定"}</p></div></div>
+          <Button variant="quiet" loading={busy===`cancel:${item.id}`} onClick={()=>void mutate(`cancel:${item.id}`,`/api/matchmaking/formation/availability/${item.id}`,{method:"DELETE"},"空檔已取消。")}>取消</Button>
+        </Surface>)}
         {!sessions.length&&!own.length&&(
           <EmptyState title="這日你還未公開時間" description="選擇開始和結束時間，就可以讓合適球友找到你。" action={<Button onClick={()=>setPublishOpen(true)}>公開空檔</Button>}/>
         )}
