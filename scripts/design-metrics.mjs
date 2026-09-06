@@ -40,9 +40,17 @@ const tokenSizes = fontSizes.filter((v) => v.startsWith("var(--fs-"));
 const literalSizes = fontSizes.filter((v) => /^[\d.]+(px|rem|em)$/.test(v));
 // `font-size:0` is the idiom for hiding a letter while keeping it for screen
 // readers (the form-guide dots do this), so it is not illegible text.
+//
+// `em` is skipped: it resolves against the *parent's* size, which this script
+// cannot know, so there is no rendered size to compare against the floor. It
+// was previously measured with the `rem` threshold, i.e. as though every parent
+// were 16px, which reported `.fraction{font-size:.47em}` (a maths fraction that
+// scales with its formula and renders well above 11px) as a 7.5px violation.
+// A false positive here is worse than a miss: it invites someone to "fix"
+// correct CSS. em values still count toward the distinct-literal row above.
 const tinyType = literalSizes.filter((v) => {
   const n = parseFloat(v);
-  if (n === 0) return false;
+  if (n === 0 || v.endsWith("em")) return false;
   return v.endsWith("px") ? n < 11 : n < 0.6875;
 });
 
