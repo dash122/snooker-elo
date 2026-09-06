@@ -24,18 +24,20 @@
   .wb-week{display:grid;grid-template-columns:repeat(7,1fr);gap:var(--sp-1);
     padding:var(--sp-2) var(--sp-3) var(--sp-1);background:var(--ds-canvas-brand);align-items:end}
   .wb-day{display:grid;gap:var(--sp-1);justify-items:center;align-content:end;position:relative;
-    min-height:var(--control-md);padding:var(--sp-1) 2px var(--sp-1-5);border:0;border-radius:var(--radius-sm);
+    min-height:var(--control-md);padding:var(--sp-1) 2px var(--sp-2-5);border:0;border-radius:var(--radius-sm);
     background:none;color:var(--ds-text-on-brand);cursor:pointer;
     transition:background var(--ds-duration-fast) var(--ds-ease-standard)}
   .wb-day.active{background:var(--ds-inverse-wash)}
   .wb-day b{font-size:var(--fs-body);font-weight:750;line-height:1;font-variant-numeric:tabular-nums}
   .wb-day small{font-size:var(--fs-label);color:var(--ds-text-on-brand-secondary);letter-spacing:.04em}
   .wb-day.active small{color:var(--ds-text-on-brand);font-weight:750}
-  .wb-day-bar{display:block;width:100%;max-width:24px;border-radius:var(--radius-2xs) var(--radius-2xs) 2px 2px;
+  .wb-day-bar{display:block;width:100%;max-width:22px;min-height:8px;border-radius:var(--radius-2xs) var(--radius-2xs) 2px 2px;
     background:var(--ds-chart-primary)}
   .wb-day-bar.hot{background:var(--ds-accent-primary)}
   .wb-day-bar.cold{background:var(--ds-icon-muted)}
-  .wb-day-mark{position:absolute;top:2px;width:14px;height:3px;border-radius:2px;background:var(--ds-accent-primary)}
+  /* Under the weekday, where nothing else sits. At the top it landed on the headcount. */
+  .wb-day-mark{position:absolute;bottom:0;width:14px;height:3px;border-radius:2px;
+    background:var(--ds-accent-primary)}
   .wb-week-foot{display:flex;justify-content:space-between;gap:var(--sp-2);margin:0;
     padding:0 var(--sp-4) var(--sp-3);background:var(--ds-canvas-brand);
     color:var(--ds-text-on-brand-secondary);font-size:var(--fs-label);letter-spacing:.04em}
@@ -52,7 +54,7 @@
     font-size:var(--fs-label);letter-spacing:.1em;text-transform:uppercase}
   .wb-band-head b{color:var(--ds-accent-primary);font-weight:750}
   .wb-cols{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;align-items:end;
-    height:92px;gap:2px;padding:0 var(--sp-1)}
+    height:104px;gap:2px;padding:var(--sp-3) var(--sp-1) 0}
   .wb-col{height:100%;display:flex;align-items:flex-end}
   .wb-col i{display:block;width:100%;border-radius:var(--radius-2xs) var(--radius-2xs) 0 0;
     background:var(--ds-text-muted-teal)}
@@ -62,7 +64,11 @@
     background:linear-gradient(180deg,var(--ds-accent-veil),var(--ds-accent-veil-soft))}
   .wb-mine.is-draft{border-style:dashed;border-color:var(--ds-text-on-brand);
     background:linear-gradient(180deg,var(--ds-inverse-wash),var(--ds-inverse-wash-soft))}
-  .wb-mine b{position:absolute;left:50%;top:0;transform:translate(-50%,-100%);white-space:nowrap;
+  /* Inside the window, not above it: the label used to be translated up out of .wb-cols and landed
+     on top of the band header, so the one number the member is dragging collided with the date. The
+     columns fill from the bottom, so the top of the window is the one place always free. */
+  .wb-mine b{position:absolute;left:50%;top:var(--sp-1);transform:translateX(-50%);white-space:nowrap;
+    padding:1px var(--sp-1-5);border-radius:var(--radius-pill);background:var(--ds-canvas-brand-deep);
     font-size:var(--fs-label);letter-spacing:.04em;color:var(--ds-accent-soft)}
   .wb-mine.is-draft b{color:var(--ds-text-on-brand)}
   .wb-grip{position:absolute;top:50%;width:5px;height:26px;border-radius:3px;transform:translateY(-50%);
@@ -126,15 +132,19 @@
   .wb-gate-line{margin:var(--sp-2) 0 0;color:var(--ds-text-tertiary);font-size:var(--fs-caption);text-align:center}
 
   /* --- 確認 -------------------------------------------------------------- */
-  .wb-presence{display:flex;align-items:center;gap:var(--sp-2-5);margin:0 var(--sp-3);flex-wrap:wrap}
-  .wb-presence small{flex:1 1 12rem;min-width:0;color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
+  .wb-presence{display:grid;gap:var(--sp-1-5);margin:0 var(--sp-3);padding:var(--sp-3);
+    border-radius:var(--radius-lg);border:1px solid var(--ds-border-subtle);
+    background:var(--ds-surface-secondary);justify-items:start}
+  .wb-presence small{color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
 
   .wb-message{margin:0 var(--sp-3);color:var(--ds-text-secondary);font-size:var(--fs-caption)}
   .wb-commit{position:sticky;bottom:0;z-index:2;padding:var(--sp-2) var(--sp-3) var(--sp-2-5);
     background:linear-gradient(180deg,transparent,var(--ds-surface-primary) 34%)}
-  .wb-commit-button{width:100%;min-height:var(--control-lg)}
-  .wb-commit-button.is-primary{display:grid;gap:0;place-content:center;text-align:center}
-  .wb-commit-button small{font-size:var(--fs-label);font-weight:500;opacity:.8}
+  .wb-commit-button{width:100%;min-height:var(--control-lg);height:auto;padding-block:var(--sp-2)}
+  /* Button puts its children inside a span of its own, so the two lines have to be stacked there —
+     on the button itself the grid never reaches them and the sub-label ran on into the label. */
+  .wb-commit-button>span{display:grid;gap:2px;place-items:center;text-align:center}
+  .wb-commit-button small{font-size:var(--fs-label);font-weight:500;opacity:.82;line-height:1.4}
 
   .wb-apply{display:grid;gap:var(--sp-2);margin:0 var(--sp-3)}
   .wb-apply>p{margin:0;font-size:var(--fs-caption);color:var(--ds-text-secondary)}
@@ -157,12 +167,12 @@
   .wb-streak small{color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
 
   @media (max-width: 599px){
-    .wb-cols{height:78px}
+    .wb-cols{height:92px}
     .wb-readout-n b{font-size:var(--fs-h2)}
     .wb-fields{grid-template-columns:1fr}
   }
   @media (max-width: 380px){
     .wb-day small{font-size:var(--fs-label)}
-    .wb-cols{height:68px}
+    .wb-cols{height:84px}
   }
 }

@@ -66,13 +66,23 @@ function OwnWindowFields({window:current,onChange}:{window:Window;onChange:(next
   </div>;
 }
 
-export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey}:{
+export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
+  onPublish,onSelectDate,showList=true}:{
   signedIn:boolean;
   /** 邀請已預填時段軸這一格 — 會員不會被問第二次時間。 */
   onInvite?:(playerId:string,slot:{startAt:string;endAt:string})=>void;
   onOpenPlayer?:(playerId:string)=>void;
   onChanged?:()=>void;
   refreshKey?:number;
+  /** 由父層代為寫入時段。約戰分頁用 formation 的端點（它同時處理場地與時段衝突），
+      兩者寫的都是同一張 `availability_slots`，所以時段軸讀到的仍是同一份資料。
+      回傳 false 代表失敗，訊息由父層顯示。 */
+  onPublish?:(date:string,startClock:string,endClock:string)=>Promise<boolean>;
+  /** 選了哪一晚 — 讓下面的名單跟著同一個游標走，而不是各自有一個日期。 */
+  onSelectDate?:(date:string)=>void;
+  /** 關掉時段軸自己的名單。約戰分頁已經有一張可以真的送出邀請的名單，
+      兩張並存就是這次改版要消滅的重複。 */
+  showList?:boolean;
 }){
   const today=useMemo(()=>hkDate(),[]);
   const [data,setData]=useState<WeekData|null>(null);
@@ -177,16 +187,21 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey}:{
   const publish=useCallback(async(date:string,value:Window,label:string)=>{
     setBusy(true);setMessage("");
     try{
-      const response=await fetch("/api/availability",{method:"POST",headers:{"content-type":"application/json"},
-        body:JSON.stringify({slots:[{startAt:columnInstant(date,value.from),endAt:columnInstant(date,value.to)}]})});
-      const body=await response.json();
-      if(!response.ok)throw new Error(body?.error??"未能公開時段，請再試一次。");
+      if(onPublish){
+        const ok=await onPublish(date,columnClock(value.from),columnClock(value.to));
+        if(!ok)return;
+      }else{
+        const response=await fetch("/api/availability",{method:"POST",headers:{"content-type":"application/json"},
+          body:JSON.stringify({slots:[{startAt:columnInstant(date,value.from),endAt:columnInstant(date,value.to)}]})});
+        const body=await response.json();
+        if(!response.ok)throw new Error(body?.error??"未能公開時段，請再試一次。");
+      }
       trackAvailabilityEvent("week_band_publish");
       setMessage(`已公開 ${label} ${columnClock(value.from)}–${columnClock(value.to)}。`);
       setNonce(value=>value+1);setOverride(null);onChanged?.();
     }catch(error){setMessage(error instanceof Error?error.message:"網絡連線失敗，請再試一次。")}
     finally{setBusy(false);setApplying(null)}
-  },[onChanged]);
+  },[onChanged,onPublish]);
 
   /* 到咗會所 — 現正在會所是名單上排第一的標記，所以這個開關必須就在同一張卡上，而不是另一個畫面。 */
   const togglePresence=useCallback(async(here:boolean)=>{
@@ -245,7 +260,7 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey}:{
         return <button key={item.date} type="button" role="tab" aria-selected={index===selected}
           className={`wb-day${index===selected?" active":""}`}
           aria-label={`${dayLabel(item.date,today)}，最多 ${nightPeak} 位球員同時在場`}
-          onClick={()=>{setSelected(index);setMessage("")}}>
+          onClick={()=>{setSelected(index);setMessage("");onSelectDate?.(item.date)}}>
           <b>{nightPeak}</b>
           {item.mine.length>0&&<i className="wb-day-mark" aria-hidden="true"/>}
           <i className={`wb-day-bar${tone}`} style={{height:`${height}px`}}/>
@@ -301,7 +316,7 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey}:{
         : "這段時間暫時沒有人。試試拖到柱最高的位置。"}</small>
     </div>
 
-    {overlap.length>0&&<div className="wb-list">
+    {showList&&overlap.length>0&&<div className="wb-list">
       <div className="wb-list-head">
         <h3>{columnClock(window.from)}–{columnClock(window.to)} 有空的球員</h3>
         <span>{overlap.length} 位</span>
