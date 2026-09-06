@@ -1,7 +1,11 @@
 # Design system — the short version
 
-One rule underneath all of this: **if a value isn't in `app/styles/tokens.css`, it doesn't ship.**
-`npm run lint:css` enforces it, so this is not a matter of discipline.
+Current contributor guidance: `AGENTS.md`. Consolidation priorities: `docs/ui-standardisation.md`.
+
+Prefer shared components and tokens from `app/styles/tokens.css`. Enforcement is partial:
+`npm run lint:css` errors on typography and breakpoints where enabled, while colour and
+matching spacing/radius literals warn. `.stylelintrc.json` defines the current exemptions;
+historical migration notes below are not an exhaustive account of today's configuration.
 
 ## Type — use a token, never a number
 
@@ -77,8 +81,8 @@ lint rule is what keeps the list at four, not the token file.
 
 ## Colour
 
-Use a `--ds-*` token. Raw hex is rejected everywhere except `tokens.css`, where the palette is
-defined. If you need a colour that doesn't exist, add a **named** token — don't inline the hex.
+Use an existing semantic colour token. Raw hex warns outside `tokens.css`, where the palette is
+defined. If a recurring colour role is missing, add a named token rather than inlining the hex.
 
 ## The exemption list
 
