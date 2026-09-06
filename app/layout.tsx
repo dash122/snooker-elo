@@ -6,6 +6,7 @@ import "./styles/core-ranking.css";
 import "./styles/matchmaking.css";
 import "./styles/matchmaking-timeline.css";
 import "./styles/venue-board.css";
+import "./styles/week-band.css";
 import "./styles/cup.css";
 import "./styles/calibration.css";
 import "./styles/home.css";

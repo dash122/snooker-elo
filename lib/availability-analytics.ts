@@ -15,6 +15,12 @@ export type AvailabilityEvent =
      (one row in availability_slots), so these events measure the merged funnel rather than a
      parallel one: how many members answer at all, at what effort, and whether the overlap they saw
      was worth the trip. */
+  /* 時段軸 — the merged journey. `week_band_view` is every arrival on the tab; `publish` is the one
+     gesture that is simultaneously a declaration and the unlocking of the list, so the ratio between
+     them is the whole redesign's scoreboard. */
+  | "week_band_view"
+  | "week_band_publish"
+  | "week_band_withdraw"
   | "venue_board_view"
   | "venue_slot_set"
   | "venue_slot_cleared"
