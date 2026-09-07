@@ -341,7 +341,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
               <div className="ob-slot-main">
                 <div className="ob-slot-top">
                   <span className="ob-slot-place"><b>{placeLabel(call)}</b>
-                    <span>{[call.venue?.district||call.venueIntent,tempoLabel(call),call.costSplit==="aa"?"AA 波鐘":"主揪找數"].filter(Boolean).join(" · ")}</span>
+                    <span>{[call.venue?.district||call.venueIntent,tempoLabel(call),call.costSplit==="aa"?"AA 波鐘":"發起人找數"].filter(Boolean).join(" · ")}</span>
                   </span>
                   {fit.tier!=="unknown"?<Chip tone={fit.tier==="very-close"?"success":fit.tier==="similar"?"accent":"warning"}>{fitShortLabel(fit.tier)}</Chip>
                     :call.fits&&!call.joined?<Chip tone="accent">夾到你</Chip>
@@ -358,7 +358,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
                 {handicapLine(call,data.viewerId,settings)}
                 {call.message&&<p className="ob-slot-quote"><QuoteIcon/>{call.message}</p>}
                 <div className="ob-slot-foot">
-                  {isHost?<Chip tone="accent">你是主揪</Chip>:call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
+                  {isHost?<Chip tone="accent">你是發起人</Chip>:call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
                   <span className="card-tools">
                     {isHost?<>
                       <IconButton className="card-tool" label="編輯約戰" disabled={Boolean(busy)} onClick={()=>openEditor(call)}>✎</IconButton>
@@ -408,7 +408,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
         {loading?<InlineNotice title="正在找適合你的約戰">你可以先確認時間，也可以直接開局。</InlineNotice>:!data.date?<InlineNotice tone="warning" title="暫時未能查看其他局">{loadError||"請重試載入，再決定加入或開局。"}<Button type="button" variant="quiet" loading={refreshing} onClick={()=>void load(true)}>重新載入</Button></InlineNotice>:overlapping.length>0?<section className="ob-match" aria-label="可能適合你的局">
           <b>有 {overlapping.length} 個約戰時間夾到你，已按對手水平排序</b>
           {rankRecommendedCalls(overlapping,data.viewerId,viewerRating).map(call=>{const opponent=closestOpponent(call.players,data.viewerId,viewerRating);return <div key={call.id} className="ob-match-row">
-            <div className="ob-match-detail">{opponent&&<BoardPlayerInfo player={opponent} settings={settings}/>}<MatchVerdict player={opponent} viewerRating={viewerRating} settings={settings} joined={false}/><b>{placeLabel(call)}</b><span>{clockRange(call)}</span><small>{call.players.length} 人參加 · {tempoLabel(call)} · {call.costSplit==="aa"?"AA 波鐘":"主揪找數"}</small></div>
+            <div className="ob-match-detail">{opponent&&<BoardPlayerInfo player={opponent} settings={settings}/>}<MatchVerdict player={opponent} viewerRating={viewerRating} settings={settings} joined={false}/><b>{placeLabel(call)}</b><span>{clockRange(call)}</span><small>{call.players.length} 人參加 · {tempoLabel(call)} · {call.costSplit==="aa"?"AA 波鐘":"發起人找數"}</small></div>
             <Button type="button" disabled={Boolean(busy)} loading={busy===`join:${call.id}`} onClick={()=>void joinFromComposer(call)}>加入</Button>
           </div>})}
         </section>:<p className="ob-form-lede">這段時間暫時未有其他局。開一局，等球友加入。</p>}
@@ -430,7 +430,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
               </FormField>}
             </div>}
           </fieldset>
-          <div className="ob-setting-row ob-setting-row--intent"><div><small>更多設定</small><p>{formTempo==="sport"?"競技對手":"休閒球友"} · {handicapPref==="even"?"希望平手對戰":"接受讓分平衡"}<br/>{costSplit==="aa"?"AA 波鐘":"主揪找數"} · {smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}{maxJoiners!==null?` · 最多 ${maxJoiners} 人加入`:""}{note?" · 有補充":""}</p></div><Button type="button" variant="quiet" aria-expanded={moreOpen} aria-controls="ob-preferences" onClick={()=>setMoreOpen(value=>!value)}>{moreOpen?"收起":"更改"}</Button></div>
+          <div className="ob-setting-row ob-setting-row--intent"><div><small>更多設定</small><p>{formTempo==="sport"?"競技對手":"休閒球友"} · {handicapPref==="even"?"希望平手對戰":"接受讓分平衡"}<br/>{costSplit==="aa"?"AA 波鐘":"發起人找數"} · {smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}{maxJoiners!==null?` · 最多 ${maxJoiners} 人加入`:""}{note?" · 有補充":""}</p></div><Button type="button" variant="quiet" aria-expanded={moreOpen} aria-controls="ob-preferences" onClick={()=>setMoreOpen(value=>!value)}>{moreOpen?"收起":"更改"}</Button></div>
           {moreOpen&&<div id="ob-preferences" className="ob-more-panel">
             <fieldset className="ob-choice"><legend>節奏</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="節奏">
               <button type="button" aria-pressed={formTempo==="sport"} onClick={()=>setFormTempo("sport")}>競技</button>
@@ -440,7 +440,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
               <button type="button" aria-pressed={handicapPref==="even"} onClick={()=>setHandicapPref("even")}>希望平手</button>
               <button type="button" aria-pressed={handicapPref==="handicap"} onClick={()=>setHandicapPref("handicap")}>接受讓分</button>
             </SlidingToggleGroup><p>成局後會依雙方 ELO 提供建議讓分</p></fieldset>
-            <fieldset className="ob-choice"><legend>分攤</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="分攤"><button type="button" aria-pressed={costSplit==="aa"} onClick={()=>setCostSplit("aa")}>AA 波鐘</button><button type="button" aria-pressed={costSplit==="host"} onClick={()=>setCostSplit("host")}>主揪找數</button></SlidingToggleGroup></fieldset>
+            <fieldset className="ob-choice"><legend>分攤</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="分攤"><button type="button" aria-pressed={costSplit==="aa"} onClick={()=>setCostSplit("aa")}>AA 波鐘</button><button type="button" aria-pressed={costSplit==="host"} onClick={()=>setCostSplit("host")}>發起人找數</button></SlidingToggleGroup></fieldset>
             <fieldset className="ob-choice"><legend>吸煙</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="吸煙"><button type="button" aria-pressed={smoking==="nonsmoking"} onClick={()=>setSmoking("nonsmoking")}>要求非吸煙者</button><button type="button" aria-pressed={smoking==="any"} onClick={()=>setSmoking("any")}>不介意</button></SlidingToggleGroup></fieldset>
             <fieldset className="ob-capacity-choice" disabled={Boolean(busy)}>
               <legend>接受加入人數 <span>預設不設上限，減低有人甩底的影響</span></legend>

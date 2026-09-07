@@ -17,14 +17,17 @@
   .ob-discovery>.ob-date-nav{min-width:0}
   /* Pills are a small control, so they earn the smaller end of the radius scale — the same
      absolute radius as the hero card reads as far rounder at 1/5th the size. */
-  .ob-day-filter{display:flex;gap:var(--sp-2-5);min-width:0;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;padding-block:var(--sp-1) var(--sp-2);scrollbar-width:thin;scrollbar-color:var(--ds-border-muted) transparent}
-  .ob-day-filter button{display:grid;flex:0 0 4.5rem;scroll-snap-align:start;justify-items:center;align-content:center;gap:var(--sp-1-5);min-height:5.25rem;padding:var(--sp-3-5) var(--sp-2);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);background:var(--ds-surface-primary);color:var(--ds-text-secondary);transition:transform var(--ds-duration-fast) var(--ds-ease-standard)}
-  .ob-day-filter button:active{transform:scale(.96)}
+  .ob-day-filter{display:flex;gap:var(--sp-2-5);min-width:0;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;padding:var(--sp-1-5) var(--sp-1) var(--sp-2);scrollbar-width:thin;scrollbar-color:var(--ds-border-muted) transparent}
+  .ob-day-filter button{position:relative;display:grid;flex:0 0 4.5rem;scroll-snap-align:start;justify-items:center;align-content:center;gap:var(--sp-1-5);min-height:5.25rem;padding:var(--sp-3-5) var(--sp-2);overflow:hidden;border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);background:var(--ds-surface-primary);color:var(--ds-text-secondary);box-shadow:var(--ds-elevation-1);transition:transform var(--ds-duration-fast) var(--ds-ease-toggle),box-shadow var(--ds-duration-standard) var(--ds-ease-standard),border-color var(--ds-duration-standard) var(--ds-ease-standard),background var(--ds-duration-standard) var(--ds-ease-standard)}
+  .ob-day-filter button:active{transform:scale(.94)}
   .ob-day-filter button>b{font-size:var(--fs-stat);line-height:1;font-variant-numeric:tabular-nums;color:var(--ds-text-primary)}
   .ob-day-filter button>small{font-size:var(--fs-label);font-weight:700;line-height:1;color:var(--ds-text-tertiary)}
   /* Same felt-and-gradient the hero card is built from, not a flat fill — so the two brand
-     greens on screen together read as one surface family instead of two different colours. */
-  .ob-day-filter button[aria-pressed="true"]{border-color:transparent;background:linear-gradient(135deg,var(--baize) 0%,var(--baize-deep) 100%);color:var(--ds-text-on-brand);box-shadow:var(--ds-elevation-2)}
+     greens on screen together read as one surface family instead of two different colours. A
+     corner glow (the hero's own specular accent, reused at pill scale) plus a scale-up is what
+     turns "the selected one has a different fill" into "this one is physically raised". */
+  .ob-day-filter button[aria-pressed="true"]{transform:scale(1.045);border-color:transparent;background:radial-gradient(120% 90% at 82% -10%,var(--ds-featured-glow),transparent 60%),linear-gradient(135deg,var(--baize) 0%,var(--baize-deep) 100%);color:var(--ds-text-on-brand);box-shadow:var(--ds-elevation-3)}
+  .ob-day-filter button[aria-pressed="true"]:active{transform:scale(1.01)}
   .ob-day-filter button[aria-pressed="true"]>b{color:var(--ball-yellow)}
   .ob-day-filter button[aria-pressed="true"]>small{color:var(--ds-text-on-brand-secondary)}
 
@@ -62,11 +65,12 @@
   .ob-sheet select,.ob-sheet input,.ob-sheet textarea{max-width:100%}
 
   /* Both calendars use the same horizontal date rhythm, with visible scroll controls. */
-  .ob-daypick{display:flex;gap:var(--sp-2);min-width:0;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;padding-block:var(--sp-1) var(--sp-2);scrollbar-width:thin;scrollbar-color:var(--ds-border-muted) transparent}
-  .ob-daypick button{display:grid;flex:0 0 4rem;scroll-snap-align:start;justify-items:center;align-content:center;gap:var(--sp-2);min-height:5rem;padding:var(--sp-3) var(--sp-2);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-md);background:var(--ds-surface-primary);color:var(--ds-text-secondary)}
+  .ob-daypick{display:flex;gap:var(--sp-2);min-width:0;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;padding:var(--sp-1-5) var(--sp-1) var(--sp-2);scrollbar-width:thin;scrollbar-color:var(--ds-border-muted) transparent}
+  .ob-daypick button{display:grid;flex:0 0 4rem;scroll-snap-align:start;justify-items:center;align-content:center;gap:var(--sp-2);min-height:5rem;padding:var(--sp-3) var(--sp-2);overflow:hidden;border:1px solid var(--ds-border-subtle);border-radius:var(--radius-md);background:var(--ds-surface-primary);color:var(--ds-text-secondary);box-shadow:var(--ds-elevation-1);transition:transform var(--ds-duration-fast) var(--ds-ease-toggle),box-shadow var(--ds-duration-standard) var(--ds-ease-standard)}
+  .ob-daypick button:active{transform:scale(.94)}
   .ob-daypick button>small{font-size:var(--fs-label);font-weight:800;line-height:1}
   .ob-daypick button>b{font-size:var(--fs-stat);line-height:1;font-variant-numeric:tabular-nums}
-  .ob-daypick button[aria-pressed="true"]{border-color:var(--ds-surface-featured);background:var(--ds-surface-featured);color:var(--ds-text-on-brand)}
+  .ob-daypick button[aria-pressed="true"]{transform:scale(1.04);border-color:transparent;background:radial-gradient(120% 90% at 82% -10%,var(--ds-featured-glow),transparent 60%),var(--ds-surface-featured);color:var(--ds-text-on-brand);box-shadow:var(--ds-elevation-3)}
   .ob-daypick button[aria-pressed="true"]>b{color:var(--ds-accent-primary)}
 
   .ob-choice,.ob-editable{min-width:0;margin:0;padding:0;border:0}
@@ -76,7 +80,7 @@
   .ob-choice .sliding-toggle-group{display:flex}
   .ob-choice .sliding-toggle-group button{flex:1;min-height:var(--control-md)}
   .ob-time-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-3)}
-  .ob-time-summary{display:flex;align-items:center;gap:var(--sp-4);margin:0;padding:var(--sp-5);border-radius:var(--radius-md);background:radial-gradient(circle at 90% 0,var(--ds-featured-glow),transparent 45%),var(--ds-surface-featured);color:var(--ds-text-on-brand);box-shadow:var(--ds-elevation-3)}
+  .ob-time-summary{display:flex;align-items:center;gap:var(--sp-4);margin:0;padding:var(--sp-5);border-radius:var(--radius-md);background:radial-gradient(circle at 90% 0,var(--ds-featured-glow),transparent 45%),var(--ds-surface-featured);color:var(--ds-text-on-brand);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),var(--ds-elevation-4)}
   .ob-time-summary b{font-size:var(--fs-display);font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1.2}
   .ob-time-summary span,.ob-time-summary small{color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption)}
   .ob-setting-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);min-width:0}
@@ -84,7 +88,7 @@
   .ob-setting-row small{color:var(--ds-text-secondary);font-size:var(--fs-caption)}
   .ob-setting-row b,.ob-setting-row p{margin:0;font-size:var(--fs-sm);line-height:1.6;overflow-wrap:anywhere}
   .ob-setting-row .ds-button{flex-shrink:0}
-  .ob-setting-row--intent{align-items:flex-start;padding:var(--sp-4);border:1px solid var(--ds-success-wash-border);border-radius:var(--radius-md);background:var(--ds-success-wash)}
+  .ob-setting-row--intent{align-items:flex-start;padding:var(--sp-4);border:1px solid var(--ds-success-wash-border);border-radius:var(--radius-md);background:var(--ds-success-wash);box-shadow:var(--ds-elevation-1)}
   .ob-setting-row--intent>div{gap:var(--sp-2)}
   .ob-own-game{display:grid;gap:var(--sp-4);padding-top:var(--sp-2)}
   .ob-own-game h3,.ob-field-group h3{margin:0 0 var(--sp-2);font-size:var(--fs-sm)}
@@ -96,10 +100,11 @@
   .ob-capacity-choice legend{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--sp-2);width:100%;padding:0;font-size:var(--fs-sm);font-weight:800}
   .ob-capacity-choice legend span{color:var(--ds-accent-text);font-size:var(--fs-label);font-weight:700}
   .ob-capacity-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2)}
-  .ob-capacity-options button{display:grid;gap:var(--sp-1);min-height:var(--control-lg);padding:var(--sp-3);border:1px solid var(--ds-accent-soft);border-radius:var(--radius-sm);background:var(--ds-surface-primary);color:var(--ds-text-primary);text-align:left}
+  .ob-capacity-options button{display:grid;gap:var(--sp-1);min-height:var(--control-lg);padding:var(--sp-3);border:1px solid var(--ds-accent-soft);border-radius:var(--radius-sm);background:var(--ds-surface-primary);color:var(--ds-text-primary);text-align:left;box-shadow:var(--ds-elevation-1);transition:transform var(--ds-duration-fast) var(--ds-ease-toggle),box-shadow var(--ds-duration-standard) var(--ds-ease-standard)}
+  .ob-capacity-options button:active{transform:scale(.97)}
   .ob-capacity-options button b{font-size:var(--fs-sm)}
   .ob-capacity-options button small{color:var(--ds-text-secondary);font-size:var(--fs-label)}
-  .ob-capacity-options button[aria-pressed="true"]{border-color:var(--ds-surface-featured);background:var(--ds-surface-featured);color:var(--ds-text-on-brand);box-shadow:var(--ds-elevation-2)}
+  .ob-capacity-options button[aria-pressed="true"]{border-color:var(--ds-surface-featured);background:var(--ds-surface-featured);color:var(--ds-text-on-brand);box-shadow:var(--ds-elevation-3)}
   .ob-capacity-options button[aria-pressed="true"] small{color:var(--ds-text-on-brand-secondary)}
 
   /* --- venue picker ------------------------------------------------------- */
@@ -142,10 +147,15 @@
      body carrying venue, roster, conditions and actions in fixed bands. Nothing here requires a
      tap to see — a tap only ever reveals something that has no room at rest (a player's ELO, a
      secondary action) or gives feedback on something you just did. */
-  .ob-slot-list{display:grid;gap:var(--sp-3);overflow:visible;border:0;background:transparent;box-shadow:none}
-  .ob-slot-row{position:relative;display:grid;grid-template-columns:5.5rem 1fr;overflow:hidden;border-radius:var(--radius-md);background:var(--ds-surface-primary);box-shadow:var(--ds-elevation-2)}
+  .ob-slot-list{display:grid;gap:var(--sp-3-5);overflow:visible;border:0;background:transparent;box-shadow:none}
+  /* A hairline top highlight (the light-catches-the-edge trick every iOS card sheen uses) plus a
+     deeper resting shadow than a flat card needs — together they read as a physical object sitting
+     just off the page, not a rectangle with a border. Lifts a touch further on hover where hover
+     actually means something (a mouse), never on touch where there's no cursor to lift toward. */
+  .ob-slot-row{position:relative;display:grid;grid-template-columns:5.5rem 1fr;overflow:hidden;border-radius:var(--radius-md);background:var(--ds-surface-primary);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-3);transition:box-shadow var(--ds-duration-standard) var(--ds-ease-standard),transform var(--ds-duration-standard) var(--ds-ease-standard)}
+  @media(hover:hover){.ob-slot-row:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-4);transform:translateY(-2px)}}
 
-  .ob-slot-stamp{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-1);padding:var(--sp-3) var(--sp-1);text-align:center;color:var(--ds-text-on-brand);background:linear-gradient(165deg,var(--baize) 0%,var(--baize-deep) 100%)}
+  .ob-slot-stamp{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-1);padding:var(--sp-3) var(--sp-1);text-align:center;color:var(--ds-text-on-brand);background:radial-gradient(140% 90% at 15% -20%,var(--ds-featured-glow),transparent 60%),linear-gradient(165deg,var(--baize) 0%,var(--baize-deep) 100%)}
   .ob-slot-stamp b{font-family:var(--font-display);font-weight:700;font-size:var(--fs-lead);line-height:1.15;font-variant-numeric:tabular-nums;color:var(--ball-yellow)}
   .ob-slot-stamp small{font-size:var(--fs-label);font-weight:700;color:var(--ds-text-on-brand-secondary)}
   /* Who you are to this 局, at a glance, before reading anything: a dot on the one part of the
@@ -165,7 +175,9 @@
   .ob-slot-top .ds-chip{flex:0 0 auto}
 
   .ob-slot-roster{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
-  .ob-roster-chip{display:flex;align-items:center;gap:var(--sp-1-5);min-width:0;max-width:100%;border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);padding:var(--sp-1) var(--sp-2-5) var(--sp-1) var(--sp-1);background:var(--ds-surface-primary);color:var(--ds-text-primary)}
+  .ob-roster-chip{display:flex;align-items:center;gap:var(--sp-1-5);min-width:0;max-width:100%;border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);padding:var(--sp-1) var(--sp-2-5) var(--sp-1) var(--sp-1);background:var(--ds-surface-primary);color:var(--ds-text-primary);box-shadow:var(--ds-elevation-1);transition:transform var(--ds-duration-fast) var(--ds-ease-toggle),box-shadow var(--ds-duration-fast) var(--ds-ease-standard)}
+  .ob-roster-chip:active{transform:scale(.95)}
+  .ob-roster-chip[aria-expanded="true"]{border-color:var(--ds-accent-soft);box-shadow:var(--ds-elevation-2)}
   .ob-roster-chip .player-badge{flex-shrink:0;width:1.9rem;height:1.9rem;font-size:var(--fs-label)}
   .ob-roster-chip>span{display:grid;min-width:0}
   .ob-roster-chip b{font-size:var(--fs-label);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:7rem}
@@ -185,7 +197,10 @@
      instead of the full-viewport backdrop swallowing that click first. */
   .ob-popup-anchor{position:relative;z-index:10;display:inline-flex;min-width:0}
   .ob-popup-backdrop{position:fixed;inset:0;z-index:9;border:0;background:transparent;cursor:default}
-  .ob-roster-popover,.ob-action-menu{position:absolute;z-index:10;top:calc(100% + var(--sp-1-5));background:var(--ds-surface-primary);border:1px solid var(--ds-border-strong);border-radius:var(--radius-md);box-shadow:var(--ds-elevation-4)}
+  .ob-roster-popover,.ob-action-menu{position:absolute;z-index:10;top:calc(100% + var(--sp-1-5));background:var(--ds-surface-primary);border:1px solid var(--ds-border-strong);border-radius:var(--radius-md);box-shadow:var(--ds-elevation-4);transform-origin:top left;animation:ob-popover-in var(--ds-duration-fast) var(--ds-ease-toggle) both}
+  .ob-action-menu{transform-origin:top right}
+  @keyframes ob-popover-in{from{opacity:0;transform:scale(.92) translateY(-2px)}to{opacity:1;transform:scale(1) translateY(0)}}
+  @media(prefers-reduced-motion:reduce){.ob-roster-popover,.ob-action-menu,.ob-slot-row,.ob-day-filter button,.ob-roster-chip,.ob-daypick button,.ob-capacity-options button{animation:none;transition:none}}
   .ob-roster-popover{left:0;min-width:12rem;display:grid;gap:var(--sp-1);padding:var(--sp-3)}
   .ob-popover-name{font-size:var(--fs-sm);font-weight:700}
   .ob-popover-sub{font-size:var(--fs-label);color:var(--ds-text-tertiary)}
