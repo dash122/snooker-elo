@@ -12,6 +12,18 @@ import { parseCallInput } from "../../../lib/open-board-input";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/* The board's GET is the only thing that ever calls the reminder/result-prompt sweep (see the doc
+   comment on `tickOpenBoard`), which made every page load — not just the first one — kick off its
+   own background sweep, each holding a connection from the app's shared 4-connection pool for as
+   long as the sweep (and any mail send inside it) takes. Fine in isolation; multiplied by however
+   many members have the board open at once, it was the single biggest source of concurrent
+   connections outside the read itself. A sweep run in roughly the last minute has nothing new to
+   find (its own queries filter out anything already stamped), so later requests in that window skip
+   it entirely — a per-instance approximation, not a lock, which is fine for something this file's
+   own comment already calls "safe to call... opportunistically". */
+let nextTickAt = 0;
+const TICK_MIN_INTERVAL_MS = 60_000;
+
 export async function GET(request:Request){
   try{
     const member=await requireMember();
@@ -22,7 +34,10 @@ export async function GET(request:Request){
     const [board,free]=await Promise.all([readBoard(viewerId,date),freeWindowsOn(date)]);
     // Start only after the read: Vinext starts after() callbacks immediately, so
     // registering earlier would compete with the board for database connections.
-    after(async()=>{try{await tickOpenBoard()}catch{/* best effort reminders */}});
+    if(Date.now()>=nextTickAt){
+      nextTickAt=Date.now()+TICK_MIN_INTERVAL_MS;
+      after(async()=>{try{await tickOpenBoard()}catch{/* best effort reminders */}});
+    }
     return Response.json({date,signedIn:Boolean(viewerId),viewerId,...board,free},
       {headers:{"cache-control":"no-store"}});
   }catch(error){
