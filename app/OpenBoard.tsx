@@ -28,17 +28,26 @@ import {closestOpponent,opponentFit,rankRecommendedCalls,BOARD_PAGE_SIZE} from "
  *   quietly not turning up instead of pressing the button.
  */
 
-type Player={id:string;name:string;short:string|null;rating:number;colour:string|null;avatar:string|null};
+/** Evidence for the "should I join this stranger" moment -- mutual opponents and games played
+    together come straight out of match history, `newHere` out of open-board history. Never a
+    follow/friend graph: undefined on the viewer's own roster entry, absent entirely when signed out. */
+type Trust={gamesTogether:number;mutualOpponents:number;newHere:boolean};
+type Player={id:string;name:string;short:string|null;rating:number;colour:string|null;avatar:string|null;trust?:Trust};
 type Venue={id:string;name:string;district:string};
 type Call={id:string;startAt:string;endAt:string;message:string;venue:Venue|null;venueIntent:string;
   tempo:"sport"|"casual";handicapPref:"even"|"handicap";costSplit:"aa"|"host";smoking:"nonsmoking"|"any";
   maxPlayers:number|null;players:Player[];hostId:string;joined:boolean;fits:boolean};
 type Day={date:string;calls:number;fits:boolean};
 type Free={player:Player;startAt:string;endAt:string};
-type BoardData={date:string;signedIn:boolean;viewerId:string|null;days:Day[];calls:Call[];venues:Venue[];free:Free[];error?:string};
+type FillStats={medianMinutes:number|null;sampleSize:number};
+type BoardData={date:string;signedIn:boolean;viewerId:string|null;days:Day[];calls:Call[];venues:Venue[];free:Free[];fillStats:FillStats;error?:string};
+/** A player found from a profile's 約戰 button. Carries just enough to render the target banner and
+    a fit line without a second round trip -- see `TargetPlayer` handling below. */
+export type FindOpponentTarget={id:string;name:string;rating:number|null};
 
-const EMPTY:BoardData={date:"",signedIn:false,viewerId:null,days:[],calls:[],venues:[],free:[]};
+const EMPTY:BoardData={date:"",signedIn:false,viewerId:null,days:[],calls:[],venues:[],free:[],fillStats:{medianMinutes:null,sampleSize:0}};
 const boardCache=createBoardCache<BoardData>();
+const NOTE_TEMPLATES=["新手歡迎，唔識都可以嚟打吓。","得閒隨便打，唔太計較輸贏。","想搵人陪練，練習為主。"];
 
 
 const clockRange=(call:{startAt:string;endAt:string})=>`${hkClock(call.startAt)}–${hkClock(call.endAt)}`;
@@ -58,6 +67,19 @@ const placeLabel=(call:Call)=>call.venue?call.venue.name:"場地未定";
 const fitShortLabel=(tier:"unknown"|"very-close"|"similar"|"handicap")=>
   tier==="very-close"?"非常夾":tier==="similar"?"水平相約":tier==="handicap"?"可讓分":"公開招募";
 
+/** One line, in priority order: a first-time poster is worth naming on its own, a familiar face beats
+    a shared stranger. Never more than the two most relevant facts -- this is meant to be read at a
+    glance, not audited. Returns null when there is nothing worth saying, which is fine: absence of
+    evidence is not itself evidence of anything. */
+const trustLine=(trust?:Trust):string|null=>{
+  if(!trust)return null;
+  const parts:string[]=[];
+  if(trust.newHere)parts.push("首次開局");
+  else if(trust.gamesTogether>0)parts.push(`你哋打過 ${trust.gamesTogether} 次`);
+  if(trust.mutualOpponents>0)parts.push(`${trust.mutualOpponents} 位共同對手`);
+  return parts.length?parts.join(" · "):null;
+};
+
 /** Only stated once two participants exist, because before that there is no second rating to compute
     against — an exact handicap cannot be honestly printed on a 局 with one person in it. */
 const handicapLine=(call:Call,viewerId:string|null,settings?:HandicapSettings|null)=>{
@@ -69,13 +91,18 @@ const handicapLine=(call:Call,viewerId:string|null,settings?:HandicapSettings|nu
   return <p className="ob-handicap"><b>{proposal.label}</b><span>依雙方 ELO（{Math.round(me.rating)} 對 {Math.round(them.rating)}）</span></p>;
 };
 
-export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerId=null,viewerRating=null}:{
+export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerId=null,viewerRating=null,target=null,onTargetConsumed}:{
   viewerId?:string|null;
   viewerRating?:number|null;
   settings?:HandicapSettings|null;
   onPlayer?:(playerId:string)=>void;
   onRecord?:(opponentId:string)=>void;
   onActivity?:()=>void;
+  /** Set from a player's profile "約戰" button -- filters the board to that player's own open 局,
+      or (if they have none) drops straight into the composer with them named as the reason. Cleared
+      once read, via `onTargetConsumed`, so re-tapping the same button reopens it. */
+  target?:FindOpponentTarget|null;
+  onTargetConsumed?:()=>void;
 }){
   const today=useMemo(()=>hkDate(),[]);
   const cacheKey=`${viewerId??"guest"}:${today}`;
@@ -94,6 +121,12 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
      open at a time, so they share a slot instead of each row carrying its own bit of state. */
   const [openPopup,setOpenPopup]=useState<string|null>(null);
   const [composer,setComposer]=useState<"closed"|"open">("closed");
+  /** Who the viewer has starred as a regular opponent -- fetched once alongside the board, kept in
+      sync locally on toggle so the popover doesn't need a round trip to reflect its own action. */
+  const [regularIds,setRegularIds]=useState<Set<string>>(()=>new Set());
+  /** Seeded from `target` (a new object every time the profile button fires, even re-tapping the same
+      player) and cleared locally once the member leaves target mode -- see the `target` effect below. */
+  const [targetPlayer,setTargetPlayer]=useState<FindOpponentTarget|null>(null);
   /* Set only while the composer is re-opened on the host's own 局 — everything else about the
      composer (fields, validation, submit) is identical between posting and editing, so this is the
      one flag that changes what the submit button does and hides the "who else fits" section, which
@@ -175,6 +208,29 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
   },[load]);
   useEffect(()=>{if(!message)return;const timer=window.setTimeout(()=>setMessage(""),4500);return()=>window.clearTimeout(timer)},[message]);
   useEffect(()=>{trackAvailabilityEvent("open_board_view")},[]);
+
+  // `target` is a fresh object on every tap of a profile's 約戰 button, including a repeat tap on the
+  // same player, so this fires again even when `targetPlayer` already matches -- that is what makes
+  // re-opening the same target from a second sheet actually re-focus the board.
+  useEffect(()=>{if(target)setTargetPlayer(target)},[target]);
+
+  useEffect(()=>{
+    if(!viewerId){setRegularIds(new Set());return}
+    let cancelled=false;
+    void fetch("/api/regulars",{cache:"no-store"}).then(response=>response.ok?response.json():null)
+      .then(body=>{if(!cancelled&&body?.regulars)setRegularIds(new Set(body.regulars as string[]))})
+      .catch(()=>{/* the star toggle degrades to "always offer to add" -- acceptable, not worth a retry loop */});
+    return()=>{cancelled=true};
+  },[viewerId]);
+
+  const toggleRegular=useCallback((playerId:string)=>{
+    if(!viewerId||playerId===viewerId)return;
+    const starred=regularIds.has(playerId);
+    setRegularIds(current=>{const next=new Set(current);if(starred)next.delete(playerId);else next.add(playerId);return next});
+    void fetch(starred?`/api/regulars/${playerId}`:"/api/regulars",
+      starred?{method:"DELETE"}:{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerId})})
+      .catch(()=>{/* best effort -- a failed toggle just reverts on the next board load */});
+  },[viewerId,regularIds]);
 
   /* SCAA is the club's own room and where most 局 actually happen, so it is the default rather than
      「稍後一起決定」 — a member who wants somewhere else changes it, which is one tap either way, but
@@ -274,13 +330,17 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
     void mutate(`cancel:${call.id}`,`/api/open-board/${call.id}/cancel`,{method:"POST"},"已取消，其他參加者會收到通知。");
   };
 
-  const dayCalls=liveCalls.filter(call=>selectedDate==="all"||hkDate(new Date(call.startAt))===selectedDate);
+  /* Target mode (from a profile's 約戰 button) ignores the date rail entirely -- the member came here
+     for one person, not one evening, so every date that person is playing on is in scope. */
+  const dayCalls=targetPlayer
+    ?liveCalls.filter(call=>call.players.some(player=>player.id===targetPlayer.id))
+    :liveCalls.filter(call=>selectedDate==="all"||hkDate(new Date(call.startAt))===selectedDate);
   /* No browse-mode toggle or filters beyond date: members almost never narrow further than "what
      date", so the best-fit opponent goes on top by default instead of behind a 推薦 tab. */
   const visible=viewerRating!==null
     ?rankRecommendedCalls(dayCalls,data.viewerId,viewerRating)
     :[...dayCalls].sort((a,b)=>Date.parse(a.startAt)-Date.parse(b.startAt));
-  const filterKey=selectedDate;
+  const filterKey=targetPlayer?`target:${targetPlayer.id}`:selectedDate;
   const loadCount=loadState.key===filterKey?loadState.count:BOARD_PAGE_SIZE;
   const shownCalls=visible.slice(0,loadCount);
   const hasMore=shownCalls.length<visible.length;
@@ -290,6 +350,16 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
     return {date:day,calls:calls.length,fits:calls.some(call=>call.fits)};
   });
   const openComposer=()=>{setEditingId(null);setDate(selectedDate==="all"?today:selectedDate);setComposer("open")};
+  const clearTarget=()=>{setTargetPlayer(null);onTargetConsumed?.()};
+  /** The fallback when the target has nothing open: still an ordinary public post, only the time
+      defaults to the club's normal evening slot and the note names why, rather than a private
+      invitation the board doesn't have a mechanism for. */
+  const openComposerForTarget=()=>{
+    if(!targetPlayer)return;
+    setEditingId(null);setDate(today);setStart("19:00");setDuration(180);
+    setNote(current=>current||`想約 ${targetPlayer.name} 打波，得閒可以加入。`);
+    setComposer("open");
+  };
 
   return <section className="ob-page">
     <section className="hero small">
@@ -301,28 +371,38 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
       {(data.signedIn||viewerId)&&<Button variant="primary" onClick={openComposer}>新增時段 <span aria-hidden="true">＋</span></Button>}
     </section>
 
-    <section className="ob-discovery" aria-labelledby="ob-discovery-title">
-      <h2 id="ob-discovery-title">選擇日期</h2>
-      <DateRail label="約戰日子" className="ob-day-filter">
-        <button type="button" aria-label="全部日子" aria-pressed={selectedDate==="all"} onClick={()=>setSelectedDate("all")}>
-          <b>{liveCalls.length}</b><small>全部</small>
-        </button>
-        {days.map(day=>
-          <button key={day.date} type="button" aria-label={hkDayLabel(day.date)} aria-pressed={selectedDate===day.date} onClick={()=>setSelectedDate(day.date)}>
-            <b>{day.calls||"–"}</b><small>{day.date===today?"今日":monthDay(day.date)}</small>
-          </button>)}
-      </DateRail>
-    </section>
+    {targetPlayer
+      ?<section className="ob-target-banner">
+        <div><small>約戰</small><b>{targetPlayer.name}</b>
+          {targetPlayer.rating!==null&&viewerRating!==null&&<span>ELO 相差 {Math.round(Math.abs(targetPlayer.rating-viewerRating))}</span>}
+        </div>
+        <IconButton label="清除，返回所有約戰" onClick={clearTarget}><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></IconButton>
+      </section>
+      :<section className="ob-discovery" aria-labelledby="ob-discovery-title">
+        <h2 id="ob-discovery-title">選擇日期</h2>
+        <DateRail label="約戰日子" className="ob-day-filter">
+          <button type="button" aria-label="全部日子" aria-pressed={selectedDate==="all"} onClick={()=>setSelectedDate("all")}>
+            <b>{liveCalls.length}</b><small>全部</small>
+          </button>
+          {days.map(day=>
+            <button key={day.date} type="button" aria-label={hkDayLabel(day.date)} aria-pressed={selectedDate===day.date} onClick={()=>setSelectedDate(day.date)}>
+              <b>{day.calls||"–"}</b><small>{day.date===today?"今日":monthDay(day.date)}</small>
+            </button>)}
+        </DateRail>
+      </section>}
 
     {message&&<InlineNotice tone="success" title="已更新">{message}</InlineNotice>}
     {loadError&&<InlineNotice tone="warning" title={data.date?"未能更新約戰":"未能載入約戰"}>{loadError}<Button variant="quiet" loading={refreshing} onClick={()=>void load(true)}>重試</Button></InlineNotice>}
     {error&&<InlineNotice tone="warning" title="未能完成"><span>{error}</span><Button variant="quiet" onClick={()=>void load(true)}>重試</Button></InlineNotice>}
 
     {loading?<div className="ob-loading"><Skeleton height="9rem"/><Skeleton height="9rem"/></div>:!data.date?<EmptyState title="約戰板暫時未能載入" description="稍後重試；你仍可先選擇自己的時段。" action={<Button variant="secondary" loading={refreshing} onClick={()=>void load(true)}>重新載入</Button>}/>:
-      !dayCalls.length?<OpenBoardEmpty allDates={selectedDate==="all"} free={data.free.filter(item=>hkDate(new Date(item.startAt))===(selectedDate==="all"?today:selectedDate)).slice(0,12)} signedIn={data.signedIn}
-        onOpen={(from,minutes)=>{setStart(from);setDuration(minutes);openComposer()}}/>:
+      !dayCalls.length?(targetPlayer
+        ?<EmptyState title={`${targetPlayer.name} 未開局`} description="開一局，時間夾到嘅話佢會見到，依然係公開貼上開局板，唔係私訊邀請。"
+          action={data.signedIn?<Button onClick={openComposerForTarget}>開一局，等 {targetPlayer.name} 加入</Button>:undefined}/>
+        :<OpenBoardEmpty allDates={selectedDate==="all"} free={data.free.filter(item=>hkDate(new Date(item.startAt))===(selectedDate==="all"?today:selectedDate)).slice(0,12)} signedIn={data.signedIn}
+          onOpen={(from,minutes)=>{setStart(from);setDuration(minutes);openComposer()}}/>):
       <>
-        <div className="ob-result-line"><span>{selectedDate==="all"?"所有約戰":hkDayLabel(selectedDate)} <b>{visible.length} 個</b></span></div>
+        <div className="ob-result-line"><span>{targetPlayer?`${targetPlayer.name} 開緊`:selectedDate==="all"?"所有約戰":hkDayLabel(selectedDate)} <b>{visible.length} 個</b></span></div>
         <Surface as="div" padded={false} className="ob-slot-list">
           {shownCalls.map(call=>{
             const callDate=hkDate(new Date(call.startAt));
@@ -348,8 +428,9 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
                     :<Chip tone="neutral">{fitShortLabel(fit.tier)}</Chip>}
                 </div>
                 <div className="ob-slot-roster">
-                  {call.players.map(player=><RosterChip key={player.id} call={call} player={player} settings={settings} viewerRating={viewerRating} onPlayer={onPlayer} openKey={openPopup} onToggle={setOpenPopup}/>)}
+                  {call.players.map(player=><RosterChip key={player.id} call={call} player={player} settings={settings} viewerRating={viewerRating} viewerId={data.viewerId} onPlayer={onPlayer} openKey={openPopup} onToggle={setOpenPopup} regularIds={regularIds} onToggleRegular={toggleRegular}/>)}
                 </div>
+                <TrustStrip trust={lead?.trust}/>
                 <div className="ob-slot-meta-icons">
                   <span className="ob-meta-item"><ScaleIcon/>{call.handicapPref==="even"?"平手對戰":"可以讓分"}</span>
                   <span className="ob-meta-item"><SmokingOffIcon/>{call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}</span>
@@ -389,6 +470,9 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
       onClose={()=>{if(busy)return;setComposer("closed");setEditingId(null)}} className="ob-sheet">
       <div className="ob-form">
         <p className="ob-form-lede">{editingId?"修改時間、場地或設定，其他參加者不會另外收到通知。":"揀一段時間，夾到的約戰會即時顯示在下面。"}</p>
+        {!editingId&&data.fillStats.medianMinutes!==null&&<p className="ob-fillrate">
+          <ClockIcon/><span><b>開局通常 {data.fillStats.medianMinutes} 分鐘內有人加入</b><small>過去 60 日、已成局的局統計</small></span>
+        </p>}
         <fieldset className="ob-choice"><legend>日期 <span>{hkDayLabel(date)}</span></legend>
           <DateRail label="新增時段日期" className="ob-daypick">
             {Array.from({length:14},(_,index)=>addDaysHongKong(today,index)).map(day=>
@@ -411,7 +495,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
             <div className="ob-match-detail">{opponent&&<BoardPlayerInfo player={opponent} settings={settings}/>}<MatchVerdict player={opponent} viewerRating={viewerRating} settings={settings} joined={false}/><b>{placeLabel(call)}</b><span>{clockRange(call)}</span><small>{call.players.length} 人參加 · {tempoLabel(call)} · {call.costSplit==="aa"?"AA 波鐘":"發起人找數"}</small></div>
             <Button type="button" disabled={Boolean(busy)} loading={busy===`join:${call.id}`} onClick={()=>void joinFromComposer(call)}>加入</Button>
           </div>})}
-        </section>:<p className="ob-form-lede">這段時間暫時未有其他局。開一局，等球友加入。</p>}
+        </section>:<FreePreview free={data.free.filter(item=>hkDate(new Date(item.startAt))===date)}/>}
         </>}
         <section className="ob-own-game" aria-label={editingId?"約戰設定":"開自己的局"}>
           {!editingId&&overlapping.length>0&&<h3>或者，開自己的局</h3>}
@@ -450,7 +534,13 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
               </div>
               {maxJoiners!==null&&<FormField label="最多接受多少位球友加入"><select value={maxJoiners} onChange={event=>setMaxJoiners(Number(event.target.value))}>{Array.from({length:7},(_,index)=>index+1).map(value=><option key={value} value={value}>{value} 人</option>)}</select></FormField>}
             </fieldset>
-            <FormField label="補充（可選）"><textarea value={note} onChange={event=>setNote(event.target.value)} rows={2} maxLength={300} placeholder="例：想搵水平相約的球友，新手歡迎。"/></FormField>
+            <FormField label="補充（可選）">
+              <div className="ob-note-templates">
+                {NOTE_TEMPLATES.map(template=>
+                  <button key={template} type="button" className="ob-note-template" aria-pressed={note===template} onClick={()=>setNote(note===template?"":template)}>{template}</button>)}
+              </div>
+              <textarea value={note} onChange={event=>setNote(event.target.value)} rows={2} maxLength={300} placeholder="例：想搵水平相約的球友，新手歡迎。"/>
+            </FormField>
           </div>}
         </section>
         <div className="ob-composer-footer">{!editingId&&<p>開局後會列在約戰板，等球友加入。</p>}<Button type="button" variant={!editingId&&overlapping.length?"secondary":"primary"} disabled={Boolean(busy)||!startOptions.length||!data.date} loading={busy===(editingId?`edit:${editingId}`:"create")} onClick={()=>void submitComposer()}>{editingId?"儲存修改":"確認開局"}</Button></div>
@@ -467,6 +557,19 @@ const whatsappUrl=(call:Call)=>`https://wa.me/?text=${encodeURIComponent(
   `${hkDayLabel(call.startAt.slice(0,10))} ${clockRange(call)}`+
   `\n${call.venue?call.venue.name:call.venueIntent||"場地未定"}`+
   `\n${call.players.map(player=>player.name).join("、")}`)}`;
+
+/** Turns "nobody else is on the board yet" into evidence rather than silence -- the same
+    published-availability signal the empty-day state already uses (`freeWindowsOn`), offered before
+    the member commits to posting instead of only after. Not a promise anyone will join, just proof
+    this is not a blind broadcast into an empty room. */
+function FreePreview({free}:{free:Free[]}){
+  const distinct=Array.from(new Map(free.map(item=>[item.player.id,item.player])).values()).slice(0,5);
+  if(!distinct.length)return <p className="ob-form-lede">這段時間暫時未有其他局。開一局，等球友加入。</p>;
+  return <div className="ob-free-preview">
+    <div className="ob-free-preview-stack">{distinct.map(player=><PlayerBadge key={player.id} player={player} className="ob-free-preview-avatar"/>)}</div>
+    <div><b>{distinct.length} 位球友話呢日得閒</b><span>未必保證有人加入，但唔係盲目開局</span></div>
+  </div>;
+}
 
 /** The empty state earns its place only when it carries evidence. 「今日未有局」 alone is a dead end;
     the members who said they were free that day are a reason to open one, and the button below them
@@ -604,6 +707,24 @@ const QuoteIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentCol
 const ChatIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L4 20l1.1-4.6A8.4 8.4 0 1 1 21 11.5Z"/></svg>;
 const FlagIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21h8M12 17v4M6 4h12l-1 8a5 5 0 0 1-10 0L6 4Z"/></svg>;
 const ExitIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 15 3 12l6-3M3 12h13a5 5 0 0 1 0 10h-1"/></svg>;
+const SparkIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/></svg>;
+const RepeatIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 2.1l4 4-4 4"/><path d="M3 12.6v-2a4 4 0 0 1 4-4h14"/><path d="M7 21.9l-4-4 4-4"/><path d="M21 11.4v2a4 4 0 0 1-4 4H3"/></svg>;
+const StarIcon=({filled}:{filled?:boolean})=><svg viewBox="0 0 24 24" aria-hidden="true" fill={filled?"currentColor":"none"} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="m12 3 2.9 6 6.6.6-5 4.5 1.5 6.4L12 17.3 6 20.5l1.5-6.4-5-4.5 6.6-.6z"/></svg>;
+const ClockIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>;
+const LinkIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="4"/><circle cx="15" cy="9" r="4"/><path d="M3.5 20v-1a4.5 4.5 0 0 1 4.5-4.5h0a4.5 4.5 0 0 1 4.5 4.5v1M11.5 20v-1a4.5 4.5 0 0 1 4.5-4.5h0a4.5 4.5 0 0 1 4.5 4.5v1"/></svg>;
+
+/** The one-line trust strip -- mutual opponents, games played together, or a first-open-board-post
+    welcome. Renders nothing when there is no evidence either way, rather than a filler "public" line
+    the roster/fit chip above the card already says. */
+function TrustStrip({trust}:{trust?:Trust}){
+  const line=trustLine(trust);
+  if(!line||!trust)return null;
+  const tone=trust.newHere?"new":trust.gamesTogether>0?"known":"mutual";
+  return <p className={`ob-trust ob-trust--${tone}`}>
+    {trust.newHere?<SparkIcon/>:trust.gamesTogether>0?<RepeatIcon/>:<LinkIcon/>}
+    {line}
+  </p>;
+}
 
 function BoardPlayerInfo({player,settings,onPlayer}:{player:Player;settings?:HandicapSettings|null;onPlayer?:(id:string)=>void}){
   const score=settings?suggestedHandicap(player,[],{...settings,start:settings.start??1500}):null;
@@ -613,14 +734,17 @@ function BoardPlayerInfo({player,settings,onPlayer}:{player:Player;settings?:Han
 
 /** Ratings only earn a permanent line on the card once a fit is being compared; the roster itself
     stays name-first, and ELO/suggested-handicap/fit live one tap away in this popover instead. */
-function RosterChip({call,player,settings,viewerRating,onPlayer,openKey,onToggle}:{
-  call:Call;player:Player;settings?:HandicapSettings|null;viewerRating:number|null;
+function RosterChip({call,player,settings,viewerRating,viewerId,onPlayer,openKey,onToggle,regularIds,onToggleRegular}:{
+  call:Call;player:Player;settings?:HandicapSettings|null;viewerRating:number|null;viewerId?:string|null;
   onPlayer?:(id:string)=>void;openKey:string|null;onToggle:(key:string|null)=>void;
+  regularIds?:Set<string>;onToggleRegular?:(playerId:string)=>void;
 }){
   const popKey=`player:${call.id}:${player.id}`;
   const open=openKey===popKey;
   const score=settings?suggestedHandicap(player,[],{...settings,start:settings.start??1500}):null;
   const fit=opponentFit(player.rating,viewerRating);
+  const trust=trustLine(player.trust);
+  const starred=Boolean(regularIds?.has(player.id));
   return <span className="ob-popup-anchor">
     <button type="button" className="ob-roster-chip" aria-expanded={open} onClick={()=>onToggle(open?null:popKey)}>
       <PlayerBadge player={player}/><span><b>{player.name}</b><small>ELO {Math.round(player.rating)}</small></span>
@@ -631,8 +755,12 @@ function RosterChip({call,player,settings,viewerRating,onPlayer,openKey,onToggle
       <div className="ob-popover-rows">
         <span>建議評分<b>{score??"—"}</b></span>
         {fit.tier!=="unknown"&&<span>同你合拍度<b className={`ob-fit-${fit.tier}`}>{fitShortLabel(fit.tier)}</b></span>}
+        {trust&&<span>{trust}</span>}
       </div>
       {onPlayer&&<button type="button" className="ob-popover-link" onClick={()=>onPlayer(player.id)}>睇完整球員資料 →</button>}
+      {onToggleRegular&&viewerId&&player.id!==viewerId&&<button type="button" className="ob-popover-link ob-popover-star" aria-pressed={starred} onClick={()=>onToggleRegular(player.id)}>
+        <StarIcon filled={starred}/>{starred?"已是常打對手":"加為常打對手"}
+      </button>}
     </div>}
   </span>;
 }
