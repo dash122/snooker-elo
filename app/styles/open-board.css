@@ -137,36 +137,24 @@
   .ob-loading{display:grid;gap:var(--sp-3)}
   .ob-result-line small{font-size:var(--fs-caption);font-weight:500;color:var(--ds-text-secondary)}
   .ob-date-nav>.ds-icon-button svg{width:var(--sp-4-5);height:var(--sp-4-5)}
-  /* --- the list: a dense, tappable row per 局 ------------------------------ */
-  /* Built for 50+ rows on one screen, so every row stays two lines and a button — everything a card
-     used to show inline (roster, handicap suggestion, prefs, message, host controls) now lives one
-     tap away in `CallDetail`, not on the row itself. */
-  .ob-slot-list{display:grid;gap:var(--sp-2);overflow:visible;border:0;background:transparent;box-shadow:none}
-  .ob-slot-row{display:flex;align-items:stretch;gap:var(--sp-2);overflow:hidden;border-radius:var(--radius-sm);background:var(--ds-surface-primary);box-shadow:var(--ds-elevation-1)}
+  /* --- the list: every fact on the card, nothing behind a tap ------------- */
+  /* Used to be a dense two-line row with the rest of a 局 (roster, prefs, message, host controls)
+     living one tap away in a detail sheet. Members wanted to see who's in a 局 — and hosts to manage
+     it — without opening anything, so all of that now renders directly on the card. Taller cards,
+     fewer taps: at 50+ 局 this trades scan speed for not making every glance a click. */
+  .ob-slot-list{display:grid;gap:var(--sp-3);overflow:visible;border:0;background:transparent;box-shadow:none}
+  .ob-slot-row{display:grid;gap:var(--sp-3);padding:var(--sp-3-5);border-radius:var(--radius-sm);background:var(--ds-surface-primary);box-shadow:var(--ds-elevation-1)}
   /* A full-card wash only reads as a signal when it's the exception — on a host's own board almost
      every row is "mine", so a tinted background everywhere stops meaning anything and just looks
      washed out. A slim accent edge (the trailing chip already names the "why") survives that case. */
   .ob-slot-row--mine{box-shadow:inset 3px 0 0 var(--ds-success),var(--ds-elevation-1)}
-  .ob-slot-row-tap{display:grid;gap:var(--sp-1-5);flex:1 1 auto;min-width:0;padding:var(--sp-3) var(--sp-3-5);border:0;background:transparent;color:inherit;text-align:left}
-  .ob-slot-row-tap:hover{background:var(--ds-canvas-functional)}
-  .ob-slot-row-line1{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);min-width:0}
-  .ob-slot-row-time{font-size:var(--fs-sm);font-weight:800;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ob-slot-row-fit{flex:0 0 auto;font-size:var(--fs-label);font-weight:700;color:var(--ds-text-secondary)}
+  .ob-slot-row-line1{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--sp-2);min-width:0}
+  .ob-slot-row-time{font-size:var(--fs-lead);font-weight:800;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ob-slot-row-fit{flex:0 0 auto;margin-left:auto;font-size:var(--fs-label);font-weight:700;color:var(--ds-text-secondary)}
   .ob-slot-row-fit--very-close{color:var(--ds-success)}
   .ob-slot-row-fit--similar{color:var(--ds-accent-text)}
   .ob-slot-row-fit--handicap{color:var(--ds-warning)}
-  .ob-slot-row-line2{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1-5);min-width:0;color:var(--ds-text-secondary);font-size:var(--fs-label)}
-  /* The "·" separator only belongs between two facts — when there's no opponent yet, venue is the
-     first thing on the line and shouldn't lead with a dangling bullet. */
-  .ob-slot-row-line2>.ob-slot-row-venue:not(:first-child)::before{content:"·";margin-right:var(--sp-1-5);color:var(--ds-text-tertiary)}
-  .ob-slot-row-name{color:var(--ds-text-primary);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9rem}
-  .ob-slot-row-venue{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:8rem}
-  .ob-slot-row-count::before{content:"·";margin-right:var(--sp-1-5);color:var(--ds-text-tertiary)}
-  .ob-slot-row-tag{flex:0 0 auto;padding:1px var(--sp-1-5);border-radius:var(--radius-pill);font-size:var(--fs-label);font-weight:700}
-  .ob-slot-row-tag--fits{background:var(--ds-highlight-wash);color:var(--gold-on-light)}
-  .ob-slot-action{display:flex;flex:0 0 auto;align-items:center;padding:var(--sp-2) var(--sp-3) var(--sp-2) 0}
-  .ob-slot-action>.ds-button{min-width:4rem;min-height:var(--control-sm)}
-  .ob-slot-action>.ds-chip{flex-shrink:0;white-space:nowrap}
+  .ob-slot-row-tag{flex:0 0 auto;padding:1px var(--sp-1-5);border-radius:var(--radius-pill);font-size:var(--fs-label);font-weight:700;background:var(--ds-highlight-wash);color:var(--gold-on-light)}
   .ob-load-more{display:flex;justify-content:center;padding-top:var(--sp-2)}
 
   .ob-player-info{display:flex;align-items:center;gap:var(--sp-2);min-width:0;max-width:100%;min-height:var(--control-md);padding:0;border:0;background:transparent;color:var(--ds-text-primary);text-align:left}
@@ -182,10 +170,7 @@
   .ob-match-detail .ob-match-verdict{margin-top:var(--sp-2)}
   .ob-match-detail .ob-match-verdict>b{color:var(--ds-success)}
 
-  /* --- the detail sheet: everything a row doesn't show -------------------- */
-  .ob-detail{display:grid;gap:var(--sp-4)}
-  .ob-detail-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--sp-2)}
-  .ob-detail-time{color:var(--ds-canvas-brand);font-family:var(--font-display);font-size:var(--fs-h3);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  /* --- the rest of a 局's detail, now inline on the card itself ------------ */
   .ob-detail-venue{display:grid;gap:var(--sp-1);min-width:0;padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-md);background:var(--ds-surface-secondary)}
   .ob-detail-venue>small{color:var(--ds-text-secondary);font-size:var(--fs-label)}
   .ob-detail-venue>b{font-size:var(--fs-lead)}
@@ -204,7 +189,6 @@
   @media(max-width:599px){
     .ob-day-filter button{flex-basis:3.75rem;min-height:4.75rem}
     .ob-time-summary b{font-size:var(--fs-stat)}
-    .ob-slot-row-name,.ob-slot-row-venue{max-width:6rem}
     .ob-capacity-options{grid-template-columns:minmax(0,1fr)}
     .ob-composer-footer{bottom:calc(-1 * (var(--sp-5) + var(--ds-safe-bottom)));padding-bottom:calc(var(--sp-3) + var(--ds-safe-bottom))}
   }
