@@ -48,6 +48,7 @@ const hours=(call:{startAt:string;endAt:string})=>{
 };
 const durationText=(minutes:number)=>minutes%60===0?`${minutes/60} 小時`:`${Math.floor(minutes/60)} 小時 ${minutes%60} 分`;
 const dayNumber=(date:string)=>Number(date.slice(-2));
+const monthDay=(date:string)=>`${Number(date.slice(5,7))}月${dayNumber(date)}日`;
 /* `hkDayLabel` returns "8/9（週二）" — the calendar cell already shows the day number underneath, so
    the cell wants the weekday alone. Falls back to the full label rather than an empty cell if the
    locale ever stops using the bracketed form. */
@@ -300,14 +301,14 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
     </section>
 
     <section className="ob-discovery" aria-labelledby="ob-discovery-title">
-      <div className="ob-discovery-head"><div><h2 id="ob-discovery-title">搵啱對手，再夾場地同時間</h2><p>已按對手合拍度排序，先揀日子就可以。</p></div><span>{refreshing?"更新約戰中…":`${liveCalls.length} 個約戰`}</span></div>
+      <h2 id="ob-discovery-title">選擇日期</h2>
       <DateRail label="約戰日子" className="ob-day-filter">
         <button type="button" aria-label="全部日子" aria-pressed={selectedDate==="all"} onClick={()=>setSelectedDate("all")}>
-          <small>未來 14 日</small><b>全部</b><em>{liveCalls.length}</em>
+          <b>{liveCalls.length}</b><small>全部</small>
         </button>
         {days.map(day=>
           <button key={day.date} type="button" aria-label={hkDayLabel(day.date)} aria-pressed={selectedDate===day.date} onClick={()=>setSelectedDate(day.date)}>
-            <small>{day.date===today?"今日":weekday(day.date)}</small><b>{dayNumber(day.date)}</b><em>{day.calls||"–"}</em>
+            <b>{day.calls||"–"}</b><small>{day.date===today?"今日":monthDay(day.date)}</small>
           </button>)}
       </DateRail>
     </section>

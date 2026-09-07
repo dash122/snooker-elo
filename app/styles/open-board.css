@@ -12,22 +12,16 @@
   .ob-page{display:grid;gap:var(--sp-5);width:100%;min-width:0;margin:0 auto;padding-bottom:var(--sp-6);color:var(--ds-text-primary)}
 
   /* --- discovery: opponent first, logistics second ----------------------- */
-  .ob-discovery{display:grid;gap:var(--sp-4);min-width:0;padding:var(--sp-5);border-radius:var(--radius-lg);background:radial-gradient(circle at 88% 0,var(--ds-featured-glow),transparent 38%),var(--ds-surface-featured);box-shadow:var(--ds-elevation-4)}
-  .ob-discovery-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-4);min-width:0}
-  .ob-discovery-head>div{display:grid;gap:var(--sp-1);min-width:0}
-  .ob-discovery-head h2{margin:0;color:var(--ds-text-on-brand);font-family:var(--font-display);font-size:var(--fs-h2);letter-spacing:-.03em;line-height:1.1}
-  .ob-discovery-head p{max-width:46rem;margin:0;color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption);line-height:1.5}
-  .ob-discovery-head>span{flex:0 0 auto;color:var(--ds-accent-primary);font-size:var(--fs-caption);font-weight:800}
+  .ob-discovery{display:grid;gap:var(--sp-3);min-width:0}
+  .ob-discovery h2{margin:0;color:var(--ds-text-primary);font-family:var(--font-display);font-size:var(--fs-h3);letter-spacing:-.03em;line-height:1.1}
   .ob-discovery>.ob-date-nav{min-width:0}
-  .ob-discovery>.ob-date-nav>.ds-icon-button{color:var(--ds-text-on-brand-secondary)}
-  .ob-discovery>.ob-date-nav>.ds-icon-button:disabled{opacity:.3}
-  .ob-day-filter{display:flex;gap:var(--sp-2);min-width:0;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;padding-block:var(--sp-1) var(--sp-2);scrollbar-width:thin;scrollbar-color:var(--ds-inverse-border) transparent}
-  .ob-day-filter button{display:grid;flex:0 0 4.25rem;scroll-snap-align:start;justify-items:center;align-content:center;gap:var(--sp-1);min-height:5.25rem;padding:var(--sp-3) var(--sp-2);border:1px solid var(--ds-inverse-border);border-radius:var(--radius-md);background:var(--ds-inverse-wash);color:var(--ds-text-on-brand-secondary)}
+  .ob-day-filter{display:flex;gap:var(--sp-2);min-width:0;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;padding-block:var(--sp-1) var(--sp-2);scrollbar-width:thin;scrollbar-color:var(--ds-border-muted) transparent}
+  .ob-day-filter button{display:grid;flex:0 0 4.25rem;scroll-snap-align:start;justify-items:center;align-content:center;gap:var(--sp-1);min-height:5.25rem;padding:var(--sp-3) var(--sp-2);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-md);background:var(--ds-surface-primary);color:var(--ds-text-secondary)}
+  .ob-day-filter button>b{font-size:var(--fs-stat);line-height:1;font-variant-numeric:tabular-nums;color:var(--ds-text-primary)}
   .ob-day-filter button>small{font-size:var(--fs-label);font-weight:700;line-height:1}
-  .ob-day-filter button>b{font-size:var(--fs-lead);line-height:1;font-variant-numeric:tabular-nums;color:var(--ds-text-on-brand)}
-  .ob-day-filter button>em{font-size:var(--fs-label);font-style:normal;color:var(--ds-text-on-brand-secondary)}
-  .ob-day-filter button[aria-pressed="true"]{border-color:var(--ds-surface-featured);background:var(--ds-surface-featured)}
-  .ob-day-filter button[aria-pressed="true"]>b,.ob-day-filter button[aria-pressed="true"]>em{color:var(--ds-accent-primary)}
+  .ob-day-filter button[aria-pressed="true"]{border-color:var(--ds-surface-featured);background:var(--ds-surface-featured);color:var(--ds-text-on-brand)}
+  .ob-day-filter button[aria-pressed="true"]>b{color:var(--ds-accent-primary)}
+  .ob-day-filter button[aria-pressed="true"]>small{color:var(--ds-text-on-brand-secondary)}
 
   .ob-result-line{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--sp-2);margin:0;color:var(--ds-canvas-brand);font-family:var(--font-display);font-size:var(--fs-h3);font-weight:800}
   .ob-result-line b{margin-left:var(--sp-2);color:var(--ds-accent-text);font-family:inherit;font-size:var(--fs-sm);font-weight:800}
@@ -128,7 +122,7 @@
   .ob-match-row .ds-button{flex:0 0 auto}
 
   .ob-date-nav{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:var(--sp-2);align-items:center;min-width:0}
-  .ob-date-nav>.ds-icon-button{width:var(--control-md);height:var(--control-md)}
+  .ob-date-nav>.ds-icon-button{width:var(--control-sm);height:var(--control-md)}
   .ob-date-nav>.ds-icon-button:disabled{opacity:.35;cursor:default}
   .ob-time-summary>div{display:grid;gap:var(--sp-1);min-width:0}
   .ob-time-summary small{font-size:var(--fs-label)}
@@ -195,10 +189,6 @@
   .ob-detail-actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2)}
 
   @media(max-width:599px){
-    .ob-discovery{gap:var(--sp-3);margin-inline:calc(-1 * var(--sp-2));padding:var(--sp-4) var(--sp-3);border-radius:var(--radius-md)}
-    .ob-discovery-head{align-items:flex-start}
-    .ob-discovery-head>span{display:none}
-    .ob-discovery-head h2{font-size:var(--fs-h3)}
     .ob-day-filter button{flex-basis:3.75rem;min-height:4.75rem}
     .ob-time-summary b{font-size:var(--fs-stat)}
     .ob-slot-row-name,.ob-slot-row-venue{max-width:6rem}
