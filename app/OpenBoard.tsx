@@ -321,7 +321,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
       !dayCalls.length?<OpenBoardEmpty allDates={selectedDate==="all"} free={data.free.filter(item=>hkDate(new Date(item.startAt))===(selectedDate==="all"?today:selectedDate)).slice(0,12)} signedIn={data.signedIn}
         onOpen={(from,minutes)=>{setStart(from);setDuration(minutes);openComposer()}}/>:
       <>
-        <div className="ob-result-line"><span>{selectedDate==="all"?"所有約戰":hkDayLabel(selectedDate)} <b>{visible.length} 個</b></span><small>對手合拍度 → 時間</small></div>
+        <div className="ob-result-line"><span>{selectedDate==="all"?"所有約戰":hkDayLabel(selectedDate)} <b>{visible.length} 個</b></span><small>{viewerRating!==null?"對手合拍度 → 時間":"時間"}</small></div>
         <Surface as="div" padded={false} className="ob-slot-list">
           {shownCalls.map(call=>{
             const callDate=hkDate(new Date(call.startAt));
@@ -336,15 +336,14 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
                   <span className={`ob-slot-row-fit ob-slot-row-fit--${fit.tier}`}>{fitShortLabel(fit.tier)}</span>
                 </div>
                 <div className="ob-slot-row-line2">
-                  <span className="ob-slot-row-name">{lead?lead.name:"公開招募"}</span>
+                  {lead&&<span className="ob-slot-row-name">{lead.name}</span>}
                   <span className="ob-slot-row-venue">{placeLabel(call)}</span>
                   <span className="ob-slot-row-count">{call.players.length}{call.maxPlayers?`/${call.maxPlayers}`:""} 人</span>
                   {call.fits&&!call.joined&&<span className="ob-slot-row-tag ob-slot-row-tag--fits">夾到你</span>}
-                  {isHost&&<span className="ob-slot-row-tag ob-slot-row-tag--host">你是主揪</span>}
                 </div>
               </button>
               <div className="ob-slot-action">
-                {call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
+                {isHost?<Chip tone="accent">你是主揪</Chip>:call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
               </div>
             </article>;
           })}
@@ -472,7 +471,7 @@ function CallDetail({call,viewerId,viewerRating,signedIn,settings,busy,cancelCon
           {cancelConfirm===call.id
             ?<><Button variant="danger" disabled={Boolean(busy)} loading={busy===`cancel:${call.id}`} onClick={()=>onCancel(call)}>確定取消？</Button>
               <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>onCancelConfirm(null)}>算了</Button></>
-            :<Button variant="quiet" disabled={Boolean(busy)} onClick={()=>onCancelConfirm(call.id)}>取消局</Button>}
+            :<Button variant="quiet" className="ob-quiet-danger" disabled={Boolean(busy)} onClick={()=>onCancelConfirm(call.id)}>取消局</Button>}
         </>:call.joined&&<Button variant="quiet" disabled={Boolean(busy)} loading={busy===`leave:${call.id}`} onClick={()=>onLeave(call)}>我去不到</Button>}
       </div>
     </div>

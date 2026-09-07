@@ -143,9 +143,10 @@
      tap away in `CallDetail`, not on the row itself. */
   .ob-slot-list{display:grid;gap:var(--sp-2);overflow:visible;border:0;background:transparent;box-shadow:none}
   .ob-slot-row{display:flex;align-items:stretch;gap:var(--sp-2);overflow:hidden;border-radius:var(--radius-sm);background:var(--ds-surface-primary);box-shadow:var(--ds-elevation-1)}
-  /* "You're in this" is the same green wash the timeline view (mm-slot.is-mine) uses for the
-     identical state — gold stays reserved for the fit/highlight accent, not doubled up here. */
-  .ob-slot-row--mine{background:var(--ds-success-wash);box-shadow:0 0 0 1px var(--ds-success-wash-border)}
+  /* A full-card wash only reads as a signal when it's the exception — on a host's own board almost
+     every row is "mine", so a tinted background everywhere stops meaning anything and just looks
+     washed out. A slim accent edge (the trailing chip already names the "why") survives that case. */
+  .ob-slot-row--mine{box-shadow:inset 3px 0 0 var(--ds-success),var(--ds-elevation-1)}
   .ob-slot-row-tap{display:grid;gap:var(--sp-1-5);flex:1 1 auto;min-width:0;padding:var(--sp-3) var(--sp-3-5);border:0;background:transparent;color:inherit;text-align:left}
   .ob-slot-row-tap:hover{background:var(--ds-canvas-functional)}
   .ob-slot-row-line1{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);min-width:0}
@@ -155,12 +156,14 @@
   .ob-slot-row-fit--similar{color:var(--ds-accent-text)}
   .ob-slot-row-fit--handicap{color:var(--ds-warning)}
   .ob-slot-row-line2{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1-5);min-width:0;color:var(--ds-text-secondary);font-size:var(--fs-label)}
+  /* The "·" separator only belongs between two facts — when there's no opponent yet, venue is the
+     first thing on the line and shouldn't lead with a dangling bullet. */
+  .ob-slot-row-line2>.ob-slot-row-venue:not(:first-child)::before{content:"·";margin-right:var(--sp-1-5);color:var(--ds-text-tertiary)}
   .ob-slot-row-name{color:var(--ds-text-primary);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9rem}
   .ob-slot-row-venue{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:8rem}
-  .ob-slot-row-venue::before,.ob-slot-row-count::before{content:"·";margin-right:var(--sp-1-5);color:var(--ds-text-tertiary)}
+  .ob-slot-row-count::before{content:"·";margin-right:var(--sp-1-5);color:var(--ds-text-tertiary)}
   .ob-slot-row-tag{flex:0 0 auto;padding:1px var(--sp-1-5);border-radius:var(--radius-pill);font-size:var(--fs-label);font-weight:700}
   .ob-slot-row-tag--fits{background:var(--ds-highlight-wash);color:var(--gold-on-light)}
-  .ob-slot-row-tag--host{background:var(--ds-canvas-muted);color:var(--ds-text-secondary)}
   .ob-slot-action{display:flex;flex:0 0 auto;align-items:center;padding:var(--sp-2) var(--sp-3) var(--sp-2) 0}
   .ob-slot-action>.ds-button{min-width:4rem;min-height:var(--control-sm)}
   .ob-slot-action>.ds-chip{flex-shrink:0;white-space:nowrap}
@@ -194,6 +197,9 @@
   .ob-slot-note{font-style:italic}
   .ob-slot-meta .ob-handicap{flex:0 0 auto}
   .ob-detail-actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2)}
+  /* iOS reserves red for the destructive action alone — "取消局" sat at the same quiet weight as
+     "編輯" with nothing marking it as the one that can't be undone. */
+  .ob-quiet-danger{color:var(--ds-danger)}
 
   @media(max-width:599px){
     .ob-day-filter button{flex-basis:3.75rem;min-height:4.75rem}
