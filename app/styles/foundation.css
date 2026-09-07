@@ -7,7 +7,7 @@
   /* `globals.css` normalises `button,input,select{font:inherit}` but omits textarea, so every
      textarea in the app fell back to the UA default family — visibly a different typeface from the
      field above it. Fixed here rather than by extending that rule, because `legacy` is the last
-     layer: the `font` shorthand would also reset font-size and undo `.ds-field textarea`'s
+     layer: the `font` shorthand would also reset font-size and undo `.ds-field textarea`s
      `--fs-input`, which exists to stop iOS zooming the page on focus. Family only, size left alone. */
   textarea{font-family:inherit}
   /* A <label> wrapping a field is almost always the flex/grid item that field's row lays out —

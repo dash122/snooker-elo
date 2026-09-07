@@ -2,8 +2,8 @@
  *
  * One card shape for one object. A 局 with one participant and a 局 with four differ by a status
  * chip and a count, not by layout, because they are the same thing at different moments — so there
- * is no second card class here, and adding one would be re-introducing the pool/game split the
- * design deliberately collapsed.
+ * is no second card class here, and adding one would re-introduce the pool/game split the design
+ * deliberately collapsed.
  *
  * Weight is spent once per card: the time is the entry point, money reads gold, house rules read
  * quiet. Only a 局 the viewer has joined gets a tinted ground. */
@@ -92,10 +92,44 @@
 
   /* --- composer ----------------------------------------------------------- */
   .ob-sheet,.ob-sheet .ds-field,.ob-sheet .ds-field>div,.ob-form{min-width:0}
-  .ob-form{display:grid;gap:var(--sp-4);padding-top:var(--sp-3)}
+  .ob-form{display:grid;gap:var(--sp-4-5);padding-top:var(--sp-3)}
   .ob-form-lede{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
-  .ob-form-times{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--sp-3)}
   .ob-sheet select,.ob-sheet input,.ob-sheet textarea{max-width:100%}
+
+  /* Fourteen days as a 7x2 grid: every option visible, nothing behind a swipe. Cells are given
+     real height and gap so the grid reads as a calendar rather than a wall of buttons. */
+  .ob-daypick{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--sp-1-5);min-width:0}
+  .ob-daypick button{display:grid;justify-items:center;align-content:center;gap:var(--sp-1);min-height:3.5rem;padding:var(--sp-2) var(--sp-1);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);background:var(--ds-surface-primary);color:var(--ds-text-secondary)}
+  .ob-daypick button>small{font-size:var(--fs-label);font-weight:800;line-height:1}
+  .ob-daypick button>b{font-size:var(--fs-lead);line-height:1;font-variant-numeric:tabular-nums}
+  .ob-daypick button[aria-pressed="true"]{border-color:var(--ds-surface-featured);background:var(--ds-surface-featured);color:var(--ds-text-on-brand)}
+  .ob-daypick button[aria-pressed="true"]>b{color:var(--ds-accent-primary)}
+
+  /* --- the window: two sliders over one timeline -------------------------- */
+  .ob-window{display:grid;gap:var(--sp-3);padding:var(--sp-4);border:1px solid var(--ds-success-wash-border);border-radius:var(--ds-radius-card);background:var(--ds-success-wash)}
+  .ob-window-read{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-2);margin:0;min-width:0}
+  .ob-window-read b{color:var(--ds-accent-action);font-size:var(--fs-stat);line-height:1;font-variant-numeric:tabular-nums}
+  .ob-window-read i{color:var(--ds-text-tertiary);font-size:var(--fs-lead);font-style:normal}
+  .ob-window-read small{margin-left:auto;color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:800}
+
+  /* The chosen window drawn against the playing day, so the two numbers become a shape. */
+  .ob-timeline{position:relative;height:2.25rem;min-width:0;border-radius:var(--radius-xs);background:var(--ds-surface-primary);border:1px solid var(--ds-border-subtle)}
+  .ob-timeline-span{position:absolute;top:0;bottom:1rem;border-radius:var(--radius-xs);background:var(--ds-accent-action)}
+  .ob-timeline em{position:absolute;bottom:.1rem;transform:translateX(-50%);color:var(--ds-text-tertiary);font-size:var(--fs-label);font-style:normal;font-weight:700;font-variant-numeric:tabular-nums}
+  .ob-timeline em:first-of-type{transform:translateX(0)}
+  .ob-timeline em:last-of-type{transform:translateX(-100%)}
+
+  .ob-slider{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:var(--sp-3);min-width:0}
+  .ob-slider>span{color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:800}
+  .ob-slider>b{min-width:4.5rem;color:var(--ds-text-primary);font-size:var(--fs-sm);font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+  .ob-slider input[type="range"]{width:100%;min-width:0;height:var(--control-md);margin:0;background:transparent;appearance:none;-webkit-appearance:none}
+  .ob-slider input[type="range"]::-webkit-slider-runnable-track{height:.375rem;border-radius:var(--radius-pill);background:var(--ds-border-muted)}
+  .ob-slider input[type="range"]::-moz-range-track{height:.375rem;border-radius:var(--radius-pill);background:var(--ds-border-muted)}
+  /* A thumb large enough to hit on a phone: the whole point of moving off chips was that a 44px
+     target beats a 28-item scroll rail. */
+  .ob-slider input[type="range"]::-webkit-slider-thumb{width:1.5rem;height:1.5rem;margin-top:-.5625rem;border:2px solid var(--ds-surface-primary);border-radius:var(--radius-pill);background:var(--ds-accent-action);box-shadow:var(--ds-elevation-2);appearance:none;-webkit-appearance:none}
+  .ob-slider input[type="range"]::-moz-range-thumb{width:1.5rem;height:1.5rem;border:2px solid var(--ds-surface-primary);border-radius:var(--radius-pill);background:var(--ds-accent-action);box-shadow:var(--ds-elevation-2)}
+  .ob-window-hint,.ob-window-empty{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-label);line-height:1.5}
 
   .ob-seg{display:flex;gap:var(--sp-1);padding:var(--sp-1);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);background:var(--ds-surface-secondary)}
   .ob-seg button{flex:1;min-height:var(--control-sm);border:0;border-radius:var(--radius-xs);background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:800}
@@ -104,6 +138,22 @@
   .ob-more{display:flex;align-items:center;gap:var(--sp-2);min-height:var(--control-md);padding:0 var(--sp-3);border:1px dashed var(--ds-border-strong);border-radius:var(--radius-sm);background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:700;text-align:left}
   .ob-more>span{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ds-text-tertiary);font-size:var(--fs-caption);font-weight:500}
   .ob-more-panel{display:grid;gap:var(--sp-4)}
+
+  /* --- venue picker ------------------------------------------------------- */
+  .ob-venue{display:grid;gap:var(--sp-2);min-width:0}
+  .ob-venue-list{display:grid;gap:var(--sp-1);max-height:13rem;min-width:0;padding:var(--sp-1);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);background:var(--ds-surface-secondary);overflow-y:auto}
+  .ob-venue-list button{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-1) var(--sp-2);min-height:var(--control-md);min-width:0;padding:var(--sp-2) var(--sp-2-5);border:1px solid transparent;border-radius:var(--radius-xs);background:var(--ds-surface-primary);color:var(--ds-text-primary);text-align:left}
+  .ob-venue-list button>i{flex:0 0 1rem;color:var(--ds-accent-primary);font-size:var(--fs-sm);font-style:normal;font-weight:800}
+  .ob-venue-list button>b{font-size:var(--fs-sm);font-weight:700;overflow-wrap:anywhere}
+  .ob-venue-list button>small{color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
+  /* Selected reads as the felt panel the rest of the app uses for "this one", not a pale wash —
+     the earlier tint was too close to the unselected surface to register at a glance. */
+  .ob-venue-list button[aria-pressed="true"]{border-color:var(--ds-surface-featured);background:var(--ds-surface-featured);color:var(--ds-text-on-brand);box-shadow:var(--ds-elevation-2)}
+  .ob-venue-list button[aria-pressed="true"]>small{color:var(--ds-text-on-brand-secondary)}
+  .ob-venue-add{display:flex;align-items:center;justify-content:center;min-height:var(--control-md);padding:0 var(--sp-3);border:1px dashed var(--ds-accent-soft);border-radius:var(--radius-sm);background:var(--ds-highlight-wash);color:var(--ds-accent-text);font-size:var(--fs-sm);font-weight:700;overflow-wrap:anywhere}
+  .ob-venue-new{display:grid;gap:var(--sp-2-5);padding:var(--sp-3);border:1px solid var(--ds-accent-soft);border-radius:var(--radius-sm);background:var(--ds-highlight-wash)}
+  .ob-venue-new-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2)}
+  .ob-venue-error{margin:0;color:var(--ds-danger);font-size:var(--fs-caption);font-weight:700}
 
   .ob-match{display:grid;gap:var(--sp-2);padding:var(--sp-3);border:1px solid var(--ds-success-wash-border);border-radius:var(--radius-sm);background:var(--ds-success-wash)}
   .ob-match>b{color:var(--ds-success);font-size:var(--fs-sm)}
@@ -116,46 +166,6 @@
   .ob-or{display:flex;align-items:center;gap:var(--sp-3);margin:0;color:var(--ds-text-tertiary);font-size:var(--fs-label);font-weight:800}
   .ob-or::before,.ob-or::after{content:"";flex:1;height:1px;background:var(--ds-border-subtle)}
 
-
-  /* --- live window controls ----------------------------------------------
-     Chips rather than selects: a member picking a time should see what is available and what is
-     gone, which a collapsed dropdown cannot show. Each rail scrolls rather than wraps so the sheet
-     keeps a predictable height as the options change under it. */
-  .ob-window-echo{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-1-5) var(--sp-2-5);margin:0;padding:var(--sp-2-5) var(--sp-3);border-radius:var(--radius-sm);background:var(--ds-success-wash);border:1px solid var(--ds-success-wash-border)}
-  .ob-window-echo b{font-size:var(--fs-sm);font-weight:800}
-  .ob-window-echo span{color:var(--ds-accent-action);font-size:var(--fs-lead);font-weight:800;font-variant-numeric:tabular-nums}
-  .ob-window-echo small{color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700}
-
-  .ob-daypick,.ob-timepick{display:flex;gap:var(--sp-1-5);min-width:0;padding-bottom:var(--sp-1);overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;scrollbar-width:none}
-  .ob-daypick::-webkit-scrollbar,.ob-timepick::-webkit-scrollbar{display:none}
-  .ob-daypick button{flex:0 0 3.25rem;display:grid;justify-items:center;gap:var(--sp-1);min-height:var(--control-lg);padding:var(--sp-1-5) var(--sp-1);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);background:var(--ds-surface-primary);color:var(--ds-text-secondary);scroll-snap-align:start}
-  .ob-daypick button>small{font-size:var(--fs-label);font-weight:800}
-  .ob-daypick button>b{font-size:var(--fs-lead);line-height:1;font-variant-numeric:tabular-nums}
-  .ob-timepick button{flex:0 0 auto;min-height:var(--control-md);padding:0 var(--sp-3);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-pill);background:var(--ds-surface-primary);color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:700;font-variant-numeric:tabular-nums;scroll-snap-align:start}
-  .ob-daypick button[aria-pressed="true"],.ob-timepick button[aria-pressed="true"]{border-color:var(--ds-surface-featured);background:var(--ds-surface-featured);color:var(--ds-text-on-brand)}
-  .ob-daypick button[aria-pressed="true"]>b{color:var(--ds-accent-primary)}
-  .ob-timepick-empty{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
-
-  .ob-durations{display:grid;grid-template-columns:repeat(auto-fit,minmax(5.5rem,1fr));gap:var(--sp-1-5);min-width:0}
-  .ob-durations button{display:grid;justify-items:center;gap:var(--sp-1);min-height:var(--control-lg);padding:var(--sp-1-5) var(--sp-1);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);background:var(--ds-surface-primary);color:var(--ds-text-secondary)}
-  .ob-durations button>b{font-size:var(--fs-sm);font-weight:800}
-  .ob-durations button>small{font-size:var(--fs-label);font-variant-numeric:tabular-nums;color:var(--ds-text-tertiary)}
-  .ob-durations button[aria-pressed="true"]{border-color:var(--ds-accent-action);background:var(--ds-success-wash);color:var(--ds-accent-action)}
-  .ob-durations button[aria-pressed="true"]>small{color:var(--ds-accent-action)}
-
-  /* --- venue picker ------------------------------------------------------- */
-  .ob-venue{display:grid;gap:var(--sp-2);min-width:0}
-  .ob-venue-list{display:grid;gap:var(--sp-1);max-height:13rem;min-width:0;padding:var(--sp-1);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);background:var(--ds-surface-secondary);overflow-y:auto}
-  .ob-venue-list button{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-1) var(--sp-2);min-height:var(--control-sm);min-width:0;padding:var(--sp-1-5) var(--sp-2-5);border:1px solid transparent;border-radius:var(--radius-xs);background:transparent;color:var(--ds-text-primary);text-align:left}
-  .ob-venue-list button>b{font-size:var(--fs-sm);font-weight:700;overflow-wrap:anywhere}
-  .ob-venue-list button>small{color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
-  .ob-venue-list button[aria-pressed="true"]{border-color:var(--ds-accent-action);background:var(--ds-surface-primary);color:var(--ds-accent-action)}
-  .ob-venue-list button[aria-pressed="true"]>small{color:var(--ds-accent-action)}
-  .ob-venue-add{display:flex;align-items:center;justify-content:center;min-height:var(--control-md);padding:0 var(--sp-3);border:1px dashed var(--ds-accent-soft);border-radius:var(--radius-sm);background:var(--ds-highlight-wash);color:var(--ds-accent-text);font-size:var(--fs-sm);font-weight:700;overflow-wrap:anywhere}
-  .ob-venue-new{display:grid;gap:var(--sp-2-5);padding:var(--sp-3);border:1px solid var(--ds-accent-soft);border-radius:var(--radius-sm);background:var(--ds-highlight-wash)}
-  .ob-venue-new-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2)}
-  .ob-venue-error{margin:0;color:var(--ds-danger);font-size:var(--fs-caption);font-weight:700}
-
   @media(max-width:820px){
     .ob-page{gap:var(--sp-4)}
     .ob-list{grid-template-columns:minmax(0,1fr)}
@@ -165,17 +175,21 @@
     .ob-head{display:grid;grid-template-columns:minmax(0,1fr)}
     .ob-head .ds-button{width:100%}
     .ob-head h1{font-size:var(--fs-h3)}
-    /* Fourteen cells will not fit seven-wide on a phone, so the grid becomes a scrolling rail —
-       still fourteen days, still one tap each, without shrinking the target below the minimum. */
+    /* Fourteen cells will not fit seven-wide on a phone, so the board's own calendar becomes a
+       scrolling rail — the composer's picker stays a grid, four across, because a form the member
+       is filling in should never hide an option behind a gesture. */
     .ob-cal-grid{display:flex;gap:var(--sp-1-5);margin-inline:calc(-1 * var(--sp-1));padding-inline:var(--sp-1);overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;scrollbar-width:none}
     .ob-cal-grid::-webkit-scrollbar{display:none}
     .ob-cal-grid button{flex:0 0 3.5rem;scroll-snap-align:start}
+    .ob-daypick{grid-template-columns:repeat(4,minmax(0,1fr))}
     .ob-filters{flex-wrap:nowrap;margin-inline:calc(-1 * var(--sp-1));padding-inline:var(--sp-1);overflow-x:auto;scrollbar-width:none}
     .ob-filters::-webkit-scrollbar{display:none}
     .ob-actions>*{flex:1 1 100%}
     .ob-actions .ds-button{min-height:var(--control-md)}
+    .ob-slider{grid-template-columns:auto minmax(0,1fr);row-gap:var(--sp-1)}
+    .ob-slider>b{grid-column:2;text-align:left}
   }
   @media(max-width:380px){
-    .ob-form-times{grid-template-columns:minmax(0,1fr)}
+    .ob-daypick{grid-template-columns:repeat(3,minmax(0,1fr))}
   }
 }

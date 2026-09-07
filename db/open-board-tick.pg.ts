@@ -9,8 +9,8 @@ import { completeEndedCalls } from "./open-board.pg";
  * two are not: "three hours before" and "the morning after" are moments, not actions, so something
  * has to come looking for them.
  *
- * This sweep is idempotent — each send stamps its own column and the queries exclude anything
- * already stamped — so it is safe to call from a cron, from a page load, or from both at once. That
+ * This sweep is idempotent -- each send stamps its own column and the queries exclude anything
+ * already stamped -- so it is safe to call from a cron, from a page load, or from both at once. That
  * matters because the project has no scheduler today: called opportunistically it still works,
  * merely later than intended, and adding a cron later makes it punctual without changing anything
  * here. The board's GET calls it for exactly that reason.
@@ -19,6 +19,14 @@ import { completeEndedCalls } from "./open-board.pg";
 const REMIND_WITHIN_HOURS = 3;
 
 type Recipient = {call_id:string;player_id:string;start_at:Date;end_at:Date;venue:string|null;players:string};
+
+function groupByCall(rows:Recipient[]){
+  const byCall=new Map<string,Recipient[]>();
+  for(const row of rows){
+    const list=byCall.get(row.call_id)??[];list.push(row);byCall.set(row.call_id,list);
+  }
+  return byCall;
+}
 
 /** Games starting within the next three hours that have reached two participants and have not been
     reminded. Deliberately silent for a 局 still on one person: there is nothing to turn up to yet,
@@ -43,10 +51,7 @@ async function sendReminders(){
     FROM ready JOIN open_call_players ocp ON ocp.call_id=ready.id`;
   if(!due.length)return 0;
 
-  const byCall=new Map<string,Recipient[]>();
-  for(const row of due){
-    const list=byCall.get(row.call_id)??[];list.push(row);byCall.set(row.call_id,list);
-  }
+  const byCall=groupByCall(due);
   for(const [callId,rows] of byCall){
     const first=rows[0];
     await notifyPlayers(rows.map(row=>row.player_id),gameReminder(Number(first.players),
@@ -59,7 +64,8 @@ async function sendReminders(){
 }
 
 /** The morning after a finished 局, once per 局. The only message in the set that asks for anything,
-    and the only reason to come back — a recorded result is what turns an evening into ELO. */
+    and the only reason to come back -- a recorded result is what turns an evening into ELO.
+    Bounded to 48 hours so a backfill or an outage never mails members about last month's games. */
 async function sendResultPrompts(){
   const sql=getSql();
   const due=await sql<Recipient[]>`
@@ -73,10 +79,7 @@ async function sendResultPrompts(){
       AND (SELECT count(*) FROM open_call_players WHERE call_id=c.id) >= 2`;
   if(!due.length)return 0;
 
-  const byCall=new Map<string,Recipient[]>();
-  for(const row of due){
-    const list=byCall.get(row.call_id)??[];list.push(row);byCall.set(row.call_id,list);
-  }
+  const byCall=groupByCall(due);
   for(const [callId,rows] of byCall){
     const first=rows[0];
     await notifyPlayers(rows.map(row=>row.player_id),

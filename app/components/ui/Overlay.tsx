@@ -7,8 +7,8 @@ const CloseIcon=()=> <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 7 1
  *
  *  Every overlay here traps focus in an effect whose cleanup restores focus to whatever was focused
  *  before it opened. Listing `onClose` in that effect's dependencies looked harmless, but call sites
- *  pass an inline arrow (`onClose={()=>!busy&&setOpen(false)}`), which is a new function on every
- *  render — so *any* state change inside an open overlay tore the effect down and set it up again.
+ *  pass an inline arrow — `onClose={()=>!busy&&setOpen(false)}` — which is a new function on every
+ *  render, so *any* state change inside an open overlay tore the effect down and set it up again.
  *  The visible symptom was a text field losing focus after a single keystroke: the cleanup moved
  *  focus back to the trigger, then the setup moved it to the overlay's first control.
  *

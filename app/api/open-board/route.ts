@@ -1,8 +1,8 @@
 import { requireMember } from "../../../db/auth";
 import { createCall, freeWindowsOn, readBoard, readCall, type CreateCallInput, type Tempo } from "../../../db/open-board";
+import { tickOpenBoard } from "../../../db/open-board-tick";
 import { announceOpenCall } from "../../../db/matchmaking-actions.pg";
 import { hkDate, validateAvailabilityInterval } from "../../../lib/availability";
-import { tickOpenBoard } from "../../../db/open-board-tick";
 
 /* Readable without signing in, like the board it renders: a 局 is a public notice by definition, and
    hiding it behind auth would defeat the point. Signing in only adds the viewer's own overlap —

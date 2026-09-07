@@ -9,8 +9,11 @@ import { findOrCreateVenue } from "../../../../db/open-board";
  * from filling the list with near-duplicates.
  *
  * A venue is a public-facing record, so it is deliberately the only thing on this board a member can
- * create that outlives their own 局. If that turns out to need moderation, the lever is an `active`
- * flag that already exists on the table rather than a permission check here. */
+ * create that outlives their own 局. If that turns out to need moderation, the lever is the `active`
+ * flag that already exists on the table rather than a permission check here.
+ *
+ * Note this sits at a static path under the same segment as `[id]`; static segments win, and call
+ * ids are UUIDs, so "venues" can never be mistaken for one. */
 export async function POST(request:Request){
   const member=await requireMember();
   if(!member)return Response.json({error:"請先登入。"},{status:401});

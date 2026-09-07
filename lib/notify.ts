@@ -140,9 +140,9 @@ export function cupRedrawn(cupName:string,opponent:string|null,roundName:string)
 export function gameFormed(names:string[],slot:Interval,venue?:string|null):NotificationMessage {
   const who=names.length>2?`${names.slice(0,2).join("、")} 等 ${names.length} 人`:names.join("、");
   return {
-    channel:"openCall", title:`成局：${when(slot)}`,
+    channel:"openCall",title:`成局：${when(slot)}`,
     body:withVenue(`${who}參加。`,venue),
-    tag:"open-board:formed", urgency:urgencyFor(slot), ttl:untilSlot(slot), url:"/?tab=availability",
+    tag:"open-board:formed",urgency:urgencyFor(slot),ttl:untilSlot(slot),url:"/?tab=availability",
   };
 }
 
@@ -151,9 +151,9 @@ export function gameFormed(names:string[],slot:Interval,venue?:string|null):Noti
     attending, so the only thing this has to carry is the way out for the member who cannot come. */
 export function gameReminder(count:number,slot:Interval,venue?:string|null):NotificationMessage {
   return {
-    channel:"openCall", title:withVenue(`今日 ${when(slot)}`,venue),
+    channel:"openCall",title:withVenue(`今日 ${when(slot)}`,venue),
     body:`${count} 人參加。如常出席的話不用理會這則通知；去不到請在 app 內按「我去不到」，讓其他人知道。`,
-    tag:"open-board:reminder", urgency:"high", ttl:untilSlot(slot), url:"/?tab=availability",
+    tag:"open-board:reminder",urgency:"high",ttl:untilSlot(slot),url:"/?tab=availability",
   };
 }
 
@@ -162,8 +162,8 @@ export function gameReminder(count:number,slot:Interval,venue?:string|null):Noti
     group chat can do for them. */
 export function resultPrompt(slot:Interval,venue?:string|null):NotificationMessage {
   return {
-    channel:"result", title:"昨天打成怎樣？",
+    channel:"result",title:"昨天打成怎樣？",
     body:withVenue(`${when(slot)} 的一局 — 記錄賽果，計入 ELO 與對賽紀錄。`,venue),
-    tag:"open-board:result", urgency:"low", url:"/?tab=availability",
+    tag:"open-board:result",urgency:"low",url:"/?tab=availability",
   };
 }

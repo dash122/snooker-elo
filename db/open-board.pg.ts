@@ -208,9 +208,9 @@ export type JoinResult = {ok:true;filled:boolean;players:number}|{ok:false;reaso
 
 /** Join, first come first served, no approval step.
  *
- *  The insert is guarded by a SELECT inside the same transaction so two members tapping 加入 at the
- *  same moment cannot both take the last capped seat. `filled` reports the 1→2 transition only, so
- *  the caller knows to send 成局 once rather than on every subsequent join. */
+ *  The insert is guarded by a row lock taken in the same transaction so two members tapping 加入 at
+ *  the same moment cannot both take the last capped seat. `filled` reports the 1->2 transition only,
+ *  so the caller knows to send 成局 once rather than on every subsequent join. */
 export async function joinCall(id:string,playerId:string):Promise<JoinResult>{
   const sql=getSql();
   return sql.begin(async tx=>{
@@ -264,9 +264,9 @@ export async function readCall(id:string,viewerId:string|null=null){
  *
  *  Member-created rather than admin-only, because the board is meant to work across Hong Kong and a
  *  club that can only name its own room is a club-only board. Deduplicated case-insensitively on
- *  name so the directory does not silently accumulate 「南華會」/「南華會 」/「南華会」 as three
- *  venues — an existing match is returned instead of a second row, which is also what a member who
- *  typed a name that already exists actually wants.
+ *  name so the directory does not silently accumulate 「南華會」/「南華會 」 as two venues -- an
+ *  existing match is returned instead of a second row, which is also what a member who typed a name
+ *  that already exists actually wants.
  *
  *  `tables` is left empty: the count matters to the venue board's overlap maths, not to a 局, and
  *  guessing it here would put an invented number in front of everyone. */
