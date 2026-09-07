@@ -343,9 +343,9 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
                   <span className="ob-slot-place"><b>{placeLabel(call)}</b>
                     <span>{[call.venue?.district||call.venueIntent,tempoLabel(call),call.costSplit==="aa"?"AA 波鐘":"主揪找數"].filter(Boolean).join(" · ")}</span>
                   </span>
-                  {fit.tier!=="unknown"?<span className={`ob-chip ob-chip--fit-${fit.tier}`}>{fitShortLabel(fit.tier)}</span>
-                    :call.fits&&!call.joined?<span className="ob-chip ob-chip--fits">夾到你</span>
-                    :<span className="ob-chip ob-chip--ghost">{fitShortLabel(fit.tier)}</span>}
+                  {fit.tier!=="unknown"?<Chip tone={fit.tier==="very-close"?"success":fit.tier==="similar"?"accent":"warning"}>{fitShortLabel(fit.tier)}</Chip>
+                    :call.fits&&!call.joined?<Chip tone="accent">夾到你</Chip>
+                    :<Chip tone="neutral">{fitShortLabel(fit.tier)}</Chip>}
                 </div>
                 <div className="ob-slot-roster">
                   {call.players.map(player=><RosterChip key={player.id} call={call} player={player} settings={settings} viewerRating={viewerRating} onPlayer={onPlayer} openKey={openPopup} onToggle={setOpenPopup}/>)}
@@ -359,15 +359,15 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
                 {call.message&&<p className="ob-slot-quote"><QuoteIcon/>{call.message}</p>}
                 <div className="ob-slot-foot">
                   {isHost?<Chip tone="accent">你是主揪</Chip>:call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
-                  <span className="ob-slot-foot-acts">
+                  <span className="card-tools">
                     {isHost?<>
-                      <IconButton label="編輯約戰" disabled={Boolean(busy)} onClick={()=>openEditor(call)}><EditIcon/></IconButton>
+                      <IconButton className="card-tool" label="編輯約戰" disabled={Boolean(busy)} onClick={()=>openEditor(call)}>✎</IconButton>
                       {cancelConfirm===call.id
                         ?<><Button variant="danger" disabled={Boolean(busy)} loading={busy===`cancel:${call.id}`} onClick={()=>cancelSlot(call)}>確定取消？</Button>
                           <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(null)}>算了</Button></>
-                        :<IconButton label="取消局" className="ob-quiet-danger" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(call.id)}><TrashIcon/></IconButton>}
+                        :<IconButton className="card-tool danger" label="取消局" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(call.id)}>✕</IconButton>}
                     </>:call.joined&&<span className="ob-popup-anchor">
-                      <IconButton label="更多動作" onClick={()=>setOpenPopup(openPopup===menuKey?null:menuKey)}><DotsIcon/></IconButton>
+                      <IconButton className="card-tool" label="更多動作" onClick={()=>setOpenPopup(openPopup===menuKey?null:menuKey)}>⋯</IconButton>
                       {openPopup===menuKey&&<div className="ob-action-menu" role="menu">
                         <a className="ob-action-menu-item" href={whatsappUrl(call)} target="_blank" rel="noreferrer" onClick={()=>setOpenPopup(null)}><ChatIcon/>WhatsApp 傾偈</a>
                         {canRecord&&<button type="button" className="ob-action-menu-item" onClick={()=>{setOpenPopup(null);onRecord!(call.players.find(player=>player.id!==data.viewerId)!.id)}}><FlagIcon/>記錄賽果</button>}
@@ -594,13 +594,13 @@ function DateRail({label,className,children}:{label:string;className:string;chil
   </div>;
 }
 
-const EditIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>;
-const TrashIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7m2 0-.7 12.1A2 2 0 0 1 14.3 21H9.7a2 2 0 0 1-2-1.9L7 7"/></svg>;
+/* Meta-row icons stay small inline SVGs (informational, not buttons); edit/delete/more use the
+   app's existing `.card-tool` glyph-button pattern (see globals.css) instead of drawn icons, to
+   match how every other card in the app — match, cup, player — renders its own edit/delete. */
 const ScaleIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v18M5 7h14M5 7l-2 5a3 3 0 0 0 6 0L5 7Zm14 0l-2 5a3 3 0 0 0 6 0l-2-5"/></svg>;
 const SmokingOffIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg>;
 const PeopleIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="2.6"/><path d="M3.5 19v-1a4.5 4.5 0 0 1 4.5-4.5h0a4.5 4.5 0 0 1 4.5 4.5v1"/><circle cx="17" cy="9" r="2"/><path d="M15.3 19v-.6a3.7 3.7 0 0 1 2.8-3.6"/></svg>;
 const QuoteIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M7 8c-2 0-3 1.5-3 3.5S5 15 7 15c.3 2-1 3.5-3 4M17 8c-2 0-3 1.5-3 3.5s1 3.5 3 3.5c.3 2-1 3.5-3 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-const DotsIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>;
 const ChatIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L4 20l1.1-4.6A8.4 8.4 0 1 1 21 11.5Z"/></svg>;
 const FlagIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21h8M12 17v4M6 4h12l-1 8a5 5 0 0 1-10 0L6 4Z"/></svg>;
 const ExitIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 15 3 12l6-3M3 12h13a5 5 0 0 1 0 10h-1"/></svg>;
