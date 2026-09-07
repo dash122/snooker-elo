@@ -12,7 +12,11 @@ import { addDaysHongKong, hkDate } from "../lib/availability";
  * different shape and are not part of this redesign. Both read the same two tables.
  */
 
-export type BoardPlayer = { id:string; name:string; short:string|null; rating:number; colour:string|null; avatar:string|null };
+/** Evidence for the "should I join this stranger" moment, derived entirely from match history and
+    open-board history that already exist -- never a follow/friend graph. `undefined` for the viewer's
+    own roster entry, since nobody needs trust signals about themselves. */
+export type BoardTrust = { gamesTogether:number; mutualOpponents:number; newHere:boolean };
+export type BoardPlayer = { id:string; name:string; short:string|null; rating:number; colour:string|null; avatar:string|null; trust?:BoardTrust };
 export type BoardVenue = { id:string; name:string; district:string };
 export type Tempo = "sport"|"casual";
 
@@ -34,10 +38,16 @@ export type BoardCall = {
 
 export type BoardDay = { date:string; calls:number; fits:boolean };
 
+/** How quickly a 局 usually stops being 等多 1 人 -- the answer to "will anyone actually come" the
+    composer shows before a member commits to posting. `null` sampleSize means too little history to
+    say anything honest yet, and the composer falls back to plain encouragement rather than a number. */
+export type FillStats = { medianMinutes:number|null; sampleSize:number };
+
 export type Board = {
   days:BoardDay[];
   calls:BoardCall[];
   venues:BoardVenue[];
+  fillStats:FillStats;
 };
 
 /** A member who said they were free that day but is in no 局 -- the "今日未有局" state's evidence
@@ -107,12 +117,81 @@ function overlapTester(windows:{startAt:number;endAt:number}[]){
   };
 }
 
+/** Mutual opponents and games played together, batched into two queries for every other player
+    appearing on this board load rather than one pair of queries per card. Both read only
+    `state_matches` that already exist -- this is evidence, not a new relationship to model.
+    `newHere` reads `open_call_players` the same way: a player whose only row is the one that put
+    them on this board has never posted or joined before. */
+async function computeTrust(viewerId:string|null,otherIds:string[]):Promise<Map<string,BoardTrust>>{
+  const map=new Map<string,BoardTrust>();
+  if(!viewerId||!otherIds.length)return map;
+  for(const id of otherIds)map.set(id,{gamesTogether:0,mutualOpponents:0,newHere:true});
+  const sql=getSql();
+  const [together,mutual,history]=await Promise.all([
+    sql<{other_id:string;games:string}[]>`
+      SELECT CASE WHEN player_a=${viewerId} THEN player_b ELSE player_a END AS other_id, count(*)::text AS games
+      FROM state_matches
+      WHERE status='confirmed'
+        AND ((player_a=${viewerId} AND player_b=ANY(${otherIds}::text[]))
+          OR (player_b=${viewerId} AND player_a=ANY(${otherIds}::text[])))
+      GROUP BY other_id`,
+    sql<{other_id:string;mutual:string}[]>`
+      WITH viewer_opp AS (
+        SELECT DISTINCT CASE WHEN player_a=${viewerId} THEN player_b ELSE player_a END AS opp
+        FROM state_matches WHERE status='confirmed' AND (player_a=${viewerId} OR player_b=${viewerId})
+      ), other_opp AS (
+        SELECT player_a AS other_id, player_b AS opp FROM state_matches
+          WHERE status='confirmed' AND player_a=ANY(${otherIds}::text[])
+        UNION ALL
+        SELECT player_b AS other_id, player_a AS opp FROM state_matches
+          WHERE status='confirmed' AND player_b=ANY(${otherIds}::text[])
+      )
+      SELECT other_id, count(*) FILTER (WHERE opp<>${viewerId} AND opp IN (SELECT opp FROM viewer_opp))::text AS mutual
+      FROM other_opp WHERE other_id<>${viewerId}
+      GROUP BY other_id`,
+    sql<{player_id:string;total:string}[]>`
+      SELECT player_id, count(DISTINCT call_id)::text AS total
+      FROM open_call_players WHERE player_id=ANY(${otherIds}::text[])
+      GROUP BY player_id`,
+  ]);
+  for(const row of together){const entry=map.get(row.other_id);if(entry)entry.gamesTogether=Number(row.games);}
+  for(const row of mutual){const entry=map.get(row.other_id);if(entry)entry.mutualOpponents=Number(row.mutual);}
+  for(const row of history){const entry=map.get(row.player_id);if(entry)entry.newHere=Number(row.total)<=1;}
+  return map;
+}
+
+/** The composer's "usually fills in ~N min" stat: the median time between a 局 being posted and its
+    second participant joining, over the last 60 days of 局 that did fill. A 局 nobody ever joined
+    contributes nothing here -- it would only understate how fast the *successful* case moves. */
+async function fillRateStats():Promise<FillStats>{
+  const sql=getSql();
+  const [row]=await sql<{median:number|null;n:string}[]>`
+    WITH second_join AS (
+      SELECT call_id, joined_at,
+        row_number() OVER (PARTITION BY call_id ORDER BY joined_at) AS rn
+      FROM open_call_players
+    ), filled AS (
+      SELECT c.created_at, sj.joined_at
+      FROM second_join sj JOIN open_calls c ON c.id=sj.call_id
+      WHERE sj.rn=2 AND c.created_at > now()-interval '60 days'
+    )
+    SELECT percentile_cont(0.5) WITHIN GROUP (
+        ORDER BY EXTRACT(EPOCH FROM (joined_at-created_at))/60
+      ) AS median,
+      count(*)::text AS n
+    FROM filled`;
+  const sampleSize=Number(row?.n??"0");
+  // Ten is a floor, not a tuned threshold: below it a median is one or two 局 pretending to be a
+  // trend, and the composer would rather say nothing than quote a fake-precise number.
+  return {medianMinutes:sampleSize>=10&&row?.median!=null?Math.round(row.median):null,sampleSize};
+}
+
 /** Load the bounded fortnight once. Counts and overlap markers come from the same
  * rows, avoiding separate count/fit queries and per-date network round trips. */
 export async function readBoard(viewerId:string|null,date:string,days=14):Promise<Board>{
   const sql=getSql();
   const from=hkDate(),to=addDaysHongKong(from,days);
-  const [windows,rows,venues]=await Promise.all([
+  const [windows,rows,venues,fillStats]=await Promise.all([
     viewerWindows(viewerId),
     sql.unsafe(`SELECT ${callColumns}
       WHERE c.status='open' AND c.end_at>now()
@@ -120,14 +199,20 @@ export async function readBoard(viewerId:string|null,date:string,days=14):Promis
         AND c.start_at < ($2::date AT TIME ZONE 'Asia/Hong_Kong')
       ORDER BY c.start_at ASC`,[from,to]),
     sql<BoardVenue[]>`SELECT id,name,district FROM venues WHERE active ORDER BY name`,
+    fillRateStats(),
   ]);
-  const calls=rows.map(row=>hydrate(row,viewerId,overlapTester(windows)));
+  let calls=rows.map(row=>hydrate(row,viewerId,overlapTester(windows)));
+  const otherIds=Array.from(new Set(calls.flatMap(call=>call.players.map(player=>player.id)).filter(id=>id!==viewerId)));
+  const trust=await computeTrust(viewerId,otherIds);
+  if(trust.size)calls=calls.map(call=>({...call,
+    players:call.players.map(player=>player.id===viewerId?player:{...player,trust:trust.get(player.id)}),
+  }));
   const list=Array.from({length:days},(_,index)=>{
     const day=addDaysHongKong(from,index);
     const items=calls.filter(call=>hkDate(new Date(call.startAt))===day);
     return {date:day,calls:items.length,fits:items.some(call=>call.fits)};
   });
-  return {days:list,calls:date==="all"?calls:calls.filter(call=>hkDate(new Date(call.startAt))===date),venues};
+  return {days:list,calls:date==="all"?calls:calls.filter(call=>hkDate(new Date(call.startAt))===date),venues,fillStats};
 }
 
 /** Members who published time on a day that holds no 局 -- the only reason the empty state is worth

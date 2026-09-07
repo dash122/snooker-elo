@@ -232,6 +232,53 @@
   .ob-match-detail .ob-match-verdict{margin-top:var(--sp-2)}
   .ob-match-detail .ob-match-verdict>b{color:var(--ds-success)}
 
+  /* --- trust strip: mutual opponents, games together, first-open-board-post ---------------------
+     One line, added evidence only -- it never replaces the ELO/fit chip above it, only gives a
+     reason beyond ELO to join a stranger's 局. */
+  .ob-trust{display:flex;align-items:center;gap:var(--sp-1-5);margin:0;padding:var(--sp-1-5) var(--sp-2-5);border-radius:var(--radius-xs);background:var(--ds-success-wash);border:1px solid var(--ds-success-wash-border);color:var(--ds-text-primary);font-size:var(--fs-label);font-weight:700}
+  .ob-trust svg{width:.85rem;height:.85rem;flex:none;color:var(--ds-success)}
+  .ob-trust--new{background:var(--ds-highlight-wash);border-color:var(--ds-accent-soft)}
+  .ob-trust--new svg{color:var(--ds-accent-text)}
+
+  /* --- composer reassurance: fill-rate stat, free-players preview, note templates ---------------- */
+  .ob-fillrate{position:relative;display:flex;align-items:center;gap:var(--sp-2-5);margin:0;padding:var(--sp-3) var(--sp-3-5);border-radius:var(--radius-sm);background:var(--ds-highlight-wash);border:1px solid var(--ds-accent-soft)}
+  .ob-fillrate svg{width:1.1rem;height:1.1rem;flex:none;color:var(--ds-accent-text)}
+  .ob-fillrate b{display:block;font-size:var(--fs-sm)}
+  .ob-fillrate small{display:block;color:var(--ds-text-secondary);font-size:var(--fs-label)}
+
+  .ob-free-preview{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-3-5);border-radius:var(--radius-sm);background:var(--ds-success-wash);border:1px solid var(--ds-success-wash-border)}
+  .ob-free-preview-stack{display:flex;flex:none}
+  .ob-free-preview-avatar{width:1.75rem;height:1.75rem;font-size:var(--fs-label);border:2px solid var(--ds-success-wash);margin-left:-.5rem}
+  .ob-free-preview-avatar:first-child{margin-left:0}
+  .ob-free-preview b{display:block;font-size:var(--fs-sm)}
+  .ob-free-preview span{display:block;color:var(--ds-text-secondary);font-size:var(--fs-label)}
+
+  .ob-note-templates{display:flex;flex-wrap:wrap;gap:var(--sp-1-5);margin-bottom:var(--sp-2)}
+  .ob-note-template{padding:var(--sp-1) var(--sp-2-5);border:1px dashed var(--ds-accent-soft);border-radius:var(--radius-pill);background:var(--ds-surface-primary);color:var(--ds-accent-text);font-size:var(--fs-label);font-weight:700}
+  .ob-note-template[aria-pressed="true"]{border-style:solid;background:var(--ds-accent-pale)}
+
+  /* --- 約戰 target mode: filtered to one player, from a profile's find-opponent button ------------ */
+  .ob-target-banner{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-md);background:radial-gradient(120% 90% at 82% -10%,var(--ds-featured-glow),transparent 60%),linear-gradient(135deg,var(--baize) 0%,var(--baize-deep) 100%);color:var(--ds-text-on-brand);box-shadow:var(--ds-elevation-3)}
+  .ob-target-banner small{display:block;font-size:var(--fs-label);font-weight:700;color:var(--ds-text-on-brand-secondary);text-transform:uppercase;letter-spacing:.05em}
+  .ob-target-banner b{display:block;font-size:var(--fs-h3);font-family:var(--font-display)}
+  .ob-target-banner span{display:block;margin-top:var(--sp-1);font-size:var(--fs-caption);color:var(--ds-text-on-brand-secondary)}
+  .ob-target-banner .ds-icon-button{background:transparent;border-color:var(--ds-inverse-border);color:var(--ds-text-on-brand)}
+
+  /* --- 加為常打對手: the star toggle inside a roster chip's popover ------------------------------- */
+  .ob-popover-star{display:flex;align-items:center;gap:var(--sp-1-5);color:var(--ds-accent-text)}
+  .ob-popover-star svg{width:.9rem;height:.9rem;flex:none}
+  .ob-popover-star[aria-pressed="true"]{color:var(--ds-success)}
+
+  /* --- post-match "加為常打對手" nudge -------------------------------------------------------------
+     Fixed near the top rather than sharing the bottom toast's spot: it can appear in the same beat as
+     the save confirmation, and the two must never visually stack. Low pressure by design -- a plain
+     card, not a scrim-backed modal blocking the rest of the screen. */
+  .regular-prompt{position:fixed;z-index:30;left:50%;top:calc(var(--ds-safe-top) + var(--sp-4));transform:translateX(-50%);display:grid;gap:var(--sp-2-5);width:min(23rem,calc(100vw - var(--sp-5)));padding:var(--sp-4);border-radius:var(--radius-md);background:var(--ds-surface-primary);border:1px solid var(--ds-accent-soft);box-shadow:var(--ds-elevation-5)}
+  .regular-prompt b{font-size:var(--fs-sm);font-weight:800}
+  .regular-prompt span{font-size:var(--fs-caption);color:var(--ds-text-secondary);line-height:1.5}
+  .regular-prompt>div{display:flex;gap:var(--sp-2)}
+  .regular-prompt>div .ds-button{flex:1}
+
   @media(max-width:599px){
     .ob-day-filter button{flex-basis:3.75rem;min-height:4.75rem}
     .ob-time-summary b{font-size:var(--fs-stat)}

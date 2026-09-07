@@ -607,8 +607,16 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const [availabilityDirty,setAvailabilityDirty] = useState(false);
   const [leavingAvailability,setLeavingAvailability] = useState<string|null>(null);
   const [pendingConfirm,setPendingConfirm] = useState<{kicker:string;title:string;description:string;confirmLabel:string;onConfirm:()=>void}|null>(null);
+  /** The post-match "加為常打對手" nudge -- set only when a freshly-saved 1v1 result is the first
+      confirmed match between the viewer and their opponent. A personal, one-directional star, not a
+      follow request: see db/regulars.pg.ts. */
+  const [regularPrompt,setRegularPrompt] = useState<{id:string;name:string}|null>(null);
   const askConfirm=(opts:{kicker:string;title:string;description:string;confirmLabel:string;onConfirm:()=>void})=>setPendingConfirm(opts);
-  const [,setJumpToAvailability] = useState<{playerId:string;date:string}|null>(null);
+  /** Set by a player's 約戰 button; consumed once by `OpenBoard` (see `findOpponentTarget` below) so
+      the matchmaking tab opens focused on that person instead of the generic board. A fresh object on
+      every tap, including a repeat tap on the same player, is what lets `OpenBoard` re-focus even when
+      the id has not changed. */
+  const [jumpToAvailability,setJumpToAvailability] = useState<{playerId:string;date:string}|null>(null);
   const [matchesView,setMatchesView] = useState<"history"|"calendar"|"cup"|"matrix">("history");
   const [headToHead,setHeadToHead] = useState({a:"",b:""});
   const [highlightMatch,setHighlightMatch] = useState<string|null>(null);
@@ -1007,6 +1015,14 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     setJumpToAvailability({playerId,date});
     goTab("availability");
   };
+  /** Resolved fresh on every `jumpToAvailability` change (a new object even on a repeat tap of the
+      same player -- see its declaration) so `OpenBoard` can filter the board to this one person
+      instead of the dead jump the button used to be. */
+  const findOpponentTarget=useMemo(()=>{
+    if(!jumpToAvailability)return null;
+    const player=data.players.find(candidate=>candidate.id===jumpToAvailability.playerId);
+    return player?{id:player.id,name:player.name,rating:player.rating}:null;
+  },[jumpToAvailability,data.players]);
 
   function saveMatch(){
     if(saving)return;
@@ -1032,6 +1048,13 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       match.beforeA2=a2!.rating;match.beforeB2=b2!.rating;
       match.afterA2=a2!.rating;match.afterB2=b2!.rating;
     }
+    // Checked against the *old* `data.matches`, before this match joins it, and only for a genuinely
+    // new 1v1 result the viewer played themselves -- not an edit, not 2v2/cup (paired by bracket or
+    // teams, not by choice), not a match an admin is logging on someone else's behalf.
+    const firstPairing=valid1v1&&!editingMatch&&ownPlayerId&&(a.id===ownPlayerId||b.id===ownPlayerId)
+      ?(a.id===ownPlayerId?b:a):null;
+    const isNewPairing=Boolean(firstPairing)&&!data.matches.some(existing=>
+      existing.status==="confirmed"&&((existing.a===a.id&&existing.b===b.id)||(existing.a===b.id&&existing.b===a.id)));
     const matches=editingMatch
       ? data.matches.map(existing=>existing.id===editingMatch.id?match:existing)
       : [match,...data.matches];
@@ -1049,7 +1072,15 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     setHeadToHead({a:ownPlayerId&&(match.a===ownPlayerId||match.b===ownPlayerId)?ownPlayerId:"",b:""});
     setHighlightMatch(id); setMatchesView("history"); setTab("matches");
     persist(next,valid2v2?(editingMatch?"潮拍 2v2 已更新；ELO 與統計維持不變。":"潮拍 2v2 賽果已儲存；ELO 與統計維持不變。"):(validCup?(editingMatch?"盃賽賽果已更新。":"盃賽賽果已儲存。"):(editingMatch?"賽事已更新，所有後續 ELO 已重建。":"賽果已儲存，雙方 ELO 已更新。")));
+    if(isNewPairing&&firstPairing)setRegularPrompt({id:firstPairing.id,name:firstPairing.name});
   }
+
+  const addRegularNow=()=>{
+    if(!regularPrompt)return;
+    void fetch("/api/regulars",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({playerId:regularPrompt.id})})
+      .catch(()=>{/* best effort -- worst case the member stars them again from the board later */});
+    setRegularPrompt(null);
+  };
 
   function editMatch(m:Match){
     if(!canManageMatch(m)){setToast("你只能修改自己參與的比賽。");return;}
@@ -1372,7 +1403,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
       {/* 開局板 replaces the formation flow: one object (局), joined in one tap, with availability
           demoted from a screen to the signal behind the 「配合我的時間」 filter and the calendar dot. */}
-      {tab==="availability"&&<OpenBoard key={ownPlayerId??"guest"} viewerId={ownPlayerId} viewerRating={data.players.find(player=>player.id===ownPlayerId)?.rating??null} settings={data.settings} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking}/>}
+      {tab==="availability"&&<OpenBoard key={ownPlayerId??"guest"} viewerId={ownPlayerId} viewerRating={data.players.find(player=>player.id===ownPlayerId)?.rating??null} settings={data.settings} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} managementMode={Boolean(isAdmin&&managementMode)} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
       </>}
@@ -1461,6 +1492,14 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     {leavingAvailability&&<ConfirmDialog kicker="未儲存的變更" titleId="leave-availability-title" title="離開後變更會消失" description="你在「可配對」的時段變更尚未儲存，離開這一頁後不會保留。" onClose={()=>setLeavingAvailability(null)}><Button variant="secondary" onClick={()=>setLeavingAvailability(null)}>留在此頁</Button><Button variant="danger" onClick={()=>{const next=leavingAvailability;setLeavingAvailability(null);setAvailabilityDirty(false);setHighlightMatch(null);setTab(next)}}>捨棄變更離開</Button></ConfirmDialog>}
     {pendingConfirm&&<ConfirmDialog kicker={pendingConfirm.kicker} titleId="pending-confirm-title" title={pendingConfirm.title} description={pendingConfirm.description} onClose={()=>setPendingConfirm(null)}><Button variant="secondary" onClick={()=>setPendingConfirm(null)}>取消</Button><Button variant="danger" onClick={()=>{const run=pendingConfirm.onConfirm;setPendingConfirm(null);run()}}>{pendingConfirm.confirmLabel}</Button></ConfirmDialog>}
     {toast&&<div className={`toast${undoSnapshot?" toast-expiring":""}`} role="status"><span>{toast}</span>{undoSnapshot&&<Button variant="quiet" onClick={undoDelete}>復原</Button>}</div>}
+    {regularPrompt&&<div className="regular-prompt" role="status">
+      <b>你哋第一次對戰</b>
+      <span>加 {regularPrompt.name} 做常打對手？之後佢開局會標「打過」，佢唔會收到通知，你隨時可以喺約戰板移除。</span>
+      <div>
+        <Button variant="primary" onClick={addRegularNow}>加為常打對手</Button>
+        <Button variant="quiet" onClick={()=>setRegularPrompt(null)}>而家唔使</Button>
+      </div>
+    </div>}
   </AppShell></>;
 }
 
@@ -3614,6 +3653,7 @@ function PlayerUpcomingSlots({player,onFindOpponent}:{player:Player;onFindOppone
     <div className="profile-section-head">
       <div><p className="kicker">約戰時間</p><h3>即將可約的時段</h3></div>
       <span className="profile-slots-count">{slots===null?"載入中…":total?`${groups!.length} 天 · ${total} 個時段`:"未有時段"}</span>
+      <Button variant="secondary" onClick={()=>onFindOpponent(player.id,today)}>約戰</Button>
     </div>
     <div className="profile-slots-body">
       {slots===null
