@@ -1,0 +1,105 @@
+
+> scaa-snooker-elo@1.0.0 build
+> vinext build
+
+
+  vinext build  (Vite 8.0.13)
+
+[1/5] analyze client references...
+[2K
+transforming...✓ 313 modules transformed.
+rendering chunks...
+✓ built in 1.05s
+[2/5] analyze server references...
+[2K
+transforming...✓ 151 modules transformed.
+rendering chunks...
+✓ built in 145ms
+[3/5] build rsc environment...
+[2K
+transforming...✓ 319 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 964ms
+[4/5] build client environment...
+[2K
+transforming...✓ 163 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 269ms
+[5/5] build ssr environment...
+[2K
+transforming...✓ 152 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 187ms
+[0m
+  Route (app)
+  ┌ ƒ /                                          
+  ├ ƒ /account                                   
+  ├ ƒ /admin                                     
+  ├ ƒ /admin/reports                             
+  ├ λ /api/account/deactivate                    
+  ├ λ /api/account/google                        
+  ├ λ /api/account/password                      
+  ├ λ /api/account/profile                       
+  ├ λ /api/admin/members                         
+  ├ λ /api/admin/snapshots                       
+  ├ λ /api/analytics                             
+  ├ λ /api/auth/check                            
+  ├ λ /api/auth/google                           
+  ├ λ /api/auth/google/callback                  
+  ├ λ /api/auth/login                            
+  ├ λ /api/auth/logout                           
+  ├ λ /api/auth/register                         
+  ├ λ /api/availability                          
+  ├ λ /api/availability/:id                      
+  ├ λ /api/availability/now                      
+  ├ λ /api/availability/recurring                
+  ├ λ /api/cup-og/:id                            
+  ├ λ /api/intents                               
+  ├ λ /api/intents/:id                           
+  ├ λ /api/invites                               
+  ├ λ /api/invites/:id                           
+  ├ λ /api/matchmaking/bootstrap                 
+  ├ λ /api/matchmaking/formation                 
+  ├ λ /api/matchmaking/formation/availability/:id
+  ├ λ /api/matchmaking/formation/sessions        
+  ├ λ /api/matchmaking/formation/sessions/:id    
+  ├ λ /api/matchmaking/summary                   
+  ├ λ /api/matchmaking/week                      
+  ├ λ /api/offers                                
+  ├ λ /api/offers/:id                            
+  ├ λ /api/onboarding                            
+  ├ λ /api/open-board                            
+  ├ λ /api/open-board/:id                        
+  ├ λ /api/open-board/venues                     
+  ├ λ /api/open-calls                            
+  ├ λ /api/open-calls/:id                        
+  ├ λ /api/presence                              
+  ├ λ /api/room                                  
+  ├ λ /api/sessions                              
+  ├ λ /api/state                                 
+  ├ λ /api/tournaments/:id/draw                  
+  ├ λ /api/tournaments/:id/redraw                
+  ├ λ /api/venues                                
+  ├ λ /api/venues/:id                            
+  ├ ƒ /c/:id                                     
+  ├ ? /elo-guide                                 
+  ├ ƒ /login                                     
+  ├ ƒ /logout                                    
+  ├ ƒ /m/:id                                     
+  ├ ƒ /onboarding                                
+  ├ ƒ /p/:id                                     
+  ├ ? /register                                  
+  ├ ? /shootout                                  
+  └ ƒ /ui-gallery                                
+
+  λ API  ƒ Dynamic  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+

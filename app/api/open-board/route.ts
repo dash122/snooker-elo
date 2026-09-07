@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { requireMember } from "../../../db/auth";
 import { createCall, freeWindowsOn, readBoard, readCall, type CreateCallInput, type Tempo } from "../../../db/open-board";
 import { tickOpenBoard } from "../../../db/open-board-tick";
@@ -38,17 +39,11 @@ export async function GET(request:Request){
     const viewerId=member?.statePlayerId??null;
     const url=new URL(request.url);
     const requested=url.searchParams.get("date");
-    const date=requested&&DATE.test(requested)?requested:hkDate();
-    /* No scheduler exists in this project yet, so the two time-based messages ride on whatever
-       traffic the board gets. The sweep is idempotent and returns on two indexed queries when
-       nothing is due, so this costs a live board nothing; adding a cron later makes it punctual
-       without changing this call. Never allowed to break a read. */
-    try{ await tickOpenBoard(); }catch{ /* a late reminder must not cost anyone the board */ }
-    const board=await readBoard(viewerId,date);
-    /* The empty state is only worth showing when it has evidence behind it: "今日未有局" alone is a
-       dead end, but "這幾位曾說過今日得閒" is a reason to open one. Skipped entirely when the day
-       already has 局, so the common path pays nothing for it. */
-    const free=board.calls.length?[]:await freeWindowsOn(date);
+    const date=requested==="all"?"all":requested&&DATE.test(requested)?requested:hkDate();
+    const [board,free]=await Promise.all([readBoard(viewerId,date),freeWindowsOn(date)]);
+    // Start only after the read: Vinext starts after() callbacks immediately, so
+    // registering earlier would compete with the board for database connections.
+    after(async()=>{try{await tickOpenBoard()}catch{/* best effort reminders */}});
     return Response.json({date,signedIn:Boolean(viewerId),viewerId,...board,free},
       {headers:{"cache-control":"no-store"}});
   }catch(error){
