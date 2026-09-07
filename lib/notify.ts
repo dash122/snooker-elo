@@ -125,3 +125,45 @@ export function cupRedrawn(cupName:string,opponent:string|null,roundName:string)
     tag:`cup-draw:${cupName}`,url:"/?tab=matches&view=cup",urgency:"normal",
   };
 }
+
+/* --- 開局板 ---------------------------------------------------------------
+ *
+ * Three messages, and only the last asks the member to do anything. A club app is not a social
+ * network: we cannot assume anybody opens it between one game and the next, so each of these has to
+ * be complete on its own, and the one sent before a game must not require a reply from the people
+ * who are simply going to turn up.
+ *
+ * Written in 書面語, unlike the older composers above — the 開局板 copy is written throughout. */
+
+/** A 局 just reached two participants, which is the only threshold this product has. Sent once, on
+    the 1→2 transition, to everyone in it. */
+export function gameFormed(names:string[],slot:Interval,venue?:string|null):NotificationMessage {
+  const who=names.length>2?`${names.slice(0,2).join("、")} 等 ${names.length} 人`:names.join("、");
+  return {
+    channel:"openCall",title:`成局：${when(slot)}`,
+    body:withVenue(`${who}參加。`,venue),
+    tag:"open-board:formed",urgency:urgencyFor(slot),ttl:untilSlot(slot),url:"/?tab=availability",
+  };
+}
+
+/** Three hours out. Deliberately has no "confirm" action: asking everyone to tap yes is asking
+    everyone to open the app, which is the assumption we are not allowed to make. Silence means
+    attending, so the only thing this has to carry is the way out for the member who cannot come. */
+export function gameReminder(count:number,slot:Interval,venue?:string|null):NotificationMessage {
+  return {
+    channel:"openCall",title:withVenue(`今日 ${when(slot)}`,venue),
+    body:`${count} 人參加。如常出席的話不用理會這則通知；去不到請在 app 內按「我去不到」，讓其他人知道。`,
+    tag:"open-board:reminder",urgency:"high",ttl:untilSlot(slot),url:"/?tab=availability",
+  };
+}
+
+/** The morning after. The only message in the set that asks for something, and the only reason a
+    member has to come back — a recorded result is what turns a game into ELO, which is the thing no
+    group chat can do for them. */
+export function resultPrompt(slot:Interval,venue?:string|null):NotificationMessage {
+  return {
+    channel:"result",title:"昨天打成怎樣？",
+    body:withVenue(`${when(slot)} 的一局 — 記錄賽果，計入 ELO 與對賽紀錄。`,venue),
+    tag:"open-board:result",urgency:"low",url:"/?tab=availability",
+  };
+}
