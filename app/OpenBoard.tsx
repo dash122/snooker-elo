@@ -258,7 +258,15 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
 
     <section className="ob-discovery" aria-labelledby="ob-discovery-title">
       <div className="ob-discovery-head"><div><h2 id="ob-discovery-title">搵啱對手，再夾場地同時間</h2><p>已按對手合拍度排序，先揀日子就可以。</p></div><span>{refreshing?"更新約戰中…":`${liveCalls.length} 個約戰`}</span></div>
-      <div className="ob-discovery-date"><FormField label="日子"><select value={selectedDate} onChange={event=>setSelectedDate(event.target.value)}><option value="all">未來十四日 · 全部</option>{days.map(day=><option key={day.date} value={day.date}>{day.date===today?"今日":hkDayLabel(day.date)} · {day.calls} 局</option>)}</select></FormField></div>
+      <DateRail label="約戰日子" className="ob-day-filter">
+        <button type="button" aria-label="全部日子" aria-pressed={selectedDate==="all"} onClick={()=>setSelectedDate("all")}>
+          <small>未來 14 日</small><b>全部</b><em>{liveCalls.length}</em>
+        </button>
+        {days.map(day=>
+          <button key={day.date} type="button" aria-label={hkDayLabel(day.date)} aria-pressed={selectedDate===day.date} onClick={()=>setSelectedDate(day.date)}>
+            <small>{day.date===today?"今日":weekday(day.date)}</small><b>{dayNumber(day.date)}</b><em>{day.calls||"–"}</em>
+          </button>)}
+      </DateRail>
     </section>
 
     {message&&<InlineNotice tone="success" title="已更新">{message}</InlineNotice>}
