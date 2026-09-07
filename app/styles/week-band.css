@@ -20,23 +20,36 @@
   .wb-head h2{margin:0;font-size:var(--fs-h2);letter-spacing:-.02em;line-height:1.25}
   .wb-head p{margin:0;font-size:var(--fs-sm);color:var(--ds-text-on-brand-secondary);line-height:1.55}
 
-  /* --- 七晚密度 ---------------------------------------------------------- */
-  .wb-week{display:grid;grid-template-columns:repeat(7,1fr);gap:var(--sp-1);
-    padding:var(--sp-2) var(--sp-3) var(--sp-1);background:var(--ds-canvas-brand);align-items:end}
-  .wb-day{display:grid;gap:var(--sp-1);justify-items:center;align-content:end;position:relative;
-    min-height:var(--control-md);padding:var(--sp-1) 2px var(--sp-2-5);border:0;border-radius:var(--radius-sm);
+  /* --- 七晚密度 ----------------------------------------------------------
+     The bar is the answer to "which night" — it gets the height budget and the
+     colour contrast. Everything else on the tile (number, weekday) is a label
+     for that bar, not a competing figure, so both shrink and mute relative to
+     it. The selected tile needs to read as a lit object, not a 10% tint, so it
+     gets its own fill + a ring rather than a wash indistinguishable from hover. */
+  .wb-week{display:grid;grid-template-columns:repeat(7,1fr);gap:var(--sp-1-5);
+    padding:var(--sp-3) var(--sp-2-5) var(--sp-1-5);background:var(--ds-canvas-brand);align-items:end}
+  .wb-day{display:grid;gap:var(--sp-1-5);justify-items:center;align-content:end;position:relative;
+    min-height:6.25rem;padding:var(--sp-2) 2px var(--sp-2-5);border:0;border-radius:var(--radius-md);
     background:none;color:var(--ds-text-on-brand);cursor:pointer;
-    transition:background var(--ds-duration-fast) var(--ds-ease-standard)}
-  .wb-day.active{background:var(--ds-inverse-wash)}
-  .wb-day b{font-size:var(--fs-body);font-weight:750;line-height:1;font-variant-numeric:tabular-nums}
+    transition:background var(--ds-duration-fast) var(--ds-ease-standard),
+      box-shadow var(--ds-duration-fast) var(--ds-ease-standard),transform var(--ds-duration-fast) var(--ds-ease-standard)}
+  .wb-day:hover{background:var(--ds-inverse-wash-soft)}
+  .wb-day.active{background:var(--ds-inverse-wash);box-shadow:inset 0 0 0 1.5px var(--ds-accent-primary);
+    transform:translateY(-1px)}
+  .wb-day b{font-size:var(--fs-sm);font-weight:750;line-height:1;color:var(--ds-text-on-brand-secondary);
+    font-variant-numeric:tabular-nums}
+  .wb-day.active b{font-size:var(--fs-lead);color:var(--ds-accent-primary)}
   .wb-day small{font-size:var(--fs-label);color:var(--ds-text-on-brand-secondary);letter-spacing:.04em}
   .wb-day.active small{color:var(--ds-text-on-brand);font-weight:750}
-  .wb-day-bar{display:block;width:100%;max-width:22px;min-height:8px;border-radius:var(--radius-2xs) var(--radius-2xs) 2px 2px;
-    background:var(--ds-chart-primary)}
-  .wb-day-bar.hot{background:var(--ds-accent-primary)}
-  .wb-day-bar.cold{background:var(--ds-icon-muted)}
+  .wb-day-bar{display:block;width:100%;max-width:30px;min-height:9px;border-radius:var(--radius-2xs) var(--radius-2xs) 2px 2px;
+    background:var(--ds-chart-primary);opacity:.55;transition:height var(--ds-duration-standard) var(--ds-ease-standard),
+      opacity var(--ds-duration-fast) var(--ds-ease-standard)}
+  .wb-day.active .wb-day-bar{opacity:1}
+  .wb-day-bar.hot{background:var(--ds-accent-primary);opacity:.85}
+  .wb-day.active .wb-day-bar.hot{opacity:1}
+  .wb-day-bar.cold{background:var(--ds-icon-muted);opacity:.4}
   /* Under the weekday, where nothing else sits. At the top it landed on the headcount. */
-  .wb-day-mark{position:absolute;bottom:0;width:14px;height:3px;border-radius:2px;
+  .wb-day-mark{position:absolute;bottom:2px;width:14px;height:3px;border-radius:2px;
     background:var(--ds-accent-primary)}
   .wb-week-foot{display:flex;justify-content:space-between;gap:var(--sp-2);margin:0;
     padding:0 var(--sp-4) var(--sp-3);background:var(--ds-canvas-brand);
@@ -168,11 +181,13 @@
 
   @media (max-width: 599px){
     .wb-cols{height:92px}
+    .wb-day{min-height:5.5rem}
     .wb-readout-n b{font-size:var(--fs-h2)}
     .wb-fields{grid-template-columns:1fr}
   }
   @media (max-width: 380px){
     .wb-day small{font-size:var(--fs-label)}
+    .wb-day{min-height:5rem}
     .wb-cols{height:84px}
   }
 }

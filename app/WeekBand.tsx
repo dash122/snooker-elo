@@ -270,7 +270,7 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
     <div className="wb-week" role="tablist" aria-label="未來七晚">
       {data.days.map((item,index)=>{
         const nightPeak=peakOf(density(item.people));
-        const height=Math.max(9,Math.round(nightPeak/maxPeak*46));
+        const height=Math.max(10,Math.round(nightPeak/maxPeak*66));
         const tone=nightPeak>=maxPeak&&nightPeak>0?" hot":nightPeak<=1?" cold":"";
         return <button key={item.date} type="button" role="tab" aria-selected={index===selected}
           className={`wb-day${index===selected?" active":""}`}
