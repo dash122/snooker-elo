@@ -420,67 +420,73 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
             const fit=opponentFit(lead?.rating,viewerRating);
             const canRecord=call.joined&&call.players.length===2&&Boolean(onRecord);
             const menuKey=`menu:${call.id}`;
-            return <article key={call.id} className="ob-slot-row">
-              <div className="ob-slot-stamp">
-                <b>{hkClock(call.startAt)}<br/>–{hkClock(call.endAt)}</b>
-                <small>{callDate===today?"今日":weekday(callDate)}</small>
-                {call.joined&&<em className={isHost?"is-host":"is-joined"} aria-hidden="true"/>}
-              </div>
-              <div className="ob-slot-main">
-                <div className="ob-slot-top">
-                  <span className="ob-slot-place"><b>{placeLabel(call)}</b>
-                    <span>{[call.venue?.district||call.venueIntent,tempoLabel(call),call.costSplit==="aa"?"AA 波鐘":"發起人找數"].filter(Boolean).join(" · ")}</span>
-                  </span>
-                  <div className="ob-slot-top-badges">
-                    {/* A capped 局's fill count is a decision signal on its own -- "仲差 1 人" is a
-                        reason to act now that a bare "1/3" never was. Uncapped 局 (the common case)
-                        have no fill target, so they keep only the fit chip. */}
-                    {call.maxPlayers!==null&&<span className={`ob-slot-fillstat${full?" is-full":nearFull?" is-urgent":""}`}>
-                      <b>{call.players.length}/{call.maxPlayers}</b>
-                      <small>{full?"已滿":nearFull?"仲差 1":"埋位中"}</small>
-                    </span>}
-                    {fit.tier!=="unknown"?<Chip tone={fit.tier==="very-close"?"success":fit.tier==="similar"?"accent":"warning"}>{fitShortLabel(fit.tier)}</Chip>
-                      :call.fits&&!call.joined?<Chip tone="accent">夾到你</Chip>
-                      :<Chip tone="neutral">{fitShortLabel(fit.tier)}</Chip>}
-                  </div>
+            /* Mockup Direction B's whole point: time leads as one big line, the fill count (when a
+               cap exists) is its own coloured stat rather than folded into a chip, and "why this
+               game" collapses into one subline under the roster instead of a separate fit chip. */
+            const heroTime=callDate===today?`今晚 ${hkClock(call.startAt)}`:`${weekday(callDate)} ${hkClock(call.startAt)}`;
+            const durationMinutes=Math.round((Date.parse(call.endAt)-Date.parse(call.startAt))/60000);
+            const heroSub=[durationText(durationMinutes),[call.venue?.district,placeLabel(call)].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
+            const rosterLine=call.players.map(player=>`${player.name} ELO ${Math.round(player.rating)}`).join("、");
+            const proposal=settings&&viewerRating!==null&&lead?proposeHandicap(viewerRating,lead.rating,settings):null;
+            const fitLabel=fit.tier!=="unknown"?fitShortLabel(fit.tier):call.fits&&!call.joined?"夾到你":null;
+            const fitLine=[fitLabel,proposal?.label,call.costSplit==="aa"?"AA 波鐘":"發起人找數"].filter(Boolean).join(" · ");
+            return <article key={call.id} className={`ob-card${call.joined?isHost?" is-host":" is-joined":""}`}>
+              <div className="ob-card-top">
+                <div className="ob-card-time">
+                  <span className="ob-card-time-main">{heroTime}</span>
+                  <span className="ob-card-time-sub">{heroSub}</span>
                 </div>
-                <div className="ob-slot-roster">
+                {call.maxPlayers!==null&&<div className={`ob-card-stat${full?" is-full":nearFull?" is-urgent":""}`}>
+                  <b>{call.players.length}/{call.maxPlayers}</b>
+                  <span>{full?"已滿":nearFull?"仲差 1":"埋位中"}</span>
+                </div>}
+              </div>
+
+              <div className="ob-card-roster">
+                <div className="ob-card-avatars">
                   {call.players.map(player=><RosterChip key={player.id} call={call} player={player} settings={settings} viewerRating={viewerRating} viewerId={data.viewerId} onPlayer={onPlayer} openKey={openPopup} onToggle={setOpenPopup} regularIds={regularIds} onToggleRegular={toggleRegular}/>)}
                 </div>
-                <TrustStrip trust={lead?.trust}/>
-                <div className="ob-slot-meta-icons">
-                  <span className="ob-meta-item"><ScaleIcon/>{call.handicapPref==="even"?"平手對戰":"可以讓分"}</span>
-                  <span className="ob-meta-item"><SmokingOffIcon/>{call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}</span>
-                  <span className={`ob-meta-item${nearFull?" is-urgent":""}`}><PeopleIcon/>{call.players.length}{call.maxPlayers?`/${call.maxPlayers}`:""} 人</span>
+                <div className="ob-card-roster-copy">
+                  <span className="ob-card-names">{rosterLine}</span>
+                  {fitLine&&<span className={`ob-card-fitline${fit.tier!=="unknown"?` is-${fit.tier}`:""}`}>{fitLine}</span>}
                 </div>
-                {handicapLine(call,data.viewerId,settings)}
-                {call.message&&<p className="ob-slot-quote"><QuoteIcon/>{call.message}</p>}
-                <div className="ob-slot-foot">
-                  <span className="ob-slot-foot-status">
-                    {isHost?<Chip tone="accent">你是發起人</Chip>:call.joined?<Chip tone="success">已參加</Chip>:!data.signedIn&&<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
-                    <span className="card-tools">
-                      {isHost?<>
-                        <IconButton className="card-tool" label="編輯約戰" disabled={Boolean(busy)} onClick={()=>openEditor(call)}>✎</IconButton>
-                        {cancelConfirm===call.id
-                          ?<><Button variant="danger" disabled={Boolean(busy)} loading={busy===`cancel:${call.id}`} onClick={()=>cancelSlot(call)}>確定取消？</Button>
-                            <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(null)}>算了</Button></>
-                          :<IconButton className="card-tool danger" label="取消局" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(call.id)}>✕</IconButton>}
-                      </>:call.joined&&<span className="ob-popup-anchor">
-                        <IconButton className="card-tool" label="更多動作" onClick={()=>setOpenPopup(openPopup===menuKey?null:menuKey)}>⋯</IconButton>
-                        {openPopup===menuKey&&<div className="ob-action-menu" role="menu">
-                          <a className="ob-action-menu-item" href={whatsappUrl(call)} target="_blank" rel="noreferrer" onClick={()=>setOpenPopup(null)}><ChatIcon/>WhatsApp 傾偈</a>
-                          {canRecord&&<button type="button" className="ob-action-menu-item" onClick={()=>{setOpenPopup(null);onRecord!(call.players.find(player=>player.id!==data.viewerId)!.id)}}><FlagIcon/>記錄賽果</button>}
-                          <hr/>
-                          <button type="button" className="ob-action-menu-item ob-action-menu-item--danger" disabled={Boolean(busy)} onClick={()=>{setOpenPopup(null);leave(call)}}><ExitIcon/>我去不到</button>
-                        </div>}
-                      </span>}
-                    </span>
+              </div>
+
+              <TrustStrip trust={lead?.trust}/>
+
+              <div className="ob-slot-meta-icons">
+                <span className="ob-meta-item"><ScaleIcon/>{call.handicapPref==="even"?"平手對戰":"可以讓分"}</span>
+                <span className="ob-meta-item"><SmokingOffIcon/>{call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}</span>
+                <span className={`ob-meta-item${nearFull?" is-urgent":""}`}><PeopleIcon/>{call.players.length}{call.maxPlayers?`/${call.maxPlayers}`:""} 人</span>
+              </div>
+              {handicapLine(call,data.viewerId,settings)}
+              {call.message&&<p className="ob-card-quote"><QuoteIcon/><span>{call.message}</span></p>}
+
+              <div className="ob-slot-foot">
+                <span className="ob-slot-foot-status">
+                  {isHost?<Chip tone="accent">你是發起人</Chip>:call.joined?<Chip tone="success">已參加</Chip>:!data.signedIn&&<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
+                  <span className="card-tools">
+                    {isHost?<>
+                      <IconButton className="card-tool" label="編輯約戰" disabled={Boolean(busy)} onClick={()=>openEditor(call)}>✎</IconButton>
+                      {cancelConfirm===call.id
+                        ?<><Button variant="danger" disabled={Boolean(busy)} loading={busy===`cancel:${call.id}`} onClick={()=>cancelSlot(call)}>確定取消？</Button>
+                          <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(null)}>算了</Button></>
+                        :<IconButton className="card-tool danger" label="取消局" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(call.id)}>✕</IconButton>}
+                    </>:call.joined&&<span className="ob-popup-anchor">
+                      <IconButton className="card-tool" label="更多動作" onClick={()=>setOpenPopup(openPopup===menuKey?null:menuKey)}>⋯</IconButton>
+                      {openPopup===menuKey&&<div className="ob-action-menu" role="menu">
+                        <a className="ob-action-menu-item" href={whatsappUrl(call)} target="_blank" rel="noreferrer" onClick={()=>setOpenPopup(null)}><ChatIcon/>WhatsApp 傾偈</a>
+                        {canRecord&&<button type="button" className="ob-action-menu-item" onClick={()=>{setOpenPopup(null);onRecord!(call.players.find(player=>player.id!==data.viewerId)!.id)}}><FlagIcon/>記錄賽果</button>}
+                        <hr/>
+                        <button type="button" className="ob-action-menu-item ob-action-menu-item--danger" disabled={Boolean(busy)} onClick={()=>{setOpenPopup(null);leave(call)}}><ExitIcon/>我去不到</button>
+                      </div>}
+                    </span>}
                   </span>
-                  {!isHost&&!call.joined&&data.signedIn&&
-                    <Button className="ob-join-cta" disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>
-                      {full?"已滿":nearFull?"參加 · 埋尾一位":"參加"}
-                    </Button>}
-                </div>
+                </span>
+                {!isHost&&!call.joined&&data.signedIn&&
+                  <Button className={`ob-join-cta${nearFull?"":" is-outline"}`} disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>
+                    {full?"已滿":nearFull?"參加 · 埋尾一位":"參加"}
+                  </Button>}
               </div>
             </article>;
           })}
@@ -777,8 +783,11 @@ function RosterChip({call,player,settings,viewerRating,viewerId,onPlayer,openKey
   const trust=trustLine(player.trust);
   const starred=Boolean(regularIds?.has(player.id));
   return <span className="ob-popup-anchor">
-    <button type="button" className="ob-roster-chip" aria-expanded={open} onClick={()=>onToggle(open?null:popKey)}>
-      <PlayerBadge player={player}/><span><b>{player.name}</b><small>ELO {Math.round(player.rating)}</small></span>
+    {/* Avatar-only, overlapping like a face-pile — the name and ELO for the whole roster now live
+        once, together, in the card's roster-copy line rather than repeated per chip. Tap still
+        opens the same popover for the one player. */}
+    <button type="button" className="ob-roster-avatar" aria-expanded={open} aria-label={`${player.name}的資料`} onClick={()=>onToggle(open?null:popKey)}>
+      <PlayerBadge player={player}/>
     </button>
     {open&&<div className="ob-roster-popover" role="dialog" aria-label={`${player.name}的資料`}>
       <b className="ob-popover-name">{player.name}</b>

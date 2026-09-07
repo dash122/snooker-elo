@@ -154,58 +154,55 @@
   .ob-loading{display:grid;gap:var(--sp-3)}
   .ob-result-line small{font-size:var(--fs-caption);font-weight:500;color:var(--ds-text-secondary)}
   .ob-date-nav>.ds-icon-button svg{width:var(--sp-4-5);height:var(--sp-4-5)}
-  /* --- the list: a time-stamp card, every fact visible, nothing behind a tap ---
-     Every card is two zones: a dark time stamp (the one thing every 局 is filed by) and a light
-     body carrying venue, roster, conditions and actions in fixed bands. Nothing here requires a
-     tap to see — a tap only ever reveals something that has no room at rest (a player's ELO, a
-     secondary action) or gives feedback on something you just did. */
+  /* --- the list: card-hero, matching the chosen mockup direction ---------------
+     Time leads as one big line (never a side stamp), a capped 局's fill count is its own coloured
+     stat, and "why this game" collapses into one subline under the roster instead of a chip wall.
+     Nothing here requires a tap to see — a tap only ever reveals something that has no room at
+     rest (a player's ELO, a secondary action) or gives feedback on something you just did. */
   .ob-slot-list{display:grid;gap:var(--sp-3-5);overflow:visible;border:0;background:transparent;box-shadow:none}
   /* A hairline top highlight (the light-catches-the-edge trick every iOS card sheen uses) plus a
      deeper resting shadow than a flat card needs — together they read as a physical object sitting
      just off the page, not a rectangle with a border. Lifts a touch further on hover where hover
      actually means something (a mouse), never on touch where there's no cursor to lift toward. */
-  .ob-slot-row{position:relative;display:grid;grid-template-columns:5.5rem 1fr;overflow:hidden;border-radius:var(--radius-lg);background:var(--ds-surface-primary);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-3);transition:box-shadow var(--ds-duration-standard) var(--ds-ease-standard),transform var(--ds-duration-standard) var(--ds-ease-standard)}
-  @media(hover:hover){.ob-slot-row:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-4);transform:translateY(-2px)}}
+  .ob-card{position:relative;display:grid;gap:var(--sp-3);min-width:0;padding:var(--sp-4);border-radius:var(--radius-lg);background:var(--ds-surface-primary);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-3);transition:box-shadow var(--ds-duration-standard) var(--ds-ease-standard),transform var(--ds-duration-standard) var(--ds-ease-standard)}
+  @media(hover:hover){.ob-card:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-4);transform:translateY(-2px)}}
+  /* Who you are to this 局, at a glance, before reading anything: a thin felt-coloured edge on the
+     one card in the list that's "mine" -- host gets the brand gold, a plain join gets the success
+     green, so it reads before any chip or button does. */
+  .ob-card.is-host{box-shadow:inset 3px 0 0 var(--ball-yellow),inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-3)}
+  .ob-card.is-joined{box-shadow:inset 3px 0 0 var(--ds-success),inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-3)}
 
-  .ob-slot-stamp{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-1);padding:var(--sp-3) var(--sp-1);text-align:center;color:var(--ds-text-on-brand);background:radial-gradient(140% 90% at 15% -20%,var(--ds-featured-glow),transparent 60%),linear-gradient(165deg,var(--baize) 0%,var(--baize-deep) 100%)}
-  .ob-slot-stamp b{font-family:var(--font-display);font-weight:700;font-size:var(--fs-lead);line-height:1.15;font-variant-numeric:tabular-nums;color:var(--ball-yellow)}
-  .ob-slot-stamp small{font-size:var(--fs-label);font-weight:700;color:var(--ds-text-on-brand-secondary)}
-  /* Who you are to this 局, at a glance, before reading anything: a dot on the one part of the
-     card that's the same dark colour on every row, so it never competes with the fit/status chip. */
-  .ob-slot-stamp em{position:absolute;top:var(--sp-1-5);right:var(--sp-1-5);width:.5rem;height:.5rem;border-radius:50%;font-style:normal}
-  .ob-slot-stamp em.is-host{background:var(--ball-yellow)}
-  .ob-slot-stamp em.is-joined{background:#6fd3a6}
+  .ob-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-3);min-width:0}
+  .ob-card-time{display:grid;gap:1px;min-width:0}
+  .ob-card-time-main{font-family:var(--font-display);font-size:var(--fs-display);line-height:1;letter-spacing:-.02em;color:var(--ds-text-primary)}
+  .ob-card-time-sub{font-size:var(--fs-caption);color:var(--ds-text-secondary)}
 
-  .ob-slot-main{display:grid;gap:var(--sp-3);min-width:0;padding:var(--sp-4) var(--sp-4)}
-  .ob-slot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-2);min-width:0}
-  .ob-slot-place{display:grid;gap:1px;min-width:0}
-  .ob-slot-place b{font-size:var(--fs-sm);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ob-slot-place span{font-size:var(--fs-label);color:var(--ds-text-tertiary)}
-
-  /* Fit and status both use the app's existing `Chip` component (ds-chip), not a second pill
-     system — one badge shape everywhere a badge appears. */
-  .ob-slot-top-badges{display:flex;align-items:center;gap:var(--sp-2);flex:0 0 auto}
-  .ob-slot-top .ds-chip{flex:0 0 auto}
-
-  /* A capped 局's fill count as its own small stat block, not folded into the fit chip — the same
+  /* A capped 局's fill count as its own small stat block, not folded into a fit chip — the same
      colour language the rest of the app uses for "act now" (danger) vs "settled" (success) vs
      "in progress" (neutral wash), so it reads before the number is even parsed. */
-  .ob-slot-fillstat{display:flex;flex-direction:column;align-items:center;gap:1px;flex:0 0 auto;min-width:2.75rem;padding:var(--sp-1) var(--sp-2);border-radius:var(--radius-sm);background:var(--ds-highlight-wash);text-align:center}
-  .ob-slot-fillstat b{font-family:var(--font-display);font-size:var(--fs-lead);line-height:1;font-variant-numeric:tabular-nums;color:var(--ds-text-primary)}
-  .ob-slot-fillstat small{font-size:9px;font-weight:800;color:var(--ds-text-secondary);white-space:nowrap}
-  .ob-slot-fillstat.is-urgent{background:var(--ds-danger-wash)}
-  .ob-slot-fillstat.is-urgent b,.ob-slot-fillstat.is-urgent small{color:var(--ds-danger)}
-  .ob-slot-fillstat.is-full{background:var(--ds-success-wash)}
-  .ob-slot-fillstat.is-full b,.ob-slot-fillstat.is-full small{color:var(--ds-success)}
+  .ob-card-stat{display:flex;flex-direction:column;align-items:center;gap:1px;flex:0 0 auto;min-width:3.25rem;padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);background:var(--ds-highlight-wash);text-align:center}
+  .ob-card-stat b{font-family:var(--font-display);font-size:var(--fs-lead);line-height:1;font-variant-numeric:tabular-nums;color:var(--ds-text-primary)}
+  .ob-card-stat span{font-size:9px;font-weight:800;color:var(--ds-text-secondary);white-space:nowrap}
+  .ob-card-stat.is-urgent{background:var(--ds-danger-wash)}
+  .ob-card-stat.is-urgent b,.ob-card-stat.is-urgent span{color:var(--ds-danger)}
+  .ob-card-stat.is-full{background:var(--ds-success-wash)}
+  .ob-card-stat.is-full b,.ob-card-stat.is-full span{color:var(--ds-success)}
 
-  .ob-slot-roster{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
-  .ob-roster-chip{display:flex;align-items:center;gap:var(--sp-1-5);min-width:0;max-width:100%;border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);padding:var(--sp-1) var(--sp-2-5) var(--sp-1) var(--sp-1);background:var(--ds-surface-primary);color:var(--ds-text-primary);box-shadow:var(--ds-elevation-1);transition:transform var(--ds-duration-fast) var(--ds-ease-toggle),box-shadow var(--ds-duration-fast) var(--ds-ease-standard)}
-  .ob-roster-chip:active{transform:scale(.95)}
-  .ob-roster-chip[aria-expanded="true"]{border-color:var(--ds-accent-soft);box-shadow:var(--ds-elevation-2)}
-  .ob-roster-chip .player-badge{flex-shrink:0;width:1.9rem;height:1.9rem;font-size:var(--fs-label)}
-  .ob-roster-chip>span{display:grid;min-width:0}
-  .ob-roster-chip b{font-size:var(--fs-label);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:7rem}
-  .ob-roster-chip small{color:var(--ds-text-tertiary);font-size:9px;font-weight:600;font-variant-numeric:tabular-nums}
+  /* Face-pile: overlapping avatars, one shared name+ELO line beside them instead of a chip per
+     player -- the roster reads as "who", the subline underneath as "why". */
+  .ob-card-roster{display:flex;align-items:center;gap:var(--sp-2-5);min-width:0}
+  .ob-card-avatars{display:flex;flex:none}
+  .ob-roster-avatar{display:flex;border:2px solid var(--ds-surface-primary);border-radius:50%;background:transparent;padding:0;margin-left:-.625rem;transition:transform var(--ds-duration-fast) var(--ds-ease-toggle)}
+  .ob-roster-avatar:first-child{margin-left:0}
+  .ob-roster-avatar:active{transform:scale(.92)}
+  .ob-roster-avatar[aria-expanded="true"]{outline:2px solid var(--ds-accent-soft);outline-offset:1px}
+  .ob-roster-avatar .player-badge{width:2.125rem;height:2.125rem;font-size:var(--fs-caption)}
+  .ob-card-roster-copy{display:grid;gap:1px;min-width:0}
+  .ob-card-names{font-size:var(--fs-sm);font-weight:700;color:var(--ds-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ob-card-fitline{font-size:var(--fs-caption);font-weight:700;color:var(--ds-text-secondary);overflow-wrap:anywhere}
+  .ob-card-fitline.is-very-close{color:var(--ds-success)}
+  .ob-card-fitline.is-similar{color:var(--ds-accent-text)}
+  .ob-card-fitline.is-handicap{color:var(--ds-warning)}
 
   .ob-slot-meta-icons{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-3)}
   .ob-meta-item{display:flex;align-items:center;gap:var(--sp-1-5);font-size:var(--fs-label);color:var(--ds-text-secondary);font-weight:500}
@@ -214,16 +211,23 @@
      danger-wash treatment the app already uses elsewhere for "act now", not a bigger label. */
   .ob-meta-item.is-urgent{color:var(--ds-danger);font-weight:800}
   .ob-meta-item.is-urgent svg{color:var(--ds-danger)}
-  .ob-slot-quote{position:relative;margin:0;padding-left:var(--sp-4);font-size:var(--fs-caption);font-style:italic;color:var(--ds-text-secondary);line-height:1.5;overflow-wrap:anywhere}
-  .ob-slot-quote svg{position:absolute;left:0;top:2px;width:.85rem;height:.85rem;color:var(--ds-accent-primary);opacity:.75}
+
+  /* The host's own note, quoted in a light panel rather than a wall of italic text — a human voice
+     is a reason to say yes that the stats above it can't give. */
+  .ob-card-quote{display:flex;align-items:flex-start;gap:var(--sp-2);margin:0;padding:var(--sp-2-5) var(--sp-3);border-radius:var(--radius-sm);background:var(--ds-surface-secondary);font-size:var(--fs-caption);color:var(--ds-text-primary);line-height:1.5;overflow-wrap:anywhere}
+  .ob-card-quote svg{flex:none;margin-top:2px;width:.85rem;height:.85rem;color:var(--ds-text-tertiary)}
 
   /* The join action used to sit shoulder-to-shoulder with the status chip and the edit/menu glyph
      buttons -- three things fighting for the same row meant the one action every non-host,
      non-joined viewer actually wants was no bigger than a "cancel" icon. It now gets its own full-
-     width row, so it reads as the card's answer rather than one of several controls. */
+     width row, so it reads as the card's answer rather than one of several controls. Only the
+     near-full card (the one worth an impulse tap) is filled; every other card's CTA stays an
+     outline so a page of cards doesn't read as a wall of identical buttons. */
   .ob-slot-foot{display:flex;flex-direction:column;gap:var(--sp-2-5);padding-top:var(--sp-2-5);border-top:1px solid var(--ds-border-subtle)}
   .ob-slot-foot-status{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);min-height:var(--control-sm)}
   .ob-join-cta{width:100%;min-height:var(--control-lg);font-size:var(--fs-input);font-weight:800}
+  .ob-join-cta.is-outline{background:transparent;color:var(--ds-accent-action);border:1px solid var(--ds-accent-action);box-shadow:none}
+  .ob-join-cta.is-outline:hover{background:var(--ds-highlight-wash)}
   .ob-load-more{display:flex;justify-content:center;padding-top:var(--sp-2)}
 
   /* --- popovers: a roster chip's ELO/fit, or a row's secondary actions --------- */
@@ -234,7 +238,7 @@
   .ob-roster-popover,.ob-action-menu{position:absolute;z-index:10;top:calc(100% + var(--sp-1-5));background:var(--ds-surface-primary);border:1px solid var(--ds-border-strong);border-radius:var(--radius-md);box-shadow:var(--ds-elevation-4);transform-origin:top left;animation:ob-popover-in var(--ds-duration-fast) var(--ds-ease-toggle) both}
   .ob-action-menu{transform-origin:top right}
   @keyframes ob-popover-in{from{opacity:0;transform:scale(.92) translateY(-2px)}to{opacity:1;transform:scale(1) translateY(0)}}
-  @media(prefers-reduced-motion:reduce){.ob-roster-popover,.ob-action-menu,.ob-slot-row,.ob-day-filter button,.ob-roster-chip,.ob-daypick button,.ob-stepper-btn{animation:none;transition:none}}
+  @media(prefers-reduced-motion:reduce){.ob-roster-popover,.ob-action-menu,.ob-card,.ob-day-filter button,.ob-roster-avatar,.ob-daypick button,.ob-stepper-btn{animation:none;transition:none}}
   .ob-roster-popover{left:0;min-width:12rem;display:grid;gap:var(--sp-1);padding:var(--sp-3)}
   .ob-popover-name{font-size:var(--fs-sm);font-weight:700}
   .ob-popover-sub{font-size:var(--fs-label);color:var(--ds-text-tertiary)}
@@ -267,12 +271,12 @@
   .ob-match-detail .ob-match-verdict>b{color:var(--ds-success)}
 
   /* --- trust strip: mutual opponents, games together, first-open-board-post ---------------------
-     One line, added evidence only -- it never replaces the ELO/fit chip above it, only gives a
-     reason beyond ELO to join a stranger's 局. */
-  .ob-trust{display:flex;align-items:center;gap:var(--sp-1-5);margin:0;padding:var(--sp-1-5) var(--sp-2-5);border-radius:var(--radius-xs);background:var(--ds-success-wash);border:1px solid var(--ds-success-wash-border);color:var(--ds-text-primary);font-size:var(--fs-label);font-weight:700}
-  .ob-trust svg{width:.85rem;height:.85rem;flex:none;color:var(--ds-success)}
-  .ob-trust--new{background:var(--ds-highlight-wash);border-color:var(--ds-accent-soft)}
-  .ob-trust--new svg{color:var(--ds-accent-text)}
+     One plain line, added evidence only -- it never replaces the roster/fit line above it, only
+     gives a reason beyond ELO to join a stranger's 局. No wash box: at card-hero density this is
+     the fourth or fifth line on the card, and a coloured chip for every one of them would be the
+     "wall of competing chips" the mockup direction was chosen to get away from. */
+  .ob-trust{display:flex;align-items:center;gap:var(--sp-1-5);margin:0;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+  .ob-trust svg{width:.85rem;height:.85rem;flex:none;color:var(--ds-text-tertiary)}
 
   /* --- composer reassurance: fill-rate stat, free-players preview, note templates ---------------- */
   .ob-fillrate{position:relative;display:flex;align-items:center;gap:var(--sp-2-5);margin:0;padding:var(--sp-3) var(--sp-3-5);border-radius:var(--radius-sm);background:var(--ds-highlight-wash);border:1px solid var(--ds-accent-soft)}
@@ -317,8 +321,9 @@
     .ob-day-filter button{flex-basis:3.75rem;min-height:4.75rem}
     .ob-time-summary b{font-size:var(--fs-stat)}
     .ob-composer-footer{bottom:calc(-1 * (var(--sp-5) + var(--ds-safe-bottom)));padding-bottom:calc(var(--sp-3) + var(--ds-safe-bottom))}
-    .ob-slot-row{grid-template-columns:4.5rem 1fr}
-    .ob-roster-chip b{max-width:5rem}
+    .ob-card{padding:var(--sp-3-5)}
+    .ob-card-time-main{font-size:var(--fs-h3)}
+    .ob-card-names{max-width:14rem}
   }
 
 }
