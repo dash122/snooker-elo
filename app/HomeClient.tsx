@@ -1827,16 +1827,6 @@ function fadeHex(hex:string,alpha:number){
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-/* Projected win rate assumes a level match — no handicap, no frame evidence yet — so it
-   reduces to the bare ELO-gap probability the formula already produces for match previews.
-   Reusing calculateSnookerElo (rather than a second formula) keeps this in lockstep with
-   whatever the club tunes the real rating curve to. */
-function projectedWinRate(ratingA:number,ratingB:number,s:Settings){
-  return calculateSnookerElo({
-    ratingA, ratingB, handicapA:0, framesA:0, framesB:0,
-    handicapEloScale:s.handicapEloScale, handicapEloPerPoint:HANDICAP_ELO_PER_POINT, handicapEffectiveness:1,
-  }).probabilityA*100;
-}
 /* Diverging heat scale centred on the coin-flip: favoured players warm the brand green,
    underdogs warm the same red used for "behind" elsewhere, intensity tracking distance
    from 50/50 so a 51% toss-up reads as flat as the legend promises. */
@@ -1881,6 +1871,28 @@ function headToHeadIndex(matches:Match[]){
   return index;
 }
 const h2hKey=(first:string,second:string)=>[first,second].sort().join("|");
+function actualFrameWinRate(record:H2HRecord,id:string,otherId:string){
+  return Math.round(record.frames[id]/Math.max(1,record.frames[id]+record.frames[otherId])*100);
+}
+type H2HPlayerStats={opponents:number;framesWon:number;framesPlayed:number};
+function headToHeadPlayerStats(index:Map<string,H2HRecord>){
+  const stats=new Map<string,H2HPlayerStats>();
+  const add=(playerId:string,framesWon:number,framesPlayed:number)=>{
+    const current=stats.get(playerId)??{opponents:0,framesWon:0,framesPlayed:0};
+    current.opponents++;
+    current.framesWon+=framesWon;
+    current.framesPlayed+=framesPlayed;
+    stats.set(playerId,current);
+  };
+  for(const [key,record] of index){
+    const [first,second]=key.split("|");
+    const framesFirst=record.frames[first]??0;
+    const framesSecond=record.frames[second]??0;
+    add(first,framesFirst,framesFirst+framesSecond);
+    add(second,framesSecond,framesFirst+framesSecond);
+  }
+  return stats;
+}
 
 /* The club kept asking "how do I stand against everyone?" and the only answer
    was to pick opponents one at a time in the filter bar. This is the index for
@@ -1907,6 +1919,7 @@ function MatrixZoomControls({zoom,setZoom}:{zoom:number;setZoom:(value:number)=>
 }
 function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayerId?:string;onOpenPair:(first:string,second:string)=>void}){
   const index=useMemo(()=>headToHeadIndex(data.matches),[data.matches]);
+  const playerStats=useMemo(()=>headToHeadPlayerStats(index),[index]);
   // Only players who have actually met somebody: an all-players grid is mostly
   // empty cells, and empty cells are the enemy of a readable matrix.
   const players=useMemo(()=>{
@@ -1936,7 +1949,7 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
   },{played:0,wins:0,losses:0});
   if(!focus)return <Empty text="尚未有對賽記錄" sub="記錄第一場 1v1 比賽後，球員之間的對賽矩陣會顯示在這裡。"/>;
   const shareOf=(record:H2HRecord,id:string)=>Math.round((record.wins[id]+record.draws/2)/Math.max(1,record.total)*100);
-  const frameShareOf=(record:H2HRecord,id:string,otherId:string)=>Math.round(record.frames[id]/Math.max(1,record.frames[id]+record.frames[otherId])*100);
+
   return <section className="h2h-matrix" aria-label="對賽矩陣" style={{"--matrix-zoom":mode==="list"?1:zoom} as CSSProperties}>
     <div className="h2h-matrix-toolbar">
       <div className="h2h-matrix-focus">
@@ -1946,11 +1959,11 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
         </div>
       </div>
       <div className="h2h-matrix-modes-row">
-        <div className="h2h-matrix-modes"><SegmentedControl label="對賽矩陣顯示方式" value={mode} onChange={value=>setMode(value as typeof mode)} items={[{value:"list",label:"清單"},{value:"grid",label:"全隊網格"},{value:"heatmap",label:"勝率預測"}]}/></div>
+        <div className="h2h-matrix-modes"><SegmentedControl label="對賽矩陣顯示方式" value={mode} onChange={value=>setMode(value as typeof mode)} items={[{value:"list",label:"清單"},{value:"grid",label:"全隊"},{value:"heatmap",label:"勝率"}]}/></div>
         {mode!=="list"&&<MatrixZoomControls zoom={zoom} setZoom={setZoom}/>}
       </div>
     </div>
-    {mode==="heatmap"?<WinRateHeatmap players={players} settings={data.settings} focusId={focus.id} onOpenPair={onOpenPair}/>
+    {mode==="heatmap"?<WinRateHeatmap players={players} index={index} focusId={focus.id} onOpenPair={onOpenPair}/>
     :mode==="list"?<>
       <div className="h2h-matrix-summary">
         <div><small>對手</small><b>{rows.length}</b></div>
@@ -1983,13 +1996,17 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
         <table className="h2h-matrix-grid">
           <caption className="sr-only">球員之間的 1v1 對賽局數勝負矩陣，橫行球員對直行球員</caption>
           <thead><tr><th scope="col"><span className="sr-only">球員</span></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
-          <tbody>{players.map(row=><tr key={row.id} className={row.id===focus.id?"focused":""}>
-            <th scope="row"><span className="h2h-matrix-rowhead"><PlayerBadge player={row}/><span>{row.short||row.name}</span></span></th>
+          <tbody>{players.map(row=>{
+            const stats=playerStats.get(row.id)??{opponents:0,framesWon:0,framesPlayed:0};
+            const rate=stats.framesPlayed?Math.round(stats.framesWon/stats.framesPlayed*100):0;
+            const statsLabel=`對手 ${stats.opponents} 位 · 勝局 ${stats.framesWon} 局 · 局數勝率 ${rate}%`;
+            return <tr key={row.id} className={row.id===focus.id?"focused":""}>
+            <th scope="row"><span className="h2h-matrix-rowhead"><span className="h2h-matrix-player-trigger" tabIndex={0} title={`${row.name}：${statsLabel}`} aria-describedby={`h2h-player-stats-${row.id}`}><PlayerBadge player={row}/><span className="h2h-matrix-player-name-text">{row.short||row.name}</span><span className="h2h-matrix-player-stats" id={`h2h-player-stats-${row.id}`} role="tooltip"><b>{row.name}</b><span>{statsLabel}</span></span></span></span></th>
             {players.map(column=>{
               if(column.id===row.id)return <td key={column.id} className="self" aria-label="同一位球員">—</td>;
               const record=index.get(h2hKey(row.id,column.id));
               if(!record)return <td key={column.id} className="none" aria-label={`${row.name} 與 ${column.name} 未曾交手`}>·</td>;
-              const share=frameShareOf(record,row.id,column.id);
+              const share=actualFrameWinRate(record,row.id,column.id);
               const framesWon=record.frames[row.id],framesLost=record.frames[column.id];
               return <td key={column.id} className={share>50?"ahead":share<50?"behind":"level"}>
                 <button type="button" onClick={()=>onOpenPair(row.id,column.id)} aria-label={`${row.name} 對 ${column.name}：局數 ${framesWon} 勝 ${framesLost} 負，共 ${record.total} 場`}>
@@ -1997,7 +2014,8 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
                 </button>
               </td>;
             })}
-          </tr>)}</tbody>
+          </tr>;
+          })}</tbody>
         </table>
       </div>
       <div className="h2h-matrix-legend"><span><i className="ahead"/>領先</span><span><i className="level"/>均勢</span><span><i className="behind"/>落後</span><span><i className="none"/>未交手</span></div>
@@ -2005,26 +2023,27 @@ function HeadToHeadMatrix({data,ownPlayerId,onOpenPair}:{data:AppState;ownPlayer
   </section>;
 }
 
-/* "誰打得贏誰" as a straight-up ELO question, with the handicap that would actually be
-   applied on the night stripped out — the same probabilityA the match form previews,
-   read off every pair at once instead of one at a time. A diverging heat scale (green
-   favourite, red underdog, white toss-up) turns 排名 into a shape you can scan instead of
-   a column of numbers. */
-function WinRateHeatmap({players,settings,focusId,onOpenPair}:{players:Player[];settings:Settings;focusId:string;onOpenPair:(first:string,second:string)=>void}){
-  if(players.length<2)return <Empty text="尚未有足夠對賽記錄" sub="至少兩位球員記錄過 1v1 比賽後，勝率預測矩陣會顯示在這裡。"/>;
+/* "誰打得贏誰" now reflects recorded frames, not an ELO forecast. A diverging heat scale
+   keeps the same scan-friendly shape while blanking pairings with no actual meeting. */
+function WinRateHeatmap({players,index,focusId,onOpenPair}:{players:Player[];index:Map<string,H2HRecord>;focusId:string;onOpenPair:(first:string,second:string)=>void}){
+  if(players.length<2)return <Empty text="尚未有足夠對賽記錄" sub="至少兩位球員記錄過 1v1 比賽後，實際局數勝率矩陣會顯示在這裡。"/>;
   return <>
-    <p className="h2h-matrix-hint">假設沒有讓分，橫行球員對直行球員的預測勝率；顏色越深代表優勢越大。</p>
+    <p className="h2h-matrix-hint">有交手記錄時，顯示橫行球員對直行球員的實際局數勝率；顏色越深代表局數優勢越大。</p>
     <div className="h2h-matrix-scroll">
       <table className="h2h-matrix-grid h2h-heatmap">
-        <caption className="sr-only">球員之間的無讓分預測勝率矩陣，橫行球員對直行球員</caption>
+        <caption className="sr-only">球員之間的實際局數勝率矩陣，橫行球員對直行球員</caption>
         <thead><tr><th scope="col"><span className="sr-only">球員</span></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
         <tbody>{players.map(row=><tr key={row.id} className={row.id===focusId?"focused":""}>
           <th scope="row"><span className="h2h-matrix-rowhead"><PlayerBadge player={row}/><span>{row.short||row.name}</span></span></th>
           {players.map(column=>{
             if(column.id===row.id)return <td key={column.id} className="self" aria-label="同一位球員">—</td>;
-            const rate=Math.round(projectedWinRate(row.rating,column.rating,settings));
+            const record=index.get(h2hKey(row.id,column.id));
+            if(!record)return <td key={column.id} className="none" aria-label={`${row.name} 與 ${column.name} 未曾交手，沒有實際局數勝率`}>·</td>;
+            const framesWon=record.frames[row.id]??0;
+            const framesLost=record.frames[column.id]??0;
+            const rate=actualFrameWinRate(record,row.id,column.id);
             return <td key={column.id} style={winRateHeat(rate)}>
-              <button type="button" onClick={()=>onOpenPair(row.id,column.id)} aria-label={`假設沒有讓分，${row.name} 對 ${column.name} 的預測勝率為 ${rate}%`}>
+              <button type="button" onClick={()=>onOpenPair(row.id,column.id)} aria-label={`${row.name} 對 ${column.name} 的實際局數勝率為 ${rate}%，局數 ${framesWon}–${framesLost}，共 ${record.total} 場`}>
                 <b>{rate}%</b>
               </button>
             </td>;
@@ -2033,9 +2052,10 @@ function WinRateHeatmap({players,settings,focusId,onOpenPair}:{players:Player[];
       </table>
     </div>
     <div className="h2h-matrix-legend h2h-heatmap-legend">
-      <span><i style={winRateHeat(85)}/>大熱門</span>
-      <span><i style={winRateHeat(50)}/>勢均力敵</span>
-      <span><i style={winRateHeat(15)}/>大冷門</span>
+      <span><i style={winRateHeat(85)}/>較高局數勝率</span>
+      <span><i style={winRateHeat(50)}/>局數均勢</span>
+      <span><i style={winRateHeat(15)}/>較低局數勝率</span>
+      <span><i className="none"/>未曾交手</span>
     </div>
   </>;
 }
