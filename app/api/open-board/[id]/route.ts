@@ -1,7 +1,8 @@
 import { requireMember } from "../../../../db/auth";
-import { joinCall, leaveCall, readCall } from "../../../../db/open-board";
+import { joinCall, leaveCall, readCall, updateCall } from "../../../../db/open-board";
 import { notifyPlayers } from "../../../../db/notifications";
 import { gameFormed } from "../../../../lib/notify";
+import { parseCallInput } from "../../../../lib/open-board-input";
 
 /* 加入 and 我去不到 — the only two things a member does to a 局 after it exists.
  *
@@ -33,6 +34,26 @@ export async function POST(_request:Request,{params}:{params:Promise<{id:string}
     return Response.json({call});
   }catch(error){
     return Response.json({error:error instanceof Error?error.message:"未能加入。"},{status:400});
+  }
+}
+
+/** The host re-opens the composer on their own 局 and re-submits every field, the same shape a new
+    局 posts. Host-only, and only while the 局 is still open — see `updateCall`. */
+export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){
+  const member=await requireMember();
+  if(!member)return Response.json({error:"請先登入。"},{status:401});
+  if(!member.statePlayerId)return Response.json({error:"請先連結球員檔案。"},{status:403});
+  const {id}=await params;
+  try{
+    const input=parseCallInput(await request.json());
+    const result=await updateCall(id,member.statePlayerId,input);
+    if(!result.ok)return Response.json(
+      {error:result.reason==="forbidden"?"只有開局者可以修改。":"這個局已經結束或取消了。"},
+      {status:result.reason==="forbidden"?403:409});
+    const call=await readCall(id,member.statePlayerId);
+    return Response.json({call});
+  }catch(error){
+    return Response.json({error:error instanceof Error?error.message:"未能更新。"},{status:400});
   }
 }
 

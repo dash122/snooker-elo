@@ -1,37 +1,16 @@
 import { after } from "next/server";
 import { requireMember } from "../../../db/auth";
-import { createCall, freeWindowsOn, readBoard, readCall, type CreateCallInput, type Tempo } from "../../../db/open-board";
+import { createCall, freeWindowsOn, readBoard, readCall } from "../../../db/open-board";
 import { tickOpenBoard } from "../../../db/open-board-tick";
 import { announceOpenCall } from "../../../db/matchmaking-actions.pg";
-import { hkDate, validateAvailabilityInterval } from "../../../lib/availability";
+import { hkDate } from "../../../lib/availability";
+import { parseCallInput } from "../../../lib/open-board-input";
 
 /* Readable without signing in, like the board it renders: a 局 is a public notice by definition, and
    hiding it behind auth would defeat the point. Signing in only adds the viewer's own overlap —
    `fits`, the calendar's gold dot, and whether they are already in a 局. */
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-const oneOf = <T extends string>(value:unknown,allowed:readonly T[],fallback:T):T =>
-  typeof value==="string"&&(allowed as readonly string[]).includes(value)?value as T:fallback;
-
-function parse(input:unknown):CreateCallInput {
-  const value=input as Record<string,unknown>;
-  const interval=validateAvailabilityInterval({startAt:String(value.startAt),endAt:String(value.endAt)});
-  const cap=Number(value.maxPlayers);
-  return {
-    startAt:interval.startAt, endAt:interval.endAt,
-    message:typeof value.message==="string"?value.message.trim().slice(0,300):"",
-    venueId:typeof value.venueId==="string"&&value.venueId?value.venueId:null,
-    venueIntent:typeof value.venueIntent==="string"?value.venueIntent.trim().slice(0,60):"",
-    tempo:oneOf<Tempo>(value.tempo,["sport","casual"],"sport"),
-    handicapPref:oneOf(value.handicapPref,["even","handicap"] as const,"even"),
-    costSplit:oneOf(value.costSplit,["aa","host"] as const,"aa"),
-    smoking:oneOf(value.smoking,["nonsmoking","any"] as const,"nonsmoking"),
-    /* NULL is the default and the normal state. A cap is an unusual request — a fixed doubles
-       match — not something the composer should push members towards. */
-    maxPlayers:Number.isFinite(cap)&&cap>=2&&cap<=8?Math.trunc(cap):null,
-  };
-}
 
 export async function GET(request:Request){
   try{
@@ -56,7 +35,7 @@ export async function POST(request:Request){
   if(!member)return Response.json({error:"請先登入。"},{status:401});
   if(!member.statePlayerId)return Response.json({error:"請先連結球員檔案。"},{status:403});
   try{
-    const input=parse(await request.json());
+    const input=parseCallInput(await request.json());
     const id=await createCall(member.statePlayerId,input);
     const call=await readCall(id,member.statePlayerId);
     /* A 局 nobody is told about is a row in a table. The announcement targets members whose own

@@ -137,7 +137,7 @@
   .ob-date-stamp strong{font-size:var(--fs-display);font-variant-numeric:tabular-nums;line-height:1}
   .ob-loading{display:grid;gap:var(--sp-3)}
   .ob-result-line small{font-size:var(--fs-caption);font-weight:500;color:var(--ds-text-secondary)}
-  .ob-date-nav>.ds-icon-button svg,.ob-slot-action>.ds-icon-button svg{width:var(--sp-4-5);height:var(--sp-4-5)}
+  .ob-date-nav>.ds-icon-button svg{width:var(--sp-4-5);height:var(--sp-4-5)}
   .ob-slot-list{display:grid;gap:var(--sp-3);overflow:visible;border:0;background:transparent;box-shadow:none}
   .ob-slot-row{overflow:hidden;border-radius:var(--radius-md);background:var(--ds-surface-primary);box-shadow:var(--ds-elevation-3);transition:transform var(--ds-duration-standard) var(--ds-ease-standard),box-shadow var(--ds-duration-standard) var(--ds-ease-standard)}
   .ob-slot-row:hover{transform:translateY(-2px);box-shadow:var(--ds-elevation-4)}
@@ -167,7 +167,6 @@
   .ob-slot-capacity{align-content:center;padding:var(--sp-4);background:var(--ds-surface-secondary)}
   .ob-slot-action{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-1);padding:var(--sp-4)}
   .ob-slot-action>.ds-button{min-width:4rem}
-  .ob-slot-action>.ds-icon-button{flex-shrink:0}
   .ob-slot-action>.ds-chip{flex-shrink:0;white-space:nowrap}
   .ob-player-info{display:flex;align-items:center;gap:var(--sp-2);min-width:0;max-width:100%;min-height:var(--control-md);padding:0;border:0;background:transparent;color:var(--ds-text-primary);text-align:left}
   .ob-player-info .player-badge{flex-shrink:0;width:2rem;height:2rem;font-size:var(--fs-label)}
@@ -185,10 +184,17 @@
   .ob-avatar-stack{display:flex;flex:0 0 auto;align-items:center;padding-left:var(--sp-1)}
   .ob-avatar-stack .player-badge,.ob-avatar-stack>b{display:grid;place-items:center;width:1.75rem;height:1.75rem;margin-left:calc(-1 * var(--sp-1));border:2px solid var(--ds-surface-secondary);border-radius:var(--radius-pill);font-size:var(--fs-label)}
   .ob-avatar-stack>b{background:var(--ds-canvas-muted);color:var(--ds-text-secondary)}
-  .ob-slot-details{display:grid;gap:var(--sp-3);padding:var(--sp-4) var(--sp-5);border-top:1px solid var(--ds-border-subtle);background:var(--ds-surface-secondary)}
-  .ob-slot-details>p{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-caption);line-height:1.5;overflow-wrap:anywhere}
-  .ob-detail-players,.ob-detail-actions{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
-  .ob-detail-players>.ob-player-info{flex:0 1 15rem}
+  /* --- the flattened body: roster, then a one-line meta strip, then actions --------------------- */
+  /* Everything a card used to hide behind a chevron now renders every time, so each zone stays a
+     single line or a short wrap rather than a paragraph — depth comes from more rows, not from
+     nesting a reader has to tap into. */
+  .ob-slot-roster{display:flex;flex-wrap:wrap;gap:var(--sp-3);padding:var(--sp-3) var(--sp-5);border-top:1px solid var(--ds-border-subtle)}
+  .ob-slot-roster>.ob-player-info{flex:0 1 15rem}
+  .ob-slot-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-1) var(--sp-3);padding:var(--sp-2) var(--sp-5);border-top:1px solid var(--ds-border-subtle);background:var(--ds-surface-secondary)}
+  .ob-slot-prefs,.ob-slot-note{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-caption);line-height:1.5;overflow-wrap:anywhere}
+  .ob-slot-note{font-style:italic}
+  .ob-slot-meta .ob-handicap{flex:0 0 auto}
+  .ob-slot-actions-row{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);padding:var(--sp-3) var(--sp-5);border-top:1px solid var(--ds-border-subtle)}
   .ob-pagination{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:var(--sp-2);font-size:var(--fs-caption);color:var(--ds-text-secondary)}
   .ob-pagination>span:first-child{margin-right:auto}
 
@@ -219,6 +225,7 @@
     .ob-slot-capacity .ob-capacity-line>span:last-child{display:grid;gap:var(--sp-1)}
     .ob-slot-capacity .ob-capacity-line small{white-space:nowrap}
     .ob-slot-action{grid-column:2;grid-row:3;padding:var(--sp-2) var(--sp-3);background:var(--ds-surface-secondary)}
+    .ob-slot-roster,.ob-slot-meta,.ob-slot-actions-row{padding-inline:var(--sp-4)}
     .ob-capacity-options{grid-template-columns:minmax(0,1fr)}
     .ob-composer-footer{bottom:calc(-1 * (var(--sp-5) + var(--ds-safe-bottom)));padding-bottom:calc(var(--sp-3) + var(--ds-safe-bottom))}
   }

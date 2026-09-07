@@ -146,6 +146,16 @@ export function gameFormed(names:string[],slot:Interval,venue?:string|null):Noti
   };
 }
 
+/** The host cancelled outright, rather than merely leaving. Sent to every other participant, since a
+    cancelled 局 is not the "back to 等多 1 人" state 我去不到 produces — the game itself is off. */
+export function callCancelled(slot:Interval,venue?:string|null):NotificationMessage {
+  return {
+    channel:"openCall",title:`已取消：${when(slot)}`,
+    body:withVenue("開局者取消了呢個約戰。",venue),
+    tag:"open-board:cancelled",urgency:urgencyFor(slot),url:"/?tab=availability",
+  };
+}
+
 /** Three hours out. Deliberately has no "confirm" action: asking everyone to tap yes is asking
     everyone to open the app, which is the assumption we are not allowed to make. Silence means
     attending, so the only thing this has to carry is the way out for the member who cannot come. */

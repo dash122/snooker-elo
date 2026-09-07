@@ -72,9 +72,14 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
   const [now,setNow]=useState(()=>Date.now());
   const [loadError,setLoadError]=useState("");
   const [error,setError]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState("");
-  const [expanded,setExpanded]=useState<string|null>(null);
   const [pageState,setPageState]=useState({key:"",index:0});
   const [composer,setComposer]=useState<"closed"|"open">("closed");
+  /* Set only while the composer is re-opened on the host's own 局 — everything else about the
+     composer (fields, validation, submit) is identical between posting and editing, so this is the
+     one flag that changes what the submit button does and hides the "who else fits" section, which
+     only makes sense the first time a 局 is posted. */
+  const [editingId,setEditingId]=useState<string|null>(null);
+  const [cancelConfirm,setCancelConfirm]=useState<string|null>(null);
   /* Duration is the state, not the end time. Moving the start earlier should keep the length of the
      game the member asked for — carrying the *end* instead turns "19:00–22:00, actually let's start
      at 10" into a twelve-hour window, which is never what was meant. */
@@ -178,7 +183,8 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
             if(call.id!==key.slice(6))return [call];
             const players=call.players.filter(player=>player.id!==current.viewerId);
             return players.length?[{...call,players,joined:false}]:[];
-          }):current.calls;
+          }):key.startsWith("cancel:")?current.calls.filter(call=>call.id!==key.slice(7))
+          :current.calls;
         return {...current,calls};
       });
       void load(true);setMessage(success);onActivity?.();return true;
@@ -205,17 +211,47 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
     !call.joined&&Math.min(Date.parse(call.endAt),windowEnd)-Math.max(Date.parse(call.startAt),windowStart)>=60*60*1000
   );
 
-  const create=async()=>{
-    const ok=await mutate("create","/api/open-board",{method:"POST",headers:{"content-type":"application/json"},
-      body:JSON.stringify({startAt:new Date(windowStart).toISOString(),endAt:new Date(windowEnd).toISOString(),
-        message:note.trim(),venueId:effectiveVenueId||null,venueIntent:effectiveVenueId?"":venueIntent.trim(),
-        tempo:formTempo,handicapPref,costSplit,smoking,maxPlayers:maxJoiners===null?null:maxJoiners+1})},"已開局，時間夾到的球友會收到通知。");
-    if(ok){trackAvailabilityEvent("open_board_create",{tempo:formTempo,maxJoiners:maxJoiners??"unlimited"});setComposer("closed");setNote("");setMaxJoiners(null);if(selectedDate!=="all")setSelectedDate(date)}
+  const submitComposer=async()=>{
+    const payload=JSON.stringify({startAt:new Date(windowStart).toISOString(),endAt:new Date(windowEnd).toISOString(),
+      message:note.trim(),venueId:effectiveVenueId||null,venueIntent:effectiveVenueId?"":venueIntent.trim(),
+      tempo:formTempo,handicapPref,costSplit,smoking,maxPlayers:maxJoiners===null?null:maxJoiners+1});
+    const ok=editingId
+      ?await mutate(`edit:${editingId}`,`/api/open-board/${editingId}`,{method:"PATCH",headers:{"content-type":"application/json"},body:payload},"已更新約戰。")
+      :await mutate("create","/api/open-board",{method:"POST",headers:{"content-type":"application/json"},body:payload},"已開局，時間夾到的球友會收到通知。");
+    if(ok){
+      if(!editingId)trackAvailabilityEvent("open_board_create",{tempo:formTempo,maxJoiners:maxJoiners??"unlimited"});
+      setComposer("closed");setEditingId(null);setNote("");setMaxJoiners(null);
+      if(selectedDate!=="all")setSelectedDate(date);
+    }
   };
 
   const joinFromComposer=async(call:Call)=>{
     const ok=await mutate(`join:${call.id}`,`/api/open-board/${call.id}`,{method:"POST"},"已加入。");
     if(ok)setComposer("closed");
+  };
+
+  /** Re-opens the composer pre-filled with the host's own 局, rather than a second form — the same
+      fields, the same validation, only the submit target differs (see `submitComposer`). */
+  const openEditor=(call:Call)=>{
+    setEditingId(call.id);
+    setDate(hkDate(new Date(call.startAt)));
+    setStart(hkClock(call.startAt));
+    setDuration(Math.max(30,Math.round((Date.parse(call.endAt)-Date.parse(call.startAt))/60000)));
+    setNote(call.message);
+    setFormTempo(call.tempo);
+    setHandicapPref(call.handicapPref);
+    setCostSplit(call.costSplit);
+    setSmoking(call.smoking);
+    setMaxJoiners(call.maxPlayers===null?null:Math.max(1,call.maxPlayers-1));
+    setVenueId(call.venue?.id??"");
+    setVenuePicked(true);
+    setVenueIntent(call.venueIntent);
+    setComposer("open");
+  };
+
+  const cancelSlot=(call:Call)=>{
+    setCancelConfirm(null);
+    void mutate(`cancel:${call.id}`,`/api/open-board/${call.id}/cancel`,{method:"POST"},"已取消，其他參加者會收到通知。");
   };
 
   const dayCalls=liveCalls.filter(call=>selectedDate==="all"||hkDate(new Date(call.startAt))===selectedDate);
@@ -244,7 +280,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
     const day=addDaysHongKong(today,index),calls=liveCalls.filter(call=>hkDate(new Date(call.startAt))===day);
     return {date:day,calls:calls.length,fits:calls.some(call=>call.fits)};
   });
-  const openComposer=()=>{setDate(selectedDate==="all"?today:selectedDate);setComposer("open")};
+  const openComposer=()=>{setEditingId(null);setDate(selectedDate==="all"?today:selectedDate);setComposer("open")};
 
   return <section className="ob-page">
     <section className="hero small">
@@ -282,8 +318,9 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
           {pageCalls.map(call=>{
             const callDate=hkDate(new Date(call.startAt));
             const full=call.maxPlayers!==null&&call.players.length>=call.maxPlayers;
-            const open=expanded===call.id;
             const lead=closestOpponent(call.players,data.viewerId,viewerRating);
+            const isHost=Boolean(data.viewerId)&&call.hostId===data.viewerId;
+            const prefsLine=`${call.handicapPref==="even"?"平手對戰":"可以讓分"} · ${call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"} · ${call.maxPlayers===null?"加入人數不設上限":`最多接受 ${call.maxPlayers-1} 人加入`}`;
             return <article key={call.id} className={`ob-slot-row${call.joined?" ob-slot-row--mine":""}`}>
               <div className="ob-slot-summary">
                 <div className="ob-slot-player"><MatchVerdict player={lead} viewerRating={viewerRating} settings={settings} joined={call.joined}/>{lead?<BoardPlayerInfo player={lead} settings={settings} onPlayer={onPlayer}/>:<div className="ob-waiting-opponent"><b>等緊對手加入</b><small>你已公開這個約戰</small></div>}</div>
@@ -292,14 +329,24 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
                 <div className="ob-slot-capacity"><span className="ob-slot-state"><i aria-hidden="true"/>{call.players.length===1?"公開招募中":`${call.players.length} 人已成局`}</span><CapacityLine call={call}/></div>
                 <div className="ob-slot-action">
                   {call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
-                  <IconButton type="button" label={`${open?"收起":"展開"} ${hkDayLabel(callDate)} ${clockRange(call)} 約戰詳情`} aria-expanded={open} aria-controls={`ob-details-${call.id}`} onClick={()=>setExpanded(open?null:call.id)}><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8"><path d={open?"m6 15 6-6 6 6":"m6 9 6 6 6-6"}/></svg></IconButton>
                 </div>
               </div>
-              {open&&<div id={`ob-details-${call.id}`} className="ob-slot-details">
-                <div className="ob-detail-players">{call.players.map(player=><BoardPlayerInfo key={player.id} player={player} settings={settings} onPlayer={onPlayer}/>)}</div>
-                <p>{call.handicapPref==="even"?"平手對戰":"可以讓分"} · {call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"} · {call.maxPlayers===null?"加入人數不設上限":`最多接受 ${call.maxPlayers-1} 人加入`}</p>
-                {handicapLine(call)}{call.message&&<p>{call.message}</p>}
-                {call.joined&&<div className="ob-detail-actions"><WhatsAppButton call={call}/>{call.players.length===2&&onRecord&&<Button variant="secondary" onClick={()=>onRecord(call.players.find(player=>player.id!==data.viewerId)!.id)}>記錄賽果</Button>}<Button variant="quiet" disabled={Boolean(busy)} loading={busy===`leave:${call.id}`} onClick={()=>leave(call)}>我去不到</Button></div>}
+              {call.players.length>1&&<div className="ob-slot-roster">{call.players.map(player=><BoardPlayerInfo key={player.id} player={player} settings={settings} onPlayer={onPlayer}/>)}</div>}
+              <div className="ob-slot-meta">
+                <p className="ob-slot-prefs">{prefsLine}</p>
+                {handicapLine(call)}
+                {call.message&&<p className="ob-slot-note">{call.message}</p>}
+              </div>
+              {(call.joined||isHost)&&<div className="ob-slot-actions-row">
+                {call.joined&&<WhatsAppButton call={call}/>}
+                {call.joined&&call.players.length===2&&onRecord&&<Button variant="secondary" onClick={()=>onRecord(call.players.find(player=>player.id!==data.viewerId)!.id)}>記錄賽果</Button>}
+                {isHost?<>
+                  <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>openEditor(call)}>編輯</Button>
+                  {cancelConfirm===call.id
+                    ?<><Button variant="danger" disabled={Boolean(busy)} loading={busy===`cancel:${call.id}`} onClick={()=>cancelSlot(call)}>確定取消？</Button>
+                      <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(null)}>算了</Button></>
+                    :<Button variant="quiet" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(call.id)}>取消局</Button>}
+                </>:<Button variant="quiet" disabled={Boolean(busy)} loading={busy===`leave:${call.id}`} onClick={()=>leave(call)}>我去不到</Button>}
               </div>}
             </article>;
           })}
@@ -308,10 +355,10 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
 
       </>}
 
-    <Sheet open={composer!=="closed"} title="幾時得閒？"
-      onClose={()=>!busy&&setComposer("closed")} className="ob-sheet">
+    <Sheet open={composer!=="closed"} title={editingId?"編輯約戰":"幾時得閒？"}
+      onClose={()=>{if(busy)return;setComposer("closed");setEditingId(null)}} className="ob-sheet">
       <div className="ob-form">
-        <p className="ob-form-lede">揀一段時間，夾到的約戰會即時顯示在下面。</p>
+        <p className="ob-form-lede">{editingId?"修改時間、場地或設定，其他參加者不會另外收到通知。":"揀一段時間，夾到的約戰會即時顯示在下面。"}</p>
         <fieldset className="ob-choice"><legend>日期 <span>{hkDayLabel(date)}</span></legend>
           <DateRail label="新增時段日期" className="ob-daypick">
             {Array.from({length:14},(_,index)=>addDaysHongKong(today,index)).map(day=>
@@ -326,6 +373,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
         </div>:<InlineNotice tone="warning" title="今日已沒有可選時間">揀另一日，就可以繼續。</InlineNotice>}
         {startOptions.length>0&&<div className="ob-time-summary"><DateStamp date={date}/><div><span>你的時段 · {durationLabel}</span><b>{effectiveStart}–{endLabel}</b><small>香港時間</small></div></div>}
 
+        {!editingId&&<>
         {loadError&&data.date&&<InlineNotice tone="warning" title="顯示上次載入的約戰">{loadError}<Button type="button" variant="quiet" loading={refreshing} onClick={()=>void load(true)}>重試</Button></InlineNotice>}
         {loading?<InlineNotice title="正在找適合你的約戰">你可以先確認時間，也可以直接開局。</InlineNotice>:!data.date?<InlineNotice tone="warning" title="暫時未能查看其他局">{loadError||"請重試載入，再決定加入或開局。"}<Button type="button" variant="quiet" loading={refreshing} onClick={()=>void load(true)}>重新載入</Button></InlineNotice>:overlapping.length>0?<section className="ob-match" aria-label="可能適合你的局">
           <b>有 {overlapping.length} 個約戰時間夾到你，已按對手水平排序</b>
@@ -334,8 +382,9 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
             <Button type="button" disabled={Boolean(busy)} loading={busy===`join:${call.id}`} onClick={()=>void joinFromComposer(call)}>加入</Button>
           </div>})}
         </section>:<p className="ob-form-lede">這段時間暫時未有其他局。開一局，等球友加入。</p>}
-        <section className="ob-own-game" aria-label="開自己的局">
-          {overlapping.length>0&&<h3>或者，開自己的局</h3>}
+        </>}
+        <section className="ob-own-game" aria-label={editingId?"約戰設定":"開自己的局"}>
+          {!editingId&&overlapping.length>0&&<h3>或者，開自己的局</h3>}
           <div className="ob-setting-row"><div><small>場地</small><b>{data.venues.find(venue=>venue.id===effectiveVenueId)?.name||venueIntent||"稍後一起決定"}</b></div><Button type="button" variant="quiet" disabled={Boolean(busy)} aria-expanded={venueOpen} aria-controls="ob-venue-options" onClick={()=>setVenueOpen(value=>!value)}>{venueOpen?"收起":"更改"}</Button></div>
           <fieldset className="ob-editable" disabled={Boolean(busy)}>
             {venueOpen&&<div id="ob-venue-options" className="ob-more-panel">
@@ -374,7 +423,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
             <FormField label="補充（可選）"><textarea value={note} onChange={event=>setNote(event.target.value)} rows={2} maxLength={300} placeholder="例：想搵水平相約的球友，新手歡迎。"/></FormField>
           </div>}
         </section>
-        <div className="ob-composer-footer"><p>開局後會列在約戰板，等球友加入。</p><Button type="button" variant={overlapping.length?"secondary":"primary"} disabled={Boolean(busy)||!startOptions.length||!data.date} loading={busy==="create"} onClick={()=>void create()}>確認開局</Button></div>
+        <div className="ob-composer-footer">{!editingId&&<p>開局後會列在約戰板，等球友加入。</p>}<Button type="button" variant={!editingId&&overlapping.length?"secondary":"primary"} disabled={Boolean(busy)||!startOptions.length||!data.date} loading={busy===(editingId?`edit:${editingId}`:"create")} onClick={()=>void submitComposer()}>{editingId?"儲存修改":"確認開局"}</Button></div>
         {error&&<InlineNotice tone="danger" title="未能完成">{error}<Button type="button" variant="quiet" disabled={Boolean(busy)} onClick={()=>void load(true)}>重新載入</Button></InlineNotice>}
       </div>
     </Sheet>
