@@ -48,6 +48,7 @@ const hours=(call:{startAt:string;endAt:string})=>{
 };
 const durationText=(minutes:number)=>minutes%60===0?`${minutes/60} 小時`:`${Math.floor(minutes/60)} 小時 ${minutes%60} 分`;
 const dayNumber=(date:string)=>Number(date.slice(-2));
+const monthDay=(date:string)=>`${Number(date.slice(5,7))}月${dayNumber(date)}日`;
 /* `hkDayLabel` returns "8/9（週二）" — the calendar cell already shows the day number underneath, so
    the cell wants the weekday alone. Falls back to the full label rather than an empty cell if the
    locale ever stops using the bracketed form. */
@@ -89,7 +90,9 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
      list serves both "just skim" and "hunting for a slot" better than round-tripping through pages,
      and resets (via the `key`) whenever the date filter changes underneath it. */
   const [loadState,setLoadState]=useState({key:"",count:BOARD_PAGE_SIZE});
-  const [detailId,setDetailId]=useState<string|null>(null);
+  /* One key for both the roster popover and the "more actions" menu — only one of either can be
+     open at a time, so they share a slot instead of each row carrying its own bit of state. */
+  const [openPopup,setOpenPopup]=useState<string|null>(null);
   const [composer,setComposer]=useState<"closed"|"open">("closed");
   /* Set only while the composer is re-opened on the host's own 局 — everything else about the
      composer (fields, validation, submit) is identical between posting and editing, so this is the
@@ -281,7 +284,6 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
   const loadCount=loadState.key===filterKey?loadState.count:BOARD_PAGE_SIZE;
   const shownCalls=visible.slice(0,loadCount);
   const hasMore=shownCalls.length<visible.length;
-  const detailCall=detailId?data.calls.find(call=>call.id===detailId)??null:null;
 
   const days=Array.from({length:14},(_,index)=>{
     const day=addDaysHongKong(today,index),calls=liveCalls.filter(call=>hkDate(new Date(call.startAt))===day);
@@ -300,14 +302,14 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
     </section>
 
     <section className="ob-discovery" aria-labelledby="ob-discovery-title">
-      <div className="ob-discovery-head"><div><h2 id="ob-discovery-title">搵啱對手，再夾場地同時間</h2><p>已按對手合拍度排序，先揀日子就可以。</p></div><span>{refreshing?"更新約戰中…":`${liveCalls.length} 個約戰`}</span></div>
+      <h2 id="ob-discovery-title">選擇日期</h2>
       <DateRail label="約戰日子" className="ob-day-filter">
         <button type="button" aria-label="全部日子" aria-pressed={selectedDate==="all"} onClick={()=>setSelectedDate("all")}>
-          <small>未來 14 日</small><b>全部</b><em>{liveCalls.length}</em>
+          <b>{liveCalls.length}</b><small>全部</small>
         </button>
         {days.map(day=>
           <button key={day.date} type="button" aria-label={hkDayLabel(day.date)} aria-pressed={selectedDate===day.date} onClick={()=>setSelectedDate(day.date)}>
-            <small>{day.date===today?"今日":weekday(day.date)}</small><b>{dayNumber(day.date)}</b><em>{day.calls||"–"}</em>
+            <b>{day.calls||"–"}</b><small>{day.date===today?"今日":monthDay(day.date)}</small>
           </button>)}
       </DateRail>
     </section>
@@ -320,7 +322,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
       !dayCalls.length?<OpenBoardEmpty allDates={selectedDate==="all"} free={data.free.filter(item=>hkDate(new Date(item.startAt))===(selectedDate==="all"?today:selectedDate)).slice(0,12)} signedIn={data.signedIn}
         onOpen={(from,minutes)=>{setStart(from);setDuration(minutes);openComposer()}}/>:
       <>
-        <div className="ob-result-line"><span>{selectedDate==="all"?"所有約戰":hkDayLabel(selectedDate)} <b>{visible.length} 個</b></span><small>對手合拍度 → 時間</small></div>
+        <div className="ob-result-line"><span>{selectedDate==="all"?"所有約戰":hkDayLabel(selectedDate)} <b>{visible.length} 個</b></span></div>
         <Surface as="div" padded={false} className="ob-slot-list">
           {shownCalls.map(call=>{
             const callDate=hkDate(new Date(call.startAt));
@@ -328,26 +330,58 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
             const lead=closestOpponent(call.players,data.viewerId,viewerRating);
             const isHost=Boolean(data.viewerId)&&call.hostId===data.viewerId;
             const fit=opponentFit(lead?.rating,viewerRating);
-            return <article key={call.id} className={`ob-slot-row${call.joined?" ob-slot-row--mine":""}`}>
-              <button type="button" className="ob-slot-row-tap" onClick={()=>setDetailId(call.id)}>
-                <div className="ob-slot-row-line1">
-                  <span className="ob-slot-row-time">{callDate===today?"今日":weekday(callDate)} {clockRange(call)}</span>
-                  <span className={`ob-slot-row-fit ob-slot-row-fit--${fit.tier}`}>{fitShortLabel(fit.tier)}</span>
+            const canRecord=call.joined&&call.players.length===2&&Boolean(onRecord);
+            const menuKey=`menu:${call.id}`;
+            return <article key={call.id} className="ob-slot-row">
+              <div className="ob-slot-stamp">
+                <b>{hkClock(call.startAt)}<br/>–{hkClock(call.endAt)}</b>
+                <small>{callDate===today?"今日":weekday(callDate)}</small>
+                {call.joined&&<em className={isHost?"is-host":"is-joined"} aria-hidden="true"/>}
+              </div>
+              <div className="ob-slot-main">
+                <div className="ob-slot-top">
+                  <span className="ob-slot-place"><b>{placeLabel(call)}</b>
+                    <span>{[call.venue?.district||call.venueIntent,tempoLabel(call),call.costSplit==="aa"?"AA 波鐘":"發起人找數"].filter(Boolean).join(" · ")}</span>
+                  </span>
+                  {fit.tier!=="unknown"?<Chip tone={fit.tier==="very-close"?"success":fit.tier==="similar"?"accent":"warning"}>{fitShortLabel(fit.tier)}</Chip>
+                    :call.fits&&!call.joined?<Chip tone="accent">夾到你</Chip>
+                    :<Chip tone="neutral">{fitShortLabel(fit.tier)}</Chip>}
                 </div>
-                <div className="ob-slot-row-line2">
-                  <span className="ob-slot-row-name">{lead?lead.name:"公開招募"}</span>
-                  <span className="ob-slot-row-venue">{placeLabel(call)}</span>
-                  <span className="ob-slot-row-count">{call.players.length}{call.maxPlayers?`/${call.maxPlayers}`:""} 人</span>
-                  {call.fits&&!call.joined&&<span className="ob-slot-row-tag ob-slot-row-tag--fits">夾到你</span>}
-                  {isHost&&<span className="ob-slot-row-tag ob-slot-row-tag--host">你是主揪</span>}
+                <div className="ob-slot-roster">
+                  {call.players.map(player=><RosterChip key={player.id} call={call} player={player} settings={settings} viewerRating={viewerRating} onPlayer={onPlayer} openKey={openPopup} onToggle={setOpenPopup}/>)}
                 </div>
-              </button>
-              <div className="ob-slot-action">
-                {call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
+                <div className="ob-slot-meta-icons">
+                  <span className="ob-meta-item"><ScaleIcon/>{call.handicapPref==="even"?"平手對戰":"可以讓分"}</span>
+                  <span className="ob-meta-item"><SmokingOffIcon/>{call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}</span>
+                  <span className="ob-meta-item"><PeopleIcon/>{call.players.length}{call.maxPlayers?`/${call.maxPlayers}`:""} 人</span>
+                </div>
+                {handicapLine(call,data.viewerId,settings)}
+                {call.message&&<p className="ob-slot-quote"><QuoteIcon/>{call.message}</p>}
+                <div className="ob-slot-foot">
+                  {isHost?<Chip tone="accent">你是發起人</Chip>:call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
+                  <span className="card-tools">
+                    {isHost?<>
+                      <IconButton className="card-tool" label="編輯約戰" disabled={Boolean(busy)} onClick={()=>openEditor(call)}>✎</IconButton>
+                      {cancelConfirm===call.id
+                        ?<><Button variant="danger" disabled={Boolean(busy)} loading={busy===`cancel:${call.id}`} onClick={()=>cancelSlot(call)}>確定取消？</Button>
+                          <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(null)}>算了</Button></>
+                        :<IconButton className="card-tool danger" label="取消局" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(call.id)}>✕</IconButton>}
+                    </>:call.joined&&<span className="ob-popup-anchor">
+                      <IconButton className="card-tool" label="更多動作" onClick={()=>setOpenPopup(openPopup===menuKey?null:menuKey)}>⋯</IconButton>
+                      {openPopup===menuKey&&<div className="ob-action-menu" role="menu">
+                        <a className="ob-action-menu-item" href={whatsappUrl(call)} target="_blank" rel="noreferrer" onClick={()=>setOpenPopup(null)}><ChatIcon/>WhatsApp 傾偈</a>
+                        {canRecord&&<button type="button" className="ob-action-menu-item" onClick={()=>{setOpenPopup(null);onRecord!(call.players.find(player=>player.id!==data.viewerId)!.id)}}><FlagIcon/>記錄賽果</button>}
+                        <hr/>
+                        <button type="button" className="ob-action-menu-item ob-action-menu-item--danger" disabled={Boolean(busy)} onClick={()=>{setOpenPopup(null);leave(call)}}><ExitIcon/>我去不到</button>
+                      </div>}
+                    </span>}
+                  </span>
+                </div>
               </div>
             </article>;
           })}
         </Surface>
+        {openPopup&&<button type="button" className="ob-popup-backdrop" aria-label="關閉選單" onClick={()=>setOpenPopup(null)}/>}
         {hasMore&&<div className="ob-load-more"><Button variant="secondary" onClick={()=>setLoadState({key:filterKey,count:loadCount+BOARD_PAGE_SIZE})}>載入更多（餘 {visible.length-shownCalls.length} 個）</Button></div>}
       </>}
 
@@ -374,7 +408,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
         {loading?<InlineNotice title="正在找適合你的約戰">你可以先確認時間，也可以直接開局。</InlineNotice>:!data.date?<InlineNotice tone="warning" title="暫時未能查看其他局">{loadError||"請重試載入，再決定加入或開局。"}<Button type="button" variant="quiet" loading={refreshing} onClick={()=>void load(true)}>重新載入</Button></InlineNotice>:overlapping.length>0?<section className="ob-match" aria-label="可能適合你的局">
           <b>有 {overlapping.length} 個約戰時間夾到你，已按對手水平排序</b>
           {rankRecommendedCalls(overlapping,data.viewerId,viewerRating).map(call=>{const opponent=closestOpponent(call.players,data.viewerId,viewerRating);return <div key={call.id} className="ob-match-row">
-            <div className="ob-match-detail">{opponent&&<BoardPlayerInfo player={opponent} settings={settings}/>}<MatchVerdict player={opponent} viewerRating={viewerRating} settings={settings} joined={false}/><b>{placeLabel(call)}</b><span>{clockRange(call)}</span><small>{call.players.length} 人參加 · {tempoLabel(call)} · {call.costSplit==="aa"?"AA 波鐘":"主揪找數"}</small></div>
+            <div className="ob-match-detail">{opponent&&<BoardPlayerInfo player={opponent} settings={settings}/>}<MatchVerdict player={opponent} viewerRating={viewerRating} settings={settings} joined={false}/><b>{placeLabel(call)}</b><span>{clockRange(call)}</span><small>{call.players.length} 人參加 · {tempoLabel(call)} · {call.costSplit==="aa"?"AA 波鐘":"發起人找數"}</small></div>
             <Button type="button" disabled={Boolean(busy)} loading={busy===`join:${call.id}`} onClick={()=>void joinFromComposer(call)}>加入</Button>
           </div>})}
         </section>:<p className="ob-form-lede">這段時間暫時未有其他局。開一局，等球友加入。</p>}
@@ -396,7 +430,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
               </FormField>}
             </div>}
           </fieldset>
-          <div className="ob-setting-row ob-setting-row--intent"><div><small>更多設定</small><p>{formTempo==="sport"?"競技對手":"休閒球友"} · {handicapPref==="even"?"希望平手對戰":"接受讓分平衡"}<br/>{costSplit==="aa"?"AA 波鐘":"主揪找數"} · {smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}{maxJoiners!==null?` · 最多 ${maxJoiners} 人加入`:""}{note?" · 有補充":""}</p></div><Button type="button" variant="quiet" aria-expanded={moreOpen} aria-controls="ob-preferences" onClick={()=>setMoreOpen(value=>!value)}>{moreOpen?"收起":"更改"}</Button></div>
+          <div className="ob-setting-row ob-setting-row--intent"><div><small>更多設定</small><p>{formTempo==="sport"?"競技對手":"休閒球友"} · {handicapPref==="even"?"希望平手對戰":"接受讓分平衡"}<br/>{costSplit==="aa"?"AA 波鐘":"發起人找數"} · {smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}{maxJoiners!==null?` · 最多 ${maxJoiners} 人加入`:""}{note?" · 有補充":""}</p></div><Button type="button" variant="quiet" aria-expanded={moreOpen} aria-controls="ob-preferences" onClick={()=>setMoreOpen(value=>!value)}>{moreOpen?"收起":"更改"}</Button></div>
           {moreOpen&&<div id="ob-preferences" className="ob-more-panel">
             <fieldset className="ob-choice"><legend>節奏</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="節奏">
               <button type="button" aria-pressed={formTempo==="sport"} onClick={()=>setFormTempo("sport")}>競技</button>
@@ -406,7 +440,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
               <button type="button" aria-pressed={handicapPref==="even"} onClick={()=>setHandicapPref("even")}>希望平手</button>
               <button type="button" aria-pressed={handicapPref==="handicap"} onClick={()=>setHandicapPref("handicap")}>接受讓分</button>
             </SlidingToggleGroup><p>成局後會依雙方 ELO 提供建議讓分</p></fieldset>
-            <fieldset className="ob-choice"><legend>分攤</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="分攤"><button type="button" aria-pressed={costSplit==="aa"} onClick={()=>setCostSplit("aa")}>AA 波鐘</button><button type="button" aria-pressed={costSplit==="host"} onClick={()=>setCostSplit("host")}>主揪找數</button></SlidingToggleGroup></fieldset>
+            <fieldset className="ob-choice"><legend>分攤</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="分攤"><button type="button" aria-pressed={costSplit==="aa"} onClick={()=>setCostSplit("aa")}>AA 波鐘</button><button type="button" aria-pressed={costSplit==="host"} onClick={()=>setCostSplit("host")}>發起人找數</button></SlidingToggleGroup></fieldset>
             <fieldset className="ob-choice"><legend>吸煙</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="吸煙"><button type="button" aria-pressed={smoking==="nonsmoking"} onClick={()=>setSmoking("nonsmoking")}>要求非吸煙者</button><button type="button" aria-pressed={smoking==="any"} onClick={()=>setSmoking("any")}>不介意</button></SlidingToggleGroup></fieldset>
             <fieldset className="ob-capacity-choice" disabled={Boolean(busy)}>
               <legend>接受加入人數 <span>預設不設上限，減低有人甩底的影響</span></legend>
@@ -423,72 +457,16 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
         {error&&<InlineNotice tone="danger" title="未能完成">{error}<Button type="button" variant="quiet" disabled={Boolean(busy)} onClick={()=>void load(true)}>重新載入</Button></InlineNotice>}
       </div>
     </Sheet>
-
-    <CallDetail call={detailCall} viewerId={data.viewerId} viewerRating={viewerRating} signedIn={data.signedIn}
-      settings={settings} busy={busy} cancelConfirm={cancelConfirm} onPlayer={onPlayer} onRecord={onRecord}
-      onClose={()=>setDetailId(null)} onJoin={join} onLeave={leave} onEdit={openEditor}
-      onCancel={cancelSlot} onCancelConfirm={setCancelConfirm}/>
   </section>;
-}
-
-/** The tap target every card collapses to. At 50+ 局 the list itself has to stay a fast scan — two
-    lines, join button, done — so everything else a card used to show inline (roster, handicap
-    suggestion, prefs, message, host controls) lives here instead, one sheet per 局 rather than one
-    per row. */
-function CallDetail({call,viewerId,viewerRating,signedIn,settings,busy,cancelConfirm,onPlayer,onRecord,onClose,onJoin,onLeave,onEdit,onCancel,onCancelConfirm}:{
-  call:Call|null; viewerId:string|null; viewerRating:number|null; signedIn:boolean;
-  settings?:HandicapSettings|null; busy:string; cancelConfirm:string|null;
-  onPlayer?:(playerId:string)=>void; onRecord?:(opponentId:string)=>void;
-  onClose:()=>void; onJoin:(call:Call)=>void; onLeave:(call:Call)=>void;
-  onEdit:(call:Call)=>void; onCancel:(call:Call)=>void; onCancelConfirm:(id:string|null)=>void;
-}){
-  if(!call)return <Sheet open={false} title="約戰詳情" onClose={onClose}><></></Sheet>;
-  const today=hkDate();
-  const callDate=hkDate(new Date(call.startAt));
-  const full=call.maxPlayers!==null&&call.players.length>=call.maxPlayers;
-  const isHost=Boolean(viewerId)&&call.hostId===viewerId;
-  const lead=closestOpponent(call.players,viewerId,viewerRating);
-  const prefsLine=`${call.handicapPref==="even"?"平手對戰":"可以讓分"} · ${call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"} · ${call.maxPlayers===null?"加入人數不設上限":`最多接受 ${call.maxPlayers-1} 人加入`}`;
-  return <Sheet open title="約戰詳情" onClose={onClose} className="ob-sheet">
-    <div className="ob-detail">
-      <div className="ob-detail-head">
-        <span className="ob-detail-time">{callDate===today?"今日":weekday(callDate)} {callDate.slice(5).replace("-","/")} · {clockRange(call)}</span>
-        <MatchVerdict player={lead} viewerRating={viewerRating} settings={settings} joined={call.joined}/>
-      </div>
-      <div className="ob-detail-venue"><small>場地</small><b>{placeLabel(call)}</b><span>{[call.venue?.district||call.venueIntent,tempoLabel(call),call.costSplit==="aa"?"AA 波鐘":"主揪找數"].filter(Boolean).join(" · ")}</span></div>
-      <div className="ob-slot-roster">{call.players.map(player=><BoardPlayerInfo key={player.id} player={player} settings={settings} onPlayer={onPlayer}/>)}</div>
-      <div className="ob-slot-meta">
-        <p className="ob-slot-prefs">{prefsLine}</p>
-        {handicapLine(call,viewerId,settings)}
-        {call.message&&<p className="ob-slot-note">{call.message}</p>}
-      </div>
-      <div className="ob-detail-actions">
-        {!call.joined&&signedIn&&<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>onJoin(call)}>{full?"已滿":"加入"}</Button>}
-        {call.joined&&<WhatsAppButton call={call}/>}
-        {call.joined&&call.players.length===2&&onRecord&&<Button variant="secondary" onClick={()=>onRecord(call.players.find(player=>player.id!==viewerId)!.id)}>記錄賽果</Button>}
-        {isHost?<>
-          <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>onEdit(call)}>編輯</Button>
-          {cancelConfirm===call.id
-            ?<><Button variant="danger" disabled={Boolean(busy)} loading={busy===`cancel:${call.id}`} onClick={()=>onCancel(call)}>確定取消？</Button>
-              <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>onCancelConfirm(null)}>算了</Button></>
-            :<Button variant="quiet" disabled={Boolean(busy)} onClick={()=>onCancelConfirm(call.id)}>取消局</Button>}
-        </>:call.joined&&<Button variant="quiet" disabled={Boolean(busy)} loading={busy===`leave:${call.id}`} onClick={()=>onLeave(call)}>我去不到</Button>}
-      </div>
-    </div>
-  </Sheet>;
 }
 
 /** The WhatsApp hand-off. Not an exit — the app keeps the roster, the timing and the result — but the
     place members will actually settle which table and who brings what, so pretending otherwise would
     only mean they do it somewhere we did not link to. */
-function WhatsAppButton({call}:{call:Call}){
-  const text=encodeURIComponent(
-    `${hkDayLabel(call.startAt.slice(0,10))} ${clockRange(call)}`+
-    `\n${call.venue?call.venue.name:call.venueIntent||"場地未定"}`+
-    `\n${call.players.map(player=>player.name).join("、")}`);
-  return <a className="ds-button ds-button--secondary" href={`https://wa.me/?text=${text}`}
-    target="_blank" rel="noreferrer"><span>WhatsApp</span></a>;
-}
+const whatsappUrl=(call:Call)=>`https://wa.me/?text=${encodeURIComponent(
+  `${hkDayLabel(call.startAt.slice(0,10))} ${clockRange(call)}`+
+  `\n${call.venue?call.venue.name:call.venueIntent||"場地未定"}`+
+  `\n${call.players.map(player=>player.name).join("、")}`)}`;
 
 /** The empty state earns its place only when it carries evidence. 「今日未有局」 alone is a dead end;
     the members who said they were free that day are a reason to open one, and the button below them
@@ -616,10 +594,47 @@ function DateRail({label,className,children}:{label:string;className:string;chil
   </div>;
 }
 
+/* Meta-row icons stay small inline SVGs (informational, not buttons); edit/delete/more use the
+   app's existing `.card-tool` glyph-button pattern (see globals.css) instead of drawn icons, to
+   match how every other card in the app — match, cup, player — renders its own edit/delete. */
+const ScaleIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v18M5 7h14M5 7l-2 5a3 3 0 0 0 6 0L5 7Zm14 0l-2 5a3 3 0 0 0 6 0l-2-5"/></svg>;
+const SmokingOffIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg>;
+const PeopleIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="2.6"/><path d="M3.5 19v-1a4.5 4.5 0 0 1 4.5-4.5h0a4.5 4.5 0 0 1 4.5 4.5v1"/><circle cx="17" cy="9" r="2"/><path d="M15.3 19v-.6a3.7 3.7 0 0 1 2.8-3.6"/></svg>;
+const QuoteIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M7 8c-2 0-3 1.5-3 3.5S5 15 7 15c.3 2-1 3.5-3 4M17 8c-2 0-3 1.5-3 3.5s1 3.5 3 3.5c.3 2-1 3.5-3 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+const ChatIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L4 20l1.1-4.6A8.4 8.4 0 1 1 21 11.5Z"/></svg>;
+const FlagIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M8 21h8M12 17v4M6 4h12l-1 8a5 5 0 0 1-10 0L6 4Z"/></svg>;
+const ExitIcon=()=><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9 15 3 12l6-3M3 12h13a5 5 0 0 1 0 10h-1"/></svg>;
+
 function BoardPlayerInfo({player,settings,onPlayer}:{player:Player;settings?:HandicapSettings|null;onPlayer?:(id:string)=>void}){
   const score=settings?suggestedHandicap(player,[],{...settings,start:settings.start??1500}):null;
   const content=<><PlayerBadge player={player}/><span><b>{player.name}</b><small>ELO <strong>{Math.round(player.rating)}</strong> · 建議評分 <strong>{score??"—"}</strong></small></span></>;
   return onPlayer?<button type="button" className="ob-player-info" onClick={()=>onPlayer(player.id)}>{content}</button>:<span className="ob-player-info">{content}</span>;
+}
+
+/** Ratings only earn a permanent line on the card once a fit is being compared; the roster itself
+    stays name-first, and ELO/suggested-handicap/fit live one tap away in this popover instead. */
+function RosterChip({call,player,settings,viewerRating,onPlayer,openKey,onToggle}:{
+  call:Call;player:Player;settings?:HandicapSettings|null;viewerRating:number|null;
+  onPlayer?:(id:string)=>void;openKey:string|null;onToggle:(key:string|null)=>void;
+}){
+  const popKey=`player:${call.id}:${player.id}`;
+  const open=openKey===popKey;
+  const score=settings?suggestedHandicap(player,[],{...settings,start:settings.start??1500}):null;
+  const fit=opponentFit(player.rating,viewerRating);
+  return <span className="ob-popup-anchor">
+    <button type="button" className="ob-roster-chip" aria-expanded={open} onClick={()=>onToggle(open?null:popKey)}>
+      <PlayerBadge player={player}/><span><b>{player.name}</b><small>ELO {Math.round(player.rating)}</small></span>
+    </button>
+    {open&&<div className="ob-roster-popover" role="dialog" aria-label={`${player.name}的資料`}>
+      <b className="ob-popover-name">{player.name}</b>
+      <span className="ob-popover-sub">ELO {Math.round(player.rating)}</span>
+      <div className="ob-popover-rows">
+        <span>建議評分<b>{score??"—"}</b></span>
+        {fit.tier!=="unknown"&&<span>同你合拍度<b className={`ob-fit-${fit.tier}`}>{fitShortLabel(fit.tier)}</b></span>}
+      </div>
+      {onPlayer&&<button type="button" className="ob-popover-link" onClick={()=>onPlayer(player.id)}>睇完整球員資料 →</button>}
+    </div>}
+  </span>;
 }
 
 function MatchVerdict({player,viewerRating,settings,joined}:{player:Player|null;viewerRating:number|null;settings?:HandicapSettings|null;joined:boolean}){

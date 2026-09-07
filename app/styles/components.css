@@ -1,5 +1,7 @@
 @layer components {
-  .ds-button,.ds-icon-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);min-height:var(--control-md);border-radius:var(--ds-radius-control);border:1px solid transparent;font-weight:800;transition:transform var(--ds-duration-fast) var(--ds-ease-standard),background var(--ds-duration-fast) var(--ds-ease-standard)}
+  /* `.ds-button` also renders as an `<a>` (`ButtonLink`) — reset the browser's default
+     link underline/colour here so an anchor-based button doesn't read as a text link. */
+  .ds-button,.ds-icon-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);min-height:var(--control-md);border-radius:var(--ds-radius-control);border:1px solid transparent;font-weight:800;text-decoration:none;transition:transform var(--ds-duration-fast) var(--ds-ease-standard),background var(--ds-duration-fast) var(--ds-ease-standard)}
   .ds-button{padding:var(--sp-3) var(--sp-4)}.ds-button:active,.ds-icon-button:active{transform:translateY(1px) scale(.98)}
   /* `@layer legacy`'s `button,input,select{font:inherit}` always wins over any font-size set
      directly on `.ds-button` (unlayered beats named layers, and legacy is declared last of all
@@ -42,8 +44,13 @@
   .ds-empty>svg{width:2.75rem;height:2.75rem;color:var(--ds-accent-primary);fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round}.ds-empty h3{margin:var(--sp-2) 0 0}.ds-empty p{max-width:32rem;margin:var(--sp-1-5) 0 var(--sp-4);color:var(--ds-text-secondary)}
   .ds-notice{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:var(--sp-3);padding:var(--sp-3-5) var(--sp-4);border:1px solid color-mix(in srgb,var(--ds-info) 28%,var(--ds-border-subtle));border-radius:var(--ds-radius-control);background:var(--ds-surface-secondary)}.ds-notice>i{width:var(--sp-2-5);height:var(--sp-2-5);margin-top:var(--sp-1-5);border-radius:50%;background:var(--ds-info)}.ds-notice>div{display:grid;gap:var(--sp-1)}.ds-notice b{color:var(--ds-text-primary)}.ds-notice span{color:var(--ds-text-secondary)}.ds-notice--success{border-color:color-mix(in srgb,var(--ds-success) 28%,var(--ds-border-subtle))}.ds-notice--success>i{background:var(--ds-success)}.ds-notice--warning{border-color:color-mix(in srgb,var(--ds-warning) 32%,var(--ds-border-subtle))}.ds-notice--warning>i{background:var(--ds-warning)}.ds-notice--danger{border-color:color-mix(in srgb,var(--ds-danger) 28%,var(--ds-border-subtle))}.ds-notice--danger>i{background:var(--ds-danger)}
   .ds-skeleton{display:block;border-radius:var(--radius-2xs);background:linear-gradient(100deg,var(--ds-canvas-muted) 30%,var(--ds-surface-primary) 50%,var(--ds-canvas-muted) 70%);background-size:200% 100%;animation:ds-shimmer 1.2s infinite}@keyframes ds-shimmer{to{background-position:-200% 0}}
-  .ds-overlay{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:var(--sp-4);background:var(--ds-overlay)}
-  .ds-dialog,.ds-sheet{position:relative;width:min(36rem,100%);max-height:calc(100dvh - var(--sp-6));overflow:auto;padding:var(--sp-5);border-radius:var(--ds-radius-sheet);background:var(--ds-surface-primary);box-shadow:var(--ds-shadow-floating)}
+  /* A frosted backdrop plus a spring-in sheet — the two things that make an iOS sheet feel like it
+     arrived rather than just appeared. Both are pure entrance animations (mount-triggered, since
+     these components unmount on close), so there's nothing to reverse on the way out. */
+  .ds-overlay{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:var(--sp-4);background:var(--ds-overlay);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:ds-overlay-in var(--ds-duration-standard) var(--ds-ease-standard) both}
+  .ds-dialog,.ds-sheet{position:relative;width:min(36rem,100%);max-height:calc(100dvh - var(--sp-6));overflow:auto;padding:var(--sp-5);border-radius:var(--ds-radius-sheet);background:var(--ds-surface-primary);box-shadow:var(--ds-shadow-floating);animation:ds-sheet-in var(--ds-duration-toggle) var(--ds-ease-toggle) both}
+  @keyframes ds-overlay-in{from{opacity:0}to{opacity:1}}
+  @keyframes ds-sheet-in{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
   /* The close button is absolutely positioned over the top-right corner, so the
      heading has to reserve its width or a long title runs underneath the ×.
      `.a2hs-sheet h2` was carrying its own copy of this margin; it belongs on the
@@ -72,9 +79,13 @@
      chaining into a scroll of the page behind the backdrop — the same fix the legacy
      `.sheet-shell>.sheet` rule needed (see app/styles/modal-sheet.css) generalised here
      for the primitive's own consumers. */
-  @media(max-width:820px){.ds-overlay--sheet{align-items:end;padding:0}.ds-sheet{width:100%;max-height:calc(100dvh - var(--ds-safe-top));padding-bottom:calc(1.5rem + var(--ds-safe-bottom));border-radius:var(--ds-radius-sheet) var(--ds-radius-sheet) 0 0;overscroll-behavior:contain;touch-action:pan-y}.ds-mobile-nav{padding-bottom:var(--ds-safe-bottom)}.ds-page-hero{margin-inline:calc(-1 * var(--ds-space-page));padding-inline:var(--ds-space-page);border-radius:0}}
+  /* The grab bar iOS puts on every bottom sheet — a resting-state hint that this is a sheet you
+     could swipe, even though drag-to-dismiss isn't wired up. Mobile-only: a sheet docked to the
+     bottom edge reads as swipeable, a centred dialog doesn't. */
+  @media(max-width:820px){.ds-overlay--sheet{align-items:end;padding:0}.ds-sheet{width:100%;max-height:calc(100dvh - var(--ds-safe-top));padding-top:var(--sp-5-5);padding-bottom:calc(1.5rem + var(--ds-safe-bottom));border-radius:var(--ds-radius-sheet) var(--ds-radius-sheet) 0 0;overscroll-behavior:contain;touch-action:pan-y;animation-name:ds-sheet-in-up}.ds-sheet::before{content:"";position:absolute;top:var(--sp-2);left:50%;width:2.25rem;height:.3rem;border-radius:var(--radius-pill);background:var(--ds-border-strong);transform:translateX(-50%)}.ds-mobile-nav{padding-bottom:var(--ds-safe-bottom)}.ds-page-hero{margin-inline:calc(-1 * var(--ds-space-page));padding-inline:var(--ds-space-page);border-radius:0}}
+  @keyframes ds-sheet-in-up{from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:translateY(0)}}
   @media(max-width:599px){.ds-page-hero{flex-direction:column;gap:var(--sp-4)}.ds-page-hero h1{font-size:var(--fs-display)}}
-  @media(prefers-reduced-motion:reduce){.ds-segmented__indicator,.ds-segmented button{transition:none}}
+  @media(prefers-reduced-motion:reduce){.ds-segmented__indicator,.ds-segmented button{transition:none}.ds-overlay,.ds-dialog,.ds-sheet{animation:none}}
 }
 
 /* iOS "add to home screen" coach mark. Content only — the overlay/backdrop/sheet
