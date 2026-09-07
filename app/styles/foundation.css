@@ -4,6 +4,12 @@
   html,body{background:var(--ds-canvas-functional)}
   body{min-width:0}img,video,canvas,svg{max-width:100%}
   button,input,select,textarea{min-width:0;max-width:100%}
+  /* `globals.css` normalises `button,input,select{font:inherit}` but omits textarea, so every
+     textarea in the app fell back to the UA default family — visibly a different typeface from the
+     field above it. Fixed here rather than by extending that rule, because `legacy` is the last
+     layer: the `font` shorthand would also reset font-size and undo `.ds-field textarea`'s
+     `--fs-input`, which exists to stop iOS zooming the page on focus. Family only, size left alone. */
+  textarea{font-family:inherit}
   /* A <label> wrapping a field is almost always the flex/grid item that field's row lays out —
      not the input itself — so without this, the label's default min-width:auto (its content's
      intrinsic width) is what actually decides whether the row can shrink. That's the recurring
