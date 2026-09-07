@@ -79,6 +79,15 @@
   .ob-choice>p{margin:var(--sp-2) 0 0;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
   .ob-choice .sliding-toggle-group{display:flex}
   .ob-choice .sliding-toggle-group button{flex:1;min-height:var(--control-md)}
+  /* 節奏/對手水平/分攤/吸煙 used to be four full-width fieldsets stacked top to bottom, each with its
+     own caption line -- a lot of floor space for four yes/no choices. A 2-column grid of smaller
+     segmented pairs shows all four at a glance; the shared caption below replaces the four repeated
+     ones. */
+  .ob-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-3)}
+  .ob-choice--compact legend{margin-bottom:var(--sp-1-5);font-size:var(--fs-caption);font-weight:700;color:var(--ds-text-secondary)}
+  .ob-choice--compact .sliding-toggle-group button{min-height:var(--control-sm);font-size:var(--fs-label);padding-inline:var(--sp-1)}
+  .ob-choice-grid-note{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-caption);line-height:1.5}
+  @media(max-width:380px){.ob-choice-grid{grid-template-columns:minmax(0,1fr)}}
   .ob-time-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-3)}
   .ob-time-summary{display:flex;align-items:center;gap:var(--sp-4);margin:0;padding:var(--sp-5);border-radius:var(--radius-md);background:radial-gradient(circle at 90% 0,var(--ds-featured-glow),transparent 45%),var(--ds-surface-featured);color:var(--ds-text-on-brand);box-shadow:inset 0 1px 0 rgba(255,255,255,.16),var(--ds-elevation-4)}
   .ob-time-summary b{font-size:var(--fs-display);font-variant-numeric:tabular-nums;letter-spacing:-.03em;line-height:1.2}
@@ -96,22 +105,25 @@
   .ob-composer-footer{position:sticky;bottom:calc(-1 * var(--sp-5));z-index:1;display:grid;gap:var(--sp-2);padding-block:var(--sp-3);background:var(--ds-surface-primary);border-top:1px solid var(--ds-border-subtle)}
   .ob-composer-footer p{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
 
-  .ob-capacity-choice{display:grid;gap:var(--sp-3);min-width:0;margin:0;padding:var(--sp-4);border:0;border-radius:var(--radius-md);background:var(--ds-highlight-wash)}
-  .ob-capacity-choice legend{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--sp-2);width:100%;padding:0;font-size:var(--fs-sm);font-weight:800}
-  .ob-capacity-choice legend span{color:var(--ds-accent-text);font-size:var(--fs-label);font-weight:700}
-  .ob-capacity-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2)}
-  .ob-capacity-options button{display:grid;gap:var(--sp-1);min-height:var(--control-lg);padding:var(--sp-3);border:1px solid var(--ds-accent-soft);border-radius:var(--radius-sm);background:var(--ds-surface-primary);color:var(--ds-text-primary);text-align:left;box-shadow:var(--ds-elevation-1);transition:transform var(--ds-duration-fast) var(--ds-ease-toggle),box-shadow var(--ds-duration-standard) var(--ds-ease-standard)}
-  .ob-capacity-options button:active{transform:scale(.97)}
-  .ob-capacity-options button b{font-size:var(--fs-sm)}
-  .ob-capacity-options button small{color:var(--ds-text-secondary);font-size:var(--fs-label)}
-  .ob-capacity-options button[aria-pressed="true"]{border-color:var(--ds-surface-featured);background:var(--ds-surface-featured);color:var(--ds-text-on-brand);box-shadow:var(--ds-elevation-3)}
-  .ob-capacity-options button[aria-pressed="true"] small{color:var(--ds-text-on-brand-secondary)}
+  /* Capacity used to be two big option cards plus a conditional 1-7 select -- replaced by a single
+     stepper row, the same control iOS itself uses for a small bounded count (max 20 here). */
+  .ob-capacity-stepper{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-2-5);min-width:0;margin:0;padding:var(--sp-3-5) var(--sp-4);border:0;border-radius:var(--radius-md);background:var(--ds-highlight-wash)}
+  .ob-capacity-stepper legend{display:flex;flex-direction:column;gap:2px;padding:0;font-size:var(--fs-sm);font-weight:800}
+  .ob-capacity-stepper legend span{color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:500}
+  .ob-stepper{display:flex;align-items:center;gap:var(--sp-3);flex:none}
+  .ob-stepper-value{min-width:5rem;text-align:center;font-size:var(--fs-sm);font-weight:700;font-variant-numeric:tabular-nums}
+  .ob-stepper-btn{display:flex;align-items:center;justify-content:center;width:var(--control-sm);height:var(--control-sm);border:1px solid var(--ds-accent-soft);border-radius:50%;background:var(--ds-surface-primary);color:var(--ds-accent-text);font-size:var(--fs-lead);font-weight:700;line-height:1}
+  .ob-stepper-btn:disabled{opacity:.35}
+  .ob-stepper-btn:not(:disabled):active{transform:scale(.92)}
 
   /* --- venue picker ------------------------------------------------------- */
+  /* Was a bordered scroll box of full-width rows -- selecting a venue meant scanning a list box that
+     looked like every other form field on the page. A wrapping chip grid reads as "pick one", tap
+     lands directly on the choice, and the whole set is visible without scrolling a nested box. */
   .ob-venue{display:grid;gap:var(--sp-2);min-width:0}
-  .ob-venue-list{display:grid;gap:var(--sp-1);max-height:13rem;min-width:0;padding:var(--sp-1);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);background:var(--ds-surface-secondary);overflow-y:auto}
-  .ob-venue-list button{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-1) var(--sp-2);min-height:var(--control-md);min-width:0;padding:var(--sp-2) var(--sp-2-5);border:1px solid transparent;border-radius:var(--radius-xs);background:var(--ds-surface-primary);color:var(--ds-text-primary);text-align:left}
-  .ob-venue-list button>i{flex:0 0 1rem;color:var(--ds-accent-primary);font-size:var(--fs-sm);font-style:normal;font-weight:800}
+  .ob-venue-list{display:flex;flex-wrap:wrap;gap:var(--sp-2);min-width:0;max-height:16rem;padding:var(--sp-1);overflow-y:auto}
+  .ob-venue-list button{display:inline-flex;align-items:center;gap:var(--sp-1-5);min-height:var(--control-md);min-width:0;padding:0 var(--sp-3-5);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-pill);background:var(--ds-surface-primary);color:var(--ds-text-primary)}
+  .ob-venue-list button>i{color:var(--ds-accent-primary);font-size:var(--fs-sm);font-style:normal;font-weight:800}
   .ob-venue-list button>b{font-size:var(--fs-sm);font-weight:700;overflow-wrap:anywhere}
   .ob-venue-list button>small{color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
   /* Selected reads as the felt panel the rest of the app uses for "this one", not a pale wash —
@@ -210,7 +222,7 @@
   .ob-roster-popover,.ob-action-menu{position:absolute;z-index:10;top:calc(100% + var(--sp-1-5));background:var(--ds-surface-primary);border:1px solid var(--ds-border-strong);border-radius:var(--radius-md);box-shadow:var(--ds-elevation-4);transform-origin:top left;animation:ob-popover-in var(--ds-duration-fast) var(--ds-ease-toggle) both}
   .ob-action-menu{transform-origin:top right}
   @keyframes ob-popover-in{from{opacity:0;transform:scale(.92) translateY(-2px)}to{opacity:1;transform:scale(1) translateY(0)}}
-  @media(prefers-reduced-motion:reduce){.ob-roster-popover,.ob-action-menu,.ob-slot-row,.ob-day-filter button,.ob-roster-chip,.ob-daypick button,.ob-capacity-options button{animation:none;transition:none}}
+  @media(prefers-reduced-motion:reduce){.ob-roster-popover,.ob-action-menu,.ob-slot-row,.ob-day-filter button,.ob-roster-chip,.ob-daypick button,.ob-stepper-btn{animation:none;transition:none}}
   .ob-roster-popover{left:0;min-width:12rem;display:grid;gap:var(--sp-1);padding:var(--sp-3)}
   .ob-popover-name{font-size:var(--fs-sm);font-weight:700}
   .ob-popover-sub{font-size:var(--fs-label);color:var(--ds-text-tertiary)}
@@ -292,7 +304,6 @@
   @media(max-width:599px){
     .ob-day-filter button{flex-basis:3.75rem;min-height:4.75rem}
     .ob-time-summary b{font-size:var(--fs-stat)}
-    .ob-capacity-options{grid-template-columns:minmax(0,1fr)}
     .ob-composer-footer{bottom:calc(-1 * (var(--sp-5) + var(--ds-safe-bottom)));padding-bottom:calc(var(--sp-3) + var(--ds-safe-bottom))}
     .ob-slot-row{grid-template-columns:4.5rem 1fr}
     .ob-roster-chip b{max-width:5rem}

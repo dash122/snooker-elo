@@ -22,7 +22,8 @@ export function parseCallInput(input:unknown):CreateCallInput {
     costSplit:oneOf(value.costSplit,["aa","host"] as const,"aa"),
     smoking:oneOf(value.smoking,["nonsmoking","any"] as const,"nonsmoking"),
     /* NULL is the default and the normal state. A cap is an unusual request — a fixed doubles
-       match — not something the composer should push members towards. */
-    maxPlayers:Number.isFinite(cap)&&cap>=2&&cap<=8?Math.trunc(cap):null,
+       match — not something the composer should push members towards. Upper bound matches the
+       composer's stepper (max 20 joiners, so 21 including the host). */
+    maxPlayers:Number.isFinite(cap)&&cap>=2&&cap<=21?Math.trunc(cap):null,
   };
 }

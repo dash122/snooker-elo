@@ -530,23 +530,31 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
           </fieldset>
           <div className="ob-setting-row ob-setting-row--intent"><div><small>更多設定</small><p>{formTempo==="sport"?"競技對手":"休閒球友"} · {handicapPref==="even"?"希望平手對戰":"接受讓分平衡"}<br/>{costSplit==="aa"?"AA 波鐘":"發起人找數"} · {smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}{maxJoiners!==null?` · 最多 ${maxJoiners} 人加入`:""}{note?" · 有補充":""}</p></div><Button type="button" variant="quiet" aria-expanded={moreOpen} aria-controls="ob-preferences" onClick={()=>setMoreOpen(value=>!value)}>{moreOpen?"收起":"更改"}</Button></div>
           {moreOpen&&<div id="ob-preferences" className="ob-more-panel">
-            <fieldset className="ob-choice"><legend>節奏</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="節奏">
-              <button type="button" aria-pressed={formTempo==="sport"} onClick={()=>setFormTempo("sport")}>競技</button>
-              <button type="button" aria-pressed={formTempo==="casual"} onClick={()=>setFormTempo("casual")}>休閒</button>
-            </SlidingToggleGroup><p>兩者同樣計算 ELO，只影響讓分與排序</p></fieldset>
-            <fieldset className="ob-choice"><legend>對手水平</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="對手水平">
-              <button type="button" aria-pressed={handicapPref==="even"} onClick={()=>setHandicapPref("even")}>希望平手</button>
-              <button type="button" aria-pressed={handicapPref==="handicap"} onClick={()=>setHandicapPref("handicap")}>接受讓分</button>
-            </SlidingToggleGroup><p>成局後會依雙方 ELO 提供建議讓分</p></fieldset>
-            <fieldset className="ob-choice"><legend>分攤</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="分攤"><button type="button" aria-pressed={costSplit==="aa"} onClick={()=>setCostSplit("aa")}>AA 波鐘</button><button type="button" aria-pressed={costSplit==="host"} onClick={()=>setCostSplit("host")}>發起人找數</button></SlidingToggleGroup></fieldset>
-            <fieldset className="ob-choice"><legend>吸煙</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="吸煙"><button type="button" aria-pressed={smoking==="nonsmoking"} onClick={()=>setSmoking("nonsmoking")}>要求非吸煙者</button><button type="button" aria-pressed={smoking==="any"} onClick={()=>setSmoking("any")}>不介意</button></SlidingToggleGroup></fieldset>
-            <fieldset className="ob-capacity-choice" disabled={Boolean(busy)}>
+            {/* Four binary choices used to be four full-width bordered fieldsets, each with its own
+                caption line -- a lot of floor space for "pick one of two". A 2-column grid of compact
+                segmented pairs shows all four at once without hiding any of them. */}
+            <div className="ob-choice-grid">
+              <fieldset className="ob-choice ob-choice--compact"><legend>節奏</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="節奏">
+                <button type="button" aria-pressed={formTempo==="sport"} onClick={()=>setFormTempo("sport")}>競技</button>
+                <button type="button" aria-pressed={formTempo==="casual"} onClick={()=>setFormTempo("casual")}>休閒</button>
+              </SlidingToggleGroup></fieldset>
+              <fieldset className="ob-choice ob-choice--compact"><legend>對手水平</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="對手水平">
+                <button type="button" aria-pressed={handicapPref==="even"} onClick={()=>setHandicapPref("even")}>希望平手</button>
+                <button type="button" aria-pressed={handicapPref==="handicap"} onClick={()=>setHandicapPref("handicap")}>接受讓分</button>
+              </SlidingToggleGroup></fieldset>
+              <fieldset className="ob-choice ob-choice--compact"><legend>分攤</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="分攤"><button type="button" aria-pressed={costSplit==="aa"} onClick={()=>setCostSplit("aa")}>AA 波鐘</button><button type="button" aria-pressed={costSplit==="host"} onClick={()=>setCostSplit("host")}>發起人找數</button></SlidingToggleGroup></fieldset>
+              <fieldset className="ob-choice ob-choice--compact"><legend>吸煙</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="吸煙"><button type="button" aria-pressed={smoking==="nonsmoking"} onClick={()=>setSmoking("nonsmoking")}>要求非吸煙者</button><button type="button" aria-pressed={smoking==="any"} onClick={()=>setSmoking("any")}>不介意</button></SlidingToggleGroup></fieldset>
+            </div>
+            <p className="ob-choice-grid-note">節奏同對手水平只影響讓分與排序，同樣計算 ELO；成局後會依雙方 ELO 提供建議讓分。</p>
+            {/* Capacity: was two big option cards plus a conditional 1-7 dropdown. A stepper is the
+                one control iOS itself uses for a small bounded count, and reads as one line. */}
+            <fieldset className="ob-capacity-stepper" disabled={Boolean(busy)}>
               <legend>接受加入人數 <span>預設不設上限，減低有人甩底的影響</span></legend>
-              <div className="ob-capacity-options">
-                <button type="button" aria-pressed={maxJoiners===null} onClick={()=>setMaxJoiners(null)}><b>不設上限</b><small>球友可以繼續加入</small></button>
-                <button type="button" aria-pressed={maxJoiners!==null} onClick={()=>setMaxJoiners(value=>value??1)}><b>設定人數</b><small>到額即停止加入</small></button>
+              <div className="ob-stepper">
+                <button type="button" className="ob-stepper-btn" aria-label="減少人數上限" disabled={maxJoiners===null} onClick={()=>setMaxJoiners(value=>value===null?null:value<=1?null:value-1)}>−</button>
+                <span className="ob-stepper-value">{maxJoiners===null?"不設上限":`${maxJoiners} 人`}</span>
+                <button type="button" className="ob-stepper-btn" aria-label="增加人數上限" disabled={maxJoiners===20} onClick={()=>setMaxJoiners(value=>value===null?1:Math.min(20,value+1))}>＋</button>
               </div>
-              {maxJoiners!==null&&<FormField label="最多接受多少位球友加入"><select value={maxJoiners} onChange={event=>setMaxJoiners(Number(event.target.value))}>{Array.from({length:7},(_,index)=>index+1).map(value=><option key={value} value={value}>{value} 人</option>)}</select></FormField>}
             </fieldset>
             <FormField label="補充（可選）">
               <div className="ob-note-templates">
