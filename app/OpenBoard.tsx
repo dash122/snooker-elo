@@ -258,13 +258,14 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
   const openComposer=()=>{setDate(selectedDate==="all"?today:selectedDate);setComposer("window")};
 
   return <section className="ob-page">
-    <div className="ob-head">
+    <section className="hero small">
       <div>
+        <p className="kicker">會員專屬</p>
         <h1>搵人打波</h1>
         <p>先搵水平和打法合拍的球友，再揀大家方便的場地與時間。</p>
       </div>
       {(data.signedIn||viewerId)&&<Button variant="primary" onClick={openComposer}>新增時段 <span aria-hidden="true">＋</span></Button>}
-    </div>
+    </section>
 
     <section className="ob-discovery" aria-labelledby="ob-discovery-title">
       <div className="ob-discovery-head"><div><h2 id="ob-discovery-title">搵啱對手，再夾場地同時間</h2><p>推薦會先比較對手 ELO，再看場地選擇，最後用你的空閒時間排序。</p></div><span>{refreshing?"更新約戰中…":`${liveCalls.length} 個約戰`}</span></div>

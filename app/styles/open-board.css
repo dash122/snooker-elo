@@ -11,13 +11,6 @@
 @layer components {
   .ob-page{display:grid;gap:var(--sp-5);width:100%;min-width:0;margin:0 auto;padding-bottom:var(--sp-6);color:var(--ds-text-primary)}
 
-  /* --- header: page furniture on the canvas, not a slab ------------------- */
-  .ob-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-5);min-width:0;padding-top:var(--sp-2)}
-  .ob-head>div{min-width:0;max-width:42rem}
-  .ob-head h1{margin:0;color:var(--ds-canvas-brand);font-family:var(--font-display);font-size:var(--fs-display);letter-spacing:-.03em;line-height:1}
-  .ob-head>div>p:last-child{max-width:38rem;margin:var(--sp-3) 0 0;color:var(--ds-text-secondary);font-size:var(--fs-body);line-height:1.6}
-  .ob-head>.ds-button{min-height:var(--control-lg);box-shadow:var(--ds-elevation-3)}
-
   /* --- discovery: opponent first, logistics second ----------------------- */
   .ob-discovery{display:grid;gap:var(--sp-4);min-width:0;padding:var(--sp-5);border-radius:var(--radius-lg);background:radial-gradient(circle at 88% 0,var(--ds-featured-glow),transparent 38%),var(--ds-surface-featured);box-shadow:var(--ds-elevation-4)}
   .ob-discovery-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-4);min-width:0}
@@ -219,10 +212,6 @@
     .ob-page{gap:var(--sp-4)}
   }
   @media(max-width:599px){
-    .ob-head{display:flex;align-items:flex-start}
-    .ob-head .ds-button{flex-shrink:0}
-    .ob-head>div>p:last-child{display:none}
-    .ob-head h1{font-size:var(--fs-h2)}
     .ob-discovery{gap:var(--sp-3);margin-inline:calc(-1 * var(--sp-2));padding:var(--sp-4) var(--sp-3);border-radius:var(--radius-md)}
     .ob-discovery-head{align-items:flex-start}
     .ob-discovery-head>span{display:none}
