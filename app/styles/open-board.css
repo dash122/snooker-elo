@@ -9,22 +9,27 @@
  * supporting evidence. Only a 局 the viewer has joined gets a tinted ground. */
 
 @layer components {
-  .ob-page{display:grid;gap:var(--sp-5);width:100%;min-width:0;margin:0 auto;padding-bottom:var(--sp-6);color:var(--ds-text-primary)}
+  .ob-page{display:grid;gap:var(--sp-5-5);width:100%;min-width:0;margin:0 auto;padding-bottom:var(--sp-6);color:var(--ds-text-primary)}
 
   /* --- discovery: opponent first, logistics second ----------------------- */
-  .ob-discovery{display:grid;gap:var(--sp-3);min-width:0}
+  .ob-discovery{display:grid;gap:var(--sp-3-5);min-width:0}
   .ob-discovery h2{margin:0;color:var(--ds-text-primary);font-family:var(--font-display);font-size:var(--fs-h3);letter-spacing:-.03em;line-height:1.1}
   .ob-discovery>.ob-date-nav{min-width:0}
-  .ob-day-filter{display:flex;gap:var(--sp-2);min-width:0;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;padding-block:var(--sp-1) var(--sp-2);scrollbar-width:thin;scrollbar-color:var(--ds-border-muted) transparent}
-  .ob-day-filter button{display:grid;flex:0 0 4.25rem;scroll-snap-align:start;justify-items:center;align-content:center;gap:var(--sp-1);min-height:5.25rem;padding:var(--sp-3) var(--sp-2);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-md);background:var(--ds-surface-primary);color:var(--ds-text-secondary)}
+  /* Pills are a small control, so they earn the smaller end of the radius scale — the same
+     absolute radius as the hero card reads as far rounder at 1/5th the size. */
+  .ob-day-filter{display:flex;gap:var(--sp-2-5);min-width:0;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;padding-block:var(--sp-1) var(--sp-2);scrollbar-width:thin;scrollbar-color:var(--ds-border-muted) transparent}
+  .ob-day-filter button{display:grid;flex:0 0 4.5rem;scroll-snap-align:start;justify-items:center;align-content:center;gap:var(--sp-1-5);min-height:5.25rem;padding:var(--sp-3-5) var(--sp-2);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);background:var(--ds-surface-primary);color:var(--ds-text-secondary);transition:transform var(--ds-duration-fast) var(--ds-ease-standard)}
+  .ob-day-filter button:active{transform:scale(.96)}
   .ob-day-filter button>b{font-size:var(--fs-stat);line-height:1;font-variant-numeric:tabular-nums;color:var(--ds-text-primary)}
-  .ob-day-filter button>small{font-size:var(--fs-label);font-weight:700;line-height:1}
-  .ob-day-filter button[aria-pressed="true"]{border-color:var(--ds-surface-featured);background:var(--ds-surface-featured);color:var(--ds-text-on-brand)}
-  .ob-day-filter button[aria-pressed="true"]>b{color:var(--ds-accent-primary)}
+  .ob-day-filter button>small{font-size:var(--fs-label);font-weight:700;line-height:1;color:var(--ds-text-tertiary)}
+  /* Same felt-and-gradient the hero card is built from, not a flat fill — so the two brand
+     greens on screen together read as one surface family instead of two different colours. */
+  .ob-day-filter button[aria-pressed="true"]{border-color:transparent;background:linear-gradient(135deg,var(--baize) 0%,var(--baize-deep) 100%);color:var(--ds-text-on-brand);box-shadow:var(--ds-elevation-2)}
+  .ob-day-filter button[aria-pressed="true"]>b{color:var(--ball-yellow)}
   .ob-day-filter button[aria-pressed="true"]>small{color:var(--ds-text-on-brand-secondary)}
 
-  .ob-result-line{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--sp-2);margin:0;color:var(--ds-canvas-brand);font-family:var(--font-display);font-size:var(--fs-h3);font-weight:800}
-  .ob-result-line b{margin-left:var(--sp-2);color:var(--ds-accent-text);font-family:inherit;font-size:var(--fs-sm);font-weight:800}
+  .ob-result-line{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--sp-2);margin:0;color:var(--ds-text-primary);font-family:var(--font-display);font-size:var(--fs-h3);font-weight:800}
+  .ob-result-line b{margin-left:var(--sp-1-5);color:var(--ds-accent-text);font-family:inherit;font-size:var(--fs-sm);font-weight:800}
 
   /* --- the card ----------------------------------------------------------- */
   /* Tint is reserved for the two states that change what the reader should do: a 局 still short of
@@ -138,8 +143,10 @@
      tap away in `CallDetail`, not on the row itself. */
   .ob-slot-list{display:grid;gap:var(--sp-2);overflow:visible;border:0;background:transparent;box-shadow:none}
   .ob-slot-row{display:flex;align-items:stretch;gap:var(--sp-2);overflow:hidden;border-radius:var(--radius-sm);background:var(--ds-surface-primary);box-shadow:var(--ds-elevation-1)}
-  .ob-slot-row--mine{box-shadow:0 0 0 1.5px var(--ds-accent-primary)}
-  .ob-slot-row-tap{display:grid;gap:var(--sp-1);flex:1 1 auto;min-width:0;padding:var(--sp-2-5) var(--sp-3);border:0;background:transparent;color:inherit;text-align:left}
+  /* "You're in this" is the same green wash the timeline view (mm-slot.is-mine) uses for the
+     identical state — gold stays reserved for the fit/highlight accent, not doubled up here. */
+  .ob-slot-row--mine{background:var(--ds-success-wash);box-shadow:0 0 0 1px var(--ds-success-wash-border)}
+  .ob-slot-row-tap{display:grid;gap:var(--sp-1-5);flex:1 1 auto;min-width:0;padding:var(--sp-3) var(--sp-3-5);border:0;background:transparent;color:inherit;text-align:left}
   .ob-slot-row-tap:hover{background:var(--ds-canvas-functional)}
   .ob-slot-row-line1{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);min-width:0}
   .ob-slot-row-time{font-size:var(--fs-sm);font-weight:800;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
