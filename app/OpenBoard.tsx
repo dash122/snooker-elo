@@ -54,6 +54,19 @@ const dayNumber=(date:string)=>Number(date.slice(-2));
 const weekday=(date:string)=>hkDayLabel(date).match(/（(.+)）/)?.[1]??hkDayLabel(date);
 const tempoLabel=(call:Call)=>call.tempo==="sport"?"競技":"休閒";
 const placeLabel=(call:Call)=>call.venue?call.venue.name:"場地未定";
+const fitShortLabel=(tier:"unknown"|"very-close"|"similar"|"handicap")=>
+  tier==="very-close"?"非常夾":tier==="similar"?"水平相約":tier==="handicap"?"可讓分":"公開招募";
+
+/** Only stated once two participants exist, because before that there is no second rating to compute
+    against — an exact handicap cannot be honestly printed on a 局 with one person in it. */
+const handicapLine=(call:Call,viewerId:string|null,settings?:HandicapSettings|null)=>{
+  if(!settings||call.players.length!==2||!viewerId)return null;
+  const me=call.players.find(player=>player.id===viewerId);
+  const them=call.players.find(player=>player.id!==viewerId);
+  if(!me||!them)return null;
+  const proposal=proposeHandicap(me.rating,them.rating,settings);
+  return <p className="ob-handicap"><b>{proposal.label}</b><span>依雙方 ELO（{Math.round(me.rating)} 對 {Math.round(them.rating)}）</span></p>;
+};
 
 export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerId=null,viewerRating=null}:{
   viewerId?:string|null;
@@ -72,7 +85,11 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
   const [now,setNow]=useState(()=>Date.now());
   const [loadError,setLoadError]=useState("");
   const [error,setError]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState("");
-  const [pageState,setPageState]=useState({key:"",index:0});
+  /* Grows by BOARD_PAGE_SIZE on 載入更多 rather than paging back and forth — at 50+ 局 a scan-and-load
+     list serves both "just skim" and "hunting for a slot" better than round-tripping through pages,
+     and resets (via the `key`) whenever the date filter changes underneath it. */
+  const [loadState,setLoadState]=useState({key:"",count:BOARD_PAGE_SIZE});
+  const [detailId,setDetailId]=useState<string|null>(null);
   const [composer,setComposer]=useState<"closed"|"open">("closed");
   /* Set only while the composer is re-opened on the host's own 局 — everything else about the
      composer (fields, validation, submit) is identical between posting and editing, so this is the
@@ -261,20 +278,10 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
     ?rankRecommendedCalls(dayCalls,data.viewerId,viewerRating)
     :[...dayCalls].sort((a,b)=>Date.parse(a.startAt)-Date.parse(b.startAt));
   const filterKey=selectedDate;
-  const pageCount=Math.max(1,Math.ceil(visible.length/BOARD_PAGE_SIZE));
-  const pageIndex=pageState.key===filterKey?Math.min(pageState.index,pageCount-1):0;
-  const pageCalls=visible.slice(pageIndex*BOARD_PAGE_SIZE,(pageIndex+1)*BOARD_PAGE_SIZE);
-
-  /* Only stated once two participants exist, because before that there is no second rating to
-     compute against — an exact handicap cannot be honestly printed on a 局 with one person in it. */
-  const handicapLine=(call:Call)=>{
-    if(!settings||call.players.length!==2||!data.viewerId)return null;
-    const me=call.players.find(player=>player.id===data.viewerId);
-    const them=call.players.find(player=>player.id!==data.viewerId);
-    if(!me||!them)return null;
-    const proposal=proposeHandicap(me.rating,them.rating,settings);
-    return <p className="ob-handicap"><b>{proposal.label}</b><span>依雙方 ELO（{Math.round(me.rating)} 對 {Math.round(them.rating)}）</span></p>;
-  };
+  const loadCount=loadState.key===filterKey?loadState.count:BOARD_PAGE_SIZE;
+  const shownCalls=visible.slice(0,loadCount);
+  const hasMore=shownCalls.length<visible.length;
+  const detailCall=detailId?data.calls.find(call=>call.id===detailId)??null:null;
 
   const days=Array.from({length:14},(_,index)=>{
     const day=addDaysHongKong(today,index),calls=liveCalls.filter(call=>hkDate(new Date(call.startAt))===day);
@@ -315,44 +322,33 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
       <>
         <div className="ob-result-line"><span>{selectedDate==="all"?"所有約戰":hkDayLabel(selectedDate)} <b>{visible.length} 個</b></span><small>對手合拍度 → 時間</small></div>
         <Surface as="div" padded={false} className="ob-slot-list">
-          {pageCalls.map(call=>{
+          {shownCalls.map(call=>{
             const callDate=hkDate(new Date(call.startAt));
             const full=call.maxPlayers!==null&&call.players.length>=call.maxPlayers;
             const lead=closestOpponent(call.players,data.viewerId,viewerRating);
             const isHost=Boolean(data.viewerId)&&call.hostId===data.viewerId;
-            const prefsLine=`${call.handicapPref==="even"?"平手對戰":"可以讓分"} · ${call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"} · ${call.maxPlayers===null?"加入人數不設上限":`最多接受 ${call.maxPlayers-1} 人加入`}`;
+            const fit=opponentFit(lead?.rating,viewerRating);
             return <article key={call.id} className={`ob-slot-row${call.joined?" ob-slot-row--mine":""}`}>
-              <div className="ob-slot-summary">
-                <div className="ob-slot-player"><MatchVerdict player={lead} viewerRating={viewerRating} settings={settings} joined={call.joined}/>{lead?<BoardPlayerInfo player={lead} settings={settings} onPlayer={onPlayer}/>:<div className="ob-waiting-opponent"><b>等緊對手加入</b><small>你已公開這個約戰</small></div>}</div>
-                <div className="ob-slot-venue"><small>場地</small><b>{placeLabel(call)}</b><span>{[call.venue?.district||call.venueIntent,tempoLabel(call),call.costSplit==="aa"?"AA 波鐘":"主揪找數"].filter(Boolean).join(" · ")}</span></div>
-                <div className="ob-slot-time"><small>{callDate===today?"今日":weekday(callDate)} · {callDate.slice(5).replace("-","/")}</small><h3>{clockRange(call)}</h3><span>{hours(call)}{call.fits&&!call.joined?" · 夾到你":""}</span></div>
-                <div className="ob-slot-capacity"><span className="ob-slot-state"><i aria-hidden="true"/>{call.players.length===1?"公開招募中":`${call.players.length} 人已成局`}</span><CapacityLine call={call}/></div>
-                <div className="ob-slot-action">
-                  {call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
+              <button type="button" className="ob-slot-row-tap" onClick={()=>setDetailId(call.id)}>
+                <div className="ob-slot-row-line1">
+                  <span className="ob-slot-row-time">{callDate===today?"今日":weekday(callDate)} {clockRange(call)}</span>
+                  <span className={`ob-slot-row-fit ob-slot-row-fit--${fit.tier}`}>{fitShortLabel(fit.tier)}</span>
                 </div>
+                <div className="ob-slot-row-line2">
+                  <span className="ob-slot-row-name">{lead?lead.name:"公開招募"}</span>
+                  <span className="ob-slot-row-venue">{placeLabel(call)}</span>
+                  <span className="ob-slot-row-count">{call.players.length}{call.maxPlayers?`/${call.maxPlayers}`:""} 人</span>
+                  {call.fits&&!call.joined&&<span className="ob-slot-row-tag ob-slot-row-tag--fits">夾到你</span>}
+                  {isHost&&<span className="ob-slot-row-tag ob-slot-row-tag--host">你是主揪</span>}
+                </div>
+              </button>
+              <div className="ob-slot-action">
+                {call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
               </div>
-              {call.players.length>1&&<div className="ob-slot-roster">{call.players.map(player=><BoardPlayerInfo key={player.id} player={player} settings={settings} onPlayer={onPlayer}/>)}</div>}
-              <div className="ob-slot-meta">
-                <p className="ob-slot-prefs">{prefsLine}</p>
-                {handicapLine(call)}
-                {call.message&&<p className="ob-slot-note">{call.message}</p>}
-              </div>
-              {(call.joined||isHost)&&<div className="ob-slot-actions-row">
-                {call.joined&&<WhatsAppButton call={call}/>}
-                {call.joined&&call.players.length===2&&onRecord&&<Button variant="secondary" onClick={()=>onRecord(call.players.find(player=>player.id!==data.viewerId)!.id)}>記錄賽果</Button>}
-                {isHost?<>
-                  <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>openEditor(call)}>編輯</Button>
-                  {cancelConfirm===call.id
-                    ?<><Button variant="danger" disabled={Boolean(busy)} loading={busy===`cancel:${call.id}`} onClick={()=>cancelSlot(call)}>確定取消？</Button>
-                      <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(null)}>算了</Button></>
-                    :<Button variant="quiet" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(call.id)}>取消局</Button>}
-                </>:<Button variant="quiet" disabled={Boolean(busy)} loading={busy===`leave:${call.id}`} onClick={()=>leave(call)}>我去不到</Button>}
-              </div>}
             </article>;
           })}
         </Surface>
-        {pageCount>1&&<nav className="ob-pagination" aria-label="約戰分頁"><span>{pageIndex*BOARD_PAGE_SIZE+1}–{Math.min((pageIndex+1)*BOARD_PAGE_SIZE,visible.length)} / {visible.length}</span><Button variant="secondary" disabled={pageIndex===0} onClick={()=>setPageState({key:filterKey,index:pageIndex-1})}>上一頁</Button><span aria-live="polite">{pageIndex+1} / {pageCount}</span><Button variant="secondary" disabled={pageIndex===pageCount-1} onClick={()=>setPageState({key:filterKey,index:pageIndex+1})}>下一頁</Button></nav>}
-
+        {hasMore&&<div className="ob-load-more"><Button variant="secondary" onClick={()=>setLoadState({key:filterKey,count:loadCount+BOARD_PAGE_SIZE})}>載入更多（餘 {visible.length-shownCalls.length} 個）</Button></div>}
       </>}
 
     <Sheet open={composer!=="closed"} title={editingId?"編輯約戰":"幾時得閒？"}
@@ -427,7 +423,59 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
         {error&&<InlineNotice tone="danger" title="未能完成">{error}<Button type="button" variant="quiet" disabled={Boolean(busy)} onClick={()=>void load(true)}>重新載入</Button></InlineNotice>}
       </div>
     </Sheet>
+
+    <CallDetail call={detailCall} viewerId={data.viewerId} viewerRating={viewerRating} signedIn={data.signedIn}
+      settings={settings} busy={busy} cancelConfirm={cancelConfirm} onPlayer={onPlayer} onRecord={onRecord}
+      onClose={()=>setDetailId(null)} onJoin={join} onLeave={leave} onEdit={openEditor}
+      onCancel={cancelSlot} onCancelConfirm={setCancelConfirm}/>
   </section>;
+}
+
+/** The tap target every card collapses to. At 50+ 局 the list itself has to stay a fast scan — two
+    lines, join button, done — so everything else a card used to show inline (roster, handicap
+    suggestion, prefs, message, host controls) lives here instead, one sheet per 局 rather than one
+    per row. */
+function CallDetail({call,viewerId,viewerRating,signedIn,settings,busy,cancelConfirm,onPlayer,onRecord,onClose,onJoin,onLeave,onEdit,onCancel,onCancelConfirm}:{
+  call:Call|null; viewerId:string|null; viewerRating:number|null; signedIn:boolean;
+  settings?:HandicapSettings|null; busy:string; cancelConfirm:string|null;
+  onPlayer?:(playerId:string)=>void; onRecord?:(opponentId:string)=>void;
+  onClose:()=>void; onJoin:(call:Call)=>void; onLeave:(call:Call)=>void;
+  onEdit:(call:Call)=>void; onCancel:(call:Call)=>void; onCancelConfirm:(id:string|null)=>void;
+}){
+  if(!call)return <Sheet open={false} title="約戰詳情" onClose={onClose}><></></Sheet>;
+  const today=hkDate();
+  const callDate=hkDate(new Date(call.startAt));
+  const full=call.maxPlayers!==null&&call.players.length>=call.maxPlayers;
+  const isHost=Boolean(viewerId)&&call.hostId===viewerId;
+  const lead=closestOpponent(call.players,viewerId,viewerRating);
+  const prefsLine=`${call.handicapPref==="even"?"平手對戰":"可以讓分"} · ${call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"} · ${call.maxPlayers===null?"加入人數不設上限":`最多接受 ${call.maxPlayers-1} 人加入`}`;
+  return <Sheet open title="約戰詳情" onClose={onClose} className="ob-sheet">
+    <div className="ob-detail">
+      <div className="ob-detail-head">
+        <span className="ob-detail-time">{callDate===today?"今日":weekday(callDate)} {callDate.slice(5).replace("-","/")} · {clockRange(call)}</span>
+        <MatchVerdict player={lead} viewerRating={viewerRating} settings={settings} joined={call.joined}/>
+      </div>
+      <div className="ob-detail-venue"><small>場地</small><b>{placeLabel(call)}</b><span>{[call.venue?.district||call.venueIntent,tempoLabel(call),call.costSplit==="aa"?"AA 波鐘":"主揪找數"].filter(Boolean).join(" · ")}</span></div>
+      <div className="ob-slot-roster">{call.players.map(player=><BoardPlayerInfo key={player.id} player={player} settings={settings} onPlayer={onPlayer}/>)}</div>
+      <div className="ob-slot-meta">
+        <p className="ob-slot-prefs">{prefsLine}</p>
+        {handicapLine(call,viewerId,settings)}
+        {call.message&&<p className="ob-slot-note">{call.message}</p>}
+      </div>
+      <div className="ob-detail-actions">
+        {!call.joined&&signedIn&&<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>onJoin(call)}>{full?"已滿":"加入"}</Button>}
+        {call.joined&&<WhatsAppButton call={call}/>}
+        {call.joined&&call.players.length===2&&onRecord&&<Button variant="secondary" onClick={()=>onRecord(call.players.find(player=>player.id!==viewerId)!.id)}>記錄賽果</Button>}
+        {isHost?<>
+          <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>onEdit(call)}>編輯</Button>
+          {cancelConfirm===call.id
+            ?<><Button variant="danger" disabled={Boolean(busy)} loading={busy===`cancel:${call.id}`} onClick={()=>onCancel(call)}>確定取消？</Button>
+              <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>onCancelConfirm(null)}>算了</Button></>
+            :<Button variant="quiet" disabled={Boolean(busy)} onClick={()=>onCancelConfirm(call.id)}>取消局</Button>}
+        </>:call.joined&&<Button variant="quiet" disabled={Boolean(busy)} loading={busy===`leave:${call.id}`} onClick={()=>onLeave(call)}>我去不到</Button>}
+      </div>
+    </div>
+  </Sheet>;
 }
 
 /** The WhatsApp hand-off. Not an exit — the app keeps the roster, the timing and the result — but the
@@ -583,12 +631,4 @@ function MatchVerdict({player,viewerRating,settings,joined}:{player:Player|null;
   const reason=fit.tier==="very-close"?`ELO 相差 ${fit.difference} · 適合平手對戰`
     :`ELO 相差 ${fit.difference}${proposal?` · ${proposal.label}`:""}`;
   return <div className={`ob-match-verdict ob-match-verdict--${fit.tier}`}><b>{label}</b><span>{reason}</span></div>;
-}
-
-function CapacityLine({call}:{call:Call}){
-  const remaining=call.maxPlayers===null?null:Math.max(0,call.maxPlayers-call.players.length);
-  return <span className="ob-capacity-line">
-    <span className="ob-avatar-stack" aria-hidden="true">{call.players.slice(0,3).map(player=><PlayerBadge key={player.id} player={player}/>)}{call.players.length>3&&<b>+{call.players.length-3}</b>}</span>
-    <span><b>{call.players.length} 人參加</b><small>{remaining===null?" · 不限加入人數":remaining>0?` · 尚可加入 ${remaining} 人`:" · 名額已滿"}</small></span>
-  </span>;
 }

@@ -138,76 +138,62 @@
   .ob-loading{display:grid;gap:var(--sp-3)}
   .ob-result-line small{font-size:var(--fs-caption);font-weight:500;color:var(--ds-text-secondary)}
   .ob-date-nav>.ds-icon-button svg{width:var(--sp-4-5);height:var(--sp-4-5)}
-  .ob-slot-list{display:grid;gap:var(--sp-3);overflow:visible;border:0;background:transparent;box-shadow:none}
-  .ob-slot-row{overflow:hidden;border-radius:var(--radius-md);background:var(--ds-surface-primary);box-shadow:var(--ds-elevation-3);transition:transform var(--ds-duration-standard) var(--ds-ease-standard),box-shadow var(--ds-duration-standard) var(--ds-ease-standard)}
-  .ob-slot-row:hover{transform:translateY(-2px);box-shadow:var(--ds-elevation-4)}
-  .ob-slot-row--mine{box-shadow:0 8px 24px var(--ds-selected-shadow)}
-  .ob-slot-summary{display:grid;grid-template-columns:minmax(15rem,1.45fr) minmax(10rem,.9fr) minmax(8rem,.7fr) minmax(10rem,.85fr) auto;align-items:stretch;gap:0;padding:0}
-  .ob-slot-time,.ob-slot-venue,.ob-slot-player,.ob-slot-capacity{display:grid;gap:var(--sp-1);min-width:0}
-  .ob-slot-player{align-content:center;gap:var(--sp-2);padding:var(--sp-4) var(--sp-5);background:radial-gradient(circle at 90% 0,var(--ds-featured-glow),transparent 42%),var(--ds-surface-featured);color:var(--ds-text-on-brand)}
-  .ob-match-verdict{display:grid;gap:var(--sp-1);min-width:0}
-  .ob-match-verdict>b{color:var(--ds-accent-primary);font-size:var(--fs-sm);font-weight:800}
-  .ob-match-verdict>span{color:var(--ds-text-on-brand-secondary);font-size:var(--fs-label);line-height:1.35;overflow-wrap:anywhere}
-  .ob-waiting-opponent{display:grid;gap:var(--sp-1);min-width:0}
-  .ob-waiting-opponent>b{color:var(--ds-text-on-brand);font-size:var(--fs-lead)}
-  .ob-waiting-opponent>small{color:var(--ds-text-on-brand-secondary);font-size:var(--fs-label)}
-  .ob-slot-player .ob-player-info{color:var(--ds-text-on-brand)}
-  .ob-slot-player .ob-player-info .player-badge{width:2.5rem;height:2.5rem}
-  .ob-slot-player .ob-player-info b{font-size:var(--fs-lead)}
-  .ob-slot-player .ob-player-info small,.ob-slot-player .ob-player-info strong{color:var(--ds-text-on-brand-secondary)}
-  .ob-slot-venue{align-content:center;padding:var(--sp-4) var(--sp-5)}
-  .ob-slot-state{display:flex;align-items:center;gap:var(--sp-2);color:var(--ds-success);font-size:var(--fs-label);font-weight:800}
-  .ob-slot-state i{width:var(--sp-2);height:var(--sp-2);border-radius:var(--radius-pill);background:var(--ds-success)}
-  .ob-slot-venue>b{color:var(--ds-canvas-brand);font-size:var(--fs-lead);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ob-slot-venue>small{color:var(--ds-text-secondary);font-size:var(--fs-label);line-height:1.4}
-  .ob-slot-time{align-content:center;padding:var(--sp-4);border-left:1px solid var(--ds-border-subtle);background:var(--ds-surface-secondary)}
-  .ob-slot-time h3{margin:0;color:var(--ds-canvas-brand);font-family:var(--font-display);font-size:var(--fs-h3);font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1}
-  .ob-slot-time>small{color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:800}
-  .ob-slot-time>span{color:var(--ds-text-tertiary);font-size:var(--fs-label)}
-  .ob-slot-capacity{align-content:center;padding:var(--sp-4);background:var(--ds-surface-secondary)}
-  .ob-slot-action{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-1);padding:var(--sp-4)}
-  .ob-slot-action>.ds-button{min-width:4rem}
+  /* --- the list: a dense, tappable row per 局 ------------------------------ */
+  /* Built for 50+ rows on one screen, so every row stays two lines and a button — everything a card
+     used to show inline (roster, handicap suggestion, prefs, message, host controls) now lives one
+     tap away in `CallDetail`, not on the row itself. */
+  .ob-slot-list{display:grid;gap:var(--sp-2);overflow:visible;border:0;background:transparent;box-shadow:none}
+  .ob-slot-row{display:flex;align-items:stretch;gap:var(--sp-2);overflow:hidden;border-radius:var(--radius-sm);background:var(--ds-surface-primary);box-shadow:var(--ds-elevation-1)}
+  .ob-slot-row--mine{box-shadow:0 0 0 1.5px var(--ds-accent-primary)}
+  .ob-slot-row-tap{display:grid;gap:var(--sp-1);flex:1 1 auto;min-width:0;padding:var(--sp-2-5) var(--sp-3);border:0;background:transparent;color:inherit;text-align:left}
+  .ob-slot-row-tap:hover{background:var(--ds-canvas-functional)}
+  .ob-slot-row-line1{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);min-width:0}
+  .ob-slot-row-time{font-size:var(--fs-sm);font-weight:800;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ob-slot-row-fit{flex:0 0 auto;font-size:var(--fs-label);font-weight:700;color:var(--ds-text-secondary)}
+  .ob-slot-row-fit--very-close{color:var(--ds-success)}
+  .ob-slot-row-fit--similar{color:var(--ds-accent-text)}
+  .ob-slot-row-fit--handicap{color:var(--ds-warning)}
+  .ob-slot-row-line2{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1-5);min-width:0;color:var(--ds-text-secondary);font-size:var(--fs-label)}
+  .ob-slot-row-name{color:var(--ds-text-primary);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9rem}
+  .ob-slot-row-venue{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:8rem}
+  .ob-slot-row-venue::before,.ob-slot-row-count::before{content:"·";margin-right:var(--sp-1-5);color:var(--ds-text-tertiary)}
+  .ob-slot-row-tag{flex:0 0 auto;padding:1px var(--sp-1-5);border-radius:var(--radius-pill);font-size:var(--fs-label);font-weight:700}
+  .ob-slot-row-tag--fits{background:var(--ds-highlight-wash);color:var(--gold-on-light)}
+  .ob-slot-row-tag--host{background:var(--ds-canvas-muted);color:var(--ds-text-secondary)}
+  .ob-slot-action{display:flex;flex:0 0 auto;align-items:center;padding:var(--sp-2) var(--sp-3) var(--sp-2) 0}
+  .ob-slot-action>.ds-button{min-width:4rem;min-height:var(--control-sm)}
   .ob-slot-action>.ds-chip{flex-shrink:0;white-space:nowrap}
+  .ob-load-more{display:flex;justify-content:center;padding-top:var(--sp-2)}
+
   .ob-player-info{display:flex;align-items:center;gap:var(--sp-2);min-width:0;max-width:100%;min-height:var(--control-md);padding:0;border:0;background:transparent;color:var(--ds-text-primary);text-align:left}
   .ob-player-info .player-badge{flex-shrink:0;width:2rem;height:2rem;font-size:var(--fs-label)}
   .ob-player-info>span{display:grid;gap:var(--sp-1);min-width:0}
   .ob-player-info b{font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ob-player-info small{color:var(--ds-text-secondary);font-size:var(--fs-label);font-variant-numeric:tabular-nums;line-height:1.3}
   .ob-player-info strong{color:var(--ds-text-primary);font-weight:700}
+
+  .ob-match-verdict{display:grid;gap:var(--sp-1);min-width:0}
+  .ob-match-verdict>b{font-size:var(--fs-sm);font-weight:800}
+  .ob-match-verdict>span{color:var(--ds-text-secondary);font-size:var(--fs-label);line-height:1.35;overflow-wrap:anywhere}
   .ob-match-detail .ob-match-verdict{margin-top:var(--sp-2)}
   .ob-match-detail .ob-match-verdict>b{color:var(--ds-success)}
-  .ob-match-detail .ob-match-verdict>span{color:var(--ds-text-secondary)}
-  .ob-capacity-line{display:flex;align-items:center;gap:var(--sp-2);min-width:0;color:var(--ds-text-primary);font-size:var(--fs-label)}
-  .ob-capacity-line>span:last-child{min-width:0}
-  .ob-capacity-line>span:last-child>b{font-size:var(--fs-caption)}
-  .ob-capacity-line>span:last-child>small{color:var(--ds-text-secondary);font-size:var(--fs-label)}
-  .ob-avatar-stack{display:flex;flex:0 0 auto;align-items:center;padding-left:var(--sp-1)}
-  .ob-avatar-stack .player-badge,.ob-avatar-stack>b{display:grid;place-items:center;width:1.75rem;height:1.75rem;margin-left:calc(-1 * var(--sp-1));border:2px solid var(--ds-surface-secondary);border-radius:var(--radius-pill);font-size:var(--fs-label)}
-  .ob-avatar-stack>b{background:var(--ds-canvas-muted);color:var(--ds-text-secondary)}
-  /* --- the flattened body: roster, then a one-line meta strip, then actions --------------------- */
-  /* Everything a card used to hide behind a chevron now renders every time, so each zone stays a
-     single line or a short wrap rather than a paragraph — depth comes from more rows, not from
-     nesting a reader has to tap into. */
-  .ob-slot-roster{display:flex;flex-wrap:wrap;gap:var(--sp-3);padding:var(--sp-3) var(--sp-5);border-top:1px solid var(--ds-border-subtle)}
+
+  /* --- the detail sheet: everything a row doesn't show -------------------- */
+  .ob-detail{display:grid;gap:var(--sp-4)}
+  .ob-detail-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:var(--sp-2)}
+  .ob-detail-time{color:var(--ds-canvas-brand);font-family:var(--font-display);font-size:var(--fs-h3);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .ob-detail-venue{display:grid;gap:var(--sp-1);min-width:0;padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-md);background:var(--ds-surface-secondary)}
+  .ob-detail-venue>small{color:var(--ds-text-secondary);font-size:var(--fs-label)}
+  .ob-detail-venue>b{font-size:var(--fs-lead)}
+  .ob-detail-venue>span{color:var(--ds-text-secondary);font-size:var(--fs-label)}
+  .ob-slot-roster{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
   .ob-slot-roster>.ob-player-info{flex:0 1 15rem}
-  .ob-slot-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-1) var(--sp-3);padding:var(--sp-2) var(--sp-5);border-top:1px solid var(--ds-border-subtle);background:var(--ds-surface-secondary)}
+  .ob-slot-meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-1) var(--sp-3);padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-md);background:var(--ds-surface-secondary)}
   .ob-slot-prefs,.ob-slot-note{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-caption);line-height:1.5;overflow-wrap:anywhere}
   .ob-slot-note{font-style:italic}
   .ob-slot-meta .ob-handicap{flex:0 0 auto}
-  .ob-slot-actions-row{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);padding:var(--sp-3) var(--sp-5);border-top:1px solid var(--ds-border-subtle)}
-  .ob-pagination{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:var(--sp-2);font-size:var(--fs-caption);color:var(--ds-text-secondary)}
-  .ob-pagination>span:first-child{margin-right:auto}
+  .ob-detail-actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2)}
 
-  @media(max-width:820px){
-    .ob-slot-summary{grid-template-columns:minmax(0,1.35fr) minmax(9rem,.75fr) auto}
-    .ob-slot-player{grid-column:1/3;grid-row:1}
-    .ob-slot-action{grid-column:3;grid-row:1}
-    .ob-slot-venue{grid-column:1;grid-row:2}
-    .ob-slot-time{grid-column:2;grid-row:2}
-    .ob-slot-capacity{grid-column:3;grid-row:2}
-
-    .ob-page{gap:var(--sp-4)}
-  }
   @media(max-width:599px){
     .ob-discovery{gap:var(--sp-3);margin-inline:calc(-1 * var(--sp-2));padding:var(--sp-4) var(--sp-3);border-radius:var(--radius-md)}
     .ob-discovery-head{align-items:flex-start}
@@ -215,17 +201,7 @@
     .ob-discovery-head h2{font-size:var(--fs-h3)}
     .ob-day-filter button{flex-basis:3.75rem;min-height:4.75rem}
     .ob-time-summary b{font-size:var(--fs-stat)}
-    .ob-slot-summary{grid-template-columns:minmax(0,1fr) auto}
-    .ob-slot-player{grid-column:1/-1;grid-row:1;padding:var(--sp-4)}
-    .ob-slot-venue{grid-column:1;grid-row:2;padding:var(--sp-4)}
-    .ob-slot-time{grid-column:2;grid-row:2;padding:var(--sp-4);border-left:1px solid var(--ds-border-subtle)}
-    .ob-slot-time h3{font-size:var(--fs-h3)}
-    .ob-slot-capacity{grid-column:1;grid-row:3;padding:var(--sp-3) var(--sp-4)}
-    .ob-slot-capacity .ob-avatar-stack{display:none}
-    .ob-slot-capacity .ob-capacity-line>span:last-child{display:grid;gap:var(--sp-1)}
-    .ob-slot-capacity .ob-capacity-line small{white-space:nowrap}
-    .ob-slot-action{grid-column:2;grid-row:3;padding:var(--sp-2) var(--sp-3);background:var(--ds-surface-secondary)}
-    .ob-slot-roster,.ob-slot-meta,.ob-slot-actions-row{padding-inline:var(--sp-4)}
+    .ob-slot-row-name,.ob-slot-row-venue{max-width:6rem}
     .ob-capacity-options{grid-template-columns:minmax(0,1fr)}
     .ob-composer-footer{bottom:calc(-1 * (var(--sp-5) + var(--ds-safe-bottom)));padding-bottom:calc(var(--sp-3) + var(--ds-safe-bottom))}
   }
