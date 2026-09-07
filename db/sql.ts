@@ -52,6 +52,14 @@ export function getSql() {
       max: 4,
       idle_timeout: 20,
       connect_timeout: 10,
+      /* A serverless invocation can die mid-request (a Vercel function frozen or killed) without
+         closing its socket, leaving the Postgres backend blocked forever writing a result to a
+         client that will never read it again — `idle_timeout` above only reaps connections that
+         are cleanly idle, not ones stuck mid-query. With only four connections in the pool, a
+         couple of these silently exhaust it and every other request queues until it times out.
+         `statement_timeout` makes Postgres itself cancel any statement that runs this long,
+         instead of relying on someone finding and killing the backend by hand. */
+      connection: { statement_timeout: 15000 },
     });
   }
   return sqlClient;
