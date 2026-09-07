@@ -54,6 +54,19 @@ const dayNumber=(date:string)=>Number(date.slice(-2));
 const weekday=(date:string)=>hkDayLabel(date).match(/（(.+)）/)?.[1]??hkDayLabel(date);
 const tempoLabel=(call:Call)=>call.tempo==="sport"?"競技":"休閒";
 const placeLabel=(call:Call)=>call.venue?call.venue.name:"場地未定";
+const fitShortLabel=(tier:"unknown"|"very-close"|"similar"|"handicap")=>
+  tier==="very-close"?"非常夾":tier==="similar"?"水平相約":tier==="handicap"?"可讓分":"公開招募";
+
+/** Only stated once two participants exist, because before that there is no second rating to compute
+    against — an exact handicap cannot be honestly printed on a 局 with one person in it. */
+const handicapLine=(call:Call,viewerId:string|null,settings?:HandicapSettings|null)=>{
+  if(!settings||call.players.length!==2||!viewerId)return null;
+  const me=call.players.find(player=>player.id===viewerId);
+  const them=call.players.find(player=>player.id!==viewerId);
+  if(!me||!them)return null;
+  const proposal=proposeHandicap(me.rating,them.rating,settings);
+  return <p className="ob-handicap"><b>{proposal.label}</b><span>依雙方 ELO（{Math.round(me.rating)} 對 {Math.round(them.rating)}）</span></p>;
+};
 
 export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerId=null,viewerRating=null}:{
   viewerId?:string|null;
@@ -72,12 +85,18 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
   const [now,setNow]=useState(()=>Date.now());
   const [loadError,setLoadError]=useState("");
   const [error,setError]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState("");
-  const [browseMode,setBrowseMode]=useState<"recommended"|"all"|"mine">(()=>viewerRating===null?"all":"recommended");
-  const [venueFilter,setVenueFilter]=useState("");
-  const [expanded,setExpanded]=useState<string|null>(null);
-  const [pageState,setPageState]=useState({key:"",index:0});
-  const [fitOnly,setFitOnly]=useState(false),[tempo,setTempo]=useState<""|"sport"|"casual">("");
-  const [composer,setComposer]=useState<"closed"|"window"|"match">("closed");
+  /* Grows by BOARD_PAGE_SIZE on 載入更多 rather than paging back and forth — at 50+ 局 a scan-and-load
+     list serves both "just skim" and "hunting for a slot" better than round-tripping through pages,
+     and resets (via the `key`) whenever the date filter changes underneath it. */
+  const [loadState,setLoadState]=useState({key:"",count:BOARD_PAGE_SIZE});
+  const [detailId,setDetailId]=useState<string|null>(null);
+  const [composer,setComposer]=useState<"closed"|"open">("closed");
+  /* Set only while the composer is re-opened on the host's own 局 — everything else about the
+     composer (fields, validation, submit) is identical between posting and editing, so this is the
+     one flag that changes what the submit button does and hides the "who else fits" section, which
+     only makes sense the first time a 局 is posted. */
+  const [editingId,setEditingId]=useState<string|null>(null);
+  const [cancelConfirm,setCancelConfirm]=useState<string|null>(null);
   /* Duration is the state, not the end time. Moving the start earlier should keep the length of the
      game the member asked for — carrying the *end* instead turns "19:00–22:00, actually let's start
      at 10" into a twelve-hour window, which is never what was meant. */
@@ -94,12 +113,6 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
   const [note,setNote]=useState(""),[moreOpen,setMoreOpen]=useState(false);
   const [venueOpen,setVenueOpen]=useState(false);
   const loadRequest=useRef(0);
-  const stepsRef=useRef<HTMLOListElement>(null);
-  useEffect(()=>{
-    if(composer==="closed")return;
-    stepsRef.current?.focus();
-    stepsRef.current?.scrollIntoView({block:"nearest"});
-  },[composer]);
 
   /* --- the live window ----------------------------------------------------
    *
@@ -187,7 +200,8 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
             if(call.id!==key.slice(6))return [call];
             const players=call.players.filter(player=>player.id!==current.viewerId);
             return players.length?[{...call,players,joined:false}]:[];
-          }):current.calls;
+          }):key.startsWith("cancel:")?current.calls.filter(call=>call.id!==key.slice(7))
+          :current.calls;
         return {...current,calls};
       });
       void load(true);setMessage(success);onActivity?.();return true;
@@ -214,12 +228,18 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
     !call.joined&&Math.min(Date.parse(call.endAt),windowEnd)-Math.max(Date.parse(call.startAt),windowStart)>=60*60*1000
   );
 
-  const create=async()=>{
-    const ok=await mutate("create","/api/open-board",{method:"POST",headers:{"content-type":"application/json"},
-      body:JSON.stringify({startAt:new Date(windowStart).toISOString(),endAt:new Date(windowEnd).toISOString(),
-        message:note.trim(),venueId:effectiveVenueId||null,venueIntent:effectiveVenueId?"":venueIntent.trim(),
-        tempo:formTempo,handicapPref,costSplit,smoking,maxPlayers:maxJoiners===null?null:maxJoiners+1})},"已開局，時間夾到的球友會收到通知。");
-    if(ok){trackAvailabilityEvent("open_board_create",{tempo:formTempo,maxJoiners:maxJoiners??"unlimited"});setComposer("closed");setNote("");setMaxJoiners(null);if(selectedDate!=="all")setSelectedDate(date)}
+  const submitComposer=async()=>{
+    const payload=JSON.stringify({startAt:new Date(windowStart).toISOString(),endAt:new Date(windowEnd).toISOString(),
+      message:note.trim(),venueId:effectiveVenueId||null,venueIntent:effectiveVenueId?"":venueIntent.trim(),
+      tempo:formTempo,handicapPref,costSplit,smoking,maxPlayers:maxJoiners===null?null:maxJoiners+1});
+    const ok=editingId
+      ?await mutate(`edit:${editingId}`,`/api/open-board/${editingId}`,{method:"PATCH",headers:{"content-type":"application/json"},body:payload},"已更新約戰。")
+      :await mutate("create","/api/open-board",{method:"POST",headers:{"content-type":"application/json"},body:payload},"已開局，時間夾到的球友會收到通知。");
+    if(ok){
+      if(!editingId)trackAvailabilityEvent("open_board_create",{tempo:formTempo,maxJoiners:maxJoiners??"unlimited"});
+      setComposer("closed");setEditingId(null);setNote("");setMaxJoiners(null);
+      if(selectedDate!=="all")setSelectedDate(date);
+    }
   };
 
   const joinFromComposer=async(call:Call)=>{
@@ -227,60 +247,69 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
     if(ok)setComposer("closed");
   };
 
-  const dayCalls=liveCalls.filter(call=>selectedDate==="all"||hkDate(new Date(call.startAt))===selectedDate);
-  const refinedCalls=dayCalls.filter(call=>(!fitOnly||call.fits)&&(!tempo||call.tempo===tempo)
-    &&(!venueFilter||(venueFilter==="undecided"?!call.venue:call.venue?.id===venueFilter))
-    &&(browseMode!=="mine"||call.joined));
-  const visible=browseMode==="recommended"
-    ?rankRecommendedCalls(refinedCalls,data.viewerId,viewerRating)
-    :[...refinedCalls].sort((a,b)=>Date.parse(a.startAt)-Date.parse(b.startAt));
-  const filterKey=`${browseMode}:${selectedDate}:${venueFilter}:${fitOnly}:${tempo}`;
-  const pageCount=Math.max(1,Math.ceil(visible.length/BOARD_PAGE_SIZE));
-  const pageIndex=pageState.key===filterKey?Math.min(pageState.index,pageCount-1):0;
-  const pageCalls=visible.slice(pageIndex*BOARD_PAGE_SIZE,(pageIndex+1)*BOARD_PAGE_SIZE);
-  const fitCount=dayCalls.filter(call=>call.fits).length;
-
-  /* Only stated once two participants exist, because before that there is no second rating to
-     compute against — an exact handicap cannot be honestly printed on a 局 with one person in it. */
-  const handicapLine=(call:Call)=>{
-    if(!settings||call.players.length!==2||!data.viewerId)return null;
-    const me=call.players.find(player=>player.id===data.viewerId);
-    const them=call.players.find(player=>player.id!==data.viewerId);
-    if(!me||!them)return null;
-    const proposal=proposeHandicap(me.rating,them.rating,settings);
-    return <p className="ob-handicap"><b>{proposal.label}</b><span>依雙方 ELO（{Math.round(me.rating)} 對 {Math.round(them.rating)}）</span></p>;
+  /** Re-opens the composer pre-filled with the host's own 局, rather than a second form — the same
+      fields, the same validation, only the submit target differs (see `submitComposer`). */
+  const openEditor=(call:Call)=>{
+    setEditingId(call.id);
+    setDate(hkDate(new Date(call.startAt)));
+    setStart(hkClock(call.startAt));
+    setDuration(Math.max(30,Math.round((Date.parse(call.endAt)-Date.parse(call.startAt))/60000)));
+    setNote(call.message);
+    setFormTempo(call.tempo);
+    setHandicapPref(call.handicapPref);
+    setCostSplit(call.costSplit);
+    setSmoking(call.smoking);
+    setMaxJoiners(call.maxPlayers===null?null:Math.max(1,call.maxPlayers-1));
+    setVenueId(call.venue?.id??"");
+    setVenuePicked(true);
+    setVenueIntent(call.venueIntent);
+    setComposer("open");
   };
+
+  const cancelSlot=(call:Call)=>{
+    setCancelConfirm(null);
+    void mutate(`cancel:${call.id}`,`/api/open-board/${call.id}/cancel`,{method:"POST"},"已取消，其他參加者會收到通知。");
+  };
+
+  const dayCalls=liveCalls.filter(call=>selectedDate==="all"||hkDate(new Date(call.startAt))===selectedDate);
+  /* No browse-mode toggle or filters beyond date: members almost never narrow further than "what
+     date", so the best-fit opponent goes on top by default instead of behind a 推薦 tab. */
+  const visible=viewerRating!==null
+    ?rankRecommendedCalls(dayCalls,data.viewerId,viewerRating)
+    :[...dayCalls].sort((a,b)=>Date.parse(a.startAt)-Date.parse(b.startAt));
+  const filterKey=selectedDate;
+  const loadCount=loadState.key===filterKey?loadState.count:BOARD_PAGE_SIZE;
+  const shownCalls=visible.slice(0,loadCount);
+  const hasMore=shownCalls.length<visible.length;
+  const detailCall=detailId?data.calls.find(call=>call.id===detailId)??null:null;
 
   const days=Array.from({length:14},(_,index)=>{
     const day=addDaysHongKong(today,index),calls=liveCalls.filter(call=>hkDate(new Date(call.startAt))===day);
     return {date:day,calls:calls.length,fits:calls.some(call=>call.fits)};
   });
-  const openComposer=()=>{setDate(selectedDate==="all"?today:selectedDate);setComposer("window")};
+  const openComposer=()=>{setEditingId(null);setDate(selectedDate==="all"?today:selectedDate);setComposer("open")};
 
   return <section className="ob-page">
-    <div className="ob-head">
+    <section className="hero small">
       <div>
+        <p className="kicker">會員專屬</p>
         <h1>搵人打波</h1>
         <p>先搵水平和打法合拍的球友，再揀大家方便的場地與時間。</p>
       </div>
       {(data.signedIn||viewerId)&&<Button variant="primary" onClick={openComposer}>新增時段 <span aria-hidden="true">＋</span></Button>}
-    </div>
+    </section>
 
     <section className="ob-discovery" aria-labelledby="ob-discovery-title">
-      <div className="ob-discovery-head"><div><h2 id="ob-discovery-title">搵啱對手，再夾場地同時間</h2><p>推薦會先比較對手 ELO，再看場地選擇，最後用你的空閒時間排序。</p></div><span>{refreshing?"更新約戰中…":`${liveCalls.length} 個約戰`}</span></div>
-      {data.signedIn&&<SlidingToggleGroup className="ob-view-switch" role="group" aria-label="約戰檢視">
-        <button type="button" aria-pressed={browseMode==="recommended"} onClick={()=>setBrowseMode("recommended")}>推薦給你</button>
-        <button type="button" aria-pressed={browseMode==="all"} onClick={()=>setBrowseMode("all")}>所有約戰</button>
-        <button type="button" aria-pressed={browseMode==="mine"} onClick={()=>setBrowseMode("mine")}>我的約戰</button>
-      </SlidingToggleGroup>}
-      <div className="ob-discovery-filters" role="group" aria-label="約戰條件">
-        <FormField label="日子"><select value={selectedDate} onChange={event=>setSelectedDate(event.target.value)}><option value="all">未來十四日 · 全部</option>{days.map(day=><option key={day.date} value={day.date}>{day.date===today?"今日":hkDayLabel(day.date)} · {day.calls} 局</option>)}</select></FormField>
-        <FormField label="場地"><select value={venueFilter} onChange={event=>setVenueFilter(event.target.value)}><option value="">所有場地</option>{data.venues.map(venue=><option key={venue.id} value={venue.id}>{venue.name} · {venue.district}</option>)}<option value="undecided">場地未定</option></select></FormField>
-        {data.signedIn&&<Button variant={fitOnly?"primary":"secondary"} aria-pressed={fitOnly} onClick={()=>setFitOnly(value=>!value)}>配合我的時間{fitCount?` · ${fitCount}`:""}</Button>}
-        <SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="玩法">
-          {([["","全部玩法"],["sport","競技"],["casual","休閒"]] as const).map(([value,label])=><button key={value} type="button" aria-pressed={tempo===value} onClick={()=>setTempo(value)}>{label}</button>)}
-        </SlidingToggleGroup>
-      </div>
+      <div className="ob-discovery-head"><div><h2 id="ob-discovery-title">搵啱對手，再夾場地同時間</h2><p>已按對手合拍度排序，先揀日子就可以。</p></div><span>{refreshing?"更新約戰中…":`${liveCalls.length} 個約戰`}</span></div>
+      <DateRail label="約戰日子" className="ob-day-filter">
+        <button type="button" aria-label="全部日子" aria-pressed={selectedDate==="all"} onClick={()=>setSelectedDate("all")}>
+          <small>未來 14 日</small><b>全部</b><em>{liveCalls.length}</em>
+        </button>
+        {days.map(day=>
+          <button key={day.date} type="button" aria-label={hkDayLabel(day.date)} aria-pressed={selectedDate===day.date} onClick={()=>setSelectedDate(day.date)}>
+            <small>{day.date===today?"今日":weekday(day.date)}</small><b>{dayNumber(day.date)}</b><em>{day.calls||"–"}</em>
+          </button>)}
+      </DateRail>
     </section>
 
     {message&&<InlineNotice tone="success" title="已更新">{message}</InlineNotice>}
@@ -290,75 +319,86 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
     {loading?<div className="ob-loading"><Skeleton height="9rem"/><Skeleton height="9rem"/></div>:!data.date?<EmptyState title="約戰板暫時未能載入" description="稍後重試；你仍可先選擇自己的時段。" action={<Button variant="secondary" loading={refreshing} onClick={()=>void load(true)}>重新載入</Button>}/>:
       !dayCalls.length?<OpenBoardEmpty allDates={selectedDate==="all"} free={data.free.filter(item=>hkDate(new Date(item.startAt))===(selectedDate==="all"?today:selectedDate)).slice(0,12)} signedIn={data.signedIn}
         onOpen={(from,minutes)=>{setStart(from);setDuration(minutes);openComposer()}}/>:
-      !visible.length?<EmptyState title="沒有符合篩選的局"
-        description="放寬篩選，或看看其他日子。"
-        action={<Button variant="secondary" onClick={()=>{setBrowseMode(data.signedIn?"recommended":"all");setSelectedDate("all");setVenueFilter("");setFitOnly(false);setTempo("")}}>清除篩選</Button>}/>:
       <>
-        <div className="ob-result-line"><span>{browseMode==="recommended"?"最適合你的約戰":browseMode==="mine"?"你的約戰":selectedDate==="all"?"所有約戰":hkDayLabel(selectedDate)} <b>{visible.length} 個</b></span><small>{browseMode==="recommended"?"對手合拍度 → 場地 → 時間":"按時間排列"}</small></div>
+        <div className="ob-result-line"><span>{selectedDate==="all"?"所有約戰":hkDayLabel(selectedDate)} <b>{visible.length} 個</b></span><small>對手合拍度 → 時間</small></div>
         <Surface as="div" padded={false} className="ob-slot-list">
-          {pageCalls.map(call=>{
+          {shownCalls.map(call=>{
             const callDate=hkDate(new Date(call.startAt));
             const full=call.maxPlayers!==null&&call.players.length>=call.maxPlayers;
-            const open=expanded===call.id;
             const lead=closestOpponent(call.players,data.viewerId,viewerRating);
+            const isHost=Boolean(data.viewerId)&&call.hostId===data.viewerId;
+            const fit=opponentFit(lead?.rating,viewerRating);
             return <article key={call.id} className={`ob-slot-row${call.joined?" ob-slot-row--mine":""}`}>
-              <div className="ob-slot-summary">
-                <div className="ob-slot-player"><MatchVerdict player={lead} viewerRating={viewerRating} settings={settings} joined={call.joined}/>{lead?<BoardPlayerInfo player={lead} settings={settings} onPlayer={onPlayer}/>:<div className="ob-waiting-opponent"><b>等緊對手加入</b><small>你已公開這個約戰</small></div>}</div>
-                <div className="ob-slot-venue"><small>場地</small><b>{placeLabel(call)}</b><span>{[call.venue?.district||call.venueIntent,tempoLabel(call),call.costSplit==="aa"?"AA 波鐘":"主揪找數"].filter(Boolean).join(" · ")}</span></div>
-                <div className="ob-slot-time"><small>{callDate===today?"今日":weekday(callDate)} · {callDate.slice(5).replace("-","/")}</small><h3>{clockRange(call)}</h3><span>{hours(call)}{call.fits&&!call.joined?" · 夾到你":""}</span></div>
-                <div className="ob-slot-capacity"><span className="ob-slot-state"><i aria-hidden="true"/>{call.players.length===1?"公開招募中":`${call.players.length} 人已成局`}</span><CapacityLine call={call}/></div>
-                <div className="ob-slot-action">
-                  {call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
-                  <IconButton type="button" label={`${open?"收起":"展開"} ${hkDayLabel(callDate)} ${clockRange(call)} 約戰詳情`} aria-expanded={open} aria-controls={`ob-details-${call.id}`} onClick={()=>setExpanded(open?null:call.id)}><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8"><path d={open?"m6 15 6-6 6 6":"m6 9 6 6 6-6"}/></svg></IconButton>
+              <button type="button" className="ob-slot-row-tap" onClick={()=>setDetailId(call.id)}>
+                <div className="ob-slot-row-line1">
+                  <span className="ob-slot-row-time">{callDate===today?"今日":weekday(callDate)} {clockRange(call)}</span>
+                  <span className={`ob-slot-row-fit ob-slot-row-fit--${fit.tier}`}>{fitShortLabel(fit.tier)}</span>
                 </div>
+                <div className="ob-slot-row-line2">
+                  <span className="ob-slot-row-name">{lead?lead.name:"公開招募"}</span>
+                  <span className="ob-slot-row-venue">{placeLabel(call)}</span>
+                  <span className="ob-slot-row-count">{call.players.length}{call.maxPlayers?`/${call.maxPlayers}`:""} 人</span>
+                  {call.fits&&!call.joined&&<span className="ob-slot-row-tag ob-slot-row-tag--fits">夾到你</span>}
+                  {isHost&&<span className="ob-slot-row-tag ob-slot-row-tag--host">你是主揪</span>}
+                </div>
+              </button>
+              <div className="ob-slot-action">
+                {call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
               </div>
-              {open&&<div id={`ob-details-${call.id}`} className="ob-slot-details">
-                <div className="ob-detail-players">{call.players.map(player=><BoardPlayerInfo key={player.id} player={player} settings={settings} onPlayer={onPlayer}/>)}</div>
-                <p>{call.handicapPref==="even"?"平手對戰":"可以讓分"} · {call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"} · {call.maxPlayers===null?"加入人數不設上限":`最多接受 ${call.maxPlayers-1} 人加入`}</p>
-                {handicapLine(call)}{call.message&&<p>{call.message}</p>}
-                {call.joined&&<div className="ob-detail-actions"><WhatsAppButton call={call}/>{call.players.length===2&&onRecord&&<Button variant="secondary" onClick={()=>onRecord(call.players.find(player=>player.id!==data.viewerId)!.id)}>記錄賽果</Button>}<Button variant="quiet" disabled={Boolean(busy)} loading={busy===`leave:${call.id}`} onClick={()=>leave(call)}>我去不到</Button></div>}
-              </div>}
             </article>;
           })}
         </Surface>
-        {pageCount>1&&<nav className="ob-pagination" aria-label="約戰分頁"><span>{pageIndex*BOARD_PAGE_SIZE+1}–{Math.min((pageIndex+1)*BOARD_PAGE_SIZE,visible.length)} / {visible.length}</span><Button variant="secondary" disabled={pageIndex===0} onClick={()=>setPageState({key:filterKey,index:pageIndex-1})}>上一頁</Button><span aria-live="polite">{pageIndex+1} / {pageCount}</span><Button variant="secondary" disabled={pageIndex===pageCount-1} onClick={()=>setPageState({key:filterKey,index:pageIndex+1})}>下一頁</Button></nav>}
-
+        {hasMore&&<div className="ob-load-more"><Button variant="secondary" onClick={()=>setLoadState({key:filterKey,count:loadCount+BOARD_PAGE_SIZE})}>載入更多（餘 {visible.length-shownCalls.length} 個）</Button></div>}
       </>}
 
-    <Sheet open={composer!=="closed"} title={composer==="window"?"幾時得閒？":"確認約戰"}
-      onClose={()=>!busy&&setComposer("closed")} className="ob-sheet">
+    <Sheet open={composer!=="closed"} title={editingId?"編輯約戰":"幾時得閒？"}
+      onClose={()=>{if(busy)return;setComposer("closed");setEditingId(null)}} className="ob-sheet">
       <div className="ob-form">
-        <ol ref={stepsRef} tabIndex={-1} className="ob-steps" aria-label="開局步驟"><li aria-current={composer==="window"?"step":undefined}>1 選擇時間</li><li aria-current={composer==="match"?"step":undefined}>2 加入或開局</li></ol>
-        {composer==="window"?<>
-          <p className="ob-form-lede">先定一段可行時間，下一步會按對手水平與場地幫你比較現有約戰。</p>
-          <fieldset className="ob-choice"><legend>日期 <span>{hkDayLabel(date)}</span></legend>
-            <DateRail label="新增時段日期" className="ob-daypick">
-              {Array.from({length:14},(_,index)=>addDaysHongKong(today,index)).map(day=>
-                <button key={day} type="button" aria-label={hkDayLabel(day)} aria-pressed={day===date} onClick={()=>setDate(day)}>
-                  <small>{day===today?"今日":weekday(day)}</small><b>{dayNumber(day)}</b>
-                </button>)}
-            </DateRail>
+        <p className="ob-form-lede">{editingId?"修改時間、場地或設定，其他參加者不會另外收到通知。":"揀一段時間，夾到的約戰會即時顯示在下面。"}</p>
+        <fieldset className="ob-choice"><legend>日期 <span>{hkDayLabel(date)}</span></legend>
+          <DateRail label="新增時段日期" className="ob-daypick">
+            {Array.from({length:14},(_,index)=>addDaysHongKong(today,index)).map(day=>
+              <button key={day} type="button" aria-label={hkDayLabel(day)} aria-pressed={day===date} onClick={()=>setDate(day)}>
+                <small>{day===today?"今日":weekday(day)}</small><b>{dayNumber(day)}</b>
+              </button>)}
+          </DateRail>
+        </fieldset>
+        {startOptions.length?<div className="ob-time-fields">
+          <FormField label="開始時間"><select value={effectiveStart} onChange={event=>setStart(event.target.value)}>{startOptions.map(value=><option key={value}>{value}</option>)}</select></FormField>
+          <FormField label="打幾耐"><select value={effectiveDuration} onChange={event=>setDuration(Number(event.target.value))}>{endOptions.slice(1).map((option,index)=><option key={option.value} value={(index+2)*30}>{durationText((index+2)*30)}</option>)}</select></FormField>
+        </div>:<InlineNotice tone="warning" title="今日已沒有可選時間">揀另一日，就可以繼續。</InlineNotice>}
+        {startOptions.length>0&&<div className="ob-time-summary"><DateStamp date={date}/><div><span>你的時段 · {durationLabel}</span><b>{effectiveStart}–{endLabel}</b><small>香港時間</small></div></div>}
+
+        {!editingId&&<>
+        {loadError&&data.date&&<InlineNotice tone="warning" title="顯示上次載入的約戰">{loadError}<Button type="button" variant="quiet" loading={refreshing} onClick={()=>void load(true)}>重試</Button></InlineNotice>}
+        {loading?<InlineNotice title="正在找適合你的約戰">你可以先確認時間，也可以直接開局。</InlineNotice>:!data.date?<InlineNotice tone="warning" title="暫時未能查看其他局">{loadError||"請重試載入，再決定加入或開局。"}<Button type="button" variant="quiet" loading={refreshing} onClick={()=>void load(true)}>重新載入</Button></InlineNotice>:overlapping.length>0?<section className="ob-match" aria-label="可能適合你的局">
+          <b>有 {overlapping.length} 個約戰時間夾到你，已按對手水平排序</b>
+          {rankRecommendedCalls(overlapping,data.viewerId,viewerRating).map(call=>{const opponent=closestOpponent(call.players,data.viewerId,viewerRating);return <div key={call.id} className="ob-match-row">
+            <div className="ob-match-detail">{opponent&&<BoardPlayerInfo player={opponent} settings={settings}/>}<MatchVerdict player={opponent} viewerRating={viewerRating} settings={settings} joined={false}/><b>{placeLabel(call)}</b><span>{clockRange(call)}</span><small>{call.players.length} 人參加 · {tempoLabel(call)} · {call.costSplit==="aa"?"AA 波鐘":"主揪找數"}</small></div>
+            <Button type="button" disabled={Boolean(busy)} loading={busy===`join:${call.id}`} onClick={()=>void joinFromComposer(call)}>加入</Button>
+          </div>})}
+        </section>:<p className="ob-form-lede">這段時間暫時未有其他局。開一局，等球友加入。</p>}
+        </>}
+        <section className="ob-own-game" aria-label={editingId?"約戰設定":"開自己的局"}>
+          {!editingId&&overlapping.length>0&&<h3>或者，開自己的局</h3>}
+          <div className="ob-setting-row"><div><small>場地</small><b>{data.venues.find(venue=>venue.id===effectiveVenueId)?.name||venueIntent||"稍後一起決定"}</b></div><Button type="button" variant="quiet" disabled={Boolean(busy)} aria-expanded={venueOpen} aria-controls="ob-venue-options" onClick={()=>setVenueOpen(value=>!value)}>{venueOpen?"收起":"更改"}</Button></div>
+          <fieldset className="ob-editable" disabled={Boolean(busy)}>
+            {venueOpen&&<div id="ob-venue-options" className="ob-more-panel">
+              <div className="ob-field-group"><h3>選擇場地</h3>
+                <VenuePicker venues={data.venues} value={effectiveVenueId} onChange={chooseVenue}
+                  onCreated={venue=>{
+                    setData(current=>({...current,venues:[...current.venues,venue].sort((a,b)=>a.name.localeCompare(b.name))}));
+                    chooseVenue(venue.id);
+                  }}/>
+              </div>
+              {!effectiveVenueId&&<FormField label="地區意向（可選）">
+                <input value={venueIntent} onChange={event=>setVenueIntent(event.target.value)} placeholder="例：葵青區" maxLength={30}/>
+              </FormField>}
+            </div>}
           </fieldset>
-          {startOptions.length?<div className="ob-time-fields">
-            <FormField label="開始時間"><select value={effectiveStart} onChange={event=>setStart(event.target.value)}>{startOptions.map(value=><option key={value}>{value}</option>)}</select></FormField>
-            <FormField label="打幾耐"><select value={effectiveDuration} onChange={event=>setDuration(Number(event.target.value))}>{endOptions.slice(1).map((option,index)=><option key={option.value} value={(index+2)*30}>{durationText((index+2)*30)}</option>)}</select></FormField>
-          </div>:<InlineNotice tone="warning" title="今日已沒有可選時間">揀另一日，就可以繼續。</InlineNotice>}
-          {startOptions.length>0&&<div className="ob-time-summary"><DateStamp date={date}/><div><span>你的時段 · {durationLabel}</span><b>{effectiveStart}–{endLabel}</b><small>香港時間</small></div></div>}
-          <div className="ob-composer-footer"><Button type="button" disabled={!startOptions.length} onClick={()=>setComposer("match")}>下一步：看看有誰</Button></div>
-        </>:<>
-          {loadError&&data.date&&<InlineNotice tone="warning" title="顯示上次載入的約戰">{loadError}<Button type="button" variant="quiet" loading={refreshing} onClick={()=>void load(true)}>重試</Button></InlineNotice>}
-          <div className="ob-review-time"><DateStamp date={date}/><div><span>{weekday(date)} · {durationLabel}</span><b>{effectiveStart}–{endLabel}</b></div><Button type="button" variant="quiet" disabled={Boolean(busy)} onClick={()=>setComposer("window")}>修改時間</Button></div>
-          {loading?<InlineNotice title="正在找適合你的約戰">你可以先設定對手偏好和場地。</InlineNotice>:!data.date?<InlineNotice tone="warning" title="暫時未能查看其他局">{loadError||"請重試載入，再決定加入或開局。"}<Button type="button" variant="quiet" loading={refreshing} onClick={()=>void load(true)}>重新載入</Button></InlineNotice>:overlapping.length>0?<section className="ob-match" aria-label="可能適合你的局">
-            <b>有 {overlapping.length} 個約戰時間夾到你，已按對手水平排序</b>
-            {rankRecommendedCalls(overlapping,data.viewerId,viewerRating).map(call=>{const opponent=closestOpponent(call.players,data.viewerId,viewerRating);return <div key={call.id} className="ob-match-row">
-              <div className="ob-match-detail">{opponent&&<BoardPlayerInfo player={opponent} settings={settings}/>}<MatchVerdict player={opponent} viewerRating={viewerRating} settings={settings} joined={false}/><b>{placeLabel(call)}</b><span>{clockRange(call)}</span><small>{call.players.length} 人參加 · {tempoLabel(call)} · {call.costSplit==="aa"?"AA 波鐘":"主揪找數"}</small></div>
-              <Button type="button" disabled={Boolean(busy)} loading={busy===`join:${call.id}`} onClick={()=>void joinFromComposer(call)}>加入</Button>
-            </div>})}
-          </section>:<p className="ob-form-lede">這段時間暫時未有其他局。開一局，等球友加入。</p>}
-          <section className="ob-own-game" aria-label="開自己的局">
-            {overlapping.length>0&&<h3>或者，開自己的局</h3>}
-            <div className="ob-setting-row ob-setting-row--intent"><div><small>想搵邊類對手</small><p>{formTempo==="sport"?"競技對手":"休閒球友"} · {handicapPref==="even"?"希望平手對戰":"接受讓分平衡"}<br/>{costSplit==="aa"?"AA 波鐘":"主揪找數"} · {smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}{note?" · 有補充":""}</p></div><Button type="button" variant="quiet" aria-expanded={moreOpen} aria-controls="ob-preferences" onClick={()=>setMoreOpen(value=>!value)}>{moreOpen?"收起":"更改"}</Button></div>
-            {moreOpen&&<div id="ob-preferences" className="ob-more-panel">        <fieldset className="ob-choice"><legend>節奏</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="節奏">
+          <div className="ob-setting-row ob-setting-row--intent"><div><small>更多設定</small><p>{formTempo==="sport"?"競技對手":"休閒球友"} · {handicapPref==="even"?"希望平手對戰":"接受讓分平衡"}<br/>{costSplit==="aa"?"AA 波鐘":"主揪找數"} · {smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}{maxJoiners!==null?` · 最多 ${maxJoiners} 人加入`:""}{note?" · 有補充":""}</p></div><Button type="button" variant="quiet" aria-expanded={moreOpen} aria-controls="ob-preferences" onClick={()=>setMoreOpen(value=>!value)}>{moreOpen?"收起":"更改"}</Button></div>
+          {moreOpen&&<div id="ob-preferences" className="ob-more-panel">
+            <fieldset className="ob-choice"><legend>節奏</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="節奏">
               <button type="button" aria-pressed={formTempo==="sport"} onClick={()=>setFormTempo("sport")}>競技</button>
               <button type="button" aria-pressed={formTempo==="casual"} onClick={()=>setFormTempo("casual")}>休閒</button>
             </SlidingToggleGroup><p>兩者同樣計算 ELO，只影響讓分與排序</p></fieldset>
@@ -368,7 +408,6 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
             </SlidingToggleGroup><p>成局後會依雙方 ELO 提供建議讓分</p></fieldset>
             <fieldset className="ob-choice"><legend>分攤</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="分攤"><button type="button" aria-pressed={costSplit==="aa"} onClick={()=>setCostSplit("aa")}>AA 波鐘</button><button type="button" aria-pressed={costSplit==="host"} onClick={()=>setCostSplit("host")}>主揪找數</button></SlidingToggleGroup></fieldset>
             <fieldset className="ob-choice"><legend>吸煙</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="吸煙"><button type="button" aria-pressed={smoking==="nonsmoking"} onClick={()=>setSmoking("nonsmoking")}>要求非吸煙者</button><button type="button" aria-pressed={smoking==="any"} onClick={()=>setSmoking("any")}>不介意</button></SlidingToggleGroup></fieldset>
-            <FormField label="補充（可選）"><textarea value={note} onChange={event=>setNote(event.target.value)} rows={2} maxLength={300} placeholder="例：想搵水平相約的球友，新手歡迎。"/></FormField></div>}
             <fieldset className="ob-capacity-choice" disabled={Boolean(busy)}>
               <legend>接受加入人數 <span>預設不設上限，減低有人甩底的影響</span></legend>
               <div className="ob-capacity-options">
@@ -377,28 +416,66 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
               </div>
               {maxJoiners!==null&&<FormField label="最多接受多少位球友加入"><select value={maxJoiners} onChange={event=>setMaxJoiners(Number(event.target.value))}>{Array.from({length:7},(_,index)=>index+1).map(value=><option key={value} value={value}>{value} 人</option>)}</select></FormField>}
             </fieldset>
-            <div className="ob-setting-row"><div><small>場地</small><b>{data.venues.find(venue=>venue.id===effectiveVenueId)?.name||venueIntent||"稍後一起決定"}</b></div><Button type="button" variant="quiet" disabled={Boolean(busy)} aria-expanded={venueOpen} aria-controls="ob-venue-options" onClick={()=>setVenueOpen(value=>!value)}>{venueOpen?"收起":"更改"}</Button></div>
-            <fieldset className="ob-editable" disabled={Boolean(busy)}>
-              {venueOpen&&<div id="ob-venue-options" className="ob-more-panel">        <div className="ob-field-group"><h3>選擇場地</h3>
-          <VenuePicker venues={data.venues} value={effectiveVenueId} onChange={chooseVenue}
-            onCreated={venue=>{
-              setData(current=>({...current,venues:[...current.venues,venue].sort((a,b)=>a.name.localeCompare(b.name))}));
-              chooseVenue(venue.id);
-            }}/>
-        </div>
-        {!effectiveVenueId&&<FormField label="地區意向（可選）">
-          <input value={venueIntent} onChange={event=>setVenueIntent(event.target.value)} placeholder="例：葵青區" maxLength={30}/>
-        </FormField>}
-
-</div>}
-            </fieldset>
-          </section>
-          <div className="ob-composer-footer"><p>開局後會列在約戰板，等球友加入。</p><Button type="button" variant={overlapping.length?"secondary":"primary"} disabled={Boolean(busy)||!startOptions.length||!data.date} loading={busy==="create"} onClick={()=>void create()}>確認開局</Button></div>
-        </>}
+            <FormField label="補充（可選）"><textarea value={note} onChange={event=>setNote(event.target.value)} rows={2} maxLength={300} placeholder="例：想搵水平相約的球友，新手歡迎。"/></FormField>
+          </div>}
+        </section>
+        <div className="ob-composer-footer">{!editingId&&<p>開局後會列在約戰板，等球友加入。</p>}<Button type="button" variant={!editingId&&overlapping.length?"secondary":"primary"} disabled={Boolean(busy)||!startOptions.length||!data.date} loading={busy===(editingId?`edit:${editingId}`:"create")} onClick={()=>void submitComposer()}>{editingId?"儲存修改":"確認開局"}</Button></div>
         {error&&<InlineNotice tone="danger" title="未能完成">{error}<Button type="button" variant="quiet" disabled={Boolean(busy)} onClick={()=>void load(true)}>重新載入</Button></InlineNotice>}
       </div>
     </Sheet>
+
+    <CallDetail call={detailCall} viewerId={data.viewerId} viewerRating={viewerRating} signedIn={data.signedIn}
+      settings={settings} busy={busy} cancelConfirm={cancelConfirm} onPlayer={onPlayer} onRecord={onRecord}
+      onClose={()=>setDetailId(null)} onJoin={join} onLeave={leave} onEdit={openEditor}
+      onCancel={cancelSlot} onCancelConfirm={setCancelConfirm}/>
   </section>;
+}
+
+/** The tap target every card collapses to. At 50+ 局 the list itself has to stay a fast scan — two
+    lines, join button, done — so everything else a card used to show inline (roster, handicap
+    suggestion, prefs, message, host controls) lives here instead, one sheet per 局 rather than one
+    per row. */
+function CallDetail({call,viewerId,viewerRating,signedIn,settings,busy,cancelConfirm,onPlayer,onRecord,onClose,onJoin,onLeave,onEdit,onCancel,onCancelConfirm}:{
+  call:Call|null; viewerId:string|null; viewerRating:number|null; signedIn:boolean;
+  settings?:HandicapSettings|null; busy:string; cancelConfirm:string|null;
+  onPlayer?:(playerId:string)=>void; onRecord?:(opponentId:string)=>void;
+  onClose:()=>void; onJoin:(call:Call)=>void; onLeave:(call:Call)=>void;
+  onEdit:(call:Call)=>void; onCancel:(call:Call)=>void; onCancelConfirm:(id:string|null)=>void;
+}){
+  if(!call)return <Sheet open={false} title="約戰詳情" onClose={onClose}><></></Sheet>;
+  const today=hkDate();
+  const callDate=hkDate(new Date(call.startAt));
+  const full=call.maxPlayers!==null&&call.players.length>=call.maxPlayers;
+  const isHost=Boolean(viewerId)&&call.hostId===viewerId;
+  const lead=closestOpponent(call.players,viewerId,viewerRating);
+  const prefsLine=`${call.handicapPref==="even"?"平手對戰":"可以讓分"} · ${call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"} · ${call.maxPlayers===null?"加入人數不設上限":`最多接受 ${call.maxPlayers-1} 人加入`}`;
+  return <Sheet open title="約戰詳情" onClose={onClose} className="ob-sheet">
+    <div className="ob-detail">
+      <div className="ob-detail-head">
+        <span className="ob-detail-time">{callDate===today?"今日":weekday(callDate)} {callDate.slice(5).replace("-","/")} · {clockRange(call)}</span>
+        <MatchVerdict player={lead} viewerRating={viewerRating} settings={settings} joined={call.joined}/>
+      </div>
+      <div className="ob-detail-venue"><small>場地</small><b>{placeLabel(call)}</b><span>{[call.venue?.district||call.venueIntent,tempoLabel(call),call.costSplit==="aa"?"AA 波鐘":"主揪找數"].filter(Boolean).join(" · ")}</span></div>
+      <div className="ob-slot-roster">{call.players.map(player=><BoardPlayerInfo key={player.id} player={player} settings={settings} onPlayer={onPlayer}/>)}</div>
+      <div className="ob-slot-meta">
+        <p className="ob-slot-prefs">{prefsLine}</p>
+        {handicapLine(call,viewerId,settings)}
+        {call.message&&<p className="ob-slot-note">{call.message}</p>}
+      </div>
+      <div className="ob-detail-actions">
+        {!call.joined&&signedIn&&<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>onJoin(call)}>{full?"已滿":"加入"}</Button>}
+        {call.joined&&<WhatsAppButton call={call}/>}
+        {call.joined&&call.players.length===2&&onRecord&&<Button variant="secondary" onClick={()=>onRecord(call.players.find(player=>player.id!==viewerId)!.id)}>記錄賽果</Button>}
+        {isHost?<>
+          <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>onEdit(call)}>編輯</Button>
+          {cancelConfirm===call.id
+            ?<><Button variant="danger" disabled={Boolean(busy)} loading={busy===`cancel:${call.id}`} onClick={()=>onCancel(call)}>確定取消？</Button>
+              <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>onCancelConfirm(null)}>算了</Button></>
+            :<Button variant="quiet" disabled={Boolean(busy)} onClick={()=>onCancelConfirm(call.id)}>取消局</Button>}
+        </>:call.joined&&<Button variant="quiet" disabled={Boolean(busy)} loading={busy===`leave:${call.id}`} onClick={()=>onLeave(call)}>我去不到</Button>}
+      </div>
+    </div>
+  </Sheet>;
 }
 
 /** The WhatsApp hand-off. Not an exit — the app keeps the roster, the timing and the result — but the
@@ -554,12 +631,4 @@ function MatchVerdict({player,viewerRating,settings,joined}:{player:Player|null;
   const reason=fit.tier==="very-close"?`ELO 相差 ${fit.difference} · 適合平手對戰`
     :`ELO 相差 ${fit.difference}${proposal?` · ${proposal.label}`:""}`;
   return <div className={`ob-match-verdict ob-match-verdict--${fit.tier}`}><b>{label}</b><span>{reason}</span></div>;
-}
-
-function CapacityLine({call}:{call:Call}){
-  const remaining=call.maxPlayers===null?null:Math.max(0,call.maxPlayers-call.players.length);
-  return <span className="ob-capacity-line">
-    <span className="ob-avatar-stack" aria-hidden="true">{call.players.slice(0,3).map(player=><PlayerBadge key={player.id} player={player}/>)}{call.players.length>3&&<b>+{call.players.length-3}</b>}</span>
-    <span><b>{call.players.length} 人參加</b><small>{remaining===null?" · 不限加入人數":remaining>0?` · 尚可加入 ${remaining} 人`:" · 名額已滿"}</small></span>
-  </span>;
 }

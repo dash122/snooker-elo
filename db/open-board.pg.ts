@@ -204,6 +204,45 @@ export async function joinCall(id:string,playerId:string):Promise<JoinResult>{
   });
 }
 
+export type HostResult = {ok:true}|{ok:false;reason:"gone"|"forbidden"};
+
+/** The host re-opens the composer on their own 局 and replaces every field it collects, the same set
+    `createCall` writes. Editing is host-only and closed once the 局 has ended or been cancelled --
+    there is nothing left to change on a row nobody can see any more. */
+export async function updateCall(id:string,hostId:string,input:CreateCallInput):Promise<HostResult>{
+  const sql=getSql();
+  return sql.begin(async tx=>{
+    const [call]=await tx<{player_id:string}[]>`
+      SELECT player_id FROM open_calls WHERE id=${id} AND status='open' FOR UPDATE`;
+    if(!call)return {ok:false,reason:"gone"} as const;
+    if(call.player_id!==hostId)return {ok:false,reason:"forbidden"} as const;
+    await tx`UPDATE open_calls SET
+        start_at=${input.startAt},end_at=${input.endAt},message=${input.message},
+        venue_id=${input.venueId},venue_intent=${input.venueIntent},
+        tempo=${input.tempo},handicap_pref=${input.handicapPref},cost_split=${input.costSplit},
+        smoking=${input.smoking},max_players=${input.maxPlayers}
+      WHERE id=${id}`;
+    return {ok:true} as const;
+  });
+}
+
+/** The host calls the whole 局 off, joiners or not -- unlike 我去不到, which only ever removes one
+    person and leaves the rest standing. Every other participant gets told, because a cancelled 局 is
+    not the "back to 等多 1 人" state leaving produces: for them the game itself is off. */
+export async function cancelCall(id:string,hostId:string):Promise<HostResult&{notify?:string[]}>{
+  const sql=getSql();
+  return sql.begin(async tx=>{
+    const [call]=await tx<{player_id:string}[]>`
+      SELECT player_id FROM open_calls WHERE id=${id} AND status='open' FOR UPDATE`;
+    if(!call)return {ok:false,reason:"gone"} as const;
+    if(call.player_id!==hostId)return {ok:false,reason:"forbidden"} as const;
+    const others=await tx<{player_id:string}[]>`
+      SELECT player_id FROM open_call_players WHERE call_id=${id} AND player_id<>${hostId}`;
+    await tx`UPDATE open_calls SET status='cancelled' WHERE id=${id}`;
+    return {ok:true as const,notify:others.map(row=>row.player_id)};
+  });
+}
+
 /** 我去不到 -- leave without a trace.
  *
  *  The row is DELETEd rather than tombstoned. A card that renders "已退出 陳嘉朗" is a small public

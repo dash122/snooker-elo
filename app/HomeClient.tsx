@@ -652,7 +652,12 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
      many 開局卡 are open club-wide right now — a discovery nudge rather than an obligation, and one a
      signed-out visitor sees too, since `tonight.openSlots` is public. */
   const {summary:matchmakingSummary,refresh:refreshMatchmaking}=useMatchmakingSummary(Boolean(ownPlayerId));
-  const matchmakingBadge=actionableCount(matchmakingSummary?.counts)||matchmakingSummary?.tonight.openSlots||0;
+  /* The badge's fallback source is open 局 (calls), not open availability slots — the label already
+     reads "N 個開緊局", so the number under it has to be calls-on-the-board, the same public count
+     `tonight.openCalls` already gives the leaderboard's 今晚 strip, not how many people are merely
+     free. Personal actionable items (invites needing a reply, live offers) still win when there are
+     any, since those are more urgent than "someone else opened a 局". */
+  const matchmakingBadge=actionableCount(matchmakingSummary?.counts)||matchmakingSummary?.tonight.openCalls||0;
   /* Notifications deep-link to /?tab=availability, and the click handler navigates an already-open
      tab there, so the parameter has to be honoured on mount and on subsequent navigations alike. */
   useEffect(()=>{
