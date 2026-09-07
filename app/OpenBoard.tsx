@@ -413,6 +413,8 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
           {shownCalls.map(call=>{
             const callDate=hkDate(new Date(call.startAt));
             const full=call.maxPlayers!==null&&call.players.length>=call.maxPlayers;
+            const seatsLeft=call.maxPlayers!==null?call.maxPlayers-call.players.length:null;
+            const nearFull=seatsLeft===1;
             const lead=closestOpponent(call.players,data.viewerId,viewerRating);
             const isHost=Boolean(data.viewerId)&&call.hostId===data.viewerId;
             const fit=opponentFit(lead?.rating,viewerRating);
@@ -440,29 +442,35 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
                 <div className="ob-slot-meta-icons">
                   <span className="ob-meta-item"><ScaleIcon/>{call.handicapPref==="even"?"平手對戰":"可以讓分"}</span>
                   <span className="ob-meta-item"><SmokingOffIcon/>{call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}</span>
-                  <span className="ob-meta-item"><PeopleIcon/>{call.players.length}{call.maxPlayers?`/${call.maxPlayers}`:""} 人</span>
+                  <span className={`ob-meta-item${nearFull?" is-urgent":""}`}><PeopleIcon/>{call.players.length}{call.maxPlayers?`/${call.maxPlayers}`:""} 人</span>
                 </div>
                 {handicapLine(call,data.viewerId,settings)}
                 {call.message&&<p className="ob-slot-quote"><QuoteIcon/>{call.message}</p>}
                 <div className="ob-slot-foot">
-                  {isHost?<Chip tone="accent">你是發起人</Chip>:call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
-                  <span className="card-tools">
-                    {isHost?<>
-                      <IconButton className="card-tool" label="編輯約戰" disabled={Boolean(busy)} onClick={()=>openEditor(call)}>✎</IconButton>
-                      {cancelConfirm===call.id
-                        ?<><Button variant="danger" disabled={Boolean(busy)} loading={busy===`cancel:${call.id}`} onClick={()=>cancelSlot(call)}>確定取消？</Button>
-                          <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(null)}>算了</Button></>
-                        :<IconButton className="card-tool danger" label="取消局" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(call.id)}>✕</IconButton>}
-                    </>:call.joined&&<span className="ob-popup-anchor">
-                      <IconButton className="card-tool" label="更多動作" onClick={()=>setOpenPopup(openPopup===menuKey?null:menuKey)}>⋯</IconButton>
-                      {openPopup===menuKey&&<div className="ob-action-menu" role="menu">
-                        <a className="ob-action-menu-item" href={whatsappUrl(call)} target="_blank" rel="noreferrer" onClick={()=>setOpenPopup(null)}><ChatIcon/>WhatsApp 傾偈</a>
-                        {canRecord&&<button type="button" className="ob-action-menu-item" onClick={()=>{setOpenPopup(null);onRecord!(call.players.find(player=>player.id!==data.viewerId)!.id)}}><FlagIcon/>記錄賽果</button>}
-                        <hr/>
-                        <button type="button" className="ob-action-menu-item ob-action-menu-item--danger" disabled={Boolean(busy)} onClick={()=>{setOpenPopup(null);leave(call)}}><ExitIcon/>我去不到</button>
-                      </div>}
-                    </span>}
+                  <span className="ob-slot-foot-status">
+                    {isHost?<Chip tone="accent">你是發起人</Chip>:call.joined?<Chip tone="success">已參加</Chip>:!data.signedIn&&<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
+                    <span className="card-tools">
+                      {isHost?<>
+                        <IconButton className="card-tool" label="編輯約戰" disabled={Boolean(busy)} onClick={()=>openEditor(call)}>✎</IconButton>
+                        {cancelConfirm===call.id
+                          ?<><Button variant="danger" disabled={Boolean(busy)} loading={busy===`cancel:${call.id}`} onClick={()=>cancelSlot(call)}>確定取消？</Button>
+                            <Button variant="quiet" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(null)}>算了</Button></>
+                          :<IconButton className="card-tool danger" label="取消局" disabled={Boolean(busy)} onClick={()=>setCancelConfirm(call.id)}>✕</IconButton>}
+                      </>:call.joined&&<span className="ob-popup-anchor">
+                        <IconButton className="card-tool" label="更多動作" onClick={()=>setOpenPopup(openPopup===menuKey?null:menuKey)}>⋯</IconButton>
+                        {openPopup===menuKey&&<div className="ob-action-menu" role="menu">
+                          <a className="ob-action-menu-item" href={whatsappUrl(call)} target="_blank" rel="noreferrer" onClick={()=>setOpenPopup(null)}><ChatIcon/>WhatsApp 傾偈</a>
+                          {canRecord&&<button type="button" className="ob-action-menu-item" onClick={()=>{setOpenPopup(null);onRecord!(call.players.find(player=>player.id!==data.viewerId)!.id)}}><FlagIcon/>記錄賽果</button>}
+                          <hr/>
+                          <button type="button" className="ob-action-menu-item ob-action-menu-item--danger" disabled={Boolean(busy)} onClick={()=>{setOpenPopup(null);leave(call)}}><ExitIcon/>我去不到</button>
+                        </div>}
+                      </span>}
+                    </span>
                   </span>
+                  {!isHost&&!call.joined&&data.signedIn&&
+                    <Button className="ob-join-cta" disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>
+                      {full?"已滿":nearFull?"參加 · 埋尾一位":"參加"}
+                    </Button>}
                 </div>
               </div>
             </article>;
