@@ -431,9 +431,18 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
                   <span className="ob-slot-place"><b>{placeLabel(call)}</b>
                     <span>{[call.venue?.district||call.venueIntent,tempoLabel(call),call.costSplit==="aa"?"AA 波鐘":"發起人找數"].filter(Boolean).join(" · ")}</span>
                   </span>
-                  {fit.tier!=="unknown"?<Chip tone={fit.tier==="very-close"?"success":fit.tier==="similar"?"accent":"warning"}>{fitShortLabel(fit.tier)}</Chip>
-                    :call.fits&&!call.joined?<Chip tone="accent">夾到你</Chip>
-                    :<Chip tone="neutral">{fitShortLabel(fit.tier)}</Chip>}
+                  <div className="ob-slot-top-badges">
+                    {/* A capped 局's fill count is a decision signal on its own -- "仲差 1 人" is a
+                        reason to act now that a bare "1/3" never was. Uncapped 局 (the common case)
+                        have no fill target, so they keep only the fit chip. */}
+                    {call.maxPlayers!==null&&<span className={`ob-slot-fillstat${full?" is-full":nearFull?" is-urgent":""}`}>
+                      <b>{call.players.length}/{call.maxPlayers}</b>
+                      <small>{full?"已滿":nearFull?"仲差 1":"埋位中"}</small>
+                    </span>}
+                    {fit.tier!=="unknown"?<Chip tone={fit.tier==="very-close"?"success":fit.tier==="similar"?"accent":"warning"}>{fitShortLabel(fit.tier)}</Chip>
+                      :call.fits&&!call.joined?<Chip tone="accent">夾到你</Chip>
+                      :<Chip tone="neutral">{fitShortLabel(fit.tier)}</Chip>}
+                  </div>
                 </div>
                 <div className="ob-slot-roster">
                   {call.players.map(player=><RosterChip key={player.id} call={call} player={player} settings={settings} viewerRating={viewerRating} viewerId={data.viewerId} onPlayer={onPlayer} openKey={openPopup} onToggle={setOpenPopup} regularIds={regularIds} onToggleRegular={toggleRegular}/>)}

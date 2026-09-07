@@ -164,7 +164,7 @@
      deeper resting shadow than a flat card needs — together they read as a physical object sitting
      just off the page, not a rectangle with a border. Lifts a touch further on hover where hover
      actually means something (a mouse), never on touch where there's no cursor to lift toward. */
-  .ob-slot-row{position:relative;display:grid;grid-template-columns:5.5rem 1fr;overflow:hidden;border-radius:var(--radius-md);background:var(--ds-surface-primary);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-3);transition:box-shadow var(--ds-duration-standard) var(--ds-ease-standard),transform var(--ds-duration-standard) var(--ds-ease-standard)}
+  .ob-slot-row{position:relative;display:grid;grid-template-columns:5.5rem 1fr;overflow:hidden;border-radius:var(--radius-lg);background:var(--ds-surface-primary);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-3);transition:box-shadow var(--ds-duration-standard) var(--ds-ease-standard),transform var(--ds-duration-standard) var(--ds-ease-standard)}
   @media(hover:hover){.ob-slot-row:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-4);transform:translateY(-2px)}}
 
   .ob-slot-stamp{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-1);padding:var(--sp-3) var(--sp-1);text-align:center;color:var(--ds-text-on-brand);background:radial-gradient(140% 90% at 15% -20%,var(--ds-featured-glow),transparent 60%),linear-gradient(165deg,var(--baize) 0%,var(--baize-deep) 100%)}
@@ -176,7 +176,7 @@
   .ob-slot-stamp em.is-host{background:var(--ball-yellow)}
   .ob-slot-stamp em.is-joined{background:#6fd3a6}
 
-  .ob-slot-main{display:grid;gap:var(--sp-2-5);min-width:0;padding:var(--sp-3) var(--sp-3-5)}
+  .ob-slot-main{display:grid;gap:var(--sp-3);min-width:0;padding:var(--sp-4) var(--sp-4)}
   .ob-slot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-2);min-width:0}
   .ob-slot-place{display:grid;gap:1px;min-width:0}
   .ob-slot-place b{font-size:var(--fs-sm);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -184,7 +184,19 @@
 
   /* Fit and status both use the app's existing `Chip` component (ds-chip), not a second pill
      system — one badge shape everywhere a badge appears. */
+  .ob-slot-top-badges{display:flex;align-items:center;gap:var(--sp-2);flex:0 0 auto}
   .ob-slot-top .ds-chip{flex:0 0 auto}
+
+  /* A capped 局's fill count as its own small stat block, not folded into the fit chip — the same
+     colour language the rest of the app uses for "act now" (danger) vs "settled" (success) vs
+     "in progress" (neutral wash), so it reads before the number is even parsed. */
+  .ob-slot-fillstat{display:flex;flex-direction:column;align-items:center;gap:1px;flex:0 0 auto;min-width:2.75rem;padding:var(--sp-1) var(--sp-2);border-radius:var(--radius-sm);background:var(--ds-highlight-wash);text-align:center}
+  .ob-slot-fillstat b{font-family:var(--font-display);font-size:var(--fs-lead);line-height:1;font-variant-numeric:tabular-nums;color:var(--ds-text-primary)}
+  .ob-slot-fillstat small{font-size:9px;font-weight:800;color:var(--ds-text-secondary);white-space:nowrap}
+  .ob-slot-fillstat.is-urgent{background:var(--ds-danger-wash)}
+  .ob-slot-fillstat.is-urgent b,.ob-slot-fillstat.is-urgent small{color:var(--ds-danger)}
+  .ob-slot-fillstat.is-full{background:var(--ds-success-wash)}
+  .ob-slot-fillstat.is-full b,.ob-slot-fillstat.is-full small{color:var(--ds-success)}
 
   .ob-slot-roster{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
   .ob-roster-chip{display:flex;align-items:center;gap:var(--sp-1-5);min-width:0;max-width:100%;border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);padding:var(--sp-1) var(--sp-2-5) var(--sp-1) var(--sp-1);background:var(--ds-surface-primary);color:var(--ds-text-primary);box-shadow:var(--ds-elevation-1);transition:transform var(--ds-duration-fast) var(--ds-ease-toggle),box-shadow var(--ds-duration-fast) var(--ds-ease-standard)}
