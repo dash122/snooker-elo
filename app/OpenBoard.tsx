@@ -413,39 +413,58 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
           {shownCalls.map(call=>{
             const callDate=hkDate(new Date(call.startAt));
             const full=call.maxPlayers!==null&&call.players.length>=call.maxPlayers;
+            const seatsLeft=call.maxPlayers!==null?call.maxPlayers-call.players.length:null;
+            const nearFull=seatsLeft===1;
             const lead=closestOpponent(call.players,data.viewerId,viewerRating);
             const isHost=Boolean(data.viewerId)&&call.hostId===data.viewerId;
             const fit=opponentFit(lead?.rating,viewerRating);
             const canRecord=call.joined&&call.players.length===2&&Boolean(onRecord);
             const menuKey=`menu:${call.id}`;
-            return <article key={call.id} className="ob-slot-row">
-              <div className="ob-slot-stamp">
-                <b>{hkClock(call.startAt)}<br/>–{hkClock(call.endAt)}</b>
-                <small>{callDate===today?"今日":weekday(callDate)}</small>
-                {call.joined&&<em className={isHost?"is-host":"is-joined"} aria-hidden="true"/>}
-              </div>
-              <div className="ob-slot-main">
-                <div className="ob-slot-top">
-                  <span className="ob-slot-place"><b>{placeLabel(call)}</b>
-                    <span>{[call.venue?.district||call.venueIntent,tempoLabel(call),call.costSplit==="aa"?"AA 波鐘":"發起人找數"].filter(Boolean).join(" · ")}</span>
-                  </span>
-                  {fit.tier!=="unknown"?<Chip tone={fit.tier==="very-close"?"success":fit.tier==="similar"?"accent":"warning"}>{fitShortLabel(fit.tier)}</Chip>
-                    :call.fits&&!call.joined?<Chip tone="accent">夾到你</Chip>
-                    :<Chip tone="neutral">{fitShortLabel(fit.tier)}</Chip>}
+            /* Mockup Direction B's whole point: time leads as one big line, the fill count (when a
+               cap exists) is its own coloured stat rather than folded into a chip, and "why this
+               game" collapses into one subline under the roster instead of a separate fit chip. */
+            const heroTime=callDate===today?`今晚 ${hkClock(call.startAt)}`:`${weekday(callDate)} ${hkClock(call.startAt)}`;
+            const durationMinutes=Math.round((Date.parse(call.endAt)-Date.parse(call.startAt))/60000);
+            const heroSub=[durationText(durationMinutes),[call.venue?.district,placeLabel(call)].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
+            const rosterLine=call.players.map(player=>`${player.name} ELO ${Math.round(player.rating)}`).join("、");
+            const proposal=settings&&viewerRating!==null&&lead?proposeHandicap(viewerRating,lead.rating,settings):null;
+            const fitLabel=fit.tier!=="unknown"?fitShortLabel(fit.tier):call.fits&&!call.joined?"夾到你":null;
+            const fitLine=[fitLabel,proposal?.label,call.costSplit==="aa"?"AA 波鐘":"發起人找數"].filter(Boolean).join(" · ");
+            return <article key={call.id} className={`ob-card${call.joined?isHost?" is-host":" is-joined":""}`}>
+              <div className="ob-card-top">
+                <div className="ob-card-time">
+                  <span className="ob-card-time-main">{heroTime}</span>
+                  <span className="ob-card-time-sub">{heroSub}</span>
                 </div>
-                <div className="ob-slot-roster">
+                {call.maxPlayers!==null&&<div className={`ob-card-stat${full?" is-full":nearFull?" is-urgent":""}`}>
+                  <b>{call.players.length}/{call.maxPlayers}</b>
+                  <span>{full?"已滿":nearFull?"仲差 1":"埋位中"}</span>
+                </div>}
+              </div>
+
+              <div className="ob-card-roster">
+                <div className="ob-card-avatars">
                   {call.players.map(player=><RosterChip key={player.id} call={call} player={player} settings={settings} viewerRating={viewerRating} viewerId={data.viewerId} onPlayer={onPlayer} openKey={openPopup} onToggle={setOpenPopup} regularIds={regularIds} onToggleRegular={toggleRegular}/>)}
                 </div>
-                <TrustStrip trust={lead?.trust}/>
-                <div className="ob-slot-meta-icons">
-                  <span className="ob-meta-item"><ScaleIcon/>{call.handicapPref==="even"?"平手對戰":"可以讓分"}</span>
-                  <span className="ob-meta-item"><SmokingOffIcon/>{call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}</span>
-                  <span className="ob-meta-item"><PeopleIcon/>{call.players.length}{call.maxPlayers?`/${call.maxPlayers}`:""} 人</span>
+                <div className="ob-card-roster-copy">
+                  <span className="ob-card-names">{rosterLine}</span>
+                  {fitLine&&<span className={`ob-card-fitline${fit.tier!=="unknown"?` is-${fit.tier}`:""}`}>{fitLine}</span>}
                 </div>
-                {handicapLine(call,data.viewerId,settings)}
-                {call.message&&<p className="ob-slot-quote"><QuoteIcon/>{call.message}</p>}
-                <div className="ob-slot-foot">
-                  {isHost?<Chip tone="accent">你是發起人</Chip>:call.joined?<Chip tone="success">已參加</Chip>:data.signedIn?<Button disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>{full?"已滿":"加入"}</Button>:<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
+              </div>
+
+              <TrustStrip trust={lead?.trust}/>
+
+              <div className="ob-slot-meta-icons">
+                <span className="ob-meta-item"><ScaleIcon/>{call.handicapPref==="even"?"平手對戰":"可以讓分"}</span>
+                <span className="ob-meta-item"><SmokingOffIcon/>{call.smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}</span>
+                <span className={`ob-meta-item${nearFull?" is-urgent":""}`}><PeopleIcon/>{call.players.length}{call.maxPlayers?`/${call.maxPlayers}`:""} 人</span>
+              </div>
+              {handicapLine(call,data.viewerId,settings)}
+              {call.message&&<p className="ob-card-quote"><QuoteIcon/><span>{call.message}</span></p>}
+
+              <div className="ob-slot-foot">
+                <span className="ob-slot-foot-status">
+                  {isHost?<Chip tone="accent">你是發起人</Chip>:call.joined?<Chip tone="success">已參加</Chip>:!data.signedIn&&<Chip tone={call.players.length===1?"warning":"success"}>{call.players.length===1?"等多 1 人":"已成局"}</Chip>}
                   <span className="card-tools">
                     {isHost?<>
                       <IconButton className="card-tool" label="編輯約戰" disabled={Boolean(busy)} onClick={()=>openEditor(call)}>✎</IconButton>
@@ -463,7 +482,11 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
                       </div>}
                     </span>}
                   </span>
-                </div>
+                </span>
+                {!isHost&&!call.joined&&data.signedIn&&
+                  <Button className={`ob-join-cta${nearFull?"":" is-outline"}`} disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>
+                    {full?"已滿":nearFull?"參加 · 埋尾一位":"參加"}
+                  </Button>}
               </div>
             </article>;
           })}
@@ -522,23 +545,31 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
           </fieldset>
           <div className="ob-setting-row ob-setting-row--intent"><div><small>更多設定</small><p>{formTempo==="sport"?"競技對手":"休閒球友"} · {handicapPref==="even"?"希望平手對戰":"接受讓分平衡"}<br/>{costSplit==="aa"?"AA 波鐘":"發起人找數"} · {smoking==="nonsmoking"?"要求非吸煙者":"不介意吸煙"}{maxJoiners!==null?` · 最多 ${maxJoiners} 人加入`:""}{note?" · 有補充":""}</p></div><Button type="button" variant="quiet" aria-expanded={moreOpen} aria-controls="ob-preferences" onClick={()=>setMoreOpen(value=>!value)}>{moreOpen?"收起":"更改"}</Button></div>
           {moreOpen&&<div id="ob-preferences" className="ob-more-panel">
-            <fieldset className="ob-choice"><legend>節奏</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="節奏">
-              <button type="button" aria-pressed={formTempo==="sport"} onClick={()=>setFormTempo("sport")}>競技</button>
-              <button type="button" aria-pressed={formTempo==="casual"} onClick={()=>setFormTempo("casual")}>休閒</button>
-            </SlidingToggleGroup><p>兩者同樣計算 ELO，只影響讓分與排序</p></fieldset>
-            <fieldset className="ob-choice"><legend>對手水平</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="對手水平">
-              <button type="button" aria-pressed={handicapPref==="even"} onClick={()=>setHandicapPref("even")}>希望平手</button>
-              <button type="button" aria-pressed={handicapPref==="handicap"} onClick={()=>setHandicapPref("handicap")}>接受讓分</button>
-            </SlidingToggleGroup><p>成局後會依雙方 ELO 提供建議讓分</p></fieldset>
-            <fieldset className="ob-choice"><legend>分攤</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="分攤"><button type="button" aria-pressed={costSplit==="aa"} onClick={()=>setCostSplit("aa")}>AA 波鐘</button><button type="button" aria-pressed={costSplit==="host"} onClick={()=>setCostSplit("host")}>發起人找數</button></SlidingToggleGroup></fieldset>
-            <fieldset className="ob-choice"><legend>吸煙</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="吸煙"><button type="button" aria-pressed={smoking==="nonsmoking"} onClick={()=>setSmoking("nonsmoking")}>要求非吸煙者</button><button type="button" aria-pressed={smoking==="any"} onClick={()=>setSmoking("any")}>不介意</button></SlidingToggleGroup></fieldset>
-            <fieldset className="ob-capacity-choice" disabled={Boolean(busy)}>
+            {/* Four binary choices used to be four full-width bordered fieldsets, each with its own
+                caption line -- a lot of floor space for "pick one of two". A 2-column grid of compact
+                segmented pairs shows all four at once without hiding any of them. */}
+            <div className="ob-choice-grid">
+              <fieldset className="ob-choice ob-choice--compact"><legend>節奏</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="節奏">
+                <button type="button" aria-pressed={formTempo==="sport"} onClick={()=>setFormTempo("sport")}>競技</button>
+                <button type="button" aria-pressed={formTempo==="casual"} onClick={()=>setFormTempo("casual")}>休閒</button>
+              </SlidingToggleGroup></fieldset>
+              <fieldset className="ob-choice ob-choice--compact"><legend>對手水平</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="對手水平">
+                <button type="button" aria-pressed={handicapPref==="even"} onClick={()=>setHandicapPref("even")}>希望平手</button>
+                <button type="button" aria-pressed={handicapPref==="handicap"} onClick={()=>setHandicapPref("handicap")}>接受讓分</button>
+              </SlidingToggleGroup></fieldset>
+              <fieldset className="ob-choice ob-choice--compact"><legend>分攤</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="分攤"><button type="button" aria-pressed={costSplit==="aa"} onClick={()=>setCostSplit("aa")}>AA 波鐘</button><button type="button" aria-pressed={costSplit==="host"} onClick={()=>setCostSplit("host")}>發起人找數</button></SlidingToggleGroup></fieldset>
+              <fieldset className="ob-choice ob-choice--compact"><legend>吸煙</legend><SlidingToggleGroup className="ds-toggle-control" role="group" aria-label="吸煙"><button type="button" aria-pressed={smoking==="nonsmoking"} onClick={()=>setSmoking("nonsmoking")}>要求非吸煙者</button><button type="button" aria-pressed={smoking==="any"} onClick={()=>setSmoking("any")}>不介意</button></SlidingToggleGroup></fieldset>
+            </div>
+            <p className="ob-choice-grid-note">節奏同對手水平只影響讓分與排序，同樣計算 ELO；成局後會依雙方 ELO 提供建議讓分。</p>
+            {/* Capacity: was two big option cards plus a conditional 1-7 dropdown. A stepper is the
+                one control iOS itself uses for a small bounded count, and reads as one line. */}
+            <fieldset className="ob-capacity-stepper" disabled={Boolean(busy)}>
               <legend>接受加入人數 <span>預設不設上限，減低有人甩底的影響</span></legend>
-              <div className="ob-capacity-options">
-                <button type="button" aria-pressed={maxJoiners===null} onClick={()=>setMaxJoiners(null)}><b>不設上限</b><small>球友可以繼續加入</small></button>
-                <button type="button" aria-pressed={maxJoiners!==null} onClick={()=>setMaxJoiners(value=>value??1)}><b>設定人數</b><small>到額即停止加入</small></button>
+              <div className="ob-stepper">
+                <button type="button" className="ob-stepper-btn" aria-label="減少人數上限" disabled={maxJoiners===null} onClick={()=>setMaxJoiners(value=>value===null?null:value<=1?null:value-1)}>−</button>
+                <span className="ob-stepper-value">{maxJoiners===null?"不設上限":`${maxJoiners} 人`}</span>
+                <button type="button" className="ob-stepper-btn" aria-label="增加人數上限" disabled={maxJoiners===20} onClick={()=>setMaxJoiners(value=>value===null?1:Math.min(20,value+1))}>＋</button>
               </div>
-              {maxJoiners!==null&&<FormField label="最多接受多少位球友加入"><select value={maxJoiners} onChange={event=>setMaxJoiners(Number(event.target.value))}>{Array.from({length:7},(_,index)=>index+1).map(value=><option key={value} value={value}>{value} 人</option>)}</select></FormField>}
             </fieldset>
             <FormField label="補充（可選）">
               <div className="ob-note-templates">
@@ -752,8 +783,11 @@ function RosterChip({call,player,settings,viewerRating,viewerId,onPlayer,openKey
   const trust=trustLine(player.trust);
   const starred=Boolean(regularIds?.has(player.id));
   return <span className="ob-popup-anchor">
-    <button type="button" className="ob-roster-chip" aria-expanded={open} onClick={()=>onToggle(open?null:popKey)}>
-      <PlayerBadge player={player}/><span><b>{player.name}</b><small>ELO {Math.round(player.rating)}</small></span>
+    {/* Avatar-only, overlapping like a face-pile — the name and ELO for the whole roster now live
+        once, together, in the card's roster-copy line rather than repeated per chip. Tap still
+        opens the same popover for the one player. */}
+    <button type="button" className="ob-roster-avatar" aria-expanded={open} aria-label={`${player.name}的資料`} onClick={()=>onToggle(open?null:popKey)}>
+      <PlayerBadge player={player}/>
     </button>
     {open&&<div className="ob-roster-popover" role="dialog" aria-label={`${player.name}的資料`}>
       <b className="ob-popover-name">{player.name}</b>

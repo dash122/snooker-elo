@@ -12,6 +12,15 @@ type Transport = {name:string;send:(to:string[],subject:string,text:string)=>Pro
 
 function transport():Transport|null {
   const from=process.env.NOTIFY_EMAIL_FROM;
+  /* Every send here is fired from `tickOpenBoard()`, itself triggered by `after()` on ordinary page
+     loads (see app/api/open-board/route.ts) -- nothing is waiting on the response, but the request's
+     serverless instance is still alive and holding this app's *shared* Postgres connection pool while
+     it awaits. A slow or unreachable mail provider with no timeout can hang that instance until the
+     platform force-kills it, which orphans whatever Postgres sessions the pool had checked out at that
+     moment -- surfacing minutes later as unrelated board loads timing out with "未能載入約戰",
+     nowhere near this file. 8s is generous for a transactional-mail API; nothing here is worth
+     blocking a shared connection pool over. */
+  const SEND_TIMEOUT_MS = 8000;
   if(process.env.RESEND_API_KEY&&from)return {
     name:"resend",
     async send(to,subject,text){
@@ -19,6 +28,7 @@ function transport():Transport|null {
         method:"POST",
         headers:{"authorization":`Bearer ${process.env.RESEND_API_KEY}`,"content-type":"application/json"},
         body:JSON.stringify({from,to,subject,text}),
+        signal:AbortSignal.timeout(SEND_TIMEOUT_MS),
       });
       return response.ok;
     },
@@ -32,6 +42,7 @@ function transport():Transport|null {
         method:"POST",
         headers:{"content-type":"application/json",...(process.env.NOTIFY_WEBHOOK_TOKEN?{authorization:`Bearer ${process.env.NOTIFY_WEBHOOK_TOKEN}`}:{})},
         body:JSON.stringify({to,subject,text}),
+        signal:AbortSignal.timeout(SEND_TIMEOUT_MS),
       });
       return response.ok;
     },
