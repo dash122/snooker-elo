@@ -30,7 +30,7 @@ export function Sheet({open,title,children,onClose,className=""}:{open:boolean;t
     function onKey(ev:KeyboardEvent){
       if(ev.key==="Escape"){latest.current();return}
       if(ev.key!=="Tab")return;
-      const focusable=ref.current?Array.from(ref.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')):[];
+      const focusable=ref.current?Array.from(ref.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(element=>!element.matches(':disabled, [hidden], [aria-hidden="true"]')&&element.getClientRects().length>0):[];
       if(!focusable.length)return;
       const first=focusable[0],last=focusable[focusable.length-1];
       if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus()}

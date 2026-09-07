@@ -107,74 +107,48 @@ function overlapTester(windows:{startAt:number;endAt:number}[]){
   };
 }
 
-/** Everything the board renders in one round trip: fourteen days of counts, one day of 局, and the
-    venue list the composer needs. Counts cover the whole window because the calendar is the primary
-    navigation -- a member decides which day to open by reading it. */
+/** Load the bounded fortnight once. Counts and overlap markers come from the same
+ * rows, avoiding separate count/fit queries and per-date network round trips. */
 export async function readBoard(viewerId:string|null,date:string,days=14):Promise<Board>{
-  await completeEndedCalls();
   const sql=getSql();
   const from=hkDate(),to=addDaysHongKong(from,days);
-  const windows=await viewerWindows(viewerId);
-  const fit=overlapTester(windows);
-
-  const [counts,rows,venues]=await Promise.all([
-    sql<{date:string;calls:string}[]>`
-      SELECT to_char(start_at AT TIME ZONE 'Asia/Hong_Kong','YYYY-MM-DD') AS date,
-             count(*)::text AS calls
-      FROM open_calls
-      WHERE status='open' AND end_at>now()
-        AND start_at < (${to}::date AT TIME ZONE 'Asia/Hong_Kong')
-      GROUP BY 1 ORDER BY 1`,
+  const [windows,rows,venues]=await Promise.all([
+    viewerWindows(viewerId),
     sql.unsafe(`SELECT ${callColumns}
       WHERE c.status='open' AND c.end_at>now()
-        AND to_char(c.start_at AT TIME ZONE 'Asia/Hong_Kong','YYYY-MM-DD')=$1
-      ORDER BY c.start_at ASC`,[date]),
+        AND c.start_at >= ($1::date AT TIME ZONE 'Asia/Hong_Kong')
+        AND c.start_at < ($2::date AT TIME ZONE 'Asia/Hong_Kong')
+      ORDER BY c.start_at ASC`,[from,to]),
     sql<BoardVenue[]>`SELECT id,name,district FROM venues WHERE active ORDER BY name`,
   ]);
-
-  /* The gold dot asks "is any 局 that day worth my time", so it is computed per day from the day's
-     own calls rather than from the count query, which cannot see individual intervals. */
-  const perDay=new Map(counts.map(row=>[row.date,Number(row.calls)]));
-  const fitDays=await fitDates(viewerId,windows.length>0,from,to);
+  const calls=rows.map(row=>hydrate(row,viewerId,overlapTester(windows)));
   const list=Array.from({length:days},(_,index)=>{
     const day=addDaysHongKong(from,index);
-    return {date:day,calls:perDay.get(day)??0,fits:fitDays.has(day)};
+    const items=calls.filter(call=>hkDate(new Date(call.startAt))===day);
+    return {date:day,calls:items.length,fits:items.some(call=>call.fits)};
   });
-
-  return {days:list,calls:rows.map(row=>hydrate(row,viewerId,fit)),venues};
-}
-
-/** Which of the next fourteen days hold at least one 局 the viewer's own time can reach. Kept as its
-    own query so the calendar can answer it without hydrating every call in the window. */
-async function fitDates(viewerId:string|null,hasWindows:boolean,from:string,to:string){
-  if(!viewerId||!hasWindows)return new Set<string>();
-  const sql=getSql();
-  const rows=await sql<{date:string}[]>`
-    SELECT DISTINCT to_char(c.start_at AT TIME ZONE 'Asia/Hong_Kong','YYYY-MM-DD') AS date
-    FROM open_calls c
-    JOIN availability_slots s ON s.player_id=${viewerId} AND s.cancelled_at IS NULL
-    WHERE c.status='open' AND c.end_at>now()
-      AND c.start_at < (${to}::date AT TIME ZONE 'Asia/Hong_Kong')
-      AND c.start_at >= (${from}::date AT TIME ZONE 'Asia/Hong_Kong')
-      AND least(c.end_at,s.end_at)-greatest(c.start_at,s.start_at) >= make_interval(mins => ${OVERLAP_MINUTES})`;
-  return new Set(rows.map(row=>row.date));
+  return {days:list,calls:date==="all"?calls:calls.filter(call=>hkDate(new Date(call.startAt))===date),venues};
 }
 
 /** Members who published time on a day that holds no 局 -- the only reason the empty state is worth
     showing. Excludes anyone already in a 局 that day, because they are not who you are looking for. */
 export async function freeWindowsOn(date:string):Promise<FreeWindow[]>{
   const sql=getSql();
+  const from=date==="all"?hkDate():date,to=addDaysHongKong(from,date==="all"?14:1);
   const rows=await sql<{startAt:Date;endAt:Date;id:string;name:string;short:string|null;rating:number;colour:string|null;avatar:string|null}[]>`
     SELECT s.start_at AS "startAt", s.end_at AS "endAt",
            p.id,p.name,p.short,p.rating::float8 AS rating,p.colour,p.avatar
     FROM availability_slots s JOIN state_players p ON p.id=s.player_id
     WHERE s.cancelled_at IS NULL AND s.end_at>now()
-      AND to_char(s.start_at AT TIME ZONE 'Asia/Hong_Kong','YYYY-MM-DD')=${date}
+      AND s.start_at >= (${from}::date AT TIME ZONE 'Asia/Hong_Kong')
+      AND s.start_at < (${to}::date AT TIME ZONE 'Asia/Hong_Kong')
       AND NOT EXISTS (
         SELECT 1 FROM open_call_players ocp JOIN open_calls c ON c.id=ocp.call_id
         WHERE ocp.player_id=s.player_id AND c.status='open'
-          AND to_char(c.start_at AT TIME ZONE 'Asia/Hong_Kong','YYYY-MM-DD')=${date})
-    ORDER BY s.start_at ASC LIMIT 12`;
+          AND c.end_at>now()
+          AND c.start_at >= (date_trunc('day',s.start_at AT TIME ZONE 'Asia/Hong_Kong') AT TIME ZONE 'Asia/Hong_Kong')
+          AND c.start_at < ((date_trunc('day',s.start_at AT TIME ZONE 'Asia/Hong_Kong') + interval '1 day') AT TIME ZONE 'Asia/Hong_Kong'))
+    ORDER BY s.start_at ASC`;
   return rows.map(row=>({
     player:{id:row.id,name:row.name,short:row.short,rating:Number(row.rating),colour:row.colour,avatar:row.avatar},
     startAt:new Date(row.startAt).toISOString(), endAt:new Date(row.endAt).toISOString(),

@@ -1,0 +1,524 @@
+
+> scaa-snooker-elo@1.0.0 lint:css
+> stylelint "app/**/*.css"
+
+
+app/globals.css
+     9:7053  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    10:112   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    10:852   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    10:916   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    10:3040  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    21:6390  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    65:488   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    72:166   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    72:224   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    72:315   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    72:362   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    72:393   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    72:439   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    83:95    ‼  Unexpected function "rgba"                                      function-disallowed-list
+    83:373   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    83:580   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    83:1234  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    83:1255  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    83:1400  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    83:1433  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    83:1678  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    83:1793  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    83:3038  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    83:6598  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    83:8250  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    89:1816  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    91:667   ‼  Unexpected function "rgba"                                      function-disallowed-list
+    91:2912  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    91:2933  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    91:3019  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    91:3041  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    91:3128  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    91:3149  ‼  Unexpected function "rgba"                                      function-disallowed-list
+    91:3269  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   109:63    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   119:63    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   125:1629  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   127:150   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   127:325   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   129:194   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   237:441   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   261:1315  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   261:2048  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   261:2108  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   261:2787  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   263:2913  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   337:39    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   341:46    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   342:47    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   344:48    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   344:68    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   344:717   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   344:755   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   344:845   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   349:39    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   349:166   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   361:723   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   362:195   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   373:397   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   373:460   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   373:640   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   373:1358  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   373:2187  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   373:2253  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   373:2402  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   373:2434  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   377:86    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   377:169   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   439:955   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   504:707   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   508:600   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   508:635   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   508:876   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   508:1365  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   508:1429  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   514:229   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   514:478   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   528:1298  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   530:317   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   530:446   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   530:781   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   530:1003  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   533:718   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   539:904   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   575:2165  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   575:2509  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   575:2742  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   584:104   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   584:192   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   585:939   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   585:1146  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   585:1428  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   585:1902  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   585:1946  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   664:38    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   668:46    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   669:47    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   670:48    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   670:69    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   671:24    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   671:57    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   671:490   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   671:529   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   672:127   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   672:160   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   769:846   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   769:896   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   769:1328  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   783:36    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   784:37    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   789:28    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   791:28    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   791:62    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   792:36    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   793:48    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   796:48    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   825:102   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   825:181   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1018:360   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1037:24    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1037:132   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1175:48    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1175:285   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1177:5684  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1177:5972  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1177:6243  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1177:6276  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1177:6309  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1177:6429  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  1177:6442  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  1177:6454  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  1177:6606  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  1177:6618  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  1177:6726  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1186:16    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1186:49    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1320:27    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1320:48    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1320:69    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1320:91    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1321:26    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1323:9     ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  1331:37    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1331:79    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1335:53    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  1335:99    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1336:43    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  1337:66    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1338:49    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  1339:55    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1341:20    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1342:14    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1345:27    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1345:54    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1347:59    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1356:29    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1356:50    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1356:72    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  1357:28    ‼  Unexpected function "rgba"                                      function-disallowed-list
+
+app/elo-guide/guide.css
+   1:24    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   1:45    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   1:68    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   1:90    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   1:111   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   1:132   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   1:158   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   1:179   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   1:206   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   1:227   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   1:249   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   1:270   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   1:637   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   1:1870  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   1:2398  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   1:2460  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   1:2495  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   1:2649  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   6:398   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   6:581   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   6:644   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   6:1334  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   6:1462  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  10:82    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  13:522   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  14:444   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  14:3613  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  14:4040  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  14:4386  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  14:4788  ‼  Unexpected function "rgba"                                      function-disallowed-list
+
+app/login/auth.css
+   2:209  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   2:324  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   3:117  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   3:178  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   3:213  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  11:93   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  17:112  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  29:45   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  31:42   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  31:81   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  35:188  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  38:90   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  40:42   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  41:42   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  42:42   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  46:95   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+
+app/styles/bottom-nav.css
+   24:33   ‼  Unexpected function "rgba"  function-disallowed-list
+   24:58   ‼  Unexpected function "rgba"  function-disallowed-list
+   24:84   ‼  Unexpected function "rgba"  function-disallowed-list
+   25:7    ‼  Unexpected function "rgba"  function-disallowed-list
+   29:21   ‼  Unexpected function "rgba"  function-disallowed-list
+   30:23   ‼  Unexpected function "rgba"  function-disallowed-list
+   31:15   ‼  Unexpected function "rgba"  function-disallowed-list
+   32:17   ‼  Unexpected function "rgba"  function-disallowed-list
+   33:18   ‼  Unexpected function "rgba"  function-disallowed-list
+   34:19   ‼  Unexpected function "rgba"  function-disallowed-list
+   47:24   ‼  Unexpected function "rgba"  function-disallowed-list
+   47:97   ‼  Unexpected function "rgba"  function-disallowed-list
+   83:53   ‼  Unexpected function "rgba"  function-disallowed-list
+   83:75   ‼  Unexpected function "rgba"  function-disallowed-list
+  113:42   ‼  Unexpected function "rgba"  function-disallowed-list
+  113:64   ‼  Unexpected function "rgba"  function-disallowed-list
+  114:32   ‼  Unexpected function "rgba"  function-disallowed-list
+  114:64   ‼  Unexpected function "rgba"  function-disallowed-list
+  136:33   ‼  Unexpected function "rgba"  function-disallowed-list
+  136:55   ‼  Unexpected function "rgba"  function-disallowed-list
+  140:21   ‼  Unexpected function "rgba"  function-disallowed-list
+  141:22   ‼  Unexpected function "rgba"  function-disallowed-list
+  142:18   ‼  Unexpected function "rgba"  function-disallowed-list
+  143:17   ‼  Unexpected function "rgba"  function-disallowed-list
+  154:30   ‼  Unexpected function "rgba"  function-disallowed-list
+  154:66   ‼  Unexpected function "rgba"  function-disallowed-list
+  154:98   ‼  Unexpected function "rgba"  function-disallowed-list
+  159:134  ‼  Unexpected function "rgba"  function-disallowed-list
+
+app/styles/calendar.css
+  6:967   ‼  Unexpected function "rgba"  function-disallowed-list
+  6:1931  ‼  Unexpected function "rgba"  function-disallowed-list
+
+app/styles/calibration.css
+   7:651   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   8:1359  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  11:367   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  11:398   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  11:1595  ‼  Unexpected function "rgba"                                      function-disallowed-list
+
+app/styles/core-ranking.css
+  11:145  ‼  Unexpected function "rgba"  function-disallowed-list
+
+app/styles/cup.css
+   21:252   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   21:266   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   31:48    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   32:172   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   33:26    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   33:34    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   33:46    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   34:66    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   35:32    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   36:34    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   36:67    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   36:100   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   37:48    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   37:61    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   37:73    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   38:78    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   38:90    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   39:20    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:176   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:262   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   41:273   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   41:285   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   41:475   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:539   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:573   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:802   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   41:860   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   41:1042  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:1103  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   41:1256  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:1335  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:1488  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:1570  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:1592  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:1706  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:1812  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   41:1841  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:1902  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:2053  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   41:2284  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   41:2382  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   41:2538  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   41:2685  ‼  Unexpected function "rgba"                                      function-disallowed-list
+   43:121   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   52:209   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   52:217   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   55:64    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   59:319   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   59:352   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   60:67    ‼  Unexpected function "rgba"                                      function-disallowed-list
+   60:187   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   60:629   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   84:150   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   86:529   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   87:93    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   87:125   ‼  Unexpected function "rgba"                                      function-disallowed-list
+   95:172   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  104:135   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  132:48    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  135:66    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  138:134   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  138:293   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  139:52    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  140:37    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  140:58    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  142:20    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  142:84    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  143:118   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  143:153   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  143:249   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  143:600   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  148:83    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  150:130   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  158:47    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  159:47    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  172:42    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  174:40    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  174:94    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  180:37    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  180:45    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  180:57    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  184:94    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  184:227   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  187:58    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  187:86    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  187:122   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  187:136   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  194:64    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  223:238   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  223:325   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  223:405   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  223:851   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  223:909   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  223:967   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  264:20    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  268:123   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  268:187   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  270:35    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  270:124   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  270:132   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  270:144   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  283:201   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  292:20    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  293:241   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  303:44    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  303:77    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  304:26    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  304:53    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  306:51    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  306:77    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  306:89    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  309:46    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  310:45    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  311:28    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  312:40    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  313:28    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  313:39    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  313:51    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  313:63    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  314:30    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  314:71    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  316:53    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  318:46    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  320:26    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  326:45    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  326:90    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  326:117   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  328:54    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  329:37    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  329:59    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  329:89    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  330:26    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  330:59    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  332:40    ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  333:9     ‼  Unexpected function "rgba"                                      function-disallowed-list
+
+app/styles/guest-intro.css
+  16:16  ‼  Unexpected function "rgba"  function-disallowed-list
+  19:39  ‼  Unexpected function "rgba"  function-disallowed-list
+  27:16  ‼  Unexpected function "rgba"  function-disallowed-list
+  29:49  ‼  Unexpected function "rgba"  function-disallowed-list
+
+app/styles/home.css
+   8:681   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   8:702   ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+   8:1061  ‼  No hand-typed colours. Use a token from app/styles/tokens.css.  color-no-hex
+  24:68    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  24:94    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  24:119   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  25:71    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  25:97    ‼  Unexpected function "rgba"                                      function-disallowed-list
+  25:123   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  52:387   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  52:562   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  52:647   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  52:669   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  52:862   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  52:937   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  52:1233  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  52:1295  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  52:1780  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  52:1991  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  52:2053  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  54:126   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  54:504   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  54:960   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  54:1645  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  54:1707  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  54:2780  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  54:3052  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  54:3591  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  54:3759  ‼  Unexpected function "rgba"                                      function-disallowed-list
+  60:551   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  64:113   ‼  Unexpected function "rgba"                                      function-disallowed-list
+  64:175   ‼  Unexpected function "rgba"                                      function-disallowed-list
+
+app/styles/match-entry-form.css
+  11:1186  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:2405  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:2469  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:2739  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:2803  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:2911  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:3011  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:3074  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:3765  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:3863  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:4122  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:4440  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:4504  ‼  Unexpected function "rgba"  function-disallowed-list
+  11:7534  ‼  Unexpected function "rgba"  function-disallowed-list
+  12:532   ‼  Unexpected function "rgba"  function-disallowed-list
+  15:809   ‼  Unexpected function "rgba"  function-disallowed-list
+
+app/styles/matchmaking-status.css
+  29:864  ‼  Unexpected function "rgba"  function-disallowed-list
+
+app/styles/member-auth.css
+  3:643  ‼  Unexpected function "rgba"  function-disallowed-list
+
+app/styles/member-dashboard.css
+  3:441   ‼  Unexpected function "rgba"  function-disallowed-list
+  3:790   ‼  Unexpected function "rgba"  function-disallowed-list
+  3:829   ‼  Unexpected function "rgba"  function-disallowed-list
+  7:94    ‼  Unexpected function "rgba"  function-disallowed-list
+  7:173   ‼  Unexpected function "rgba"  function-disallowed-list
+  7:843   ‼  Unexpected function "rgba"  function-disallowed-list
+  7:1447  ‼  Unexpected function "rgba"  function-disallowed-list
+  7:1625  ‼  Unexpected function "rgba"  function-disallowed-list
+  7:1882  ‼  Unexpected function "rgba"  function-disallowed-list
+  7:2386  ‼  Unexpected function "rgba"  function-disallowed-list
+  7:2425  ‼  Unexpected function "rgba"  function-disallowed-list
+  7:2546  ‼  Unexpected function "rgba"  function-disallowed-list
+  7:2580  ‼  Unexpected function "rgba"  function-disallowed-list
+  7:2873  ‼  Unexpected function "rgba"  function-disallowed-list
+  7:2911  ‼  Unexpected function "rgba"  function-disallowed-list
+
+app/styles/onboarding.css
+  1:174  ‼  Unexpected function "rgba"  function-disallowed-list
+
+app/styles/players-tab.css
+  16:47    ‼  Unexpected function "rgba"  function-disallowed-list
+  17:46    ‼  Unexpected function "rgba"  function-disallowed-list
+  17:129   ‼  Unexpected function "rgba"  function-disallowed-list
+  17:639   ‼  Unexpected function "rgba"  function-disallowed-list
+  17:1423  ‼  Unexpected function "rgba"  function-disallowed-list
+  17:1689  ‼  Unexpected function "rgba"  function-disallowed-list
+  17:1799  ‼  Unexpected function "rgba"  function-disallowed-list
+  17:6147  ‼  Unexpected function "rgba"  function-disallowed-list
+
+app/styles/shootout.css
+  416:154  ‼  Unexpected function "rgba"  function-disallowed-list
+  423:145  ‼  Unexpected function "rgba"  function-disallowed-list
+  423:193  ‼  Unexpected function "rgba"  function-disallowed-list
+  430:135  ‼  Unexpected function "rgba"  function-disallowed-list
+  433:134  ‼  Unexpected function "rgba"  function-disallowed-list
+  435:119  ‼  Unexpected function "rgba"  function-disallowed-list
+  438:83   ‼  Unexpected function "rgba"  function-disallowed-list
+  445:121  ‼  Unexpected function "rgba"  function-disallowed-list
+  447:112  ‼  Unexpected function "rgba"  function-disallowed-list
+  449:148  ‼  Unexpected function "rgba"  function-disallowed-list
+  455:133  ‼  Unexpected function "rgba"  function-disallowed-list
+  471:106  ‼  Unexpected function "rgba"  function-disallowed-list
+  472:84   ‼  Unexpected function "rgba"  function-disallowed-list
+  472:119  ‼  Unexpected function "rgba"  function-disallowed-list
+  477:158  ‼  Unexpected function "rgba"  function-disallowed-list
+  477:226  ‼  Unexpected function "rgba"  function-disallowed-list
+  486:166  ‼  Unexpected function "rgba"  function-disallowed-list
+  489:143  ‼  Unexpected function "rgba"  function-disallowed-list
+  491:178  ‼  Unexpected function "rgba"  function-disallowed-list
+  492:161  ‼  Unexpected function "rgba"  function-disallowed-list
+  494:88   ‼  Unexpected function "rgba"  function-disallowed-list
+  495:84   ‼  Unexpected function "rgba"  function-disallowed-list
+  504:142  ‼  Unexpected function "rgba"  function-disallowed-list
+  513:122  ‼  Unexpected function "rgba"  function-disallowed-list
+  515:46   ‼  Unexpected function "rgba"  function-disallowed-list
+  515:80   ‼  Unexpected function "rgba"  function-disallowed-list
+
+app/styles/week-band.css
+  49:75  ‼  Unexpected function "rgba"  function-disallowed-list
+
+‼ 481 problems (0 errors, 481 warnings)
+
