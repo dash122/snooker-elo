@@ -193,7 +193,13 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
         return result;
       });
       if(request===loadRequest.current){setData(body);setLoadError("")}
-    }catch(reason){if(request===loadRequest.current)setLoadError(reason instanceof TypeError?"暫時連不上約戰板，請確認網絡後重試。":reason instanceof Error&&reason.name!=="TimeoutError"?reason.message:"載入較慢，請重試。已載入的時段仍可瀏覽。")}
+    }catch(reason){
+      /* AbortSignal.timeout() fires a DOMException on timeout, but its `name` isn't consistent across
+         engines: Chromium/Firefox use "TimeoutError", while Safari uses "AbortError" with the literal
+         message "Fetch is aborted" -- both need the friendly copy, not that raw string surfaced to the user. */
+      const timedOut=reason instanceof Error&&(reason.name==="TimeoutError"||reason.name==="AbortError");
+      if(request===loadRequest.current)setLoadError(reason instanceof TypeError?"暫時連不上約戰板，請確認網絡後重試。":timedOut?"載入較慢，請重試。已載入的時段仍可瀏覽。":reason instanceof Error?reason.message:"載入較慢，請重試。已載入的時段仍可瀏覽。")
+    }
     finally{if(request===loadRequest.current){setLoading(false);setRefreshing(false)}}
   },[cacheKey]);
 
