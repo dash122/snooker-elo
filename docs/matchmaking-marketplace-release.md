@@ -39,15 +39,16 @@ data are not included in public dashboard payloads.
 
 ## Production activation and rollback
 
-No production database migration was applied during this implementation. Apply
-the normal migration chain, including these files in order, before activation:
+Production was activated on 8 September 2026 after applying these migrations to
+the `supabase-snooker-elo` project in order:
 
 1. `supabase/migrations/20260908021904_matchmaking_marketplace_mvp.sql`
 2. `supabase/migrations/20260908030256_matchmaking_marketplace_runtime.sql`
 
-The readiness gate retains OpenBoard when the required schema is absent. Once
-ready, the new screen replaces new OpenBoard publication; existing arrangements
-remain usable. Setting `MATCHMAKING_MARKETPLACE_DISABLED=true` restores the old
+The production readiness endpoint returned HTTP 200 with `ready: true` after the
+migration. The readiness gate retains OpenBoard when the required schema is
+absent. Once ready, the new screen replaces new OpenBoard publication; existing
+arrangements remain usable. Setting `MATCHMAKING_MARKETPLACE_DISABLED=true` restores the old
 screen and publication route without deleting marketplace records. Do not remove
 legacy storage or reverse migrations as part of a UI rollback.
 
@@ -62,5 +63,7 @@ deployment test.
 Browser verification used the real screen and repository with local fixture
 identities: publication, invitation, later acceptance, full-session state, guest
 privacy, sheet keyboard containment/restoration and desktop/375–390px layouts.
-It did not exercise production login, real notification delivery or production
-database activation. Existing repository-wide ESLint debt remains outside scope.
+Production activation and anonymous API readiness were verified. A two-account
+production consent flow and real notification delivery still require suitable
+member recipients; implementation checks do not create synthetic member records.
+Existing repository-wide ESLint debt remains outside scope.

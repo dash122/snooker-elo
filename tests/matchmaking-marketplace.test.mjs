@@ -2,8 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   GROUP_PRESETS, marketplaceFormationStatus, parseMatchConditions, parseVenueScope, validateGroupRange,
-  marketplaceOpportunities, resolveGroup, pairCompatible,
+  marketplaceOpportunities, resolveGroup, pairCompatible, marketplaceDeliveryTimingValid,
 } from "../lib/matchmaking-marketplace.ts";
+
+test("queued notifications expire with their intended delivery window",()=>{
+  const now=Date.parse("2030-09-09T12:00:00Z");
+  assert.equal(marketplaceDeliveryTimingValid("reminder",{startAt:"2030-09-09T12:30:00Z",endAt:"2030-09-09T14:00:00Z"},now),true);
+  assert.equal(marketplaceDeliveryTimingValid("reminder",{startAt:"2030-09-09T11:30:00Z",endAt:"2030-09-09T14:00:00Z"},now),false);
+  assert.equal(marketplaceDeliveryTimingValid("playable",{startAt:"2030-09-09T09:00:00Z",endAt:"2030-09-09T11:00:00Z"},now),false);
+  assert.equal(marketplaceDeliveryTimingValid("result",{startAt:"2030-09-09T09:00:00Z",endAt:"2030-09-09T11:00:00Z"},now),true);
+  assert.equal(marketplaceDeliveryTimingValid("result",{startAt:"2030-09-07T09:00:00Z",endAt:"2030-09-07T11:00:00Z"},now),false);
+});
 
 test("all group presets satisfy the numeric range contract", () => {
   for (const preset of Object.values(GROUP_PRESETS)) assert.deepEqual(validateGroupRange(preset), preset);
