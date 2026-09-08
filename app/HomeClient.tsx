@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type TouchEvent as ReactTouchEvent } from "react";
 import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
-import OpenBoard from "./OpenBoard";
+import MatchmakingMarketplace from "./MatchmakingMarketplace";
 import GuestIntro from "./GuestIntro";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
@@ -877,6 +877,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   },[data.players]);
 
   // `undo` holds the pre-change snapshot; while the toast is on screen it can be persisted back.
+  const marketplaceOrigin=useRef<string|null>(null);
   async function persist(rawNext:AppState,message:string,undo?:AppState) {
     if(!user){setToast("請先登入會員帳戶，才可更改球會資料。");return;}
     const baseline=data;
@@ -912,6 +913,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
         }
         break;
       }
+      return true;
     } catch (error) {
       if(toastTimer.current)clearTimeout(toastTimer.current);
       if(undoTimer.current)clearTimeout(undoTimer.current);
@@ -940,7 +942,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
           setData(upgradeState(confirmation!.document as AppState).state);
           setToast(message);
           toastTimer.current=setTimeout(()=>setToast(""),3200);
-          return;
+          return true;
         }
       }
       const reason=aborted?"":error instanceof Error?error.message:"";
@@ -1071,7 +1073,8 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     // range could otherwise hide the very match we just navigated to.
     setHeadToHead({a:ownPlayerId&&(match.a===ownPlayerId||match.b===ownPlayerId)?ownPlayerId:"",b:""});
     setHighlightMatch(id); setMatchesView("history"); setTab("matches");
-    persist(next,valid2v2?(editingMatch?"潮拍 2v2 已更新；ELO 與統計維持不變。":"潮拍 2v2 賽果已儲存；ELO 與統計維持不變。"):(validCup?(editingMatch?"盃賽賽果已更新。":"盃賽賽果已儲存。"):(editingMatch?"賽事已更新，所有後續 ELO 已重建。":"賽果已儲存，雙方 ELO 已更新。")));
+    const origin=marketplaceOrigin.current;marketplaceOrigin.current=null;
+    void persist(next,valid2v2?(editingMatch?"潮拍 2v2 已更新；ELO 與統計維持不變。":"潮拍 2v2 賽果已儲存；ELO 與統計維持不變。"):(validCup?(editingMatch?"盃賽賽果已更新。":"盃賽賽果已儲存。"):(editingMatch?"賽事已更新，所有後續 ELO 已重建。":"賽果已儲存，雙方 ELO 已更新。"))).then(async saved=>{if(!saved||!origin)return;try{const response=await fetch("/api/matchmaking/marketplace",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"result",id:origin,matchId:id})});if(!response.ok)setToast("賽果已儲存，但未能連結約戰安排。");}catch{setToast("賽果已儲存，但未能連結約戰安排。");}});
     if(isNewPairing&&firstPairing)setRegularPrompt({id:firstPairing.id,name:firstPairing.name});
   }
 
@@ -1083,6 +1086,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   };
 
   function editMatch(m:Match){
+    marketplaceOrigin.current=null;
     if(!canManageMatch(m)){setToast("你只能修改自己參與的比賽。");return;}
     setEditingMatch(m);
     setDraft({
@@ -1096,6 +1100,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   }
 
   function newMatch(mode:MatchMode="1v1",opponentId?:string,playedOn?:string){
+    marketplaceOrigin.current=null;
     setRecordMenuOpen(false);
     if(!user){setModal("signIn");return;}
     setEditingMatch(null);
@@ -1403,7 +1408,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
       {/* 開局板 replaces the formation flow: one object (局), joined in one tap, with availability
           demoted from a screen to the signal behind the 「配合我的時間」 filter and the calendar dot. */}
-      {tab==="availability"&&<OpenBoard key={ownPlayerId??"guest"} viewerId={ownPlayerId} viewerRating={data.players.find(player=>player.id===ownPlayerId)?.rating??null} settings={data.settings} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
+      {tab==="availability"&&<MatchmakingMarketplace onRecordSession={(opponentId,sessionId,date)=>{newMatch("1v1",opponentId,date);marketplaceOrigin.current=sessionId;}} key={ownPlayerId??"guest"} viewerId={ownPlayerId} viewerRating={data.players.find(player=>player.id===ownPlayerId)?.rating??null} settings={data.settings} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} managementMode={Boolean(isAdmin&&managementMode)} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
       </>}

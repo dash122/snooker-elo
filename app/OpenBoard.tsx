@@ -91,7 +91,8 @@ const handicapLine=(call:Call,viewerId:string|null,settings?:HandicapSettings|nu
   return <p className="ob-handicap"><b>{proposal.label}</b><span>依雙方 ELO（{Math.round(me.rating)} 對 {Math.round(them.rating)}）</span></p>;
 };
 
-export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerId=null,viewerRating=null,target=null,onTargetConsumed}:{
+export default function OpenBoard({existingOnly=false,settings,onPlayer,onRecord,onActivity,viewerId=null,viewerRating=null,target=null,onTargetConsumed}:{
+  existingOnly?:boolean;
   viewerId?:string|null;
   viewerRating?:number|null;
   settings?:HandicapSettings|null;
@@ -368,14 +369,14 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
   };
 
   return <section className="ob-page">
-    <section className="hero small">
+    {!existingOnly&&<section className="hero small">
       <div>
         <p className="kicker">會員專屬</p>
         <h1>搵人打波</h1>
         <p>先搵水平和打法合拍的球友，再揀大家方便的場地與時間。</p>
       </div>
       {(data.signedIn||viewerId)&&<Button variant="primary" onClick={openComposer}>新增時段 <span aria-hidden="true">＋</span></Button>}
-    </section>
+    </section>}
 
     {targetPlayer
       ?<section className="ob-target-banner">
@@ -402,7 +403,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
     {error&&<InlineNotice tone="warning" title="未能完成"><span>{error}</span><Button variant="quiet" onClick={()=>void load(true)}>重試</Button></InlineNotice>}
 
     {loading?<div className="ob-loading"><Skeleton height="9rem"/><Skeleton height="9rem"/></div>:!data.date?<EmptyState title="約戰板暫時未能載入" description="稍後重試；你仍可先選擇自己的時段。" action={<Button variant="secondary" loading={refreshing} onClick={()=>void load(true)}>重新載入</Button>}/>:
-      !dayCalls.length?(targetPlayer
+      !dayCalls.length?(existingOnly?<EmptyState title="沒有原有安排" description="新的約戰會顯示在上方「我的安排」。"/>:targetPlayer
         ?<EmptyState title={`${targetPlayer.name} 未開局`} description="開一局，時間夾到嘅話佢會見到，依然係公開貼上開局板，唔係私訊邀請。"
           action={data.signedIn?<Button onClick={openComposerForTarget}>開一局，等 {targetPlayer.name} 加入</Button>:undefined}/>
         :<OpenBoardEmpty allDates={selectedDate==="all"} free={data.free.filter(item=>hkDate(new Date(item.startAt))===(selectedDate==="all"?today:selectedDate)).slice(0,12)} signedIn={data.signedIn}

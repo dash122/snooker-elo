@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useRef,type ReactNode} from "react";
+import {useEffect,useId,useRef,type ReactNode} from "react";
 import {IconButton} from "./Primitives";
 const CloseIcon=()=> <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg>;
 
@@ -22,25 +22,29 @@ function useLatest<T>(value:T){
 export function Dialog({open,title,children,onClose}:{open:boolean;title:string;children:ReactNode;onClose:()=>void}){const ref=useRef<HTMLDivElement>(null);const latest=useLatest(onClose);useEffect(()=>{if(!open)return;const before=document.activeElement as HTMLElement|null;ref.current?.querySelector<HTMLElement>("button,input,select,textarea,a")?.focus();const key=(event:KeyboardEvent)=>event.key==="Escape"&&latest.current();document.addEventListener("keydown",key);return()=>{document.removeEventListener("keydown",key);before?.focus()}},[open,latest]);if(!open)return null;return <div className="ds-overlay" onMouseDown={event=>event.target===event.currentTarget&&onClose()}><div ref={ref} className="ds-dialog" role="dialog" aria-modal="true" aria-labelledby="ds-dialog-title"><IconButton className="ds-dialog-close" onClick={onClose} label="關閉"><CloseIcon/></IconButton><h2 id="ds-dialog-title">{title}</h2>{children}</div></div>}
 export function Sheet({open,title,children,onClose,className=""}:{open:boolean;title:string;children:ReactNode;onClose:()=>void;className?:string}){
   const ref=useRef<HTMLElement>(null);
+  const titleId=useId();
   const latest=useLatest(onClose);
   useEffect(()=>{
     if(!open)return;
     const previous=document.activeElement as HTMLElement|null;
-    ref.current?.querySelector<HTMLElement>("button,input,select,textarea,a")?.focus();
+    const controls=()=>ref.current?Array.from(ref.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(element=>!element.matches(':disabled, [hidden], [aria-hidden="true"]')&&element.getClientRects().length>0):[];
+    (controls()[0]??ref.current)?.focus();
     function onKey(ev:KeyboardEvent){
+      if(Array.from(document.querySelectorAll('.ds-sheet')).at(-1)!==ref.current)return;
       if(ev.key==="Escape"){latest.current();return}
       if(ev.key!=="Tab")return;
-      const focusable=ref.current?Array.from(ref.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(element=>!element.matches(':disabled, [hidden], [aria-hidden="true"]')&&element.getClientRects().length>0):[];
-      if(!focusable.length)return;
+      const focusable=controls();
+      if(!focusable.length){ev.preventDefault();ref.current?.focus();return;}
       const first=focusable[0],last=focusable[focusable.length-1];
-      if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus()}
+      if(!ref.current?.contains(document.activeElement)){ev.preventDefault();first.focus()}
+      else if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus()}
       else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus()}
     }
     document.addEventListener("keydown",onKey);
-    return()=>{document.removeEventListener("keydown",onKey);previous?.focus()}
+    return()=>{document.removeEventListener("keydown",onKey);if(previous?.isConnected)previous.focus()}
   },[open,latest]);
   if(!open)return null;
-  return <div className="ds-overlay ds-overlay--sheet" onMouseDown={event=>event.target===event.currentTarget&&onClose()}><section ref={ref as never} className={`ds-sheet${className?` ${className}`:""}`} role="dialog" aria-modal="true" aria-labelledby="ds-sheet-title"><IconButton className="ds-dialog-close" onClick={onClose} label="關閉"><CloseIcon/></IconButton><h2 id="ds-sheet-title">{title}</h2>{children}</section></div>
+  return <div className="ds-overlay ds-overlay--sheet" onMouseDown={event=>event.target===event.currentTarget&&onClose()}><section ref={ref as never} tabIndex={-1} className={`ds-sheet${className?` ${className}`:""}`} role="dialog" aria-modal="true" aria-labelledby={titleId}><IconButton className="ds-dialog-close" onClick={onClose} label="關閉"><CloseIcon/></IconButton><h2 id={titleId}>{title}</h2>{children}</section></div>
 }
 /** Shared scaffold for the app's pre-existing `.backdrop`/`.sheet.invite-sheet` bottom-sheet pattern
     (invite composers, session/slot creation, counter-offers). Kept on the legacy classes rather than

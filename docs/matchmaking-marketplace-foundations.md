@@ -1,9 +1,9 @@
 # Matchmaking 2.0 — PR 1 foundations
 
 Implements stage 1 of `docs/matchmaking-v2-mvp-implementation-plan.md`, read from
-commit `db2524a` on `origin/main` (the plan is not present in this local checkout).
-The matching engine, API, marketplace UI, notifications and production cutover remain
-stages 2–4. This change does not make the marketplace available to members yet.
+commit `db2524a` on `origin/main`. This document records the original foundation
+change; see `docs/matchmaking-marketplace-release.md` for the completed engine,
+API, UI and production activation requirements.
 
 ## Storage and coexistence
 

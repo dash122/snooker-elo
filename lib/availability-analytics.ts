@@ -1,4 +1,6 @@
 export type AvailabilityEvent =
+  | "matchmaking_marketplace_view"
+  | "matchmaking_opportunity_shown"
   | "availability_view"
   | "availability_date_select"
   | "availability_composer_open"
