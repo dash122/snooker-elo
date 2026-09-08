@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   GROUP_PRESETS, marketplaceFormationStatus, parseMatchConditions, parseVenueScope, validateGroupRange,
+  marketplaceOpportunities, resolveGroup, pairCompatible,
 } from "../lib/matchmaking-marketplace.ts";
 
 test("all group presets satisfy the numeric range contract", () => {
@@ -9,6 +10,32 @@ test("all group presets satisfy the numeric range contract", () => {
   for (const values of [[1,2,2], [3,2,4], [2,4,3], [2,4,7], [2,2.5,3], [2,NaN,4], [2,3,Infinity]]) {
     assert.throws(() => validateGroupRange({minPlayers:values[0],targetSize:values[1],maxPlayers:values[2]}));
   }
+});
+
+const supply=(id,extra={})=>({id,playerId:id,player:{id,name:id,rating:1500},startAt:"2030-09-09T11:00:00Z",endAt:"2030-09-09T14:00:00Z",...GROUP_PRESETS.flexible,venueId:"scaa",venueScope:"exact",commitment:"going",conditions:{handicap:true},...extra});
+const pool=slots=>({slots,venues:[{id:"scaa",name:"SCAA",district:"灣仔"},{id:"wan",name:"Wan",district:"灣仔"},{id:"other",name:"Other",district:"旺角"}],sessions:[],conflicts:[],avoids:[]});
+test("venue constraints resolve the strongest preference and reject empty common windows",()=>{
+  const a=supply("a"),b=supply("b",{venueId:"other",venueScope:"any_hk"});
+  assert.equal(resolveGroup([a,b],pool([a,b])).venueId,"scaa");
+  assert.equal(resolveGroup([a,{...b,venueScope:"exact"}],pool([a,b])),null);
+  assert.equal(resolveGroup([a,{...b,venueId:"wan",venueScope:"district"}],pool([a,b])).venueId,"scaa");
+  assert.equal(resolveGroup([a,{...b,venueId:"other",venueScope:"district"}],pool([a,b])),null);
+  assert.equal(resolveGroup([a,{...b,startAt:"2030-09-09T13:30:00Z"}],pool([a,b])),null);
+});
+test("private exclusions apply in both directions and ELO hints reflect widening",()=>{
+  const a=supply("a"),b=supply("b",{player:{id:"b",name:"B",rating:1680}}),p=pool([a,b]);
+  assert.ok(marketplaceOpportunities("a",p)[0].hints.includes("擴闊水平範圍"));
+  assert.equal(pairCompatible({...a,conditions:{levelStrict:true}},b,p),false);
+  p.avoids=[{playerId:"b",otherPlayerId:"a",preference:"avoid"}];
+  assert.equal(marketplaceOpportunities("a",p).length,0);
+  assert.equal(marketplaceOpportunities("b",p).length,0);
+});
+test("active intent wins equivalent candidates without repeating identical cards",()=>{
+  const a=supply("a",GROUP_PRESETS.singles),b=supply("b",{...GROUP_PRESETS.singles,commitment:"interested"}),c=supply("c",GROUP_PRESETS.singles);
+  const opportunities=marketplaceOpportunities("a",pool([a,b,c]));
+  assert.equal(opportunities.length,1);assert.match(opportunities[0].key,/:c:/);
+  const p=pool([a,b,c]);p.conflicts=[{playerId:"a",sessionId:"confirmed",startAt:a.startAt,endAt:a.endAt}];
+  assert.equal(marketplaceOpportunities("a",p).length,0);
 });
 
 test("minimum forms a session; ideal is a preference and maximum makes it full", () => {

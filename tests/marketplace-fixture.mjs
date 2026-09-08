@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {PGlite} from '@electric-sql/pglite';
+import {marketplaceWrite,marketplaceReady} from '../db/matchmaking-marketplace-store.ts';
+import {GROUP_PRESETS} from '../lib/matchmaking-marketplace.ts';
+import {addDaysHongKong,hkDate} from '../lib/availability.ts';
+export const date=addDaysHongKong(hkDate(),1),startAt=`${date}T11:00:00.000Z`,endAt=`${date}T15:00:00.000Z`;
+const migration=name=>readFileSync(new URL(`../supabase/migrations/${name}.sql`,import.meta.url),"utf8");
+export async function fixture(){
+  const pg=new PGlite();
+  const wrap=client=>({query:async(text,params=[])=>(await client.query(text,params)).rows});
+  const db={...wrap(pg),transaction:fn=>pg.transaction(tx=>fn(wrap(tx)))};
+  await pg.exec(`CREATE ROLE anon;CREATE ROLE authenticated;
+    CREATE TABLE state_players(id text PRIMARY KEY,name text,rating numeric,active boolean DEFAULT true);
+    CREATE TABLE members(state_player_id text,active boolean DEFAULT true);
+    CREATE TABLE venues(id text PRIMARY KEY,name text,district text,active boolean DEFAULT true);
+    CREATE TABLE state_matches(id text PRIMARY KEY,player_a text,player_b text,status text,played_on date);
+    CREATE TABLE availability_slots(id text PRIMARY KEY,player_id text REFERENCES state_players(id),start_at timestamptz,end_at timestamptz,venue_id text REFERENCES venues(id),commitment text DEFAULT 'going',conditions jsonb DEFAULT '{}',cancelled_at timestamptz,updated_at timestamptz DEFAULT now());
+    CREATE TABLE open_calls(id text PRIMARY KEY,start_at timestamptz,end_at timestamptz,status text);
+    CREATE TABLE open_call_players(call_id text REFERENCES open_calls(id),player_id text REFERENCES state_players(id));
+    INSERT INTO venues(id,name,district) VALUES('scaa','SCAA','灣仔'),('other','Other','旺角');
+    INSERT INTO state_players(id,name,rating) SELECT 'p'||i,'球員'||i,1500+i FROM generate_series(1,12) AS i;
+    INSERT INTO members(state_player_id) SELECT id FROM state_players;`);
+  await pg.exec(migration("20260830052006_matchmaking_formation_mvp"));
+  await pg.exec(migration("20260831000000_matchmaking_option_a_two_player"));
+  assert.equal(await marketplaceReady(db),false);
+  await pg.exec(migration("20260908021904_matchmaking_marketplace_mvp"));
+  await pg.exec(migration("20260908030256_matchmaking_marketplace_runtime"));
+  assert.equal(await marketplaceReady(db),true);
+  const publish=(actor,preset=GROUP_PRESETS.flexible,extra={})=>marketplaceWrite(db,actor,"publish",{...preset,startAt,endAt,venueId:"scaa",venueScope:"exact",conditions:{handicap:true,levelPreference:"similar"},commitment:"going",...extra});
+  return {pg,db,publish};
+}
