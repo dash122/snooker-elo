@@ -19,8 +19,6 @@ import "./styles/member-dashboard.css";
 import "./styles/players-tab.css";
 import "./styles/modal-sheet.css";
 import "./styles/matchmaking-status.css";
-import "./styles/matchmaking-formation.css";
-import "./styles/open-board.css";
 import "./styles/matchmaking-marketplace.css";
 import "./globals.css";
 import "./styles/bottom-nav.css";

@@ -612,9 +612,9 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       follow request: see db/regulars.pg.ts. */
   const [regularPrompt,setRegularPrompt] = useState<{id:string;name:string}|null>(null);
   const askConfirm=(opts:{kicker:string;title:string;description:string;confirmLabel:string;onConfirm:()=>void})=>setPendingConfirm(opts);
-  /** Set by a player's 約戰 button; consumed once by `OpenBoard` (see `findOpponentTarget` below) so
+  /** Set by a player's 約戰 button; consumed once by `MatchmakingMarketplace` (see `findOpponentTarget` below) so
       the matchmaking tab opens focused on that person instead of the generic board. A fresh object on
-      every tap, including a repeat tap on the same player, is what lets `OpenBoard` re-focus even when
+      every tap, including a repeat tap on the same player, is what lets `MatchmakingMarketplace` re-focus even when
       the id has not changed. */
   const [jumpToAvailability,setJumpToAvailability] = useState<{playerId:string;date:string}|null>(null);
   const [matchesView,setMatchesView] = useState<"history"|"calendar"|"cup"|"matrix">("history");
@@ -1018,7 +1018,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     goTab("availability");
   };
   /** Resolved fresh on every `jumpToAvailability` change (a new object even on a repeat tap of the
-      same player -- see its declaration) so `OpenBoard` can filter the board to this one person
+      same player -- see its declaration) so `MatchmakingMarketplace` can filter the board to this one person
       instead of the dead jump the button used to be. */
   const findOpponentTarget=useMemo(()=>{
     if(!jumpToAvailability)return null;
@@ -1406,9 +1406,8 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
-      {/* 開局板 replaces the formation flow: one object (局), joined in one tap, with availability
-          demoted from a screen to the signal behind the 「配合我的時間」 filter and the calendar dot. */}
-      {tab==="availability"&&<MatchmakingMarketplace onRecordSession={(opponentId,sessionId,date)=>{newMatch("1v1",opponentId,date);marketplaceOrigin.current=sessionId;}} key={ownPlayerId??"guest"} viewerId={ownPlayerId} viewerRating={data.players.find(player=>player.id===ownPlayerId)?.rating??null} settings={data.settings} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
+      {/* Public availability, recommendations and arrangements share one marketplace flow. */}
+      {tab==="availability"&&<MatchmakingMarketplace onRecordSession={(opponentId,sessionId,date)=>{newMatch("1v1",opponentId,date);marketplaceOrigin.current=sessionId;}} key={ownPlayerId??"guest"} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} managementMode={Boolean(isAdmin&&managementMode)} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
       {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast("只有管理員可以修改 ELO 設定。")} onReset={resetAll} canReset={user?.role==="admin"}/>}
       </>}

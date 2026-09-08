@@ -19,8 +19,9 @@ follow-up. Both use the existing GitHub-to-Vercel deployment integration.
 - The member screen provides publication, suggestions, discovery, invitations,
   arrangements, withdrawal, exclusions and match-recording attribution. Guests see
   counts and a sign-in prompt without named availability.
-- Future OpenBoard games remain under 原有安排 with their existing terms,
-  participants and capacities. They are not converted to smaller marketplace groups.
+- The legacy OpenBoard and formation screens have been retired. Their API routes
+  return HTTP 410, including reads, so stale clients cannot resume the old flow.
+  Historical storage and conflict checks remain; no records are deleted or converted.
 
 ## API and delivery
 
@@ -46,11 +47,10 @@ the `supabase-snooker-elo` project in order:
 2. `supabase/migrations/20260908030256_matchmaking_marketplace_runtime.sql`
 
 The production readiness endpoint returned HTTP 200 with `ready: true` after the
-migration. The readiness gate retains OpenBoard when the required schema is
-absent. Once ready, the new screen replaces new OpenBoard publication; existing
-arrangements remain usable. Setting `MATCHMAKING_MARKETPLACE_DISABLED=true` restores the old
-screen and publication route without deleting marketplace records. Do not remove
-legacy storage or reverse migrations as part of a UI rollback.
+migration. If readiness is unavailable, the screen now shows a retryable error.
+`MATCHMAKING_MARKETPLACE_DISABLED=true` disables matchmaking; it no longer restores
+the retired UI or APIs. To roll back the retirement, deploy a previous application
+revision. Do not remove legacy storage or reverse migrations as part of a UI rollback.
 
 ## Verification limits
 
