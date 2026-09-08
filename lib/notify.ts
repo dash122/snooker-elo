@@ -9,6 +9,14 @@ import { hkClock, hkDate, hkDayLabel, type Interval } from "./availability";
 
 export type NotificationChannel = "invite" | "openCall" | "offer" | "result";
 
+export function marketplaceNotification(kind:"invite"|"playable"|"reopened"|"recruit"|"reminder"|"result",session:Interval&{id:string;minPlayers:number;accepted:unknown[]},venue:string|null):NotificationMessage {
+  const titles={invite:"有球友約你打波",playable:"已成局",reopened:"有球員退出，繼續搵球友",recruit:"有一組適合你的約戰",reminder:"就快到約戰時間",result:"打完波，記低賽果"};
+  const count=session.accepted.length,missing=Math.max(0,session.minPlayers-count);
+  return {channel:kind==="invite"?"invite":kind==="recruit"?"offer":"result",title:titles[kind],
+    body:`${when(session)}${venue?` · ${venue}`:""} · ${count} 人已加入${missing?` · 再 ${missing} 人就成局`:""}`,
+    tag:`marketplace:${session.id}:${kind}`,url:`/?tab=availability&formation=${encodeURIComponent(session.id)}`,urgency:"normal"};
+}
+
 export type NotificationMessage = {
   channel:NotificationChannel; title:string; body:string;
   /** Collapse key. A second invite from the same person replaces the first in the tray rather than

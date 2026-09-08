@@ -32,7 +32,7 @@ export async function listAvailability(startAt:string,endAt:string){
   await ensureSchema(); await materialiseRecurrenceThrottled(); const sql=getSql();
   const rows=await sql<any[]>`SELECT p.id AS "playerId",p.name,p.short,p.rating::float8 AS rating,p.colour,p.avatar,s.id,s.start_at AS "startAt",s.end_at AS "endAt",s.created_at AS "createdAt",s.updated_at AS "updatedAt",s.cancelled_at AS "cancelledAt",s.conditions
     FROM availability_slots s JOIN state_players p ON p.id=s.player_id
-    WHERE s.cancelled_at IS NULL AND s.end_at > now() AND s.start_at < ${endAt} AND s.end_at > ${startAt} AND p.active=true
+    WHERE coalesce(to_jsonb(s)->>'source','legacy')='legacy' AND s.cancelled_at IS NULL AND s.end_at > now() AND s.start_at < ${endAt} AND s.end_at > ${startAt} AND p.active=true
     ORDER BY p.name,s.start_at`;
   const grouped=new Map<string,AvailabilityMember>();
   for(const row of rows){const current:AvailabilityMember=grouped.get(row.playerId)??{id:row.playerId,name:row.name,short:row.short,rating:Number(row.rating),colour:row.colour,avatar:row.avatar,slots:[]};current.slots.push(slot({...row,playerId:row.playerId}));grouped.set(row.playerId,current);}
@@ -45,7 +45,7 @@ export async function availabilityPlayerCount(startAt:string,endAt:string):Promi
   await ensureSchema(); await materialiseRecurrenceThrottled(); const sql=getSql();
   const [row]=await sql<{count:string}[]>`SELECT count(DISTINCT s.player_id)::text AS count
     FROM availability_slots s JOIN state_players p ON p.id=s.player_id
-    WHERE s.cancelled_at IS NULL AND s.end_at > now() AND s.start_at < ${endAt} AND s.end_at > ${startAt} AND p.active=true`;
+    WHERE coalesce(to_jsonb(s)->>'source','legacy')='legacy' AND s.cancelled_at IS NULL AND s.end_at > now() AND s.start_at < ${endAt} AND s.end_at > ${startAt} AND p.active=true`;
   return Number(row?.count??0);
 }
 
@@ -54,12 +54,12 @@ export async function listOwnAvailability(playerId:string){
      are about to look at their own board, and a regular's Wednesday missing from it would read as
      the recurrence having quietly failed. */
   await ensureSchema(); await materialiseRecurrenceThrottledForPlayer(playerId); const sql=getSql();
-  const rows=await sql<any[]>`SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",conditions FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() ORDER BY start_at`;
+  const rows=await sql<any[]>`SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",conditions FROM availability_slots WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() ORDER BY start_at`;
   return rows.map(slot);
 }
 
 async function ownActiveSlots(tx:any,playerId:string){
-  const rows=await tx<any[]>`SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",conditions FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() ORDER BY start_at`;
+  const rows=await tx<any[]>`SELECT id,player_id AS "playerId",start_at AS "startAt",end_at AS "endAt",created_at AS "createdAt",updated_at AS "updatedAt",cancelled_at AS "cancelledAt",conditions FROM availability_slots WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() ORDER BY start_at`;
   return rows.map(slot);
 }
 
@@ -75,7 +75,7 @@ async function defaultVenueId(tx:any):Promise<string>{
 export async function publishAvailability(playerId:string,items:{startAt:string;endAt:string;conditions?:SlotConditions}[]){
   await ensureSchema(); const sql=getSql();
   return sql.begin(async tx=>{
-    const existing=await tx<any[]>`SELECT id,start_at AS "startAt",end_at AS "endAt",conditions FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now()`;
+    const existing=await tx<any[]>`SELECT id,start_at AS "startAt",end_at AS "endAt",conditions FROM availability_slots WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND player_id=${playerId} AND cancelled_at IS NULL AND end_at > now()`;
     const candidates=existing.filter(row=>items.some(item=>Date.parse(row.startAt)<=Date.parse(item.endAt)&&Date.parse(row.endAt)>=Date.parse(item.startAt)));
     const merged=mergeAvailabilitySlots([...items,...candidates.map(row=>({startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString(),conditions:readConditions(row.conditions)}))]);
     if(candidates.length)await tx`UPDATE availability_slots SET cancelled_at=now(),updated_at=now() WHERE id IN ${tx(candidates.map(row=>row.id))}`;
@@ -87,9 +87,9 @@ export async function publishAvailability(playerId:string,items:{startAt:string;
 export async function updateAvailability(id:string,playerId:string,item:{startAt:string;endAt:string;conditions?:SlotConditions}){
   await ensureSchema(); const sql=getSql();
   return sql.begin(async tx=>{
-    const current=await tx<any[]>`SELECT id FROM availability_slots WHERE id=${id} AND player_id=${playerId} AND cancelled_at IS NULL AND end_at > now()`;
+    const current=await tx<any[]>`SELECT id FROM availability_slots WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND id=${id} AND player_id=${playerId} AND cancelled_at IS NULL AND end_at > now()`;
     if(!current[0])return null;
-    const existing=await tx<any[]>`SELECT id,start_at AS "startAt",end_at AS "endAt",conditions FROM availability_slots WHERE player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() AND id != ${id}`;
+    const existing=await tx<any[]>`SELECT id,start_at AS "startAt",end_at AS "endAt",conditions FROM availability_slots WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() AND id != ${id}`;
     const candidates=existing.filter(row=>Date.parse(row.startAt)<=Date.parse(item.endAt)&&Date.parse(row.endAt)>=Date.parse(item.startAt));
     const merged=mergeAvailabilitySlots([item,...candidates.map(row=>({startAt:new Date(row.startAt).toISOString(),endAt:new Date(row.endAt).toISOString(),conditions:readConditions(row.conditions)}))]);
     await tx`UPDATE availability_slots SET cancelled_at=now(),updated_at=now() WHERE id=${id} OR id IN ${tx(candidates.length?candidates.map(row=>row.id):[id])}`;
@@ -104,7 +104,7 @@ export async function listAvailabilityCounts(days:{date:string;startAt:string;en
   if(!days.length)return {};
   const rangeStart=days[0].startAt,rangeEnd=days[days.length-1].endAt;
   const rows=await sql<any[]>`SELECT DISTINCT player_id AS "playerId",start_at AS "startAt",end_at AS "endAt" FROM availability_slots
-    WHERE cancelled_at IS NULL AND end_at > now() AND start_at < ${rangeEnd} AND end_at > ${rangeStart}`;
+    WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND cancelled_at IS NULL AND end_at > now() AND start_at < ${rangeEnd} AND end_at > ${rangeStart}`;
   const counts:Record<string,number>={};
   for(const day of days){
     const players=new Set<string>();
@@ -116,7 +116,7 @@ export async function listAvailabilityCounts(days:{date:string;startAt:string;en
 
 export async function cancelAvailability(id:string,playerId:string){
   await ensureSchema();const sql=getSql();
-  const rows=await sql<any[]>`UPDATE availability_slots SET cancelled_at=now(),updated_at=now() WHERE id=${id} AND player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() RETURNING id`;
+  const rows=await sql<any[]>`UPDATE availability_slots SET cancelled_at=now(),updated_at=now() WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND id=${id} AND player_id=${playerId} AND cancelled_at IS NULL AND end_at > now() RETURNING id`;
   return Boolean(rows[0]);
 }
 
@@ -177,13 +177,13 @@ export async function createSession(playerId:string,input:{startAt:string;endAt:
 export async function boardOpenCount():Promise<number>{
   await ensureSchema(); const sql=getSql();
   const [row]=await sql<{count:string}[]>`SELECT count(DISTINCT player_id)::text AS count FROM availability_slots
-    WHERE cancelled_at IS NULL AND end_at > now()`;
+    WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND cancelled_at IS NULL AND end_at > now()`;
   return Number(row?.count??0);
 }
 
 export async function openSlotsCount():Promise<number>{
   await ensureSchema(); const sql=getSql();
   const [row]=await sql<{count:string}[]>`SELECT count(*)::text AS count FROM availability_slots
-    WHERE cancelled_at IS NULL AND end_at > now()`;
+    WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND cancelled_at IS NULL AND end_at > now()`;
   return Number(row?.count??0);
 }

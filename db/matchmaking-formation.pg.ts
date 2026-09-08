@@ -56,7 +56,7 @@ async function activeSlots():Promise<SlotRow[]> {
     FROM availability_slots s
     JOIN state_players p ON p.id=s.player_id AND p.active=true
     LEFT JOIN venues v ON v.id=s.venue_id
-    WHERE s.cancelled_at IS NULL AND s.commitment='going' AND s.end_at>now()
+    WHERE coalesce(to_jsonb(s)->>'source','legacy')='legacy' AND s.cancelled_at IS NULL AND s.commitment='going' AND s.end_at>now()
       AND s.start_at<now()+interval '7 days'
     ORDER BY s.start_at,p.name`;
 }
@@ -80,7 +80,7 @@ async function listSessions(playerId:string):Promise<FormationSession[]> {
     FROM matchmaking_sessions s
     LEFT JOIN venues v ON v.id=s.venue_id
     LEFT JOIN matchmaking_session_members mine ON mine.session_id=s.id AND mine.player_id=${playerId}
-    WHERE s.cancelled_at IS NULL AND s.end_at>now()-interval '6 hours'
+    WHERE coalesce(to_jsonb(s)->>'source','legacy')='legacy' AND s.cancelled_at IS NULL AND s.end_at>now()-interval '6 hours'
       AND (s.host_player_id=${playerId} OR mine.player_id IS NOT NULL)
     ORDER BY s.start_at`;
   if(!sessions.length)return [];
@@ -111,7 +111,7 @@ export async function formationDashboard(playerId?:string|null) {
     activeSlots(),
     sql<VenueRow[]>`SELECT id,name,district FROM venues WHERE active=true ORDER BY name`,
     sql<AnchorSessionRow[]>`SELECT anchor_slot_id AS "anchorSlotId",start_at AS "startAt",end_at AS "endAt",status
-      FROM matchmaking_sessions WHERE status IN ('forming','playable','full') AND end_at>now()`,
+      FROM matchmaking_sessions WHERE coalesce(to_jsonb(matchmaking_sessions)->>'source','legacy')='legacy' AND status IN ('forming','playable','full') AND end_at>now()`,
   ]);
   const publicDayPlayers=new Map<string,Set<string>>();
   for(const row of rows){
@@ -167,7 +167,7 @@ export async function publishFormationAvailability(playerId:string,items:{startA
   return sql.begin(async tx=>{
     for(const item of items){
       const clashes=await tx<{id:string}[]>`SELECT id FROM availability_slots
-        WHERE player_id=${playerId} AND cancelled_at IS NULL AND start_at<${item.endAt} AND end_at>${item.startAt}
+        WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND player_id=${playerId} AND cancelled_at IS NULL AND start_at<${item.endAt} AND end_at>${item.startAt}
         FOR UPDATE`;
       if(clashes.length){
         const ids=clashes.map(row=>row.id);
@@ -186,7 +186,7 @@ export async function cancelFormationAvailability(playerId:string,slotId:string)
   const sql=getSql();
   return sql.begin(async tx=>{
     const rows=await tx<{id:string}[]>`UPDATE availability_slots SET cancelled_at=now(),updated_at=now()
-      WHERE id=${slotId} AND player_id=${playerId} AND cancelled_at IS NULL AND end_at>now() RETURNING id`;
+      WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND id=${slotId} AND player_id=${playerId} AND cancelled_at IS NULL AND end_at>now() RETURNING id`;
     if(!rows.length)return false;
     await tx`UPDATE matchmaking_sessions SET status='cancelled',cancelled_at=now(),updated_at=now()
       WHERE anchor_slot_id=${slotId} AND status IN ('forming','playable','full')`;
@@ -202,11 +202,11 @@ export async function requestFormationSession(playerId:string,input:{anchorSlotI
         s.venue_id AS "venueId",v.name AS "venueName",s.target_size AS "targetSize"
       FROM availability_slots s JOIN state_players p ON p.id=s.player_id
       LEFT JOIN venues v ON v.id=s.venue_id
-      WHERE s.id=${input.anchorSlotId} AND s.cancelled_at IS NULL AND s.end_at>now() FOR UPDATE OF s`;
+      WHERE coalesce(to_jsonb(s)->>'source','legacy')='legacy' AND s.id=${input.anchorSlotId} AND s.cancelled_at IS NULL AND s.end_at>now() FOR UPDATE OF s`;
     if(!anchor)throw new Error("這個空檔已經關閉。");
     if(anchor.playerId===playerId)throw new Error("不需要加入自己的空檔。");
     let [session]=await tx<{id:string;status:FormationStatus;targetSize:number;startAt:Date|string;endAt:Date|string}[]>`SELECT id,status,target_size AS "targetSize",start_at AS "startAt",end_at AS "endAt"
-      FROM matchmaking_sessions WHERE anchor_slot_id=${anchor.id} AND status IN ('forming','playable','full') FOR UPDATE`;
+      FROM matchmaking_sessions WHERE coalesce(to_jsonb(matchmaking_sessions)->>'source','legacy')='legacy' AND anchor_slot_id=${anchor.id} AND status IN ('forming','playable','full') FOR UPDATE`;
     /* The first request chooses the exact hour. Later requests must join that same session window,
        not create parallel interpretations of the publisher's broad availability. */
     const chosenStart=session?iso(session.startAt):input.startAt,chosenEnd=session?iso(session.endAt):input.endAt;
@@ -214,7 +214,7 @@ export async function requestFormationSession(playerId:string,input:{anchorSlotI
     if(!Number.isFinite(start)||!Number.isFinite(end)||end-start<60*60_000)throw new Error("共同時段最少需要一小時。");
     if(start<Date.parse(String(anchor.startAt))||end>Date.parse(String(anchor.endAt)))throw new Error("建議時間已不在對方的空檔內。");
     const [mine]=await tx<{id:string}[]>`SELECT id FROM availability_slots
-      WHERE player_id=${playerId} AND cancelled_at IS NULL AND commitment='going'
+      WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND player_id=${playerId} AND cancelled_at IS NULL AND commitment='going'
         AND start_at<=${chosenStart} AND end_at>=${chosenEnd}
         AND (venue_id IS NULL OR ${anchor.venueId}::text IS NULL OR venue_id=${anchor.venueId})
       ORDER BY start_at LIMIT 1 FOR UPDATE`;
@@ -262,7 +262,7 @@ export async function respondFormationRequest(hostPlayerId:string,sessionId:stri
     const [session]=await tx<{targetSize:number;status:FormationStatus;startAt:Date|string;endAt:Date|string;venueName:string|null}[]>`SELECT s.target_size AS "targetSize",s.status,
         s.start_at AS "startAt",s.end_at AS "endAt",v.name AS "venueName"
       FROM matchmaking_sessions s LEFT JOIN venues v ON v.id=s.venue_id
-      WHERE s.id=${sessionId} AND s.host_player_id=${hostPlayerId} AND s.status IN ('forming','playable','full') FOR UPDATE OF s`;
+      WHERE coalesce(to_jsonb(s)->>'source','legacy')='legacy' AND s.id=${sessionId} AND s.host_player_id=${hostPlayerId} AND s.status IN ('forming','playable','full') FOR UPDATE OF s`;
     if(!session)throw new Error("找不到可處理的場次。");
     const [request]=await tx<{status:string;playerId:string}[]>`SELECT status,player_id AS "playerId" FROM matchmaking_session_members
       WHERE session_id=${sessionId} AND player_id=${requesterId} AND role='member' FOR UPDATE`;
@@ -285,7 +285,7 @@ export async function leaveFormationSession(playerId:string,sessionId:string) {
   const sql=getSql();
   return sql.begin(async tx=>{
     const [session]=await tx<{hostPlayerId:string;targetSize:number}[]>`SELECT host_player_id AS "hostPlayerId",target_size AS "targetSize"
-      FROM matchmaking_sessions WHERE id=${sessionId} AND status IN ('forming','playable','full') FOR UPDATE`;
+      FROM matchmaking_sessions WHERE coalesce(to_jsonb(matchmaking_sessions)->>'source','legacy')='legacy' AND id=${sessionId} AND status IN ('forming','playable','full') FOR UPDATE`;
     if(!session)return false;
     if(session.hostPlayerId===playerId){
       await tx`UPDATE matchmaking_sessions SET status='cancelled',cancelled_at=now(),updated_at=now() WHERE id=${sessionId}`;
