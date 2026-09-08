@@ -74,8 +74,12 @@
   .ob-daypick button[aria-pressed="true"]>b{color:var(--ds-accent-primary)}
 
   .ob-choice,.ob-editable{min-width:0;margin:0;padding:0;border:0}
-  .ob-choice legend{display:flex;flex-wrap:wrap;gap:var(--sp-3);width:100%;margin-bottom:var(--sp-2);padding:0;font-size:var(--fs-sm);font-weight:800}
-  .ob-choice legend span{margin-left:auto;color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:500}
+  /* A section title used to be set at body-text size and weight 800 -- heavy enough to compete with
+     the content under it instead of introducing it. The mockup's own section labels are a small,
+     letter-spaced, uppercase kicker -- lighter because they're smaller, not thinner -- so a scan of
+     the sheet lands on values, not labels. */
+  .ob-choice legend{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-2) var(--sp-3);width:100%;margin-bottom:var(--sp-2-5);padding:0;font-size:var(--fs-label);font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ds-text-secondary)}
+  .ob-choice legend span{margin-left:auto;text-transform:none;letter-spacing:normal;color:var(--ds-text-primary);font-size:var(--fs-caption);font-weight:600}
   .ob-choice>p{margin:var(--sp-2) 0 0;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
   .ob-choice .sliding-toggle-group{display:flex}
   .ob-choice .sliding-toggle-group button{flex:1;min-height:var(--control-md)}
@@ -83,8 +87,8 @@
      own caption line -- a lot of floor space for four yes/no choices. A 2-column grid of smaller
      segmented pairs shows all four at a glance; the shared caption below replaces the four repeated
      ones. */
-  .ob-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-3)}
-  .ob-choice--compact legend{margin-bottom:var(--sp-1-5);font-size:var(--fs-caption);font-weight:700;color:var(--ds-text-secondary)}
+  .ob-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2-5) var(--sp-3)}
+  .ob-choice--compact legend{margin-bottom:var(--sp-1);text-transform:none;letter-spacing:normal;font-size:var(--fs-label);font-weight:700;color:var(--ds-text-tertiary)}
   .ob-choice--compact .sliding-toggle-group button{min-height:var(--control-sm);font-size:var(--fs-label);padding-inline:var(--sp-1)}
   .ob-choice-grid-note{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-caption);line-height:1.5}
   @media(max-width:380px){.ob-choice-grid{grid-template-columns:minmax(0,1fr)}}
@@ -94,22 +98,22 @@
   .ob-time-summary span,.ob-time-summary small{color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption)}
   .ob-setting-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);min-width:0}
   .ob-setting-row>div{display:grid;gap:var(--sp-1);min-width:0}
-  .ob-setting-row small{color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+  .ob-setting-row small{font-size:var(--fs-label);font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ds-text-secondary)}
   .ob-setting-row b,.ob-setting-row p{margin:0;font-size:var(--fs-sm);line-height:1.6;overflow-wrap:anywhere}
   .ob-setting-row .ds-button{flex-shrink:0}
   .ob-setting-row--intent{align-items:flex-start;padding:var(--sp-4);border:1px solid var(--ds-success-wash-border);border-radius:var(--radius-md);background:var(--ds-success-wash);box-shadow:var(--ds-elevation-1)}
   .ob-setting-row--intent>div{gap:var(--sp-2)}
   .ob-own-game{display:grid;gap:var(--sp-4);padding-top:var(--sp-2)}
   .ob-own-game h3,.ob-field-group h3{margin:0 0 var(--sp-2);font-size:var(--fs-sm)}
-  .ob-more-panel{display:grid;gap:var(--sp-4);padding-block:var(--sp-3)}
+  .ob-more-panel{display:grid;gap:var(--sp-3-5);padding-block:var(--sp-3)}
   .ob-composer-footer{position:sticky;bottom:calc(-1 * var(--sp-5));z-index:1;display:grid;gap:var(--sp-2);padding-block:var(--sp-3);background:var(--ds-surface-primary);border-top:1px solid var(--ds-border-subtle)}
   .ob-composer-footer p{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
 
   /* Capacity used to be two big option cards plus a conditional 1-7 select -- replaced by a single
      stepper row, the same control iOS itself uses for a small bounded count (max 20 here). */
   .ob-capacity-stepper{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-2-5);min-width:0;margin:0;padding:var(--sp-3-5) var(--sp-4);border:0;border-radius:var(--radius-md);background:var(--ds-highlight-wash)}
-  .ob-capacity-stepper legend{display:flex;flex-direction:column;gap:2px;padding:0;font-size:var(--fs-sm);font-weight:800}
-  .ob-capacity-stepper legend span{color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:500}
+  .ob-capacity-stepper legend{display:flex;flex-direction:column;gap:var(--sp-1);padding:0;font-size:var(--fs-label);font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--ds-text-secondary)}
+  .ob-capacity-stepper legend span{text-transform:none;letter-spacing:normal;color:var(--ds-text-tertiary);font-size:var(--fs-caption);font-weight:500}
   .ob-stepper{display:flex;align-items:center;gap:var(--sp-3);flex:none}
   .ob-stepper-value{min-width:5rem;text-align:center;font-size:var(--fs-sm);font-weight:700;font-variant-numeric:tabular-nums}
   .ob-stepper-btn{display:flex;align-items:center;justify-content:center;width:var(--control-sm);height:var(--control-sm);border:1px solid var(--ds-accent-soft);border-radius:50%;background:var(--ds-surface-primary);color:var(--ds-accent-text);font-size:var(--fs-lead);font-weight:700;line-height:1}
@@ -122,9 +126,9 @@
      lands directly on the choice, and the whole set is visible without scrolling a nested box. */
   .ob-venue{display:grid;gap:var(--sp-2);min-width:0}
   .ob-venue-list{display:flex;flex-wrap:wrap;gap:var(--sp-2);min-width:0;max-height:16rem;padding:var(--sp-1);overflow-y:auto}
-  .ob-venue-list button{display:inline-flex;align-items:center;gap:var(--sp-1-5);min-height:var(--control-md);min-width:0;padding:0 var(--sp-3-5);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-pill);background:var(--ds-surface-primary);color:var(--ds-text-primary)}
-  .ob-venue-list button>i{color:var(--ds-accent-primary);font-size:var(--fs-sm);font-style:normal;font-weight:800}
-  .ob-venue-list button>b{font-size:var(--fs-sm);font-weight:700;overflow-wrap:anywhere}
+  .ob-venue-list button{display:inline-flex;align-items:center;gap:var(--sp-1-5);min-height:var(--control-sm);min-width:0;padding:0 var(--sp-3);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-pill);background:var(--ds-surface-primary);color:var(--ds-text-primary)}
+  .ob-venue-list button>i{color:var(--ds-accent-primary);font-size:var(--fs-caption);font-style:normal;font-weight:800}
+  .ob-venue-list button>b{font-size:var(--fs-caption);font-weight:700;overflow-wrap:anywhere}
   .ob-venue-list button>small{color:var(--ds-text-tertiary);font-size:var(--fs-caption)}
   /* Selected reads as the felt panel the rest of the app uses for "this one", not a pale wash —
      the earlier tint was too close to the unselected surface to register at a glance. */
@@ -164,7 +168,11 @@
      deeper resting shadow than a flat card needs — together they read as a physical object sitting
      just off the page, not a rectangle with a border. Lifts a touch further on hover where hover
      actually means something (a mouse), never on touch where there's no cursor to lift toward. */
-  .ob-card{position:relative;display:grid;gap:var(--sp-3);min-width:0;padding:var(--sp-4);border-radius:var(--radius-lg);background:var(--ds-surface-primary);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-3);transition:box-shadow var(--ds-duration-standard) var(--ds-ease-standard),transform var(--ds-duration-standard) var(--ds-ease-standard)}
+  .ob-card{position:relative;display:grid;gap:var(--sp-3-5);min-width:0;padding:var(--sp-4-5);border-radius:var(--radius-lg);background:var(--ds-surface-primary);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-3);transition:box-shadow var(--ds-duration-standard) var(--ds-ease-standard),transform var(--ds-duration-standard) var(--ds-ease-standard)}
+  /* Direction B's fourth card: full and settled for a viewer who is neither in it nor hosting it --
+     nothing left to decide, so the card mutes and drops to one line under the time. */
+  .ob-card.is-compact{gap:var(--sp-2);opacity:.68}
+  .ob-card-compact-line{font-size:var(--fs-caption);color:var(--ds-text-secondary)}
   @media(hover:hover){.ob-card:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-4);transform:translateY(-2px)}}
   /* Who you are to this 局, at a glance, before reading anything: a thin felt-coloured edge on the
      one card in the list that's "mine" -- host gets the brand gold, a plain join gets the success
@@ -172,17 +180,17 @@
   .ob-card.is-host{box-shadow:inset 3px 0 0 var(--ball-yellow),inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-3)}
   .ob-card.is-joined{box-shadow:inset 3px 0 0 var(--ds-success),inset 0 1px 0 rgba(255,255,255,.5),var(--ds-elevation-3)}
 
-  .ob-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-3);min-width:0}
+  .ob-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-2-5);min-width:0}
   .ob-card-time{display:grid;gap:1px;min-width:0}
-  .ob-card-time-main{font-family:var(--font-display);font-size:var(--fs-display);line-height:1;letter-spacing:-.02em;color:var(--ds-text-primary)}
+  .ob-card-time-main{font-family:var(--font-display);font-size:var(--fs-display);font-weight:700;line-height:1;letter-spacing:-.02em;color:var(--ds-text-primary)}
   .ob-card-time-sub{font-size:var(--fs-caption);color:var(--ds-text-secondary)}
 
   /* A capped 局's fill count as its own small stat block, not folded into a fit chip — the same
      colour language the rest of the app uses for "act now" (danger) vs "settled" (success) vs
      "in progress" (neutral wash), so it reads before the number is even parsed. */
-  .ob-card-stat{display:flex;flex-direction:column;align-items:center;gap:1px;flex:0 0 auto;min-width:3.25rem;padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);background:var(--ds-highlight-wash);text-align:center}
-  .ob-card-stat b{font-family:var(--font-display);font-size:var(--fs-lead);line-height:1;font-variant-numeric:tabular-nums;color:var(--ds-text-primary)}
-  .ob-card-stat span{font-size:9px;font-weight:800;color:var(--ds-text-secondary);white-space:nowrap}
+  .ob-card-stat{display:flex;flex-direction:column;align-items:center;gap:1px;flex:0 0 auto;min-width:3.25rem;padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);background:var(--ds-surface-secondary);text-align:center}
+  .ob-card-stat b{font-family:var(--font-display);font-size:var(--fs-stat);line-height:1;font-variant-numeric:tabular-nums;color:var(--ds-text-secondary)}
+  .ob-card-stat span{font-size:var(--fs-label);font-weight:800;color:var(--ds-text-tertiary);white-space:nowrap}
   .ob-card-stat.is-urgent{background:var(--ds-danger-wash)}
   .ob-card-stat.is-urgent b,.ob-card-stat.is-urgent span{color:var(--ds-danger)}
   .ob-card-stat.is-full{background:var(--ds-success-wash)}
@@ -198,8 +206,8 @@
   .ob-roster-avatar[aria-expanded="true"]{outline:2px solid var(--ds-accent-soft);outline-offset:1px}
   .ob-roster-avatar .player-badge{width:2.125rem;height:2.125rem;font-size:var(--fs-caption)}
   .ob-card-roster-copy{display:grid;gap:1px;min-width:0}
-  .ob-card-names{font-size:var(--fs-sm);font-weight:700;color:var(--ds-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ob-card-fitline{font-size:var(--fs-caption);font-weight:700;color:var(--ds-text-secondary);overflow-wrap:anywhere}
+  .ob-card-names{font-size:var(--fs-caption);font-weight:700;color:var(--ds-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ob-card-fitline{font-size:var(--fs-label);font-weight:700;color:var(--ds-text-secondary);overflow-wrap:anywhere}
   .ob-card-fitline.is-very-close{color:var(--ds-success)}
   .ob-card-fitline.is-similar{color:var(--ds-accent-text)}
   .ob-card-fitline.is-handicap{color:var(--ds-warning)}
@@ -225,7 +233,7 @@
      outline so a page of cards doesn't read as a wall of identical buttons. */
   .ob-slot-foot{display:flex;flex-direction:column;gap:var(--sp-2-5);padding-top:var(--sp-2-5);border-top:1px solid var(--ds-border-subtle)}
   .ob-slot-foot-status{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);min-height:var(--control-sm)}
-  .ob-join-cta{width:100%;min-height:var(--control-lg);font-size:var(--fs-input);font-weight:800}
+  .ob-join-cta{width:100%;min-height:var(--control-lg);font-size:var(--fs-body);font-weight:800}
   .ob-join-cta.is-outline{background:transparent;color:var(--ds-accent-action);border:1px solid var(--ds-accent-action);box-shadow:none}
   .ob-join-cta.is-outline:hover{background:var(--ds-highlight-wash)}
   .ob-load-more{display:flex;justify-content:center;padding-top:var(--sp-2)}
@@ -322,7 +330,6 @@
     .ob-time-summary b{font-size:var(--fs-stat)}
     .ob-composer-footer{bottom:calc(-1 * (var(--sp-5) + var(--ds-safe-bottom)));padding-bottom:calc(var(--sp-3) + var(--ds-safe-bottom))}
     .ob-card{padding:var(--sp-3-5)}
-    .ob-card-time-main{font-size:var(--fs-h3)}
     .ob-card-names{max-width:14rem}
   }
 
