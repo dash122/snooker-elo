@@ -47,26 +47,35 @@ export function getSql() {
     sqlClient = postgres(url, {
       ssl: isLocal ? false : "require",
       prepare: false,
-      /* Four leaves room for the app's transaction helpers and parallel read groups without the
-         pool-starvation seen at one or two, while still cutting the library default by 60%. */
-      max: 4,
+      /* Six leaves more headroom for concurrent board loads (each opens at least two parallel
+         queries via Promise.all) without coming near the pool-starvation seen at one or two, or
+         the ~90-connection stampede a separate pool per module used to cause. Still small enough
+         that Supabase's transaction pooler never notices. */
+      max: 6,
       idle_timeout: 20,
       connect_timeout: 10,
       /* A serverless invocation can die mid-request (a Vercel function frozen or killed) without
          closing its socket, leaving the Postgres backend blocked forever writing a result to a
          client that will never read it again — `idle_timeout` above only reaps connections that
-         are cleanly idle, not ones stuck mid-query. With only four connections in the pool, a
-         couple of these silently exhaust it and every other request queues until it times out.
-         `statement_timeout` makes Postgres itself cancel any statement that runs this long,
-         instead of relying on someone finding and killing the backend by hand. */
-      connection: { statement_timeout: 15000 },
-      /* Belt and braces beyond `statement_timeout`: that only bounds time spent *executing* a
-         statement, not a connection stuck between statements waiting on something else this
-         process is doing (an un-timed-out outbound fetch was exactly the bug found live — see
-         lib/mailer.ts). No pooled connection has any business living longer than this regardless
-         of cause, so postgres.js closes and transparently replaces one once it turns this old,
-         which puts a hard ceiling on how long any future bug of this shape can wedge the pool
-         before it self-heals, instead of needing someone to find and kill the backend by hand. */
+         are cleanly idle, not ones stuck mid-query. With only a handful of connections in the pool,
+         a couple of these silently exhaust it and every other request queues until it times out.
+         `statement_timeout` makes Postgres itself cancel any statement that runs this long, instead
+         of relying on someone finding and killing the backend by hand. Set below the client's own
+         fetch timeout (12s in OpenBoard.tsx's `load()`) on purpose: found live that a 15s value let
+         the *client* give up and show "未能載入約戰" before Postgres's own safety net had even
+         fired, so the connection stayed wedged for the queued request behind it too. At 8s, the
+         connection is back in the pool before any client relying on the same 12s budget times out.
+         `idle_in_transaction_session_timeout` covers the other shape seen live in the Postgres logs
+         ("unexpected EOF ... with an open transaction") -- a connection sitting inside a still-open
+         transaction with no statement running, which `statement_timeout` does not bound at all. */
+      connection: { statement_timeout: 8000, idle_in_transaction_session_timeout: 10000 },
+      /* Belt and braces beyond both timeouts above: neither bounds a connection stuck between
+         statements waiting on something else this process is doing (an un-timed-out outbound fetch
+         was exactly the bug found live — see lib/mailer.ts). No pooled connection has any business
+         living longer than this regardless of cause, so postgres.js closes and transparently
+         replaces one once it turns this old, which puts a hard ceiling on how long any future bug
+         of this shape can wedge the pool before it self-heals, instead of needing someone to find
+         and kill the backend by hand. */
       max_lifetime: 600,
     });
   }
