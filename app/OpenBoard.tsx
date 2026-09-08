@@ -46,6 +46,10 @@ type BoardData={date:string;signedIn:boolean;viewerId:string|null;days:Day[];cal
 export type FindOpponentTarget={id:string;name:string;rating:number|null};
 
 const EMPTY:BoardData={date:"",signedIn:false,viewerId:null,days:[],calls:[],venues:[],free:[],fillStats:{medianMinutes:null,sampleSize:0}};
+/** Past this many overlapping avatars, faces stop being individually recognisable -- the roster
+    caps its face-pile here and folds the rest into a "+N" that opens the full list, which is what
+    keeps a 20-player 局 from breaking the card's layout. */
+const ROSTER_AVATAR_CAP=4;
 const boardCache=createBoardCache<BoardData>();
 const NOTE_TEMPLATES=["新手歡迎，唔識都可以嚟打吓。","得閒隨便打，唔太計較輸贏。","想搵人陪練，練習為主。"];
 
@@ -420,21 +424,32 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
             const fit=opponentFit(lead?.rating,viewerRating);
             const canRecord=call.joined&&call.players.length===2&&Boolean(onRecord);
             const menuKey=`menu:${call.id}`;
+            const host=call.players.find(player=>player.id===call.hostId)??lead;
             /* Mockup Direction B's whole point: time leads as one big line, the fill count (when a
                cap exists) is its own coloured stat rather than folded into a chip, and "why this
                game" collapses into one subline under the roster instead of a separate fit chip. */
             const heroTime=callDate===today?`今晚 ${hkClock(call.startAt)}`:`${weekday(callDate)} ${hkClock(call.startAt)}`;
             const durationMinutes=Math.round((Date.parse(call.endAt)-Date.parse(call.startAt))/60000);
             const heroSub=[durationText(durationMinutes),[call.venue?.district,placeLabel(call)].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
-            const rosterLine=call.players.map(player=>`${player.name} ELO ${Math.round(player.rating)}`).join("、");
+            /* Beyond ROSTER_AVATAR_CAP a face-pile stops reading as faces -- the row caps at four
+               avatars plus a "+N" that opens the rest, and the copy line drops from "everyone, by
+               name" to "who's hosting" plus the group's ELO spread, since at that size "is this
+               field beatable" matters more than who specifically is in it. */
+            const shownPlayers=call.players.slice(0,ROSTER_AVATAR_CAP);
+            const hiddenPlayers=call.players.slice(ROSTER_AVATAR_CAP);
+            const ratings=call.players.map(player=>player.rating).filter(Number.isFinite);
+            const spreadLabel=hiddenPlayers.length&&ratings.length>=2?`${Math.round(Math.min(...ratings))}–${Math.round(Math.max(...ratings))} ELO`:null;
+            const rosterLine=hiddenPlayers.length
+              ?`${host?.name??"發起人"}${host?.rating!=null?` ELO ${Math.round(host.rating)}`:""} 發起`
+              :call.players.map(player=>`${player.name} ELO ${Math.round(player.rating)}`).join("、");
             const proposal=settings&&viewerRating!==null&&lead?proposeHandicap(viewerRating,lead.rating,settings):null;
             const fitLabel=fit.tier!=="unknown"?fitShortLabel(fit.tier):call.fits&&!call.joined?"夾到你":null;
-            const fitLine=[fitLabel,proposal?.label,call.costSplit==="aa"?"AA 波鐘":"發起人找數"].filter(Boolean).join(" · ");
+            const fitLine=[fitLabel,proposal?.label,spreadLabel,call.costSplit==="aa"?"AA 波鐘":"發起人找數"].filter(Boolean).join(" · ");
+            const rosterPopKey=`roster:${call.id}`;
             /* Direction B's third card: a 局 nobody here can act on any further (full, and this
                viewer is neither in it nor hosting it) drops every section that only exists to help
                decide whether to join -- roster, trust, meta icons, note, buttons -- down to the one
                line that still matters once the decision is moot. */
-            const host=call.players.find(player=>player.id===call.hostId)??lead;
             if(full&&!call.joined&&!isHost)return <article key={call.id} className="ob-card is-compact">
               <div className="ob-card-top">
                 <div className="ob-card-time">
@@ -459,7 +474,16 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
 
               <div className="ob-card-roster">
                 <div className="ob-card-avatars">
-                  {call.players.map(player=><RosterChip key={player.id} call={call} player={player} settings={settings} viewerRating={viewerRating} viewerId={data.viewerId} onPlayer={onPlayer} openKey={openPopup} onToggle={setOpenPopup} regularIds={regularIds} onToggleRegular={toggleRegular}/>)}
+                  {shownPlayers.map(player=><RosterChip key={player.id} call={call} player={player} settings={settings} viewerRating={viewerRating} viewerId={data.viewerId} onPlayer={onPlayer} openKey={openPopup} onToggle={setOpenPopup} regularIds={regularIds} onToggleRegular={toggleRegular}/>)}
+                  {hiddenPlayers.length>0&&<span className="ob-popup-anchor">
+                    <button type="button" className="ob-roster-more" aria-expanded={openPopup===rosterPopKey} aria-label={`睇埋其餘 ${hiddenPlayers.length} 人`} onClick={()=>setOpenPopup(openPopup===rosterPopKey?null:rosterPopKey)}>+{hiddenPlayers.length}</button>
+                    {openPopup===rosterPopKey&&<div className="ob-roster-popover ob-roster-popover--list" role="dialog" aria-label="全部參加者">
+                      <b className="ob-popover-name">全部 {call.players.length} 人</b>
+                      <div className="ob-popover-rows">
+                        {call.players.map(player=><span key={player.id}>{player.name}{player.id===call.hostId?" · 發起人":""}<b>{Math.round(player.rating)}</b></span>)}
+                      </div>
+                    </div>}
+                  </span>}
                 </div>
                 <div className="ob-card-roster-copy">
                   <span className="ob-card-names">{rosterLine}</span>
@@ -498,10 +522,15 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
                     </span>}
                   </span>
                 </span>
-                {!isHost&&!call.joined&&data.signedIn&&
-                  <Button className={`ob-join-cta${nearFull?"":" is-outline"}`} disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>
+                {!isHost&&!call.joined&&(data.signedIn
+                  ?<Button className={`ob-join-cta${nearFull?"":" is-outline"}`} disabled={Boolean(busy)||full} loading={busy===`join:${call.id}`} onClick={()=>join(call)}>
                     {full?"已滿":nearFull?"參加 · 埋尾一位":"參加"}
-                  </Button>}
+                  </Button>
+                  /* Signed out sees exactly what a member sees -- time, host, ELO, roster, chips --
+                     this card is routinely opened from a shared link. Only the action changes: a
+                     plain link to /login, matching how the rest of the app gates joining without
+                     hiding the content behind the gate. */
+                  :!full&&<a className="ob-join-cta ob-join-cta--locked" href="/login">登入以參加</a>)}
               </div>
             </article>;
           })}
