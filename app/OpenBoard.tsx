@@ -430,6 +430,21 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
             const proposal=settings&&viewerRating!==null&&lead?proposeHandicap(viewerRating,lead.rating,settings):null;
             const fitLabel=fit.tier!=="unknown"?fitShortLabel(fit.tier):call.fits&&!call.joined?"夾到你":null;
             const fitLine=[fitLabel,proposal?.label,call.costSplit==="aa"?"AA 波鐘":"發起人找數"].filter(Boolean).join(" · ");
+            /* Direction B's third card: a 局 nobody here can act on any further (full, and this
+               viewer is neither in it nor hosting it) drops every section that only exists to help
+               decide whether to join -- roster, trust, meta icons, note, buttons -- down to the one
+               line that still matters once the decision is moot. */
+            const host=call.players.find(player=>player.id===call.hostId)??lead;
+            if(full&&!call.joined&&!isHost)return <article key={call.id} className="ob-card is-compact">
+              <div className="ob-card-top">
+                <div className="ob-card-time">
+                  <span className="ob-card-time-main">{heroTime}</span>
+                  <span className="ob-card-time-sub">{heroSub}</span>
+                </div>
+                <Chip tone="success">已成局</Chip>
+              </div>
+              {host&&<span className="ob-card-compact-line">{host.name}{host.rating!=null?` · ELO ${Math.round(host.rating)}`:""}</span>}
+            </article>;
             return <article key={call.id} className={`ob-card${call.joined?isHost?" is-host":" is-joined":""}`}>
               <div className="ob-card-top">
                 <div className="ob-card-time">
@@ -438,7 +453,7 @@ export default function OpenBoard({settings,onPlayer,onRecord,onActivity,viewerI
                 </div>
                 {call.maxPlayers!==null&&<div className={`ob-card-stat${full?" is-full":nearFull?" is-urgent":""}`}>
                   <b>{call.players.length}/{call.maxPlayers}</b>
-                  <span>{full?"已滿":nearFull?"仲差 1":"埋位中"}</span>
+                  <span>{full?"已滿":nearFull?"仲差 1":"早期"}</span>
                 </div>}
               </div>
 
