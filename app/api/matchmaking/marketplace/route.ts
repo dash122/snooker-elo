@@ -6,22 +6,27 @@ import {recordEvents} from "../../../../db/analytics";
 import {hkDate} from "../../../../lib/availability";
 
 const headers={"cache-control":"no-store"};
-function failure(error:unknown){
+const context=(request:Request,started:number)=>({route:"/api/matchmaking/marketplace",requestId:request.headers.get("x-vercel-id"),ms:Date.now()-started});
+function failure(error:unknown,request:Request,started:number){
   if(error instanceof MarketplaceError)return Response.json({error:error.message},{status:error.status,headers});
-  console.error("Marketplace request failed",error instanceof Error?error.name:"unknown");
+  const detail=error&&typeof error==="object"?error as {name?:string;code?:string;constraint?:string}:{};
+  console.error(JSON.stringify({level:"error",msg:"marketplace_failed",...context(request,started),error:detail.name??"unknown",code:detail.code??null,constraint:detail.constraint??null}));
   return Response.json({error:"約戰暫時未能更新，請重新載入後再試。"},{status:500,headers});
 }
 export async function GET(request:Request){
+  const started=Date.now();
   try{
-    if(!await isMarketplaceReady())return Response.json({ready:false},{headers});
+    if(!await isMarketplaceReady()){console.log(JSON.stringify({level:"info",msg:"marketplace_not_ready",...context(request,started)}));return Response.json({ready:false},{headers});}
     const member=await requireMember();
     const dashboard=await marketplaceDashboard(marketplaceDatabase(),member?.statePlayerId??null,Boolean(member),new URL(request.url).searchParams.get("date")??hkDate());
-    after(async()=>{try{await deliverMarketplaceNotifications();}catch{/* Later traffic retries queued work. */}});
+    after(async()=>{try{const delivery=await deliverMarketplaceNotifications();if(delivery.claimed)console.log(JSON.stringify({level:"info",msg:"marketplace_delivery",...delivery}));}catch(error){console.error(JSON.stringify({level:"error",msg:"marketplace_delivery_failed",error:error instanceof Error?error.name:"unknown"}));}});
+    console.log(JSON.stringify({level:"info",msg:"marketplace_done",method:"GET",...context(request,started)}));
     return Response.json(dashboard,{headers});
-  }catch(error){return failure(error);}
+  }catch(error){return failure(error,request,started);}
 }
 const actions:MarketAction[]=["publish","edit","activate","withdraw","create","join","leave","invite","accept","decline","avoid","unavoid","result"];
 export async function POST(request:Request){
+  const started=Date.now();
   try{
     const member=await requireMember();
     if(!member)return Response.json({error:"請先登入。"},{status:401,headers});
@@ -37,8 +42,9 @@ export async function POST(request:Request){
     catch(error){if(error instanceof MarketplaceError)throw error;if(error instanceof Error&&!("code" in error))return Response.json({error:error.message},{status:400,headers});throw error;}
     after(async()=>{
       try{await recordEvents(member.statePlayerId!,[{event:`matchmaking_marketplace_${action}`,props:{id:"id" in result?result.id:null},at:new Date().toISOString()},...result.events.map(event=>({...event,at:new Date().toISOString()}))]);}catch{/* Best effort analytics. */}
-      try{await deliverMarketplaceNotifications();}catch{/* Consent was already committed. */}
+      try{const delivery=await deliverMarketplaceNotifications();if(delivery.claimed)console.log(JSON.stringify({level:"info",msg:"marketplace_delivery",...delivery}));}catch(error){console.error(JSON.stringify({level:"error",msg:"marketplace_delivery_failed",error:error instanceof Error?error.name:"unknown"}));}
     });
+    console.log(JSON.stringify({level:"info",msg:"marketplace_done",method:"POST",action,...context(request,started)}));
     return Response.json({id:"id" in result?result.id:undefined,ok:true},{headers});
-  }catch(error){return failure(error);}
+  }catch(error){return failure(error,request,started);}
 }

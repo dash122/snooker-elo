@@ -66,6 +66,16 @@ export function validateGroupRange(range: GroupRange): GroupRange {
 
 export type MarketplacePlayer = {id:string; name:string; rating:number};
 export type MarketplaceVenue = {id:string; name:string; district:string};
+export type MarketplaceDeliveryKind="invite"|"playable"|"reopened"|"recruit"|"reminder"|"result";
+
+/** Reject delayed jobs whose meaning expired while they waited in the durable queue. */
+export function marketplaceDeliveryTimingValid(kind:MarketplaceDeliveryKind,session:Interval,now=Date.now()) {
+  const start=Date.parse(session.startAt),end=Date.parse(session.endAt);
+  if(!Number.isFinite(start)||!Number.isFinite(end))return false;
+  if(kind==="reminder")return start>now&&start<=now+3600000;
+  if(kind==="result")return end<=now&&end>now-86400000;
+  return end>now;
+}
 export type Supply = MatchableAvailability & {player:MarketplacePlayer; cancelled?:boolean};
 export type LiveFormation = MarketplaceSession & {accepted:Supply[]; revision:number; reopened?:boolean};
 export type Conflict = Interval & {playerId:string; sessionId:string};
