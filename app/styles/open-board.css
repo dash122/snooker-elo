@@ -205,6 +205,13 @@
   .ob-roster-avatar:active{transform:scale(.92)}
   .ob-roster-avatar[aria-expanded="true"]{outline:2px solid var(--ds-accent-soft);outline-offset:1px}
   .ob-roster-avatar .player-badge{width:2.125rem;height:2.125rem;font-size:var(--fs-caption)}
+  /* The face-pile's overflow tile: same circle, same overlap, as the avatars it follows -- a number
+     instead of a face is still legibly "one more roster slot", not a different kind of control. */
+  .ob-roster-more{display:flex;align-items:center;justify-content:center;width:2.125rem;height:2.125rem;flex:none;margin-left:-.625rem;border:2px solid var(--ds-surface-primary);border-radius:50%;background:var(--ds-text-secondary);color:var(--ds-surface-primary);font-size:var(--fs-label);font-weight:800;font-variant-numeric:tabular-nums}
+  .ob-roster-more[aria-expanded="true"]{outline:2px solid var(--ds-accent-soft);outline-offset:1px}
+  .ob-roster-popover--list{min-width:14rem;max-width:16rem}
+  .ob-roster-popover--list .ob-popover-rows{max-height:12rem;overflow-y:auto}
+  .ob-roster-popover--list .ob-popover-rows span{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2)}
   .ob-card-roster-copy{display:grid;gap:1px;min-width:0}
   .ob-card-names{font-size:var(--fs-caption);font-weight:700;color:var(--ds-text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ob-card-fitline{font-size:var(--fs-label);font-weight:700;color:var(--ds-text-secondary);overflow-wrap:anywhere}
@@ -233,9 +240,14 @@
      outline so a page of cards doesn't read as a wall of identical buttons. */
   .ob-slot-foot{display:flex;flex-direction:column;gap:var(--sp-2-5);padding-top:var(--sp-2-5);border-top:1px solid var(--ds-border-subtle)}
   .ob-slot-foot-status{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);min-height:var(--control-sm)}
-  .ob-join-cta{width:100%;min-height:var(--control-lg);font-size:var(--fs-body);font-weight:800}
+  .ob-join-cta{display:flex;align-items:center;justify-content:center;width:100%;min-height:var(--control-lg);border-radius:var(--radius-md);font-size:var(--fs-body);font-weight:800;text-align:center}
   .ob-join-cta.is-outline{background:transparent;color:var(--ds-accent-action);border:1px solid var(--ds-accent-action);box-shadow:none}
   .ob-join-cta.is-outline:hover{background:var(--ds-highlight-wash)}
+  /* Signed-out CTA: same size and weight as the join button it stands in for, in a muted ink rather
+     than the brand action colour -- it reads as "this needs one more step", not as a second flavour
+     of join. */
+  .ob-join-cta--locked{background:var(--ds-text-primary);color:var(--ds-surface-primary)}
+  .ob-join-cta--locked:hover{background:var(--ds-text-secondary)}
   .ob-load-more{display:flex;justify-content:center;padding-top:var(--sp-2)}
 
   /* --- popovers: a roster chip's ELO/fit, or a row's secondary actions --------- */
