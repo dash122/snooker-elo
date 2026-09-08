@@ -232,6 +232,13 @@ export function parseMatchConditions(value: unknown): MatchConditions {
   return result;
 }
 
+/** Database drivers may return jsonb as text through a transaction pooler. API input stays strict. */
+export function parseStoredMatchConditions(value:unknown):MatchConditions {
+  if(typeof value!=="string")return parseMatchConditions(value);
+  try{return parseMatchConditions(JSON.parse(value));}
+  catch(error){if(error instanceof SyntaxError)throw new Error("儲存的約戰條件格式不正確。");throw error;}
+}
+
 /** Call after consent changes on live sessions only; never reopen completed/cancelled sessions. */
 export function marketplaceFormationStatus(accepted: number, range: GroupRange): FormationStatus {
   validateGroupRange(range);

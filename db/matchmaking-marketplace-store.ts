@@ -1,7 +1,7 @@
 import {addDaysHongKong, hkDate, validateAvailabilityInterval} from "../lib/availability.ts";
 import {
   acceptsVenue, avoidsPair, canJoin, marketplaceFormationStatus, marketplaceOpportunities, overlaps,
-  parseMatchConditions, parseVenueScope, resolveGroup, validateGroupRange,
+  parseMatchConditions, parseStoredMatchConditions, parseVenueScope, resolveGroup, validateGroupRange,
   type MarketPool, type Supply, type LiveFormation, type MarketplaceDashboard, type MarketplaceVenue,
   type MatchmakingPairPreference, type FormationMember, type Opportunity, type SessionView,
 } from "../lib/matchmaking-marketplace.ts";
@@ -31,18 +31,19 @@ export async function readPool(db:MarketConnection,now=Date.now()):Promise<Marke
     WHERE p.active AND (NOT EXISTS(SELECT 1 FROM members m WHERE m.state_player_id=p.id)
       OR EXISTS(SELECT 1 FROM members m WHERE m.state_player_id=p.id AND m.active))
     AND s.end_at>$1 AND s.start_at<$2 ORDER BY s.start_at,s.id`,[new Date(now-48*3600000).toISOString(),new Date(now+8*86400000).toISOString()]);
-  const slots=rows.map(s=>({...s,startAt:iso(s.startAt),endAt:iso(s.endAt),conditions:s.source==="legacy"
-    ?{handicap:s.conditions?.handicap===true,noSmoking:s.conditions?.noSmoking===true,levelStrict:(s.conditions as {levelOnly?:boolean})?.levelOnly===true}
-    :parseMatchConditions(s.conditions)}));
+  const slots=rows.map(s=>{const conditions=typeof s.conditions==="string"?JSON.parse(s.conditions):s.conditions;return {...s,startAt:iso(s.startAt),endAt:iso(s.endAt),conditions:s.source==="legacy"
+    ?{handicap:conditions?.handicap===true,noSmoking:conditions?.noSmoking===true,levelStrict:(conditions as {levelOnly?:boolean})?.levelOnly===true}
+    :parseStoredMatchConditions(s.conditions)}});
   const venues=await db.query<MarketplaceVenue>(`SELECT id,name,district FROM venues WHERE active ORDER BY name,id`);
   const avoids=await db.query<MatchmakingPairPreference>(`SELECT player_id AS "playerId",other_player_id AS "otherPlayerId",preference FROM matchmaking_pair_preferences`);
   const sessions=await db.query<LiveFormation>(`SELECT id,start_at AS "startAt",end_at AS "endAt",venue_id AS "venueId",
     min_players AS "minPlayers",target_size AS "targetSize",max_players AS "maxPlayers",status,source,
     created_by_player_id AS "createdByPlayerId",revision,reopened FROM matchmaking_sessions
     WHERE source<>'legacy' AND status<>'cancelled' AND end_at>$1 ORDER BY start_at,id`,[new Date(now-48*3600000).toISOString()]);
-  const members=await db.query<FormationMember & {sessionId:string;eligibility:Supply|null}>(`SELECT m.session_id AS "sessionId",m.player_id AS "playerId",
+  const memberRows=await db.query<FormationMember & {sessionId:string;eligibility:Supply|string|null}>(`SELECT m.session_id AS "sessionId",m.player_id AS "playerId",
     m.availability_slot_id AS "availabilitySlotId",m.status,m.eligibility FROM matchmaking_session_members m
     JOIN matchmaking_sessions s ON s.id=m.session_id WHERE s.source<>'legacy' AND s.status<>'cancelled' AND s.end_at>$1`,[new Date(now-48*3600000).toISOString()]);
+  const members=memberRows.map(m=>({...m,eligibility:typeof m.eligibility==="string"?JSON.parse(m.eligibility) as Supply:m.eligibility}));
   const profiles=await db.query<{id:string;name:string;rating:number;active:boolean}>(`SELECT id,name,rating::float8 AS rating,active FROM state_players`);
   for(const s of sessions){
     s.startAt=iso(s.startAt);s.endAt=iso(s.endAt);
