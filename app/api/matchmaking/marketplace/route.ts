@@ -9,8 +9,9 @@ const headers={"cache-control":"no-store"};
 const context=(request:Request,started:number)=>({route:"/api/matchmaking/marketplace",requestId:request.headers.get("x-vercel-id"),ms:Date.now()-started});
 function failure(error:unknown,request:Request,started:number){
   if(error instanceof MarketplaceError)return Response.json({error:error.message},{status:error.status,headers});
-  const detail=error&&typeof error==="object"?error as {name?:string;code?:string;constraint?:string}:{};
-  console.error(JSON.stringify({level:"error",msg:"marketplace_failed",...context(request,started),error:detail.name??"unknown",code:detail.code??null,constraint:detail.constraint??null}));
+  const detail=error&&typeof error==="object"?error as {name?:string;message?:string;code?:string;constraint?:string}:{};
+  console.error(JSON.stringify({level:"error",msg:"marketplace_failed",...context(request,started),error:detail.name??"unknown",
+    detail:detail.message?.slice(0,240)??null,code:detail.code??null,constraint:detail.constraint??null}));
   return Response.json({error:"約戰暫時未能更新，請重新載入後再試。"},{status:500,headers});
 }
 export async function GET(request:Request){
