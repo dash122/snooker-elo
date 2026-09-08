@@ -50,6 +50,8 @@ export async function POST(request:Request){
   if(!member)return Response.json({error:"請先登入。"},{status:401});
   if(!member.statePlayerId)return Response.json({error:"請先連結球員檔案。"},{status:403});
   try{
+    const {isMarketplaceReady}=await import("../../../db/matchmaking-marketplace.pg");
+    if(await isMarketplaceReady())return Response.json({error:"請在新版約戰公開空檔。"},{status:409});
     const input=parseCallInput(await request.json());
     const id=await createCall(member.statePlayerId,input);
     const call=await readCall(id,member.statePlayerId);
