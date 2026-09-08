@@ -182,7 +182,7 @@
 
   .ob-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-2-5);min-width:0}
   .ob-card-time{display:grid;gap:1px;min-width:0}
-  .ob-card-time-main{font-family:var(--font-display);font-size:var(--fs-display);line-height:1;letter-spacing:-.02em;color:var(--ds-text-primary)}
+  .ob-card-time-main{font-family:var(--font-display);font-size:var(--fs-display);font-weight:700;line-height:1;letter-spacing:-.02em;color:var(--ds-text-primary)}
   .ob-card-time-sub{font-size:var(--fs-caption);color:var(--ds-text-secondary)}
 
   /* A capped 局's fill count as its own small stat block, not folded into a fit chip — the same
