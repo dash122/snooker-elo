@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   GROUP_PRESETS, marketplaceFormationStatus, parseMatchConditions, parseVenueScope, validateGroupRange,
-  marketplaceOpportunities, resolveGroup, pairCompatible, marketplaceDeliveryTimingValid,
+  marketplaceOpportunities, resolveGroup, pairCompatible, marketplaceDeliveryTimingValid, parseStoredMatchConditions,
 } from "../lib/matchmaking-marketplace.ts";
 
 test("queued notifications expire with their intended delivery window",()=>{
@@ -12,6 +12,12 @@ test("queued notifications expire with their intended delivery window",()=>{
   assert.equal(marketplaceDeliveryTimingValid("playable",{startAt:"2030-09-09T09:00:00Z",endAt:"2030-09-09T11:00:00Z"},now),false);
   assert.equal(marketplaceDeliveryTimingValid("result",{startAt:"2030-09-09T09:00:00Z",endAt:"2030-09-09T11:00:00Z"},now),true);
   assert.equal(marketplaceDeliveryTimingValid("result",{startAt:"2030-09-07T09:00:00Z",endAt:"2030-09-07T11:00:00Z"},now),false);
+});
+
+test("stored jsonb conditions decode when the production pooler returns text",()=>{
+  const value={handicap:false,levelStrict:false,levelPreference:"similar",feePreference:"aa",tempo:"any"};
+  assert.deepEqual(parseStoredMatchConditions(JSON.stringify(value)),value);
+  assert.throws(()=>parseStoredMatchConditions("not json"),/儲存的約戰條件/);
 });
 
 test("all group presets satisfy the numeric range contract", () => {
