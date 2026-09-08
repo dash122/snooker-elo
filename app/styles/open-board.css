@@ -330,7 +330,6 @@
     .ob-time-summary b{font-size:var(--fs-stat)}
     .ob-composer-footer{bottom:calc(-1 * (var(--sp-5) + var(--ds-safe-bottom)));padding-bottom:calc(var(--sp-3) + var(--ds-safe-bottom))}
     .ob-card{padding:var(--sp-3-5)}
-    .ob-card-time-main{font-size:var(--fs-h3)}
     .ob-card-names{max-width:14rem}
   }
 
