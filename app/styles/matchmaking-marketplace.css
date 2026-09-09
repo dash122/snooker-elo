@@ -36,15 +36,19 @@
   .mp-player-identity { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-3); }
   .mp-player-identity > span { color: var(--ds-accent-text); font-size: var(--fs-caption); font-weight: 700; font-variant-numeric: tabular-nums; }
   .mp-player, .mp-own-slot, .mp-arrangement { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding-block: var(--sp-4); transition: background var(--ds-duration-standard) var(--ds-ease-standard); }
-  .mp-player, .mp-own-slot { border-bottom: 1px solid var(--ds-border-subtle); }
-  .mp-player:hover, .mp-own-slot:hover { background: var(--ds-surface-secondary); }
+  .mp-player { border-bottom: 1px solid var(--ds-border-subtle); }
+  .mp-player:hover { background: var(--ds-surface-secondary); }
+  .mp-player-self, .mp-player-self:hover { background: var(--ds-highlight-wash); }
   .mp-player > div, .mp-arrangement > div, .mp-own-slot > div { min-width: 0; overflow-wrap: anywhere; }
   .mp-player-name { font-size: var(--fs-lead); padding-inline: 0; text-align: left; }
   .mp-player p, .mp-own-slot p, .mp-arrangement p { margin-top: var(--sp-2); }
   .mp-player-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); flex-wrap: wrap; }
   .mp-player-actions .ds-button { white-space: normal; height: auto; min-height: var(--control-lg); }
-  .mp-arrangement { padding: var(--sp-5); border-radius: var(--radius-md); box-shadow: var(--ds-shadow-resting); }
-  .mp-arrangement h3 { margin-top: var(--sp-2); }
+  .mp-mine-group { display: grid; gap: var(--sp-3); }
+  .mp-mine-subhead { font-size: var(--fs-label); font-weight: 800; letter-spacing: .04em; color: var(--ds-text-secondary); }
+  .mp-arrangement, .mp-own-slot { padding: var(--sp-5); border-radius: var(--radius-md); box-shadow: var(--ds-shadow-resting); transition: box-shadow var(--ds-duration-standard) var(--ds-ease-standard), border-color var(--ds-duration-standard) var(--ds-ease-standard); }
+  .mp-arrangement:hover, .mp-own-slot:hover { box-shadow: var(--ds-shadow-floating); }
+  .mp-arrangement h3, .mp-own-slot h3 { margin-top: var(--sp-2); }
   .mp-composer summary { cursor: pointer; min-height: var(--control-lg); font-size: var(--fs-body); font-weight: 700; padding-inline: var(--sp-3-5); padding-block: var(--sp-3); border-radius: var(--radius-sm); transition: background var(--ds-duration-fast) var(--ds-ease-standard); }
   .mp-composer summary:hover { background: var(--ds-surface-secondary); }
   .mp-composer details { border: 1px solid var(--ds-border-subtle); border-radius: var(--radius-md); overflow: hidden; }
@@ -53,6 +57,11 @@
   .mp-composer legend { font-size: var(--fs-label); font-weight: 800; letter-spacing: .04em; color: var(--ds-text-secondary); margin-bottom: var(--sp-2); }
   .mp-composer input:not([type="checkbox"]), .mp-composer select, .mp-section-head select { min-height: var(--control-lg); width: 100%; min-width: 0; font-size: var(--fs-input); padding: var(--sp-3); border: 1px solid var(--ds-border-strong); border-radius: var(--radius-sm); background: var(--ds-surface-primary); color: var(--ds-text-primary); transition: border-color var(--ds-duration-fast) var(--ds-ease-standard), box-shadow var(--ds-duration-fast) var(--ds-ease-standard); }
   .mp-composer input:not([type="checkbox"]):focus-visible, .mp-composer select:focus-visible, .mp-section-head select:focus-visible { border-color: var(--ds-accent-action); box-shadow: 0 0 0 3px var(--ds-selected-shadow); outline: none; }
+  .mp-day-select { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: var(--sp-1); }
+  .mp-day-select .ds-button { height: auto; min-height: var(--control-lg); display: grid; gap: var(--sp-1); padding: var(--sp-2); white-space: normal; text-align: center; transition: background var(--ds-duration-standard) var(--ds-ease-standard), color var(--ds-duration-standard) var(--ds-ease-standard); }
+  .mp-day-select .ds-button > span { font-size: var(--fs-caption); font-weight: 700; }
+  .mp-day-select .ds-button b { font-size: var(--fs-lead); font-variant-numeric: tabular-nums; }
+  .mp-day-select [aria-pressed="true"] { background: var(--ds-surface-featured); color: var(--ds-text-on-brand); box-shadow: var(--ds-elevation-2); }
   .mp-time-fields, .mp-choices { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--sp-3); }
   .mp-time-fields > label { align-content: start; }
   .mp-choices .ds-button { white-space: normal; min-height: var(--control-lg); height: auto; padding: var(--sp-3); display: grid; gap: var(--sp-1); transition: background var(--ds-duration-standard) var(--ds-ease-standard), box-shadow var(--ds-duration-standard) var(--ds-ease-standard); }
@@ -60,8 +69,8 @@
   .mp-checkbox { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--control-lg); font-size: var(--fs-body); }
   .mp-composer > p { color: var(--ds-text-secondary); font-size: var(--fs-caption); padding-top: var(--sp-2); border-top: 1px solid var(--ds-border-subtle); }
   @media (max-width: 820px) {
-    .mp-hero, .mp-arrangement { align-items: flex-start; flex-direction: column; }
-    .mp-dates { grid-template-columns: repeat(7,minmax(88px,1fr)); }
+    .mp-hero, .mp-arrangement, .mp-own-slot { align-items: flex-start; flex-direction: column; }
+    .mp-dates, .mp-day-select { grid-template-columns: repeat(7,minmax(64px,1fr)); overflow-x: auto; }
     .mp-opportunities { grid-template-columns: minmax(0,1fr); }
   }
   @media (max-width: 599px) {

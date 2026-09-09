@@ -78,8 +78,9 @@ export async function marketplaceDashboard(db:MarketConnection,viewerId:string|n
   const base={ready:true,signedIn,viewerId,date,dates,venues:pool.venues,mine:[],availability:[],sessions:[],opportunities:[]};
   if(!signedIn)return base;
   const mine=liveSlots.filter(s=>s.playerId===viewerId);
-  const availability=liveSlots.filter(s=>s.playerId!==viewerId&&hkDate(new Date(s.startAt))===date
-    &&(!viewerId||!avoidsPair(pool,viewerId,s.playerId))).sort((a,b)=>Number(b.commitment==="going")-Number(a.commitment==="going")||a.startAt.localeCompare(b.startAt));
+  const availability=liveSlots.filter(s=>hkDate(new Date(s.startAt))===date
+    &&(!viewerId||s.playerId===viewerId||!avoidsPair(pool,viewerId,s.playerId)))
+    .sort((a,b)=>Number(b.playerId===viewerId)-Number(a.playerId===viewerId)||Number(b.commitment==="going")-Number(a.commitment==="going")||a.startAt.localeCompare(b.startAt));
   if(viewerId){
     const history=await db.query<{id:string;recent:number;lifetime:number}>(`SELECT CASE WHEN player_a=$1 THEN player_b ELSE player_a END AS id,
       count(*)::int AS lifetime,count(*) FILTER(WHERE played_on>=current_date-30)::int AS recent FROM state_matches
