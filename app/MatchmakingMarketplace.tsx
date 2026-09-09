@@ -2,13 +2,15 @@
 import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
 import {Button,ButtonLink,Chip,EmptyState,FormField,InlineNotice,Skeleton,Surface} from "./components/ui/Primitives";
 import {Sheet} from "./components/ui/Overlay";
-import {addDaysHongKong,composeAvailabilityInterval,hkClock,hkDate,hkDayLabel,nextAvailabilityStart} from "../lib/availability";
+import {addDaysHongKong,availabilityEndTimes,availabilityStartTimes,composeAvailabilityInterval,hkClock,hkDate,hkDayLabel,nextAvailabilityStart} from "../lib/availability";
 import {GROUP_PRESETS,type MarketplaceDashboard,type SessionView,type Supply,type MatchConditions} from "../lib/matchmaking-marketplace";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
 
 type Props={onPlayer?:(id:string)=>void;onRecord?:(id:string)=>void;onActivity?:()=>void;target?:{id:string;name:string;rating:number|null}|null;onTargetConsumed?:()=>void;onRecordSession?:(opponentId:string,sessionId:string,date:string)=>void};
 const endpoint="/api/matchmaking/marketplace";
 const presets=[{id:"singles",label:"認真對打"},{id:"small",label:"細局"},{id:"rotation",label:"多人輪流"},{id:"flexible",label:"有波打就得"}] as const;
+const START_TIMES=availabilityStartTimes();
+const formatHours=(minutes:number)=>{const h=minutes/60;return Number.isInteger(h)?`${h}`:h.toFixed(1);};
 const statusLabel={forming:"正在成局",playable:"已成局",full:"已滿員",cancelled:"已取消",completed:"已結束"};
 const rangeLabel=(s:{minPlayers:number;maxPlayers:number})=>s.maxPlayers===2?"認真對打 · 2 人":`${s.minPlayers>=4?"多人輪流":"細局／彈性"} · ${s.minPlayers}–${s.maxPlayers} 人`;
 const timeLabel=(s:{startAt:string;endAt:string})=>`${hkClock(s.startAt)}–${hkClock(s.endAt)}${hkDate(new Date(s.endAt))>hkDate(new Date(s.startAt))?" · 次日":""}`;
@@ -124,28 +126,46 @@ export default function MatchmakingMarketplace(props:Props){
 
 function AvailabilityComposer({initialDate,slot,active,venues,busy,error,onClose,onSave}:{initialDate:string;slot?:Supply;active:boolean;venues:MarketplaceDashboard["venues"];busy:boolean;error:string;onClose:()=>void;onSave:(body:Record<string,unknown>)=>Promise<void>}){
   const soon=nextAvailabilityStart();
-  const [date,setDate]=useState(slot?hkDate(new Date(slot.startAt)):initialDate),[start,setStart]=useState(slot?hkClock(slot.startAt):initialDate===soon.date?soon.time:"19:00"),[end,setEnd]=useState(slot?hkClock(slot.endAt):"23:00");
+  const initialStart=slot?hkClock(slot.startAt):initialDate===soon.date?START_TIMES.find(t=>t>=soon.time)??"19:00":"19:00";
+  const [date,setDate]=useState(slot?hkDate(new Date(slot.startAt)):initialDate);
+  const [start,setStart]=useState(initialStart);
+  const [end,setEnd]=useState(()=>{
+    if(slot)return hkClock(slot.endAt);
+    const [h,m]=initialStart.split(":").map(Number),target=h*60+m+4*60;
+    const options=availabilityEndTimes(initialStart);
+    return options.find(o=>o.minutes>=target)?.value??options.at(-1)?.value??"23:00";
+  });
   const [venueId,setVenueId]=useState(slot?.venueId??venues[0]?.id??""),[scope,setScope]=useState(slot?.venueScope??"exact");
   const [preset,setPreset]=useState<keyof typeof GROUP_PRESETS>(()=>presets.find(p=>GROUP_PRESETS[p.id].minPlayers===slot?.minPlayers&&GROUP_PRESETS[p.id].targetSize===slot?.targetSize&&GROUP_PRESETS[p.id].maxPlayers===slot?.maxPlayers)?.id??"singles");
   const [commitment,setCommitment]=useState(active?"going":"interested");
   const [conditions,setConditions]=useState<MatchConditions>(slot?.conditions??{levelPreference:"similar",handicap:true,feePreference:"aa",tempo:"any"});
   const [localError,setLocalError]=useState("");
   const dayOptions=Array.from({length:7},(_,i)=>addDaysHongKong(hkDate(),i));
+  const endOptions=availabilityEndTimes(start);
+  function changeStart(value:string){setStart(value);if(!availabilityEndTimes(value).some(o=>o.value===end))setEnd(availabilityEndTimes(value).at(-1)?.value??"");}
+  const selectedEnd=endOptions.find(o=>o.value===end);
+  const startMinutes=(()=>{const [h,m]=start.split(":").map(Number);return h*60+m;})();
+  const venueName=venues.find(v=>v.id===venueId)?.name??"場地待定";
+  const groupLabel=presets.find(p=>p.id===preset)?.label??"";
   async function submit(event:FormEvent){event.preventDefault();setLocalError("");try{await onSave({id:slot?.id,...composeAvailabilityInterval(date,start,end),...GROUP_PRESETS[preset],venueId:venueId||null,venueScope:venueId?scope:"any_hk",commitment,conditions});}catch(e){setLocalError(e instanceof Error?e.message:"請檢查日期和時間。");}}
   return <Sheet open title={slot?"修改空檔":"公開空檔"} onClose={onClose}><form className="mp-composer" onSubmit={submit} aria-busy={busy}>
     {(localError||error)&&<InlineNotice tone="danger" title="未能儲存">{localError||error}</InlineNotice>}
     <fieldset disabled={busy}><FormField label="日期"><div className="mp-day-select" role="group" aria-label="日期，未來七日">{dayOptions.map(d=><Button key={d} type="button" variant="secondary" aria-pressed={date===d} onClick={()=>setDate(d)}>
         <span>{d===hkDate()?"今日":hkDayLabel(d).match(/（(.+)）/)?.[1]??hkDayLabel(d)}</span><b>{Number(d.slice(-2))}</b></Button>)}</div></FormField>
-      <div className="mp-time-fields"><FormField label="開始"><input type="time" required step="1800" value={start} onChange={e=>setStart(e.target.value)}/></FormField><FormField label="結束" hint="較早的結束時間代表次日，最遲 02:00。"><input type="time" required step="1800" value={end} onChange={e=>setEnd(e.target.value)}/></FormField></div>
+      <fieldset><legend>狀態</legend><div className="mp-choices"><Button type="button" variant="secondary" aria-pressed={commitment==="going"} onClick={()=>setCommitment("going")}>找緊波</Button><Button type="button" variant="secondary" aria-pressed={commitment==="interested"} onClick={()=>setCommitment("interested")}>可以約我</Button></div></fieldset>
+      <div className="mp-time-fields"><FormField label="開始"><select value={start} onChange={e=>changeStart(e.target.value)}>{START_TIMES.map(t=><option key={t} value={t}>{t}</option>)}</select></FormField>
+        <FormField label="結束"><select value={end} onChange={e=>setEnd(e.target.value)}>{endOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></FormField></div>
+      {selectedEnd&&<p className="mp-duration-hint">共 {formatHours(selectedEnd.minutes-startMinutes)} 小時{selectedEnd.minutes>=24*60?"，去到次日":""} · 最長 12 小時，最遲 02:00</p>}
       <FormField label="波房"><select value={venueId} onChange={e=>setVenueId(e.target.value)}><option value="">場地待定</option>{venues.map(v=><option key={v.id} value={v.id}>{v.name} · {v.district}</option>)}</select></FormField>
       {venueId&&<FormField label="場地彈性"><select value={scope} onChange={e=>setScope(e.target.value as typeof scope)}><option value="exact">只去這間波房</option><option value="district">同區都可以</option><option value="any_hk">全港都可以</option></select></FormField>}
-      <fieldset><legend>今晚想點打？</legend><div className="mp-choices">{presets.map(p=><Button key={p.id} type="button" variant="secondary" aria-pressed={preset===p.id} onClick={()=>setPreset(p.id)}>{p.label}<small>{GROUP_PRESETS[p.id].minPlayers}–{GROUP_PRESETS[p.id].maxPlayers} 人</small></Button>)}</div></fieldset>
-      <fieldset><legend>狀態</legend><div className="mp-choices"><Button type="button" variant="secondary" aria-pressed={commitment==="going"} onClick={()=>setCommitment("going")}>找緊波</Button><Button type="button" variant="secondary" aria-pressed={commitment==="interested"} onClick={()=>setCommitment("interested")}>可以約我</Button></div></fieldset>
-      <details><summary>更多偏好</summary><div className="mp-advanced"><FormField label="水平"><select value={conditions.levelPreference??"similar"} onChange={e=>setConditions({...conditions,levelPreference:e.target.value as "similar"|"any",levelStrict:false})}><option value="similar">相近優先，自動擴闊</option><option value="any">都可以</option></select></FormField>
+      <fieldset><legend>{date===hkDate()?"今晚":"嗰日"}想點打？</legend><div className="mp-choices">{presets.map(p=><Button key={p.id} type="button" variant="secondary" aria-pressed={preset===p.id} onClick={()=>setPreset(p.id)}>{p.label}<small>{GROUP_PRESETS[p.id].minPlayers}–{GROUP_PRESETS[p.id].maxPlayers} 人</small></Button>)}</div></fieldset>
+      <fieldset><legend>更多偏好</legend><div className="mp-advanced"><FormField label="水平"><select value={conditions.levelPreference??"similar"} onChange={e=>setConditions({...conditions,levelPreference:e.target.value as "similar"|"any",levelStrict:false})}><option value="similar">相近優先，自動擴闊</option><option value="any">都可以</option></select></FormField>
         {conditions.levelPreference!=="any"&&<label className="mp-checkbox"><input type="checkbox" checked={conditions.levelStrict??false} onChange={e=>setConditions({...conditions,levelStrict:e.target.checked})}/>只接受相差 100 ELO 內</label>}
         <label className="mp-checkbox"><input type="checkbox" checked={conditions.handicap??false} onChange={e=>setConditions({...conditions,handicap:e.target.checked})}/>接受讓分</label><label className="mp-checkbox"><input type="checkbox" checked={conditions.noSmoking??false} onChange={e=>setConditions({...conditions,noSmoking:e.target.checked})}/>需要禁煙</label>
         <FormField label="費用"><select value={conditions.feePreference??"any"} onChange={e=>setConditions({...conditions,feePreference:e.target.value as "aa"|"any"})}><option value="aa">AA</option><option value="any">都可以</option></select></FormField>
-        <FormField label="節奏"><select value={conditions.tempo??"any"} onChange={e=>setConditions({...conditions,tempo:e.target.value as "sport"|"casual"|"any"})}><option value="sport">競技</option><option value="casual">休閒</option><option value="any">都可以</option></select></FormField></div></details>
-    </fieldset><p>停止公開空檔不會退出已加入的安排。去不到時，請在「我的安排」退出。</p><Button type="submit" loading={busy}>開始找球友</Button>
+        <FormField label="節奏"><select value={conditions.tempo??"any"} onChange={e=>setConditions({...conditions,tempo:e.target.value as "sport"|"casual"|"any"})}><option value="sport">競技</option><option value="casual">休閒</option><option value="any">都可以</option></select></FormField></div></fieldset>
+    </fieldset>
+    <div className="mp-summary"><b>{hkDayLabel(date)} · {start}–{end}{selectedEnd&&selectedEnd.minutes>=24*60?"（次日）":""}</b><span>{venueName} · {groupLabel} · {commitment==="going"?"找緊波":"可以約我"}</span></div>
+    <p>停止公開空檔不會退出已加入的安排。去不到時，請在「我的安排」退出。</p><Button type="submit" loading={busy}>{slot?"儲存修改":"開始找球友"}</Button>
   </form></Sheet>;
 }

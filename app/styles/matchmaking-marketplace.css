@@ -49,9 +49,10 @@
   .mp-arrangement, .mp-own-slot { padding: var(--sp-5); border-radius: var(--radius-md); box-shadow: var(--ds-shadow-resting); transition: box-shadow var(--ds-duration-standard) var(--ds-ease-standard), border-color var(--ds-duration-standard) var(--ds-ease-standard); }
   .mp-arrangement:hover, .mp-own-slot:hover { box-shadow: var(--ds-shadow-floating); }
   .mp-arrangement h3, .mp-own-slot h3 { margin-top: var(--sp-2); }
-  .mp-composer summary { cursor: pointer; min-height: var(--control-lg); font-size: var(--fs-body); font-weight: 700; padding-inline: var(--sp-3-5); padding-block: var(--sp-3); border-radius: var(--radius-sm); transition: background var(--ds-duration-fast) var(--ds-ease-standard); }
-  .mp-composer summary:hover { background: var(--ds-surface-secondary); }
-  .mp-composer details { border: 1px solid var(--ds-border-subtle); border-radius: var(--radius-md); overflow: hidden; }
+  .mp-duration-hint { font-size: var(--fs-caption); color: var(--ds-text-secondary); margin-top: calc(-1 * var(--sp-2)); }
+  .mp-summary { display: grid; gap: var(--sp-1); padding: var(--sp-4); background: var(--ds-surface-secondary); border: 1px solid var(--ds-border-subtle); border-radius: var(--radius-md); }
+  .mp-summary b { font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
+  .mp-summary span { font-size: var(--fs-caption); color: var(--ds-text-secondary); }
   .mp-composer { display: grid; gap: var(--sp-4-5); }
   .mp-composer fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: var(--sp-4); }
   .mp-composer legend { font-size: var(--fs-label); font-weight: 800; letter-spacing: .04em; color: var(--ds-text-secondary); margin-bottom: var(--sp-2); }
