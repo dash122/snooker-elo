@@ -1,10 +1,22 @@
 "use client";
 import {useCallback,useEffect,useRef,useState,type FormEvent} from "react";
-import {Button,ButtonLink,Chip,EmptyState,FormField,InlineNotice,Skeleton,Surface} from "./components/ui/Primitives";
+import {Button,ButtonLink,Chip,EmptyState,FormField,IconButton,InlineNotice,Skeleton,Surface} from "./components/ui/Primitives";
 import {Sheet} from "./components/ui/Overlay";
-import {addDaysHongKong,availabilityEndTimes,availabilityStartTimes,composeAvailabilityInterval,hkClock,hkDate,hkDayLabel,nextAvailabilityStart} from "../lib/availability";
+import {addDaysHongKong,availabilityEndTimes,availabilityStartTimes,composeAvailabilityInterval,hkClock,hkDate,hkDayLabel,nextAvailabilityStart,nowInterval} from "../lib/availability";
 import {GROUP_PRESETS,type MarketplaceDashboard,type SessionView,type Supply,type MatchConditions} from "../lib/matchmaking-marketplace";
 import {trackAvailabilityEvent} from "../lib/availability-analytics";
+
+/* Avatars stand in for photos we don't have: initials on a colour picked deterministically from the
+   player id, so the same person always reads the same colour across a session without a lookup. */
+const AVATAR_TONES=[{bg:"var(--ds-accent-action)",fg:"var(--ds-text-on-danger)"},{bg:"var(--ds-accent-primary)",fg:"var(--ds-text-on-accent)"},{bg:"var(--ds-info)",fg:"var(--ds-text-on-danger)"},{bg:"var(--ds-chart-primary)",fg:"var(--ds-text-on-danger)"}] as const;
+function avatarTone(id:string){let h=0;for(const c of id)h=(h*31+c.charCodeAt(0))>>>0;return AVATAR_TONES[h%AVATAR_TONES.length];}
+function initials(name:string){return [...name.trim()][0]?.toUpperCase()??"?";}
+function Avatar({id,name,size=42,dot}:{id:string;name:string;size?:number;dot?:"going"|"open"|"pending"}){
+  const tone=avatarTone(id);
+  return <span className="mp-avatar" style={{width:size,height:size,fontSize:size*.34,background:tone.bg,color:tone.fg}}>{initials(name)}{dot&&<i className={`mp-avatar-dot ${dot}`} aria-hidden="true"/>}</span>;
+}
+const ArrowIcon=()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12h16M13 5l7 7-7 7"/></svg>;
+const CheckIcon=()=><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5"/></svg>;
 
 type Props={onPlayer?:(id:string)=>void;onRecord?:(id:string)=>void;onActivity?:()=>void;target?:{id:string;name:string;rating:number|null}|null;onTargetConsumed?:()=>void;onRecordSession?:(opponentId:string,sessionId:string,date:string)=>void};
 const endpoint="/api/matchmaking/marketplace";
@@ -62,9 +74,14 @@ export default function MatchmakingMarketplace(props:Props){
   const visible=data.availability.filter(a=>(!targetId||a.playerId===targetId)&&(!filter||a.venueId===filter||data.venues.find(v=>v.id===a.venueId)?.district===filter));
   const mine=data.mine.filter(a=>hkDate(new Date(a.startAt))===date);
   function needSlot(){if(!mine.length){setComposer({active:true});setMessage("先公開你的空檔，再選擇加入或邀請球友。");return true;}return false;}
+  async function quickFreeNow(){
+    setDate(hkDate());
+    await act("publish",{...nowInterval(240),...GROUP_PRESETS.singles,venueId:null,venueScope:"any_hk",commitment:"going",
+      conditions:{levelPreference:"similar",handicap:true,feePreference:"aa",tempo:"any"}},"已公開，球友宜家可以搵到你。");
+  }
   return <section className="mp-page" aria-label="約戰">
-    <Surface tone="featured" className="mp-hero"><div><h1>搵球友，約場波。</h1><p>公開空檔，搵合適球友。一齊加入，就可以成局。</p></div>
-      {data.viewerId?<div className="mp-actions"><Button variant="featured" onClick={()=>setComposer({active:true})}>開始找波</Button><Button variant="secondary" onClick={()=>setComposer({active:false})}>公開其他空檔</Button></div>
+    <Surface tone="featured" className="mp-hero"><div><h1>搵球友，約場波。</h1><p>而家得閒？一鍵公開，球友即刻搵到你。</p></div>
+      {data.viewerId?<div className="mp-actions"><Button variant="featured" disabled={busy} onClick={()=>void quickFreeNow()}>而家得閒</Button><Button variant="secondary" onClick={()=>setComposer({active:true})}>揀時間同場地</Button></div>
         :<ButtonLink href={data.signedIn?"/account":"/login"}>{data.signedIn?"連結球員檔案":"登入約戰"}</ButtonLink>}
     </Surface>
     <nav className="mp-dates" aria-label="未來七日">{data.dates.map(d=><Button disabled={busy} key={d.date} variant="quiet" aria-pressed={d.date===date} onClick={()=>{setDate(d.date);setTargetId(null);}}>
@@ -73,49 +90,74 @@ export default function MatchmakingMarketplace(props:Props){
     {message&&<InlineNotice tone="success" title="約戰更新">{message}{undoAvoid&&<Button variant="quiet" disabled={busy} onClick={async()=>{if(await act("unavoid",{playerId:undoAvoid},"已恢復推薦。"))setUndoAvoid(null);}}>復原不再推薦</Button>}</InlineNotice>}
     {data.date!==date?<p role="status">正在載入所選日期…</p>:!data.signedIn?<EmptyState title="登入後睇有空的球友" description="公開空檔只供已登入會員瀏覽。你可以先睇未來七日有幾多人想打波。"/>:<>
       {data.opportunities.length>0&&<section className="mp-section" aria-labelledby="mp-opportunities"><div className="mp-section-head"><div><h2 id="mp-opportunities">為你推薦</h2><p>按共同時間、場地及偏好，搵到啱你的局。</p></div></div>
-        <div className="mp-opportunities">{data.opportunities.map(o=><Surface key={o.key} as="article" className="mp-opportunity">
-            <Chip tone={o.sessionId?"success":"neutral"}>{o.sessionId?"已有球友加入":"可以約成"}</Chip>
-            <h3>{timeLabel(o)}</h3><p>{venue(o.venueId)} · {rangeLabel(o)}</p>
-            <p>{o.acceptedPlayers.length?`${o.acceptedPlayers.map(p=>p.name).join("、")} · ${o.acceptedPlayers.length} 人已加入`:`${o.compatibleCount} 位球友時間合適，尚未答應`}</p>
-            <p className="mp-hints">{o.hints.join(" · ")}</p>
-            <Button disabled={busy} onClick={()=>void act(o.sessionId?"join":"create",o.sessionId?{id:o.sessionId,slotId:o.slotId}:{key:o.key,slotId:o.slotId},"你已加入，其他球友可稍後回覆。")}>{o.sessionId?"加入":"有興趣"}</Button>
-          </Surface>)}</div>
+        <div className="mp-list">{data.opportunities.map(o=><div key={o.key} className="mp-group">
+            <div className="mp-item">
+              {o.acceptedPlayers.length
+                ?<div className="mp-stack">{o.acceptedPlayers.slice(0,3).map(p=><Avatar key={p.id} id={p.id} name={p.name} size={40}/>)}</div>
+                :<Avatar id={o.key} name="?" size={40}/>}
+              <div className="mp-item-main">
+                <div className="mp-item-top"><b>{o.sessionId?"已有球友加入":"可以約成"}</b><span className="mp-item-time">{timeLabel(o)}</span></div>
+                <div className="mp-item-sub"><span>{venue(o.venueId)} · {rangeLabel(o)}</span></div>
+              </div>
+            </div>
+            <p className="mp-compat"><CheckIcon/>{o.acceptedPlayers.length?`${o.acceptedPlayers.map(p=>p.name).join("、")} 已加入`:`${o.compatibleCount} 位球友時間合適，尚未答應`}</p>
+            <div className="mp-cta-row"><Button disabled={busy} onClick={()=>void act(o.sessionId?"join":"create",o.sessionId?{id:o.sessionId,slotId:o.slotId}:{key:o.key,slotId:o.slotId},"你已加入，其他球友可稍後回覆。")}>{o.sessionId?"加入":"有興趣"}</Button></div>
+          </div>)}</div>
       </section>}
       <section className="mp-section" aria-labelledby="mp-people"><div className="mp-section-head"><h2 id="mp-people">{hkDayLabel(date)}有空的人</h2>
         <FormField label="場地／地區"><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">全部</option>{[...new Set(data.venues.map(v=>v.district).filter(Boolean))].map(d=><option key={d}>{d}</option>)}{data.venues.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></FormField></div>
         {targetId&&<Button variant="quiet" onClick={()=>setTargetId(null)}>返回所有球友</Button>}
-        {!visible.length?<EmptyState title="未有球友公開空檔" description="試試另一日，或者先公開你的時間。"/>:<div className="mp-opportunities">{visible.map(a=>{
+        {!visible.length?<EmptyState title="未有球友公開空檔" description="試試另一日，或者先公開你的時間。"/>:<div className="mp-group">{visible.map(a=>{
           const isSelf=a.playerId===data.viewerId;
-          return <Surface as="article" key={a.id} className={`mp-opportunity mp-player-card${isSelf?" mp-player-card-self":""}`}>
-          <Chip tone={a.commitment==="going"?"success":"neutral"}>{a.commitment==="going"?"找緊波":"可以約我"}</Chip>
-          <h3>{isSelf?a.player.name:<Button variant="quiet" className="mp-player-name" onClick={()=>props.onPlayer?.(a.playerId)}>{a.player.name}</Button>}{isSelf&&<Chip tone="accent">你自己</Chip>}</h3>
-          <p>ELO {Math.round(a.player.rating)} · {timeLabel(a)}</p>
-          <p>{venue(a.venueId)} · {rangeLabel(a)}</p>
-          <p className="mp-hints">{a.venueScope==="district"?"同區都可以":a.venueScope==="any_hk"?"全港都可以":"指定波房"}</p>
+          return <div className={`mp-item${isSelf?" mp-item-self":""}`} key={a.id}>
+          <Avatar id={a.playerId} name={a.player.name} dot={a.commitment==="going"?"going":"open"}/>
+          <div className="mp-item-main">
+            <div className="mp-item-top">
+              <b>{isSelf?`${a.player.name}（你自己）`:<Button variant="quiet" className="mp-player-name" onClick={()=>props.onPlayer?.(a.playerId)}>{a.player.name}</Button>}</b>
+              <span className="mp-item-time">{timeLabel(a)}</span>
+            </div>
+            <div className="mp-item-sub">
+              <span className={`mp-status-word${a.commitment==="going"?" going":""}`}>{a.commitment==="going"?"找緊波":"可以約我"}</span>
+              <span>· <span className="mp-rating">{Math.round(a.player.rating)}<small>ELO</small></span> · {venue(a.venueId)}</span>
+            </div>
+          </div>
           {isSelf?<Button variant="quiet" disabled={busy} onClick={()=>setComposer({slot:a,active:a.commitment==="going"})}>修改</Button>
-            :data.viewerId&&<div className="mp-actions"><Button disabled={busy} onClick={()=>{if(!needSlot())setInviting(a);}}>約 {a.player.name}</Button>
-            <Button variant="quiet" disabled={busy} onClick={async()=>{if(await act("avoid",{playerId:a.playerId},"已停止推薦這位球員；對方不會收到通知。"))setUndoAvoid(a.playerId);}}>不再推薦</Button></div>}
-          </Surface>;})}</div>}
+            :data.viewerId&&<div className="mp-item-actions">
+              <IconButton label={`約 ${a.player.name}`} className="mp-icon-btn primary" disabled={busy} onClick={()=>{if(!needSlot())setInviting(a);}}><ArrowIcon/></IconButton>
+              <Button variant="quiet" disabled={busy} onClick={async()=>{if(await act("avoid",{playerId:a.playerId},"已停止推薦這位球員；對方不會收到通知。"))setUndoAvoid(a.playerId);}}>不再推薦</Button>
+            </div>}
+          </div>;})}</div>}
       </section>
       {data.viewerId&&<section className="mp-section" aria-labelledby="mp-mine"><div className="mp-section-head"><div><h2 id="mp-mine">我的安排</h2><p>回覆邀請、管理空檔，準備下一場對局。</p></div></div>
         {!data.mine.length&&!data.sessions.length&&<EmptyState title="未有安排" description="公開空檔，開始搵球友。"/>}
-        {data.sessions.length>0&&<div className="mp-mine-group"><h3 className="mp-mine-subhead">組局</h3>
-          {data.sessions.map(s=><Surface as="article" key={s.id} className="mp-arrangement" id={`formation-${s.id}`}>
-          <div><Chip tone={s.myStatus==="pending"?"warning":s.status==="forming"?"neutral":"success"}>{s.myStatus==="pending"?"有球友邀請你":statusLabel[s.status]}</Chip>
-            <h3>{hkDayLabel(hkDate(new Date(s.startAt)))} · {timeLabel(s)}</h3><p>{venue(s.venueId)} · {rangeLabel(s)}</p>
-            <p>{s.acceptedPlayers.map(p=>p.name).join("、")} · {s.acceptedPlayers.length}／最少 {s.minPlayers} 人</p>
-            {s.pendingInvitees.length>0&&<small>{s.pendingInvitees.map(p=>p.name).join("、")} · 等待回覆</small>}</div>
-          <div className="mp-actions">{s.myStatus==="pending"?<><Button disabled={busy} onClick={()=>void act("accept",{id:s.id},"已接受邀請。")}>接受邀請</Button><Button variant="quiet" disabled={busy} onClick={()=>void act("decline",{id:s.id},"已回覆今次未能約成。")}>今次唔得</Button></>:<>
-            {s.status!=="completed"&&<><Button variant="secondary" disabled={busy||s.status==="full"} onClick={()=>setInviteSession(s)}>邀請球友</Button><Button variant="quiet" disabled={busy} onClick={()=>void act("leave",{id:s.id},"你已退出，其他球友的安排保留。")}>{s.status==="forming"?"退出":"我去不到"}</Button></>}
+        {data.sessions.length>0&&<div className="mp-list"><h3 className="mp-mine-subhead">組局</h3>
+          {data.sessions.map(s=><div className="mp-group" key={s.id} id={`formation-${s.id}`}>
+          <div className="mp-item">
+            <div className="mp-stack">{s.acceptedPlayers.slice(0,3).map(p=><Avatar key={p.id} id={p.id} name={p.name} size={38}
+              dot={p.id===data.viewerId?(s.myStatus==="pending"?"pending":"going"):undefined}/>)}</div>
+            <div className="mp-item-main">
+              <div className="mp-item-top"><b>{s.acceptedPlayers.map(p=>p.name).join("、")}</b><span className="mp-item-time">{timeLabel(s)}</span></div>
+              <div className="mp-item-sub">
+                <span className={`mp-status-word${s.myStatus==="pending"?" pending":""}`}>{s.myStatus==="pending"?"有球友邀請你":statusLabel[s.status]}</span>
+                <span>· {hkDayLabel(hkDate(new Date(s.startAt)))} · {venue(s.venueId)} · {s.acceptedPlayers.length}／最少 {s.minPlayers} 人</span>
+              </div>
+              {s.pendingInvitees.length>0&&<div className="mp-item-sub"><span>{s.pendingInvitees.map(p=>p.name).join("、")} · 等待回覆</span></div>}
+            </div>
+          </div>
+          <div className="mp-cta-row">{s.myStatus==="pending"?<><Button className="mp-cta-quiet" variant="quiet" disabled={busy} onClick={()=>void act("decline",{id:s.id},"已回覆今次未能約成。")}>今次唔得</Button><Button disabled={busy} onClick={()=>void act("accept",{id:s.id},"已接受邀請。")}>接受邀請</Button></>:<>
+            {s.status!=="completed"&&<><Button className="mp-cta-quiet" variant="quiet" disabled={busy} onClick={()=>void act("leave",{id:s.id},"你已退出，其他球友的安排保留。")}>{s.status==="forming"?"退出":"我去不到"}</Button><Button variant="secondary" disabled={busy||s.status==="full"} onClick={()=>setInviteSession(s)}>邀請球友</Button></>}
             {Date.parse(s.startAt)<=now&&s.acceptedPlayers.filter(p=>p.id!==data.viewerId).map(p=><Button key={p.id} variant="secondary" onClick={()=>props.onRecordSession?props.onRecordSession(p.id,s.id,hkDate(new Date(s.startAt))):props.onRecord?.(p.id)}>記錄對 {p.name} 賽果</Button>)}
           </>}</div>
-          </Surface>)}</div>}
-        {data.mine.length>0&&<div className="mp-mine-group"><h3 className="mp-mine-subhead">你公開的空檔</h3>
-          {data.mine.map(a=><Surface as="article" className="mp-own-slot" key={a.id}>
-          <div><Chip tone={a.commitment==="going"?"success":"neutral"}>{a.commitment==="going"?"找緊波":"可以約我"}</Chip>
-            <h3>{hkDayLabel(hkDate(new Date(a.startAt)))} · {timeLabel(a)}</h3><p>{venue(a.venueId)} · {rangeLabel(a)}</p></div>
-          {a.source==="marketplace"?<div className="mp-actions">{a.commitment==="interested"&&<Button disabled={busy} onClick={()=>void act("activate",{id:a.id},"已開始找波。")}>找緊波</Button>}<Button variant="quiet" disabled={busy} onClick={()=>setComposer({slot:a,active:a.commitment==="going"})}>修改</Button><Button variant="quiet" disabled={busy} onClick={()=>void act("withdraw",{id:a.id},"已停止公開空檔；已加入的安排仍然保留。")}>停止公開</Button></div>:<Chip>原有空檔</Chip>}
-          </Surface>)}</div>}
+          </div>)}</div>}
+        {data.mine.length>0&&<div className="mp-list"><h3 className="mp-mine-subhead">你公開的空檔</h3>
+          <div className="mp-group">{data.mine.map(a=><div className="mp-item" key={a.id}>
+          <Avatar id={a.playerId} name={a.player.name} dot={a.commitment==="going"?"going":"open"}/>
+          <div className="mp-item-main">
+            <div className="mp-item-top"><b>{hkDayLabel(hkDate(new Date(a.startAt)))}</b><span className="mp-item-time">{timeLabel(a)}</span></div>
+            <div className="mp-item-sub"><span className={`mp-status-word${a.commitment==="going"?" going":""}`}>{a.commitment==="going"?"找緊波":"可以約我"}</span><span>· {venue(a.venueId)} · {rangeLabel(a)}</span></div>
+          </div>
+          {a.source==="marketplace"?<div className="mp-item-actions">{a.commitment==="interested"&&<Button disabled={busy} onClick={()=>void act("activate",{id:a.id},"已開始找波。")}>找緊波</Button>}<Button variant="quiet" disabled={busy} onClick={()=>setComposer({slot:a,active:a.commitment==="going"})}>修改</Button><Button variant="quiet" disabled={busy} onClick={()=>void act("withdraw",{id:a.id},"已停止公開空檔；已加入的安排仍然保留。")}>停止公開</Button></div>:<Chip>原有空檔</Chip>}
+          </div>)}</div></div>}
       </section>}
     </>}
     {composer&&<AvailabilityComposer key={composer.slot?.id??"new"} initialDate={date} slot={composer.slot} active={composer.active} venues={data.venues} busy={busy} error={error} onClose={()=>{if(!busy)setComposer(null);}} onSave={async body=>{if(await act(composer.slot?"edit":"publish",body,"已公開空檔，球友可以約你。"))setComposer(null);}}/>}
@@ -161,11 +203,11 @@ function AvailabilityComposer({initialDate,slot,active,venues,busy,error,onClose
       <FormField label="波房"><select value={venueId} onChange={e=>setVenueId(e.target.value)}><option value="">場地待定</option>{venues.map(v=><option key={v.id} value={v.id}>{v.name} · {v.district}</option>)}</select></FormField>
       {venueId&&<FormField label="場地彈性"><select value={scope} onChange={e=>setScope(e.target.value as typeof scope)}><option value="exact">只去這間波房</option><option value="district">同區都可以</option><option value="any_hk">全港都可以</option></select></FormField>}
       <fieldset><legend>{date===hkDate()?"今晚":"嗰日"}想點打？</legend><div className="mp-choices">{presets.map(p=><Button key={p.id} type="button" variant="secondary" aria-pressed={preset===p.id} onClick={()=>setPreset(p.id)}>{p.label}<small>{GROUP_PRESETS[p.id].minPlayers}–{GROUP_PRESETS[p.id].maxPlayers} 人</small></Button>)}</div></fieldset>
-      <fieldset><legend>更多偏好</legend><div className="mp-advanced"><FormField label="水平"><select value={conditions.levelPreference??"similar"} onChange={e=>setConditions({...conditions,levelPreference:e.target.value as "similar"|"any",levelStrict:false})}><option value="similar">相近優先，自動擴闊</option><option value="any">都可以</option></select></FormField>
+      <details><summary className="mp-advanced-toggle">更多偏好（水平、讓分、費用）</summary><div className="mp-advanced"><FormField label="水平"><select value={conditions.levelPreference??"similar"} onChange={e=>setConditions({...conditions,levelPreference:e.target.value as "similar"|"any",levelStrict:false})}><option value="similar">相近優先，自動擴闊</option><option value="any">都可以</option></select></FormField>
         {conditions.levelPreference!=="any"&&<label className="mp-checkbox"><input type="checkbox" checked={conditions.levelStrict??false} onChange={e=>setConditions({...conditions,levelStrict:e.target.checked})}/>只接受相差 100 ELO 內</label>}
         <label className="mp-checkbox"><input type="checkbox" checked={conditions.handicap??false} onChange={e=>setConditions({...conditions,handicap:e.target.checked})}/>接受讓分</label><label className="mp-checkbox"><input type="checkbox" checked={conditions.noSmoking??false} onChange={e=>setConditions({...conditions,noSmoking:e.target.checked})}/>需要禁煙</label>
         <FormField label="費用"><select value={conditions.feePreference??"any"} onChange={e=>setConditions({...conditions,feePreference:e.target.value as "aa"|"any"})}><option value="aa">AA</option><option value="any">都可以</option></select></FormField>
-        <FormField label="節奏"><select value={conditions.tempo??"any"} onChange={e=>setConditions({...conditions,tempo:e.target.value as "sport"|"casual"|"any"})}><option value="sport">競技</option><option value="casual">休閒</option><option value="any">都可以</option></select></FormField></div></fieldset>
+        <FormField label="節奏"><select value={conditions.tempo??"any"} onChange={e=>setConditions({...conditions,tempo:e.target.value as "sport"|"casual"|"any"})}><option value="sport">競技</option><option value="casual">休閒</option><option value="any">都可以</option></select></FormField></div></details>
     </fieldset>
     <div className="mp-summary"><b>{hkDayLabel(date)} · {start}–{end}{selectedEnd&&selectedEnd.minutes>=24*60?"（次日）":""}</b><span>{venueName} · {groupLabel} · {commitment==="going"?"找緊波":"可以約我"}</span></div>
     <p>停止公開空檔不會退出已加入的安排。去不到時，請在「我的安排」退出。</p><Button type="submit" loading={busy}>{slot?"儲存修改":"開始找球友"}</Button>
