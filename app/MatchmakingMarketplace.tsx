@@ -72,28 +72,30 @@ export default function MatchmakingMarketplace(props:Props){
     {error&&<InlineNotice tone="danger" title="未能完成">{error}<Button variant="quiet" onClick={()=>void refresh()}>重新載入</Button></InlineNotice>}
     {message&&<InlineNotice tone="success" title="約戰更新">{message}{undoAvoid&&<Button variant="quiet" disabled={busy} onClick={async()=>{if(await act("unavoid",{playerId:undoAvoid},"已恢復推薦。"))setUndoAvoid(null);}}>復原不再推薦</Button>}</InlineNotice>}
     {data.date!==date?<p role="status">正在載入所選日期…</p>:!data.signedIn?<EmptyState title="登入後睇有空的球友" description="公開空檔只供已登入會員瀏覽。你可以先睇未來七日有幾多人想打波。"/>:<>
-      <section className="mp-section" aria-labelledby="mp-opportunities"><div className="mp-section-head"><div><h2 id="mp-opportunities">為你推薦</h2><p>按共同時間、場地及偏好，搵到啱你的局。</p></div></div>
-        {!data.opportunities.length?<EmptyState title={mine.length?"暫時未有合適組合":"先公開空檔，搵合適組合"} description={mine.length?"你的空檔仍然公開。可以睇吓有空的人，或擴闊時間、場地和人數偏好。":"下方可以直接睇有空的球友；公開自己的時間後，就會有適合你的約戰建議。"}/>
-          :<div className="mp-opportunities">{data.opportunities.map(o=><Surface key={o.key} as="article" className="mp-opportunity">
+      {data.opportunities.length>0&&<section className="mp-section" aria-labelledby="mp-opportunities"><div className="mp-section-head"><div><h2 id="mp-opportunities">為你推薦</h2><p>按共同時間、場地及偏好，搵到啱你的局。</p></div></div>
+        <div className="mp-opportunities">{data.opportunities.map(o=><Surface key={o.key} as="article" className="mp-opportunity">
             <Chip tone={o.sessionId?"success":"neutral"}>{o.sessionId?"已有球友加入":"可以約成"}</Chip>
             <h3>{timeLabel(o)}</h3><p>{venue(o.venueId)} · {rangeLabel(o)}</p>
             <p>{o.acceptedPlayers.length?`${o.acceptedPlayers.map(p=>p.name).join("、")} · ${o.acceptedPlayers.length} 人已加入`:`${o.compatibleCount} 位球友時間合適，尚未答應`}</p>
             <p className="mp-hints">{o.hints.join(" · ")}</p>
             <Button disabled={busy} onClick={()=>void act(o.sessionId?"join":"create",o.sessionId?{id:o.sessionId,slotId:o.slotId}:{key:o.key,slotId:o.slotId},"你已加入，其他球友可稍後回覆。")}>{o.sessionId?"加入":"有興趣"}</Button>
-          </Surface>)}</div>}
-      </section>
+          </Surface>)}</div>
+      </section>}
       <section className="mp-section" aria-labelledby="mp-people"><div className="mp-section-head"><h2 id="mp-people">{hkDayLabel(date)}有空的人</h2>
         <FormField label="場地／地區"><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="">全部</option>{[...new Set(data.venues.map(v=>v.district).filter(Boolean))].map(d=><option key={d}>{d}</option>)}{data.venues.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select></FormField></div>
         {targetId&&<Button variant="quiet" onClick={()=>setTargetId(null)}>返回所有球友</Button>}
-        {!visible.length?<EmptyState title="未有球友公開空檔" description="試試另一日，或者先公開你的時間。"/>:<Surface padded={false} className="mp-people">{visible.map(a=>{
+        {!visible.length?<EmptyState title="未有球友公開空檔" description="試試另一日，或者先公開你的時間。"/>:<div className="mp-opportunities">{visible.map(a=>{
           const isSelf=a.playerId===data.viewerId;
-          return <div className={`mp-player${isSelf?" mp-player-self":""}`} key={a.id}>
-          <div><div className="mp-player-identity">{isSelf?<span className="mp-player-name">{a.player.name}</span>:<Button variant="quiet" className="mp-player-name" onClick={()=>props.onPlayer?.(a.playerId)}>{a.player.name}</Button>}<span>ELO {Math.round(a.player.rating)}</span>{isSelf&&<Chip tone="accent">你自己</Chip>}</div><p>{timeLabel(a)} · {venue(a.venueId)}</p><small>{rangeLabel(a)} · {a.venueScope==="district"?"同區都可以":a.venueScope==="any_hk"?"全港都可以":"指定波房"}</small></div>
-          <div className="mp-player-actions"><Chip tone={a.commitment==="going"?"success":"neutral"}>{a.commitment==="going"?"找緊波":"可以約我"}</Chip>
-            {isSelf?<Button variant="quiet" disabled={busy} onClick={()=>setComposer({slot:a,active:a.commitment==="going"})}>修改</Button>
-              :data.viewerId&&<><Button disabled={busy} onClick={()=>{if(!needSlot())setInviting(a);}}>約 {a.player.name}</Button>
-              <Button variant="quiet" disabled={busy} onClick={async()=>{if(await act("avoid",{playerId:a.playerId},"已停止推薦這位球員；對方不會收到通知。"))setUndoAvoid(a.playerId);}}>不再推薦</Button></>}
-          </div></div>;})}</Surface>}
+          return <Surface as="article" key={a.id} className={`mp-opportunity mp-player-card${isSelf?" mp-player-card-self":""}`}>
+          <Chip tone={a.commitment==="going"?"success":"neutral"}>{a.commitment==="going"?"找緊波":"可以約我"}</Chip>
+          <h3>{isSelf?a.player.name:<Button variant="quiet" className="mp-player-name" onClick={()=>props.onPlayer?.(a.playerId)}>{a.player.name}</Button>}{isSelf&&<Chip tone="accent">你自己</Chip>}</h3>
+          <p>ELO {Math.round(a.player.rating)} · {timeLabel(a)}</p>
+          <p>{venue(a.venueId)} · {rangeLabel(a)}</p>
+          <p className="mp-hints">{a.venueScope==="district"?"同區都可以":a.venueScope==="any_hk"?"全港都可以":"指定波房"}</p>
+          {isSelf?<Button variant="quiet" disabled={busy} onClick={()=>setComposer({slot:a,active:a.commitment==="going"})}>修改</Button>
+            :data.viewerId&&<div className="mp-actions"><Button disabled={busy} onClick={()=>{if(!needSlot())setInviting(a);}}>約 {a.player.name}</Button>
+            <Button variant="quiet" disabled={busy} onClick={async()=>{if(await act("avoid",{playerId:a.playerId},"已停止推薦這位球員；對方不會收到通知。"))setUndoAvoid(a.playerId);}}>不再推薦</Button></div>}
+          </Surface>;})}</div>}
       </section>
       {data.viewerId&&<section className="mp-section" aria-labelledby="mp-mine"><div className="mp-section-head"><div><h2 id="mp-mine">我的安排</h2><p>回覆邀請、管理空檔，準備下一場對局。</p></div></div>
         {!data.mine.length&&!data.sessions.length&&<EmptyState title="未有安排" description="公開空檔，開始搵球友。"/>}
