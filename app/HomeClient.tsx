@@ -78,6 +78,7 @@ type Match = {
 type Tournament = {
   id: string;
   name: string;
+  format?: "single" | "double";
   handicapMode: "suggested" | "none";
   startAt?: string | null;
   signupDeadline: string;
@@ -681,7 +682,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   // Primitive, so the state loader's dependency list can name it without the prop's identity
   // re-triggering a full club refetch on every parent render.
   const signedIn=Boolean(user);
-  const [tournamentForm,setTournamentForm] = useState<{name:string;handicapMode:"suggested"|"none";startAt:string;signupDeadline:string;coHosts:string[]}>({name:"",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});
+  const [tournamentForm,setTournamentForm] = useState<{name:string;format:"single"|"double";handicapMode:"suggested"|"none";startAt:string;signupDeadline:string;coHosts:string[]}>({name:"",format:"single",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});
   const canManageMatch=(match:Match)=>Boolean(isAdmin||ownPlayerId&&isParticipant(match,ownPlayerId));
   const canManageCup=(tournament:Tournament)=>canManageTournament(tournament,ownPlayerId,Boolean(isAdmin));
   const canManageCupHosts=(tournament:Tournament)=>Boolean(isAdmin||isTournamentHost(tournament,ownPlayerId));
@@ -1405,7 +1406,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {tab==="leaderboard"&&!user&&<GuestIntro onNavigate={goTab}/>}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
       {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
-      {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
+      {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",format:"single",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,format:tournament.format??"single",handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>
       {/* Public availability, recommendations and arrangements share one marketplace flow. */}
       {tab==="availability"&&<MatchmakingMarketplace onRecordSession={(opponentId,sessionId,date)=>{newMatch("1v1",opponentId,date);marketplaceOrigin.current=sessionId;}} key={ownPlayerId??"guest"} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} managementMode={Boolean(isAdmin&&managementMode)} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast("只有管理員可以新增球員。");return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
@@ -1453,7 +1454,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
                  new deadline passes. Recorded results are left alone — deleting them is the ✕. */
               const reopening=Boolean(editingTournament?.draw?.length)&&!signupsClosed({signupDeadline:tournamentForm.signupDeadline});
               const commit=()=>{
-                const tournament: Tournament = {id,name:tournamentForm.name.trim(),handicapMode:tournamentForm.handicapMode,startAt:tournamentForm.startAt,signupDeadline:tournamentForm.signupDeadline,createdAt:editingTournament?.createdAt??now,createdBy:editingTournament?.createdBy??ownPlayerId,coHosts:editingTournament?(canManageCupHosts(editingTournament)?tournamentForm.coHosts:editingTournament.coHosts??[]):tournamentForm.coHosts,signups:editingTournament?.signups??[],
+                const tournament: Tournament = {id,name:tournamentForm.name.trim(),format:tournamentForm.format,handicapMode:tournamentForm.handicapMode,startAt:tournamentForm.startAt,signupDeadline:tournamentForm.signupDeadline,createdAt:editingTournament?.createdAt??now,createdBy:editingTournament?.createdBy??ownPlayerId,coHosts:editingTournament?(canManageCupHosts(editingTournament)?tournamentForm.coHosts:editingTournament.coHosts??[]):tournamentForm.coHosts,signups:editingTournament?.signups??[],
                   draw:reopening?undefined:editingTournament?.draw,drawnAt:reopening?undefined:editingTournament?.drawnAt,rosterOrder:reopening?undefined:editingTournament?.rosterOrder,walkovers:reopening?undefined:editingTournament?.walkovers,arrivalTimes:editingTournament?.arrivalTimes};
                 const tournaments = editingTournament? data.tournaments.map(t=>t.id===id?tournament:t) : [tournament,...data.tournaments];
                 const next={...data,tournaments,audits:[{id:crypto.randomUUID(),text:`${editingTournament?"更新":"建立"} 盃賽：${tournament.name}`,at:now},...data.audits]};
@@ -1463,6 +1464,11 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
               else commit();
             }}>
               <label>盃賽名稱<input type="text" value={tournamentForm.name} onChange={e=>setTournamentForm({...tournamentForm,name:e.target.value})} required/></label>
+              <label>賽制<select value={tournamentForm.format} onChange={e=>setTournamentForm({...tournamentForm,format:e.target.value as "single"|"double"})}>
+                <option value="single">單敗淘汰（現有賽制）</option>
+                <option value="double">雙敗淘汰（勝者組 + 敗者組 + 總決賽）</option>
+              </select></label>
+              {tournamentForm.format==="double"&&<p className="mm-note">雙敗淘汰：每位球員先進入勝者組，輸一場會轉到敗者組；敗者組再輸一場才會被淘汰，最後勝者組冠軍對敗者組冠軍決定總冠軍。</p>}
               <label>讓分模式<select value={tournamentForm.handicapMode} onChange={e=>setTournamentForm({...tournamentForm,handicapMode:e.target.value as "suggested"|"none"})}><option value="suggested">建議讓分（系統會自動套用建議）</option><option value="none">不設讓分</option></select></label>
               <label>盃賽開始日期及時間<input type="datetime-local" value={tournamentForm.startAt} onChange={e=>setTournamentForm({...tournamentForm,startAt:e.target.value})} required/></label>
               <label>報名截止日期及時間<input type="datetime-local" value={tournamentForm.signupDeadline} onChange={e=>setTournamentForm({...tournamentForm,signupDeadline:e.target.value})} required/></label>

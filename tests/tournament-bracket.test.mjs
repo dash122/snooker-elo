@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bracketShape, buildBracket, computeDraw, firstRoundPairings, formatTournamentDateTime, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, randomizeDraw, reorderDraw, roundLabel, shuffleDraw, signupsClosed, swapPlayer } from "../lib/tournament.ts";
+import { bracketShape, buildBracket, computeDraw, doubleEliminationRounds, firstRoundPairings, formatTournamentDateTime, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, randomizeDraw, reorderDraw, roundLabel, shuffleDraw, signupsClosed, swapPlayer } from "../lib/tournament.ts";
 
 const PAST = "2020-01-01T00:00";
 const FUTURE = "2999-01-01T00:00";
@@ -43,6 +43,29 @@ test("round labels count backwards from the final", () => {
   assert.equal(roundLabel(3, 3), "決賽");
   assert.equal(roundLabel(2, 3), "四強");
   assert.equal(roundLabel(1, 3), "八強");
+});
+
+test("double elimination uses a winners bracket and losers bracket for six and seven entrants", () => {
+  assert.deepEqual(doubleEliminationRounds(6), [
+    { bracket: "winner", round: 1, matches: 3 },
+    { bracket: "winner", round: 2, matches: 2 },
+    { bracket: "winner", round: 3, matches: 1 },
+    { bracket: "loser", round: 1, matches: 3 },
+    { bracket: "loser", round: 2, matches: 2 },
+    { bracket: "loser", round: 3, matches: 2 },
+    { bracket: "loser", round: 4, matches: 1 },
+    { bracket: "grand-final", round: 1, matches: 1 },
+  ]);
+  assert.deepEqual(doubleEliminationRounds(7), [
+    { bracket: "winner", round: 1, matches: 4 },
+    { bracket: "winner", round: 2, matches: 2 },
+    { bracket: "winner", round: 3, matches: 1 },
+    { bracket: "loser", round: 1, matches: 4 },
+    { bracket: "loser", round: 2, matches: 2 },
+    { bracket: "loser", round: 3, matches: 2 },
+    { bracket: "loser", round: 4, matches: 1 },
+    { bracket: "grand-final", round: 1, matches: 1 },
+  ]);
 });
 
 test("the pre-freeze draw preview is stable and drops duplicate sign-ups", () => {

@@ -11,6 +11,7 @@ export type Walkover = { round:number; index:number; winner:string; reason?:stri
 export type TournamentLike = {
   id:string;
   name:string;
+  format?:"single"|"double";
   startAt?:string|null;
   createdBy?:string;
   signupDeadline:string;
@@ -151,6 +152,22 @@ export function bracketShape(entrants:number):{size:number;rounds:number} {
   if(entrants<2)return {size:0,rounds:0};
   const size=2**Math.ceil(Math.log2(entrants));
   return {size,rounds:Math.log2(size)};
+}
+
+export function doubleEliminationRounds(entrants:number):{bracket:"winner"|"loser"|"grand-final";round:number;matches:number}[] {
+  if(entrants<2)return [];
+  const size=2**Math.ceil(Math.log2(entrants));
+  const winnerRounds=Math.max(1,Math.log2(size));
+  const roundsList:{bracket:"winner"|"loser"|"grand-final";round:number;matches:number}[] = [];
+  for(let round=1; round<=winnerRounds; round++){
+    roundsList.push({bracket:"winner",round,matches:Math.ceil(entrants / 2**round)});
+  }
+  for(let round=1; round<=winnerRounds+1; round++){
+    const matches = round===1 ? Math.ceil(entrants / 2) : round===winnerRounds+1 ? 1 : 2;
+    roundsList.push({bracket:"loser",round,matches});
+  }
+  roundsList.push({bracket:"grand-final",round:1,matches:1});
+  return roundsList;
 }
 
 /** Lays `order` out across `size` bracket boxes so byes split as evenly as possible between the two
