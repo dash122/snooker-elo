@@ -427,3 +427,60 @@ export function currentRoundLabel(bracket:Bracket|null|undefined):string {
   const live=bracket.slots.find(slot=>slot.state==="ready"||slot.state==="waiting");
   return roundLabel(live?.round??bracket.rounds,bracket.rounds);
 }
+
+/** Add one entrant to a frozen draw, or take one out of it — the two roster adjustments `swapPlayer`
+ *  cannot express.
+ *
+ *  A swap keeps the field the same size: it needs a name to put in and a name to take out. What a
+ *  host actually runs into on the day is one-sided — somebody signs up after the draw was frozen and
+ *  there is nobody to displace, or a withdrawal leaves the field one short and no reserve is willing
+ *  to take the box. Before this, the only answers were a reshuffle (which re-pairs everyone) or
+ *  leaving a late signup out of the cup entirely.
+ *
+ *  Both edit `draw` directly and let `bracketShape`/`seedPositions` re-lay the field, which is why
+ *  both are refused once any tie in the cup has a result: adding a name grows the bracket and
+ *  moves every box, and removing one closes the gap behind it. Past that point the tools that do
+ *  not disturb settled boxes are the right ones — `swapPlayer` for a substitution, a walkover for a
+ *  no-show. The sign-up deadline is checked for the same reason `reorderDraw` checks it: `drawOrder`
+ *  falls back to `computeDraw` when nothing is frozen, so editing an undrawn cup would freeze it
+ *  early and strand anyone who signs up afterwards. */
+export function addEntrant(tournament:TournamentLike,playerId:string,matches:CupMatchLike[]=[]):ShuffleResult {
+  if(!playerId)return {ok:false,error:"需要球員"};
+  if(!signupsClosed(tournament))return {ok:false,error:"報名尚未截止，未能調整參賽名單"};
+  const draw=drawOrder(tournament);
+  if(draw.includes(playerId))return {ok:false,error:"該球員已在籤表內"};
+  if(cupMatches(matches,tournament.id).length)return {ok:false,error:"已有賽果，不能加入球員；可改為替換名單上的球員"};
+  const signups=[...new Set(tournament.signups??[])];
+  if(!signups.includes(playerId))signups.push(playerId);
+  return {ok:true,tournament:{...tournament,signups,draw:[...draw,playerId],drawnAt:tournament.drawnAt??new Date().toISOString()}};
+}
+
+/** Take one entrant out of a frozen draw. See `addEntrant` for why both are refused after a result.
+ *
+ *  A player who signed up after the freeze is a different case: they were never in the bracket, so
+ *  dropping them moves nobody's box and stays allowed whatever the cup's state. Their walkovers and
+ *  arrival time leave with them — `buildBracket` ignores a walkover declared for a player no longer
+ *  in the slot, but a stale entry left behind would hand a tie back if they were ever added again. */
+export function removeEntrant(tournament:TournamentLike,playerId:string,matches:CupMatchLike[]=[]):ShuffleResult {
+  if(!playerId)return {ok:false,error:"需要球員"};
+  const draw=drawOrder(tournament);
+  const drop=(next:TournamentLike):TournamentLike=>{
+    const arrivalTimes=tournament.arrivalTimes?Object.fromEntries(Object.entries(tournament.arrivalTimes).filter(([id])=>id!==playerId)):tournament.arrivalTimes;
+    return {
+      ...next,
+      signups:(tournament.signups??[]).filter(id=>id!==playerId),
+      ...(tournament.rosterOrder?{rosterOrder:tournament.rosterOrder.filter(id=>id!==playerId)}:{}),
+      ...(tournament.walkovers?{walkovers:tournament.walkovers.filter(item=>item.winner!==playerId)}:{}),
+      ...(tournament.arrivalTimes?{arrivalTimes}:{}),
+    };
+  };
+  /* Not in the bracket at all — a signup that landed after the freeze. Nothing to re-lay. */
+  if(!draw.includes(playerId)){
+    if(!(tournament.signups??[]).includes(playerId))return {ok:false,error:"該球員不在名單內"};
+    return {ok:true,tournament:drop(tournament)};
+  }
+  if(!signupsClosed(tournament))return {ok:false,error:"報名尚未截止，未能調整參賽名單"};
+  if(draw.length<=2)return {ok:false,error:"移除後不足兩人，不能移除球員"};
+  if(cupMatches(matches,tournament.id).length)return {ok:false,error:"已有賽果，不能移除球員；可改為判定對手晉級"};
+  return {ok:true,tournament:drop({...tournament,draw:draw.filter(id=>id!==playerId),drawnAt:tournament.drawnAt??new Date().toISOString()})};
+}
