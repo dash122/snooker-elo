@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type TouchEvent as ReactTouchEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
 import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import MatchmakingMarketplace from "./MatchmakingMarketplace";
 import GuestIntro from "./GuestIntro";
@@ -1294,7 +1294,18 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       if(drawn){
         const precheck=swapPlayer(tournament,outgoingId,incomingId,data.matches);
         if(!precheck.ok){setToast(precheck.error);return}
-        askConfirm({kicker:"更換參賽球員",title:`在「${tournament.name}」籤表中以「${playerName(incomingId)}」代替「${playerName(outgoingId)}」？`,description:"對陣會即時更新，受影響的球員會收到通知。",confirmLabel:"確定更換",onConfirm:()=>submitRedraw(tournament,{action:"swap",outgoingId,incomingId},message)});
+        /* Two entrants trading boxes and a reserve taking one are the same edit to `draw`, but they
+           are not the same thing to confirm. A host rearranging who plays who is asking about the
+           pairings that come out the other side, so quote them from the bracket the swap would
+           actually build rather than making them picture it. */
+        const nextBracket=buildBracket<Match>(precheck.tournament,data.matches);
+        const opponentAfter=(id:string)=>{
+          const slot=nextBracket.slots.find(item=>item.round===1&&(item.a===id||item.b===id));
+          const other=slot?opponentIn(slot,id):"";
+          return other?playerName(other):"輪空";
+        };
+        if(precheck.kind==="swap")askConfirm({kicker:"調整對陣",title:`對調「${playerName(outgoingId)}」同「${playerName(incomingId)}」喺「${tournament.name}」籤表嘅位置？`,description:`對調後：${playerName(outgoingId)} 對 ${opponentAfter(outgoingId)}、${playerName(incomingId)} 對 ${opponentAfter(incomingId)}。其他對陣維持不變，受影響的球員會收到通知。`,confirmLabel:"確定對調",onConfirm:()=>submitRedraw(tournament,{action:"swap",outgoingId,incomingId},"已調整對陣。")});
+        else askConfirm({kicker:"更換參賽球員",title:`在「${tournament.name}」籤表中以「${playerName(incomingId)}」代替「${playerName(outgoingId)}」？`,description:`${playerName(incomingId)} 將對 ${opponentAfter(incomingId)}。其他對陣維持不變，受影響的球員會收到通知。`,confirmLabel:"確定更換",onConfirm:()=>submitRedraw(tournament,{action:"swap",outgoingId,incomingId},message)});
       }else{
         if(tournament.signups.includes(incomingId)){setToast("該球員已在名單內。");return}
         const text=`更換參賽球員：${tournament.name} — ${playerName(outgoingId)} → ${playerName(incomingId)}`;
@@ -2384,9 +2395,15 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
      handle's touch events, tracking the finger with elementFromPoint instead of native drag events. */
   const touchDragId=useRef("");
   const touchOverId=useRef("");
-  const onRosterHandleTouchStart=(id:string)=>()=>{
+  /* The same gesture means two different edits depending on where it started: dragging a row in the
+     roster list moves it up or down that list, while dragging a name in the bracket trades it with
+     whoever it lands on. Recording the origin at touch-start is what keeps them apart, since by
+     touch-end both look like "this id onto that id". */
+  const touchDragOrigin=useRef<"roster"|"bracket">("roster");
+  const onRosterHandleTouchStart=(id:string,origin:"roster"|"bracket"="roster")=>()=>{
     touchDragId.current=id;
     touchOverId.current="";
+    touchDragOrigin.current=origin;
     setDragRosterId(id);
   };
   const onRosterHandleTouchMove=(event:ReactTouchEvent)=>{
@@ -2402,7 +2419,8 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   };
   const onRosterHandleTouchEnd=(tournamentForDrop:Tournament)=>()=>{
     if(touchDragId.current&&touchOverId.current){
-      onReorderRoster(tournamentForDrop,touchDragId.current,touchOverId.current);
+      if(touchDragOrigin.current==="bracket")onEditRoster(tournamentForDrop,touchDragId.current,touchOverId.current);
+      else onReorderRoster(tournamentForDrop,touchDragId.current,touchOverId.current);
     }
     touchDragId.current="";
     touchOverId.current="";
@@ -2614,6 +2632,27 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
      The bracket's own drag targets still use canShuffle, because completed scorecards must stay in
      their original seats. */
   const canShuffle=canManage&&deadlinePassed&&rosterIds.length>=2&&!hasCupResults;
+  /* Who plays who is a round-one property: every later box is filled by whoever wins the boxes
+     feeding it, so the only seats a host can set by hand are the ones the draw dealt. A seat stays
+     editable for as long as its player has no recorded result — `swapPlayer` enforces the same rule
+     server-side, and trading two seats leaves every other pairing in the bracket exactly as it was,
+     which is what makes this safe to offer mid-cup when a reshuffle is not. */
+  const playedIds=new Set(cupMatches(data.matches,tournament.id).flatMap(match=>[match.a,match.b]));
+  const canMoveSeat=(id:string)=>canManage&&deadlinePassed&&drawn&&Boolean(id)&&!playedIds.has(id);
+  const seatOpponents=(id:string)=>rosterIds.filter(other=>other!==id&&!playedIds.has(other));
+  /* The picker is the keyboard and touch route to the same edit as the drag — a bracket you can only
+     rearrange by dragging is a bracket a host on a phone, or on a keyboard, cannot rearrange. */
+  const seatTool=(id:string,round:number)=>{
+    if(round!==1||!canMoveSeat(id))return null;
+    const opponents=seatOpponents(id);
+    if(!opponents.length&&!spare.length)return null;
+    return <select className="cup-seat-edit" defaultValue="" aria-label={`調整 ${name(id)} 的對陣`}
+      onChange={event=>{const value=event.target.value;event.target.value="";if(value)onEditRoster(tournament,id,value)}}>
+      <option value="">⋯</option>
+      {opponents.length>0&&<optgroup label="對調位置">{opponents.map(other=><option key={other} value={other}>{name(other)}</option>)}</optgroup>}
+      {spare.length>0&&<optgroup label="換上">{spare.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>}
+    </select>;
+  };
   /* Adding or dropping a name re-lays the whole field, so it stays open exactly as long as the
      reshuffle does — before the draw it is a plain sign-up edit, after the first result the swap
      picker and the walkover button are the tools that do not disturb settled boxes. */
@@ -2634,7 +2673,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         onDragEnd={draggable?()=>{setDragRosterId("");setDragOverRosterId("")}:undefined}>
       <div className="cup-roster-player">
         {draggable&&<span className="cup-roster-handle" aria-hidden="true"
-          onTouchStart={onRosterHandleTouchStart(id)}
+          onTouchStart={onRosterHandleTouchStart(id,"roster")}
           onTouchMove={onRosterHandleTouchMove}
           onTouchEnd={onRosterHandleTouchEnd(tournament)}
           onTouchCancel={onRosterHandleTouchEnd(tournament)}
@@ -2658,6 +2697,9 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       </span>
     </li>;})}</ul>
     {canManage&&canArrangeRoster&&<p className="cup-roster-note">拖曳球員名稱可調整名單順序{status!=="done"&&"，亦會更新對陣圖"}。</p>}
+    {/* The list reorders; the bracket trades seats. Two different edits, so say where the other one
+        lives rather than letting a host hunt for it. */}
+    {canManage&&drawn&&deadlinePassed&&<p className="cup-roster-note">如要指定邊個打邊個，可在下方對陣圖／賽程用每位球員旁的「⋯」對調位置，或直接拖曳對陣圖上的名字。</p>}
     {canManage&&<label className="cup-roster-add">
       <span>{!canEditEntrants?"已有賽果，只可替換名單上的球員":drawn?"加入球員（會重新排列籤表）":"加入球員"}</span>
       {canEditEntrants&&<select defaultValue="" onChange={event=>{const value=event.target.value;event.target.value="";if(value)onEditRoster(tournament,"",value)}}>
@@ -2689,6 +2731,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
           <PlayerBadge player={player(id)??{short:"?"}}/>
           <b>{id?name(id):"待定"}</b>
           {slot.match&&id?<em>{scoreFor(slot.match,id)}</em>:won?<i aria-hidden="true">✓</i>:null}
+          {seatTool(id,slot.round)}
         </div>;
       })}
       {note&&<p className="cup-tie-note">{note}</p>}
@@ -2844,7 +2887,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
 
       {/* The full tree — names, scores and controls in every box — needs width the phone does not
           have; there, CupBracketChart carries the shape and the cards carry the detail. */}
-      <div className="cup-tree"><TournamentBracketChart bracket={bracket} name={name} ownPlayerId={ownPlayerId} isAdmin={isAdmin} canManage={canManage} canArrange={canShuffle} dragRosterId={dragRosterId} dragOverRosterId={dragOverRosterId} canManageMatch={canManageMatch} onEdit={onEdit} onRecordSlot={slot=>onRecordSlot(tournament,slot)} onWalkover={(slot,winnerId)=>onWalkover(tournament,slot,winnerId)} onDragStart={id=>{setDragRosterId(id);setDragOverRosterId("")}} onDragOver={id=>setDragOverRosterId(id)} onDrop={id=>{if(dragRosterId&&dragRosterId!==id){onReorderRoster(tournament,dragRosterId,id)}setDragRosterId("");setDragOverRosterId("")}} onDragEnd={()=>{setDragRosterId("");setDragOverRosterId("")}} onTouchStart={onRosterHandleTouchStart} onTouchMove={onRosterHandleTouchMove} onTouchEnd={onRosterHandleTouchEnd(tournament)}/></div>
+      <div className="cup-tree"><TournamentBracketChart bracket={bracket} name={name} ownPlayerId={ownPlayerId} isAdmin={isAdmin} canManage={canManage} canMoveSeat={canMoveSeat} seatTool={seatTool} dragRosterId={dragRosterId} dragOverRosterId={dragOverRosterId} canManageMatch={canManageMatch} onEdit={onEdit} onRecordSlot={slot=>onRecordSlot(tournament,slot)} onWalkover={(slot,winnerId)=>onWalkover(tournament,slot,winnerId)} onDragStart={id=>{setDragRosterId(id);setDragOverRosterId("")}} onDragOver={id=>setDragOverRosterId(id)} onDrop={id=>{if(dragRosterId&&dragRosterId!==id){onEditRoster(tournament,dragRosterId,id)}setDragRosterId("");setDragOverRosterId("")}} onDragEnd={()=>{setDragRosterId("");setDragOverRosterId("")}} onTouchStart={id=>onRosterHandleTouchStart(id,"bracket")} onTouchMove={onRosterHandleTouchMove} onTouchEnd={onRosterHandleTouchEnd(tournament)}/></div>
     </>}
     {confirmSignupDialog}
   </section>;
@@ -2860,13 +2903,14 @@ function scoreFor(match:Match,playerId:string){
 // boxes vertically centred against the pair feeding it, using the flex
 // "stretch + space-around" trick so pairing lines up correctly without
 // needing to measure pixel positions in JS.
-function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManage,canArrange,dragRosterId,dragOverRosterId,canManageMatch,onEdit,onRecordSlot,onWalkover,onDragStart,onDragOver,onDrop,onDragEnd,onTouchStart,onTouchMove,onTouchEnd}:{
+function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManage,canMoveSeat,seatTool,dragRosterId,dragOverRosterId,canManageMatch,onEdit,onRecordSlot,onWalkover,onDragStart,onDragOver,onDrop,onDragEnd,onTouchStart,onTouchMove,onTouchEnd}:{
   bracket:Bracket<Match>;
   name:(id:string)=>string;
   ownPlayerId?:string;
   isAdmin:boolean;
   canManage:boolean;
-  canArrange:boolean;
+  canMoveSeat:(id:string)=>boolean;
+  seatTool:(id:string,round:number)=>ReactNode;
   dragRosterId:string;
   dragOverRosterId:string;
   canManageMatch:(match:Match)=>boolean;
@@ -2897,7 +2941,9 @@ function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManage,canA
             return <div className={`bracket-match ${slot.state}${mine?" mine":""}`} key={`${round}-${slot.index}`}>
               {match&&canManageMatch(match)&&<IconButton className="card-tool bracket-edit" label={`編輯 ${name(first)} 對 ${name(second)} 的賽果`} onClick={()=>onEdit(match)}>✎</IconButton>}
               {[first,second].map((id,side)=>{
-                const draggable=canArrange&&Boolean(id);
+                /* Only round one, and only a player who has not played: dragging a name out of a
+                   box that already has a scorecard would leave the two disagreeing. */
+                const draggable=round===1&&canMoveSeat(id);
                 return <div key={side} className={`bracket-slot${winner&&winner===id?" winner":""}${!id?" tbd":""}${dragRosterId&&dragRosterId!==id&&dragOverRosterId===id?" drag-over":""}${dragRosterId===id?" dragging":""}`} draggable={draggable} data-drag-player-id={id||undefined}
                   onDragStart={draggable?event=>{event.dataTransfer.effectAllowed="move";event.dataTransfer.setData("text/plain",id);onDragStart(id)}:undefined}
                   onDragOver={draggable?event=>{event.preventDefault();onDragOver(id)}:undefined}
@@ -2907,7 +2953,7 @@ function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManage,canA
                   onTouchMove={draggable?onTouchMove:undefined}
                   onTouchEnd={draggable?onTouchEnd:undefined}
                   onTouchCancel={draggable?onTouchEnd:undefined}>
-                  <span>{id?name(id):"待定"}</span>{match&&<b>{scoreFor(match,id)}</b>}
+                  <span>{id?name(id):"待定"}</span>{match&&<b>{scoreFor(match,id)}</b>}{seatTool(id,round)}
                 </div>;
               })}
               {match&&<time className="bracket-date" dateTime={match.playedOn}>{match.playedOn}</time>}

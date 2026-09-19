@@ -214,6 +214,35 @@ test("swaps are refused for unknown, self-paired or already-played entrants", ()
   assert.equal(swapPlayer(drawn, "p3", "p9", [result(1, 1, "p1", "p2", 3, 0)]).ok, true);
 });
 
+test("swapping two entrants trades exactly their two pairings and leaves every other box alone", () => {
+  /* The promise the bracket's drag-and-drop makes: a host moving one name onto another changes who
+     those two play and nobody else's tie. Seat position is a pure function of draw index, so an
+     index swap is a seat swap — this is the test that keeps it that way. */
+  const drawn = cup({ signups: ["p1", "p2", "p3", "p4", "p5", "p6"], draw: ["p1", "p2", "p3", "p4", "p5", "p6"] });
+  const pairsOf = (t) => Object.fromEntries(firstRoundPairings(t).map(entry => [entry.playerId, entry.opponentId]));
+  const before = pairsOf(drawn);
+  const swapped = swapPlayer(drawn, "p1", "p5");
+  assert.equal(swapped.ok, true);
+  const after = pairsOf(swapped.tournament);
+  assert.equal(after.p1, before.p5);
+  assert.equal(after.p5, before.p1);
+  /* p3 and p6 sit in neither of the two boxes involved, so their ties must come out untouched —
+     the whole point of a seat swap over a reshuffle. */
+  for (const id of ["p3", "p6"]) assert.equal(after[id], before[id]);
+  /* The two players who were sitting opposite them keep their box — only the name across it moved. */
+  assert.equal(after[before.p1], "p5");
+  assert.equal(after[before.p5], "p1");
+});
+
+test("swapping a bye-holder hands the bye to the other player", () => {
+  const drawn = cup({ signups: ["p1", "p2", "p3"], draw: ["p1", "p2", "p3"] });
+  const before = firstRoundPairings(drawn).find(entry => entry.opponentId === "");
+  const swapped = swapPlayer(drawn, before.playerId, before.playerId === "p1" ? "p2" : "p1");
+  assert.equal(swapped.ok, true);
+  const after = firstRoundPairings(swapped.tournament).find(entry => entry.opponentId === "");
+  assert.notEqual(after.playerId, before.playerId);
+});
+
 test("shuffling re-rolls the draw order and clears stale walkovers", () => {
   const drawn = cup({ draw: ["p1", "p2", "p3", "p4"], walkovers: [{ round: 1, index: 1, winner: "p1" }] });
   const shuffled = shuffleDraw(drawn, []);

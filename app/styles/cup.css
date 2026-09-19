@@ -349,6 +349,15 @@
   .match-cup-badge{max-width:none}
 }
 
+/* The host's "who plays who" control, on both cup surfaces: the bracket box on desktop and the tie
+   card on the phone. Quiet until it is wanted — a bracket is read far more often than it is edited —
+   but a full tap target, because a control a host cannot hit on a phone is not a control. */
+.cup-seat-edit{width:var(--control-sm);min-width:var(--control-sm);height:var(--control-sm);flex:0 0 auto;padding:0;
+  border:1px solid transparent;border-radius:var(--radius-sm);background:transparent;
+  color:var(--ds-text-secondary);font-size:var(--fs-label);text-align:center;cursor:pointer;appearance:none}
+.cup-seat-edit:hover,.cup-seat-edit:focus-visible{border-color:var(--ds-accent-action);color:var(--ds-accent-action)}
+.cup-tie-side .cup-seat-edit{margin-left:auto}
+
 .bracket-slot[draggable="true"]{cursor:grab;touch-action:none}
 .bracket-slot.dragging{opacity:.5}
 .bracket-slot.drag-over{outline:2px dashed var(--ds-accent-action);outline-offset:-2px}
