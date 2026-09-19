@@ -134,6 +134,19 @@ export function cupRedrawn(cupName:string,opponent:string|null,roundName:string)
   };
 }
 
+/** A host took a name out of a frozen draw. The player is no longer in the bracket, so the redraw
+ *  message above has no tie to quote them — without this they would only find out by opening the cup
+ *  and not finding themselves in it. Shares the `cup-draw` tag for the same reason `cupRedrawn`
+ *  does: one unread cup-draw push per cup, always the latest truth. */
+export function cupWithdrawn(cupName:string):NotificationMessage {
+  return {
+    channel:"result",
+    title:`${cupName} 參賽名單更新咗`,
+    body:"主持人已將你移出呢個盃賽嘅名單 — 如果有疑問，請聯絡主持人。",
+    tag:`cup-draw:${cupName}`,url:"/?tab=matches&view=cup",urgency:"normal",
+  };
+}
+
 /* --- 開局板 ---------------------------------------------------------------
  *
  * Three messages, and only the last asks the member to do anything. A club app is not a social
