@@ -90,3 +90,39 @@ test("an entirely empty database still reads as no state at all", { skip: url ? 
   assert.equal((await getStateDocument()).data, null);
   await sql.end();
 });
+
+test("concurrent tournament freezes create one stored draw and audit", { skip: url ? false : "set TEST_DATABASE_URL" }, async () => {
+  const { default: postgres } = await import("postgres");
+  process.env.POSTGRES_URL = url;
+  const sql = postgres(url, { ssl: false, prepare: false, max: 4 });
+  await sql.unsafe(`
+    TRUNCATE state_players, state_matches, state_tournaments, state_settings, state_audits;
+    ALTER TABLE state_tournaments ADD COLUMN IF NOT EXISTS updated_at timestamptz;
+    INSERT INTO state_players (id,name,short,rating,initial_rating,wins,losses,draws,frames_won,frames_lost,last_change,form,active) VALUES
+      ('p1','一號','P1',1500,1500,0,0,0,0,0,0,'[]',true),
+      ('p2','二號','P2',1500,1500,0,0,0,0,0,0,'[]',true),
+      ('p3','三號','P3',1500,1500,0,0,0,0,0,0,'[]',true),
+      ('p4','四號','P4',1500,1500,0,0,0,0,0,0,'[]',true);
+    INSERT INTO state_tournaments
+      (id,name,handicap_mode,signup_deadline,created_at,created_by,signups)
+    VALUES
+      ('race','並行盃','none',now()-interval '1 minute',now()-interval '1 day','p1','["p1","p2","p3","p4"]');
+  `);
+
+  const { freezeTournamentDraw } = await import("../db/tournaments.pg.ts");
+  const [first, second] = await Promise.all([
+    freezeTournamentDraw("race"),
+    freezeTournamentDraw("race"),
+  ]);
+
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.equal(Number(first.created) + Number(second.created), 1);
+  assert.deepEqual(first.tournament.draw, second.tournament.draw);
+  const [stored] = await sql`SELECT draw FROM state_tournaments WHERE id='race'`;
+  assert.deepEqual(stored.draw, first.tournament.draw);
+  const [audit] = await sql`SELECT count(*)::int AS count FROM state_audits WHERE text LIKE '盃賽抽籤：並行盃%'`;
+  assert.equal(audit.count, 1);
+
+  await sql.end();
+});
