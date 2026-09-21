@@ -119,7 +119,7 @@
   .ds-app-shell .home-panel-head { gap: var(--sp-4); align-items: stretch; }
   .ds-app-shell .home-view-panel { padding: var(--sp-4); }
   .ds-app-shell .home-panel-head p:not(.kicker) { font-size: var(--fs-caption); }
-  .ds-app-shell :is(.ranking-scope-toggle, .break-toggle) { width: max-content; max-width: 100%; }
+  .ds-app-shell :is(.ranking-scope-toggle, .break-toggle) { width: 100%; }
   .ds-app-shell .ranking-panel .table-card { padding: 0; }
   .ds-app-shell .ranking-panel .row { min-height: 4rem; padding-block: var(--sp-2); padding-inline: var(--sp-1); }
   /* On phones the suggested handicap sits at --fs-label (12px); cap the ELO number at 1.5x that (--fs-lead, 18px) so it doesn't dwarf it. */
