@@ -156,13 +156,6 @@
   .ds-app-shell .record-speed-dial { bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
 }
 
-@media (max-width: 599px) {
-  .ds-app-shell .break-records-panel .break-toggle {
-    grid-auto-flow: row;
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 @media (max-width: 380px) {
   .ds-app-shell .mobile-brand .site-brand-wordmark { width: 5.75rem; }
   .ds-app-shell .mobile-brand .site-brand-mark { width: 30px; height: 30px; }
