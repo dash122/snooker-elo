@@ -441,3 +441,9 @@
 .cup-roster-arrival{display:inline-flex;align-items:center;gap:2px;color:var(--ds-text-secondary)}
 .cup-roster-arrival i{font-style:normal;opacity:.85}
 .cup-roster-remove{flex:0 0 auto;color:var(--ds-danger)}.cup-roster-remove:hover{background:var(--ds-danger-wash);color:var(--ds-danger)}
+
+/* --- Meta line & round switcher ------------------------------------------ */
+/* One fact per line: a date is never split, and start vs. deadline read at a glance. */
+.cup-card-line{display:grid;gap:.125rem}
+/* On a phone the tie list for one round can run several screens; keep the round switcher in reach. */
+@media(max-width:820px){.cup-rounds{position:sticky;top:0;z-index:2;padding-block:var(--sp-2);background:var(--ds-canvas-functional)}}

@@ -2574,18 +2574,20 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         <div className="cup-list">{section.entries.map(({item,status})=>{
         const itemBracket=buildBracket<Match>(item,data.matches);
         const itemSlot=playerSlot(itemBracket,ownPlayerId),itemSignedUp=Boolean(ownPlayerId&&item.signups.includes(ownPlayerId));
-        const line=item.startAt?`開始 ${deadlineText(item.startAt)} · ${status==="signup"?`報名截止 ${deadlineText(item.signupDeadline)}`:status==="done"?`冠軍 ${name(itemBracket.champion)}`:status==="short"?"報名人數不足兩人":itemSlot?`輪到你：${itemSlot.state==="ready"?`對 ${name(opponentIn(itemSlot,ownPlayerId))}`:"等待對手"}`:"賽事進行中"}`
-          :status==="signup"?`報名截止 ${deadlineText(item.signupDeadline)}`
+        const progress=status==="signup"?`報名截止 ${deadlineText(item.signupDeadline)}`
           :status==="done"?`冠軍 ${name(itemBracket.champion)}`
           :status==="short"?"報名人數不足兩人"
           :itemSlot?`輪到你：${itemSlot.state==="ready"?`對 ${name(opponentIn(itemSlot,ownPlayerId))}`:"等待對手"}`
           :"賽事進行中";
+        /* Each fact is its own unbreakable segment, so a narrow card wraps between facts rather
+           than splitting a date in half. */
+        const line=[item.startAt?`開始 ${deadlineText(item.startAt)}`:"",progress].filter(Boolean);
         return <Surface as="article" padded={false} className={`cup-card is-${status}`} key={item.id}>
           <CupArt tone={status==="done"?"gold":"dark"}/>
           <div className="cup-card-body">
             <div className="cup-card-top"><span className={`cup-chip is-${status}`}>{CUP_STATUS_LABEL[status]}</span>{canManageCup(item)&&controls(item)}</div>
             <h3>{item.name}</h3>
-            <p className="cup-card-line">{line}</p>
+            <p className="cup-card-line">{line.map(part=><span key={part}>{part}</span>)}</p>
             <div className="cup-card-people">{item.signups.length>0&&avatarStack(item.signups)}<span>{item.signups.length} 人報名</span></div>
             <div className="cup-card-actions">
               {status==="signup"&&(ownPlayerId
@@ -2805,6 +2807,21 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     const found=player(id);
     return {name:found?.name??"",short:found?.short??"?",colour:found?.colour??null,avatar:found?.avatar??null};
   };
+  /* Recruiting is the one state where sharing is not a nicety — a cup with four entrants is a
+     worse cup — so the ask is loud, sits up top, states the clock, and names WhatsApp rather than
+     「分享」. Once the draw is out it is a courtesy, so it follows the bracket instead of pushing
+     your own tie and the draw below the fold. */
+  const shareRow=<div className={`cup-share-row${status==="signup"?" recruiting":""}`}>
+      <div>
+        <b>{status==="signup"?`叫多幾個會友嚟報名${shareUrgency.label?`｜${shareUrgency.label}`:""}`:"分享賽程同賽果"}</b>
+        <small>{cupShareCta(shareState).hint}</small>
+      </div>
+      <CupShareButtons name={tournament.name} state={shareState}
+        url={typeof window==="undefined"?"":cupShareUrl(window.location.origin,tournament.id)}
+        entrants={rosterIds.map(storyPerson)}
+        champion={champion?storyPerson(champion):null}
+        bracket={chart?storyBracket(chart):[]} tone="primary"/>
+    </div>;
   return <section className="cup">
     <button type="button" className="cup-back" onClick={()=>setSelectedTournament("")}><span aria-hidden="true">‹</span> 所有盃賽</button>
     <header className={`cup-banner is-${status}`}>
@@ -2822,20 +2839,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       </div>
     </header>
 
-    {/* Recruiting is the one state where sharing is not a nicety — a cup with four entrants is a
-        worse cup — so the ask is loud, states the clock, and names WhatsApp rather than 「分享」. */}
-    <div className={`cup-share-row${status==="signup"?" recruiting":""}`}>
-      <div>
-        <b>{status==="signup"?`叫多幾個會友嚟報名${shareUrgency.label?`｜${shareUrgency.label}`:""}`:"分享賽程同賽果"}</b>
-        <small>{cupShareCta(shareState).hint}</small>
-      </div>
-      <CupShareButtons name={tournament.name} state={shareState}
-        url={typeof window==="undefined"?"":cupShareUrl(window.location.origin,tournament.id)}
-        entrants={rosterIds.map(storyPerson)}
-        champion={champion?storyPerson(champion):null}
-        bracket={chart?storyBracket(chart):[]} tone="primary"/>
-    </div>
-
+    {status==="signup"&&shareRow}
     {!deadlinePassed?<>
       {/* Entering a cup is a competition decision, so it sits with the bracket it leads to rather
           than in 約戰, where it competed for attention with arranging tonight's frame. */}
@@ -2890,6 +2894,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
           have; there, CupBracketChart carries the shape and the cards carry the detail. */}
       <div className="cup-tree"><TournamentBracketChart bracket={bracket} name={name} ownPlayerId={ownPlayerId} isAdmin={isAdmin} canManage={canManage} canMoveSeat={canMoveSeat} seatTool={seatTool} dragRosterId={dragRosterId} dragOverRosterId={dragOverRosterId} canManageMatch={canManageMatch} onEdit={onEdit} onRecordSlot={slot=>onRecordSlot(tournament,slot)} onWalkover={(slot,winnerId)=>onWalkover(tournament,slot,winnerId)} onDragStart={id=>{setDragRosterId(id);setDragOverRosterId("")}} onDragOver={id=>setDragOverRosterId(id)} onDrop={id=>{if(dragRosterId&&dragRosterId!==id){onEditRoster(tournament,dragRosterId,id)}setDragRosterId("");setDragOverRosterId("")}} onDragEnd={()=>{setDragRosterId("");setDragOverRosterId("")}} onTouchStart={id=>onRosterHandleTouchStart(id,"bracket")} onTouchMove={onRosterHandleTouchMove} onTouchEnd={onRosterHandleTouchEnd(tournament)}/></div>
     </>}
+    {status!=="signup"&&shareRow}
     {confirmSignupDialog}
   </section>;
 }
