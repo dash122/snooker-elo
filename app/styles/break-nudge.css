@@ -1,0 +1,92 @@
+/* Home "today's high break target" strip — a one-line nudge between the hero and the tabs
+   that opens the past-30-days break board. */
+.break-nudge {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-lg);
+  background: var(--ds-surface-featured);
+  color: var(--ds-text-on-brand);
+  box-shadow: var(--ds-elevation-3);
+}
+
+.break-nudge-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+  min-height: var(--control-md);
+  padding: var(--sp-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.break-nudge-target {
+  flex: 0 0 auto;
+  min-width: 3ch;
+  color: var(--ds-accent-primary);
+  font-family: var(--font-display);
+  font-size: var(--fs-stat);
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.break-nudge-copy { flex: 1; min-width: 0; }
+
+.break-nudge-copy b,
+.break-nudge-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.break-nudge-copy b { font-size: var(--fs-sm); }
+
+.break-nudge-copy small {
+  margin-top: var(--sp-1);
+  color: var(--ds-text-on-brand-secondary);
+  font-size: var(--fs-label);
+}
+
+.break-nudge-close {
+  flex: 0 0 auto;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ds-text-on-brand-secondary);
+  font-size: var(--fs-lead);
+  cursor: pointer;
+}
+
+.break-nudge-main:focus-visible,
+.break-nudge-close:focus-visible { outline: 3px solid var(--ds-focus); outline-offset: -3px; }
+
+.break-nudge--warning { background: var(--ds-warning-wash); color: var(--ds-text-primary); }
+.break-nudge--warning .break-nudge-target { color: var(--ds-warning); }
+.break-nudge--warning :is(.break-nudge-copy small, .break-nudge-close) { color: var(--ds-warning-wash-text); }
+
+.break-nudge-hint {
+  margin: 0 0 var(--sp-2);
+  padding: var(--sp-2) var(--sp-2-5);
+  border-radius: var(--radius-sm);
+  background: var(--ds-warning-wash);
+  color: var(--ds-warning-wash-text);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+}
+
+.break-ranking li.is-own {
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 2px var(--ds-accent-action);
+}
