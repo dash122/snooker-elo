@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent, type CSSProperties, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
 import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import MatchmakingMarketplace from "./MatchmakingMarketplace";
 import GuestIntro from "./GuestIntro";
@@ -14,6 +14,7 @@ import { ShareGlyph, shareSheetTitle } from "./ShareSheet";
 import CupShareButtons from "./CupShareButtons";
 import { HANDICAP_ELO_PER_POINT, proposeHandicap, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
 import { calculateSnookerElo } from "../lib/snooker-elo";
+import { breakNudge, type BreakNudge } from "../lib/break-nudge";
 import { matchDate, matchupKey, meetingsSince } from "../lib/elo-replay";
 import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
 import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story-card";
@@ -1427,7 +1428,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
           behind a tab, so "is anyone playing tonight?" was unanswerable without going to look. */}
       {tab==="leaderboard"&&!user&&<GuestIntro onNavigate={goTab}/>}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
-      {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
+      {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} ownPlayerId={ownPlayerId} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",format:"single",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,format:tournament.format??"single",handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
       {/* Public availability, recommendations and arrangements share one marketplace flow. */}
       {tab==="availability"&&<MatchmakingMarketplace onRecordSession={(opponentId,sessionId,date)=>{newMatch("1v1",opponentId,date);marketplaceOrigin.current=sessionId;}} key={ownPlayerId??"guest"} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
@@ -1629,7 +1630,29 @@ function MonthlyBreakChart({months,onPlayer}:{months:MonthlyBreak[];onPlayer:(p:
     <p className="chart-summary">{months[0].month.slice(0,4)} 年 {Number(months[0].month.slice(5))} 月至今，共 {months.length} 個月{months.length>12?"；可左右捲動查看更早月份。":"。"}</p>
   </div>;
 }
-function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:Player[];data:AppState;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
+const BREAK_NUDGE_DISMISSED_KEY="snooker-elo:break-nudge-dismissed";
+const subscribeNothing=()=>()=>{};
+function readNudgeDismissal(){try{return localStorage.getItem(BREAK_NUDGE_DISMISSED_KEY)}catch{return null}}
+function breakNudgeCopy(nudge:BreakNudge){
+  switch(nudge.kind){
+    case "top":return {big:String(nudge.target),title:`刷新你的 ${nudge.current} 分，繼續坐穩榜首`,sub:nudge.runnerUp==null?"近30日單桿第 1":`近30日單桿第 1 · 第 2 名 ${nudge.runnerUp} 分`,hint:`今日目標：${nudge.target} 分刷新個人紀錄`};
+    case "climb":return {big:String(nudge.target),title:`今日打 ${nudge.target} 分，升上近30日單桿第 ${nudge.nextPosition}`,sub:`你現時 ${nudge.current} 分 · 第 ${nudge.position} 名${nudge.nextPosition>1?` · ${nudge.topTarget} 分登榜首`:""}`,hint:`今日打 ${nudge.target} 分可升第 ${nudge.nextPosition}${nudge.nextPosition>1?` · ${nudge.topTarget} 分登榜首`:""}`};
+    case "expiring":return {big:String(nudge.target),title:nudge.daysLeft===0?`你的 ${nudge.current} 分今日後跌出近30日榜`:`你的 ${nudge.current} 分 ${nudge.daysLeft} 日後跌出近30日榜`,sub:`今日打 ${nudge.target} 分或以上保住第 ${nudge.position} 名`,hint:`你的紀錄快將過期 · 今日打 ${nudge.target} 分保位`};
+    case "enter":return {big:String(nudge.target),title:`打出 ${nudge.target} 分，登上近30日單桿榜`,sub:`現時第 10 名：${nudge.lastValue} 分`,hint:`今日打 ${nudge.target} 分即可上榜`};
+    case "open":return {big:"任何",title:`近30日單桿榜仍有 ${nudge.openSlots} 個空位`,sub:"今日任何單桿都可上榜",hint:"今日任何單桿都可上榜"};
+  }
+}
+function BreakNudgeStrip({nudge,onOpen,onDismiss}:{nudge:BreakNudge;onOpen:()=>void;onDismiss:()=>void}){
+  const copy=breakNudgeCopy(nudge);
+  return <div className={`break-nudge${nudge.kind==="expiring"?" break-nudge--warning":""}`} role="status">
+    <button type="button" className="break-nudge-main" onClick={onOpen}>
+      <strong className="break-nudge-target" aria-hidden="true">{copy.big}</strong>
+      <span className="break-nudge-copy"><b>{copy.title}</b><small>{copy.sub} ›</small></span>
+    </button>
+    <button type="button" className="break-nudge-close" aria-label="今日不再提示" onClick={onDismiss}>×</button>
+  </div>;
+}
+function Leaderboard({ranked,data,ownPlayerId,onRecord,onPlayer,onMatch,onRivalry}:{ranked:Player[];data:AppState;ownPlayerId?:string;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
   const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall"|"recent"|"monthly">("players"),[homeView,setHomeView]=useState<"ranking"|"breaks"|"recent">("ranking"),[rankingMode,setRankingMode]=useState<"all"|"official"|"trend">("all");
   const officialOnly=rankingMode==="official";
   const confirmed=data.matches.filter(m=>m.status==="confirmed");
@@ -1667,6 +1690,13 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
     };
   },[data.matches,data.players]);
   const displayedBreaks=breakView==="monthly"?breakRecords.overall:breakRecords[breakView];
+  // useSyncExternalStore keeps server HTML (strip hidden) and the stored dismissal from mismatching.
+  const storedNudgeDismissal=useSyncExternalStore(subscribeNothing,readNudgeDismissal,()=>today);
+  const [nudgeDismissedNow,setNudgeDismissedNow]=useState(false);
+  const nudge=useMemo(()=>ownPlayerId&&data.players.some(player=>player.id===ownPlayerId)
+    ?breakNudge(breakRecords.recent.map(record=>({playerId:record.player.id,value:record.value,date:record.date})),ownPlayerId,today):null,[breakRecords.recent,data.players,ownPlayerId]);
+  const dismissNudge=()=>{setNudgeDismissedNow(true);try{localStorage.setItem(BREAK_NUDGE_DISMISSED_KEY,today)}catch{/* hides for this visit only */}};
+  const openNudge=()=>{setBreakView("recent");setHomeView("breaks")};
   const sortBy=(key:SortKey)=>{if(sort===key)setDir(x=>x==="asc"?"desc":"asc");else{setSort(key);setDir(key==="rank"||key==="name"?"asc":"desc")}};
   return <><section className="hero"><div><h1>讓每一局，<br/><span>都推動進步。</span></h1><p>追蹤實力、看見成長，找到旗鼓相當的對手。</p>
       <div className="podium-stats">
@@ -1675,6 +1705,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
         <span><b>{total}</b><small>歷來總場數</small></span>
       </div>
     </div><Button className="hero-action" onClick={onRecord}><span aria-hidden="true" className="hero-action-icon">＋</span><b>記錄新賽果</b><small>更新排名與近期狀態</small></Button></section>
+    {nudge&&!nudgeDismissedNow&&storedNudgeDismissal!==today&&homeView==="ranking"&&<BreakNudgeStrip nudge={nudge} onOpen={openNudge} onDismiss={dismissNudge}/>}
     <SlidingToggleGroup as="nav" className="page-tabs home-view-nav" aria-label="首頁內容" role="tablist">
       <button role="tab" aria-selected={homeView==="ranking"} className={homeView==="ranking"?"active":""} onClick={()=>setHomeView("ranking")}><span>目前排名</span></button>
       <button role="tab" aria-selected={homeView==="breaks"} className={homeView==="breaks"?"active":""} onClick={()=>setHomeView("breaks")}><span>最高單桿紀錄</span></button>
@@ -1702,7 +1733,7 @@ function Leaderboard({ranked,data,onRecord,onPlayer,onMatch,onRivalry}:{ranked:P
     </section></>}
     {homeView==="breaks"&&<section className="home-view-panel break-records-panel" aria-labelledby="break-records-title">
       <div className="home-panel-head"><div><p className="kicker">HIGH BREAK RECORDS</p><h2 id="break-records-title">最高單桿紀錄</h2><p>查看每位球員的個人最佳、歷史最高，或近 30 日最高紀錄。</p></div><SlidingToggleGroup className="ds-toggle-control break-toggle" aria-label="單桿紀錄顯示方式"><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>球員最高</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>歷史</button><button aria-pressed={breakView==="recent"} className={breakView==="recent"?"active":""} onClick={()=>setBreakView("recent")}>近30日</button><button aria-pressed={breakView==="monthly"} className={breakView==="monthly"?"active":""} onClick={()=>setBreakView("monthly")}>每月</button></SlidingToggleGroup></div>
-      {breakView==="monthly"?<MonthlyBreakChart months={breakRecords.monthly} onPlayer={onPlayer}/>:<><ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>對 {record.opponent}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title="破百單桿">破百</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
+      {breakView==="monthly"?<MonthlyBreakChart months={breakRecords.monthly} onPlayer={onPlayer}/>:<>{breakView==="recent"&&nudge&&<p className="break-nudge-hint">{breakNudgeCopy(nudge).hint}</p>}<ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}${record&&record.player.id===ownPlayerId?" is-own":""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>對 {record.opponent}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title="破百單桿">破百</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
       <p className="chart-summary">{breakView==="players"?"每位球員只顯示其最高單桿。":breakView==="overall"?"按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。":`${thirtyDaysAgo} 至 ${today} 的最高單桿，每位球員只顯示其最高單桿。`}</p></>}
     </section>}
     {homeView==="recent"&&<ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/>}</>;
