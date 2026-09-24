@@ -52,11 +52,34 @@
   font-size: var(--fs-label);
 }
 
+.break-nudge-go {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  margin-left: var(--sp-1);
+  border-radius: var(--radius-pill);
+  background: var(--ds-accent-primary);
+  color: var(--ds-text-on-accent);
+}
+
+.break-nudge-go svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .break-nudge-main:focus-visible { outline: 3px solid var(--ds-focus); outline-offset: -3px; }
 
 .break-nudge--warning { background: var(--ds-warning-wash); color: var(--ds-text-primary); }
 .break-nudge--warning .break-nudge-target { color: var(--ds-warning); }
 .break-nudge--warning .break-nudge-copy small { color: var(--ds-warning-wash-text); }
+.break-nudge--warning .break-nudge-go { background: var(--ds-warning); color: var(--ds-text-on-danger); }
 
 .break-nudge-hint {
   margin: 0 0 var(--sp-2);

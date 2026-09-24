@@ -1632,11 +1632,11 @@ function MonthlyBreakChart({months,onPlayer}:{months:MonthlyBreak[];onPlayer:(p:
 }
 function breakNudgeCopy(nudge:BreakNudge){
   switch(nudge.kind){
-    case "top":return {big:String(nudge.target),title:`你的近30日最高單桿 ${nudge.current} 分，排第 1`,sub:`今日打出 ${nudge.target} 分單桿即刷新紀錄${nudge.runnerUp==null?"":` · 第 2 名 ${nudge.runnerUp} 分`}`,hint:`今日打出 ${nudge.target} 分單桿即刷新你的近30日紀錄`};
-    case "climb":return {big:String(nudge.target),title:`今日打出 ${nudge.target} 分單桿，近30日榜升上第 ${nudge.nextPosition}`,sub:`你的近30日最高單桿：${nudge.current} 分（第 ${nudge.position} 名）${nudge.nextPosition>1?` · ${nudge.topTarget} 分登榜首`:""}`,hint:`今日打出 ${nudge.target} 分單桿可升第 ${nudge.nextPosition}${nudge.nextPosition>1?` · ${nudge.topTarget} 分登榜首`:""}`};
-    case "expiring":return {big:String(nudge.target),title:nudge.daysLeft===0?`你的近30日最高單桿 ${nudge.current} 分今日後過期`:`你的近30日最高單桿 ${nudge.current} 分將於 ${nudge.daysLeft} 日後過期`,sub:`今日打出 ${nudge.target} 分或以上單桿，保住近30日榜第 ${nudge.position} 名`,hint:`你的紀錄快將過期 · 今日打出 ${nudge.target} 分單桿保位`};
-    case "enter":return {big:String(nudge.target),title:`今日打出 ${nudge.target} 分單桿，即可登上近30日榜`,sub:`近30日最高單桿榜第 10 名：${nudge.lastValue} 分`,hint:`今日打出 ${nudge.target} 分單桿即可上榜`};
-    case "open":return {big:"任何",title:`近30日最高單桿榜仍有 ${nudge.openSlots} 個空位`,sub:"今日打出任何單桿都可上榜",hint:"今日打出任何單桿都可上榜"};
+    case "top":return {big:String(nudge.target),title:`近30日單桿第 1（${nudge.current} 分）`,sub:`打 ${nudge.target} 分刷新紀錄`,hint:`打 ${nudge.target} 分刷新紀錄`};
+    case "climb":return {big:String(nudge.target),title:`打 ${nudge.target} 分，近30日單桿升第 ${nudge.nextPosition}`,sub:`你現時 ${nudge.current} 分 · 第 ${nudge.position} 名`,hint:`打 ${nudge.target} 分升第 ${nudge.nextPosition}`};
+    case "expiring":return {big:String(nudge.target),title:nudge.daysLeft===0?`你的 ${nudge.current} 分今日後過期`:`你的 ${nudge.current} 分 ${nudge.daysLeft} 日後過期`,sub:`打 ${nudge.target} 分保住近30日榜`,hint:`打 ${nudge.target} 分保住位置`};
+    case "enter":return {big:String(nudge.target),title:`打 ${nudge.target} 分，登上近30日單桿榜`,sub:`第 10 名：${nudge.lastValue} 分`,hint:`打 ${nudge.target} 分即可上榜`};
+    case "open":return {big:"任何",title:`近30日單桿榜尚餘 ${nudge.openSlots} 位`,sub:"任何單桿即可上榜",hint:"任何單桿即可上榜"};
   }
 }
 function BreakNudgeStrip({nudge,onOpen}:{nudge:BreakNudge;onOpen:()=>void}){
@@ -1644,7 +1644,8 @@ function BreakNudgeStrip({nudge,onOpen}:{nudge:BreakNudge;onOpen:()=>void}){
   return <div className={`break-nudge${nudge.kind==="expiring"?" break-nudge--warning":""}`} role="status">
     <button type="button" className="break-nudge-main" onClick={onOpen}>
       <strong className="break-nudge-target" aria-hidden="true">{copy.big}</strong>
-      <span className="break-nudge-copy"><b>{copy.title}</b><small>{copy.sub} ›</small></span>
+      <span className="break-nudge-copy"><b>{copy.title}</b><small>{copy.sub}</small></span>
+      <span className="break-nudge-go" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg></span>
     </button>
   </div>;
 }
