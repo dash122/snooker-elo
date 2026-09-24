@@ -22,8 +22,8 @@ import ShareSheet from "./ShareSheet";
 import { AppShell, PageFrame } from "./components/shell/AppShell";
 import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
 import { BrandLogo } from "./components/BrandLogo";
-import { addEntrant, buildBracket, canManageTournament, cupMatches, currentRoundLabel, formatTournamentDateTime, isTournamentHost, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, removeEntrant, reorderDraw, rosterOrder, roundLabel, shuffleDraw, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
-import { Button, IconButton, InlineNotice, SegmentedControl, Skeleton, SlidingToggleGroup, StatTile, Surface } from "./components/ui/Primitives";
+import { addEntrant, buildBracket, canManageTournament, championStandings, cupMatches, currentRoundLabel, formatTournamentDateTime, isTournamentHost, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, removeEntrant, reorderDraw, rosterOrder, roundLabel, shuffleDraw, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
+import { Button, EmptyState, FormField, IconButton, InlineNotice, SegmentedControl, Skeleton, SlidingToggleGroup, StatTile, Surface } from "./components/ui/Primitives";
 import { Sheet, ConfirmDialog } from "./components/ui/Overlay";
 
 type Player = {
@@ -2275,7 +2275,7 @@ function Matches({data,canManageMatch,canManageCup,onEdit,onVoid,onShare,onPlaye
     return order.map(key=>({key,matches:map.get(key)!}));
   },[matches,comparing]);
   const newestMonth=groups.reduce((latest,group)=>group.key>latest?group.key:latest,"");
-  return <><section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽記錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>
+  return <>{view!=="cup"&&<section className="hero small"><div><p className="kicker">完整可追溯</p><h1>比賽記錄</h1><p>查看比分、讓分與每場 ELO 變化。</p></div></section>}
     <SlidingToggleGroup className="page-tabs match-view-toggle" role="tablist" aria-label="比賽資料檢視"><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>賽事記錄</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>日曆</button><button role="tab" aria-selected={view==="matrix"} className={view==="matrix"?"active":""} onClick={()=>setView("matrix")}>對賽矩陣</button><button role="tab" aria-selected={view==="cup"} aria-label={`盃賽${openTournamentCount>0?`，${openTournamentCount} 個盃賽開放報名`:""}`} className={view==="cup"?"active":""} onClick={()=>setView("cup")}>盃賽{openTournamentCount>0&&<span className="match-tab-count" aria-hidden="true">{openTournamentCount>9?"9+":openTournamentCount}</span>}</button></SlidingToggleGroup>
     {view==="matrix"?<HeadToHeadMatrix data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{setPair({a:first,b:second});setModeFilter("all");setView("history")}}/> : view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid} onShare={onShare}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament} onSetArrivalTime={onSetArrivalTime} onRecordSlot={onRecordSlot} onArrange={onArrange} onWalkover={onWalkover} onEditRoster={onEditRoster} onShuffleRoster={onShuffleRoster} onReorderRoster={onReorderRoster} onRefresh={onRefresh}/> : <>
     <section className="match-filter-toolbar" aria-label="篩選及排序比賽記錄">
@@ -2418,6 +2418,13 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     };
   },[bracket,ownPlayerId,player]);
   const [openRound,setOpenRound]=useState(1);
+  const [cupFilter,setCupFilter]=useState("all");
+  const [cupSearch,setCupSearch]=useState("");
+  const [cupWorkspace,setCupWorkspace]=useState({id:selectedTournament,view:"fixtures",search:""});
+  const cupView=cupWorkspace.id===selectedTournament?cupWorkspace.view:"fixtures";
+  const rosterSearch=cupWorkspace.id===selectedTournament?cupWorkspace.search:"";
+  const setCupView=(view:string)=>setCupWorkspace({id:selectedTournament,view,search:rosterSearch});
+  const setRosterSearch=(search:string)=>setCupWorkspace({id:selectedTournament,view:cupView,search});
   /* Which roster row is mid-drag and which one it is currently poised over — purely visual state,
      reset the moment the drag ends one way or another so a stale highlight can never survive it. */
   const [dragRosterId,setDragRosterId]=useState("");
@@ -2565,26 +2572,54 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   if(!selectedTournament){
     const cups=[...data.tournaments].sort((left,right)=>right.createdAt.localeCompare(left.createdAt));
     const cupEntries=cups.map(item=>({item,status:cupStatus(item,data.matches)}));
-    const championTable=Array.from(cupEntries.reduce((table,{item,status})=>{
-      if(status!=="done")return table;
-      const championId=buildBracket<Match>(item,data.matches).champion;
-      if(!championId)return table;
-      const previous=table.get(championId);
-      table.set(championId,{playerId:championId,titles:(previous?.titles??0)+1,lastTitle:item.name,lastWonAt:item.startAt??item.createdAt});
-      return table;
-    },new Map<string,{playerId:string;titles:number;lastTitle:string;lastWonAt:string}>()).values()).sort((left,right)=>right.titles-left.titles||right.lastWonAt.localeCompare(left.lastWonAt)||name(left.playerId).localeCompare(name(right.playerId),"zh-HK"));
+    const championTable=championStandings(cupEntries.filter(entry=>entry.status==="done").map(entry=>entry.item),data.matches).sort((left,right)=>right.titles-left.titles||right.lastWonAt.localeCompare(left.lastWonAt)||name(left.playerId).localeCompare(name(right.playerId),"zh-HK"));
+    const visibleEntries=cupEntries.filter(({item,status})=>
+      (cupFilter==="all"||(cupFilter==="active"&&status!=="done")||(cupFilter==="done"&&status==="done")||(cupFilter==="managed"&&canManageCup(item)))
+      &&item.name.toLocaleLowerCase().includes(cupSearch.trim().toLocaleLowerCase()));
     const cupSections=[
-      {id:"active",label:"報名中／進行中賽事",entries:cupEntries.filter(entry=>entry.status!=="done")},
-      {id:"done",label:"已完成賽事",entries:cupEntries.filter(entry=>entry.status==="done")},
+      {id:"active",label:"報名中／進行中賽事",entries:visibleEntries.filter(entry=>entry.status!=="done")},
+      {id:"done",label:"已完成賽事",entries:visibleEntries.filter(entry=>entry.status==="done")},
     ].filter(section=>section.entries.length>0);
-    return <section className="cup">
+    return <section className="cup cup-directory">
       <div className="cup-intro">
-        <div><p className="sl-eyebrow">SCAA 盃賽</p><h2>盃賽</h2><p>報名、抽籤、對陣同賽果，一頁睇晒。</p></div>
+        <div><h1>盃賽</h1><p>查看報名、安排對陣、跟進每場賽果。</p></div>
         {isAdmin&&<Button onClick={onCreateTournament}>＋ 新增盃賽</Button>}
       </div>
-      {championTable.length>0&&<section className="cup-honours" aria-labelledby="cup-honours-title">
+      <div className="cup-directory-tools">
+        <SlidingToggleGroup className="cup-filters" role="group" aria-label="篩選盃賽">
+          {[{value:"all",label:"全部"},{value:"active",label:"未完賽"},{value:"done",label:"已完成"},...(isAdmin||cupEntries.some(({item})=>canManageCup(item))?[{value:"managed",label:"我管理的"}]:[])].map(filter=><button type="button" key={filter.value} aria-pressed={cupFilter===filter.value} onClick={()=>setCupFilter(filter.value)}>{filter.label}</button>)}
+        </SlidingToggleGroup>
+        <FormField label="搜尋盃賽"><input type="search" value={cupSearch} onChange={event=>setCupSearch(event.target.value)} placeholder="輸入賽事名稱"/></FormField>
+      </div>
+      <p className="cup-results-count" role="status">{visibleEntries.length} 項賽事</p>
+      {cups.length===0?<EmptyState title="尚未有盃賽" description={isAdmin?"建立第一個盃賽，球員即可報名。":"管理員建立盃賽後，你就可以在這裡報名。"}/>
+      :visibleEntries.length===0?<EmptyState title="找不到符合條件的盃賽" description="試試其他名稱，或清除篩選查看所有賽事。" action={<Button variant="secondary" onClick={()=>{setCupFilter("all");setCupSearch("")}}>清除篩選</Button>}/>
+      :<div className="cup-sections">{cupSections.map(section=><section className="cup-section" aria-labelledby={`cup-section-${section.id}`} key={section.id}>
+        <div className="cup-section-divider"><h3 id={`cup-section-${section.id}`}>{section.label}</h3></div>
+        <div className="cup-list">{section.entries.map(({item,status})=>{
+        const itemBracket=buildBracket<Match>(item,data.matches);
+        const itemSignedUp=Boolean(ownPlayerId&&item.signups.includes(ownPlayerId));
+        return <Surface as="article" padded={false} className={`cup-card is-${status}`} key={item.id}>
+          <div className="cup-card-date"><small>{item.startAt?`${item.startAt.slice(0,4)} 年`:"開賽日期"}</small><b>{item.startAt?`${Number(item.startAt.slice(5,7))}月${Number(item.startAt.slice(8,10))}日`:"未提供"}</b><span>{item.startAt?item.startAt.slice(11,16):"日期未記錄"}</span><CupMark/></div>
+          <div className="cup-card-body">
+            <div className="cup-card-top"><span className={`cup-chip is-${status}`}>{CUP_STATUS_LABEL[status]}</span>{canManageCup(item)&&controls(item)}</div>
+            <h3><button type="button" className="cup-title-link" onClick={()=>setSelectedTournament(item.id)}>{item.name}</button></h3>
+            <p className="cup-card-line">{status==="signup"?`報名截止 ${deadlineText(item.signupDeadline)}`:status==="done"?`冠軍 · ${name(itemBracket.champion)}`:status==="short"?"人數不足，未能開賽":`${currentRoundLabel(itemBracket)} · ${itemBracket.slots.filter(slot=>slot.state==="ready").length} 場待記錄`}</p>
+            <div className="cup-card-people">{item.signups.length>0&&avatarStack(item.signups)}<span>{item.signups.length} 人報名</span>{itemSignedUp&&<span className="cup-entry-status">已報名</span>}{canManageCup(item)&&<span className="cup-entry-status">你管理的</span>}</div>
+            <div className="cup-card-actions">
+              {status==="signup"&&(ownPlayerId
+                ?<Button variant={itemSignedUp?"secondary":"primary"} className="cup-btn" onClick={()=>setPendingSignup({id:item.id,name:item.name,joined:itemSignedUp})}>{itemSignedUp?"取消報名":"立即報名"}</Button>
+                :<a className="cup-btn primary" href="/login">登入後報名</a>)}
+              <Button variant={status==="signup"?"secondary":"primary"} className="cup-btn" onClick={()=>setSelectedTournament(item.id)}>{canManageCup(item)?"管理賽事":status==="signup"?"查看詳情":"賽程及賽果"}<span className="cup-btn-mark" aria-hidden="true">›</span></Button>
+              {shareButton(item,"cup-btn ghost",true)}
+            </div>
+          </div>
+        </Surface>;
+      })}</div>
+      </section>)}</div>}
+      {championTable.length>0&&<details className="cup-honours-disclosure"><summary>歷屆冠軍榜 <span>{championTable.length} 位冠軍</span></summary><section className="cup-honours" aria-labelledby="cup-honours-title">
         <div className="cup-honours-head">
-          <div><p className="sl-eyebrow">Hall of champions</p><h3 id="cup-honours-title">歷屆冠軍榜</h3></div>
+          <div><h3 id="cup-honours-title">歷屆冠軍榜</h3></div>
           <span>{cupEntries.filter(entry=>entry.status==="done").length} 屆賽事</span>
         </div>
         <ol className="cup-honours-list">
@@ -2598,37 +2633,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
             </li>;
           })}
         </ol>
-      </section>}
-      {cups.length===0?<div className="cup-empty"><span aria-hidden="true">🏆</span><b>尚未有盃賽</b><p>{isAdmin?"建立第一個盃賽，球員即可報名。":"管理員建立盃賽後，你就可以在這裡報名。"}</p></div>
-      :<div className="cup-sections">{cupSections.map(section=><section className="cup-section" aria-labelledby={`cup-section-${section.id}`} key={section.id}>
-        <div className="cup-section-divider"><h3 id={`cup-section-${section.id}`}>{section.label}</h3></div>
-        <div className="cup-list">{section.entries.map(({item,status})=>{
-        const itemBracket=buildBracket<Match>(item,data.matches);
-        const itemSlot=playerSlot(itemBracket,ownPlayerId),itemSignedUp=Boolean(ownPlayerId&&item.signups.includes(ownPlayerId));
-        const line=item.startAt?`開始 ${deadlineText(item.startAt)} · ${status==="signup"?`報名截止 ${deadlineText(item.signupDeadline)}`:status==="done"?`冠軍 ${name(itemBracket.champion)}`:status==="short"?"報名人數不足兩人":itemSlot?`輪到你：${itemSlot.state==="ready"?`對 ${name(opponentIn(itemSlot,ownPlayerId))}`:"等待對手"}`:"賽事進行中"}`
-          :status==="signup"?`報名截止 ${deadlineText(item.signupDeadline)}`
-          :status==="done"?`冠軍 ${name(itemBracket.champion)}`
-          :status==="short"?"報名人數不足兩人"
-          :itemSlot?`輪到你：${itemSlot.state==="ready"?`對 ${name(opponentIn(itemSlot,ownPlayerId))}`:"等待對手"}`
-          :"賽事進行中";
-        return <Surface as="article" padded={false} className={`cup-card is-${status}`} key={item.id}>
-          <CupArt tone={status==="done"?"gold":"dark"}/>
-          <div className="cup-card-body">
-            <div className="cup-card-top"><span className={`cup-chip is-${status}`}>{CUP_STATUS_LABEL[status]}</span>{canManageCup(item)&&controls(item)}</div>
-            <h3>{item.name}</h3>
-            <p className="cup-card-line">{line}</p>
-            <div className="cup-card-people">{item.signups.length>0&&avatarStack(item.signups)}<span>{item.signups.length} 人報名</span></div>
-            <div className="cup-card-actions">
-              {status==="signup"&&(ownPlayerId
-                ?<Button variant={itemSignedUp?"secondary":"primary"} className="cup-btn" onClick={()=>setPendingSignup({id:item.id,name:item.name,joined:itemSignedUp})}>{itemSignedUp?"取消報名":"立即報名"}</Button>
-                :<a className="cup-btn primary" href="/login">登入後報名</a>)}
-              <Button variant={status==="signup"?"secondary":"primary"} className="cup-btn" onClick={()=>setSelectedTournament(item.id)}>{status==="signup"?"睇對陣預覽":"賽程"}<span className="cup-btn-mark" aria-hidden="true">›</span></Button>
-              {shareButton(item,"cup-btn ghost",true)}
-            </div>
-          </div>
-        </Surface>;
-      })}</div>
-      </section>)}</div>}
+      </section></details>}
       {confirmSignupDialog}
     </section>;
   }
@@ -2680,7 +2685,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     if(!opponents.length&&!spare.length)return null;
     return <select className="cup-seat-edit" defaultValue="" aria-label={`調整 ${name(id)} 的對陣`}
       onChange={event=>{const value=event.target.value;event.target.value="";if(value)onEditRoster(tournament,id,value)}}>
-      <option value="">⋯</option>
+      <option value="">調整</option>
       {opponents.length>0&&<optgroup label="對調位置">{opponents.map(other=><option key={other} value={other}>{name(other)}</option>)}</optgroup>}
       {spare.length>0&&<optgroup label="換上">{spare.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>}
     </select>;
@@ -2693,7 +2698,16 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   const rosterPanel=rosterIds.length>0||canManage?<div className="cup-roster">
     <h3>{drawn?"參賽名單":"報名名單"} <span className="cup-roster-count">{rosterIds.length}</span>{canManage&&canShuffle&&<Button variant="secondary" className="cup-btn sm cup-roster-shuffle" onClick={()=>onShuffleRoster(tournament)}>重新抽籤</Button>}</h3>
     {lateSignups.length>0&&<InlineNotice tone="warning" title="報名時間在抽籤之後">{lateSignups.map(id=>name(id)).join("、")} 已報名，但抽籤時尚未報名，故未列入對陣圖。{canManage&&(canEditEntrants?"如需加入，請於下方「加入球員」把他們加入籤表。":"已有賽果，如需加入請使用「換上」替補名單上的球員。")}</InlineNotice>}
-    <ul className="rated">{rosterIds.map(id=>{
+    {canManage&&<label className="cup-roster-add">
+      <span>{!canEditEntrants?"已有賽果，只可替換名單上的球員":drawn?"加入球員（會重新排列籤表）":"加入球員"}</span>
+      {canEditEntrants&&<select defaultValue="" onChange={event=>{const value=event.target.value;event.target.value="";if(value)onEditRoster(tournament,"",value)}}>
+        <option value="">選擇球員…</option>
+        {spare.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
+      </select>}
+    </label>}
+    <FormField label="搜尋參賽球員"><input type="search" value={rosterSearch} onChange={event=>setRosterSearch(event.target.value)} placeholder="輸入球員名稱"/></FormField>
+    {rosterIds.length>0&&!rosterIds.some(id=>name(id).toLocaleLowerCase().includes(rosterSearch.trim().toLocaleLowerCase()))&&<p className="cup-note" role="status">找不到符合名稱的球員。</p>}
+    <ul className="rated">{rosterIds.filter(id=>name(id).toLocaleLowerCase().includes(rosterSearch.trim().toLocaleLowerCase())).map(id=>{
       const standing=rosterStanding(id);
       const draggable=canArrangeRoster;
       return <li key={id} draggable={draggable} data-roster-id={id}
@@ -2731,14 +2745,8 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     {canManage&&canArrangeRoster&&<p className="cup-roster-note">拖曳球員名稱可調整名單順序{status!=="done"&&"，亦會更新對陣圖"}。</p>}
     {/* The list reorders; the bracket trades seats. Two different edits, so say where the other one
         lives rather than letting a host hunt for it. */}
-    {canManage&&drawn&&deadlinePassed&&<p className="cup-roster-note">如要指定邊個打邊個，可在下方對陣圖／賽程用每位球員旁的「⋯」對調位置，或直接拖曳對陣圖上的名字。</p>}
-    {canManage&&<label className="cup-roster-add">
-      <span>{!canEditEntrants?"已有賽果，只可替換名單上的球員":drawn?"加入球員（會重新排列籤表）":"加入球員"}</span>
-      {canEditEntrants&&<select defaultValue="" onChange={event=>{const value=event.target.value;event.target.value="";if(value)onEditRoster(tournament,"",value)}}>
-        <option value="">選擇球員…</option>
-        {spare.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
-      </select>}
-    </label>}
+    {canManage&&drawn&&deadlinePassed&&<p className="cup-roster-note">如要指定邊個打邊個，可在「對陣圖」或「賽程及賽果」用每位球員旁的「調整」對調位置，或直接拖曳對陣圖上的名字。</p>}
+
   </div>:null;
 
   const tieRow=(slot:BracketSlot<Match>)=>{
@@ -2836,13 +2844,13 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     const found=player(id);
     return {name:found?.name??"",short:found?.short??"?",colour:found?.colour??null,avatar:found?.avatar??null};
   };
-  return <section className="cup">
+  return <section className="cup cup-detail">
     <button type="button" className="cup-back" onClick={()=>setSelectedTournament("")}><span aria-hidden="true">‹</span> 所有盃賽</button>
     <header className={`cup-banner is-${status}`}>
       <CupArt tone={status==="done"?"gold":"dark"}/>
       <div className="cup-banner-body">
         <div className="cup-card-top"><span className={`cup-chip is-${status}`}>{CUP_STATUS_LABEL[status]}</span>{canManage&&controls(tournament)}</div>
-        <h2>{tournament.name}</h2>
+        <h1>{tournament.name}</h1><p>{tournament.format==="double"?"雙敗淘汰":"單敗淘汰"} · {tournament.handicapMode==="suggested"?"按評分讓分":"不設讓分"}</p>
         <p>{tournament.startAt&&<>開始：{deadlineText(tournament.startAt)} · </>}{deadlinePassed?`報名已於 ${deadlineText(tournament.signupDeadline)} 截止`:`報名截止 ${deadlineText(tournament.signupDeadline)}`}</p>
         <div className="cup-banner-stats">
           <div><b>{tournament.signups.length}</b><small>參賽</small></div>
@@ -2852,20 +2860,6 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         {total>0&&<div className="cup-progress" role="img" aria-label={`賽程進度 ${settled} / ${total}`}><i style={{width:`${Math.round(settled/total*100)}%`}}/></div>}
       </div>
     </header>
-
-    {/* Recruiting is the one state where sharing is not a nicety — a cup with four entrants is a
-        worse cup — so the ask is loud, states the clock, and names WhatsApp rather than 「分享」. */}
-    <div className={`cup-share-row${status==="signup"?" recruiting":""}`}>
-      <div>
-        <b>{status==="signup"?`叫多幾個會友嚟報名${shareUrgency.label?`｜${shareUrgency.label}`:""}`:"分享賽程同賽果"}</b>
-        <small>{cupShareCta(shareState).hint}</small>
-      </div>
-      <CupShareButtons name={tournament.name} state={shareState}
-        url={typeof window==="undefined"?"":cupShareUrl(window.location.origin,tournament.id)}
-        entrants={rosterIds.map(storyPerson)}
-        champion={champion?storyPerson(champion):null}
-        bracket={chart?storyBracket(chart):[]} tone="primary"/>
-    </div>
 
     {!deadlinePassed?<>
       {/* Entering a cup is a competition decision, so it sits with the bracket it leads to rather
@@ -2878,7 +2872,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       </div>
       {arrivalEditor}
       {rosterPanel}
-    </>:!bracket||!bracket.size?<div className="cup-empty"><span aria-hidden="true">🎱</span><b>報名人數不足兩人</b><p>{isAdmin?"可編輯盃賽並延後報名截止時間，重新開放報名。":"今屆未能開賽。"}</p></div>:<>
+    </>:!bracket||!bracket.size?<><div className="cup-empty"><span aria-hidden="true">🎱</span><b>報名人數不足兩人</b><p>{isAdmin?"可編輯盃賽並延後報名截止時間，重新開放報名。":"今屆未能開賽。"}</p></div>{canManage&&rosterPanel}</>:<>
       {!drawn&&ownPlayerId&&<p className="cup-note">正在抽籤…</p>}
       {arrivalEditor}
       {champion?<article className="cup-champion">
@@ -2905,8 +2899,12 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       :eliminated?<p className="cup-note">你在今屆已止步；可繼續睇餘下賽程。</p>
       :ownPlayerId&&!tournament.signups.includes(ownPlayerId)?<p className="cup-note">你未有報名今屆盃賽。</p>:null}
 
-      {chart&&<CupBracketChart chart={chart} activeRound={openRound}
-        onPick={(round,index)=>{setOpenRound(round);setFocusTie(`${round}-${index}`)}}/>}
+      <SlidingToggleGroup className="cup-workspace-nav" role="group" aria-label="賽事工作區">
+        {[{value:"fixtures",label:"賽程及賽果"},{value:"draw",label:"對陣圖"},{value:"entries",label:`參賽名單 ${rosterIds.length}`}].map(view=><button type="button" key={view.value} aria-pressed={cupView===view.value} aria-controls="cup-workspace" onClick={()=>setCupView(view.value)}>{view.label}</button>)}
+      </SlidingToggleGroup>
+      <section id="cup-workspace" className="cup-workspace" aria-label={cupView==="fixtures"?"賽程及賽果":cupView==="draw"?"對陣圖":"參賽名單"}>
+      {cupView==="fixtures"&&<>
+      <div className="cup-workspace-heading"><h3>賽程及賽果</h3><p>選擇輪次，查看對手及記錄賽果。</p></div>
       <nav className="cup-rounds" aria-label="選擇輪次">{Array.from({length:bracket.rounds},(_,index)=>{
         const round=index+1,done=bracket.slots.filter(slot=>slot.round===round&&slot.settled&&slot.state!=="dead").length;
         const count=bracket.slots.filter(slot=>slot.round===round&&slot.state!=="dead").length;
@@ -2915,12 +2913,29 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         </button>;
       })}</nav>
       <ol className="cup-ties">{bracket.slots.filter(slot=>slot.round===openRound&&slot.state!=="dead").map(tieRow)}</ol>
-      {canManage&&rosterPanel}
-
-      {/* The full tree — names, scores and controls in every box — needs width the phone does not
-          have; there, CupBracketChart carries the shape and the cards carry the detail. */}
+      </>}
+      {cupView==="entries"&&rosterPanel}
+      {cupView==="draw"&&<>
+      <div className="cup-workspace-heading"><h3>對陣圖</h3><p>{canManage?"未有賽果的球員可用「調整」對調位置或換上替補。":"查看各輪晉級路線及賽果。"} 左右滑動查看各輪對陣。</p></div>
+      {chart&&<CupBracketChart chart={chart} activeRound={openRound} onPick={(round,index)=>{setCupView("fixtures");setOpenRound(round);setFocusTie(`${round}-${index}`)}}/>}
+      {/* Desktop exposes draw controls; mobile opens a fixture from the compact chart. */}
       <div className="cup-tree"><TournamentBracketChart bracket={bracket} name={name} ownPlayerId={ownPlayerId} isAdmin={isAdmin} canManage={canManage} canMoveSeat={canMoveSeat} seatTool={seatTool} dragRosterId={dragRosterId} dragOverRosterId={dragOverRosterId} canManageMatch={canManageMatch} onEdit={onEdit} onRecordSlot={slot=>onRecordSlot(tournament,slot)} onWalkover={(slot,winnerId)=>onWalkover(tournament,slot,winnerId)} onDragStart={id=>{setDragRosterId(id);setDragOverRosterId("")}} onDragOver={id=>setDragOverRosterId(id)} onDrop={id=>{if(dragRosterId&&dragRosterId!==id){onEditRoster(tournament,dragRosterId,id)}setDragRosterId("");setDragOverRosterId("")}} onDragEnd={()=>{setDragRosterId("");setDragOverRosterId("")}} onTouchStart={id=>onRosterHandleTouchStart(id,"bracket")} onTouchMove={onRosterHandleTouchMove} onTouchEnd={onRosterHandleTouchEnd(tournament)}/></div>
+      </>}
+      </section>
     </>}
+    {/* Sharing follows the organiser workspace so match operations remain the primary task. */}
+    <div className={`cup-share-row${status==="signup"?" recruiting":""}`}>
+      <div>
+        <b>{status==="signup"?`叫多幾個會友嚟報名${shareUrgency.label?`｜${shareUrgency.label}`:""}`:"分享賽程同賽果"}</b>
+        <small>{cupShareCta(shareState).hint}</small>
+      </div>
+      <CupShareButtons name={tournament.name} state={shareState}
+        url={typeof window==="undefined"?"":cupShareUrl(window.location.origin,tournament.id)}
+        entrants={rosterIds.map(storyPerson)}
+        champion={champion?storyPerson(champion):null}
+        bracket={chart?storyBracket(chart):[]} tone="primary"/>
+    </div>
+
     {confirmSignupDialog}
   </section>;
 }

@@ -1,0 +1,22 @@
+[
+  {
+    "antipattern": "layout-transition",
+    "name": "Layout property animation",
+    "description": "Animating width, height, padding, or margin causes layout thrash and janky performance. Use transform and opacity instead, or grid-template-rows for height animations.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "C:\\Users\\dash\\Documents\\GitHub\\snooker-elo\\app\\styles\\cup.css",
+    "line": 60,
+    "snippet": "transition: width"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "C:\\Users\\dash\\Documents\\GitHub\\snooker-elo\\app\\styles\\cup.css",
+    "line": 283,
+    "snippet": ".match-share-side.won — inset box-shadow 3px stripe (left)"
+  }
+]

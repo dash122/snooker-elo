@@ -13,6 +13,7 @@ export type TournamentLike = {
   name:string;
   format?:"single"|"double";
   startAt?:string|null;
+  createdAt?:string;
   createdBy?:string;
   signupDeadline:string;
   signups:string[];
@@ -420,6 +421,29 @@ export function playerHonours<M extends CupMatchLike>(
     if(loser===playerId)honours.push({tournamentId:tournament.id,name:tournament.name,place:"runnerUp"});
   }
   return honours;
+}
+
+export type ChampionStanding = { playerId:string; titles:number; lastTitle:string; lastWonAt:string };
+
+/** Completed cups only, ordered for the hall of champions. The latest win is kept explicitly rather
+    than relying on the input order, because the caller may sort cups for a different surface. */
+export function championStandings<M extends CupMatchLike>(
+  tournaments:TournamentLike[],matches:M[]
+):ChampionStanding[] {
+  const table=new Map<string,ChampionStanding>();
+  for(const tournament of tournaments){
+    const championId=buildBracket(tournament,matches).champion;
+    if(!championId)continue;
+    const lastWonAt=tournament.startAt??tournament.createdAt??"";
+    const previous=table.get(championId);
+    table.set(championId,{
+      playerId:championId,
+      titles:(previous?.titles??0)+1,
+      lastTitle:!previous||lastWonAt>previous.lastWonAt?tournament.name:previous.lastTitle,
+      lastWonAt:!previous||lastWonAt>previous.lastWonAt?lastWonAt:previous.lastWonAt,
+    });
+  }
+  return [...table.values()].sort((left,right)=>right.titles-left.titles||right.lastWonAt.localeCompare(left.lastWonAt)||left.playerId.localeCompare(right.playerId));
 }
 
 export function currentRoundLabel(bracket:Bracket|null|undefined):string {

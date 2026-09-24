@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { addEntrant, bracketShape, buildBracket, computeDraw, doubleEliminationRounds, firstRoundPairings, formatTournamentDateTime, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, randomizeDraw, removeEntrant, reorderDraw, roundLabel, shuffleDraw, signupsClosed, swapPlayer } from "../lib/tournament.ts";
+import { addEntrant, bracketShape, buildBracket, championStandings, computeDraw, doubleEliminationRounds, firstRoundPairings, formatTournamentDateTime, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, randomizeDraw, removeEntrant, reorderDraw, roundLabel, shuffleDraw, signupsClosed, swapPlayer } from "../lib/tournament.ts";
 
 const PAST = "2020-01-01T00:00";
 const FUTURE = "2999-01-01T00:00";
@@ -418,6 +418,16 @@ test("titles accumulate across cups", () => {
   assert.equal(honours.length, 2);
   assert.ok(honours.every(item => item.place === "champion"));
   assert.deepEqual(honours.map(item => item.name), ["會友盃", "春季賽"]);
+});
+
+test("champion standings keep the player's most recent winning tournament", () => {
+  const older = cup({ id: "t1", name: "舊盃", startAt: "2025-01-01T19:00", draw: ["p1", "p2", "p3", "p4"] });
+  const newer = cup({ id: "t2", name: "最新盃", startAt: "2026-01-01T19:00", draw: ["p1", "p2", "p3", "p4"] });
+  const played = id => [result(1, 1, "p1", "p2", 3, 1), result(1, 2, "p3", "p4", 0, 3), result(2, 1, "p4", "p1", 4, 2)]
+    .map(match => ({ ...match, tournamentId: id }));
+  assert.deepEqual(championStandings([newer, older], [...played("t1"), ...played("t2")]), [{
+    playerId: "p4", titles: 2, lastTitle: "最新盃", lastWonAt: "2026-01-01T19:00",
+  }]);
 });
 
 test("a match's round is named without building a bracket, and an impossible round names nothing", () => {
