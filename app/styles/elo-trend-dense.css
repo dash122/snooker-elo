@@ -1,0 +1,8 @@
+/* Single-player ELO trend, long histories: a smooth hairline with a scrub cursor instead of one dot per match. */
+.trend-plot.dense{cursor:crosshair;touch-action:pan-y;user-select:none}
+.trend-plot.dense:focus-visible{outline:2px solid var(--gold-on-light);outline-offset:2px;border-radius:var(--radius-sm)}
+.trend-line.dense{stroke-width:1.75}
+.trend-cursor{pointer-events:none;width:14px;height:14px}
+.trend-peak{position:absolute;z-index:2;width:8px;height:8px;border-radius:50%;background:var(--gold-on-light);box-shadow:0 0 0 3px var(--ds-surface-primary);transform:translate(-50%,-50%);pointer-events:none}
+.trend-peak>em{position:absolute;bottom:var(--sp-2);left:50%;transform:translateX(-50%);color:var(--gold-on-light);font-size:var(--fs-label);font-style:normal;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.trend-dates{display:flex;justify-content:space-between;margin-top:var(--sp-1);padding-inline:5%;color:var(--ds-text-secondary);font-size:var(--fs-label);font-variant-numeric:tabular-nums}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { Button, SlidingToggleGroup } from "./components/ui/Primitives";
 
 export type SortKey = "rank"|"name"|"rating"|"change"|"form"|"official"|"suggested"|"games"|"winRate"|"frameRate";
@@ -251,6 +251,31 @@ export function CalibrationTrend({history,lower,upper,conversion,confidence,exam
   </section>;
 }
 
+/** Monotone cubic (Fritsch–Carlson) path through the points: a smooth curve that never overshoots
+ *  a data value, so long histories read as a flowing line instead of a jagged polyline. */
+function smoothPath(pts:[number,number][]){
+  const n=pts.length;
+  if(n<3)return pts.map(([px,py],i)=>`${i?"L":"M"} ${px} ${py}`).join(" ");
+  const dx:number[]=[],slope:number[]=[];
+  for(let i=0;i<n-1;i++){dx.push(pts[i+1][0]-pts[i][0]);slope.push((pts[i+1][1]-pts[i][1])/(dx[i]||1));}
+  const tangent=[slope[0]];
+  for(let i=1;i<n-1;i++)tangent.push(slope[i-1]*slope[i]<=0?0:(slope[i-1]+slope[i])/2);
+  tangent.push(slope[n-2]);
+  for(let i=0;i<n-1;i++){
+    if(slope[i]===0){tangent[i]=0;tangent[i+1]=0;continue;}
+    const a=tangent[i]/slope[i],b=tangent[i+1]/slope[i],h=Math.hypot(a,b);
+    if(h>3){tangent[i]=3*a/h*slope[i];tangent[i+1]=3*b/h*slope[i];}
+  }
+  let d=`M ${pts[0][0]} ${pts[0][1]}`;
+  for(let i=0;i<n-1;i++){
+    const w=dx[i]/3;
+    d+=` C ${pts[i][0]+w} ${pts[i][1]+tangent[i]*w} ${pts[i+1][0]-w} ${pts[i+1][1]-tangent[i+1]*w} ${pts[i+1][0]} ${pts[i+1][1]}`;
+  }
+  return d;
+}
+/** Beyond this many points, individual dots overlap into a beaded chain — switch to a clean line with a scrub cursor. */
+const DENSE_TREND_POINTS=24;
+
 export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label:string}) {
   const [range,setRange]=useState<"recent"|"all">("recent");
   const [activeId,setActiveId]=useState<string|null>(null);
@@ -266,26 +291,49 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
   const middle=(rawMin+rawMax)/2,min=middle-visualRange/2,max=middle+visualRange/2;
   const x=(index:number)=>visible.length===1?50:5+index/(visible.length-1)*90;
   const y=(value:number)=>54-(value-min)/(max-min)*46;
-  const polyline=visible.map((point,index)=>`${x(index)},${y(point.elo)}`).join(" ");
-  const area=`M ${x(0)} 56 L ${visible.map((point,index)=>`${x(index)} ${y(point.elo)}`).join(" L ")} L ${x(visible.length-1)} 56 Z`;
+  const coords=visible.map((point,index):[number,number]=>[x(index),y(point.elo)]);
+  const linePath=smoothPath(coords);
+  const area=`${linePath} L ${x(visible.length-1)} 56 L ${x(0)} 56 Z`;
+  const dense=visible.length>DENSE_TREND_POINTS;
+  const peakIndex=values.indexOf(rawMax);
   const active=visible.find(point=>point.id===activeId)??null;
   const activeIndex=active?visible.findIndex(point=>point.id===active.id):-1;
   const periodChange=visible.at(-1)!.elo-visible[0].elo;
   const resultLabel=(result:EloTrendPoint["result"])=>result==="W"?"勝":result==="L"?"負":result==="D"?"和":"起始";
   return <div className="interactive-trend">
     <div className="trend-overview"><div><small>{range==="recent"?"最近十場":"完整記錄"}</small><b className={periodChange>=0?"positive":"negative"}>{periodChange>=0?"+":""}{Math.round(periodChange)} <em>ELO</em></b></div><SlidingToggleGroup className="ds-toggle-control" aria-label="ELO 走勢範圍"><button className={range==="recent"?"active":""} onClick={()=>{setRange("recent");setActiveId(null)}}>最近十場</button><button className={range==="all"?"active":""} onClick={()=>{setRange("all");setActiveId(null)}}>全部</button></SlidingToggleGroup></div>
-    <div className="trend-plot" onPointerLeave={()=>setActiveId(null)}>
+    <div className={`trend-plot${dense?" dense":""}`} onPointerLeave={()=>setActiveId(null)}
+      {...(dense?{
+        tabIndex:0,role:"group","aria-label":`${label}，可用左右方向鍵逐場查看`,
+        onPointerMove:(event:PointerEvent<HTMLDivElement>)=>{
+          const box=event.currentTarget.getBoundingClientRect();
+          const index=Math.round((((event.clientX-box.left)/box.width*100-5)/90)*(visible.length-1));
+          setActiveId(visible[Math.min(visible.length-1,Math.max(0,index))].id);
+        },
+        onKeyDown:(event:KeyboardEvent<HTMLDivElement>)=>{
+          if(event.key!=="ArrowLeft"&&event.key!=="ArrowRight")return;
+          event.preventDefault();
+          const next=(activeIndex<0?visible.length-1:activeIndex)+(event.key==="ArrowRight"?1:-1);
+          setActiveId(visible[Math.min(visible.length-1,Math.max(0,next))].id);
+        },
+        onBlur:()=>setActiveId(null)
+      }:{})}>
       <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label={label}>
         <defs><linearGradient id="elo-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#287e69" stopOpacity=".28"/><stop offset="100%" stopColor="#287e69" stopOpacity=".02"/></linearGradient></defs>
         {[8,31,54].map(line=><line key={line} x1="5" y1={line} x2="95" y2={line} className="trend-grid"/>)}
-        <path d={area} className="trend-area"/><polyline points={polyline} className="trend-line"/>
+        <path d={area} className="trend-area"/><path d={linePath} className={`trend-line${dense?" dense":""}`}/>
         {active&&<line x1={x(activeIndex)} y1="6" x2={x(activeIndex)} y2="56" className="trend-guide"/>}
       </svg>
-      {visible.map((point,index)=><button key={point.id} className={`trend-point ${point.result==="start"?"start":point.result.toLowerCase()} ${activeId===point.id?"active":""}`} style={{left:`${x(index)}%`,top:`${y(point.elo)/60*100}%`}} onPointerEnter={()=>setActiveId(point.id)} onFocus={()=>setActiveId(point.id)} onBlur={()=>setActiveId(null)} onClick={()=>setActiveId(current=>current===point.id?null:point.id)} aria-label={point.result==="start"?`起始 ELO ${Math.round(point.elo)}`:`${point.date}，${resultLabel(point.result)} ${point.opponent} ${point.score}，ELO ${point.delta>=0?"上升":"下降"} ${Math.abs(Math.round(point.delta))} 至 ${Math.round(point.elo)}`}/>)}
+      {dense&&<>
+        <span className="trend-peak" style={{left:`${x(peakIndex)}%`,top:`${y(rawMax)/60*100}%`}} aria-hidden="true"><em>{Math.round(rawMax)}</em></span>
+        {active&&<span className={`trend-point trend-cursor ${active.result==="start"?"start":active.result.toLowerCase()}`} style={{left:`${x(activeIndex)}%`,top:`${y(active.elo)/60*100}%`}} aria-hidden="true"/>}
+      </>}
+      {!dense&&visible.map((point,index)=><button key={point.id} className={`trend-point ${point.result==="start"?"start":point.result.toLowerCase()} ${activeId===point.id?"active":""}`} style={{left:`${x(index)}%`,top:`${y(point.elo)/60*100}%`}} onPointerEnter={()=>setActiveId(point.id)} onFocus={()=>setActiveId(point.id)} onBlur={()=>setActiveId(null)} onClick={()=>setActiveId(current=>current===point.id?null:point.id)} aria-label={point.result==="start"?`起始 ELO ${Math.round(point.elo)}`:`${point.date}，${resultLabel(point.result)} ${point.opponent} ${point.score}，ELO ${point.delta>=0?"上升":"下降"} ${Math.abs(Math.round(point.delta))} 至 ${Math.round(point.elo)}`}/>)}
       {active&&<div className={`trend-tooltip ${x(activeIndex)>70?"align-right":x(activeIndex)<30?"align-left":""}`} style={{left:`${x(activeIndex)}%`,top:`${Math.max(3,y(active.elo)/60*100-7)}%`}} role="status"><small>{active.result==="start"?"評分起點":active.date}</small><b>{active.result==="start"?"起始 ELO":`${resultLabel(active.result)} ${active.opponent} ${active.score}`}</b><span>{active.result==="start"?Math.round(active.elo):<>{Math.round(active.before)} → {Math.round(active.elo)} <strong className={active.delta>=0?"positive":"negative"}>{active.delta>=0?"+":""}{Math.round(active.delta)}</strong></>}</span></div>}
     </div>
     <div className="trend-scale"><span>{Math.round(max)}</span><span>{Math.round(middle)}</span><span>{Math.round(min)}</span></div>
-    <p className="trend-help">移至或點按資料點，查看該場對手、比分與 ELO 變化。</p>
+    {dense&&<div className="trend-dates" aria-hidden="true"><span>{visible.find(point=>point.date)?.date}</span><span>{visible.at(-1)!.date}</span></div>}
+    <p className="trend-help">{dense?`共 ${visible.length-1} 場；在圖上左右滑動或移動，查看該場對手、比分與 ELO 變化。`:"移至或點按資料點，查看該場對手、比分與 ELO 變化。"}</p>
   </div>;
 }
 
