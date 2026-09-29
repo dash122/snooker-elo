@@ -1562,7 +1562,7 @@ function Overview({top,data,onPlayer}:{top:Player[];data:AppState;onPlayer:(p:Pl
 type BreakRecord={player:Player;opponent:string;value:number;date:string;createdAt:string;key:string};
 type MonthlyBreak={month:string;record:BreakRecord|null;top:BreakRecord[]};
 /** The highest break of every month from the first recorded break to today,
- *  newest last, plus up to the 5 highest breaks in that month. Months without
+ *  newest last, plus up to the 10 highest breaks in that month. Months without
  *  a recorded break stay in the series as gaps so the timeline reads evenly;
  *  the chart scrolls when there are more than a screenful. */
 function monthlyBreakRecords(records:BreakRecord[]):MonthlyBreak[]{
@@ -1577,7 +1577,7 @@ function monthlyBreakRecords(records:BreakRecord[]):MonthlyBreak[]{
   const months:MonthlyBreak[]=[];
   for(let month=first;month<=end;month=shiftMonth(month,1)){
     const top=byMonth.get(month)??[];
-    months.push({month,record:top[0]??null,top:top.slice(0,5)});
+    months.push({month,record:top[0]??null,top:top.slice(0,10)});
   }
   return months;
 }
