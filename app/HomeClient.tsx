@@ -244,7 +244,7 @@ function trailingStat(t: Translator, key:SortKey,p:Player,data:AppState,suggeste
 function MobileSortHead({sort}:{sort:SortKey}){
   const t = useT();
   const trailingLabel=DEFAULT_TRAILING_KEYS.includes(sort)?"ELO":t(sortLabels[sort]);
-  return <div className="row-head-mobile" aria-hidden="true"><span>{t("排名")}</span><span>{t("球員")}</span><span>{t("近況")}</span><span>{trailingLabel}</span></div>;
+  return <div className="row-head-mobile" aria-hidden="true"><span>{t("排名")}</span><span>{t("球員")}</span><span>{t("近況")}</span><span>{trailingLabel}{t.locale==="en"&&DEFAULT_TRAILING_KEYS.includes(sort)&&<small className="row-head-sub">(Handicap)</small>}</span></div>;
 }
 function sortPlayers(players:Player[],data:AppState,key:SortKey,dir:"asc"|"desc"){
   const ranks=new Map([...players].sort((a,b)=>b.rating-a.rating||games(b)-games(a)||a.name.localeCompare(b.name)).map((p,i)=>[p.id,i+1]));
@@ -1739,7 +1739,7 @@ function Leaderboard({ranked,data,ownPlayerId,onRecord,onPlayer,onMatch,onRivalr
         <span className="form">{p.form.map((x,j)=><i className={x.toLowerCase()} key={j}>{x}</i>)}</span>
         <span>{t("{played} 場", {played})}<small>{t("{rate}% 勝率", {rate})}</small></span><span className="dual-rating"><b>{suggested}</b><small>{t("正式")} {p.handicap==null?"—":p.handicap}</small></span>
         {trailing?<span className="elo"><b className={trailing.cls}>{trailing.big}</b><small>{trailing.sub}</small></span>
-        :<span className="elo"><b>{Math.round(p.rating)}</b><small className={swing>=0?"positive":"negative"}>{swing>=0?"+":""}{Math.round(swing)}</small><em className="elo-suggested">{t("建議 {suggested}", {suggested})}</em></span>}</button>})}</>}</Surface>
+        :<span className="elo"><b>{Math.round(p.rating)}</b><small className={swing>=0?"positive":"negative"}>{swing>=0?"+":""}{Math.round(swing)}</small><em className="elo-suggested">{t.locale==="en"?`(${suggested})`:t("建議 {suggested}", {suggested})}</em></span>}</button>})}</>}</Surface>
     </>:<EloTrendChart players={visibleRanked} data={data}/>}
     </section></>}
     {homeView==="breaks"&&<section className="home-view-panel break-records-panel" aria-labelledby="break-records-title">
