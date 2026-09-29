@@ -1,4 +1,6 @@
 import { AVAILABILITY_MINUTES } from "./availability.ts";
+import { msg } from "./i18n/translate.ts";
+import type { Translator } from "./i18n/translate.ts";
 
 /* --- 重疊 · when are we actually in the same room? -------------------------
  *
@@ -22,7 +24,7 @@ export function isCommitment(value:unknown):value is Commitment {
   return value==="going"||value==="interested";
 }
 
-export const COMMITMENT_LABELS:Record<Commitment,string> = { going:"我會去", interested:"有興趣" };
+export const COMMITMENT_LABELS:Record<Commitment,string> = { going:msg("我會去"), interested:msg("有興趣") };
 
 export type SlotLike = { playerId:string; startAt:string; endAt:string; commitment:Commitment };
 
@@ -127,9 +129,9 @@ export function overlapView(slots:SlotLike[],dayStartMs:number):OverlapView{
 
 /** The headline. The peak leads because it is the number a member can act on; the all-day figure
     follows, and only when it differs — printing 「全日 3 人」 beside 「3 人」 is noise. */
-export function overlapHeadline(view:OverlapView):string{
-  if(view.peak===0)return view.goingTotal>0?"未有人時間撞到":"今日未有人";
-  return `${view.peak} 人 · ${view.peakStart}–${view.peakEnd}`;
+export function overlapHeadline(t: Translator, view:OverlapView):string{
+  if(view.peak===0)return view.goingTotal>0?t("未有人時間撞到"):t("今日未有人");
+  return t("{peak} 人 · {peakStart}–{peakEnd}", {peak: view.peak, peakStart: view.peakStart, peakEnd: view.peakEnd});
 }
 
 /** Trim the strip to the part worth drawing: from the first bucket anybody occupies to the last,

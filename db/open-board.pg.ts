@@ -1,5 +1,6 @@
 import { getSql } from "./sql";
 import { addDaysHongKong, hkDate } from "../lib/availability";
+import { msg } from "../lib/i18n/translate.ts";
 
 /* --- 開局板 · the data side -------------------------------------------------
  *
@@ -371,7 +372,7 @@ export async function readCall(id:string,viewerId:string|null=null){
 export async function findOrCreateVenue(name:string,district:string):Promise<BoardVenue>{
   const sql=getSql();
   const trimmed=name.trim().slice(0,60),area=district.trim().slice(0,30);
-  if(!trimmed)throw new Error("請輸入場地名稱。");
+  if(!trimmed)throw new Error(msg("請輸入場地名稱。"));
   const [existing]=await sql<BoardVenue[]>`
     SELECT id,name,district FROM venues WHERE lower(btrim(name))=lower(${trimmed}) LIMIT 1`;
   if(existing)return existing;

@@ -1,4 +1,5 @@
-export const SHOOTOUT_MATCH_MS = 10 * 60 * 1000;
+
+import type { Translator } from "./i18n/translate.ts";export const SHOOTOUT_MATCH_MS = 10 * 60 * 1000;
 export const SHOOTOUT_LONG_SHOT_MS = 15 * 1000;
 export const SHOOTOUT_SHORT_SHOT_MS = 10 * 1000;
 export const SHOOTOUT_PHASE_CHANGE_MS = 5 * 60 * 1000;
@@ -133,7 +134,7 @@ export function getShootoutView(state: ShootoutState, now: number): ShootoutView
   return {...state, matchRemainingMs, shotRemainingMs, phase, status};
 }
 
-export function reconcileShootout(state: ShootoutState, now: number): ShootoutState {
+export function reconcileShootout(t: Translator, state: ShootoutState, now: number): ShootoutState {
   if (state.lastUpdatedAt === null || (state.status !== "live" && state.status !== "expired")) return state;
 
   const view = getShootoutView(state, now);
@@ -147,19 +148,19 @@ export function reconcileShootout(state: ShootoutState, now: number): ShootoutSt
   };
 
   if (state.phase !== "short" && view.phase === "short") {
-    next = withEvent(next, "phase-change", now, "進入 10 秒階段");
+    next = withEvent(next, "phase-change", now, t("進入 10 秒階段"));
   }
   if (state.status === "live" && view.status === "expired") {
-    next = withEvent(next, "expiry", now, "出桿鐘時間已過", state.activePlayer ?? undefined);
+    next = withEvent(next, "expiry", now, t("出桿鐘時間已過"), state.activePlayer ?? undefined);
   }
   if (view.status === "complete") {
-    next = withEvent(next, "complete", now, "比賽時間完結");
+    next = withEvent(next, "complete", now, t("比賽時間完結"));
     next = {...next, matchClockPaused: true, shotClockPaused: true};
   }
   return next;
 }
 
-export function startShootout(state: ShootoutState, now: number): ShootoutState {
+export function startShootout(t: Translator, state: ShootoutState, now: number): ShootoutState {
   const ready = toReady(state);
   if (ready.status !== "ready" || !ready.openingPlayer) return state;
   const next: ShootoutState = {
@@ -173,13 +174,13 @@ export function startShootout(state: ShootoutState, now: number): ShootoutState 
     shotClockPaused: false,
     lastUpdatedAt: now,
   };
-  return withEvent(next, "start", now, `開始比賽・${ready.openingPlayer === "a" ? ready.playerA : ready.playerB} 出桿`, ready.openingPlayer);
+  return withEvent(next, "start", now, t("開始比賽・{v} 出桿", {v: ready.openingPlayer === "a" ? ready.playerA : ready.playerB}), ready.openingPlayer);
 }
 
-export function switchShootoutTurn(state: ShootoutState, now: number): ShootoutState {
-  const current = reconcileShootout(state, now);
+export function switchShootoutTurn(t: Translator, state: ShootoutState, now: number): ShootoutState {
+  const current = reconcileShootout(t, state, now);
   if ((current.status !== "live" && current.status !== "expired") || !current.activePlayer) return current;
-  if (current.matchRemainingMs <= 0) return reconcileShootout(current, now);
+  if (current.matchRemainingMs <= 0) return reconcileShootout(t, current, now);
 
   const incoming = otherPlayer(current.activePlayer);
   const next: ShootoutState = {
@@ -200,11 +201,11 @@ export function switchShootoutTurn(state: ShootoutState, now: number): ShootoutS
       },
     ].slice(-8),
   };
-  return withEvent(next, "switch", now, `轉換至${incoming === "a" ? current.playerA : current.playerB}`, incoming);
+  return withEvent(next, "switch", now, t("轉換至{v}", {v: incoming === "a" ? current.playerA : current.playerB}), incoming);
 }
 
-export function restorePreviousTurn(state: ShootoutState, now: number): ShootoutState {
-  const current = reconcileShootout(state, now);
+export function restorePreviousTurn(t: Translator, state: ShootoutState, now: number): ShootoutState {
+  const current = reconcileShootout(t, state, now);
   const previous = current.undo.at(-1);
   if (!previous || !current.activePlayer || current.status === "complete") return current;
 
@@ -222,11 +223,11 @@ export function restorePreviousTurn(state: ShootoutState, now: number): Shootout
     lastUpdatedAt: now,
     undo: current.undo.slice(0, -1),
   };
-  return withEvent(next, "correction", now, `復原上次轉換・${previous.activePlayer === "a" ? current.playerA : current.playerB} 繼續`, previous.activePlayer);
+  return withEvent(next, "correction", now, t("復原上次轉換・{v} 繼續", {v: previous.activePlayer === "a" ? current.playerA : current.playerB}), previous.activePlayer);
 }
 
-export function setPause(state: ShootoutState, target: ShootoutPauseTarget, now: number): ShootoutState {
-  const current = reconcileShootout(state, now);
+export function setPause(t: Translator, state: ShootoutState, target: ShootoutPauseTarget, now: number): ShootoutState {
+  const current = reconcileShootout(t, state, now);
   if (current.status !== "live" && current.status !== "expired") return current;
   const next: ShootoutState = {
     ...current,
@@ -234,18 +235,18 @@ export function setPause(state: ShootoutState, target: ShootoutPauseTarget, now:
     shotClockPaused: target === "shot" || target === "both",
     lastUpdatedAt: now,
   };
-  return withEvent(next, "pause", now, target === "both" ? "暫停全部計時" : target === "match" ? "暫停比賽鐘" : "暫停出桿鐘");
+  return withEvent(next, "pause", now, target === "both" ? t("暫停全部計時") : target === "match" ? t("暫停比賽鐘") : t("暫停出桿鐘"));
 }
 
-export function resumeShootout(state: ShootoutState, now: number): ShootoutState {
-  const current = reconcileShootout(state, now);
+export function resumeShootout(t: Translator, state: ShootoutState, now: number): ShootoutState {
+  const current = reconcileShootout(t, state, now);
   if (current.status !== "live" && current.status !== "expired") return current;
   const next: ShootoutState = {...current, matchClockPaused: false, shotClockPaused: false, lastUpdatedAt: now};
-  return withEvent(next, "resume", now, "繼續計時");
+  return withEvent(next, "resume", now, t("繼續計時"));
 }
 
-export function resetShotClock(state: ShootoutState, now: number, correction = false): ShootoutState {
-  const current = reconcileShootout(state, now);
+export function resetShotClock(t: Translator, state: ShootoutState, now: number, correction = false): ShootoutState {
+  const current = reconcileShootout(t, state, now);
   if ((current.status !== "live" && current.status !== "expired") || current.matchRemainingMs <= 0) return current;
   const next: ShootoutState = {
     ...current,
@@ -254,7 +255,7 @@ export function resetShotClock(state: ShootoutState, now: number, correction = f
     shotClockPaused: false,
     lastUpdatedAt: now,
   };
-  return withEvent(next, correction ? "correction" : "reset-shot", now, correction ? "裁判取消到時・恢復出桿鐘" : "重設出桿鐘", current.activePlayer ?? undefined);
+  return withEvent(next, correction ? "correction" : "reset-shot", now, correction ? t("裁判取消到時・恢復出桿鐘") : t("重設出桿鐘"), current.activePlayer ?? undefined);
 }
 
 export function loadShootoutState(raw: string | null): ShootoutState | null {

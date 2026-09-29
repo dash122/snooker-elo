@@ -3,6 +3,7 @@ import { notifyPlayers } from "../../../../../db/notifications";
 import { getState, putState } from "../../../../../db/state";
 import { cupDrawn } from "../../../../../lib/notify";
 import { bracketShape, firstRoundPairings, randomizeDraw, roundLabel, signupsClosed, type TournamentLike } from "../../../../../lib/tournament";
+import { getTranslator } from "../../../../../lib/i18n/server";
 
 /** Freezing the draw is a server job, not a client one.
  *
@@ -15,6 +16,7 @@ import { bracketShape, firstRoundPairings, randomizeDraw, roundLabel, signupsClo
 type State = { players?:{id:string;name:string}[]; tournaments?:TournamentLike[]; audits?:{id:string;text:string;at:string}[] };
 
 export async function POST(_request:Request,{params}:{params:Promise<{id:string}>}) {
+  const { t } = await getTranslator();
   const member=await requireMember();
   if(!member)return Response.json({error:"Sign in required"},{status:401});
   const {id}=await params;
@@ -24,13 +26,13 @@ export async function POST(_request:Request,{params}:{params:Promise<{id:string}
   try{ state=JSON.parse(raw) as State; }catch{ return Response.json({error:"Invalid state"},{status:500}); }
   const tournament=(state.tournaments??[]).find(item=>item.id===id);
   if(!tournament)return Response.json({error:"Tournament not found"},{status:404});
-  if(!signupsClosed(tournament))return Response.json({error:"報名尚未截止"},{status:409});
+  if(!signupsClosed(tournament))return Response.json({error:t("報名尚未截止")},{status:409});
   /* Idempotent on purpose: every client that notices a closed, undrawn cup calls this, so the second
      and tenth callers must get the same draw back rather than a failure or a reshuffle. */
   if(tournament.draw?.length)return Response.json({ok:true,alreadyDrawn:true,draw:tournament.draw});
 
   const draw=randomizeDraw(tournament);
-  if(draw.length<2)return Response.json({error:"報名人數不足兩人"},{status:409});
+  if(draw.length<2)return Response.json({error:t("報名人數不足兩人")},{status:409});
   const drawnAt=new Date().toISOString();
   const drawn={...tournament,draw,drawnAt};
   const next={
@@ -42,7 +44,7 @@ export async function POST(_request:Request,{params}:{params:Promise<{id:string}
 
   const name=(playerId:string)=>(state.players??[]).find(player=>player.id===playerId)?.name??"";
   const {rounds}=bracketShape(draw.length);
-  const label=roundLabel(1,rounds);
+  const label=roundLabel(t, 1,rounds);
   /* Awaited, and one push per entrant rather than a broadcast: the body names their own opponent, so
      there is nothing to fan out. `notifyPlayers` swallows per-subscription failures itself, so a
      stale endpoint cannot fail the draw that has already been written. */

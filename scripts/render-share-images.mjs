@@ -22,7 +22,7 @@ const targets = [
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
 const page = await browser.newPage({ viewport: { width: BANNER_WIDTH, height: BANNER_HEIGHT }, deviceScaleFactor: 1 });
 for (const target of targets) {
-  const svg = shareBannerSvg(target.kind);
+  const svg = shareBannerSvg(t, target.kind);
   await page.setContent(`<style>html,body{margin:0;padding:0}</style>${svg}`, { waitUntil: "load" });
   const buffer = await page.screenshot({ type: "jpeg", quality: 88 });
   const out = fileURLToPath(new URL(`../public/${target.file}`, import.meta.url));

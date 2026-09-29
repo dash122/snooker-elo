@@ -5,14 +5,18 @@ import { BackdropSheet } from "./components/ui/Overlay";
 import { Button, IconButton, SegmentedControl } from "./components/ui/Primitives";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { availabilityEndTimes, availabilityStartTimes, hkClock, hkDate, hkDayLabel, type IntentSignal, type Interval, type ReliabilitySignals } from "../lib/availability";
+import { useT } from "./components/I18nProvider";
+import { msg } from "../lib/i18n/translate";
+import type { Translator } from "../lib/i18n/translate";
+import type { Locale } from "../lib/i18n/locales";
 
 const range=(x:Interval)=>`${hkClock(x.startAt)}–${hkClock(x.endAt)}`;
-const day=(iso:string)=>hkDayLabel(hkDate(new Date(iso)));
-export const slotLabel=(x:Interval)=>`${day(x.startAt)} · ${range(x)}`;
+const day=(iso:string,locale?:Locale)=>hkDayLabel(hkDate(new Date(iso)),locale);
+export const slotLabel=(x:Interval,locale?:Locale)=>`${day(x.startAt,locale)} · ${range(x)}`;
 /** "今晚 19:30" rather than "8月5日(三) 19:30" for anything happening today. A member reading a
     recommendation for tonight should not have to parse a date to notice it is tonight. */
-export const gameLabel=(x:Interval)=>
-  hkDate(new Date(x.startAt))===hkDate()?`今晚 ${range(x)}`:slotLabel(x);
+export const gameLabel=(t: Translator, x:Interval)=>
+  hkDate(new Date(x.startAt))===hkDate()?t("今晚 {v}", {v: range(x)}):slotLabel(x,t.locale);
 
 /** The one card header in the matchmaking tab.
  *
@@ -28,14 +32,15 @@ export function CardHead({title,hint,aside}:{title:string;hint?:string;aside?:Re
 }
 
 
-const DURATIONS=[{minutes:60,label:"1 小時"},{minutes:90,label:"1.5 小時"},{minutes:120,label:"2 小時"},{minutes:180,label:"3 小時"},{minutes:240,label:"4 小時"}];
-export const VENUE_CHIPS=["已訂枱","未訂枱","1 號枱","2 號枱","3 號枱"];
+const DURATIONS=[{minutes:60,label:msg("1 小時")},{minutes:90,label:msg("1.5 小時")},{minutes:120,label:msg("2 小時")},{minutes:180,label:msg("3 小時")},{minutes:240,label:msg("4 小時")}];
+export const VENUE_CHIPS=[msg("已訂枱"),msg("未訂枱"),msg("1 號枱"),msg("2 號枱"),msg("3 號枱")];
 
-export function VenueField({value,onChange,label="枱／地點（可省略）"}:{value:string;onChange:(value:string)=>void;label?:string}){
+export function VenueField({value,onChange,label}:{value:string;onChange:(value:string)=>void;label?:string}){
+  const t = useT();
   return <div className="venue-field">
-    <label><span>{label}</span><input type="text" maxLength={60} value={value} placeholder="例如：已訂 3 號枱" onChange={event=>onChange(event.target.value)}/></label>
+    <label><span>{label??t("枱／地點（可省略）")}</span><input type="text" maxLength={60} value={value} placeholder={t("例如：已訂 3 號枱")} onChange={event=>onChange(event.target.value)}/></label>
     <div className="venue-chips">{VENUE_CHIPS.map(chip=>
-      <button type="button" key={chip} className={value===chip?"active":""} onClick={()=>onChange(value===chip?"":chip)}>{chip}</button>)}</div>
+      <button type="button" key={chip} className={value===chip?"active":""} onClick={()=>onChange(value===chip?"":chip)}>{t(chip)}</button>)}</div>
   </div>;
 }
 
@@ -46,6 +51,7 @@ export function VenueField({value,onChange,label="枱／地點（可省略）"}:
  *  something. That is the whole difference from the old flow, which required painting a slot on a
  *  calendar before anything at all happened. */
 export function FreeNowPanel({onDone,disabled}:{onDone:(result:{offers:number;broadcast:boolean})=>void;disabled?:boolean}){
+  const t = useT();
   const [open,setOpen]=useState(false);
   const [minutes,setMinutes]=useState(120);
   const [venue,setVenue]=useState("");
@@ -58,25 +64,25 @@ export function FreeNowPanel({onDone,disabled}:{onDone:(result:{offers:number;br
     try{
       const response=await fetch("/api/availability/now",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({minutes,venue,message})});
       const body=await response.json();
-      if(!response.ok){setError(body.error??"暫時未能發出，請再試一次。");return}
+      if(!response.ok){setError(body.error??t("暫時未能發出，請再試一次。"));return}
       trackAvailabilityEvent("matchmaking_free_now",{minutes,offers:body.offers??0});
       setOpen(false);setMessage("");
       onDone({offers:body.offers??0,broadcast:Boolean(body.call)});
-    }catch{setError("網絡連線失敗，請再試一次。")}
+    }catch{setError(t("網絡連線失敗，請再試一次。"))}
     finally{setBusy(false)}
   };
   return <div className="free-now-panel">
-    <SegmentedControl label="打幾耐" value={String(minutes)} onChange={value=>setMinutes(Number(value))}
-      items={DURATIONS.map(item=>({value:String(item.minutes),label:item.label}))}/>
+    <SegmentedControl label={t("打幾耐")} value={String(minutes)} onChange={value=>setMinutes(Number(value))}
+      items={DURATIONS.map(item=>({value:String(item.minutes),label:t(item.label)}))}/>
     <Button variant="primary" className="free-now-button" disabled={busy||disabled} aria-busy={busy} onClick={()=>void go()}>
       {busy&&<i className="button-spinner" aria-hidden="true"/>}
-      <span>{busy?"傳送中…":`我現在有空 · ${minutes/60} 小時`}</span>
+      <span>{busy?t("傳送中…"):t("我現在有空 · {v} 小時", {v: minutes/60})}</span>
     </Button>
-    <Button variant="quiet" className="free-now-toggle" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?"收起":"加枱位或留言"}</Button>
+    <Button variant="quiet" className="free-now-toggle" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>{open?t("收起"):t("加枱位或留言")}</Button>
     {open&&<div className="free-now-details">
       <VenueField value={venue} onChange={setVenue}/>
-      <label className="invite-message-field"><span>留言（可省略）</span>
-        <textarea rows={2} maxLength={300} value={message} placeholder="例如：已訂枱，隨時可以開始" onChange={event=>setMessage(event.target.value)}/></label>
+      <label className="invite-message-field"><span>{t("留言（可省略）")}</span>
+        <textarea rows={2} maxLength={300} value={message} placeholder={t("例如：已訂枱，隨時可以開始")} onChange={event=>setMessage(event.target.value)}/></label>
     </div>}
     {error&&<p className="availability-form-error" role="alert">{error}</p>}
   </div>;
@@ -98,12 +104,13 @@ export type IntentState={id:string;kind:"tonight"|"window"|"standby";expiresAt:s
  *  page's job, so it gets the headline rather than a band above the real content. The two buttons
  *  are the only navigation the screen has; everything else on it is already an answer. */
 export function IntentAsk({onPost,busy,todayLabel}:{onPost:(kind:"tonight"|"window")=>void;busy:boolean;todayLabel:string}){
-  return <section className="mm-ask" aria-label="想打球嗎">
-    <h2>想打波？</h2>
-    <p>告知會所之後，我們立即為你尋找時間吻合的對手。</p>
+  const t = useT();
+  return <section className="mm-ask" aria-label={t("想打球嗎")}>
+    <h2>{t("想打波？")}</h2>
+    <p>{t("告知會所之後，我們立即為你尋找時間吻合的對手。")}</p>
     <div className="mm-ask-actions">
-      <Button disabled={busy} onClick={()=>onPost("tonight")}>今晚<small>{todayLabel}</small></Button>
-      <Button variant="secondary" disabled={busy} onClick={()=>onPost("window")}>呢個星期</Button>
+      <Button disabled={busy} onClick={()=>onPost("tonight")}>{t("今晚")}<small>{todayLabel}</small></Button>
+      <Button variant="secondary" disabled={busy} onClick={()=>onPost("window")}>{t("呢個星期")}</Button>
     </div>
   </section>;
 }
@@ -126,7 +133,7 @@ export type PlayableCardVM={
   reasons:string[];
 };
 
-const KIND_TAG:Record<PlayableCardKind,string>={claim:"一按即成 · 已開枱",keen:"對方今晚也想打球",overlap:"時間吻合"};
+const KIND_TAG:Record<PlayableCardKind,string>={claim:msg("一按即成 · 已開枱"),keen:msg("對方今晚也想打球"),overlap:msg("時間吻合")};
 
 export function PlayableCard({item,onAct,onOpen,busy,actionLabel,sent,onUndo,onCustomise}:{
   item:PlayableCardVM; onAct:()=>void; onOpen?:(playerId:string)=>void; busy?:boolean;
@@ -137,14 +144,15 @@ export function PlayableCard({item,onAct,onOpen,busy,actionLabel,sent,onUndo,onC
       front of it. The member who wants the old form can still have it; nobody is made to fill one. */
   onCustomise?:()=>void;
 }){
+  const t = useT();
   const open=()=>onOpen?.(item.person.id);
   return <article className={`mm-play is-${item.kind}${sent?" is-sent":""}`}>
-    <span className={`mm-play-tag is-${item.kind}`}>{KIND_TAG[item.kind]}</span>
-    <p className="mm-play-when">{gameLabel(item.slot)}</p>
+    <span className={`mm-play-tag is-${item.kind}`}>{t(KIND_TAG[item.kind])}</span>
+    <p className="mm-play-when">{gameLabel(t, item.slot)}</p>
     <div className="mm-play-who">
       <button type="button" className="mm-play-person" onClick={open} disabled={!onOpen}>
         <PlayerBadge player={item.person}/>
-        <span><b>{item.person.name}</b><small>相差 {Math.round(item.difference)} ELO{item.venue?` · ${item.venue}`:""}</small></span>
+        <span><b>{item.person.name}</b><small>{t("相差 {v} ELO", {v: Math.round(item.difference)})}{item.venue?` · ${item.venue}`:""}</small></span>
       </button>
     </div>
     {item.message&&<p className="mm-play-msg">{item.message}</p>}
@@ -152,14 +160,14 @@ export function PlayableCard({item,onAct,onOpen,busy,actionLabel,sent,onUndo,onC
       <li key={reason}>{reason}</li>)}</ul>}
     {sent
       ?<div className="mm-play-sent" role="status">
-        <span>已送出</span>
-        {onUndo&&<Button variant="quiet" className="mm-play-undo" onClick={onUndo}>收回</Button>}
+        <span>{t("已送出")}</span>
+        {onUndo&&<Button variant="quiet" className="mm-play-undo" onClick={onUndo}>{t("收回")}</Button>}
       </div>
       :<div className="mm-play-actions">
         <Button variant="primary" className="mm-play-go" disabled={busy} aria-busy={busy} onClick={onAct}>
           {busy&&<i className="button-spinner" aria-hidden="true"/>}<span>{actionLabel}</span>
         </Button>
-        {onCustomise&&<Button variant="quiet" className="mm-play-alt" onClick={onCustomise}>改時間／加留言</Button>}
+        {onCustomise&&<Button variant="quiet" className="mm-play-alt" onClick={onCustomise}>{t("改時間／加留言")}</Button>}
       </div>}
   </article>;
 }
@@ -174,21 +182,22 @@ export function PlayableCard({item,onAct,onOpen,busy,actionLabel,sent,onUndo,onC
 export function SearchingCard({asked,seen,exits,onWithdraw,busy}:{
   asked:number; seen:number; exits:React.ReactNode; onWithdraw:()=>void; busy:boolean;
 }){
+  const t = useT();
   const progress=asked?Math.min(100,Math.round((seen/Math.max(asked,1))*100)):0;
-  return <section className="availability-card mm-card mm-searching" aria-label="搵緊對手">
-    <CardHead title="正在為你尋找對手" hint="有人應承就即刻通知你。"/>
+  return <section className="availability-card mm-card mm-searching" aria-label={t("搵緊對手")}>
+    <CardHead title={t("正在為你尋找對手")} hint={t("有人應承就即刻通知你。")}/>
     <div className="mm-searching-state">
-      <div className="mm-prog" role="img" aria-label={`${asked} 位球友收到，${seen} 位睇咗`}>
+      <div className="mm-prog" role="img" aria-label={t("{asked} 位球友收到，{seen} 位睇咗", {asked, seen})}>
         <i style={{width:`${Math.max(progress,asked?8:0)}%`}}/>
       </div>
       <p className="mm-searching-copy">
         {asked>0
-          ?<><b>{asked} 位</b>時間吻合的球友已收到{seen>0&&<> · <b>{seen} 位</b>已閱</>}</>
-          :<>已話畀會所知你想打波。</>}
+          ?<><b>{t("{asked} 位", {asked})}</b>{t("時間吻合的球友已收到")}{seen>0&&<> · <b>{t("{seen} 位", {seen})}</b>{t("已閱")}</>}</>
+          :<>{t("已話畀會所知你想打波。")}</>}
       </p>
     </div>
     <div className="mm-exits">{exits}</div>
-    <Button variant="quiet" className="mm-withdraw" disabled={busy} onClick={onWithdraw}>收回，暫時不打</Button>
+    <Button variant="quiet" className="mm-withdraw" disabled={busy} onClick={onWithdraw}>{t("收回，暫時不打")}</Button>
   </section>;
 }
 
@@ -235,15 +244,16 @@ export type QueueItem={
  *  Ordering is by urgency, not by type: a game that already happened needs an answer before a game
  *  being proposed for next week. */
 export function ResponseQueue({items}:{items:QueueItem[]}){
+  const t = useT();
   if(!items.length)return null;
-  return <section className="availability-card mm-card is-attention" aria-label="等你回覆">
-    <CardHead title="等你回覆" hint="處理完這裡，就沒有待辦事項了。" aside={<span className="mm-count">{items.length}</span>}/>
+  return <section className="availability-card mm-card is-attention" aria-label={t("等你回覆")}>
+    <CardHead title={t("等你回覆")} hint={t("處理完這裡，就沒有待辦事項了。")} aside={<span className="mm-count">{items.length}</span>}/>
     <ul className="mm-rows">{items.map(item=>
       <li key={item.id} className={`mm-row is-${item.kind}`}>
         <PlayerBadge player={item.person}/>
         <div className="mm-row-copy">
           <b>{item.person.name}</b>
-          <small>{slotLabel(item)}{item.venue?` · ${item.venue}`:""}</small>
+          <small>{slotLabel(item,t.locale)}{item.venue?` · ${item.venue}`:""}</small>
           <em>{item.reason}</em>
           {item.note&&<p>{item.note}</p>}
         </div>
@@ -271,26 +281,27 @@ export function NextUpCard({game,others,onRecord,onCancel,cancelling,onFreeNow,o
   onFreeNow:(result:{offers:number;broadcast:boolean})=>void; onEditSlots:()=>void;
   slotCount:number; signedIn:boolean;
 }){
+  const t = useT();
   if(!signedIn)return <section className="availability-card mm-card">
-    <CardHead title="登入後即可約戰" hint="連結球員檔案，就可以公開時間、收邀請同接受開枱。"/>
+    <CardHead title={t("登入後即可約戰")} hint={t("連結球員檔案，就可以公開時間、收邀請同接受開枱。")}/>
   </section>;
   if(game)return <section className="availability-card mm-card is-confirmed">
-    <CardHead title="你的下一局" aside={others>0?<span className="mm-count">再 +{others}</span>:undefined}/>
+    <CardHead title={t("你的下一局")} aside={others>0?<span className="mm-count">{t("再 +{others}", {others})}</span>:undefined}/>
     <div className="next-up">
       <PlayerBadge player={game.opponent}/>
       <div className="next-up-copy">
         <b>{game.opponent.name}</b>
-        <small>{slotLabel(game)}{game.venue?` · ${game.venue}`:""}</small>
+        <small>{slotLabel(game,t.locale)}{game.venue?` · ${game.venue}`:""}</small>
       </div>
       <div className="mm-row-actions">
-        <Button onClick={()=>onRecord(game.opponent.id,game.startAt)}>記錄比分</Button>
-        <Button variant="secondary" disabled={cancelling} onClick={()=>onCancel(game.id)}>取消</Button>
+        <Button onClick={()=>onRecord(game.opponent.id,game.startAt)}>{t("記錄比分")}</Button>
+        <Button variant="secondary" disabled={cancelling} onClick={()=>onCancel(game.id)}>{t("取消")}</Button>
       </div>
     </div>
   </section>;
   return <section className="availability-card mm-card is-idle">
-    <CardHead title="現在有空嗎？" hint="一按即可公開你的時間，開一張全會所看得到的枱，並詢問時間吻合的球友。"
-      aside={<Button variant="quiet" onClick={onEditSlots}>{slotCount?`我的時段 · ${slotCount}`:"排定期時段"}</Button>}/>
+    <CardHead title={t("現在有空嗎？")} hint={t("一按即可公開你的時間，開一張全會所看得到的枱，並詢問時間吻合的球友。")}
+      aside={<Button variant="quiet" onClick={onEditSlots}>{slotCount?t("我的時段 · {slotCount}", {slotCount}):t("排定期時段")}</Button>}/>
     <FreeNowPanel onDone={onFreeNow}/>
   </section>;
 }
@@ -299,15 +310,16 @@ export function NextUpCard({game,others,onRecord,onCancel,cancelling,onFreeNow,o
     Collapsed by default because it is information, not work. */
 export type WaitingItem={id:string;name:string;label:string;cancellable:boolean};
 export function WaitingStrip({items,onCancel,cancellingId}:{items:WaitingItem[];onCancel:(id:string)=>void;cancellingId:string|null}){
+  const t = useT();
   const [open,setOpen]=useState(false);
   if(!items.length)return null;
   return <div className="waiting-strip">
     <Button variant="quiet" className="waiting-strip-toggle" aria-expanded={open} onClick={()=>setOpen(value=>!value)}>
-      <span>等緊 {items.length} 位球友回覆</span><i aria-hidden="true">{open?"▲":"▼"}</i>
+      <span>{t("等緊 {items} 位球友回覆", {items: items.length})}</span><i aria-hidden="true">{open?"▲":"▼"}</i>
     </Button>
     {open&&<ul>{items.map(item=>
       <li key={item.id}><span><b>{item.name}</b><small>{item.label}</small></span>
-        {item.cancellable&&<Button variant="secondary" disabled={cancellingId===item.id} onClick={()=>onCancel(item.id)}>取消邀請</Button>}</li>)}
+        {item.cancellable&&<Button variant="secondary" disabled={cancellingId===item.id} onClick={()=>onCancel(item.id)}>{t("取消邀請")}</Button>}</li>)}
     </ul>}
   </div>;
 }
@@ -320,12 +332,12 @@ export function WaitingStrip({items,onCancel,cancellingId}:{items:WaitingItem[];
  *  Only ever positive or neutral, and never a raw percentage: "回覆好快" helps you choose; "接受率
  *  38%" is a public scoreboard of how often someone turns people down, which would make members stop
  *  declining honestly — the opposite of what the data is for. */
-export function reliabilityChips(signals?:ReliabilitySignals){
+export function reliabilityChips(t: Translator, signals?:ReliabilitySignals){
   if(!signals)return [];
   const chips:string[]=[];
-  if(signals.responseHours!==undefined&&signals.responseHours<=2)chips.push("回覆好快");
-  if(signals.acceptRate!==undefined&&signals.acceptRate>=.6)chips.push("多數會應約");
-  if(signals.showRate!==undefined&&signals.showRate>=.8)chips.push("準時出現");
+  if(signals.responseHours!==undefined&&signals.responseHours<=2)chips.push(t("回覆好快"));
+  if(signals.acceptRate!==undefined&&signals.acceptRate>=.6)chips.push(t("多數會應約"));
+  if(signals.showRate!==undefined&&signals.showRate>=.8)chips.push(t("準時出現"));
   return chips;
 }
 
@@ -338,30 +350,31 @@ const TIMES=availabilityStartTimes();
  *  Presented as the equal of accepting rather than hidden behind 婉拒, because the common truth is
  *  "I want to play, just not at 19:00" and the old UI had no way to say it. */
 export function CounterSheet({title,date,onSubmit,onClose,busy}:{title:string;date:string;onSubmit:(input:{date:string;start:string;end:string;venue:string})=>void;onClose:()=>void;busy:boolean}){
+  const t = useT();
   const [when,setWhen]=useState(date);
   const [start,setStart]=useState("19:00");
   const [end,setEnd]=useState("21:00");
   const [venue,setVenue]=useState("");
-  const endTimes=useMemo(()=>availabilityEndTimes(start),[start]);
-  const changeStart=(value:string)=>{setStart(value);const options=availabilityEndTimes(value);if(!options.some(option=>option.value===end))setEnd(options.at(-1)?.value??"")};
+  const endTimes=useMemo(()=>availabilityEndTimes(start, t),[start,t]);
+  const changeStart=(value:string)=>{setStart(value);const options=availabilityEndTimes(value, t);if(!options.some(option=>option.value===end))setEnd(options.at(-1)?.value??"")};
   return <BackdropSheet onClose={onClose} labelledBy="counter-title">
-      <p className="kicker">提議另一個時間</p>
+      <p className="kicker">{t("提議另一個時間")}</p>
       <h2 id="counter-title">{title}</h2>
-      <p className="sub">不必拒絕 — 直接提議一個可行的時間，對方確認即可。</p>
+      <p className="sub">{t("不必拒絕 — 直接提議一個可行的時間，對方確認即可。")}</p>
       <div className="composer-times">
-        <label><span>日期</span><input type="date" min={hkDate()} value={when} onChange={event=>setWhen(event.target.value)}/></label>
-        <label><span>開始</span><select value={start} onChange={event=>changeStart(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>
-        <label><span>結束</span><select value={end} onChange={event=>setEnd(event.target.value)}>{endTimes.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label><span>{t("日期")}</span><input type="date" min={hkDate()} value={when} onChange={event=>setWhen(event.target.value)}/></label>
+        <label><span>{t("開始")}</span><select value={start} onChange={event=>changeStart(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>
+        <label><span>{t("結束")}</span><select value={end} onChange={event=>setEnd(event.target.value)}>{endTimes.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       </div>
       <VenueField value={venue} onChange={setVenue}/>
-      <Button variant="primary" className="full" disabled={busy} onClick={()=>onSubmit({date:when,start,end,venue})}>{busy?"送出中…":`提議 ${start}–${end}`}</Button>
+      <Button variant="primary" className="full" disabled={busy} onClick={()=>onSubmit({date:when,start,end,venue})}>{busy?t("送出中…"):t("提議 {start}–{end}", {start, end})}</Button>
   </BackdropSheet>;
 }
 
 /* --- Recurring availability ----------------------------------------------- */
 
 export type RecurrenceRule={id:string;weekday:number;startTime:string;endTime:string};
-const WEEKDAYS=["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
+const WEEKDAYS=[msg("星期日"),msg("星期一"),msg("星期二"),msg("星期三"),msg("星期四"),msg("星期五"),msg("星期六")];
 
 /** Weekly rules, so a regular stops falling off the board every seven days.
  *
@@ -372,36 +385,37 @@ export function RecurrenceEditor({rules,onAdd,onRemove,onCopyLastWeek,busy}:{
   rules:RecurrenceRule[];onAdd:(input:{weekday:number;startTime:string;endTime:string})=>void;
   onRemove:(id:string)=>void;onCopyLastWeek:()=>void;busy:boolean;
 }){
+  const t = useT();
   const [weekday,setWeekday]=useState(3);
   const [startTime,setStartTime]=useState("19:00");
   const [endTime,setEndTime]=useState("22:00");
   const [open,setOpen]=useState(false);
-  const endTimes=useMemo(()=>availabilityEndTimes(startTime),[startTime]);
-  const changeStartTime=(value:string)=>{setStartTime(value);const options=availabilityEndTimes(value);if(!options.some(option=>option.value===endTime))setEndTime(options.at(-1)?.value??"")};
+  const endTimes=useMemo(()=>availabilityEndTimes(startTime, t),[startTime,t]);
+  const changeStartTime=(value:string)=>{setStartTime(value);const options=availabilityEndTimes(value, t);if(!options.some(option=>option.value===endTime))setEndTime(options.at(-1)?.value??"")};
   return <section className="availability-card recurrence-card">
     <header className="availability-grid-head">
-      <div><h3>每週固定時段</h3><small>設定一次，之後每星期自動公開，不必再重複填寫。</small></div>
-      <Button variant="quiet" onClick={()=>onCopyLastWeek()} disabled={busy}>同上星期一樣</Button>
+      <div><h3>{t("每週固定時段")}</h3><small>{t("設定一次，之後每星期自動公開，不必再重複填寫。")}</small></div>
+      <Button variant="quiet" onClick={()=>onCopyLastWeek()} disabled={busy}>{t("同上星期一樣")}</Button>
     </header>
     {rules.length>0&&<ul className="recurrence-list">{rules.map(rule=>
       <li key={rule.id}>
-        <span><b>逢{WEEKDAYS[rule.weekday]}</b><small>{rule.startTime}–{rule.endTime}</small></span>
-        <IconButton className="card-tool danger" label={`刪除逢${WEEKDAYS[rule.weekday]} ${rule.startTime}–${rule.endTime}`} disabled={busy} onClick={()=>onRemove(rule.id)}>✕</IconButton>
+        <span><b>{t("逢{v}", {v: t(WEEKDAYS[rule.weekday])})}</b><small>{rule.startTime}–{rule.endTime}</small></span>
+        <IconButton className="card-tool danger" label={t("刪除逢{v} {startTime}–{endTime}", {v: t(WEEKDAYS[rule.weekday]), startTime: rule.startTime, endTime: rule.endTime})} disabled={busy} onClick={()=>onRemove(rule.id)}>✕</IconButton>
       </li>)}</ul>}
     {open
       ?<div className="recurrence-composer availability-slot-form">
         <div className="composer-times">
-          <label><span>星期</span><select value={weekday} onChange={event=>setWeekday(Number(event.target.value))}>{WEEKDAYS.map((label,index)=><option key={label} value={index}>{label}</option>)}</select></label>
-          <label><span>開始</span><select value={startTime} onChange={event=>changeStartTime(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>
-          <label><span>結束</span><select value={endTime} onChange={event=>setEndTime(event.target.value)}>{endTimes.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label><span>{t("星期")}</span><select value={weekday} onChange={event=>setWeekday(Number(event.target.value))}>{WEEKDAYS.map((label,index)=><option key={label} value={index}>{t(label)}</option>)}</select></label>
+          <label><span>{t("開始")}</span><select value={startTime} onChange={event=>changeStartTime(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>
+          <label><span>{t("結束")}</span><select value={endTime} onChange={event=>setEndTime(event.target.value)}>{endTimes.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         </div>
-        <p className="availability-form-hint">未來四星期會自動為你公開。個別一次未能出席，仍可在上方的板取消該次。</p>
+        <p className="availability-form-hint">{t("未來四星期會自動為你公開。個別一次未能出席，仍可在上方的板取消該次。")}</p>
         <div className="availability-form-actions">
-          <Button disabled={busy} onClick={()=>{onAdd({weekday,startTime,endTime});setOpen(false)}}>加入每週時段</Button>
-          <Button variant="secondary" onClick={()=>setOpen(false)}>取消</Button>
+          <Button disabled={busy} onClick={()=>{onAdd({weekday,startTime,endTime});setOpen(false)}}>{t("加入每週時段")}</Button>
+          <Button variant="secondary" onClick={()=>setOpen(false)}>{t("取消")}</Button>
         </div>
       </div>
-      :<Button variant="secondary" className="recurrence-add" onClick={()=>setOpen(true)}>＋ 加一個每週時段</Button>}
+      :<Button variant="secondary" className="recurrence-add" onClick={()=>setOpen(true)}>{t("＋ 加一個每週時段")}</Button>}
   </section>;
 }
 
@@ -422,12 +436,13 @@ export type MatchmakingSummary={
  *  invisible unless you already went looking. This is the hook that gets a member who opened the app
  *  to check their rating into a game. */
 export function TonightStrip({summary,onOpen,signedIn}:{summary:TonightSummary|null;onOpen:()=>void;signedIn:boolean}){
+  const t = useT();
   if(!summary||(!summary.free&&!summary.openCalls))return null;
   return <button type="button" className="tonight-strip" onClick={onOpen}>
     <span className="tonight-dot" aria-hidden="true"/>
     <span className="tonight-copy">
-      <b>{summary.free?`今晚有 ${summary.free} 位球員有空`:"今晚有人正在開枱"}</b>
-      <small>{summary.openCalls?`${summary.openCalls} 張枱等緊人 · ${signedIn?"按入接受":"登入即可接受"}`:signedIn?"按入尋找對手":"登入即可約戰"}</small>
+      <b>{summary.free?t("今晚有 {free} 位球員有空", {free: summary.free}):t("今晚有人正在開枱")}</b>
+      <small>{summary.openCalls?t("{openCalls} 張枱等緊人 · {v}", {openCalls: summary.openCalls, v: signedIn?t("按入接受"):t("登入即可接受")}):signedIn?t("按入尋找對手"):t("登入即可約戰")}</small>
     </span>
     <span className="tonight-go" aria-hidden="true">›</span>
   </button>;

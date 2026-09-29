@@ -3,6 +3,7 @@ import { createOpenCall, listOpenCalls } from "../../../db/open-calls";
 import { announceOpenCall } from "../../../db/matchmaking-actions.pg";
 import { validateAvailabilityInterval } from "../../../lib/availability";
 
+import { getTranslator } from "../../../lib/i18n/server";
 function body(input:unknown){
   const value=input as {startAt?:unknown;endAt?:unknown;message?:unknown;venue?:unknown};
   const interval=validateAvailabilityInterval({startAt:String(value.startAt),endAt:String(value.endAt)});
@@ -17,7 +18,7 @@ export async function GET(){
   try{
     return Response.json({calls:await listOpenCalls()},{headers:{"cache-control":"no-store"}});
   }catch(error){
-    return Response.json({error:error instanceof Error?error.message:"Open calls unavailable"},{status:400});
+    return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Open calls unavailable"},{status:400});
   }
 }
 
@@ -33,6 +34,6 @@ export async function POST(request:Request){
     if(call)await announceOpenCall(member.statePlayerId,call.player.name,{...interval,message,venue});
     return Response.json({call},{status:201});
   }catch(error){
-    return Response.json({error:error instanceof Error?error.message:"Invalid open call"},{status:400});
+    return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Invalid open call"},{status:400});
   }
 }

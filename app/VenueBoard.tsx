@@ -6,6 +6,8 @@ import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, availabilityEndTimes, availabilityStartTimes, hkDate, hkDayLabel } from "../lib/availability";
 import { COMMITMENT_LABELS, overlapHeadline, overlapWithMine, visibleBuckets,
   type Bucket, type Commitment, type OverlapView } from "../lib/overlap";
+import { useT } from "./components/I18nProvider";
+import type { Translator } from "../lib/i18n/translate";
 
 /* --- 場次 · 幾點、邊度、有幾多人 --------------------------------------------
  *
@@ -42,18 +44,19 @@ function instantFor(date:string,clock:string):string{
   return `${addDaysHongKong(date,dayOffset)}T${String(h%24).padStart(2,"0")}:${String(m).padStart(2,"0")}:00+08:00`;
 }
 
-function dayLabel(date:string,today:string):string{
-  if(date===today)return "今日";
-  if(date===addDaysHongKong(today,1))return "聽日";
-  return hkDayLabel(date);
+function dayLabel(t: Translator, date:string,today:string):string{
+  if(date===today)return t("今日");
+  if(date===addDaysHongKong(today,1))return t("聽日");
+  return hkDayLabel(date,t.locale);
 }
 
 /** The strip. Half-hour columns, because that is the resolution members publish at and anything
     coarser silently merges an 18:00 crowd with a 21:00 one. */
 function OverlapStrip({buckets,peak,mineRange}:{buckets:Bucket[];peak:number;mineRange:[number,number]|null}){
+  const t = useT();
   const max=Math.max(1,peak,...buckets.map(b=>b.going+b.interested));
   return <div className="vb-strip" role="img"
-    aria-label={peak>0?`最多 ${peak} 人同時喺度`:"未有人時間撞到"}>
+    aria-label={peak>0?t("最多 {peak} 人同時喺度", {peak}):t("未有人時間撞到")}>
     {buckets.map(bucket=>{
       const mine=mineRange&&bucket.minutes>=mineRange[0]&&bucket.minutes<mineRange[1];
       const atPeak=peak>0&&bucket.going===peak;
@@ -70,6 +73,7 @@ function OverlapStrip({buckets,peak,mineRange}:{buckets:Bucket[];peak:number;min
 }
 
 export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=>void}){
+  const t = useT();
   const today=useMemo(()=>hkDate(),[]);
   const week=useMemo(()=>Array.from({length:7},(_,i)=>addDaysHongKong(today,i)),[today]);
 
@@ -109,7 +113,7 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
   useEffect(()=>{void loadDirectory();trackAvailabilityEvent("venue_board_view")},[loadDirectory]);
   useEffect(()=>{if(venueId)void loadDay(venueId,date)},[venueId,date,loadDay]);
 
-  const endOptions=useMemo(()=>availabilityEndTimes(start),[start]);
+  const endOptions=useMemo(()=>availabilityEndTimes(start, t),[start,t]);
   useEffect(()=>{
     /* Moving the start can strand an end that is now before it; snap to the first legal choice
        rather than letting the form hold a window that cannot be saved. */
@@ -125,20 +129,20 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
         :await fetch(`/api/venues/${venueId}`,{method:"POST",headers:{"content-type":"application/json"},
             body:JSON.stringify({date,commitment,startAt:instantFor(date,start),endAt:instantFor(date,end)})});
       const body=await response.json();
-      if(!response.ok)throw new Error(body?.error??"暫時儲存唔到");
+      if(!response.ok)throw new Error(body?.error??t("暫時儲存唔到"));
       setDay(body.day??null);
-      setMessage(commitment===null?"已經取消。"
-        :commitment==="going"?"已經公開咗你嘅時段。":"夠人重疊我哋會叫你一次。");
+      setMessage(commitment===null?t("已經取消。")
+        :commitment==="going"?t("已經公開咗你嘅時段。"):t("夠人重疊我哋會叫你一次。"));
       trackAvailabilityEvent(commitment===null?"venue_slot_cleared":"venue_slot_set");
       void loadDirectory();onChanged?.();
-    }catch(error){setMessage(error instanceof Error?error.message:"網絡連線失敗，請再試一次。")}
+    }catch(error){setMessage(error instanceof Error?error.message:t("網絡連線失敗，請再試一次。"))}
     finally{setBusy(false)}
-  },[venueId,date,start,end,busy,loadDirectory,onChanged]);
+  },[venueId,date,start,end,busy,loadDirectory,onChanged, t]);
 
   if(state==="unavailable")return null;
   if(state==="error")return <section className="vb-card vb-error">
-    <p>場次資料暫時載入唔到。</p>
-    <Button variant="secondary" onClick={()=>{setState("loading");void loadDirectory()}}>重試</Button>
+    <p>{t("場次資料暫時載入唔到。")}</p>
+    <Button variant="secondary" onClick={()=>{setState("loading");void loadDirectory()}}>{t("重試")}</Button>
   </section>;
   if(state==="loading"||!day)return <section className="vb-card" aria-busy="true"><div className="vb-skeleton"/></section>;
 
@@ -154,7 +158,7 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
   return <section className="vb-card">
     <header className="vb-head">
       <div>
-        <span className="vb-kicker">{dayLabel(date,today)} · {venue.district}</span>
+        <span className="vb-kicker">{dayLabel(t, date,today)} · {venue.district}</span>
         <h2 className="vb-venue">{venue.name}</h2>
       </div>
     </header>
@@ -163,22 +167,22 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
         count; this row is the only thing the product knows that nobody else does. Quiet venues stay
         listed and say so: hiding them would make the row a lie and strand a new venue in a cold
         start it could never climb out of. */}
-    {venues.length>1&&<div className="vb-venues" role="tablist" aria-label="揀場地">
+    {venues.length>1&&<div className="vb-venues" role="tablist" aria-label={t("揀場地")}>
       {venues.map(item=><button key={item.id} type="button" role="tab" aria-selected={item.id===venue.id}
         className={`vb-venue-chip${item.id===venue.id?" active":""}`}
         onClick={()=>{setVenueId(item.id);setMessage("")}}>
         <b>{item.name}</b>
         <strong>{item.peak>0?item.peak:"—"}</strong>
-        <small>{item.peak>0?`${item.peakStart}–${item.peakEnd}`:"今晚未有人"}</small>
+        <small>{item.peak>0?`${item.peakStart}–${item.peakEnd}`:t("今晚未有人")}</small>
       </button>)}
     </div>}
 
     {/* The peak, and the window it falls in. The all-day figure follows in small type and only when
         it differs — a member acts on the first number, so it has to be the honest one. */}
     <div className="vb-peak">
-      <b>{overlapHeadline(overlap)}</b>
-      {overlap.goingTotal>overlap.peak&&<small>全日 {overlap.goingTotal} 人，但分散喺唔同時間</small>}
-      {overlap.interestedTotal>0&&<small>{overlap.interestedTotal} 人有興趣，等緊夠人</small>}
+      <b>{overlapHeadline(t, overlap)}</b>
+      {overlap.goingTotal>overlap.peak&&<small>{t("全日 {goingTotal} 人，但分散喺唔同時間", {goingTotal: overlap.goingTotal})}</small>}
+      {overlap.interestedTotal>0&&<small>{t("{interestedTotal} 人有興趣，等緊夠人", {interestedTotal: overlap.interestedTotal})}</small>}
     </div>
 
     <OverlapStrip buckets={buckets} peak={overlap.peak} mineRange={mineRange}/>
@@ -195,12 +199,12 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
       {/* Start and end, both at half-hour steps. Not a single "for four hours" button: a member who
           can only stay until 21:00 is a different person on the strip from one who stays to 23:00. */}
       <div className="vb-times">
-        <label><span>由</span>
+        <label><span>{t("由")}</span>
           <select value={start} disabled={busy} onChange={event=>setStart(event.target.value)}>
             {availabilityStartTimes().map(option=><option key={option} value={option}>{option}</option>)}
           </select>
         </label>
-        <label><span>到</span>
+        <label><span>{t("到")}</span>
           <select value={end} disabled={busy} onChange={event=>setEnd(event.target.value)}>
             {endOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
@@ -222,20 +226,20 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
 
       <p className="vb-hint">{
         mine?.commitment==="going"
-          ? withMine>1?`你揀嘅時間同 ${withMine-1} 個人撞到。`:"暫時未有人同你嘅時間撞到。"
+          ? withMine>1?t("你揀嘅時間同 {v} 個人撞到。", {v: withMine-1}):t("暫時未有人同你嘅時間撞到。")
           : mine?.commitment==="interested"
-            ? "夠人喺你嗰段時間撞到，我哋先叫你一次。"
-            : "撳一下就得，時間用預設。想改就揀上面嘅開始／結束時間。"
+            ? t("夠人喺你嗰段時間撞到，我哋先叫你一次。")
+            : t("撳一下就得，時間用預設。想改就揀上面嘅開始／結束時間。")
       }</p>
-    </>:<p className="vb-hint">登入之後就可以公開你嘅時段。</p>}
+    </>:<p className="vb-hint">{t("登入之後就可以公開你嘅時段。")}</p>}
 
     {message&&<p key={message} className="vb-message" role="status">{message}</p>}
 
-    <div className="vb-week" role="tablist" aria-label="揀日子">
+    <div className="vb-week" role="tablist" aria-label={t("揀日子")}>
       {week.map(value=><button key={value} type="button" role="tab" aria-selected={value===date}
         className={`vb-day${value===date?" active":""}`}
         onClick={()=>{setDate(value);setMessage("")}}>
-        <small>{dayLabel(value,today)}</small>
+        <small>{dayLabel(t, value,today)}</small>
       </button>)}
     </div>
   </section>;

@@ -4,6 +4,8 @@ import { publishAvailability } from "../../../db/availability";
 import { announceAvailability } from "../../../db/matchmaking-actions.pg";
 import { validateAvailabilityInterval, type IntentKind } from "../../../lib/availability";
 import { isMatchPreference } from "../../../lib/room";
+import { getTranslator } from "../../../lib/i18n/server";
+import type { Translator } from "../../../lib/i18n/translate";
 
 /** "I want a game", separate from "I have time". A `tonight` or `window` intent also publishes the
  *  window as real availability — same path `/api/availability` uses — so the grid, offers and
@@ -13,13 +15,13 @@ import { isMatchPreference } from "../../../lib/room";
  *  time. `tonight` always carries a real interval: it arrives either from `/api/availability/now`
  *  alongside the free-now publish, or from The Room's 「今晚得閒到 X」 control, which is the same
  *  declaration with the end time chosen rather than counted off in hours. */
-function body(input:unknown){
+function body(t: Translator, input:unknown){
   const value=input as {kind?:unknown;startAt?:unknown;endAt?:unknown;note?:unknown;preference?:unknown};
   const kind=value.kind;
   /* `tonight` is accepted here now that The Room posts 「今晚得閒到 23:00」 directly — a declaration
      with a real end time, which is the whole point of that control. It still carries a window, so
      nothing downstream changes. */
-  if(kind!=="tonight"&&kind!=="window"&&kind!=="standby")throw new Error("Choose 今晚、呢個星期想打或有啱就得");
+  if(kind!=="tonight"&&kind!=="window"&&kind!=="standby")throw new Error(t("Choose 今晚、呢個星期想打或有啱就得"));
   const note=typeof value.note==="string"?value.note.trim().slice(0,200):"";
   /* An unrecognised preference falls back to 求其打下 rather than failing the whole declaration: the
      member's answer to "do you want a game" matters far more than their answer to "what kind". */
@@ -37,15 +39,16 @@ export async function GET(){
       member?.statePlayerId?myIntent(member.statePlayerId):Promise.resolve(null),
     ]);
     return Response.json({byPlayer,mine},{headers:{"cache-control":"no-store"}});
-  }catch(error){return Response.json({error:error instanceof Error?error.message:"Intents unavailable"},{status:400});}
+  }catch(error){return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Intents unavailable"},{status:400});}
 }
 
 export async function POST(request:Request){
+  const { t } = await getTranslator();
   const member=await requireMember();
   if(!member)return Response.json({error:"Sign in required"},{status:401});
   if(!member.statePlayerId)return Response.json({error:"Link a player profile first"},{status:403});
   try{
-    const {kind,window,note,preference}=body(await request.json());
+    const {kind,window,note,preference}=body(t, await request.json());
     const intent=await postIntent(member.statePlayerId,kind,window,note,preference);
     let offers=0;
     if(window){
@@ -53,5 +56,5 @@ export async function POST(request:Request){
       offers=(await announceAvailability(member.statePlayerId,[window])).offers;
     }
     return Response.json({intent,offers},{status:201});
-  }catch(error){return Response.json({error:error instanceof Error?error.message:"Invalid intent"},{status:400});}
+  }catch(error){return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Invalid intent"},{status:400});}
 }

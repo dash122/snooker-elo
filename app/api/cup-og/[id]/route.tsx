@@ -1,3 +1,4 @@
+import { getTranslator } from "../../../../lib/i18n/server";
 import { ImageResponse } from "next/og";
 import { loadCupShare } from "../../../cup-share-data";
 import { cupOgCard, cupOgGlyphs } from "../../../../lib/cup-og";
@@ -45,12 +46,13 @@ async function subsetFont(text:string,weight:400|700|900):Promise<ArrayBuffer|nu
 
 export async function GET(request:Request,{params}:{params:Promise<{id:string}>}){
   const {id}=await params;
+  const {t}=await getTranslator();
   const fallback=()=>Response.redirect(new URL("/cup-share.jpg",request.url),307);
-  const data=await loadCupShare(id).catch(()=>null);
+  const data=await loadCupShare(t, id).catch(()=>null);
   if(!data)return fallback();
 
-  const card=cupOgCard(data.tournament.name,data.share);
-  const glyphs=cupOgGlyphs(card);
+  const card=cupOgCard(t, data.tournament.name,data.share);
+  const glyphs=cupOgGlyphs(t, card);
   const [regular,heavy]=await Promise.all([subsetFont(glyphs,400),subsetFont(glyphs,900)]);
   if(!heavy)return fallback();
 

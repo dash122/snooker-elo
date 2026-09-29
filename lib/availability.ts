@@ -1,3 +1,6 @@
+
+import { createTranslator, type Translator } from "./i18n/translate.ts";
+import { INTL_LOCALE, type Locale } from "./i18n/locales.ts";
 export type SlotConditions = { handicap?:boolean; noSmoking?:boolean; frames?:number|null; levelOnly?:boolean; tableBooked?:boolean };
 export type AvailabilitySlot = { id:string; playerId:string; startAt:string; endAt:string; createdAt:string; updatedAt:string; cancelledAt?:string|null; conditions?:SlotConditions };
 
@@ -24,13 +27,14 @@ export function availabilityStartTimes(){
   return Array.from({length:(24*60-PLAYING_START_MINUTES)/AVAILABILITY_MINUTES},(_,index)=>clockValue(PLAYING_START_MINUTES+index*AVAILABILITY_MINUTES));
 }
 
-export function availabilityEndTimes(start:string):ClockOption[]{
+const zhTranslator=createTranslator("zh-Hant");
+export function availabilityEndTimes(start:string,t: Translator=zhTranslator):ClockOption[]{
   const startMinutes=clockMinutes(start);
   if(!Number.isFinite(startMinutes))return [];
   const latest=Math.min(startMinutes+AVAILABILITY_MAX_MINUTES,PLAYING_END_MINUTES);
   return Array.from({length:Math.max(0,Math.floor((latest-startMinutes)/AVAILABILITY_MINUTES))},(_,index)=>{
     const minutes=startMinutes+(index+1)*AVAILABILITY_MINUTES,value=clockValue(minutes);
-    return {value,label:minutes>=24*60?`${value} · 次日`:value,minutes};
+    return {value,label:minutes>=24*60?t("{value} · 次日", {value}):value,minutes};
   });
 }
 
@@ -82,10 +86,11 @@ const hongKongClock=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Hong_Kong",h
    card, …), so "今天"/weekday labels and clock times never drift into two spellings. */
 export const hkDate=(d=new Date())=>new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Hong_Kong",year:"numeric",month:"2-digit",day:"2-digit"}).format(d);
 export const hkClock=(iso:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(iso));
-export const hkDayLabel=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"numeric",day:"numeric",weekday:"short"}).format(new Date(`${d}T00:00:00+08:00`));
+export const hkDayLabel=(d:string,locale:Locale="zh-Hant")=>new Intl.DateTimeFormat(INTL_LOCALE[locale],{timeZone:"Asia/Hong_Kong",month:"numeric",day:"numeric",weekday:"short"}).format(new Date(`${d}T00:00:00+08:00`));
 /** Same as `hkDayLabel` but without the weekday — for a context ("全部日子") that already reads as a
     mixed, cross-day list, where the day of week is not the thing a member is scanning for. */
-export const hkDateLabel=(d:string)=>new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",month:"numeric",day:"numeric"}).format(new Date(`${d}T00:00:00+08:00`));
+export const hkWeekdayLabel=(d:string,locale:Locale="zh-Hant")=>new Intl.DateTimeFormat(INTL_LOCALE[locale],{timeZone:"Asia/Hong_Kong",weekday:"short"}).format(new Date(`${d}T00:00:00+08:00`));
+export const hkDateLabel=(d:string,locale:Locale="zh-Hant")=>new Intl.DateTimeFormat(INTL_LOCALE[locale],{timeZone:"Asia/Hong_Kong",month:"numeric",day:"numeric"}).format(new Date(`${d}T00:00:00+08:00`));
 export const hkRange=(x:Interval)=>`${hkClock(x.startAt)}–${hkClock(x.endAt)}`;
 
 /** Calendar arithmetic on a `YYYY-MM-DD` Hong Kong date. Anchored at UTC noon so the shift never

@@ -1,3 +1,4 @@
+import type { Translator } from "../lib/i18n/translate";
 import { getState } from "../db/state";
 import { proposeHandicap, suggestedHandicap, type HandicapSettings } from "../lib/handicap";
 import { cupShareState } from "../lib/cup-share";
@@ -21,7 +22,7 @@ type State = { players?:Player[]; matches?:CupMatch[]; tournaments?:TournamentLi
    Both come from `lib/handicap`, the same source the leaderboard and the match form read. */
 const DEFAULT_SETTINGS:ClubSettings={handicapPointsToElo:25,handicapMinimumElo:7,handicapSensitivityRange:16,handicapSensitivityWidth:250,start:1500};
 
-export async function loadCupShare(id:string){
+export async function loadCupShare(t: Translator, id:string){
   const raw=await getState().catch(()=>null);
   if(!raw)return null;
   let state:State;
@@ -32,10 +33,10 @@ export async function loadCupShare(id:string){
   const bracket=closed?buildBracket<CupMatch>(tournament,state.matches??[]):null;
   const player=(playerId:string)=>(state.players??[]).find(item=>item.id===playerId);
   const entrants=tournament.signups?.length??0;
-  const share=cupShareState({
+  const share=cupShareState(t, {
     signupDeadline:tournament.signupDeadline,entrants,closed,
     drew:Boolean(bracket?.size),
-    roundName:currentRoundLabel(bracket),
+    roundName:currentRoundLabel(t, bracket),
     championName:bracket?.champion?player(bracket.champion)?.name:"",
   });
   const players=state.players??[];
@@ -54,8 +55,8 @@ export async function loadCupShare(id:string){
     if(tournament.handicapMode!=="suggested")return "";
     const [left,right]=[ratingOf(a),ratingOf(b)];
     if(left==null||right==null)return "";
-    const proposal=proposeHandicap(left,right,settings);
-    return proposal.points===0?"平手":`讓 ${Math.abs(proposal.points)} 分`;
+    const proposal=proposeHandicap(t, left,right,settings);
+    return proposal.points===0?t("平手"):t("讓 {points} 分", {points: Math.abs(proposal.points)});
   };
   return {tournament,bracket,share,player,players,settings,standing,tieHandicap};
 }

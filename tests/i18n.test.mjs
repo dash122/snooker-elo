@@ -54,3 +54,45 @@ test("the same instant reads differently in each viewer's zone", () => {
   assert.equal(localDate("2026-08-01T20:00:00Z", "Europe/London"), "2026-08-01");
   assert.match(formatDayLabel(instant, { locale: "en", timeZone: "Asia/Hong_Kong" }), /Sat/);
 });
+
+import fs from "node:fs";
+import path from "node:path";
+import { enStrings } from "../lib/i18n/messages/en-strings.ts";
+
+const root = path.resolve(import.meta.dirname, "..");
+function sourceFiles(dir, out = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) { if (!["admin", "ui-gallery", "i18n", "node_modules"].includes(entry.name)) sourceFiles(full, out); }
+    else if (/\.(ts|tsx)$/.test(entry.name)) out.push(full);
+  }
+  return out;
+}
+const HAN = /[\p{Script=Han}，、：（）｜・；。！？「」]/u;
+function usedKeys() {
+  const keys = new Map();
+  for (const file of ["app", "lib", "db"].flatMap(dir => sourceFiles(path.join(root, dir)))) {
+    const text = fs.readFileSync(file, "utf8");
+    for (const match of text.matchAll(/(?<![\w.$])(?:t|msg)\(\s*("(?:[^"\\\n]|\\.)*")/g)) {
+      const key = JSON.parse(match[1]);
+      if (HAN.test(key) && !keys.has(key)) keys.set(key, path.relative(root, file));
+    }
+  }
+  return keys;
+}
+
+test("every t(\"…\") / msg(\"…\") source string has an English translation", () => {
+  const missing = [...usedKeys()].filter(([key]) => !(key in enStrings)).map(([key, file]) => `${file}: ${key}`);
+  assert.deepEqual(missing, [], `Add these to lib/i18n/messages/en-strings.ts:\n${missing.join("\n")}`);
+});
+test("English strings keep the placeholders of their source string and are never blank", () => {
+  const holes = text => [...text.matchAll(/\{(\w+)(?:,\s*plural)?/g)].map(match => match[1]).sort().join();
+  for (const [key, value] of Object.entries(enStrings)) {
+    assert.ok(value.trim(), `blank translation for ${key}`);
+    assert.equal(holes(value), holes(key), `placeholders differ for ${key}`);
+  }
+});
+test("no English string is left as Chinese", () => {
+  const stillChinese = Object.entries(enStrings).filter(([, value]) => HAN.test(value)).map(([key]) => key);
+  assert.deepEqual(stillChinese, []);
+});

@@ -1,4 +1,5 @@
-// Shared write-authorization rules for /api/state and unit tests.
+
+import { msg } from "./i18n/translate.ts";// Shared write-authorization rules for /api/state and unit tests.
 
 // A player who hasn't finished the rating questionnaire yet has no real
 // initial rating to play from — recording a match for them would seed the
@@ -32,7 +33,7 @@ export function blockedByUnfinishedOnboarding(current: any, next: any): string |
     const previous = before.get(match.id);
     if (previous && JSON.stringify(previous) === JSON.stringify(match)) continue;
     for (const id of [match.a, match.b, match.a2, match.b2]) {
-      if (unfinished(id)) return players.get(id)?.name ?? "該球員";
+      if (unfinished(id)) return players.get(id)?.name ?? msg("該球員");
     }
   }
   return null;

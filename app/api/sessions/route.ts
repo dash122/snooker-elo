@@ -11,6 +11,7 @@ import { hasRecordedMatchSince, hkDate, intersectIntervals, isOpenCallLive, matc
 import { handicapSentence } from "../../../lib/handicap";
 import { levelLabel } from "../../../lib/room";
 import { sessionStatus, sortSessions, visibleSessions } from "../../../lib/sessions";
+import { getTranslator } from "../../../lib/i18n/server";
 
 /** A member's own sessions, each carrying the answer for that evening.
  *
@@ -43,6 +44,7 @@ async function clubState():Promise<ClubState|null>{
 }
 
 export async function GET(){
+  const { t } = await getTranslator();
   const member=await requireMember();
   if(!member?.statePlayerId)return Response.json({sessions:[],signedIn:Boolean(member)},{headers:{"cache-control":"no-store"}});
   const me=member.statePlayerId;
@@ -114,19 +116,19 @@ export async function GET(){
           if(!player)return [];
           const overlap=intersectIntervals([window],candidate.overlaps)[0]??window;
           const reasons:string[]=[];
-          reasons.push(`你哋${hkDate(new Date(overlap.startAt))===hkDate()?"今晚":"嗰日"}都得閒`);
-          if(candidate.intent)reasons.push("佢正想搵一局");
-          if(!matchesBetween(matches,me,candidate.id).length)reasons.push("從未交手");
-          else if(candidate.recent===0)reasons.push("近 30 日未交手");
+          reasons.push(hkDate(new Date(overlap.startAt))===hkDate()?t("你哋今晚都得閒"):t("你哋嗰日都得閒"));
+          if(candidate.intent)reasons.push(t("佢正想搵一局"));
+          if(!matchesBetween(matches,me,candidate.id).length)reasons.push(t("從未交手"));
+          else if(candidate.recent===0)reasons.push(t("近 30 日未交手"));
           if(candidate.signals?.responseHours!==undefined&&candidate.signals.responseHours<=3)
-            reasons.push(`通常 ${Math.max(1,Math.round(candidate.signals.responseHours))} 小時內回覆`);
-          else if(candidate.signals?.showRate!==undefined&&candidate.signals.showRate>=.8)reasons.push("準時出現");
+            reasons.push(t("通常 {v} 小時內回覆", {v: Math.max(1,Math.round(candidate.signals.responseHours))}));
+          else if(candidate.signals?.showRate!==undefined&&candidate.signals.showRate>=.8)reasons.push(t("準時出現"));
           return [{
             player:{id:player.id,name:player.name,short:player.short,rating:player.rating,colour:player.colour,avatar:player.avatar},
             difference:Math.round(candidate.difference),
             slot:{startAt:overlap.startAt,endAt:overlap.endAt},
             reasons:reasons.slice(0,4),
-            handicap:handicapSentence({myRating,theirRating:player.rating,settings,matches,me,them:player.id}),
+            handicap:handicapSentence(t, {myRating,theirRating:player.rating,settings,matches,me,them:player.id}),
           }];
         }),
       };
@@ -153,8 +155,8 @@ export async function GET(){
           player:{id:player.id,name:player.name,short:player.short,rating:player.rating,colour:player.colour,avatar:player.avatar},
           slot:{startAt:next.startAt,endAt:next.endAt},
           difference:Math.round(player.rating-myRating),
-          levelLabel:levelLabel(myRating,player.rating),
-          handicap:handicapSentence({myRating,theirRating:player.rating,settings,matches,me,them:player.id}),
+          levelLabel:levelLabel(t, myRating,player.rating),
+          handicap:handicapSentence(t, {myRating,theirRating:player.rating,settings,matches,me,them:player.id}),
         }];
       })
       .sort((a,b)=>a.slot.startAt.localeCompare(b.slot.startAt)||Math.abs(a.difference)-Math.abs(b.difference))
@@ -172,11 +174,12 @@ export async function GET(){
     return Response.json({sessions:withMatches,market,calls,signedIn:true,myRating,today:hkDate()},
       {headers:{"cache-control":"no-store"}});
   }catch(error){
-    return Response.json({error:error instanceof Error?error.message:"Sessions unavailable"},{status:500});
+    return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Sessions unavailable"},{status:500});
   }
 }
 
 export async function POST(request:Request){
+  const { t } = await getTranslator();
   const member=await requireMember();
   if(!member)return Response.json({error:"Sign in required"},{status:401});
   if(!member.statePlayerId)return Response.json({error:"Link a player profile first"},{status:403});
@@ -186,12 +189,12 @@ export async function POST(request:Request){
     const created=await createSession(member.statePlayerId,{...window,
       venue:typeof body.venue==="string"?body.venue.trim().slice(0,60):"",
       note:typeof body.note==="string"?body.note.trim().slice(0,200):""});
-    if(!created)return Response.json({error:"呢段時間你已經開咗場，改一改時間先。"},{status:409});
+    if(!created)return Response.json({error:t("呢段時間你已經開咗場，改一改時間先。")},{status:409});
     /* The same announcement every other publish path fires: opening a session is telling the club
        you want a game, so the well-matched few get asked without the member doing anything more. */
     const {offers}=await announceAvailability(member.statePlayerId,[window]).catch(()=>({offers:0}));
     return Response.json({session:created,offers},{status:201});
   }catch(error){
-    return Response.json({error:error instanceof Error?error.message:"Could not create session"},{status:400});
+    return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Could not create session"},{status:400});
   }
 }

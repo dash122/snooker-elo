@@ -2,6 +2,7 @@ import { requireMember } from "../../../../db/auth";
 import { publishAvailability } from "../../../../db/availability";
 import { copyPreviousWeek, createRecurrence, deleteRecurrence, listRecurrence } from "../../../../db/recurrence";
 import { announceAvailability } from "../../../../db/matchmaking-actions.pg";
+import { getTranslator } from "../../../../lib/i18n/server";
 
 async function player(){const member=await requireMember();return member?.statePlayerId??null;}
 
@@ -12,6 +13,7 @@ export async function GET(){
 }
 
 export async function POST(request:Request){
+  const { t } = await getTranslator();
   const playerId=await player();
   if(!playerId)return Response.json({error:"A linked member account is required"},{status:403});
   const body=await request.json() as {action?:unknown;weekday?:unknown;startTime?:unknown;endTime?:unknown};
@@ -20,7 +22,7 @@ export async function POST(request:Request){
      forcing them to understand the distinction. */
   if(body.action==="copyLastWeek"){
     const slots=await copyPreviousWeek(playerId);
-    if(!slots.length)return Response.json({error:"上星期未有公開過時段，冇嘢可以複製。"},{status:400});
+    if(!slots.length)return Response.json({error:t("上星期未有公開過時段，冇嘢可以複製。")},{status:400});
     const published=await publishAvailability(playerId,slots);
     await announceAvailability(playerId,slots);
     return Response.json({slots:published,copied:slots.length},{status:201});
@@ -33,7 +35,7 @@ export async function POST(request:Request){
     const rule=await createRecurrence(playerId,{weekday,startTime:body.startTime,endTime:body.endTime});
     return Response.json({rule},{status:201});
   }catch(error){
-    return Response.json({error:error instanceof Error?error.message:"Invalid rule"},{status:400});
+    return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Invalid rule"},{status:400});
   }
 }
 

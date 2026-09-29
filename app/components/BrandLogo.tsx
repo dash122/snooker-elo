@@ -1,11 +1,14 @@
+"use client";
 import Image from "next/image";
+import { useT } from "./I18nProvider";
 import Link from "next/link";
 import { BrandWordmark } from "./BrandWordmark";
 
 const BRAND_MARK_SRC = "/brand/snooker-elo-flaticon/snooker-elo-flaticon-1024.png";
 
 export function BrandLogo({className="",compact=false}:{className?:string;compact?:boolean}){
-  return <Link className={`site-brand${compact?" compact":""} ${className}`.trim()} href="/" aria-label="Snooker ELO 首頁">
+  const t = useT();
+  return <Link className={`site-brand${compact?" compact":""} ${className}`.trim()} href="/" aria-label={t("Snooker ELO 首頁")}>
     <Image className="site-brand-mark" src={BRAND_MARK_SRC} width={compact?36:44} height={compact?36:44} alt="" priority/>
     <BrandWordmark/>
   </Link>;

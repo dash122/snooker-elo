@@ -7,6 +7,8 @@ import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, hkClock, hkDate, hkDayLabel, hongKongInstant, hongKongWeekday,
   type Interval } from "../lib/availability";
 import { nowStart, type SessionStatus } from "../lib/sessions";
+import { useT } from "./components/I18nProvider";
+import type { Translator } from "../lib/i18n/translate";
 
 /* --- 我嘅場次 --------------------------------------------------------------
  *
@@ -51,9 +53,9 @@ export type MarketCall={
   player:{id:string;name:string;short?:string|null;colour?:string|null;avatar?:string|null};
 };
 
-const when=(session:{startAt:string;endAt:string})=>{
+const when=(t: Translator, session:{startAt:string;endAt:string})=>{
   const day=hkDate(new Date(session.startAt));
-  const label=day===hkDate()?"今晚":day===addDaysHongKong(hkDate(),1)?"聽日":hkDayLabel(day);
+  const label=day===hkDate()?t("今晚"):day===addDaysHongKong(hkDate(),1)?t("聽日"):hkDayLabel(day,t.locale);
   return `${label} ${hkClock(session.startAt)}–${hkClock(session.endAt)}`;
 };
 
@@ -73,11 +75,12 @@ function BestMatch({option,alternates,expanded,onInvite,onLater,onToggle,busy,bu
   onInvite:(opponentId:string,slot:Interval)=>void; onLater:()=>void; onToggle:()=>void;
   busy:boolean; busyId:string|null;
 }){
+  const t = useT();
   return <div className="ses-match">
-    <p className="ses-kick">最佳配對</p>
+    <p className="ses-kick">{t("最佳配對")}</p>
     <div className="ses-who">
       <PlayerBadge player={option.player}/>
-      <span><b>{option.player.name}</b><small>ELO {Math.round(option.player.rating)} · 只差 {option.difference}</small></span>
+      <span><b>{option.player.name}</b><small>{t("ELO {v} · 只差 {difference}", {v: Math.round(option.player.rating), difference: option.difference})}</small></span>
     </div>
     <ul className="ses-why">{option.reasons.map(reason=>
       <li key={reason}><i aria-hidden="true">✓</i><span>{reason}</span></li>)}
@@ -87,23 +90,23 @@ function BestMatch({option,alternates,expanded,onInvite,onLater,onToggle,busy,bu
       {option.handicap.evidence&&<small>{option.handicap.evidence}</small>}
     </div>
     <button type="button" className="primary ses-go" disabled={busy} aria-busy={busy} onClick={()=>onInvite(option.player.id,option.slot)}>
-      {busy&&<i className="button-spinner" aria-hidden="true"/>}<span>邀請 {option.player.name}</span>
+      {busy&&<i className="button-spinner" aria-hidden="true"/>}<span>{t("邀請 {name}", {name: option.player.name})}</span>
     </button>
-    <button type="button" className="secondary ses-alt" onClick={onLater}>改時間／加留言</button>
+    <button type="button" className="secondary ses-alt" onClick={onLater}>{t("改時間／加留言")}</button>
     {/* Expands within the same card rather than jumping to a separate browse surface — these two are
         already ranked and fetched for this exact evening, so there is nothing a second screen would
         add except a tap. */}
     {alternates.length>0&&<button type="button" className="more ses-more" aria-expanded={expanded} onClick={onToggle}>
-      {expanded?"收起":`睇另外 ${alternates.length} 個選擇`}</button>}
+      {expanded?t("收起"):t("睇另外 {alternates} 個選擇", {alternates: alternates.length})}</button>}
     {expanded&&<ul className="ses-alt-list">{alternates.map(alt=>
       <li key={alt.player.id}>
         <PlayerBadge player={alt.player}/>
         <span className="ses-alt-copy">
           <b>{alt.player.name}</b>
-          <small>只差 {alt.difference} · {alt.handicap.label}</small>
+          <small>{t("只差 {difference} · {label}", {difference: alt.difference, label: alt.handicap.label})}</small>
         </span>
         <Button variant="secondary" disabled={busyId===alt.player.id}
-          onClick={()=>onInvite(alt.player.id,alt.slot)}>約佢</Button>
+          onClick={()=>onInvite(alt.player.id,alt.slot)}>{t("約佢")}</Button>
       </li>)}
     </ul>}
   </div>;
@@ -116,16 +119,17 @@ function SessionCard({session,onInvite,onCustomise,onCancel,onRecord,onWatch,bus
   onCancel:(id:string)=>void; onRecord:(opponentId:string,startAt:string)=>void;
   onWatch:()=>void; busyId:string|null;
 }){
+  const t = useT();
   const [expanded,setExpanded]=useState(false);
   const best=session.options[0];
   const alternates=session.options.slice(1);
   return <article className={`ses-card is-${session.status}`}>
     <header className="ses-head">
       <div>
-        <b>{when(session)}</b>
+        <b>{when(t, session)}</b>
         {session.venue&&<small>{session.venue}</small>}
       </div>
-      {session.status==="looking"&&<button type="button" className="ses-drop" aria-label={`取消 ${when(session)} 呢一節`}
+      {session.status==="looking"&&<button type="button" className="ses-drop" aria-label={t("取消 {v} 呢一節", {v: when(t, session)})}
         onClick={()=>onCancel(session.id)}>✕</button>}
     </header>
 
@@ -136,36 +140,36 @@ function SessionCard({session,onInvite,onCustomise,onCancel,onRecord,onWatch,bus
       /* One message and one action. The old screen said this three times in three cards and offered
          four exits, which reads as the club being dead rather than as tonight being quiet. */
       :<div className="ses-empty">
-        <p>暫時未有夾得到嘅對手。</p>
-        <Button onClick={onWatch}>有人得閒就即刻通知我</Button>
+        <p>{t("暫時未有夾得到嘅對手。")}</p>
+        <Button onClick={onWatch}>{t("有人得閒就即刻通知我")}</Button>
       </div>)}
 
     {session.status==="booked"&&session.booking&&<div className="ses-booked">
-      <p className="ses-kick">已約實</p>
+      <p className="ses-kick">{t("已約實")}</p>
       <div className="ses-who">
         <PlayerBadge player={session.booking.opponent??{id:session.booking.opponentId,name:"對手"}}/>
-        <span><b>{session.booking.opponent?.name??"對手"}</b>
+        <span><b>{session.booking.opponent?.name??t("對手")}</b>
           <small>{hkClock(session.booking.startAt)}–{hkClock(session.booking.endAt)}</small></span>
       </div>
       <button type="button" className="primary ses-go"
-        onClick={()=>onRecord(session.booking!.opponentId,session.booking!.startAt)}>記錄比分</button>
+        onClick={()=>onRecord(session.booking!.opponentId,session.booking!.startAt)}>{t("記錄比分")}</button>
     </div>}
 
     {session.status==="toRecord"&&session.booking&&<div className="ses-booked is-owed">
-      <p className="ses-kick">打完喇？</p>
+      <p className="ses-kick">{t("打完喇？")}</p>
       <div className="ses-who">
         <PlayerBadge player={session.booking.opponent??{id:session.booking.opponentId,name:"對手"}}/>
-        <span><b>{session.booking.opponent?.name??"對手"}</b><small>記低分數，ELO 先計得準</small></span>
+        <span><b>{session.booking.opponent?.name??t("對手")}</b><small>{t("記低分數，ELO 先計得準")}</small></span>
       </div>
       <button type="button" className="primary ses-go"
-        onClick={()=>onRecord(session.booking!.opponentId,session.booking!.startAt)}>記錄比分</button>
+        onClick={()=>onRecord(session.booking!.opponentId,session.booking!.startAt)}>{t("記錄比分")}</button>
     </div>}
 
     {session.status==="done"&&session.booking&&<p className="ses-missed">
-      同 {session.booking.opponent?.name??"對手"} 打咗，分數已記低。</p>}
+      {t("同")} {session.booking.opponent?.name??t("對手")}  {t("打咗，分數已記低。")}</p>}
 
     {/* Shown once, quietly, then it stops mattering. A permanent 「你冇打成」 is a reproach. */}
-    {session.status==="missed"&&<p className="ses-missed">呢一節冇約成。</p>}
+    {session.status==="missed"&&<p className="ses-missed">{t("呢一節冇約成。")}</p>}
   </article>;
 }
 
@@ -175,25 +179,27 @@ function SessionCard({session,onInvite,onCustomise,onCancel,onRecord,onWatch,bus
     liveliness, not a second shortlist, so it carries the minimum that still makes the club look
     alive: who, roughly when, roughly how good a game, and the handicap that makes asking safe. */
 function MarketCard({entry,busy,onAsk}:{entry:MarketEntry;busy:boolean;onAsk:()=>void}){
+  const t = useT();
   return <li className="mk-card">
     <PlayerBadge player={entry.player}/>
     <b>{entry.player.name}</b>
     <small>{entry.levelLabel}</small>
-    <small className="mk-when">{when(entry.slot)}</small>
+    <small className="mk-when">{when(t, entry.slot)}</small>
     <span className="mk-hcap">{entry.handicap.label}</span>
-    <Button variant="secondary" disabled={busy} onClick={onAsk}>約佢</Button>
+    <Button variant="secondary" disabled={busy} onClick={onAsk}>{t("約佢")}</Button>
   </li>;
 }
 
 function CallCard({call,busy,onJoin}:{call:MarketCall;busy:boolean;onJoin:()=>void}){
+  const t = useT();
   return <li className="mk-card is-call">
     <PlayerBadge player={call.player}/>
-    <b>{call.venue||"開咗枱"}</b>
-    <small>{call.player.name} 開嘅</small>
-    <small className="mk-when">{when(call)}</small>
+    <b>{call.venue||t("開咗枱")}</b>
+    <small>{t("{name} 開嘅", {name: call.player.name})}</small>
+    <small className="mk-when">{when(t, call)}</small>
     {call.mine
-      ?<span className="mk-mine">你開嘅</span>
-      :<Button disabled={busy} onClick={onJoin}>接受</Button>}
+      ?<span className="mk-mine">{t("你開嘅")}</span>
+      :<Button disabled={busy} onClick={onJoin}>{t("接受")}</Button>}
   </li>;
 }
 
@@ -204,12 +210,13 @@ function MarketStrip({market,calls,busyId,claimingId,onAsk,onJoin}:{
   market:MarketEntry[]; calls:MarketCall[]; busyId:string|null; claimingId:string|null;
   onAsk:(playerId:string,slot:Interval)=>void; onJoin:(callId:string)=>void;
 }){
+  const t = useT();
   if(!market.length&&!calls.length)return null;
   const people=new Set(market.map(entry=>entry.player.id)).size;
-  return <section className="availability-card mm-card mk-strip" aria-label="大家都想打">
+  return <section className="availability-card mm-card mk-strip" aria-label={t("大家都想打")}>
     <header className="mk-head">
-      <h3>大家都想打</h3>
-      <small>{people>0&&`${people} 位得閒`}{people>0&&calls.length>0&&" · "}{calls.length>0&&`${calls.length} 張枱開緊`}</small>
+      <h3>{t("大家都想打")}</h3>
+      <small>{people>0&&t("{people} 位得閒", {people})}{people>0&&calls.length>0&&" · "}{calls.length>0&&t("{calls} 張枱開緊", {calls: calls.length})}</small>
     </header>
     <ul className="mk-row">
       {calls.map(call=><CallCard key={call.id} call={call} busy={claimingId===call.id} onJoin={()=>onJoin(call.id)}/>)}
@@ -229,15 +236,16 @@ function MarketStrip({market,calls,busyId,claimingId,onAsk,onJoin}:{
 function ColdOpen({onQuick,onPick,onWatch,busy}:{
   onQuick:(shape:"tonight"|"weekend")=>void; onPick:()=>void; onWatch:()=>void; busy:boolean;
 }){
+  const t = useT();
   return <section className="availability-card mm-card ses-ask">
-    <h2>你想幾時打波？</h2>
+    <h2>{t("你想幾時打波？")}</h2>
     <div className="ses-ask-actions">
       <Button disabled={busy} onClick={()=>onQuick("tonight")}>
-        今晚<small>{hkDayLabel(hkDate())}</small></Button>
-      <Button variant="secondary" disabled={busy} onClick={()=>onQuick("weekend")}>今個週末</Button>
+        {t("今晚")}<small>{hkDayLabel(hkDate(),t.locale)}</small></Button>
+      <Button variant="secondary" disabled={busy} onClick={()=>onQuick("weekend")}>{t("今個週末")}</Button>
     </div>
-    <button type="button" className="more ses-ask-link" onClick={onPick}>揀第個時間</button>
-    <button type="button" className="more ses-ask-link" onClick={onWatch}>有啱對手就通知我</button>
+    <button type="button" className="more ses-ask-link" onClick={onPick}>{t("揀第個時間")}</button>
+    <button type="button" className="more ses-ask-link" onClick={onWatch}>{t("有啱對手就通知我")}</button>
   </section>;
 }
 
@@ -247,23 +255,24 @@ function NewSession({onCreate,onClose,busy,error}:{
   onCreate:(input:{date:string;start:string;end:string;venue:string})=>void;
   onClose:()=>void; busy:boolean; error:string;
 }){
+  const t = useT();
   const [date,setDate]=useState(hkDate());
   const [start,setStart]=useState("19:00");
   const [end,setEnd]=useState("21:00");
   const [venue,setVenue]=useState("");
   return <BackdropSheet onClose={onClose} labelledBy="new-session">
-      <h2 id="new-session">開一節</h2>
-      <p className="sub">留一段時間出嚟，我哋幫你搵對手。</p>
+      <h2 id="new-session">{t("開一節")}</h2>
+      <p className="sub">{t("留一段時間出嚟，我哋幫你搵對手。")}</p>
       <div className="composer-times">
-        <label><span>日期</span><input type="date" min={hkDate()} value={date} onChange={event=>setDate(event.target.value)}/></label>
-        <label><span>開始</span><select value={start} onChange={event=>setStart(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>
-        <label><span>結束</span><select value={end} onChange={event=>setEnd(event.target.value)}>{TIMES.map(time=><option key={time}>{time}{time<=start?" · 次日":""}</option>)}</select></label>
+        <label><span>{t("日期")}</span><input type="date" min={hkDate()} value={date} onChange={event=>setDate(event.target.value)}/></label>
+        <label><span>{t("開始")}</span><select value={start} onChange={event=>setStart(event.target.value)}>{TIMES.map(time=><option key={time}>{time}</option>)}</select></label>
+        <label><span>{t("結束")}</span><select value={end} onChange={event=>setEnd(event.target.value)}>{TIMES.map(time=><option key={time}>{time}{time<=start?t(" · 次日"):""}</option>)}</select></label>
       </div>
-      <label className="invite-message-field"><span>枱位（可省略）</span>
-        <input type="text" maxLength={60} value={venue} placeholder="例如：已訂 3 號枱" onChange={event=>setVenue(event.target.value)}/></label>
+      <label className="invite-message-field"><span>{t("枱位（可省略）")}</span>
+        <input type="text" maxLength={60} value={venue} placeholder={t("例如：已訂 3 號枱")} onChange={event=>setVenue(event.target.value)}/></label>
       {error&&<p className="availability-form-error" role="alert">{error}</p>}
       <button type="button" className="primary full" disabled={busy} onClick={()=>onCreate({date,start,end,venue})}>
-        {busy?"開緊…":`開 ${start}–${end}`}</button>
+        {busy?t("開緊…"):t("開 {start}–{end}", {start, end})}</button>
   </BackdropSheet>;
 }
 
@@ -279,6 +288,7 @@ export function Sessions({signedIn,onInvite,onCustomise,onRecord,onWatch,onClaim
   onChanged:()=>void;
   invitingId:string|null;
 }){
+  const t = useT();
   const [sessions,setSessions]=useState<SessionVM[]|null>(null);
   const [market,setMarket]=useState<MarketEntry[]>([]);
   const [calls,setCalls]=useState<MarketCall[]>([]);
@@ -310,12 +320,12 @@ export function Sessions({signedIn,onInvite,onCustomise,onRecord,onWatch,onClaim
       const response=await fetch("/api/sessions",{method:"POST",headers:{"content-type":"application/json"},
         body:JSON.stringify(window)});
       const body=await response.json().catch(()=>({}));
-      if(!response.ok){setError(body.error??"開唔到，試多次。");return false}
+      if(!response.ok){setError(body.error??t("開唔到，試多次。"));return false}
       trackAvailabilityEvent("session_created");
       setComposing(false);
       await load();onChanged();
       return true;
-    }catch{setError("網絡連線失敗，請再試一次。");return false}
+    }catch{setError(t("網絡連線失敗，請再試一次。"));return false}
     finally{setBusy(false)}
   };
 
@@ -343,8 +353,8 @@ export function Sessions({signedIn,onInvite,onCustomise,onRecord,onWatch,onClaim
   };
 
   if(!signedIn)return <section className="availability-card mm-card">
-    <h2 className="ses-signin">登入後即可約戰</h2>
-    <p className="mm-note">連結球員檔案，就可以開時段、收邀請同約戰。</p>
+    <h2 className="ses-signin">{t("登入後即可約戰")}</h2>
+    <p className="mm-note">{t("連結球員檔案，就可以開時段、收邀請同約戰。")}</p>
   </section>;
 
   if(sessions===null)return <Skeleton height="300px" className="availability-skeleton"/>;
@@ -355,14 +365,14 @@ export function Sessions({signedIn,onInvite,onCustomise,onRecord,onWatch,onClaim
   return <>
     {sessions.length===0
       ?<><ColdOpen busy={busy} onQuick={shape=>void quick(shape)} onPick={()=>setComposing(true)} onWatch={onWatch}/>{marketStrip}</>
-      :<section className="ses-list" aria-label="我嘅場次">
+      :<section className="ses-list" aria-label={t("我嘅場次")}>
         {sessions.map(session=>
           <SessionCard key={session.id} session={session} busyId={invitingId}
             onInvite={onInvite} onCustomise={onCustomise}
             onCancel={id=>void cancel(id)}
             onRecord={(opponentId,startAt)=>onRecord(opponentId,hkDate(new Date(startAt)))}
             onWatch={onWatch}/>)}
-        <button type="button" className="secondary ses-add" onClick={()=>setComposing(true)}>＋ 開多一節</button>
+        <button type="button" className="secondary ses-add" onClick={()=>setComposing(true)}>{t("＋ 開多一節")}</button>
       </section>}
 
     {sessions.length>0&&marketStrip}

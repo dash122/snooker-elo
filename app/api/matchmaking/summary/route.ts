@@ -5,6 +5,7 @@ import { openCallCount } from "../../../../db/open-calls";
 import { liveIntentsByPlayer, myIntent } from "../../../../db/intents";
 import { dayRangeHongKong, hkDate } from "../../../../lib/availability";
 
+import { getTranslator } from "../../../../lib/i18n/server";
 /** The small, cheap answer to "is there anything happening?"
  *
  *  Called from the app shell rather than the matchmaking tab, because the whole point is to reach a
@@ -38,6 +39,6 @@ export async function GET(){
     ]);
     return Response.json({tonight,counts,reliability,intents,mine:mine?{id:mine.id,kind:mine.kind,expiresAt:mine.expiresAt}:null},{headers:{"cache-control":"no-store"}});
   }catch(error){
-    return Response.json({error:error instanceof Error?error.message:"Summary unavailable"},{status:400});
+    return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Summary unavailable"},{status:400});
   }
 }

@@ -20,6 +20,9 @@ import {
   type ShootoutPlayer,
   type ShootoutState,
 } from "../../lib/shootout";
+import { useT } from "../components/I18nProvider";
+import type { Translator } from "../../lib/i18n/translate";
+import { INTL_LOCALE } from "../../lib/i18n/locales";
 
 const STORAGE_KEY = "scaa-shootout-session";
 const SETTINGS_KEY = "scaa-shootout-settings";
@@ -50,14 +53,14 @@ function formatTime(milliseconds: number) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${tenths}`;
 }
 
-function displayName(state: ShootoutState, player: ShootoutPlayer | null) {
-  if (player === "a") return state.playerA || "球員 A";
-  if (player === "b") return state.playerB || "球員 B";
+function displayName(t: Translator, state: ShootoutState, player: ShootoutPlayer | null) {
+  if (player === "a") return state.playerA || t("球員 A");
+  if (player === "b") return state.playerB || t("球員 B");
   return "—";
 }
 
-function describeEvent(event: ShootoutEvent) {
-  const time = new Intl.DateTimeFormat("zh-Hant-HK", {hour: "2-digit", minute: "2-digit", second: "2-digit"}).format(event.at);
+function describeEvent(t: Translator, event: ShootoutEvent) {
+  const time = new Intl.DateTimeFormat(INTL_LOCALE[t.locale], {hour: "2-digit", minute: "2-digit", second: "2-digit"}).format(event.at);
   return {time, label: event.label};
 }
 
@@ -133,40 +136,41 @@ function SetupScreen({
   onStart: () => void;
   onReset: () => void;
 }) {
+  const t = useT();
   const isReady = state.status === "ready";
   return <div className="shootout-page shootout-setup-page">
     <header className="shootout-header shootout-header--light">
-      <Link className="shootout-brand" href="/" aria-label="返回 SCAA Snooker ELO">
+      <Link className="shootout-brand" href="/" aria-label={t("返回 SCAA Snooker ELO")}>
         <span className="shootout-brand-mark">S</span>
-        <span><strong>SHOOTOUT</strong><small>限時賽計時器</small></span>
+        <span><strong>SHOOTOUT</strong><small>{t("限時賽計時器")}</small></span>
       </Link>
-      <span className="shootout-header-note">計時員模式</span>
+      <span className="shootout-header-note">{t("計時員模式")}</span>
     </header>
 
     <main className="shootout-setup-main">
       <section className="shootout-intro">
         <div>
-          <h1>一場十分鐘，<br/><em>每一桿都要準時。</em></h1>
-          <p>專為一位計時員設計的 Shoot Out 計時器。只顯示比賽鐘、出桿鐘與目前出桿球員，讓你把注意力留在球枱。</p>
+          <h1>{t("一場十分鐘，")}<br/><em>{t("每一桿都要準時。")}</em></h1>
+          <p>{t("專為一位計時員設計的 Shoot Out 計時器。只顯示比賽鐘、出桿鐘與目前出桿球員，讓你把注意力留在球枱。")}</p>
         </div>
         <div className="shootout-intro-mark" aria-hidden="true"><span>10</span><small>MIN</small></div>
       </section>
 
       <section className="shootout-setup-grid">
         <form className="shootout-panel shootout-form-panel" onSubmit={event => {event.preventDefault(); isReady ? onStart() : onReady();}}>
-          <div className="shootout-panel-heading"><div><h2>{isReady ? "準備開始" : "建立一場計時"}</h2><p>{isReady ? "確認開球球員後，按下開始。" : "先輸入兩位球員，再選擇誰先開球。"}</p></div><span className="shootout-step-mark">{isReady ? "READY" : "SET"}</span></div>
+          <div className="shootout-panel-heading"><div><h2>{isReady ? t("準備開始") : t("建立一場計時")}</h2><p>{isReady ? t("確認開球球員後，按下開始。") : t("先輸入兩位球員，再選擇誰先開球。")}</p></div><span className="shootout-step-mark">{isReady ? "READY" : "SET"}</span></div>
 
           <div className="shootout-player-fields">
-            <label className="shootout-field"><span>球員 A</span><input value={state.playerA} onChange={event => onChange("playerA", event.target.value)} placeholder="輸入球員姓名" maxLength={32} autoComplete="off" disabled={isReady}/></label>
+            <label className="shootout-field"><span>{t("球員 A")}</span><input value={state.playerA} onChange={event => onChange("playerA", event.target.value)} placeholder={t("輸入球員姓名")} maxLength={32} autoComplete="off" disabled={isReady}/></label>
             <div className="shootout-vs" aria-hidden="true">VS</div>
-            <label className="shootout-field"><span>球員 B</span><input value={state.playerB} onChange={event => onChange("playerB", event.target.value)} placeholder="輸入球員姓名" maxLength={32} autoComplete="off" disabled={isReady}/></label>
+            <label className="shootout-field"><span>{t("球員 B")}</span><input value={state.playerB} onChange={event => onChange("playerB", event.target.value)} placeholder={t("輸入球員姓名")} maxLength={32} autoComplete="off" disabled={isReady}/></label>
           </div>
 
           <fieldset className="shootout-opening-fieldset">
-            <legend>開球球員</legend>
+            <legend>{t("開球球員")}</legend>
             <div className="shootout-opening-options">
               {(["a", "b"] as ShootoutPlayer[]).map(player => <button key={player} type="button" className={`shootout-opening-option${state.openingPlayer === player ? " is-selected" : ""}`} aria-pressed={state.openingPlayer === player} onClick={() => onSelectOpening(player)} disabled={isReady}>
-                <span className="shootout-player-initial">{player.toUpperCase()}</span><span><strong>{displayName(state, player)}</strong><small>{state.openingPlayer === player ? "先開球" : "按此選擇"}</small></span><Icon name="check"/>
+                <span className="shootout-player-initial">{player.toUpperCase()}</span><span><strong>{displayName(t, state, player)}</strong><small>{state.openingPlayer === player ? t("先開球") : t("按此選擇")}</small></span><Icon name="check"/>
               </button>)}
             </div>
           </fieldset>
@@ -174,42 +178,43 @@ function SetupScreen({
           {error && <p className="shootout-form-error" role="alert">{error}</p>}
 
           <div className="shootout-setup-actions">
-            <button className="shootout-button shootout-button--primary" type="submit" disabled={!isReady && !canEnterReady(state)}>{isReady ? <><Icon name="play"/>開始比賽</> : <>進入準備畫面<Icon name="arrow"/></>}</button>
-            {isReady && <button className="shootout-button shootout-button--quiet" type="button" onClick={onReset}>重新設定</button>}
+            <button className="shootout-button shootout-button--primary" type="submit" disabled={!isReady && !canEnterReady(state)}>{isReady ? <><Icon name="play"/>{t("開始比賽")}</> : <>{t("進入準備畫面")}<Icon name="arrow"/></>}</button>
+            {isReady && <button className="shootout-button shootout-button--quiet" type="button" onClick={onReset}>{t("重新設定")}</button>}
           </div>
         </form>
 
         <div className="shootout-setup-side">
           <section className="shootout-panel shootout-format-panel">
-            <div className="shootout-panel-heading"><div><h2>固定規則</h2><p>跟隨比賽時間自動切換。</p></div><span className="shootout-rule-dot"/></div>
+            <div className="shootout-panel-heading"><div><h2>{t("固定規則")}</h2><p>{t("跟隨比賽時間自動切換。")}</p></div><span className="shootout-rule-dot"/></div>
             <div className="shootout-format-rows">
-              <div><strong>10:00</strong><span>比賽總時間</span></div>
-              <div><strong>15 秒</strong><span>前五分鐘每一桿</span></div>
-              <div><strong>10 秒</strong><span>最後五分鐘每一桿</span></div>
+              <div><strong>10:00</strong><span>{t("比賽總時間")}</span></div>
+              <div><strong>{t("15 秒")}</strong><span>{t("前五分鐘每一桿")}</span></div>
+              <div><strong>{t("10 秒")}</strong><span>{t("最後五分鐘每一桿")}</span></div>
             </div>
-            <p className="shootout-format-footnote"><span className="shootout-inline-dot"/> 到時不會自動轉換球員；請由計時員按鍵確認。</p>
+            <p className="shootout-format-footnote"><span className="shootout-inline-dot"/>  {t("到時不會自動轉換球員；請由計時員按鍵確認。")}</p>
           </section>
           <section className="shootout-panel shootout-preferences-panel">
-            <div className="shootout-panel-heading"><div><h2>操作偏好</h2><p>可在開始後繼續使用。</p></div></div>
+            <div className="shootout-panel-heading"><div><h2>{t("操作偏好")}</h2><p>{t("可在開始後繼續使用。")}</p></div></div>
             <div className="shootout-toggle-list">
-              <Toggle label="聲音提示" description="五秒、三秒與到時提示" icon="sound" pressed={soundEnabled} onChange={onToggleSound}/>
-              <Toggle label="震動提示" description="裝置支援時輕微震動" icon="clock" pressed={hapticsEnabled} onChange={onToggleHaptics}/>
+              <Toggle label={t("聲音提示")} description={t("五秒、三秒與到時提示")} icon="sound" pressed={soundEnabled} onChange={onToggleSound}/>
+              <Toggle label={t("震動提示")} description={t("裝置支援時輕微震動")} icon="clock" pressed={hapticsEnabled} onChange={onToggleHaptics}/>
             </div>
           </section>
         </div>
       </section>
 
-      <p className="shootout-setup-disclaimer">計時器只協助記錄時間與轉換球員，裁判決定仍然有效。</p>
+      <p className="shootout-setup-disclaimer">{t("計時器只協助記錄時間與轉換球員，裁判決定仍然有效。")}</p>
     </main>
   </div>;
 }
 
 function ActivityRail({events}: {events: ShootoutEvent[]}) {
+  const t = useT();
   const recent = events.slice(-8).reverse();
-  return <aside className="shootout-activity-rail" aria-label="時間紀錄">
-    <div className="shootout-rail-heading"><div><span>LIVE LOG</span><h2>時間紀錄</h2></div><span className="shootout-rail-count">{events.length}</span></div>
-    {recent.length ? <ol className="shootout-event-list">{recent.map(event => {const item = describeEvent(event); return <li key={event.id}><span className={`shootout-event-dot shootout-event-dot--${event.kind}`} aria-hidden="true"/><div><time>{item.time}</time><strong>{item.label}</strong></div></li>;})}</ol> : <p className="shootout-empty-log">開始後，球員轉換與計時狀態會顯示在這裡。</p>}
-    <div className="shootout-rail-footer"><Icon name="check"/><span>每次操作都會自動保存</span></div>
+  return <aside className="shootout-activity-rail" aria-label={t("時間紀錄")}>
+    <div className="shootout-rail-heading"><div><span>LIVE LOG</span><h2>{t("時間紀錄")}</h2></div><span className="shootout-rail-count">{events.length}</span></div>
+    {recent.length ? <ol className="shootout-event-list">{recent.map(event => {const item = describeEvent(t, event); return <li key={event.id}><span className={`shootout-event-dot shootout-event-dot--${event.kind}`} aria-hidden="true"/><div><time>{item.time}</time><strong>{item.label}</strong></div></li>;})}</ol> : <p className="shootout-empty-log">{t("開始後，球員轉換與計時狀態會顯示在這裡。")}</p>}
+    <div className="shootout-rail-footer"><Icon name="check"/><span>{t("每次操作都會自動保存")}</span></div>
   </aside>;
 }
 
@@ -232,6 +237,7 @@ function PauseSheet({
   onResume: () => void;
   onReset: () => void;
 }) {
+  const t = useT();
   const sheetRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -244,15 +250,15 @@ function PauseSheet({
   if (!open) return null;
   return <div className="shootout-overlay" onMouseDown={event => {if (event.target === event.currentTarget) onClose();}}>
     <section ref={sheetRef} className="shootout-sheet" role="dialog" aria-modal="true" aria-labelledby="shootout-pause-title" onMouseDown={event => event.stopPropagation()}>
-      <button className="shootout-sheet-close" type="button" onClick={onClose} aria-label="關閉"><Icon name="x"/></button>
+      <button className="shootout-sheet-close" type="button" onClick={onClose} aria-label={t("關閉")}><Icon name="x"/></button>
       <span className="shootout-sheet-mark"><Icon name={isPaused ? "play" : "pause"}/></span>
-      <h2 id="shootout-pause-title">{isPaused ? "繼續計時" : "暫停計時"}</h2>
-      <p>{isPaused ? "選擇繼續目前時間，或重設出桿鐘後繼續。" : "按裁判指示暫停出桿鐘、比賽鐘，或兩者。"}</p>
-      {isPaused ? <div className="shootout-sheet-actions"><button className="shootout-button shootout-button--primary" type="button" onClick={onResume}><Icon name="play"/>繼續目前時間</button><button className="shootout-button shootout-button--secondary" type="button" onClick={onReset}><Icon name="reset"/>重設出桿鐘並繼續</button></div> : <>
-        <div className="shootout-pause-options" role="radiogroup" aria-label="選擇暫停範圍">
-          {(["shot", "match", "both"] as ShootoutPauseTarget[]).map(value => <button type="button" key={value} className={`shootout-pause-option${target === value ? " is-selected" : ""}`} role="radio" aria-checked={target === value} onClick={() => setTarget(value)}><span>{target === value ? <Icon name="check"/> : null}</span><strong>{value === "shot" ? "只暫停出桿鐘" : value === "match" ? "只暫停比賽鐘" : "全部暫停"}</strong><small>{value === "shot" ? "比賽鐘繼續倒數" : value === "match" ? "出桿鐘繼續倒數" : "兩個時鐘都暫停"}</small></button>)}
+      <h2 id="shootout-pause-title">{isPaused ? t("繼續計時") : t("暫停計時")}</h2>
+      <p>{isPaused ? t("選擇繼續目前時間，或重設出桿鐘後繼續。") : t("按裁判指示暫停出桿鐘、比賽鐘，或兩者。")}</p>
+      {isPaused ? <div className="shootout-sheet-actions"><button className="shootout-button shootout-button--primary" type="button" onClick={onResume}><Icon name="play"/>{t("繼續目前時間")}</button><button className="shootout-button shootout-button--secondary" type="button" onClick={onReset}><Icon name="reset"/>{t("重設出桿鐘並繼續")}</button></div> : <>
+        <div className="shootout-pause-options" role="radiogroup" aria-label={t("選擇暫停範圍")}>
+          {(["shot", "match", "both"] as ShootoutPauseTarget[]).map(value => <button type="button" key={value} className={`shootout-pause-option${target === value ? " is-selected" : ""}`} role="radio" aria-checked={target === value} onClick={() => setTarget(value)}><span>{target === value ? <Icon name="check"/> : null}</span><strong>{value === "shot" ? t("只暫停出桿鐘") : value === "match" ? t("只暫停比賽鐘") : t("全部暫停")}</strong><small>{value === "shot" ? t("比賽鐘繼續倒數") : value === "match" ? t("出桿鐘繼續倒數") : t("兩個時鐘都暫停")}</small></button>)}
         </div>
-        <button className="shootout-button shootout-button--primary" type="button" onClick={onPause}>確認暫停</button>
+        <button className="shootout-button shootout-button--primary" type="button" onClick={onPause}>{t("確認暫停")}</button>
       </>}
     </section>
   </div>;
@@ -273,6 +279,7 @@ function ConfirmSheet({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const t = useT();
   const sheetRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -285,11 +292,11 @@ function ConfirmSheet({
   if (!open) return null;
   return <div className="shootout-overlay" onMouseDown={event => {if (event.target === event.currentTarget) onClose();}}>
     <section ref={sheetRef} className="shootout-sheet shootout-confirm-sheet" role="alertdialog" aria-modal="true" aria-labelledby="shootout-confirm-title" onMouseDown={event => event.stopPropagation()}>
-      <button className="shootout-sheet-close" type="button" onClick={onClose} aria-label="關閉"><Icon name="x"/></button>
+      <button className="shootout-sheet-close" type="button" onClick={onClose} aria-label={t("關閉")}><Icon name="x"/></button>
       <span className="shootout-sheet-mark shootout-sheet-mark--warning"><Icon name="clock"/></span>
       <h2 id="shootout-confirm-title">{title}</h2>
       <p>{description}</p>
-      <div className="shootout-sheet-actions"><button className="shootout-button shootout-button--secondary" type="button" onClick={onClose}>取消</button><button className="shootout-button shootout-button--primary" type="button" onClick={onConfirm}>{confirmLabel}</button></div>
+      <div className="shootout-sheet-actions"><button className="shootout-button shootout-button--secondary" type="button" onClick={onClose}>{t("取消")}</button><button className="shootout-button shootout-button--primary" type="button" onClick={onConfirm}>{confirmLabel}</button></div>
     </section>
   </div>;
 }
@@ -321,59 +328,61 @@ function LiveScreen({
   onFullscreen: () => void;
   isFullscreen: boolean;
 }) {
+  const t = useT();
   const active = view.activePlayer;
   const incoming = active === "a" ? "b" : "a";
   const isPaused = view.matchClockPaused || view.shotClockPaused;
   const isExpired = view.status === "expired";
   const isComplete = view.status === "complete";
   const progress = Math.min(100, Math.max(0, (1 - view.matchRemainingMs / (10 * 60 * 1000)) * 100));
-  const phaseLabel = view.phase === "long" ? "15 秒階段" : "10 秒階段";
-  const actionLabel = isExpired ? `確認・轉換至${displayName(view, incoming)}` : `轉換至${displayName(view, incoming)}`;
+  const phaseLabel = view.phase === "long" ? t("15 秒階段") : t("10 秒階段");
+  const actionLabel = isExpired ? t("確認・轉換至{v}", {v: displayName(t, view, incoming)}) : t("轉換至{v}", {v: displayName(t, view, incoming)});
   return <div className={`shootout-page shootout-live-page shootout-live-page--${view.status}${isPaused ? " is-paused" : ""}`}>
     <header className="shootout-header shootout-header--dark">
-      <button type="button" className="shootout-back-button" onClick={onBack}><Icon name="back"/><span>離開計時器</span></button>
-      <div className="shootout-live-brand"><span className="shootout-brand-mark">S</span><span><strong>SHOOTOUT</strong><small>限時賽計時器</small></span></div>
-      <div className="shootout-live-tools"><button type="button" className={`shootout-tool-button${soundEnabled ? " is-on" : ""}`} onClick={onToggleSound} aria-pressed={soundEnabled} aria-label={soundEnabled ? "關閉聲音提示" : "開啟聲音提示"}><Icon name="sound"/></button><button type="button" className="shootout-tool-button" onClick={onFullscreen} aria-label={isFullscreen ? "退出全螢幕" : "進入全螢幕"}><Icon name="fullscreen"/></button></div>
+      <button type="button" className="shootout-back-button" onClick={onBack}><Icon name="back"/><span>{t("離開計時器")}</span></button>
+      <div className="shootout-live-brand"><span className="shootout-brand-mark">S</span><span><strong>SHOOTOUT</strong><small>{t("限時賽計時器")}</small></span></div>
+      <div className="shootout-live-tools"><button type="button" className={`shootout-tool-button${soundEnabled ? " is-on" : ""}`} onClick={onToggleSound} aria-pressed={soundEnabled} aria-label={soundEnabled ? t("關閉聲音提示") : t("開啟聲音提示")}><Icon name="sound"/></button><button type="button" className="shootout-tool-button" onClick={onFullscreen} aria-label={isFullscreen ? t("退出全螢幕") : t("進入全螢幕")}><Icon name="fullscreen"/></button></div>
     </header>
 
     <main className="shootout-live-main">
       <div className="shootout-live-layout">
-        <section className="shootout-live-board" aria-label="Shootout 計時控制器">
-          <div className="shootout-live-topline"><span className="shootout-live-label">{isComplete ? "MATCH COMPLETE" : "LIVE MATCH"}</span><span className={`shootout-status-chip${isExpired ? " is-danger" : isPaused ? " is-paused" : ""}`}><i aria-hidden="true"/>{isComplete ? "已完成" : isExpired ? "等待轉換" : isPaused ? "已暫停" : "計時中"}</span></div>
+        <section className="shootout-live-board" aria-label={t("Shootout 計時控制器")}>
+          <div className="shootout-live-topline"><span className="shootout-live-label">{isComplete ? "MATCH COMPLETE" : "LIVE MATCH"}</span><span className={`shootout-status-chip${isExpired ? " is-danger" : isPaused ? " is-paused" : ""}`}><i aria-hidden="true"/>{isComplete ? t("已完成") : isExpired ? t("等待轉換") : isPaused ? t("已暫停") : t("計時中")}</span></div>
 
           <section className="shootout-match-clock-block">
-            <div className="shootout-clock-label"><span>比賽鐘</span><small>10 分鐘總時限</small></div>
+            <div className="shootout-clock-label"><span>{t("比賽鐘")}</span><small>{t("10 分鐘總時限")}</small></div>
             <strong className="shootout-match-time">{formatTime(view.matchRemainingMs)}</strong>
             <div className="shootout-match-progress" aria-hidden="true"><i style={{transform: `scaleX(${progress / 100})`}}/></div>
-            <div className="shootout-match-meta"><span>{isComplete ? "比賽時間完結" : view.phase === "long" ? "前五分鐘" : "最後五分鐘"}</span><span className="shootout-phase-badge">{phaseLabel}</span></div>
+            <div className="shootout-match-meta"><span>{isComplete ? t("比賽時間完結") : view.phase === "long" ? t("前五分鐘") : t("最後五分鐘")}</span><span className="shootout-phase-badge">{phaseLabel}</span></div>
           </section>
 
-          <section className="shootout-player-strip" aria-label={`目前由${displayName(view, active)}出桿`}>
-            {(["a", "b"] as ShootoutPlayer[]).map((player, index) => <div key={player} className={`shootout-live-player${active === player ? " is-active" : ""}`} aria-current={active === player ? "true" : undefined}><span className="shootout-live-player-index">{player.toUpperCase()}</span><div><strong>{displayName(view, player)}</strong><small>{active === player ? "出桿中" : "等待中"}</small></div>{active === player && <span className="shootout-active-mark"><Icon name="arrow"/></span>}{index === 0 && <span className="shootout-player-divider" aria-hidden="true"/>}</div>)}
+          <section className="shootout-player-strip" aria-label={t("目前由{v}出桿", {v: displayName(t, view, active)})}>
+            {(["a", "b"] as ShootoutPlayer[]).map((player, index) => <div key={player} className={`shootout-live-player${active === player ? " is-active" : ""}`} aria-current={active === player ? "true" : undefined}><span className="shootout-live-player-index">{player.toUpperCase()}</span><div><strong>{displayName(t, view, player)}</strong><small>{active === player ? t("出桿中") : t("等待中")}</small></div>{active === player && <span className="shootout-active-mark"><Icon name="arrow"/></span>}{index === 0 && <span className="shootout-player-divider" aria-hidden="true"/>}</div>)}
           </section>
 
           <section className={`shootout-shot-clock-block${isExpired ? " is-expired" : ""}${isPaused ? " is-paused" : ""}`} aria-live="off">
-            <div className="shootout-shot-heading"><div><span>出桿鐘</span><small>{isExpired ? "按鍵後才會轉換球員" : isPaused ? "時鐘已暫停" : "目前球員的出桿時間"}</small></div><span className="shootout-limit-label">{view.phase === "long" ? "15 秒" : "10 秒"}</span></div>
+            <div className="shootout-shot-heading"><div><span>{t("出桿鐘")}</span><small>{isExpired ? t("按鍵後才會轉換球員") : isPaused ? t("時鐘已暫停") : t("目前球員的出桿時間")}</small></div><span className="shootout-limit-label">{view.phase === "long" ? t("15 秒") : t("10 秒")}</span></div>
             <strong className="shootout-shot-time">{formatTime(view.shotRemainingMs)}</strong>
-            <div className="shootout-shot-state">{isExpired ? <><span className="shootout-state-dot"/>時間已過 · {displayName(view, active)}仍為目前球員</> : isPaused ? <><span className="shootout-state-dot"/>已暫停 · 等待計時員操作</> : <>每次轉換後重新開始 {view.phase === "long" ? "15" : "10"} 秒</>}</div>
+            <div className="shootout-shot-state">{isExpired ? <><span className="shootout-state-dot"/>{t("時間已過 · {v}仍為目前球員", {v: displayName(t, view, active)})}</> : isPaused ? <><span className="shootout-state-dot"/>{t("已暫停 · 等待計時員操作")}</> : <>{t("每次轉換後重新開始")} {view.phase === "long" ? "15" : "10"}  {t("秒")}</>}</div>
           </section>
 
           <section className="shootout-action-deck">
-            {isComplete ? <div className="shootout-complete-message"><span className="shootout-complete-icon"><Icon name="check"/></span><div><strong>比賽時間完結</strong><small>計時已停止。請依現場記分與裁判決定處理賽果。</small></div></div> : <button type="button" className={`shootout-button shootout-button--switch${isExpired ? " is-expired" : ""}`} onClick={onSwitch} disabled={isPaused}><span>{actionLabel}</span><Icon name="arrow"/></button>}
-            <div className="shootout-secondary-actions"><button type="button" className="shootout-button shootout-button--secondary" onClick={onPause} disabled={isComplete}><Icon name={isPaused ? "play" : "pause"}/>{isPaused ? "計時選項" : "暫停計時"}</button><button type="button" className="shootout-button shootout-button--quiet" onClick={onUndo} disabled={!state.undo.length || isComplete}><Icon name="undo"/>復原上次轉換</button></div>
-            {isExpired && !isComplete && <button type="button" className="shootout-correction-button" onClick={onResetExpired}><Icon name="reset"/>裁判取消到時・恢復出桿鐘</button>}
+            {isComplete ? <div className="shootout-complete-message"><span className="shootout-complete-icon"><Icon name="check"/></span><div><strong>{t("比賽時間完結")}</strong><small>{t("計時已停止。請依現場記分與裁判決定處理賽果。")}</small></div></div> : <button type="button" className={`shootout-button shootout-button--switch${isExpired ? " is-expired" : ""}`} onClick={onSwitch} disabled={isPaused}><span>{actionLabel}</span><Icon name="arrow"/></button>}
+            <div className="shootout-secondary-actions"><button type="button" className="shootout-button shootout-button--secondary" onClick={onPause} disabled={isComplete}><Icon name={isPaused ? "play" : "pause"}/>{isPaused ? t("計時選項") : t("暫停計時")}</button><button type="button" className="shootout-button shootout-button--quiet" onClick={onUndo} disabled={!state.undo.length || isComplete}><Icon name="undo"/>{t("復原上次轉換")}</button></div>
+            {isExpired && !isComplete && <button type="button" className="shootout-correction-button" onClick={onResetExpired}><Icon name="reset"/>{t("裁判取消到時・恢復出桿鐘")}</button>}
           </section>
 
-          <div className="shootout-live-note"><span className="shootout-note-pip"/><span>{isExpired ? "出桿鐘到時後，比賽鐘仍然繼續倒數。" : "只有球員真正完成一桿後，才按轉換球員。"}</span></div>
+          <div className="shootout-live-note"><span className="shootout-note-pip"/><span>{isExpired ? t("出桿鐘到時後，比賽鐘仍然繼續倒數。") : t("只有球員真正完成一桿後，才按轉換球員。")}</span></div>
         </section>
         <ActivityRail events={state.events}/>
       </div>
-      <div className="shootout-live-footer"><span>一位計時員 · 只記錄時間與轉換</span><button type="button" onClick={onRestart}>結束並開始新一場</button></div>
+      <div className="shootout-live-footer"><span>{t("一位計時員 · 只記錄時間與轉換")}</span><button type="button" onClick={onRestart}>{t("結束並開始新一場")}</button></div>
     </main>
   </div>;
 }
 
 export default function ShootoutClient() {
+  const t = useT();
   const getNow = useShootoutClock();
   const [state, setState] = useState<ShootoutState>(() => createShootoutState());
   const [now, setNow] = useState(() => Date.now());
@@ -401,7 +410,7 @@ export default function ShootoutClient() {
       if (typeof settings?.sound === "boolean") setSoundEnabled(settings.sound);
       if (typeof settings?.haptics === "boolean") setHapticsEnabled(settings.haptics);
       if (saved && (saved.status === "ready" || saved.status === "live" || saved.status === "expired" || saved.status === "complete")) {
-        setState(reconcileShootout(saved, getNow()));
+        setState(reconcileShootout(t, saved, getNow()));
         setRestored(saved.status !== "complete");
       }
     } catch {
@@ -409,7 +418,7 @@ export default function ShootoutClient() {
     }
     setNow(getNow());
     setHydrated(true);
-  }, [getNow]);
+  }, [getNow, t]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -422,9 +431,9 @@ export default function ShootoutClient() {
   useEffect(() => {
     if (!hydrated) return;
     if (view.phase !== state.phase || view.status !== state.status) {
-      setState(previous => reconcileShootout(previous, getNow()));
+      setState(previous => reconcileShootout(t, previous, getNow()));
     }
-  }, [getNow, hydrated, state.phase, state.status, view.phase, view.status]);
+  }, [getNow, hydrated, state.phase, state.status, view.phase, view.status, t]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
@@ -434,10 +443,10 @@ export default function ShootoutClient() {
 
   useEffect(() => {
     if (!hydrated) return;
-    const save = () => {try {localStorage.setItem(STORAGE_KEY, JSON.stringify(reconcileShootout(state, getNow())));} catch { /* best effort */ }};
+    const save = () => {try {localStorage.setItem(STORAGE_KEY, JSON.stringify(reconcileShootout(t, state, getNow())));} catch { /* best effort */ }};
     window.addEventListener("beforeunload", save);
     return () => window.removeEventListener("beforeunload", save);
-  }, [getNow, hydrated, state]);
+  }, [getNow, hydrated, state, t]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -477,15 +486,15 @@ export default function ShootoutClient() {
   };
 
   const enterReady = () => {
-    if (!canEnterReady(state)) {setError("請先輸入兩位不同的球員姓名，並選擇開球球員。"); return;}
+    if (!canEnterReady(state)) {setError(t("請先輸入兩位不同的球員姓名，並選擇開球球員。")); return;}
     setState(previous => toReady(previous));
     setError("");
   };
 
   const start = () => {
     const at = getNow();
-    if (!canEnterReady(state)) {setError("請先完成球員與開球設定。"); return;}
-    setState(previous => startShootout(previous, at));
+    if (!canEnterReady(state)) {setError(t("請先完成球員與開球設定。")); return;}
+    setState(previous => startShootout(t, previous, at));
     setRestored(false);
     setNow(at);
     cue("switch");
@@ -493,41 +502,41 @@ export default function ShootoutClient() {
 
   const switchTurn = () => {
     const at = getNow();
-    setState(previous => switchShootoutTurn(previous, at));
+    setState(previous => switchShootoutTurn(t, previous, at));
     setNow(at);
     cue("switch");
   };
 
   const undo = () => {
     const at = getNow();
-    setState(previous => restorePreviousTurn(previous, at));
+    setState(previous => restorePreviousTurn(t, previous, at));
     setNow(at);
   };
 
   const pause = () => {
     const at = getNow();
-    setState(previous => setPause(previous, pauseTarget, at));
+    setState(previous => setPause(t, previous, pauseTarget, at));
     setPauseOpen(false);
     setNow(at);
   };
 
   const resume = () => {
     const at = getNow();
-    setState(previous => resumeShootout(previous, at));
+    setState(previous => resumeShootout(t, previous, at));
     setPauseOpen(false);
     setNow(at);
   };
 
   const resetExpired = () => {
     const at = getNow();
-    setState(previous => resetShotClock(previous, at, true));
+    setState(previous => resetShotClock(t, previous, at, true));
     setNow(at);
     cue("switch");
   };
 
   const resetAndResume = () => {
     const at = getNow();
-    setState(previous => resumeShootout(resetShotClock(previous, at, true), at));
+    setState(previous => resumeShootout(t, resetShotClock(t, previous, at, true), at));
     setPauseOpen(false);
     setNow(at);
   };
@@ -550,11 +559,11 @@ export default function ShootoutClient() {
       if (document.fullscreenElement) await document.exitFullscreen();
       else await document.documentElement.requestFullscreen();
     } catch {
-      setError("此瀏覽器未能開啟全螢幕模式。");
+      setError(t("此瀏覽器未能開啟全螢幕模式。"));
     }
   };
 
-  if (!hydrated) return <div className="shootout-loading"><span className="shootout-loading-mark">S</span><span>載入計時器…</span></div>;
+  if (!hydrated) return <div className="shootout-loading"><span className="shootout-loading-mark">S</span><span>{t("載入計時器…")}</span></div>;
 
   const isLiveSurface = view.status === "live" || view.status === "expired" || view.status === "complete";
   if (!isLiveSurface) return <SetupScreen state={state} error={error} soundEnabled={soundEnabled} hapticsEnabled={hapticsEnabled} onChange={updateSetup} onSelectOpening={selectOpening} onToggleSound={() => applySettings(!soundEnabled, hapticsEnabled)} onToggleHaptics={() => applySettings(soundEnabled, !hapticsEnabled)} onReady={enterReady} onStart={start} onReset={reset}/>;
@@ -562,9 +571,9 @@ export default function ShootoutClient() {
   return <>
     <LiveScreen state={state} view={view} soundEnabled={soundEnabled} onBack={leave} onPause={() => setPauseOpen(true)} onSwitch={switchTurn} onUndo={undo} onResetExpired={() => setConfirmAction("reset-expired")} onRestart={() => setConfirmAction("restart")} onToggleSound={() => applySettings(!soundEnabled, hapticsEnabled)} onFullscreen={toggleFullscreen} isFullscreen={isFullscreen}/>
     <PauseSheet open={pauseOpen} isPaused={Boolean(view.matchClockPaused || view.shotClockPaused)} target={pauseTarget} setTarget={setPauseTarget} onClose={() => setPauseOpen(false)} onPause={pause} onResume={resume} onReset={resetAndResume}/>
-    <ConfirmSheet open={confirmAction === "reset-expired"} title="恢復這一個出桿鐘？" description="這會取消目前的到時狀態，保留目前球員，並按照現階段重設出桿鐘。請只在裁判指示後使用。" confirmLabel="恢復出桿鐘" onClose={() => setConfirmAction(null)} onConfirm={() => {setConfirmAction(null); resetExpired();}}/>
-    <ConfirmSheet open={confirmAction === "restart"} title="結束目前這場？" description="目前的計時會停止，並返回賽前設定。時間紀錄會留在本機，下一場會重新開始。" confirmLabel="結束並開始新一場" onClose={() => setConfirmAction(null)} onConfirm={reset}/>
-    {error && <div className="shootout-live-error" role="alert"><span>{error}</span><button type="button" onClick={() => setError("")} aria-label="關閉提示"><Icon name="x"/></button></div>}
-    {restored && <div className="shootout-restored-note" role="status"><Icon name="check"/><span>已恢復上一場計時</span><button type="button" onClick={reset}>開始新一場</button></div>}
+    <ConfirmSheet open={confirmAction === "reset-expired"} title={t("恢復這一個出桿鐘？")} description={t("這會取消目前的到時狀態，保留目前球員，並按照現階段重設出桿鐘。請只在裁判指示後使用。")} confirmLabel={t("恢復出桿鐘")} onClose={() => setConfirmAction(null)} onConfirm={() => {setConfirmAction(null); resetExpired();}}/>
+    <ConfirmSheet open={confirmAction === "restart"} title={t("結束目前這場？")} description={t("目前的計時會停止，並返回賽前設定。時間紀錄會留在本機，下一場會重新開始。")} confirmLabel={t("結束並開始新一場")} onClose={() => setConfirmAction(null)} onConfirm={reset}/>
+    {error && <div className="shootout-live-error" role="alert"><span>{error}</span><button type="button" onClick={() => setError("")} aria-label={t("關閉提示")}><Icon name="x"/></button></div>}
+    {restored && <div className="shootout-restored-note" role="status"><Icon name="check"/><span>{t("已恢復上一場計時")}</span><button type="button" onClick={reset}>{t("開始新一場")}</button></div>}
   </>;
 }

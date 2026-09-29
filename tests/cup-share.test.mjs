@@ -5,15 +5,17 @@ import { cupOgCard, cupOgGlyphs, cupOgNameLayout } from "../lib/cup-og.ts";
 import { clubMeanRating, handicapEloPerPoint, proposeHandicap, suggestedHandicap } from "../lib/handicap.ts";
 import { buildBracket, currentRoundLabel } from "../lib/tournament.ts";
 
+import { createTranslator } from "../lib/i18n/translate.ts";
+const t = createTranslator("zh-Hant");
 /* Wired exactly as the two real callers wire it — the share page for its meta tags and the app for
    its compose link — so a change in either bracket maths or copy shows up here. */
 const NOW = Date.parse("2026-08-15T12:00");
 
 const shareFor = (cup, matches = [], closed = false, championName = "", now = NOW) => {
   const bracket = closed ? buildBracket(cup, matches) : null;
-  return cupShareState({
+  return cupShareState(t, {
     signupDeadline: cup.signupDeadline, entrants: cup.signups.length, closed,
-    drew: Boolean(bracket?.size), roundName: currentRoundLabel(bracket), championName, now,
+    drew: Boolean(bracket?.size), roundName: currentRoundLabel(t, bracket), championName, now,
   });
 };
 
@@ -26,8 +28,8 @@ const recruiting = shareFor(cup());
 
 test("while recruiting, the pitch is entries so far and the deadline", () => {
   assert.equal(recruiting.status, "signup");
-  assert.equal(cupShareTitle("南華會週年會友盃", recruiting), "南華會週年會友盃 · 報名中");
-  const description = cupShareDescription(recruiting);
+  assert.equal(cupShareTitle(t, "南華會週年會友盃", recruiting), "南華會週年會友盃 · 報名中");
+  const description = cupShareDescription(t, recruiting);
   assert.match(description, /名額有限/);
   assert.match(description, /已有 5 人報名/);
   // Five days out, so the clock leads the description rather than a static "entries are open".
@@ -54,7 +56,7 @@ test("no cup declares a number of places, so none is ever quoted", () => {
   // "3 places left" invented a number nobody chose. 名額有限 is the true claim at any field size.
   for (const signups of [["p1", "p2"], ["p1", "p2", "p3"], ["p1", "p2", "p3", "p4"]]) {
     const state = shareFor(cup({ signups }));
-    const copy = `${cupShareDescription(state)} ${cupShareMessage("盃", state, "https://x/c/1")}`;
+    const copy = `${cupShareDescription(t, state)} ${cupShareMessage(t, "盃", state, "https://x/c/1")}`;
     // The clock ("仲有 3 日") is a fact the club set; a count of places is not.
     assert.doesNotMatch(copy, /個位|個名額|剩低|仲有 \d+ 個/);
     assert.match(copy, /名額有限/);
@@ -71,8 +73,8 @@ test("a running cup leads with the round it has reached", () => {
   // unfinished round is the one being played, and that is what a reader is being invited to watch.
   assert.equal(state.status, "live");
   assert.equal(state.roundName, "四強");
-  assert.equal(cupShareTitle(drawn.name, state), "南華會週年會友盃 · 四強");
-  assert.match(cupShareDescription(state), /打到四強/);
+  assert.equal(cupShareTitle(t, drawn.name, state), "南華會週年會友盃 · 四強");
+  assert.match(cupShareDescription(t, state), /打到四強/);
 });
 
 test("a finished cup leads with the champion", () => {
@@ -82,22 +84,22 @@ test("a finished cup leads with the champion", () => {
     tournamentId: "t1", tournamentRound: 1, tournamentMatchIndex: 1,
   }], true, "陳大文");
   assert.equal(state.status, "done");
-  assert.equal(cupShareTitle(drawn.name, state), "南華會週年會友盃 · 已完成");
-  assert.match(cupShareDescription(state), /冠軍 陳大文/);
+  assert.equal(cupShareTitle(t, drawn.name, state), "南華會週年會友盃 · 已完成");
+  assert.match(cupShareDescription(t, state), /冠軍 陳大文/);
 });
 
 test("a cup that never filled says so rather than inventing a round", () => {
   const state = shareFor(cup({ signupDeadline: "2020-01-01T00:00", signups: ["p1"] }), [], true);
   assert.equal(state.status, "short");
-  assert.equal(cupShareTitle("盃", state), "盃");
-  assert.match(cupShareDescription(state), /人數不足/);
+  assert.equal(cupShareTitle(t, "盃", state), "盃");
+  assert.match(cupShareDescription(t, state), /人數不足/);
 });
 
 test("the WhatsApp message ends with the bare url on its own line", () => {
   // WhatsApp only renders the link preview when the URL is the last thing in the message, and the
   // preview is the whole pitch — so this is a hard requirement, not formatting taste.
   const url = "https://scaa.example/c/t1";
-  const message = cupShareMessage("南華會週年會友盃", recruiting, url);
+  const message = cupShareMessage(t, "南華會週年會友盃", recruiting, url);
   const lines = message.split("\n");
   assert.equal(lines.at(-1), url);
   assert.equal(lines.filter(line => line.includes("http")).length, 1);
@@ -114,11 +116,11 @@ test("the WhatsApp message ends with the bare url on its own line", () => {
 });
 
 test("the share button names WhatsApp, and names recruiting while entries are open", () => {
-  const cta = cupShareCta(recruiting);
+  const cta = cupShareCta(t, recruiting);
   assert.match(cta.label, /WhatsApp/);
   assert.match(cta.label, /報名/);
   for (const state of ["live", "done", "short"]) {
-    assert.match(cupShareCta({ ...recruiting, status: state }).label, /WhatsApp/);
+    assert.match(cupShareCta(t, { ...recruiting, status: state }).label, /WhatsApp/);
   }
 });
 
@@ -132,14 +134,14 @@ test("the preview image url changes whenever the facts drawn on it change", () =
 });
 
 test("the poster leads with this cup's name, its clock and its crowd", () => {
-  const card = cupOgCard("南華會週年會友盃", recruiting);
+  const card = cupOgCard(t, "南華會週年會友盃", recruiting);
   assert.equal(card.name, "南華會週年會友盃");
   assert.equal(card.status, "報名中");
   assert.equal(card.urgency, "仲有 5 日截止");
   assert.match(card.standfirst, /已有 5 位會友報名/);
   assert.match(card.cta, /報名/);
   // Every glyph the card draws has to be in the subset request, or it rasterises as a blank box.
-  const glyphs = cupOgGlyphs(card);
+  const glyphs = cupOgGlyphs(t, card);
   for (const character of card.name + card.urgency + card.cta + card.status) {
     assert.ok(glyphs.includes(character), `missing glyph ${character}`);
   }
@@ -161,7 +163,7 @@ test("share urls are absolute and tolerate a trailing slash on the origin", () =
 });
 
 test("the wa.me link carries the message intact", () => {
-  const message = cupShareMessage("盃", recruiting, "https://scaa.example/c/t1");
+  const message = cupShareMessage(t, "盃", recruiting, "https://scaa.example/c/t1");
   const link = whatsappLink(message);
   assert.ok(link.startsWith("https://wa.me/?text="));
   assert.equal(decodeURIComponent(link.slice("https://wa.me/?text=".length)), message);
@@ -202,18 +204,18 @@ test("an empty club falls back to the configured start rather than a mean of not
 });
 
 test("a tie quotes the terms the two sides actually play off", () => {
-  assert.equal(proposeHandicap(1500, 1500, settings).points, 0);
-  assert.equal(proposeHandicap(1500, 1500, settings).direction, "level");
-  const giving = proposeHandicap(1700, 1300, settings);
+  assert.equal(proposeHandicap(t, 1500, 1500, settings).points, 0);
+  assert.equal(proposeHandicap(t, 1500, 1500, settings).direction, "level");
+  const giving = proposeHandicap(t, 1700, 1300, settings);
   assert.ok(giving.points > 0);
-  const receiving = proposeHandicap(1300, 1700, settings);
+  const receiving = proposeHandicap(t, 1300, 1700, settings);
   assert.equal(receiving.points, -giving.points);
 });
 
 test("pair proposals use the displayed handicap difference while ELO sensitivity remains rating-aware", () => {
-  assert.equal(proposeHandicap(1200, 1000, settings).points, 8);
-  assert.equal(proposeHandicap(2000, 1800, settings).points, 8);
-  assert.equal(proposeHandicap(2700, 2500, settings).points, 8);
+  assert.equal(proposeHandicap(t, 1200, 1000, settings).points, 8);
+  assert.equal(proposeHandicap(t, 2000, 1800, settings).points, 8);
+  assert.equal(proposeHandicap(t, 2700, 2500, settings).points, 8);
   assert.ok(handicapEloPerPoint(1100, settings)>handicapEloPerPoint(1900, settings));
   assert.ok(handicapEloPerPoint(1900, settings)-handicapEloPerPoint(2600, settings)>0);
 });

@@ -2,6 +2,7 @@ import { requireMember, syncMemberPlayerProfiles } from "../../../db/auth";
 import { getStateDocument, getStateVersion, putState, deleteState } from "../../../db/state";
 import { entertainmentOnlyWritePreservesOfficialState } from "../../../lib/entertainment-state";
 import { blockedByUnfinishedOnboarding, memberCanWrite } from "../../../lib/state-write-rules";
+import { getTranslator } from "../../../lib/i18n/server";
 
 const defaultState = {
   players: [],
@@ -46,6 +47,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const { t } = await getTranslator();
   const user = await requireMember();
   if (!user) return Response.json({ error: "Sign in required" }, { status: 401 });
   try {
@@ -74,7 +76,7 @@ export async function PUT(request: Request) {
       if (!memberCanWrite(current, parsedNext, user.statePlayerId)) return Response.json({ error: "You may only change your player profile or matches involving you" }, { status: 403 });
     }
     const onboardingBlock = blockedByUnfinishedOnboarding(current, parsedNext);
-    if (onboardingBlock) return Response.json({ error: `${onboardingBlock} 尚未完成新會員評級，需先完成 /onboarding 先可以記錄比賽。` }, { status: 403 });
+    if (onboardingBlock) return Response.json({ error: t("{onboardingBlock} 尚未完成新會員評級，需先完成 /onboarding 先可以記錄比賽。", {onboardingBlock}) }, { status: 403 });
     // The audit log is prepended to on every write and never trimmed, so a club with enough history
     // eventually ships a body big enough to hit the platform's request-size limit — the write then
     // fails before it ever reaches this handler, on the least forgiving action to retry: recording a

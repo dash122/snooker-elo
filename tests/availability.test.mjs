@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { addDaysHongKong, availabilityDensity, availabilityEndTimes, availabilityPeak, availabilityStartTimes, composeAvailabilityInterval, dayRangeHongKong, gamesPlayed, intervalFromHours, intersectIntervals, matchesBetween, mergeAvailabilitySlots, mergeIntervals, inviteAwaitsOutcome, isInviteExpired, isOpenCallLive, nextAvailabilityStart, overlapMinutes, partitionInvites, partitionOpenCalls, rankOpponents, recommendationScore, validateAvailabilityInterval } from "../lib/availability.ts";
 
 
+import { createTranslator } from "../lib/i18n/translate.ts";
+const t = createTranslator("zh-Hant");
 test("keeps a same-day slot on the day the member picked",()=>{
   // Deriving the end date from `new Date(date+"T00:00+08:00").toISOString()` rolled it back a day,
   // so every slot ended before it started and nothing could be created.

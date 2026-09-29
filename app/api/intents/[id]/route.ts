@@ -1,6 +1,7 @@
 import { requireMember } from "../../../../db/auth";
 import { extendIntent, withdrawIntent } from "../../../../db/intents";
 import { publishAvailability } from "../../../../db/availability";
+import { getTranslator } from "../../../../lib/i18n/server";
 
 /** "+1 小時" on a live status.
  *
@@ -10,6 +11,7 @@ import { publishAvailability } from "../../../../db/availability";
  *  every other publish, so the grid and offer targeting see the longer evening without knowing that
  *  intents exist. */
 export async function PATCH(_request:Request,{params}:{params:Promise<{id:string}>}){
+  const { t } = await getTranslator();
   const member=await requireMember();
   if(!member)return Response.json({error:"Sign in required"},{status:401});
   if(!member.statePlayerId)return Response.json({error:"Link a player profile first"},{status:403});
@@ -18,10 +20,10 @@ export async function PATCH(_request:Request,{params}:{params:Promise<{id:string
     const intent=await extendIntent(member.statePlayerId,id);
     /* Null means the ceiling refused it, not that anything broke. Saying so plainly beats a 200 that
        changed nothing and leaves the member tapping a button with no effect. */
-    if(!intent)return Response.json({error:"已經去到上限，唔可以再延長"},{status:409});
+    if(!intent)return Response.json({error:t("已經去到上限，唔可以再延長")},{status:409});
     if(intent.startAt&&intent.endAt)await publishAvailability(member.statePlayerId,[{startAt:intent.startAt,endAt:intent.endAt}]);
     return Response.json({intent});
-  }catch(error){return Response.json({error:error instanceof Error?error.message:"Could not extend"},{status:400});}
+  }catch(error){return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Could not extend"},{status:400});}
 }
 
 export async function DELETE(_request:Request,{params}:{params:Promise<{id:string}>}){

@@ -4,6 +4,7 @@ import { notifyPlayers } from "../../../db/notifications";
 import { inviteReceived } from "../../../lib/notify";
 import { validateAvailabilityInterval } from "../../../lib/availability";
 
+import { getTranslator } from "../../../lib/i18n/server";
 function body(input:unknown){
   const value=input as {toPlayerId?:unknown;startAt?:unknown;endAt?:unknown;message?:unknown;venue?:unknown};
   if(typeof value.toPlayerId!=="string"||!value.toPlayerId) throw new Error("Choose an opponent to invite");
@@ -34,6 +35,6 @@ export async function POST(request:Request){
   }catch(error){
     const code=error&&typeof error==="object"&&"code"in error?(error as {code?:string}).code:undefined;
     if(code==="23503")return Response.json({error:"Player not found"},{status:404});
-    return Response.json({error:error instanceof Error?error.message:"Invalid invite"},{status:400});
+    return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Invalid invite"},{status:400});
   }
 }

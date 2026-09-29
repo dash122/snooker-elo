@@ -4,6 +4,7 @@ import { createOpenCall } from "../../../../db/open-calls";
 import { announceAvailability, announceOpenCall } from "../../../../db/matchmaking-actions.pg";
 import { postIntent } from "../../../../db/intents";
 import { nowInterval, validateAvailabilityInterval } from "../../../../lib/availability";
+import { getTranslator } from "../../../../lib/i18n/server";
 
 /** One tap: "I'm free now."
  *
@@ -18,6 +19,7 @@ import { nowInterval, validateAvailabilityInterval } from "../../../../lib/avail
 const ALLOWED_MINUTES=[60,90,120,180,240];
 
 export async function POST(request:Request){
+  const { t } = await getTranslator();
   const member=await requireMember();
   if(!member)return Response.json({error:"Sign in required"},{status:401});
   if(!member.statePlayerId)return Response.json({error:"Link a player profile first"},{status:403});
@@ -30,7 +32,7 @@ export async function POST(request:Request){
   catch{
     /* The club's playing window is 10:00–02:00, so "free now" at 04:00 is not a bug to swallow — it
        is a real answer, and it needs to say which hours it means rather than fail generically. */
-    return Response.json({error:"而家唔喺開放時間內（香港時間 10:00 至翌日 02:00）。"},{status:400});
+    return Response.json({error:t("而家唔喺開放時間內（香港時間 10:00 至翌日 02:00）。")},{status:400});
   }
   const slots=await publishAvailability(member.statePlayerId,[interval]);
   /* "I'm free now" already *is* the strongest possible intent signal — tapping it means "I want a

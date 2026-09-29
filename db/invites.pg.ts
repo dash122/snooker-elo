@@ -1,4 +1,5 @@
 import { getSql } from "./sql";
+import { msg } from "../lib/i18n/translate.ts";
 export type InvitePlayer = { id:string; name:string; short:string; rating:number; colour?:string|null; avatar?:string|null };
 export type InviteStatus = "pending"|"accepted"|"declined"|"cancelled"|"expired"|"played"|"missed";
 export type InviteCounter = { startAt:string; endAt:string; byPlayerId:string };
@@ -135,7 +136,7 @@ export async function createInvite(fromPlayerId:string,toPlayerId:string,interva
   try {
     await sql`INSERT INTO match_invites (id,from_player_id,to_player_id,start_at,end_at,message,venue) VALUES (${id},${fromPlayerId},${toPlayerId},${interval.startAt},${interval.endAt},${message},${venue})`;
   } catch(error) {
-    if(error && typeof error==="object" && "code" in error && (error as {code?:string}).code==="23505") throw new Error("已經有一個待回覆的邀請");
+    if(error && typeof error==="object" && "code" in error && (error as {code?:string}).code==="23505") throw new Error(msg("已經有一個待回覆的邀請"));
     throw error;
   }
   return getInviteById(id);

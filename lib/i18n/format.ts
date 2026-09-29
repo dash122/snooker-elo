@@ -29,3 +29,15 @@ export const formatNumber = (value: number, locale: Locale, options?: Intl.Numbe
 
 export const formatTimeRange = (startAt: string, endAt: string, context: FormatContext) =>
   `${formatClock(startAt, context)}–${formatClock(endAt, context)}`;
+
+/** `2026年8月` / `August 2026`. */
+export const monthYearLabel = (year: number | string, month: number | string, locale: Locale) =>
+  new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: "UTC", year: "numeric", month: "long" }).format(new Date(Date.UTC(Number(year), Number(month) - 1, 1)));
+
+/** `8月` / `Aug`. */
+export const monthShortLabel = (month: number | string, locale: Locale) =>
+  new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: "UTC", month: "short" }).format(new Date(Date.UTC(2001, Number(month) - 1, 1)));
+
+/** A calendar date with no time zone conversion (`8月1日` / `1 Aug`, plus the year when asked). */
+export const calendarDateLabel = (year: number | string, month: number | string, day: number | string, locale: Locale, withYear = false) =>
+  new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: "UTC", ...(withYear ? { year: "numeric" as const } : {}), month: locale === "en" ? "short" : "numeric", day: "numeric" }).format(new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))));

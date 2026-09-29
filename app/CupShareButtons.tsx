@@ -6,6 +6,7 @@ import { ShareGlyph } from "./ShareSheet";
 import { shareStory, shareText } from "./story-image";
 import { cupShareCta, cupShareMessage, type CupShareState } from "../lib/cup-share";
 import { cupStoryCard, cupStorySvg, type StoryBracketRound, type StoryPerson } from "../lib/story-card";
+import { useT } from "./components/I18nProvider";
 
 /** The two ways a cup leaves the app, side by side.
  *
@@ -36,10 +37,11 @@ export default function CupShareButtons({ name, state, url, entrants, champion, 
   /** The WhatsApp button's weight. The cup page leads with it; the app's row already has a primary. */
   tone?: "primary" | "ghost";
 }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  const cta = cupShareCta(state);
-  const message = cupShareMessage(name, state, url);
+  const cta = cupShareCta(t, state);
+  const message = cupShareMessage(t, name, state, url);
 
   const toWhatsApp = () => { void shareText(message, name); };
 
@@ -50,14 +52,14 @@ export default function CupShareButtons({ name, state, url, entrants, champion, 
        and a clipboard write from a backgrounded document is rejected. */
     let copied = false;
     try { await navigator.clipboard.writeText(url); copied = true; } catch { /* no clipboard */ }
-    const svg = cupStorySvg(cupStoryCard(name, state, url, entrants, champion, bracket), avatarHex);
+    const svg = cupStorySvg(t, cupStoryCard(t, name, state, url, entrants, champion, bracket), avatarHex);
     const outcome = await shareStory(svg, { filename: "scaa-cup.png", title: name, text: `${name}\n${url}` });
     setBusy(false);
-    if (outcome === "failed") { setNote("圖片整唔到，請再試一次。"); return; }
-    const paste = copied ? "連結已經複製" : `連結：${url}`;
+    if (outcome === "failed") { setNote(t("圖片整唔到，請再試一次。")); return; }
+    const paste = copied ? t("連結已經複製") : t("連結：{url}", {url});
     setNote(outcome === "downloaded"
-      ? `已儲存圖片。喺手機開 IG → 限時動態 → 揀呢張相，再加「連結」貼紙貼上（${paste}）。`
-      : `揀咗 Instagram 之後，記得加「連結」貼紙貼上，人哋先撳得入嚟報名（${paste}）。`);
+      ? t("已儲存圖片。喺手機開 IG → 限時動態 → 揀呢張相，再加「連結」貼紙貼上（{paste}）。", {paste})
+      : t("揀咗 Instagram 之後，記得加「連結」貼紙貼上，人哋先撳得入嚟報名（{paste}）。", {paste}));
   };
 
   return <>
@@ -67,8 +69,8 @@ export default function CupShareButtons({ name, state, url, entrants, champion, 
       </button>
       <button type="button" className="cup-btn ghost ig-btn" disabled={busy} onClick={() => void toStory()}>
         <ShareGlyph kind="instagram" />
-        <span>{busy ? "整緊圖…" : state.status === "signup" ? "IG 限時動態招兵"
-          : state.status === "live" ? "IG 限時動態出對陣" : "IG 限時動態"}</span>
+        <span>{busy ? t("整緊圖…") : state.status === "signup" ? t("IG 限時動態招兵")
+          : state.status === "live" ? t("IG 限時動態出對陣") : t("IG 限時動態")}</span>
       </button>
     </div>
     {note && <p className="cup-share-note" role="status">{note}</p>}

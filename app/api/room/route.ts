@@ -6,6 +6,7 @@ import { listOpenCalls } from "../../../db/open-calls";
 import { hkDate, intersectIntervals, isOpenCallLive, overlapMinutes, type Interval } from "../../../lib/availability";
 import { rankRoom, shouldOfferUnconfirmed, type RoomInput } from "../../../lib/room";
 
+import { getTranslator } from "../../../lib/i18n/server";
 /** Everything The Room draws, in one request.
  *
  *  Assembled server-side rather than left to the client to stitch from four endpoints, because the
@@ -20,6 +21,7 @@ export const dynamic="force-dynamic";
 const HORIZON_HOURS = 30;
 
 export async function GET(){
+  const {t}=await getTranslator();
   try{
     const member=await requireMember();
     const me=member?.statePlayerId??null;
@@ -68,7 +70,7 @@ export async function GET(){
       });
     }
 
-    const ranked=rankRoom({myRating,members:inputs,now});
+    const ranked=rankRoom(t, {myRating,members:inputs,now});
     const byId=new Map([
       ...others.map(intent=>[intent.playerId,intent.player] as const),
       ...unconfirmed.map(candidate=>[candidate.id,candidate] as const),
@@ -93,6 +95,6 @@ export async function GET(){
       })),
     },{headers:{"cache-control":"no-store"}});
   }catch(error){
-    return Response.json({error:error instanceof Error?error.message:"Room unavailable"},{status:500});
+    return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Room unavailable"},{status:500});
   }
 }

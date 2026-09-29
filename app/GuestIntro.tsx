@@ -2,6 +2,8 @@
 import {useState,useSyncExternalStore} from "react";
 import {NavIcon} from "./UiBits";
 import type {Destination} from "./components/shell/Navigation";
+import { useT } from "./components/I18nProvider";
+import { msg } from "../lib/i18n/translate";
 
 const DISMISS_KEY="scaa-guest-intro-dismissed";
 const subscribeDismissal=(notify:()=>void)=>{window.addEventListener("storage",notify);return ()=>window.removeEventListener("storage",notify)};
@@ -9,10 +11,10 @@ const readDismissal=()=>{try{return localStorage.getItem(DISMISS_KEY)==="1"}catc
 const serverDismissal=()=>true;
 
 const FEATURES:{id:Destination;title:string;body:string}[]=[
-  {id:"leaderboard",title:"公開排行榜",body:"排名、ELO、走勢、勝率同讓球，賽果一確認即刻更新。"},
-  {id:"matches",title:"賽事紀錄同盃賽",body:"每場波嘅局分、讓球同單桿都有紀錄，仲有盃賽賽程。"},
-  {id:"availability",title:"約戰配對",body:"一鍵話俾大家知你得閒，系統幫你搵時間夾得到嘅對手。"},
-  {id:"players",title:"球員主頁同分享",body:"打開任何球員主頁，一嗒分享去 WhatsApp 或 Instagram。"},
+  {id:"leaderboard",title:msg("公開排行榜"),body:msg("排名、ELO、走勢、勝率同讓球，賽果一確認即刻更新。")},
+  {id:"matches",title:msg("賽事紀錄同盃賽"),body:msg("每場波嘅局分、讓球同單桿都有紀錄，仲有盃賽賽程。")},
+  {id:"availability",title:msg("約戰配對"),body:msg("一鍵話俾大家知你得閒，系統幫你搵時間夾得到嘅對手。")},
+  {id:"players",title:msg("球員主頁同分享"),body:msg("打開任何球員主頁，一嗒分享去 WhatsApp 或 Instagram。")},
 ];
 
 /** Guests land straight on the real leaderboard — this card is the only place that explains why the
@@ -21,30 +23,30 @@ const FEATURES:{id:Destination;title:string;body:string}[]=[
     someone has read it, repeating it on every visit would just be in the way of the data they came
     to see. */
 export default function GuestIntro({onNavigate}:{onNavigate:(id:Destination)=>void}){
+  const t = useT();
   const [dismissed,setDismissed]=useState(false);
   const storedDismissal=useSyncExternalStore(subscribeDismissal,readDismissal,serverDismissal);
   if(dismissed||storedDismissal)return null;
   const dismiss=()=>{setDismissed(true);try{localStorage.setItem(DISMISS_KEY,"1")}catch{}};
-  return <section className="guest-intro" aria-label="關於 SCAA Snooker ELO">
-    <button type="button" className="guest-intro-close" aria-label="關閉介紹" onClick={dismiss}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+  return <section className="guest-intro" aria-label={t("關於 SCAA Snooker ELO")}>
+    <button type="button" className="guest-intro-close" aria-label={t("關閉介紹")} onClick={dismiss}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     <details className="guest-intro-disclosure">
-    <summary><span><b>第一次嚟？認識球會評分</b><small>排行榜、賽果同約戰，一個地方睇晒。</small></span><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m8 10 4 4 4-4"/></svg></summary>
+    <summary><span><b>{t("第一次嚟？認識球會評分")}</b><small>{t("排行榜、賽果同約戰，一個地方睇晒。")}</small></span><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m8 10 4 4 4-4"/></svg></summary>
     <div className="guest-intro-content">
-    <h2>你而家睇緊嘅，係全會共用嘅正式評分</h2>
+    <h2>{t("你而家睇緊嘅，係全會共用嘅正式評分")}</h2>
     <p className="guest-intro-lead">
-      呢個排行榜唔止計輸贏——局分算證據、讓球會封頂、贏出預期越多加分越多，改咗設定舊賽果會自動重算，所以每個評分都對得上紀錄。
-    </p>
+      {t("呢個排行榜唔止計輸贏——局分算證據、讓球會封頂、贏出預期越多加分越多，改咗設定舊賽果會自動重算，所以每個評分都對得上紀錄。")}</p>
     <ul className="guest-intro-features">
       {FEATURES.map(item=><li key={item.id}>
         <button type="button" onClick={()=>onNavigate(item.id)}>
           <i><NavIcon id={item.id} active={false}/></i>
-          <span><b>{item.title}</b><small>{item.body}</small></span>
+          <span><b>{t(item.title)}</b><small>{t(item.body)}</small></span>
         </button>
       </li>)}
     </ul>
     <div className="guest-intro-actions">
-      <a className="ds-button ds-button--featured" href="/login?mode=signup"><span>建立帳戶，開始記錄</span></a>
-      <a className="ds-button ds-button--secondary" href="/elo-guide"><span>評分點計出嚟？</span></a>
+      <a className="ds-button ds-button--featured" href="/login?mode=signup"><span>{t("建立帳戶，開始記錄")}</span></a>
+      <a className="ds-button ds-button--secondary" href="/elo-guide"><span>{t("評分點計出嚟？")}</span></a>
     </div>
     </div>
     </details>

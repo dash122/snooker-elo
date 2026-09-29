@@ -27,3 +27,10 @@ export function useFormatContext(): FormatContext {
   const { locale, timeZone } = useI18n();
   return useMemo(() => ({ locale, timeZone }), [locale, timeZone]);
 }
+
+/** Translate every value of a module-level table of `msg("…")` strings, for components that read it
+ *  as `copy.someKey`. The table itself stays at module scope; only the lookup happens per render. */
+export function useTranslated<T extends Record<string, string>>(table: T): T {
+  const t = useT();
+  return useMemo(() => Object.fromEntries(Object.entries(table).map(([key, value]) => [key, t(value)])) as T, [table, t]);
+}

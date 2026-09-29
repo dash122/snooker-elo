@@ -3,6 +3,7 @@ import { listAvailability, listAvailabilityCounts, listOwnAvailability, publishA
 import { announceAvailability } from "../../../db/matchmaking-actions.pg";
 import { addDaysHongKong, dayRangeHongKong, mergeAvailabilitySlots, validateAvailabilityInterval, type SlotConditions } from "../../../lib/availability";
 
+import { getTranslator } from "../../../lib/i18n/server";
 function conditions(value:unknown):SlotConditions {
   if(!value||typeof value!=="object")return {};
   const raw=value as Record<string,unknown>,out:SlotConditions={};
@@ -33,7 +34,7 @@ export async function GET(request:Request){
        today's — a same-day-only window silently drops anyone whose earliest slot is a future day. */
     if(url.searchParams.get("upcoming")!==null){const now=new Date().toISOString(),horizon=new Date(Date.now()+30*24*60*60*1000).toISOString();return Response.json({members:await listAvailability(now,horizon)},{headers:{"cache-control":"no-store"}});}
     const date=url.searchParams.get("date")??new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Hong_Kong"});const range=dayRangeHongKong(date);return Response.json({date,members:await listAvailability(range.startAt,range.endAt)},{headers:{"cache-control":"no-store"}});
-  }catch(error){return Response.json({error:error instanceof Error?error.message:"Availability unavailable"},{status:400});}}
+  }catch(error){return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Availability unavailable"},{status:400});}}
 export async function POST(request:Request){
   const member=await requireMember();if(!member)return Response.json({error:"Sign in required"},{status:401});if(!member.statePlayerId)return Response.json({error:"Link a player profile first"},{status:403});
   try{
@@ -44,5 +45,5 @@ export async function POST(request:Request){
        be noticed, which is the passivity the whole redesign is aimed at. */
     const {offers}=await announceAvailability(member.statePlayerId,intervals);
     return Response.json({slots:published,offers},{status:201});
-  }catch(error){return Response.json({error:error instanceof Error?error.message:"Invalid slot"},{status:400});}
+  }catch(error){return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Invalid slot"},{status:400});}
 }

@@ -1,6 +1,8 @@
 /* Type-only, and written as `import type` so the test runner's type stripping erases the statement
    outright rather than trying to resolve an extensionless path at runtime. */
 import type { Interval } from "./availability";
+import { msg } from "./i18n/translate.ts";
+import type { Translator } from "./i18n/translate.ts";
 
 /* --- The Room -------------------------------------------------------------
  *
@@ -27,14 +29,14 @@ import type { Interval } from "./availability";
 export type MatchPreference = "even"|"challenge"|"mentor"|"any";
 
 export const PREFERENCE_LABELS:Record<MatchPreference,string> = {
-  even:"勢均力敵", challenge:"想挑戰高手", mentor:"樂意陪新手", any:"求其打下",
+  even:msg("勢均力敵"), challenge:msg("想挑戰高手"), mentor:msg("樂意陪新手"), any:msg("求其打下"),
 };
 
 export const PREFERENCE_HINTS:Record<MatchPreference,string> = {
-  even:"想搵水平接近嘅對手",
-  challenge:"想搵強過自己嘅對手練習",
-  mentor:"歡迎新手或者水平低啲嘅球友",
-  any:"邊個都得，打到就好",
+  even:msg("想搵水平接近嘅對手"),
+  challenge:msg("想搵強過自己嘅對手練習"),
+  mentor:msg("歡迎新手或者水平低啲嘅球友"),
+  any:msg("邊個都得，打到就好"),
 };
 
 export function isMatchPreference(value:unknown):value is MatchPreference {
@@ -63,22 +65,22 @@ export function preferenceLicence(preference:MatchPreference,gap:number):Licence
 
 /** The words for a licence, from the asker's point of view. Only ever produced when the licence is
     real — a tag that appears on everybody's row stops carrying information. */
-export function licenceNote(preference:MatchPreference,gap:number):string|null {
+export function licenceNote(t: Translator, preference:MatchPreference,gap:number):string|null {
   if(preferenceLicence(preference,gap)!=="welcome")return null;
-  if(preference==="mentor")return "佢歡迎水平低啲嘅球友";
-  if(preference==="challenge")return "佢想搵強過自己嘅對手";
-  if(preference==="even")return "佢想搵水平接近嘅對手";
-  return "佢話邊個都得";
+  if(preference==="mentor")return t("佢歡迎水平低啲嘅球友");
+  if(preference==="challenge")return t("佢想搵強過自己嘅對手");
+  if(preference==="even")return t("佢想搵水平接近嘅對手");
+  return t("佢話邊個都得");
 }
 
 /** Level as a distance from me rather than as a rating.
  *
  *  The leaderboard is a different product. Here the only thing a number has to answer is "would this
  *  be a good game", so it is phrased relative to the reader and never as their public standing. */
-export function levelLabel(myRating:number,theirRating:number):string {
+export function levelLabel(t: Translator, myRating:number,theirRating:number):string {
   const gap=Math.round(theirRating-myRating);
-  if(Math.abs(gap)<25)return "水平差唔多";
-  return gap>0?`高你 ${gap} 分`:`低你 ${Math.abs(gap)} 分`;
+  if(Math.abs(gap)<25)return t("水平差唔多");
+  return gap>0?t("高你 {gap} 分", {gap}):t("低你 {v} 分", {v: Math.abs(gap)});
 }
 
 /* --- Time left ------------------------------------------------------------
@@ -96,12 +98,12 @@ export function remainingMinutes(endAt:string,now=Date.now()) {
 
 /** "仲有 1 小時 40 分". Rounded down to the minute and never optimistic — a countdown that says an
     hour when there are fifty minutes left teaches members not to trust the number. */
-export function remainingLabel(endAt:string,now=Date.now()) {
+export function remainingLabel(t: Translator, endAt:string,now=Date.now()) {
   const minutes=remainingMinutes(endAt,now);
-  if(minutes<=0)return "已經完咗";
-  if(minutes<60)return `仲有 ${minutes} 分鐘`;
+  if(minutes<=0)return t("已經完咗");
+  if(minutes<60)return t("仲有 {minutes} 分鐘", {minutes});
   const hours=Math.floor(minutes/60),rest=minutes%60;
-  return rest?`仲有 ${hours} 小時 ${rest} 分`:`仲有 ${hours} 小時`;
+  return rest?t("仲有 {hours} 小時 {rest} 分", {hours, rest}):t("仲有 {hours} 小時", {hours});
 }
 
 /* --- Ranking --------------------------------------------------------------- */
@@ -165,7 +167,7 @@ export function roomScore(input:{gap:number;licence:Licence;startsInMinutes:numb
 /** The whole room, ordered. Groups first, then fit within a group — never fit across groups, because
     the bands mean different things and a beautifully-matched opponent who is free next Tuesday must
     not sit above a decent one standing at the table now. */
-export function rankRoom(input:{myRating:number;members:RoomInput[];now?:number}):RoomEntry[] {
+export function rankRoom(t: Translator, input:{myRating:number;members:RoomInput[];now?:number}):RoomEntry[] {
   const now=input.now??Date.now();
   return input.members
     .map(member=>{
@@ -175,8 +177,8 @@ export function rankRoom(input:{myRating:number;members:RoomInput[];now?:number}
       return {
         id:member.id,group:group(member,now),tier:member.tier,
         score:roomScore({gap,licence,startsInMinutes,atClub:member.atClub}),
-        gap:Math.round(gap),levelLabel:levelLabel(input.myRating,member.rating),
-        preference:member.preference,licence,licenceNote:licenceNote(member.preference,gap),
+        gap:Math.round(gap),levelLabel:levelLabel(t, input.myRating,member.rating),
+        preference:member.preference,licence,licenceNote:licenceNote(t, member.preference,gap),
         window:member.window,atClub:member.atClub,
       };
     })

@@ -6,6 +6,8 @@ import { resultStoryCard } from "../../../lib/story-card";
 import { matchRoundLabel } from "../../../lib/tournament";
 import { shareOrigin } from "../../share-origin";
 import MatchShareView from "./MatchShareView";
+import { getTranslator } from "../../../lib/i18n/server";
+import type { Translator } from "../../../lib/i18n/translate";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +18,7 @@ type State = { players?: SharePlayerLike[]; matches?: StoredMatch[]; tournaments
  *
  *  A voided match is treated as missing rather than shown struck through: a link somebody sent to a
  *  group must not keep asserting a result the club has since withdrawn. */
-async function load(id: string) {
+async function load(t: Translator, id: string) {
   const raw = await getState().catch(() => null);
   if (!raw) return null;
   let state: State;
@@ -30,9 +32,9 @@ async function load(id: string) {
      derives it, so a cup whose roster was edited relabels its ties instead of contradicting the
      bracket. */
   const cup = tournament
-    ? { name: tournament.name, round: matchRoundLabel(tournament.signups?.length ?? 0, match.tournamentRound) }
+    ? { name: tournament.name, round: matchRoundLabel(t, tournament.signups?.length ?? 0, match.tournamentRound) }
     : null;
-  return { share: describeMatch(match, state.players ?? [], cup) };
+  return { share: describeMatch(t, match, state.players ?? [], cup) };
 }
 
 /** The link preview is the pitch. A result pasted into the club's WhatsApp group reaches members who
@@ -40,10 +42,11 @@ async function load(id: string) {
     tap — rather than the app's name, which tells a reader nothing they want. */
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const [data, site] = await Promise.all([load(id), shareOrigin()]);
-  if (!data) return { title: "搵唔到呢場比賽｜SCAA Snooker", robots: { index: false } };
+  const { locale, t } = await getTranslator();
+  const [data, site] = await Promise.all([load(t, id), shareOrigin()]);
+  if (!data) return { title: t("搵唔到呢場比賽｜SCAA Snooker"), robots: { index: false } };
   const title = matchShareTitle(data.share);
-  const description = matchShareDescription(data.share);
+  const description = matchShareDescription(t, data.share);
   const url = site ? matchShareUrl(site, id) : undefined;
   const image = site ? `${site}/match-share.jpg` : "/match-share.jpg";
   return {
@@ -51,8 +54,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     /* WhatsApp reads Open Graph and nothing else; Telegram and iMessage follow the same tags, and the
        Twitter card keeps a summary_large_image rather than falling back to a bare link. */
     openGraph: {
-      title, description, url, type: "website", siteName: "SCAA Snooker", locale: "zh_HK",
-      images: [{ url: image, width: 1200, height: 630, alt: "SCAA Snooker 球會賽果" }],
+      title, description, url, type: "website", siteName: "SCAA Snooker", locale: locale === "en" ? "en_GB" : "zh_HK",
+      images: [{ url: image, width: 1200, height: 630, alt: t("SCAA Snooker 球會賽果") }],
     },
     twitter: { card: "summary_large_image", title, description, images: [image] },
     alternates: url ? { canonical: url } : undefined,
@@ -61,13 +64,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function SharedMatchPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [member, data, site] = await Promise.all([getCurrentMember(), load(id), shareOrigin()]);
+  const { t } = await getTranslator();
+  const [member, data, site] = await Promise.all([getCurrentMember(), load(t, id), shareOrigin()]);
   if (!data) return <MatchShareView share={null} card={null} message="" url="" signedIn={false} />;
   const url = site ? matchShareUrl(site, id) : "";
   return <MatchShareView
     share={data.share}
-    card={resultStoryCard(data.share, url)}
-    message={matchShareMessage(data.share, url)}
+    card={resultStoryCard(t, data.share, url)}
+    message={matchShareMessage(t, data.share, url)}
     url={url}
     signedIn={Boolean(member?.statePlayerId)} />;
 }

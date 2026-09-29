@@ -1,3 +1,6 @@
+
+import type { Translator } from "./i18n/translate.ts";
+import { calendarDateLabel } from "./i18n/format.ts";
 /** Cup bracket logic, in one place.
  *
  *  The bracket used to be derived three times over — in the bracket view, in the match form's slot
@@ -38,7 +41,7 @@ const HONG_KONG_TIME_ZONE="Asia/Hong_Kong";
 /** Format a tournament's stored Hong Kong wall-clock value for people, keeping the year out of the
     way while the date is within one year of today. The stored value is deliberately parsed without
     relying on the viewer's timezone — a member overseas must still see the club's time. */
-export function formatTournamentDateTime(value:string|undefined|null,now=new Date()):string {
+export function formatTournamentDateTime(t: Translator, value:string|undefined|null,now=new Date()):string {
   if(!value)return "";
   const match=/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/.exec(value);
   if(!match)return value.replace("T"," ");
@@ -53,7 +56,7 @@ export function formatTournamentDateTime(value:string|undefined|null,now=new Dat
   lower.setUTCFullYear(lower.getUTCFullYear()-1);
   upper.setUTCFullYear(upper.getUTCFullYear()+1);
   const includeYear=target<lower.getTime()||target>upper.getTime();
-  const dateText=`${includeYear?`${year}年`:""}${Number(month)}月${Number(day)}日`;
+  const dateText=calendarDateLabel(year,month,day,t.locale,includeYear);
   if(hour===undefined||minute===undefined)return dateText;
   const numericHour=Number(hour);
   const displayHour=numericHour%12||12;
@@ -181,9 +184,9 @@ function seedPositions(order:string[],size:number):string[] {
   return [...seedPositions(order.slice(0,top),half),...seedPositions(order.slice(top),half)];
 }
 
-export function roundLabel(round:number,total:number):string {
+export function roundLabel(t: Translator, round:number,total:number):string {
   const remaining=total-round;
-  return remaining<=0?"決賽":remaining===1?"四強":remaining===2?"八強":`${2**(remaining+1)}強`;
+  return remaining<=0?t("決賽"):remaining===1?t("四強"):remaining===2?t("八強"):t("{v}強", {v: 2**(remaining+1)});
 }
 
 /** The round a recorded cup match belongs to, in words — "八強", "準決賽", "決賽".
@@ -192,10 +195,10 @@ export function roundLabel(round:number,total:number):string {
  *  a history list drawing a hundred cards must not rebuild a bracket for each one. An out-of-range
  *  round returns nothing rather than a wrong label; a cup tie whose stage cannot be named is still a
  *  cup tie, and the surfaces fall back to the cup's name alone. */
-export function matchRoundLabel(entrants:number,round:number|undefined|null):string {
+export function matchRoundLabel(t: Translator, entrants:number,round:number|undefined|null):string {
   const {rounds}=bracketShape(entrants);
   if(!rounds||!round||round<1||round>rounds)return "";
-  return roundLabel(round,rounds);
+  return roundLabel(t, round,rounds);
 }
 
 function matchWinner(match:CupMatchLike|undefined):string {
@@ -291,11 +294,11 @@ export type ShuffleResult = {ok:true;tournament:TournamentLike}|{ok:false;error:
  *  Also refused before the sign-up deadline: freezing a `draw` early snapshots the roster as it
  *  stands, so anyone who signs up afterwards falls outside it — surfacing as a permanent "late
  *  signup" once the deadline actually passes, even though sign-ups were still open when they joined. */
-export function shuffleDraw(tournament:TournamentLike,matches:CupMatchLike[]=[]):ShuffleResult {
-  if(!signupsClosed(tournament))return {ok:false,error:"報名尚未截止，未能重新抽籤"};
+export function shuffleDraw(t: Translator, tournament:TournamentLike,matches:CupMatchLike[]=[]):ShuffleResult {
+  if(!signupsClosed(tournament))return {ok:false,error:t("報名尚未截止，未能重新抽籤")};
   const order=drawOrder(tournament);
-  if(order.length<2)return {ok:false,error:"報名人數不足兩人"};
-  if(cupMatches(matches,tournament.id).length)return {ok:false,error:"已有賽果，不能重新抽籤"};
+  if(order.length<2)return {ok:false,error:t("報名人數不足兩人")};
+  if(cupMatches(matches,tournament.id).length)return {ok:false,error:t("已有賽果，不能重新抽籤")};
   const shuffled=[...order];
   for(let i=shuffled.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
@@ -313,14 +316,14 @@ export function shuffleDraw(tournament:TournamentLike,matches:CupMatchLike[]=[])
  *  to `computeDraw` when nothing is frozen yet, so reordering an undrawn cup would freeze one early
  *  and strand any later signup outside it, same as the reshuffle button. Once the cup is complete the
  *  deadline is long past, so `completed` never needs the same check. */
-export function reorderDraw(tournament:TournamentLike,draggedId:string,targetId:string,matches:CupMatchLike[]=[]):ShuffleResult {
+export function reorderDraw(t: Translator, tournament:TournamentLike,draggedId:string,targetId:string,matches:CupMatchLike[]=[]):ShuffleResult {
   const completed=Boolean(buildBracket(tournament,matches).champion);
-  if(!completed&&!signupsClosed(tournament))return {ok:false,error:"報名尚未截止，未能調整籤表順序"};
+  if(!completed&&!signupsClosed(tournament))return {ok:false,error:t("報名尚未截止，未能調整籤表順序")};
   const order=completed?rosterOrder(tournament):drawOrder(tournament);
-  if(order.length<2)return {ok:false,error:"報名人數不足兩人"};
-  if(!order.includes(draggedId)||!order.includes(targetId))return {ok:false,error:"該球員不在籤表內"};
+  if(order.length<2)return {ok:false,error:t("報名人數不足兩人")};
+  if(!order.includes(draggedId)||!order.includes(targetId))return {ok:false,error:t("該球員不在籤表內")};
   if(draggedId===targetId)return {ok:true,tournament};
-  if(cupMatches(matches,tournament.id).length&&!completed)return {ok:false,error:"賽事進行中，完成後才可調整名單順序"};
+  if(cupMatches(matches,tournament.id).length&&!completed)return {ok:false,error:t("賽事進行中，完成後才可調整名單順序")};
   const without=order.filter(id=>id!==draggedId);
   const at=without.indexOf(targetId);
   const reordered=[...without.slice(0,at),draggedId,...without.slice(at)];
@@ -343,22 +346,22 @@ export type SwapResult = {ok:true;tournament:TournamentLike;kind:"swap"|"substit
  *  player who is leaving go with them — `buildBracket` ignores a stale one anyway, but leaving it
  *  behind would hand the tie back if that player ever returned. */
 export function swapPlayer(
-  tournament:TournamentLike,
+  t: Translator, tournament:TournamentLike,
   outgoingId:string,
   incomingId:string,
   matches:CupMatchLike[]=[],
 ):SwapResult {
-  if(!outgoingId||!incomingId)return {ok:false,error:"需要兩名球員"};
-  if(outgoingId===incomingId)return {ok:false,error:"不能與自己對調"};
+  if(!outgoingId||!incomingId)return {ok:false,error:t("需要兩名球員")};
+  if(outgoingId===incomingId)return {ok:false,error:t("不能與自己對調")};
   const draw=drawOrder(tournament);
   const outgoingAt=draw.indexOf(outgoingId);
-  if(outgoingAt<0)return {ok:false,error:"該球員不在籤表內"};
+  if(outgoingAt<0)return {ok:false,error:t("該球員不在籤表內")};
   const incomingAt=draw.indexOf(incomingId);
 
   const played=cupMatches(matches,tournament.id);
   const hasResult=(playerId:string)=>played.some(match=>match.a===playerId||match.b===playerId);
-  if(hasResult(outgoingId))return {ok:false,error:"該球員已有賽果，不能更換"};
-  if(incomingAt>=0&&hasResult(incomingId))return {ok:false,error:"該球員已有賽果，不能更換"};
+  if(hasResult(outgoingId))return {ok:false,error:t("該球員已有賽果，不能更換")};
+  if(incomingAt>=0&&hasResult(incomingId))return {ok:false,error:t("該球員已有賽果，不能更換")};
 
   const next=[...draw];
   if(incomingAt>=0){ next[outgoingAt]=incomingId; next[incomingAt]=outgoingId; }
@@ -422,10 +425,10 @@ export function playerHonours<M extends CupMatchLike>(
   return honours;
 }
 
-export function currentRoundLabel(bracket:Bracket|null|undefined):string {
+export function currentRoundLabel(t: Translator, bracket:Bracket|null|undefined):string {
   if(!bracket?.rounds)return "";
   const live=bracket.slots.find(slot=>slot.state==="ready"||slot.state==="waiting");
-  return roundLabel(live?.round??bracket.rounds,bracket.rounds);
+  return roundLabel(t, live?.round??bracket.rounds,bracket.rounds);
 }
 
 /** Add one entrant to a frozen draw, or take one out of it — the two roster adjustments `swapPlayer`
@@ -444,12 +447,12 @@ export function currentRoundLabel(bracket:Bracket|null|undefined):string {
  *  no-show. The sign-up deadline is checked for the same reason `reorderDraw` checks it: `drawOrder`
  *  falls back to `computeDraw` when nothing is frozen, so editing an undrawn cup would freeze it
  *  early and strand anyone who signs up afterwards. */
-export function addEntrant(tournament:TournamentLike,playerId:string,matches:CupMatchLike[]=[]):ShuffleResult {
-  if(!playerId)return {ok:false,error:"需要球員"};
-  if(!signupsClosed(tournament))return {ok:false,error:"報名尚未截止，未能調整參賽名單"};
+export function addEntrant(t: Translator, tournament:TournamentLike,playerId:string,matches:CupMatchLike[]=[]):ShuffleResult {
+  if(!playerId)return {ok:false,error:t("需要球員")};
+  if(!signupsClosed(tournament))return {ok:false,error:t("報名尚未截止，未能調整參賽名單")};
   const draw=drawOrder(tournament);
-  if(draw.includes(playerId))return {ok:false,error:"該球員已在籤表內"};
-  if(cupMatches(matches,tournament.id).length)return {ok:false,error:"已有賽果，不能加入球員；可改為替換名單上的球員"};
+  if(draw.includes(playerId))return {ok:false,error:t("該球員已在籤表內")};
+  if(cupMatches(matches,tournament.id).length)return {ok:false,error:t("已有賽果，不能加入球員；可改為替換名單上的球員")};
   const signups=[...new Set(tournament.signups??[])];
   if(!signups.includes(playerId))signups.push(playerId);
   return {ok:true,tournament:{...tournament,signups,draw:[...draw,playerId],drawnAt:tournament.drawnAt??new Date().toISOString()}};
@@ -461,8 +464,8 @@ export function addEntrant(tournament:TournamentLike,playerId:string,matches:Cup
  *  dropping them moves nobody's box and stays allowed whatever the cup's state. Their walkovers and
  *  arrival time leave with them — `buildBracket` ignores a walkover declared for a player no longer
  *  in the slot, but a stale entry left behind would hand a tie back if they were ever added again. */
-export function removeEntrant(tournament:TournamentLike,playerId:string,matches:CupMatchLike[]=[]):ShuffleResult {
-  if(!playerId)return {ok:false,error:"需要球員"};
+export function removeEntrant(t: Translator, tournament:TournamentLike,playerId:string,matches:CupMatchLike[]=[]):ShuffleResult {
+  if(!playerId)return {ok:false,error:t("需要球員")};
   const draw=drawOrder(tournament);
   const drop=(next:TournamentLike):TournamentLike=>{
     const arrivalTimes=tournament.arrivalTimes?Object.fromEntries(Object.entries(tournament.arrivalTimes).filter(([id])=>id!==playerId)):tournament.arrivalTimes;
@@ -476,11 +479,11 @@ export function removeEntrant(tournament:TournamentLike,playerId:string,matches:
   };
   /* Not in the bracket at all — a signup that landed after the freeze. Nothing to re-lay. */
   if(!draw.includes(playerId)){
-    if(!(tournament.signups??[]).includes(playerId))return {ok:false,error:"該球員不在名單內"};
+    if(!(tournament.signups??[]).includes(playerId))return {ok:false,error:t("該球員不在名單內")};
     return {ok:true,tournament:drop(tournament)};
   }
-  if(!signupsClosed(tournament))return {ok:false,error:"報名尚未截止，未能調整參賽名單"};
-  if(draw.length<=2)return {ok:false,error:"移除後不足兩人，不能移除球員"};
-  if(cupMatches(matches,tournament.id).length)return {ok:false,error:"已有賽果，不能移除球員；可改為判定對手晉級"};
+  if(!signupsClosed(tournament))return {ok:false,error:t("報名尚未截止，未能調整參賽名單")};
+  if(draw.length<=2)return {ok:false,error:t("移除後不足兩人，不能移除球員")};
+  if(cupMatches(matches,tournament.id).length)return {ok:false,error:t("已有賽果，不能移除球員；可改為判定對手晉級")};
   return {ok:true,tournament:drop({...tournament,draw:draw.filter(id=>id!==playerId),drawnAt:tournament.drawnAt??new Date().toISOString()})};
 }
