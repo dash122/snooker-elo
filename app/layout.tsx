@@ -30,11 +30,19 @@ import "./styles/elo-trend-dense.css";
 import "./styles/guest-intro.css";
 import "./styles/shootout.css";
 import "./styles/clubhouse-refinement.css";
+import "./styles/language-menu.css";
 import { AddToHomeScreen } from "./components/AddToHomeScreen";
+import { I18nProvider } from "./components/I18nProvider";
+import { TimeZoneSync } from "./components/TimeZoneSync";
+import { getPreferences } from "../lib/i18n/server";
+import { createTranslator, messagesFor } from "../lib/i18n/translate";
 
-export const metadata: Metadata = {
-  title: "SCAA Snooker ELO｜讓每一局都推動進步",
-  description: "為球會而設的公開 ELO 排名、賽果追蹤與公平讓分建議，讓每場對賽更接近、更有競爭力。",
+export async function generateMetadata(): Promise<Metadata> {
+  const { locale } = await getPreferences();
+  const t = createTranslator(locale);
+  return {
+  title: t("app.title"),
+  description: t("app.description"),
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -49,6 +57,7 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
   },
 };
+}
 
 export const viewport: Viewport = {
   viewportFit: "cover",
@@ -58,6 +67,7 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({children}:{children:React.ReactNode}) {
-  return <html lang="zh-Hant"><body>{children}<AddToHomeScreen/></body></html>;
+export default async function RootLayout({children}:{children:React.ReactNode}) {
+  const { locale, timeZone } = await getPreferences();
+  return <html lang={locale}><body><I18nProvider locale={locale} timeZone={timeZone} messages={messagesFor(locale)}>{children}<AddToHomeScreen/><TimeZoneSync/></I18nProvider></body></html>;
 }

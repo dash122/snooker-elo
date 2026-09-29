@@ -20,6 +20,8 @@ import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchSha
 import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story-card";
 import ShareSheet from "./ShareSheet";
 import { AppShell, PageFrame } from "./components/shell/AppShell";
+import { LanguageMenu } from "./components/shell/LanguageMenu";
+import { useT } from "./components/I18nProvider";
 import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
 import { BrandLogo } from "./components/BrandLogo";
 import { addEntrant, buildBracket, canManageTournament, cupMatches, currentRoundLabel, formatTournamentDateTime, isTournamentHost, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, removeEntrant, reorderDraw, rosterOrder, roundLabel, shuffleDraw, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
@@ -606,6 +608,7 @@ function isInPastTenDays(playedOn:string){
   return playedOn>=tenDaysAgo&&playedOn<=today;
 }
 export default function Home({user,initialData}:{user:{displayName:string;email:string;role:"admin"|"member";statePlayerId?:string;needsOnboarding?:boolean}|null;initialData?:AppState|null}) {
+  const t=useT();
   const [data,setData] = useState<AppState>(initialData ?? seed);
   const [stateLoadStatus,setStateLoadStatus] = useState<StateLoadStatus>(initialData ? "ready" : "loading");
   const [stateLoadError,setStateLoadError] = useState("");
@@ -1421,7 +1424,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     </div>
     <DesktopNavigation active={tab as Destination} onNavigate={goTab} badge={navBadge} badgeLabel={navBadgeLabel} signedIn={Boolean(user)} needsOnboarding={Boolean(user?.needsOnboarding)}/>
     <main>
-      <header><div className="mobile-brand-wrap"><BrandLogo className="mobile-brand" compact/>{user?.needsOnboarding&&<a className="onboarding-alert-link" href="/onboarding?reminder=1" aria-label="完成會員問卷" title="完成會員問卷">⚠️</a>}</div><div className="account-actions"><div className="status"><i/> 共用資料庫 · {stateLoadStatus==="loading"?"載入中…":stateLoadStatus==="failed"?"載入失敗":saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">登入／註冊</a>}</div></header>
+      <header><div className="mobile-brand-wrap"><BrandLogo className="mobile-brand" compact/>{user?.needsOnboarding&&<a className="onboarding-alert-link" href="/onboarding?reminder=1" aria-label="完成會員問卷" title="完成會員問卷">⚠️</a>}</div><div className="account-actions"><LanguageMenu className="language-menu--compact"/><div className="status"><i/> 共用資料庫 · {stateLoadStatus==="loading"?"載入中…":stateLoadStatus==="failed"?"載入失敗":saving?"儲存中…":"已同步"}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label="評分設定與紀錄" aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">{t("auth.signInOrSignUp")}</a>}</div></header>
       <PageFrame className={`app-page-${tab}`}>
       {user?.needsOnboarding&&<InlineNotice tone="warning" title="完成新會員設定">
         <span>設定頭像同答幾條問題，即可取得初始評級 — 未完成前無法記錄比賽。</span>{" "}
