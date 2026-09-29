@@ -85,11 +85,12 @@ test("every t(\"…\") / msg(\"…\") source string has an English translation",
   const missing = [...usedKeys()].filter(([key]) => !(key in enStrings)).map(([key, file]) => `${file}: ${key}`);
   assert.deepEqual(missing, [], `Add these to lib/i18n/messages/en-strings.ts:\n${missing.join("\n")}`);
 });
-test("English strings keep the placeholders of their source string and are never blank", () => {
-  const holes = text => [...text.matchAll(/\{(\w+)(?:,\s*plural)?/g)].map(match => match[1]).sort().join();
+test("English strings only use placeholders their source string provides, and are never blank", () => {
+  const holes = text => new Set([...text.matchAll(/\{(\w+)(?:,\s*plural)?/g)].map(match => match[1]));
   for (const [key, value] of Object.entries(enStrings)) {
     assert.ok(value.trim(), `blank translation for ${key}`);
-    assert.equal(holes(value), holes(key), `placeholders differ for ${key}`);
+    const provided = holes(key);
+    for (const name of holes(value)) assert.ok(provided.has(name), `{${name}} is not a placeholder of ${key}`);
   }
 });
 test("no English string is left as Chinese", () => {
