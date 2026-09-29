@@ -369,27 +369,33 @@ function highestBreak(p:Player,data:AppState){
   return values.length?Math.max(...values):null;
 }
 type BreakChartMode="personal"|"monthly";
-type BreakChartPoint={period:string;value:number};
+type BreakChartPoint={period:string;value:number;date?:string;opponent?:string};
 function breakChartPoints(player:Player,data:AppState,mode:BreakChartMode):BreakChartPoint[]{
-  const byPeriod=new Map<string,number>();
+  const byPeriod=new Map<string,BreakChartPoint>();
   const matches=[...data.matches]
     .filter(m=>m.status==="confirmed"&&isParticipant(m,player.id))
     .sort((a,b)=>(a.playedOn||a.createdAt.slice(0,10)).localeCompare(b.playedOn||b.createdAt.slice(0,10))||a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id));
+  const opponentNames=(match:Match)=>{
+    const ids=playerSide(match,player.id)==="A"?[match.b,match.b2]:[match.a,match.a2];
+    return ids.filter((id):id is string=>!!id).map(id=>data.players.find(candidate=>candidate.id===id)?.name??"已移除球員").join(" / ");
+  };
   for(const match of matches){
     const values=(match.highBreaks??[]).filter(item=>item.playerId===player.id&&item.value>0&&item.value<=147).map(item=>item.value);
     const date=match.playedOn||match.createdAt.slice(0,10),period=mode==="monthly"?date.slice(0,7):date;
-    byPeriod.set(period,Math.max(byPeriod.get(period)??0,...values,0));
+    const value=Math.max(...values,0);
+    const current=byPeriod.get(period);
+    if(!current||value>current.value)byPeriod.set(period,{period,value,date:value?date:undefined,opponent:value?opponentNames(match):undefined});
   }
   const periods=[...byPeriod.keys()].sort();
-  if(mode==="monthly")return periods.map(period=>({period,value:byPeriod.get(period)!}));
+  if(mode==="monthly")return periods.map(period=>byPeriod.get(period)!);
   if(!periods.length)return [];
-  let best=byPeriod.get(periods[0])??0;
-  const points:BreakChartPoint[]=[{period:periods[0],value:best}];
+  let best=byPeriod.get(periods[0])!;
+  const points:BreakChartPoint[]=[best];
   for(const period of periods.slice(1)){
-    const value=byPeriod.get(period)??0;
-    if(value>best){best=value;points.push({period,value:best});}
+    const point=byPeriod.get(period)!;
+    if(point.value>best.value){best=point;points.push(point);}
   }
-  if(today>points[points.length-1].period)points.push({period:today,value:best});
+  if(today>points[points.length-1].period)points.push({...best,period:today});
   return points;
 }
 /** "我讓他 X 分" / "他讓我 X 分" — the same displayed-handicap difference the match form uses. */
@@ -3650,7 +3656,7 @@ function RivalrySnapshot({player,data,onCompare}:{player:Player;data:AppState;on
 function breakBand(value:number){ return value>=100?"100+":`${Math.floor(value/10)*10}-${Math.floor(value/10)*10+9}`; }
 /** Groups the player's recorded breaks into ten-point bands (20-29 up to 100+) so the shape of their form shows at a glance, rather than a flat list of individual scores. */
 function BreakMilestoneChart({player,data}:{player:Player;data:AppState}){
-  const [mode,setMode]=useState<BreakChartMode>("personal");
+  const [mode,setMode]=useState<BreakChartMode>("monthly");
   const [activeIndex,setActiveIndex]=useState<number|null>(null);
   const points=useMemo(()=>breakChartPoints(player,data,mode),[player,data,mode]);
   if(!points.length)return null;
@@ -3673,12 +3679,12 @@ function BreakMilestoneChart({player,data}:{player:Player;data:AppState}){
           {areaPath&&<path d={areaPath} className="break-chart-area"/>}
           <path d={linePath} className="break-chart-line"/>
         </svg>
-               {active&&<div className={`trend-tooltip ${x(activeIndex!)>70?"align-right":x(activeIndex!)<30?"align-left":""}`} style={{left:`${x(activeIndex!)}%`,top:`${Math.max(3,y(active.value)/60*100-7)}%`}} role="status"><small>{active.period}</small><b>{active.value?`${active.value} 分`:"N/A"}</b><span>{active.value?(mode==="personal"?"個人最佳":"該月最高"):"未記錄單桿"}</span></div>}        {points.map((point,index)=><button key={`${point.period}-${point.value}`} type="button" className={`break-chart-point${activeIndex===index?" active":""}`} style={{left:`${x(index)}%`,top:`${y(point.value)/60*100}%`}} onPointerEnter={()=>setActiveIndex(index)} onFocus={()=>setActiveIndex(index)} onBlur={()=>setActiveIndex(null)} onClick={()=>setActiveIndex(current=>current===index?null:index)} title={`${periodLabel} ${point.period}：${point.value?`${mode==="personal"?"個人最佳":"該月最高"} ${point.value} 分`:"N/A"}`} aria-label={`${periodLabel} ${point.period}，${point.value?`${mode==="personal"?"個人最佳":"該月最高"} ${point.value} 分`:"未記錄單桿"}`}/>) }
+               {active&&<div className={`trend-tooltip ${x(activeIndex!)>70?"align-right":x(activeIndex!)<30?"align-left":""}`} style={{left:`${x(activeIndex!)}%`,top:`${Math.max(3,y(active.value)/60*100-7)}%`}} role="status"><small>{active.period}</small><b>{active.value?`${active.value} 分`:"N/A"}</b><span>{active.value?(mode==="personal"?"個人最佳":"該月最高"):"未記錄單桿"}</span>{active.value>0&&active.date&&<span>{active.date}{active.opponent?` · 對 ${active.opponent}`:""}</span>}</div>}        {points.map((point,index)=><button key={`${point.period}-${point.value}`} type="button" className={`break-chart-point${activeIndex===index?" active":""}`} style={{left:`${x(index)}%`,top:`${y(point.value)/60*100}%`}} onPointerEnter={()=>setActiveIndex(index)} onFocus={()=>setActiveIndex(index)} onBlur={()=>setActiveIndex(null)} onClick={()=>setActiveIndex(current=>current===index?null:index)} title={`${periodLabel} ${point.period}：${point.value?`${mode==="personal"?"個人最佳":"該月最高"} ${point.value} 分`:"N/A"}`} aria-label={`${periodLabel} ${point.period}，${point.value?`${mode==="personal"?"個人最佳":"該月最高"} ${point.value} 分`:"未記錄單桿"}`}/>) }
       </div>
     </div>
     <div className="break-chart-x-axis" aria-hidden="true">{tickIndexes.map(index=><span key={index} style={{left:`${x(index)}%`}}>{points[index].period}</span>)}</div>
     <p className="chart-summary">{mode==="personal"?`共 ${points.length} 次個人最佳里程碑。`:`共 ${points.length} 個有賽事記錄月份；N/A 代表該月未記錄單桿。`}</p>
-    <SlidingToggleGroup className="ds-toggle-control break-milestone-toggle" aria-label="高桿圖表顯示方式"><button type="button" aria-pressed={mode==="personal"} className={mode==="personal"?"active":""} onClick={()=>{setMode("personal");setActiveIndex(null)}}>個人最佳</button><button type="button" aria-pressed={mode==="monthly"} className={mode==="monthly"?"active":""} onClick={()=>{setMode("monthly");setActiveIndex(null)}}>每月最高</button></SlidingToggleGroup>
+    <SlidingToggleGroup className="ds-toggle-control break-milestone-toggle" aria-label="高桿圖表顯示方式"><button type="button" aria-pressed={mode==="monthly"} className={mode==="monthly"?"active":""} onClick={()=>{setMode("monthly");setActiveIndex(null)}}>每月最高</button><button type="button" aria-pressed={mode==="personal"} className={mode==="personal"?"active":""} onClick={()=>{setMode("personal");setActiveIndex(null)}}>個人最佳</button></SlidingToggleGroup>
   </div>;
 }
 
