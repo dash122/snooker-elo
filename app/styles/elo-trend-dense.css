@@ -6,3 +6,7 @@
 .trend-peak{position:absolute;z-index:2;width:8px;height:8px;border-radius:50%;background:var(--gold-on-light);box-shadow:0 0 0 3px var(--ds-surface-primary);transform:translate(-50%,-50%);pointer-events:none}
 .trend-peak>em{position:absolute;bottom:var(--sp-2);left:50%;transform:translateX(-50%);color:var(--gold-on-light);font-size:var(--fs-label);font-style:normal;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
 .trend-dates{display:flex;justify-content:space-between;margin-top:var(--sp-1);padding-inline:5%;color:var(--ds-text-secondary);font-size:var(--fs-label);font-variant-numeric:tabular-nums}
+/* The range toggle sizes to its labels; the shared flex:1 1 0 + overflow:hidden clipped them once the header got tight. */
+.trend-overview .sliding-toggle-group.ds-toggle-control{flex:0 0 auto;width:auto}
+.trend-overview .sliding-toggle-group.ds-toggle-control>button{flex:0 0 auto;min-width:max-content;overflow:visible;text-overflow:clip;padding-inline:var(--sp-3)}
+@media(max-width:599px){.trend-overview .sliding-toggle-group.ds-toggle-control>button{padding-inline:var(--sp-2)}}

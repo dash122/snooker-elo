@@ -295,6 +295,11 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
   const linePath=smoothPath(coords);
   const area=`${linePath} L ${x(visible.length-1)} 56 L ${x(0)} 56 Z`;
   const dense=visible.length>DENSE_TREND_POINTS;
+  const scrub=(event:PointerEvent<HTMLDivElement>)=>{
+    const box=event.currentTarget.getBoundingClientRect();
+    const index=Math.round((((event.clientX-box.left)/box.width*100-5)/90)*(visible.length-1));
+    setActiveId(visible[Math.min(visible.length-1,Math.max(0,index))].id);
+  };
   const peakIndex=values.indexOf(rawMax);
   const active=visible.find(point=>point.id===activeId)??null;
   const activeIndex=active?visible.findIndex(point=>point.id===active.id):-1;
@@ -302,14 +307,10 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
   const resultLabel=(result:EloTrendPoint["result"])=>result==="W"?"勝":result==="L"?"負":result==="D"?"和":"起始";
   return <div className="interactive-trend">
     <div className="trend-overview"><div><small>{range==="recent"?"最近十場":"完整記錄"}</small><b className={periodChange>=0?"positive":"negative"}>{periodChange>=0?"+":""}{Math.round(periodChange)} <em>ELO</em></b></div><SlidingToggleGroup className="ds-toggle-control" aria-label="ELO 走勢範圍"><button className={range==="recent"?"active":""} onClick={()=>{setRange("recent");setActiveId(null)}}>最近十場</button><button className={range==="all"?"active":""} onClick={()=>{setRange("all");setActiveId(null)}}>全部</button></SlidingToggleGroup></div>
-    <div className={`trend-plot${dense?" dense":""}`} onPointerLeave={()=>setActiveId(null)}
+    <div className={`trend-plot${dense?" dense":""}`} onPointerLeave={event=>{if(!dense||event.pointerType==="mouse")setActiveId(null)}}
       {...(dense?{
         tabIndex:0,role:"group","aria-label":`${label}，可用左右方向鍵逐場查看`,
-        onPointerMove:(event:PointerEvent<HTMLDivElement>)=>{
-          const box=event.currentTarget.getBoundingClientRect();
-          const index=Math.round((((event.clientX-box.left)/box.width*100-5)/90)*(visible.length-1));
-          setActiveId(visible[Math.min(visible.length-1,Math.max(0,index))].id);
-        },
+        onPointerDown:scrub,onPointerMove:scrub,
         onKeyDown:(event:KeyboardEvent<HTMLDivElement>)=>{
           if(event.key!=="ArrowLeft"&&event.key!=="ArrowRight")return;
           event.preventDefault();
