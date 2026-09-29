@@ -55,3 +55,4 @@
     .home-view-panel{padding:var(--sp-3)}.podium-section{padding:var(--sp-2-5)}.podium-card{grid-template-columns:auto auto minmax(0,1fr);}.podium-card>b{grid-column:3}.podium-card .form,.podium-card small{grid-column:3/-1}.score-inputs,.score-fields,.match-score-input{gap:var(--sp-1-5)}
   }
 }
+.podium-card small{font-size:var(--fs-label)}
