@@ -1,54 +1,49 @@
 "use client";
 import {useState,useSyncExternalStore} from "react";
-import {NavIcon} from "./UiBits";
-import type {Destination} from "./components/shell/Navigation";
+import {Button, ButtonLink} from "./components/ui/Primitives";
 import { useT } from "./components/I18nProvider";
 import { msg } from "../lib/i18n/translate";
 
-const DISMISS_KEY="scaa-guest-intro-dismissed";
-const subscribeDismissal=(notify:()=>void)=>{window.addEventListener("storage",notify);return ()=>window.removeEventListener("storage",notify)};
-const readDismissal=()=>{try{return localStorage.getItem(DISMISS_KEY)==="1"}catch{return false}};
-const serverDismissal=()=>true;
+const COLLAPSE_KEY="scaa-guest-intro-dismissed";
+const subscribeCollapse=(notify:()=>void)=>{window.addEventListener("storage",notify);return ()=>window.removeEventListener("storage",notify)};
+const readCollapse=()=>{try{return localStorage.getItem(COLLAPSE_KEY)==="1"}catch{return false}};
+const serverCollapse=()=>true;
 
-const FEATURES:{id:Destination;title:string;body:string}[]=[
-  {id:"leaderboard",title:msg("公開排行榜"),body:msg("排名、ELO、走勢、勝率同讓球，賽果一確認即刻更新。")},
-  {id:"matches",title:msg("賽事紀錄同盃賽"),body:msg("每場波嘅局分、讓球同單桿都有紀錄，仲有盃賽賽程。")},
-  {id:"availability",title:msg("約戰配對"),body:msg("一鍵話俾大家知你得閒，系統幫你搵時間夾得到嘅對手。")},
-  {id:"players",title:msg("球員主頁同分享"),body:msg("打開任何球員主頁，一嗒分享去 WhatsApp 或 Instagram。")},
+const STEPS=[
+  {title:msg("查看排行榜"),body:msg("了解每位球員的評分、近況及建議讓分。")},
+  {title:msg("記錄賽果"),body:msg("比賽完成後，登入並登記雙方局分。")},
+  {title:msg("評分自動更新"),body:msg("系統按賽果即時調整評分，毋須人手計算。")},
 ];
 
-/** Guests land straight on the real leaderboard — this card is the only place that explains why the
-    ratings can be trusted and what the other tabs unlock, so it carries the whole "why / what / how"
-    job that a separate marketing page would otherwise do. Dismissal is remembered locally: once
-    someone has read it, repeating it on every visit would just be in the way of the data they came
-    to see. */
-export default function GuestIntro({onNavigate}:{onNavigate:(id:Destination)=>void}){
+/** Guests land straight on the real leaderboard, so this card is the only explanation they get. It
+    stays open by default and answers "what do I do here?" in three steps; the detail lives in the
+    guided tour it launches. Closing it only shrinks it to a chip — it can always be reopened, since
+    a first visit is rarely the moment someone is ready to read it. */
+export default function GuestIntro({onStartTour}:{onStartTour:()=>void}){
   const t = useT();
-  const [dismissed,setDismissed]=useState(false);
-  const storedDismissal=useSyncExternalStore(subscribeDismissal,readDismissal,serverDismissal);
-  if(dismissed||storedDismissal)return null;
-  const dismiss=()=>{setDismissed(true);try{localStorage.setItem(DISMISS_KEY,"1")}catch{}};
-  return <section className="guest-intro" aria-label={t("關於 SCAA Snooker ELO")}>
-    <button type="button" className="guest-intro-close" aria-label={t("關閉介紹")} onClick={dismiss}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
-    <details className="guest-intro-disclosure">
-    <summary><span><b>{t("第一次嚟？認識球會評分")}</b><small>{t("排行榜、賽果同約戰，一個地方睇晒。")}</small></span><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m8 10 4 4 4-4"/></svg></summary>
-    <div className="guest-intro-content">
-    <h2>{t("你而家睇緊嘅，係全會共用嘅正式評分")}</h2>
-    <p className="guest-intro-lead">
-      {t("呢個排行榜唔止計輸贏——局分算證據、讓球會封頂、贏出預期越多加分越多，改咗設定舊賽果會自動重算，所以每個評分都對得上紀錄。")}</p>
-    <ul className="guest-intro-features">
-      {FEATURES.map(item=><li key={item.id}>
-        <button type="button" onClick={()=>onNavigate(item.id)}>
-          <i><NavIcon id={item.id} active={false}/></i>
-          <span><b>{t(item.title)}</b><small>{t(item.body)}</small></span>
-        </button>
+  const [override,setOverride]=useState<boolean|null>(null);
+  const storedCollapse=useSyncExternalStore(subscribeCollapse,readCollapse,serverCollapse);
+  const collapsed=override??storedCollapse;
+  const setCollapsed=(next:boolean)=>{setOverride(next);try{if(next)localStorage.setItem(COLLAPSE_KEY,"1");else localStorage.removeItem(COLLAPSE_KEY)}catch{}};
+  if(collapsed)return <div className="guest-intro-chip-row">
+    <button type="button" className="guest-intro-chip" onClick={()=>setCollapsed(false)}>
+      <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4V14M12 17h.01"/></svg>
+      <span>{t("新手指南")}</span>
+    </button>
+  </div>;
+  return <section className="guest-intro" aria-labelledby="guest-intro-title">
+    <p className="guest-intro-kicker">{t("新手指南")}</p>
+    <h2 id="guest-intro-title">{t("三步了解球會評分")}</h2>
+    <ol className="guest-intro-steps">
+      {STEPS.map((step,index)=><li key={step.title}>
+        <span className="guest-intro-step-number" aria-hidden="true">{index+1}</span>
+        <span><b>{t(step.title)}</b><small>{t(step.body)}</small></span>
       </li>)}
-    </ul>
+    </ol>
     <div className="guest-intro-actions">
-      <a className="ds-button ds-button--featured" href="/login?mode=signup"><span>{t("建立帳戶，開始記錄")}</span></a>
-      <a className="ds-button ds-button--secondary" href="/elo-guide"><span>{t("評分點計出嚟？")}</span></a>
+      <Button variant="featured" onClick={onStartTour}>{t("開始導覽")}</Button>
+      <ButtonLink variant="secondary" href="/login?mode=signup">{t("建立帳戶")}</ButtonLink>
+      <Button variant="quiet" className="guest-intro-later" onClick={()=>setCollapsed(true)}>{t("稍後再看")}</Button>
     </div>
-    </div>
-    </details>
   </section>;
 }

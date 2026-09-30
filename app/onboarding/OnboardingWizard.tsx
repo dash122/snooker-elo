@@ -9,11 +9,18 @@ import { useT } from "../components/I18nProvider";
 import { msg } from "../../lib/i18n/translate";
 
 const questionOne = [
-  ["450", msg("打唔中白波／白波打唔中目標波")], ["550", msg("大部分情況都可以打中目標波")],
-  ["1000", msg("可以穩定打入一個波")], ["1200", msg("可以穩定連續打入一組（兩個）波")],
-  ["1500", msg("可以打到多杆（15+）")], ["1700", msg("可以打到多杆（30+）")], ["1900", msg("可以打到多杆（50+）")],
-  ["2100", msg("可以打到多杆（70+）")], ["2400", msg("可以打到多杆（90+）")],
-  ["2800", msg("一生人打過 1 杆百位（Century）")], ["3300", msg("打過多於 1 杆百位（Centuries）")],
+  ["450", msg("未能穩定以母球擊中目標球")], ["550", msg("大部分情況下能擊中目標球")],
+  ["1000", msg("能穩定打入單一球")], ["1200", msg("能穩定連續打入一組（兩球）")],
+  ["1500", msg("能打出 15 分以上的單桿（15+）")], ["1700", msg("能打出 30 分以上的單桿（30+）")], ["1900", msg("能打出 50 分以上的單桿（50+）")],
+  ["2100", msg("能打出 70 分以上的單桿（70+）")], ["2400", msg("能打出 90 分以上的單桿（90+）")],
+  ["2800", msg("曾打出一次破百單桿（Century）")], ["3300", msg("曾打出多於一次破百單桿（Centuries）")],
+] as const;
+
+/** Where a brand-new member goes next. Ending onboarding on a bare "go to rankings" left people
+    looking at a table with no idea what to do first; these are the two actions that make the app theirs. */
+const NEXT_STEPS = [
+  { href: "/?start=record", title: msg("記錄第一場比賽"), body: msg("登記局分後，雙方評分即會更新。") },
+  { href: "/?tab=availability", title: msg("登記有空時段"), body: msg("讓系統為你配對合適的對手。") },
 ] as const;
 
 const AVATAR_SIZE = 160;
@@ -55,8 +62,14 @@ export default function OnboardingWizard({ member, reminder = false }: { member:
       <span className="onboarding-mark">SCAA</span>
       <p className="onboarding-kicker">{t("歡迎加入，{displayName}", {displayName: member.displayName})}</p>
       <h1>{t("你的初始評級為：{finalRating}", {finalRating})}</h1>
-      <p>{t("評級已儲存。由第一局開始，讓每一局都推動進步。")}</p>
-      <Link className="onboarding-home-link" href="/">{t("進入排行榜")}</Link>
+      <p>{t("評級已儲存。以下是開始使用的建議步驟。")}</p>
+      <ul className="onboarding-next" aria-label={t("下一步")}>
+        {NEXT_STEPS.map(item=><li key={item.href}><Link href={item.href}>
+          <span><b>{t(item.title)}</b><small>{t(item.body)}</small></span>
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m9 6 6 6-6 6"/></svg>
+        </Link></li>)}
+      </ul>
+      <Link className="onboarding-home-link" href="/">{t("查看排行榜")}</Link>
     </section></main>;
   }
 
@@ -175,10 +188,10 @@ function RatingStep({ displayName, onBack, onDone }: { displayName: string; onBa
   }
 
   return <>
-    <h1>{t("了解你嘅打波水平")}</h1>
-    <p className="onboarding-intro">{t("{displayName}，答一條問題，幫你設定一個更貼近實力嘅初始評級。", {displayName})}</p>
+    <h1>{t("了解你的球技水平")}</h1>
+    <p className="onboarding-intro">{t("{displayName}，請回答以下問題，以便為你設定更貼近實力的初始評級。", {displayName})}</p>
     <div className="onboarding-question">
-      <h2>{t("你認為自己現在的打波水平大約是？")}</h2>
+      <h2>{t("你認為自己目前的球技水平大約屬於哪一級？")}</h2>
       <div className="onboarding-options">{questionOne.map(([value, label]) => <Button key={value} className={`onboarding-option${q1 === value ? " is-selected" : ""}`} aria-pressed={q1 === value} onClick={() => chooseQ1(value)}><span>{t(label)}</span></Button>)}</div>
     </div>
     {error && <p className="onboarding-error" role="alert">{error}</p>}
