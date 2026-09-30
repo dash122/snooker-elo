@@ -1,0 +1,14 @@
+.translations-card { max-width: 52rem; }
+.translations-intro { font-size: var(--fs-sm); margin-block: var(--sp-2) var(--sp-4); }
+.translation-editor { display: grid; gap: var(--sp-4); }
+.translation-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.translation-search { flex: 1 1 14rem; min-height: var(--control-md); padding-inline: var(--sp-3); font-size: var(--fs-input); }
+.translation-toggle { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--control-md); font-size: var(--fs-sm); }
+.translation-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-4); }
+.translation-row { display: grid; gap: var(--sp-2); padding-bottom: var(--sp-4); border-bottom: 1px solid var(--ds-border-subtle); }
+.translation-source { margin: 0; font-size: var(--fs-sm); opacity: 0.75; overflow-wrap: anywhere; }
+.translation-input { width: 100%; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-input); font-family: inherit; resize: vertical; }
+.translation-error { margin: 0; font-size: var(--fs-caption); color: var(--ds-danger); }
+.translation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.translation-badge { font-size: var(--fs-label); }
+.translation-pager { display: flex; justify-content: center; align-items: center; gap: var(--sp-4); font-size: var(--fs-sm); }

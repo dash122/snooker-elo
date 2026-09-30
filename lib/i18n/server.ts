@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { LOCALE_COOKIE, TIMEZONE_COOKIE, resolveLocale, resolveTimeZone, type Locale } from "./locales.ts";
-import { createTranslator, type Translator } from "./translate.ts";
+import { getTranslationOverrides } from "../../db/translations";
+import { createTranslator, messagesFor, type Translator } from "./translate.ts";
 
 /** The viewer's language and zone, from the cookies the language menu and `TimeZoneSync` write.
  *  Reading cookies makes the calling route dynamic, which the app's data pages already are. */
@@ -11,7 +12,12 @@ export async function getPreferences(): Promise<{ locale: Locale; timeZone: stri
 export async function getLocale(): Promise<Locale> {
   return (await getPreferences()).locale;
 }
+/** The bundled catalogue plus any admin-edited English overrides. */
+export async function getMessages(locale: Locale): Promise<Record<string, string>> {
+  const bundled = messagesFor(locale);
+  return locale === "en" ? { ...bundled, ...(await getTranslationOverrides()) } : bundled;
+}
 export async function getTranslator(): Promise<{ locale: Locale; t: Translator }> {
   const locale = await getLocale();
-  return { locale, t: createTranslator(locale) };
+  return { locale, t: createTranslator(locale, await getMessages(locale)) };
 }

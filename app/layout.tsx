@@ -17,6 +17,7 @@ import "./styles/calendar.css";
 import "./styles/member-auth.css";
 import "./styles/admin-roster.css";
 import "./styles/admin-reports.css";
+import "./styles/admin-translations.css";
 import "./styles/member-dashboard.css";
 import "./styles/players-tab.css";
 import "./styles/modal-sheet.css";
@@ -35,12 +36,12 @@ import "./styles/language-menu.css";
 import { AddToHomeScreen } from "./components/AddToHomeScreen";
 import { I18nProvider } from "./components/I18nProvider";
 import { TimeZoneSync } from "./components/TimeZoneSync";
-import { getPreferences } from "../lib/i18n/server";
-import { createTranslator, messagesFor } from "../lib/i18n/translate";
+import { getMessages, getPreferences } from "../lib/i18n/server";
+import { createTranslator } from "../lib/i18n/translate";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { locale } = await getPreferences();
-  const t = createTranslator(locale);
+  const t = createTranslator(locale, await getMessages(locale));
   return {
   title: t("app.title"),
   description: t("app.description"),
@@ -70,5 +71,5 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({children}:{children:React.ReactNode}) {
   const { locale, timeZone } = await getPreferences();
-  return <html lang={locale}><body><I18nProvider locale={locale} timeZone={timeZone} messages={messagesFor(locale)}>{children}<AddToHomeScreen/><TimeZoneSync/></I18nProvider></body></html>;
+  return <html lang={locale}><body><I18nProvider locale={locale} timeZone={timeZone} messages={await getMessages(locale)}>{children}<AddToHomeScreen/><TimeZoneSync/></I18nProvider></body></html>;
 }
