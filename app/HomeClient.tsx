@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type Chang
 import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import MatchmakingMarketplace from "./MatchmakingMarketplace";
 import GuestIntro from "./GuestIntro";
+import { FirstStepsChecklist, IntroTour } from "./FirstSteps";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
@@ -603,6 +604,18 @@ function writeStateCache(version:string,document:AppState){
   catch{ try{ localStorage.removeItem(STATE_CACHE_KEY) }catch{} }
 }
 
+const TABS=["leaderboard","matches","availability","players","settings"];
+function tabFromLocation(){
+  const wanted=new URLSearchParams(window.location.search).get("tab");
+  return wanted&&TABS.includes(wanted)?wanted:"leaderboard";
+}
+function pushTabHistory(next:string){
+  const url=new URL(window.location.href);
+  if(next==="leaderboard")url.searchParams.delete("tab");else url.searchParams.set("tab",next);
+  url.searchParams.delete("view");
+  window.history.pushState(null,"",url);
+}
+
 // Module scope, not render: reading the clock during render is impure.
 const thirtyDaysAgo = new Date(Date.now()-30*864e5).toISOString().slice(0,10);
 const tenDaysAgo = new Date(Date.now()-10*864e5).toISOString().slice(0,10);
@@ -621,6 +634,9 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const [,setStateLoadAttempt] = useState(0);
   const [tab,setTab] = useState("leaderboard");
   const [availabilityDirty,setAvailabilityDirty] = useState(false);
+  const [tourOpen,setTourOpen] = useState(false);
+  /** Set by the onboarding hand-off link (`/?start=record`); the match form needs loaded club data, so it opens once the state is ready. */
+  const startRecording = useRef(false);
   const [leavingAvailability,setLeavingAvailability] = useState<string|null>(null);
   const [pendingConfirm,setPendingConfirm] = useState<{kicker:string;title:string;description:string;confirmLabel:string;onConfirm:()=>void}|null>(null);
   /** The post-match "加為常打對手" nudge -- set only when a freshly-saved 1v1 result is the first
@@ -687,8 +703,9 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   useEffect(()=>{
     const search=new URLSearchParams(window.location.search);
     const wanted=search.get("tab");
-    if(wanted&&["leaderboard","matches","availability","players","settings"].includes(wanted))setTab(wanted);
+    if(wanted&&TABS.includes(wanted))setTab(wanted);
     setManagementMode(search.get("manage")==="1");
+    if(search.get("start")==="record"){startRecording.current=true;const url=new URL(window.location.href);url.searchParams.delete("start");window.history.replaceState(null,"",url)}
     /* The draw notification deep-links to the bracket itself, not merely to 比賽 — landing on the
        match history after being told who you drew is a dead end. */
     if(search.get("view")==="cup")setMatchesView("cup");
@@ -877,7 +894,25 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   // would race that.
   /* Leaving the availability tab unmounts its editor, taking any unsaved slot work with it, so a
      dirty editor gets to intercept the move first. */
-  const goTab=(next:string)=>{if(availabilityDirty&&tab==="availability"&&next!==tab)return setLeavingAvailability(next);setRecordMenuOpen(false);setHighlightMatch(null);if(next!=="availability")setJumpToAvailability(null);window.scrollTo(0,0);setTab(next)};
+  /* Tabs are client state, so without a history entry per tab the phone's back gesture left the app
+     entirely instead of returning to the previous tab (and to the guest introduction). */
+  const showTab=(next:string)=>{setTab(next);if(next!==tab)pushTabHistory(next)};
+  const goTab=(next:string)=>{if(availabilityDirty&&tab==="availability"&&next!==tab)return setLeavingAvailability(next);setRecordMenuOpen(false);setHighlightMatch(null);if(next!=="availability")setJumpToAvailability(null);window.scrollTo(0,0);showTab(next)};
+  const closeTour=useCallback(()=>setTourOpen(false),[]);
+  useEffect(()=>{if(startRecording.current&&stateLoadStatus==="ready"){startRecording.current=false;if(user&&!user.needsOnboarding)newMatch()}},[stateLoadStatus]);// eslint-disable-line react-hooks/exhaustive-deps -- newMatch reads current state; run once when ready
+  const tabRef=useRef(tab),dirtyRef=useRef(availabilityDirty);
+  useEffect(()=>{tabRef.current=tab;dirtyRef.current=availabilityDirty});
+  useEffect(()=>{
+    const onPop=()=>{
+      const wanted=tabFromLocation();
+      if(wanted===tabRef.current)return;
+      // Keep the user on unsaved availability edits: restore its entry and ask first, as a tap would.
+      if(dirtyRef.current&&tabRef.current==="availability"){pushTabHistory("availability");setLeavingAvailability(wanted);return}
+      setRecordMenuOpen(false);setHighlightMatch(null);setTab(wanted);window.scrollTo(0,0);
+    };
+    window.addEventListener("popstate",onPop);
+    return()=>window.removeEventListener("popstate",onPop);
+  },[]);
   useEffect(()=>{
     if(data.players.length<2)return;
     setDraft(d=>{
@@ -1088,7 +1123,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     // comparison — the date range only applies while comparing, and a stale
     // range could otherwise hide the very match we just navigated to.
     setHeadToHead({a:ownPlayerId&&(match.a===ownPlayerId||match.b===ownPlayerId)?ownPlayerId:"",b:""});
-    setHighlightMatch(id); setMatchesView("history"); setTab("matches");
+    setHighlightMatch(id); setMatchesView("history"); showTab("matches");
     const origin=marketplaceOrigin.current;marketplaceOrigin.current=null;
     void persist(next,valid2v2?(editingMatch?t("潮拍 2v2 已更新；ELO 與統計維持不變。"):t("潮拍 2v2 賽果已儲存；ELO 與統計維持不變。")):(validCup?(editingMatch?t("盃賽賽果已更新。"):t("盃賽賽果已儲存。")):(editingMatch?t("賽事已更新，所有後續 ELO 已重建。"):t("賽果已儲存，雙方 ELO 已更新。")))).then(async saved=>{if(!saved||!origin)return;try{const response=await fetch("/api/matchmaking/marketplace",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"result",id:origin,matchId:id})});if(!response.ok)setToast(t("賽果已儲存，但未能連結約戰安排。"));}catch{setToast(t("賽果已儲存，但未能連結約戰安排。"));}});
     if(isNewPairing&&firstPairing)setRegularPrompt({id:firstPairing.id,name:firstPairing.name});
@@ -1432,7 +1467,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       <header><div className="mobile-brand-wrap"><BrandLogo className="mobile-brand" compact/>{user?.needsOnboarding&&<a className="onboarding-alert-link" href="/onboarding?reminder=1" aria-label={t("完成會員問卷")} title={t("完成會員問卷")}>⚠️</a>}</div><div className="account-actions"><LanguageMenu className="language-menu--compact"/><div className="status"><i/>  {t("共用資料庫 ·")} {stateLoadStatus==="loading"?t("載入中…"):stateLoadStatus==="failed"?t("載入失敗"):saving?t("儲存中…"):t("已同步")}</div><button className={`header-settings${tab==="settings"?" active":""}`} aria-label={t("評分設定與紀錄")} aria-current={tab==="settings"?"page":undefined} onClick={()=>goTab("settings")}><NavIcon id="settings" active={tab==="settings"}/></button>{user?<a className="account-link" href="/account" title={user.email}>{user.displayName}</a>:<a className="account-link sign-in" href="/login">{t("auth.signInOrSignUp")}</a>}</div></header>
       <PageFrame className={`app-page-${tab}`}>
       {user?.needsOnboarding&&<InlineNotice tone="warning" title={t("完成新會員設定")}>
-        <span>{t("設定頭像同答幾條問題，即可取得初始評級 — 未完成前無法記錄比賽。")}</span>{" "}
+        <span>{t("設定頭像並回答問題後，即可取得初始評級；完成前無法記錄比賽。")}</span>{" "}
         <a className="onboarding-notice-link" href="/onboarding?reminder=1">{t("立即完成")}</a>
       </InlineNotice>}
       {stateLoadStatus==="loading"&&<HomeLoadingSkeleton/>}
@@ -1440,9 +1475,10 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {stateLoadStatus==="ready"&&<>
       {/* The club's pulse, on the screen members actually open. Matchmaking used to live entirely
           behind a tab, so "is anyone playing tonight?" was unanswerable without going to look. */}
-      {tab==="leaderboard"&&!user&&<GuestIntro onNavigate={goTab}/>}
+      {tab==="leaderboard"&&!user&&<GuestIntro onStartTour={()=>setTourOpen(true)}/>}
+      {tab==="leaderboard"&&user&&ownPlayerId&&!user.needsOnboarding&&<FirstStepsChecklist hasMatch={data.matches.some(match=>match.a===ownPlayerId||match.b===ownPlayerId)} hasAvailability={Boolean(matchmakingSummary?.mine)} onRecord={()=>newMatch()} onAvailability={()=>goTab("availability")} onTour={()=>setTourOpen(true)}/>}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
-      {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} ownPlayerId={ownPlayerId} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");setTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
+      {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} ownPlayerId={ownPlayerId} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");showTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",format:"single",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,format:tournament.format??"single",handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
       {/* Public availability, recommendations and arrangements share one marketplace flow. */}
       {tab==="availability"&&<MatchmakingMarketplace onRecordSession={(opponentId,sessionId,date)=>{newMatch("1v1",opponentId,date);marketplaceOrigin.current=sessionId;}} key={ownPlayerId??"guest"} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
@@ -1451,6 +1487,8 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       </>}
       </PageFrame>
     </main>
+    {/* Outside <main>: the shell sizes every direct child of main to the content column. */}
+    {tourOpen&&stateLoadStatus==="ready"&&<IntroTour tab={tab} signedIn={Boolean(user)} onShow={goTab} onClose={closeTour}/>}
     {/* Record sits dead centre as the one thing this app exists to do; the four content tabs split
         evenly around it. 設定 is not a peer of them — it lives with the account controls instead. */}
     {recordMenuOpen&&<button type="button" className="record-menu-scrim" aria-label={t("關閉比賽模式選單")} onClick={()=>setRecordMenuOpen(false)}/>}
@@ -1532,11 +1570,11 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
           {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const start=Number(settings.start ?? data.settings.start ?? 1500); const applied={...settings,start,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:15}; const rebuilt=replay(data.players.map(player=>({...player,initialRating:start,rating:start})),data.matches,applied); setModal(null); persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:`調整 Snooker Elo 公式參數；以 ${start} 起始並重播歷史評分`,at:new Date().toISOString()},...data.audits]},t("設定已套用，歷史評分已從 {start} 重播。", {start}))}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">{t("會員功能")}</p><h2>{t("先登入或建立帳戶")}</h2><p className="sub">{t("記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。")}</p><div className="auth-buttons"><a className="primary" href="/login">{t("登入")}</a><a className="more" href="/login?mode=signup">{t("建立帳戶")}</a></div></>}
-          {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");setTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
+          {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");showTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
         </section>
       </div>
     </div>}
-    {leavingAvailability&&<ConfirmDialog kicker={t("未儲存的變更")} titleId="leave-availability-title" title={t("離開後變更會消失")} description={t("你在「可配對」的時段變更尚未儲存，離開這一頁後不會保留。")} onClose={()=>setLeavingAvailability(null)}><Button variant="secondary" onClick={()=>setLeavingAvailability(null)}>{t("留在此頁")}</Button><Button variant="danger" onClick={()=>{const next=leavingAvailability;setLeavingAvailability(null);setAvailabilityDirty(false);setHighlightMatch(null);setTab(next)}}>{t("捨棄變更離開")}</Button></ConfirmDialog>}
+    {leavingAvailability&&<ConfirmDialog kicker={t("未儲存的變更")} titleId="leave-availability-title" title={t("離開後變更會消失")} description={t("你在「可配對」的時段變更尚未儲存，離開這一頁後不會保留。")} onClose={()=>setLeavingAvailability(null)}><Button variant="secondary" onClick={()=>setLeavingAvailability(null)}>{t("留在此頁")}</Button><Button variant="danger" onClick={()=>{const next=leavingAvailability;setLeavingAvailability(null);setAvailabilityDirty(false);setHighlightMatch(null);showTab(next)}}>{t("捨棄變更離開")}</Button></ConfirmDialog>}
     {pendingConfirm&&<ConfirmDialog kicker={pendingConfirm.kicker} titleId="pending-confirm-title" title={pendingConfirm.title} description={pendingConfirm.description} onClose={()=>setPendingConfirm(null)}><Button variant="secondary" onClick={()=>setPendingConfirm(null)}>{t("取消")}</Button><Button variant="danger" onClick={()=>{const run=pendingConfirm.onConfirm;setPendingConfirm(null);run()}}>{pendingConfirm.confirmLabel}</Button></ConfirmDialog>}
     {toast&&<div className={`toast${undoSnapshot?" toast-expiring":""}`} role="status"><span>{toast}</span>{undoSnapshot&&<Button variant="quiet" onClick={undoDelete}>{t("復原")}</Button>}</div>}
     {regularPrompt&&<div className="regular-prompt" role="status">
