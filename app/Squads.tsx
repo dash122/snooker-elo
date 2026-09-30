@@ -94,7 +94,7 @@ export function SquadScopeChip({ squad, onOpen, onManage }: { squad: MySquad | n
   const t = useT();
   return <div className="squad-scope">
     <button type="button" className="squad-scope-chip" aria-haspopup="dialog" onClick={onOpen}>
-      <span className="squad-scope-kicker">{t("排名範圍")}</span>
+      <span className="squad-scope-kicker">{t("球隊篩選")}</span>
       <b>{squad ? squad.name : t("全會")}</b>
       <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" /></svg>
     </button>
@@ -161,9 +161,9 @@ function SquadPicker({ squads, loaded, selectedId, onSelect, onBrowse, onCreate,
     return squads.filter(squad => !q || squad.name.toLowerCase().includes(q))
       .sort((a, b) => rank(a.id) - rank(b.id) || a.name.localeCompare(b.name));
   }, [squads, pinned, recent, query]);
-  return <Sheet open title={t("選擇排名範圍")} onClose={onClose} className="squad-sheet">
+  return <Sheet open title={t("選擇球隊篩選")} onClose={onClose} className="squad-sheet">
     {squads.length > SEARCH_THRESHOLD && <FormField label={t("搜尋我的球隊")}><input type="search" value={query} onChange={event => setQuery(event.target.value)} /></FormField>}
-    <ul className="squad-list" aria-label={t("排名範圍")}>
+    <ul className="squad-list" aria-label={t("球隊篩選")}>
       {!query && <li><button type="button" className="squad-option" aria-pressed={!selectedId} onClick={() => pick(null)}>
         <span className="squad-option-main"><b>{t("全會")}</b><small>{t("所有球員")}</small></span>
       </button></li>}
