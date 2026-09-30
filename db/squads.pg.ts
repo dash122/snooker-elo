@@ -94,8 +94,8 @@ export async function listMySquads(actor: string): Promise<MySquad[]> {
   });
 }
 
-/** A squad as `viewer` may see it: members see their own squads, anyone signed in sees public ones. */
-export async function getSquad(viewer: string, squadId: string): Promise<SquadDetail | null> {
+/** A squad as `viewer` may see it: members see their own squads, anyone (signed in or not) sees public ones. */
+export async function getSquad(viewer: string | null, squadId: string): Promise<SquadDetail | null> {
   const sql = getSql();
   const [row] = await sql<{ id: string; name: string; visibility: SquadVisibility; invite_code: string; role: SquadRole | null }[]>`
     SELECT s.id, s.name, s.visibility, s.invite_code, m.role
@@ -121,7 +121,7 @@ export async function previewInvite(code: string): Promise<{ id: string; name: s
 /** The public directory, most relevant first: squads holding the most people the viewer has
     actually played (confirmed singles), then the largest. A squad of strangers is a weaker reason
     to join than one of familiar opponents. */
-export async function browsePublicSquads(viewer: string, query: string): Promise<(SquadSummary & { playedWith: number })[]> {
+export async function browsePublicSquads(viewer: string | null, query: string): Promise<(SquadSummary & { playedWith: number })[]> {
   const sql = getSql();
   const pattern = `%${query.replace(/[\\%_]/g, char => `\\${char}`)}%`;
   const rows = await sql<{ id: string; name: string; member_count: number; played_with: number }[]>`
