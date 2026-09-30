@@ -16,11 +16,11 @@ const TOUR:{tab:Destination;title:string;body:string;targets:string[]}[]=[
 ];
 
 const TOP_INSET=24,CARD_GAP=16;
-/** Scrolls so the target sits centred in the part of the viewport the coach card does not cover, and
-    marks it so CSS can ring it. Measures the card rather than assuming its height, since it grows with
-    the step's copy and switches between a corner card and a full-width one at the tablet breakpoint. */
+const SPOT_PAD=6;
+/** Scrolls so the target sits centred in the part of the viewport the coach card does not cover.
+    Measures the card rather than assuming its height, since it grows with the step's copy and switches
+    between a corner card and a full-width one at the tablet breakpoint. */
 function focusTarget(target:HTMLElement,card:HTMLElement|null){
-  target.setAttribute("data-tour-focus","");
   const rect=target.getBoundingClientRect();
   const floor=(card?card.getBoundingClientRect().top:window.innerHeight)-CARD_GAP;
   const room=floor-TOP_INSET;
@@ -46,6 +46,7 @@ export function IntroTour({tab,signedIn,onShow,onClose}:{tab:string;signedIn:boo
     if(match>=0&&step<last&&TOUR[step].tab!==tab)setStep(match);
   }
   const cardRef=useRef<HTMLElement>(null);
+  const spotRef=useRef<HTMLDivElement>(null);
   useEffect(()=>{titleRef.current?.focus({preventScroll:true})},[step]);
   // Runs once the step's own tab is showing. The tab swaps a render after the tap, so the target is
   // polled for rather than assumed present.
@@ -53,6 +54,7 @@ export function IntroTour({tab,signedIn,onShow,onClose}:{tab:string;signedIn:boo
     const item=TOUR[step];
     if(!item||item.tab!==tab)return;
     let frame=0,tries=0,found:HTMLElement|null=null,cancelled=false;
+    const spot=spotRef.current;
     const seek=()=>{
       if(cancelled)return;
       for(const selector of item.targets){
@@ -60,16 +62,40 @@ export function IntroTour({tab,signedIn,onShow,onClose}:{tab:string;signedIn:boo
         found=Array.from(document.querySelectorAll<HTMLElement>(selector)).find(el=>el.getClientRects().length>0)??null;
         if(found)break;
       }
-      if(found)return focusTarget(found,cardRef.current);
+      if(found)return spotlight(found);
       if(++tries<90)frame=requestAnimationFrame(seek);
     };
+    // The spotlight is a fixed box that follows the target every frame, so it stays locked on while the
+    // smooth scroll (or a late layout shift) moves the target underneath it.
+    const spotlight=(target:HTMLElement)=>{
+      focusTarget(target,cardRef.current);
+      if(!spot)return;
+      spot.style.borderRadius=`${(parseFloat(getComputedStyle(target).borderTopLeftRadius)||0)+SPOT_PAD}px`;
+      spot.hidden=false;
+      let last="";
+      const track=()=>{
+        if(cancelled)return;
+        const rect=target.getBoundingClientRect();
+        const box=`${rect.left}|${rect.top}|${rect.width}|${rect.height}`;
+        if(box!==last){
+          last=box;
+          spot.style.transform=`translate(${rect.left-SPOT_PAD}px,${rect.top-SPOT_PAD}px)`;
+          spot.style.width=`${rect.width+2*SPOT_PAD}px`;
+          spot.style.height=`${rect.height+2*SPOT_PAD}px`;
+        }
+        frame=requestAnimationFrame(track);
+      };
+      track();
+    };
     seek();
-    return()=>{cancelled=true;cancelAnimationFrame(frame);found?.removeAttribute("data-tour-focus")};
+    return()=>{cancelled=true;cancelAnimationFrame(frame);if(spot)spot.hidden=true};
   },[step,tab]);
   useEffect(()=>{const onKey=(event:KeyboardEvent)=>event.key==="Escape"&&onClose();document.addEventListener("keydown",onKey);return()=>document.removeEventListener("keydown",onKey)},[onClose]);
   const go=(next:number)=>{setStep(next);if(next<last)onShow(TOUR[next].tab)};
   const current=step<last?TOUR[step]:null;
-  return <section ref={cardRef} className="intro-tour" role="dialog" aria-modal="false" aria-labelledby="intro-tour-title">
+  return <>
+  <div ref={spotRef} className="intro-tour-spotlight" hidden aria-hidden="true"/>
+  <section ref={cardRef} className="intro-tour" role="dialog" aria-modal="false" aria-labelledby="intro-tour-title">
     <div className="intro-tour-head">
       <p className="intro-tour-progress">{t("第 {current} 步，共 {total} 步",{current:step+1,total:last+1})}</p>
       <IconButton type="button" className="intro-tour-close" label={t("結束導覽")} onClick={onClose}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m6 6 12 12M18 6 6 18"/></svg></IconButton>
@@ -91,7 +117,8 @@ export function IntroTour({tab,signedIn,onShow,onClose}:{tab:string;signedIn:boo
           ?<Button type="button" variant="featured" onClick={onClose}>{t("完成")}</Button>
           :<ButtonLink variant="featured" href="/login?mode=signup">{t("建立帳戶")}</ButtonLink>}
     </div>
-  </section>;
+  </section>
+  </>;
 }
 
 const CHECKLIST_KEY="scaa-first-steps";

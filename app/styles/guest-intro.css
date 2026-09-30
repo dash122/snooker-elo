@@ -65,9 +65,16 @@
   .intro-tour-actions .ds-button--secondary{background:transparent;color:var(--ds-text-on-brand);border-color:var(--ds-inverse-border)}
   .intro-tour-actions .ds-button--secondary:disabled{opacity:.4}
 
-  /* The element the current tour step points at. Set from script, so it is an attribute rather than a class React could overwrite. */
-  [data-tour-focus]{outline:3px solid var(--ds-accent-primary);outline-offset:var(--sp-1);animation:tour-focus-pulse 1.4s var(--ds-ease-standard) 2}
-  @keyframes tour-focus-pulse{50%{outline-offset:var(--sp-2);outline-color:var(--ds-accent-primary-hover)}}
+  /* Spotlight on the element the current step points at: a gold frame whose oversized shadow blacks out
+     the rest of the page. Sits above everything in the shell (so nothing overlaps the frame) but one layer
+     below the coach card, and never intercepts taps. Position and size are set from script every frame. */
+  .intro-tour-spotlight{
+    position:fixed;top:0;left:0;z-index:59;pointer-events:none;
+    border:3px solid var(--ds-accent-primary);
+    box-shadow:0 0 0 100vmax var(--ds-tour-scrim);
+    animation:intro-spot-in var(--ds-duration-standard) var(--ds-ease-standard);
+  }
+  @keyframes intro-spot-in{from{opacity:0}}
 
   /* New-member checklist. */
   .first-steps{
@@ -105,7 +112,7 @@
     .first-steps-list li{flex-wrap:wrap}
     .first-steps-list .ds-button{width:100%}
   }
-  @media(prefers-reduced-motion:reduce){.intro-tour{animation:none}}
+  @media(prefers-reduced-motion:reduce){.intro-tour,.intro-tour-spotlight{animation:none}}
 
   .public-note-cta{
     display:inline-block;margin-top:var(--sp-2);
