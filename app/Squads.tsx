@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { MySquad, SquadDetail, SquadSummary } from "../db/squads.pg";
 import { SQUAD_NAME_MAX, type SquadRole, type SquadVisibility } from "../lib/squads";
 import { useT } from "./components/I18nProvider";
@@ -284,97 +284,189 @@ function JoinSquad({ code, signedIn, onClose, onJoined }: { code: string | null;
   </Sheet>;
 }
 
+/* The manage sheet works in steps rather than as one long form: a calm overview (members, invite,
+   settings as tappable rows), and a focused step for anything that edits or can't be undone —
+   renaming, switching public/private, resetting the link, acting on one member, leaving, deleting.
+   Nothing on the overview changes the squad on a single stray tap. */
+type ManageView =
+  | { kind: "overview" }
+  | { kind: "rename" }
+  | { kind: "member"; playerId: string }
+  | { kind: "confirm"; title: string; body: string; label: string; danger?: boolean; key: string; action: () => Promise<unknown>; after?: "gone" };
+
+const Chevron = () => <svg className="squad-chevron" aria-hidden="true" viewBox="0 0 16 16"><path d="m6 3 5 5-5 5" /></svg>;
+
 function ManageSquad({ squad, players, ownPlayerId, refresh, onGone, onClose }: {
   squad: MySquad; players: Person[]; ownPlayerId: string; refresh: () => Promise<void>; onGone: () => Promise<void>; onClose: () => void;
 }) {
   const t = useT();
   const isHost = squad.role === "host";
+  const [view, setView] = useState<ManageView>({ kind: "overview" });
   const [name, setName] = useState(squad.name);
   const [busy, setBusy] = useState<string | null>(null), [error, setError] = useState("");
   const [eligible, setEligible] = useState<Set<string> | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false), [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!isHost) return;
     call<{ playerIds: string[] }>("/api/squads/eligible").then(body => setEligible(new Set(body.playerIds))).catch(() => setEligible(new Set()));
   }, [isHost]);
+  /* Each step swaps the sheet's content, so move focus into it the way opening a sheet would. */
+  useEffect(() => { bodyRef.current?.querySelector<HTMLElement>("input, button")?.focus(); }, [view.kind]);
   const byId = useMemo(() => new Map(players.map(player => [player.id, player])), [players]);
   const memberIds = useMemo(() => new Set(squad.members.map(member => member.playerId)), [squad.members]);
   const candidates = useMemo(() => eligible ? players.filter(player => eligible.has(player.id) && !memberIds.has(player.id)).sort((a, b) => a.name.localeCompare(b.name)) : [], [eligible, players, memberIds]);
   const hostCount = squad.members.filter(member => member.role === "host").length;
+  const soleHost = isHost && hostCount === 1 && squad.members.length > 1;
+  const nameOf = (id: string) => byId.get(id)?.name ?? t("已移除球員");
 
-  const run = async (key: string, action: () => Promise<unknown>, after: () => Promise<void> = refresh) => {
+  const back = () => { setError(""); setView({ kind: "overview" }); };
+  const run = async (key: string, action: () => Promise<unknown>, after: "stay" | "back" | "gone" = "back") => {
     setBusy(key); setError("");
-    try { await action(); await after(); }
+    try {
+      await action();
+      if (after === "gone") { await onGone(); return; }
+      await refresh();
+      if (after === "back") setView({ kind: "overview" });
+    }
     catch (err) { setError(err instanceof Error ? err.message : t("未能更新球隊，請稍後再試。")); }
     finally { setBusy(null); }
   };
   const base = `/api/squads/${encodeURIComponent(squad.id)}`;
   const patch = (body: object) => call(base, { method: "PATCH", body: JSON.stringify(body) });
-  const setRole = (playerId: string, role: SquadRole) => run(`role:${playerId}`, () => call(`${base}/members`, { method: "PATCH", body: JSON.stringify({ playerId, role }) }));
-  const remove = (playerId: string) => run(`remove:${playerId}`, () => call(`${base}/members?playerId=${encodeURIComponent(playerId)}`, { method: "DELETE" }));
-  const leave = () => run("leave", () => call(`${base}/members?playerId=${encodeURIComponent(ownPlayerId)}`, { method: "DELETE" }), onGone);
+  const removeCall = (playerId: string) => call(`${base}/members?playerId=${encodeURIComponent(playerId)}`, { method: "DELETE" });
+  const roleCall = (playerId: string, role: SquadRole) => call(`${base}/members`, { method: "PATCH", body: JSON.stringify({ playerId, role }) });
+  const confirm = (next: Omit<Extract<ManageView, { kind: "confirm" }>, "kind">) => { setError(""); setView({ kind: "confirm", ...next }); };
   const copyInvite = async () => {
     if (!squad.inviteCode) return;
     try { await navigator.clipboard.writeText(inviteUrl(squad.inviteCode)); setCopied(true); setTimeout(() => setCopied(false), 2000); }
     catch { setError(t("未能複製，請長按連結自行複製。")); }
   };
-  const soleHost = isHost && hostCount === 1 && squad.members.length > 1;
 
-  return <Sheet open title={squad.name} onClose={() => !busy && onClose()} className="squad-sheet squad-manage">
-    <p className="squad-manage-meta"><SquadBadges squad={squad} /><span>{t("{count} 位隊員", { count: squad.memberCount })}</span></p>
-    {error && <InlineNotice tone="danger" title={t("未能完成")}>{error}</InlineNotice>}
+  const toPublic = squad.visibility === "private";
+  const title = view.kind === "rename" ? t("更改球隊名稱") : view.kind === "member" ? nameOf(view.playerId) : view.kind === "confirm" ? view.title : squad.name;
+  const errorNotice = error && <InlineNotice tone="danger" title={t("未能完成")}>{error}</InlineNotice>;
+  const backButton = <button type="button" className="squad-back" onClick={back} disabled={Boolean(busy)}>
+    <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m10 3-5 5 5 5" /></svg>{t("返回")}
+  </button>;
 
-    {isHost && <section className="squad-section" aria-labelledby="squad-settings-title">
-      <h3 id="squad-settings-title">{t("球隊設定")}</h3>
-      <form className="squad-inline-form" onSubmit={event => { event.preventDefault(); void run("name", () => patch({ name })); }}>
-        <FormField label={t("球隊名稱")}><input value={name} maxLength={SQUAD_NAME_MAX} autoComplete="off" onChange={event => setName(event.target.value)} /></FormField>
-        <Button variant="secondary" type="submit" loading={busy === "name"} disabled={!name.trim() || name.trim() === squad.name}>{t("儲存")}</Button>
-      </form>
-      <VisibilityControl value={squad.visibility} onChange={visibility => void run("visibility", () => patch({ visibility }))} />
-      {squad.inviteCode && <div className="squad-invite">
-        <FormField label={t("邀請連結")} hint={t("收到連結嘅會員可以自行加入。重設後舊連結即時失效。")}><input readOnly value={inviteUrl(squad.inviteCode)} onFocus={event => event.currentTarget.select()} /></FormField>
-        <div className="squad-invite-actions">
-          <Button variant="secondary" type="button" onClick={() => void copyInvite()}>{copied ? t("已複製") : t("複製連結")}</Button>
-          <Button variant="quiet" type="button" loading={busy === "rotate"} onClick={() => void run("rotate", () => patch({ rotateInvite: true }))}>{t("重設連結")}</Button>
-        </div>
-      </div>}
-    </section>}
-
-    <section className="squad-section" aria-labelledby="squad-members-title">
-      <h3 id="squad-members-title">{t("隊員")}</h3>
-      {isHost && <div className="squad-add">
-        {eligible === null ? <Skeleton height="2.75rem" /> : <PlayerCombobox players={candidates} value="" placeholder={t("加入已登記會員…")} ariaLabel={t("加入隊員")}
-          onChange={id => id && void run(`add:${id}`, () => call(`${base}/members`, { method: "POST", body: JSON.stringify({ playerId: id }) }))} />}
-        <small>{t("只可以加入已登記帳戶嘅會員；佢哋會收到通知，並可隨時退出。")}</small>
-      </div>}
-      <ul className="squad-members">{squad.members.map(member => {
-        const player = byId.get(member.playerId), self = member.playerId === ownPlayerId;
-        const label = player?.name ?? t("已移除球員");
-        return <li key={member.playerId}>
-          {player && <PlayerBadge player={player} />}
-          <span className="squad-member-name"><b>{label}{self && <small>{t("（你）")}</small>}</b>{member.role === "host" && <Chip tone="accent">{t("隊長")}</Chip>}</span>
-          {isHost && !self && <span className="squad-member-actions">
-            {member.role === "host"
-              ? <Button variant="quiet" type="button" loading={busy === `role:${member.playerId}`} disabled={Boolean(busy)} onClick={() => void setRole(member.playerId, "member")}>{t("改為隊員")}</Button>
-              : <Button variant="quiet" type="button" loading={busy === `role:${member.playerId}`} disabled={Boolean(busy)} onClick={() => void setRole(member.playerId, "host")}>{t("升為隊長")}</Button>}
-            <Button variant="quiet" type="button" aria-label={t("移除 {name}", { name: label })} loading={busy === `remove:${member.playerId}`} disabled={Boolean(busy)} onClick={() => void remove(member.playerId)}>{t("移除")}</Button>
-          </span>}
-          {isHost && self && hostCount > 1 && <span className="squad-member-actions">
-            <Button variant="quiet" type="button" loading={busy === `role:${member.playerId}`} disabled={Boolean(busy)} onClick={() => void setRole(member.playerId, "member")}>{t("改為隊員")}</Button>
-          </span>}
-        </li>;
-      })}</ul>
-    </section>
-
-    <section className="squad-section squad-danger">
-      {soleHost && <p className="squad-hint">{t("你係唯一隊長，退出前請先將另一位隊員升為隊長。")}</p>}
-      <div className="squad-sheet-actions">
-        <Button variant="secondary" type="button" loading={busy === "leave"} disabled={soleHost || Boolean(busy)} onClick={() => void leave()}>{squad.members.length === 1 ? t("退出並解散球隊") : t("退出球隊")}</Button>
-        {isHost && (confirmDelete
-          ? <Button variant="danger" type="button" loading={busy === "delete"} onClick={() => void run("delete", () => call(base, { method: "DELETE" }), onGone)}>{t("確定刪除？")}</Button>
-          : <Button variant="quiet" type="button" onClick={() => setConfirmDelete(true)}>{t("刪除球隊")}</Button>)}
+  let body;
+  if (view.kind === "rename") {
+    body = <form className="squad-step" onSubmit={event => { event.preventDefault(); if (name.trim() && name.trim() !== squad.name) void run("name", () => patch({ name })); }}>
+      {backButton}
+      <FormField label={t("球隊名稱")} error={error || undefined}><input value={name} maxLength={SQUAD_NAME_MAX} autoComplete="off" onChange={event => setName(event.target.value)} /></FormField>
+      <div className="squad-step-actions">
+        <Button variant="secondary" type="button" onClick={() => { setName(squad.name); back(); }}>{t("取消")}</Button>
+        <Button type="submit" loading={busy === "name"} disabled={!name.trim() || name.trim() === squad.name}>{t("儲存")}</Button>
       </div>
-    </section>
+    </form>;
+  } else if (view.kind === "member") {
+    const member = squad.members.find(item => item.playerId === view.playerId);
+    const label = nameOf(view.playerId), player = byId.get(view.playerId), self = view.playerId === ownPlayerId;
+    body = <div className="squad-step">
+      {backButton}
+      {errorNotice}
+      {!member ? <p className="squad-hint">{t("呢位球員已經唔喺球隊入面。")}</p> : <>
+        <div className="squad-member-card">
+          {player && <PlayerBadge player={player} />}
+          <span><b>{label}</b><small>{member.role === "host" ? t("隊長") : t("隊員")}</small></span>
+        </div>
+        <div className="squad-action-list">
+          {member.role === "host"
+            ? <button type="button" className="squad-action" disabled={Boolean(busy) || hostCount === 1} onClick={() => void run(`role:${view.playerId}`, () => roleCall(view.playerId, "member"))}>
+                <span><b>{t("改為隊員")}</b><small>{hostCount === 1 ? t("球隊最少要有一位隊長。") : t("之後唔可以再管理球隊。")}</small></span></button>
+            : <button type="button" className="squad-action" disabled={Boolean(busy)} onClick={() => void run(`role:${view.playerId}`, () => roleCall(view.playerId, "host"))}>
+                <span><b>{t("升為隊長")}</b><small>{t("可以管理隊員、邀請連結同設定。")}</small></span></button>}
+          {!self && <button type="button" className="squad-action squad-action--danger" disabled={Boolean(busy)}
+            onClick={() => confirm({ title: t("移除 {name}？", { name: label }), body: t("{name} 會喺呢個球隊消失，但可以經邀請連結重新加入。", { name: label }), label: t("移除"), danger: true, key: `remove:${view.playerId}`, action: () => removeCall(view.playerId) })}>
+            <span><b>{t("移出球隊")}</b></span></button>}
+        </div>
+      </>}
+    </div>;
+  } else if (view.kind === "confirm") {
+    body = <div className="squad-step squad-confirm">
+      {backButton}
+      <p>{view.body}</p>
+      {errorNotice}
+      <div className="squad-step-actions">
+        <Button variant="secondary" type="button" disabled={Boolean(busy)} onClick={back}>{t("取消")}</Button>
+        <Button variant={view.danger ? "danger" : "primary"} type="button" loading={busy === view.key}
+          onClick={() => void run(view.key, view.action, view.after === "gone" ? "gone" : "back")}>{view.label}</Button>
+      </div>
+    </div>;
+  } else {
+    body = <>
+      <p className="squad-manage-meta"><SquadBadges squad={squad} /><span>{t("{count} 位隊員", { count: squad.memberCount })}</span></p>
+      {errorNotice}
+
+      {isHost && squad.inviteCode && <section className="squad-card squad-invite" aria-labelledby="squad-invite-title">
+        <div className="squad-card-head"><h3 id="squad-invite-title">{t("邀請朋友")}</h3><small>{t("收到連結嘅會員可以自行加入。")}</small></div>
+        <div className="squad-invite-row">
+          <code className="squad-invite-link" title={inviteUrl(squad.inviteCode)}>{inviteUrl(squad.inviteCode).replace(/^https?:\/\//, "")}</code>
+          <Button type="button" onClick={() => void copyInvite()}>{copied ? t("已複製") : t("複製連結")}</Button>
+        </div>
+      </section>}
+
+      <section className="squad-section" aria-labelledby="squad-members-title">
+        <h3 id="squad-members-title">{t("隊員")} <span className="squad-count">{squad.memberCount}</span></h3>
+        {isHost && <div className="squad-add">
+          {eligible === null ? <Skeleton height="2.75rem" /> : <PlayerCombobox players={candidates} value="" placeholder={t("＋ 加入已登記會員")} ariaLabel={t("加入隊員")}
+            onChange={id => id && void run(`add:${id}`, () => call(`${base}/members`, { method: "POST", body: JSON.stringify({ playerId: id }) }), "stay")} />}
+          <small>{t("佢哋會收到通知，並可隨時退出。")}</small>
+        </div>}
+        <ul className="squad-members">{squad.members.map(member => {
+          const player = byId.get(member.playerId), self = member.playerId === ownPlayerId, label = nameOf(member.playerId);
+          const manageable = isHost && (!self || hostCount > 1);
+          return <li key={member.playerId}>
+            {player ? <PlayerBadge player={player} /> : <span className="squad-badge-placeholder" aria-hidden="true" />}
+            <span className="squad-member-name"><b>{label}</b>{self && <small>{t("（你）")}</small>}</span>
+            {member.role === "host" && <Chip tone="accent">{t("隊長")}</Chip>}
+            {manageable && <IconButton type="button" className="squad-more" label={t("管理 {name}", { name: label })} disabled={Boolean(busy)} onClick={() => { setError(""); setView({ kind: "member", playerId: member.playerId }); }}>
+              <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
+            </IconButton>}
+          </li>;
+        })}</ul>
+      </section>
+
+      {isHost && <section className="squad-section" aria-labelledby="squad-settings-title">
+        <h3 id="squad-settings-title">{t("球隊設定")}</h3>
+        <div className="squad-settings">
+          <button type="button" className="squad-setting" onClick={() => { setName(squad.name); setError(""); setView({ kind: "rename" }); }}>
+            <span>{t("球隊名稱")}</span><b>{squad.name}</b><Chevron />
+          </button>
+          <button type="button" className="squad-setting" onClick={() => confirm({
+            title: toPublic ? t("改為公開球隊？") : t("改為私人球隊？"),
+            body: toPublic ? t("任何會員都可以喺「瀏覽公開球隊」搵到呢個球隊，一按就加入。") : t("球隊會喺公開列表消失，之後只可以經邀請連結或由隊長加入。現有隊員不受影響。"),
+            label: toPublic ? t("改為公開") : t("改為私人"), key: "visibility", action: () => patch({ visibility: toPublic ? "public" : "private" }),
+          })}>
+            <span>{t("公開程度")}</span><b>{squad.visibility === "public" ? t("公開") : t("私人")}</b><Chevron />
+          </button>
+          <button type="button" className="squad-setting" onClick={() => confirm({
+            title: t("重設邀請連結？"), body: t("舊連結會即時失效，未加入嘅人要用新連結。"), label: t("重設連結"), key: "rotate", action: () => patch({ rotateInvite: true }),
+          })}>
+            <span>{t("重設邀請連結")}</span><b /><Chevron />
+          </button>
+        </div>
+      </section>}
+
+      <section className="squad-section squad-danger">
+        {soleHost && <p className="squad-hint">{t("你係唯一隊長，退出前請先將另一位隊員升為隊長。")}</p>}
+        <div className="squad-danger-actions">
+          <button type="button" className="squad-text-action" disabled={soleHost || Boolean(busy)} onClick={() => confirm(squad.members.length === 1
+            ? { title: t("退出並解散球隊？"), body: t("你係最後一位隊員，退出後球隊會被刪除。"), label: t("退出並解散"), danger: true, key: "leave", action: () => removeCall(ownPlayerId), after: "gone" }
+            : { title: t("退出「{squad}」？", { squad: squad.name }), body: t("你會喺球隊排名消失。之後可以經邀請連結重新加入。"), label: t("退出球隊"), danger: true, key: "leave", action: () => removeCall(ownPlayerId), after: "gone" })}>
+            {t("退出球隊")}
+          </button>
+          {isHost && <button type="button" className="squad-text-action squad-text-action--danger" disabled={Boolean(busy)} onClick={() => confirm({
+            title: t("刪除「{squad}」？", { squad: squad.name }), body: t("所有隊員會即時失去呢個球隊，無法復原。比賽紀錄同 ELO 不受影響。"), label: t("刪除球隊"), danger: true, key: "delete", action: () => call(base, { method: "DELETE" }), after: "gone",
+          })}>{t("刪除球隊")}</button>}
+        </div>
+      </section>
+    </>;
+  }
+
+  return <Sheet open title={title} onClose={() => !busy && onClose()} className="squad-sheet squad-manage">
+    <div ref={bodyRef} className="squad-manage-body">{body}</div>
   </Sheet>;
 }
 
