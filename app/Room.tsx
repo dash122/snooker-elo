@@ -7,6 +7,9 @@ import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { hkClock, hkDate, type Interval } from "../lib/availability";
 import { NOW_DURATIONS, PREFERENCE_HINTS, PREFERENCE_LABELS, TONIGHT_ENDS,
   remainingLabel, type Licence, type MatchPreference, type RoomGroup } from "../lib/room";
+import { useT } from "./components/I18nProvider";
+import { msg } from "../lib/i18n/translate";
+import type { Translator } from "../lib/i18n/translate";
 
 /* --- The Room --------------------------------------------------------------
  *
@@ -38,13 +41,13 @@ export type MyRoomState={
 export type RoomData={today:string;me:MyRoomState|null;entries:RoomEntryVM[];atClubCount:number;calls:RoomCall[]};
 
 const GROUP_TITLES:Record<RoomGroup,string>={
-  "at-club":"而家喺會所","free-now":"而家得閒",later:"今晚／稍後得閒",unconfirmed:"可能得閒 — 未確認",
+  "at-club":msg("而家喺會所"),"free-now":msg("而家得閒"),later:msg("今晚／稍後得閒"),unconfirmed:msg("可能得閒 — 未確認"),
 };
 const GROUP_HINTS:Partial<Record<RoomGroup,string>>={
   /* Said plainly, because the honesty is the feature. These members published time at some point and
      have not confirmed anything since; presenting them as available would be the app inventing
      supply, and an invitation built on invented supply is the kind that never gets answered. */
-  unconfirmed:"佢哋之前公開過時間，但未講今晚得唔得閒 — 問一問先知。",
+  unconfirmed:msg("佢哋之前公開過時間，但未講今晚得唔得閒 — 問一問先知。"),
 };
 
 /* --- The member's own status ----------------------------------------------- */
@@ -57,6 +60,7 @@ const GROUP_HINTS:Partial<Record<RoomGroup,string>>={
 function MyStatus({me,onExtend,onStop,onArrive,onLeave,busy}:{
   me:MyRoomState; onExtend:()=>void; onStop:()=>void; onArrive:()=>void; onLeave:()=>void; busy:boolean;
 }){
+  const t = useT();
   /* Ticks locally so the countdown stays honest between polls — a number that only moves when the
      board refreshes reads as broken long before it reads as stale. */
   const [,tick]=useState(0);
@@ -67,16 +71,16 @@ function MyStatus({me,onExtend,onStop,onArrive,onLeave,busy}:{
     <span className="room-me-copy">
       {me.intent
         ?<>
-          <b>{endAt?`你得閒到 ${hkClock(endAt)}`:"你話咗想搵局"}</b>
-          <small>{endAt?remainingLabel(endAt):"有啱嘅局我哋會搵你"} · {PREFERENCE_LABELS[me.intent.preference]}</small>
+          <b>{endAt?t("你得閒到 {v}", {v: hkClock(endAt)}):t("你話咗想搵局")}</b>
+          <small>{endAt?remainingLabel(t, endAt):t("有啱嘅局我哋會搵你")} · {PREFERENCE_LABELS[me.intent.preference]}</small>
         </>
-        :<><b>全會所睇唔到你</b><small>撳下面話畀人知你得閒，先會出現喺呢個名單。</small></>}
+        :<><b>{t("全會所睇唔到你")}</b><small>{t("撳下面話畀人知你得閒，先會出現喺呢個名單。")}</small></>}
     </span>
     <span className="room-me-actions">
-      {me.intent&&endAt&&<Button variant="secondary" disabled={busy} onClick={onExtend}>+1 小時</Button>}
+      {me.intent&&endAt&&<Button variant="secondary" disabled={busy} onClick={onExtend}>{t("+1 小時")}</Button>}
       <Button variant="secondary" className={me.atClub?"is-on":""} disabled={busy}
-        onClick={me.atClub?onLeave:onArrive}>{me.atClub?"離開會所":"我喺會所"}</Button>
-      {me.intent&&<Button variant="quiet" disabled={busy} onClick={onStop}>收工</Button>}
+        onClick={me.atClub?onLeave:onArrive}>{me.atClub?t("離開會所"):t("我喺會所")}</Button>
+      {me.intent&&<Button variant="quiet" disabled={busy} onClick={onStop}>{t("收工")}</Button>}
     </span>
   </div>;
 }
@@ -91,49 +95,51 @@ function MyStatus({me,onExtend,onStop,onArrive,onLeave,busy}:{
  *  都得 — nothing at all, because that one is honestly not a window and inventing one for it would
  *  manufacture availability the member never offered. */
 function GoLive({onPost,busy}:{onPost:(input:{shape:"now"|"tonight"|"soon";minutes?:number;end?:string;preference:MatchPreference})=>void;busy:boolean}){
+  const t = useT();
   const [shape,setShape]=useState<"now"|"tonight"|"soon">("now");
   const [minutes,setMinutes]=useState(120);
   const [end,setEnd]=useState("23:00");
   const [preference,setPreference]=useState<MatchPreference>("any");
-  const label=shape==="now"?`我而家得閒 · ${minutes/60} 小時`:shape==="tonight"?`今晚得閒到 ${end}`:"呢幾日都得，有啱搵我";
+  const label=shape==="now"?t("我而家得閒 · {v} 小時", {v: minutes/60}):shape==="tonight"?t("今晚得閒到 {end}", {end}):t("呢幾日都得，有啱搵我");
   return <div className="room-live">
-    <div className="room-live-shape"><SegmentedControl label="幾時得閒" value={shape} onChange={value=>setShape(value as typeof shape)}
-      items={[{value:"now",label:"而家"},{value:"tonight",label:"今晚"},{value:"soon",label:"呢幾日"}]}/></div>
+    <div className="room-live-shape"><SegmentedControl label={t("幾時得閒")} value={shape} onChange={value=>setShape(value as typeof shape)}
+      items={[{value:"now",label:t("而家")},{value:"tonight",label:t("今晚")},{value:"soon",label:t("呢幾日")}]}/></div>
 
-    {shape==="now"&&<div className="room-live-until"><SegmentedControl label="打幾耐" value={String(minutes)} onChange={value=>setMinutes(Number(value))}
-      items={NOW_DURATIONS.map(value=>({value:String(value),label:`${value/60} 小時`}))}/></div>}
+    {shape==="now"&&<div className="room-live-until"><SegmentedControl label={t("打幾耐")} value={String(minutes)} onChange={value=>setMinutes(Number(value))}
+      items={NOW_DURATIONS.map(value=>({value:String(value),label:t("{v} 小時", {v: value/60})}))}/></div>}
 
-    {shape==="tonight"&&<div className="room-live-until"><SegmentedControl label="得閒到幾點" value={end} onChange={setEnd}
-      items={TONIGHT_ENDS.map(value=>({value,label:`到 ${value}`}))}/></div>}
+    {shape==="tonight"&&<div className="room-live-until"><SegmentedControl label={t("得閒到幾點")} value={end} onChange={setEnd}
+      items={TONIGHT_ENDS.map(value=>({value,label:t("到 {value}", {value})}))}/></div>}
 
-    {shape==="soon"&&<p className="room-live-note">唔使揀時間 — 有夾到嘅局我哋直接問你。</p>}
+    {shape==="soon"&&<p className="room-live-note">{t("唔使揀時間 — 有夾到嘅局我哋直接問你。")}</p>}
 
     <div className="room-live-pref">
-      <span className="room-live-lbl">想打邊種？</span>
-      <SegmentedControl label="想打邊種" value={preference} onChange={value=>setPreference(value as MatchPreference)}
+      <span className="room-live-lbl">{t("想打邊種？")}</span>
+      <SegmentedControl label={t("想打邊種")} value={preference} onChange={value=>setPreference(value as MatchPreference)}
         items={(Object.keys(PREFERENCE_LABELS) as MatchPreference[]).map(value=>({value,label:PREFERENCE_LABELS[value]}))}/>
       <small>{PREFERENCE_HINTS[preference]}</small>
     </div>
 
     <Button variant="primary" className="room-live-go" disabled={busy} aria-busy={busy}
       onClick={()=>onPost({shape,minutes,end,preference})}>
-      {busy&&<i className="button-spinner" aria-hidden="true"/>}<span>{busy?"發緊…":label}</span>
+      {busy&&<i className="button-spinner" aria-hidden="true"/>}<span>{busy?t("發緊…"):label}</span>
     </Button>
   </div>;
 }
 
 /* --- One row --------------------------------------------------------------- */
 
-function windowLabel(entry:RoomEntryVM,now:number){
-  if(entry.tier==="unconfirmed")return "之前公開過時間";
-  if(!entry.window)return "有啱就搵佢";
+function windowLabel(t: Translator, entry:RoomEntryVM,now:number){
+  if(entry.tier==="unconfirmed")return t("之前公開過時間");
+  if(!entry.window)return t("有啱就搵佢");
   const startAt=Date.parse(entry.window.startAt);
-  return startAt<=now?`得閒到 ${hkClock(entry.window.endAt)}`:`${hkClock(entry.window.startAt)} 之後`;
+  return startAt<=now?t("得閒到 {v}", {v: hkClock(entry.window.endAt)}):t("{v} 之後", {v: hkClock(entry.window.startAt)});
 }
 
 function RoomRow({entry,now,onAsk,onOpen,busy}:{
   entry:RoomEntryVM; now:number; onAsk:()=>void; onOpen?:(playerId:string)=>void; busy:boolean;
 }){
+  const t = useT();
   return <li className={`room-row is-${entry.group}`}>
     <button type="button" className="room-row-person" onClick={()=>onOpen?.(entry.player.id)} disabled={!onOpen}>
       <PlayerBadge player={entry.player}/>
@@ -141,14 +147,14 @@ function RoomRow({entry,now,onAsk,onOpen,busy}:{
         <b>{entry.player.name}</b>
         <small>
           {entry.licenceNote&&<i className="room-tag">{PREFERENCE_LABELS[entry.preference]}</i>}
-          {entry.levelLabel} · {windowLabel(entry,now)}
+          {entry.levelLabel} · {windowLabel(t, entry,now)}
         </small>
         {entry.licenceNote&&<em className="room-licence">{entry.licenceNote}</em>}
       </span>
     </button>
     <Button variant={entry.tier==="unconfirmed"?"secondary":"primary"} className="room-row-ask"
       disabled={busy} onClick={onAsk}>
-      {entry.tier==="unconfirmed"?"問佢":"約佢"}
+      {entry.tier==="unconfirmed"?t("問佢"):t("約佢")}
     </Button>
   </li>;
 }
@@ -171,6 +177,7 @@ export function Room({signedIn,onAsk,onOpen,onClaim,claimingCallId,onChanged,ref
       table, opening a session — so the board reloads immediately instead of at the next poll. */
   refreshKey?:number;
 }){
+  const t = useT();
   const [data,setData]=useState<RoomData|null>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
@@ -197,10 +204,10 @@ export function Room({signedIn,onAsk,onOpen,onClaim,claimingCallId,onChanged,ref
     try{
       const response=await run();
       const payload=await response.json().catch(()=>({}));
-      if(!response.ok){setError(payload.error??"暫時做唔到，請再試一次。");return}
+      if(!response.ok){setError(payload.error??t("暫時做唔到，請再試一次。"));return}
       await load();
       onChanged?.();
-    }catch{setError("網絡連線失敗，請再試一次。")}
+    }catch{setError(t("網絡連線失敗，請再試一次。"))}
     finally{setBusy(false)}
   };
 
@@ -240,9 +247,9 @@ export function Room({signedIn,onAsk,onOpen,onClaim,claimingCallId,onChanged,ref
   const me=data?.me??null;
   const liveCount=(grouped.get("at-club")?.length??0)+(grouped.get("free-now")?.length??0)+(grouped.get("later")?.length??0);
 
-  return <section className="availability-card mm-card room-card" aria-label="而家搵緊局嘅人">
-    <CardHead title="而家喺場"
-      hint={data?`${liveCount} 位搵緊局${data.atClubCount?` · ${data.atClubCount} 位喺會所`:""}${data.calls.length?` · ${data.calls.length} 張枱開緊`:""}`:undefined}/>
+  return <section className="availability-card mm-card room-card" aria-label={t("而家搵緊局嘅人")}>
+    <CardHead title={t("而家喺場")}
+      hint={data?t("{liveCount} 位搵緊局{v}{v2}", {liveCount, v: data.atClubCount?t(" · {atClubCount} 位喺會所", {atClubCount: data.atClubCount}):"", v2: data.calls.length?t(" · {calls} 張枱開緊", {calls: data.calls.length}):""}):undefined}/>
 
     {me&&<MyStatus me={me} busy={busy}
       onExtend={()=>{trackAvailabilityEvent("room_extend");return void act(()=>fetch(`/api/intents/${me.intent?.id}`,{method:"PATCH"}))}}
@@ -255,16 +262,16 @@ export function Room({signedIn,onAsk,onOpen,onClaim,claimingCallId,onChanged,ref
     {error&&<p className="availability-form-error" role="alert">{error}</p>}
 
     {data&&data.calls.length>0&&<div className="room-calls">
-      <p className="room-group-head">開咗枱 · 等緊人</p>
+      <p className="room-group-head">{t("開咗枱 · 等緊人")}</p>
       <ul className="room-call-list">{data.calls.map(call=>
         <li key={call.id} className="room-call">
           <div>
-            <b>{call.venue||"開咗枱"} · {hkClock(call.startAt)}–{hkClock(call.endAt)}</b>
-            <small>{call.player.name} 開嘅{call.message?` · ${call.message}`:""}</small>
+            <b>{call.venue||t("開咗枱")} · {hkClock(call.startAt)}–{hkClock(call.endAt)}</b>
+            <small>{t("{name} 開嘅", {name: call.player.name})}{call.message?` · ${call.message}`:""}</small>
           </div>
           {call.player.id!==me?.playerId
-            ?<Button disabled={claimingCallId===call.id} onClick={()=>onClaim(call.id)}>接受</Button>
-            :<span className="room-call-mine">你開嘅</span>}
+            ?<Button disabled={claimingCallId===call.id} onClick={()=>onClaim(call.id)}>{t("接受")}</Button>
+            :<span className="room-call-mine">{t("你開嘅")}</span>}
         </li>)}
       </ul>
     </div>}
@@ -273,7 +280,7 @@ export function Room({signedIn,onAsk,onOpen,onClaim,claimingCallId,onChanged,ref
       const entries=grouped.get(group);
       if(!entries?.length)return null;
       return <div key={group} className={`room-group is-${group}`}>
-        <p className="room-group-head">{GROUP_TITLES[group]}{GROUP_HINTS[group]&&<small>{GROUP_HINTS[group]}</small>}</p>
+        <p className="room-group-head">{t(GROUP_TITLES[group])}{GROUP_HINTS[group]&&<small>{t(GROUP_HINTS[group]!)}</small>}</p>
         <ul className="room-rows">{entries.map(entry=>
           <RoomRow key={entry.id} entry={entry} now={now} busy={busy} onOpen={onOpen}
             onAsk={()=>{trackAvailabilityEvent("room_ask",{tier:entry.tier});onAsk(entry.player.id,entry.window)}}/>)}
@@ -282,7 +289,7 @@ export function Room({signedIn,onAsk,onOpen,onClaim,claimingCallId,onChanged,ref
     })}
 
     {data&&!data.entries.length&&<p className="mm-note">
-      而家未有人話想打波。{me?.intent?"有人上線我哋即刻通知你。":"你可以做第一個 — 上面話一聲，全會所就見到。"}
+      {t("而家未有人話想打波。")}{me?.intent?t("有人上線我哋即刻通知你。"):t("你可以做第一個 — 上面話一聲，全會所就見到。")}
     </p>}
   </section>;
 }

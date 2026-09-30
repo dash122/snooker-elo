@@ -4,8 +4,10 @@ import { CupMark, PlayerBadge } from "../../UiBits";
 import ShareSheet from "../../ShareSheet";
 import { shareScoreline, type MatchShareState } from "../../../lib/match-share";
 import type { ResultStoryCard } from "../../../lib/story-card";
+import { useT } from "../../components/I18nProvider";
+import { msg } from "../../../lib/i18n/translate";
 
-const OCCASION: Record<MatchShareState["kind"], string> = { cup: "盃賽", fun: "潮拍 2v2", rated: "球會對局" };
+const OCCASION: Record<MatchShareState["kind"], string> = { cup: msg("盃賽"), fun: msg("潮拍 2v2"), rated: msg("球會對局") };
 
 /** The page behind a shared result.
  *
@@ -19,19 +21,20 @@ const OCCASION: Record<MatchShareState["kind"], string> = { cup: "盃賽", fun: 
 export default function MatchShareView({ share, card, message, url, signedIn }: {
   share: MatchShareState | null; card: ResultStoryCard | null; message: string; url: string; signedIn: boolean;
 }) {
+  const t = useT();
   if (!share || !card) return <main className="share-page"><div className="share-card">
-    <p className="share-kicker">SCAA Snooker · 賽果</p>
-    <h1>搵唔到呢場比賽</h1>
-    <p className="share-note">連結可能已經失效，或者呢場賽事已被刪除。</p>
-    <Link className="primary full share-cta" href="/">開啟 SCAA Snooker</Link>
+    <p className="share-kicker">{t("SCAA Snooker · 賽果")}</p>
+    <h1>{t("搵唔到呢場比賽")}</h1>
+    <p className="share-note">{t("連結可能已經失效，或者呢場賽事已被刪除。")}</p>
+    <Link className="primary full share-cta" href="/">{t("開啟 SCAA Snooker")}</Link>
   </div></main>;
 
   const sides = [share.left, share.right];
-  const occasion = share.cup ? share.cup.name : OCCASION[share.kind];
+  const occasion = share.cup ? share.cup.name : t(OCCASION[share.kind]);
 
   return <main className="cup-share-page match-share-page">
     <div className="match-share-hero">
-      <p className="share-kicker">SCAA Snooker · {OCCASION[share.kind]}</p>
+      <p className="share-kicker">SCAA Snooker · {t(OCCASION[share.kind])}</p>
       {/* The round rides above the cup's name in a hairline ribbon, the same shape the story card
           uses, so the page and the image a reader may have arrived from read as one thing. */}
       {share.cup?.round && <p className="cup-ribbon"><span><CupMark />{share.cup.round}</span></p>}
@@ -39,36 +42,36 @@ export default function MatchShareView({ share, card, message, url, signedIn }: 
       <p className="match-share-date"><time dateTime={share.playedOn}>{share.playedOn}</time></p>
     </div>
 
-    <section className="match-share-board" aria-label={`賽果 ${shareScoreline(share)}`}>
+    <section className="match-share-board" aria-label={t("賽果 {v}", {v: shareScoreline(share)})}>
       {sides.map((side, index) => <div className={`match-share-side${side.won && !share.drawn ? " won" : ""}`} key={index}>
         <PlayerBadge player={{ short: side.short, colour: side.colour, avatar: side.avatar }} />
         <div className="match-share-who">
           <b>{side.name}</b>
-          {side.members.length > 0 && <small>{side.members.join("、")}</small>}
+          {side.members.length > 0 && <small>{side.members.join(t("、"))}</small>}
         </div>
         <em>{side.score}</em>
       </div>)}
-      <span className="match-share-vs">{share.drawn ? "打成平手" : "VS"}</span>
+      <span className="match-share-vs">{share.drawn ? t("打成平手") : "VS"}</span>
     </section>
 
     <div className="share-chips match-share-chips">
       {share.handicap && <span className="share-chip">{share.handicap}</span>}
       {share.eloDelta > 0
         ? <span className="share-chip gold">ELO ±{share.eloDelta}</span>
-        : <span className="share-chip">友誼賽 · 不計 ELO</span>}
-      {share.breaks[0] && <span className="share-chip gold">單桿 {share.breaks[0].value} · {share.breaks[0].name}</span>}
+        : <span className="share-chip">{t("友誼賽 · 不計 ELO")}</span>}
+      {share.breaks[0] && <span className="share-chip gold">{t("單桿 {value} · {name}", {value: share.breaks[0].value, name: share.breaks[0].name})}</span>}
     </div>
 
     <div className="cup-share-actions">
       <Link className="cup-btn primary" href={signedIn ? "/?tab=matches" : "/login?mode=signup"}>
-        {signedIn ? "開啟 App 睇全部賽果" : "註冊記錄你自己嘅賽果"}
+        {signedIn ? t("開啟 App 睇全部賽果") : t("註冊記錄你自己嘅賽果")}
       </Link>
     </div>
 
     <section className="match-share-resend">
-      <ShareSheet card={card} message={message} url={url} title="SCAA Snooker 賽果" />
+      <ShareSheet card={card} message={message} url={url} title={t("SCAA Snooker 賽果")} />
     </section>
 
-    <p className="share-foot">未係會員都睇到呢頁 — SCAA Snooker 嘅賽果連結。</p>
+    <p className="share-foot">{t("未係會員都睇到呢頁 — SCAA Snooker 嘅賽果連結。")}</p>
   </main>;
 }

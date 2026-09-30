@@ -1,6 +1,7 @@
 import {getSql} from "./sql";
 import {bestCommonWindow, formationStatus, opportunityScore, venuesCompatible, viableOverlap, type CommonWindow, type FormationSlot, type FormationStatus} from "../lib/matchmaking-formation";
 import {hkDate, overlapMinutes, type SlotConditions} from "../lib/availability";
+import { msg } from "../lib/i18n/translate.ts";
 
 type SlotRow = {
   id:string; playerId:string; startAt:Date|string; endAt:Date|string; targetSize:number;
@@ -203,22 +204,22 @@ export async function requestFormationSession(playerId:string,input:{anchorSlotI
       FROM availability_slots s JOIN state_players p ON p.id=s.player_id
       LEFT JOIN venues v ON v.id=s.venue_id
       WHERE coalesce(to_jsonb(s)->>'source','legacy')='legacy' AND s.id=${input.anchorSlotId} AND s.cancelled_at IS NULL AND s.end_at>now() FOR UPDATE OF s`;
-    if(!anchor)throw new Error("這個空檔已經關閉。");
-    if(anchor.playerId===playerId)throw new Error("不需要加入自己的空檔。");
+    if(!anchor)throw new Error(msg("這個空檔已經關閉。"));
+    if(anchor.playerId===playerId)throw new Error(msg("不需要加入自己的空檔。"));
     let [session]=await tx<{id:string;status:FormationStatus;targetSize:number;startAt:Date|string;endAt:Date|string}[]>`SELECT id,status,target_size AS "targetSize",start_at AS "startAt",end_at AS "endAt"
       FROM matchmaking_sessions WHERE coalesce(to_jsonb(matchmaking_sessions)->>'source','legacy')='legacy' AND anchor_slot_id=${anchor.id} AND status IN ('forming','playable','full') FOR UPDATE`;
     /* The first request chooses the exact hour. Later requests must join that same session window,
        not create parallel interpretations of the publisher's broad availability. */
     const chosenStart=session?iso(session.startAt):input.startAt,chosenEnd=session?iso(session.endAt):input.endAt;
     const start=Date.parse(chosenStart),end=Date.parse(chosenEnd);
-    if(!Number.isFinite(start)||!Number.isFinite(end)||end-start<60*60_000)throw new Error("共同時段最少需要一小時。");
-    if(start<Date.parse(String(anchor.startAt))||end>Date.parse(String(anchor.endAt)))throw new Error("建議時間已不在對方的空檔內。");
+    if(!Number.isFinite(start)||!Number.isFinite(end)||end-start<60*60_000)throw new Error(msg("共同時段最少需要一小時。"));
+    if(start<Date.parse(String(anchor.startAt))||end>Date.parse(String(anchor.endAt)))throw new Error(msg("建議時間已不在對方的空檔內。"));
     const [mine]=await tx<{id:string}[]>`SELECT id FROM availability_slots
       WHERE coalesce(to_jsonb(availability_slots)->>'source','legacy')='legacy' AND player_id=${playerId} AND cancelled_at IS NULL AND commitment='going'
         AND start_at<=${chosenStart} AND end_at>=${chosenEnd}
         AND (venue_id IS NULL OR ${anchor.venueId}::text IS NULL OR venue_id=${anchor.venueId})
       ORDER BY start_at LIMIT 1 FOR UPDATE`;
-    if(!mine)throw new Error("你的空檔與這個場次的確實時間不再重疊。");
+    if(!mine)throw new Error(msg("你的空檔與這個場次的確實時間不再重疊。"));
     const [conflict]=await tx<{id:string}[]>`SELECT s.id FROM matchmaking_sessions s
       WHERE s.status IN ('playable','full')
         AND s.start_at<${chosenEnd} AND s.end_at>${chosenStart}
@@ -226,7 +227,7 @@ export async function requestFormationSession(playerId:string,input:{anchorSlotI
           SELECT 1 FROM matchmaking_session_members m
           WHERE m.session_id=s.id AND m.player_id=${playerId} AND m.status='accepted'))
       LIMIT 1`;
-    if(conflict)throw new Error("你已經有一場確認中的對局重疊這段時間。");
+    if(conflict)throw new Error(msg("你已經有一場確認中的對局重疊這段時間。"));
     if(!session){
       const id=crypto.randomUUID();
       [session]=await tx<{id:string;status:FormationStatus;targetSize:number;startAt:Date|string;endAt:Date|string}[]>`INSERT INTO matchmaking_sessions
@@ -236,14 +237,14 @@ export async function requestFormationSession(playerId:string,input:{anchorSlotI
       await tx`INSERT INTO matchmaking_session_members (session_id,player_id,availability_slot_id,role,status)
         VALUES (${id},${anchor.playerId},${anchor.id},'host','accepted')`;
     }
-    if(session.status==="full"||session.status==="playable")throw new Error("這個對局已經確認。");
+    if(session.status==="full"||session.status==="playable")throw new Error(msg("這個對局已經確認。"));
     const [existing]=await tx<{status:string}[]>`SELECT status FROM matchmaking_session_members
       WHERE session_id=${session.id} AND player_id=${playerId} AND role='member' FOR UPDATE`;
-    if(existing?.status==="pending")throw new Error("你已經送出申請，等對方回覆就可以。");
-    if(existing?.status==="accepted")throw new Error("這個對局已經確認。");
+    if(existing?.status==="pending")throw new Error(msg("你已經送出申請，等對方回覆就可以。"));
+    if(existing?.status==="accepted")throw new Error(msg("這個對局已經確認。"));
     const [{count:pendingCount}]=await tx<{count:number|string}[]>`SELECT count(*)::int AS count
       FROM matchmaking_session_members WHERE session_id=${session.id} AND role='member' AND status='pending'`;
-    if(Number(pendingCount)>0)throw new Error("這個空檔已有另一個申請，等對方處理後再試。");
+    if(Number(pendingCount)>0)throw new Error(msg("這個空檔已有另一個申請，等對方處理後再試。"));
     await tx`INSERT INTO matchmaking_session_members (session_id,player_id,availability_slot_id,role,status,requested_at,updated_at)
       VALUES (${session.id},${playerId},${mine.id},'member','pending',now(),now())
       ON CONFLICT (session_id,player_id) DO UPDATE SET
@@ -263,20 +264,20 @@ export async function respondFormationRequest(hostPlayerId:string,sessionId:stri
         s.start_at AS "startAt",s.end_at AS "endAt",v.name AS "venueName"
       FROM matchmaking_sessions s LEFT JOIN venues v ON v.id=s.venue_id
       WHERE coalesce(to_jsonb(s)->>'source','legacy')='legacy' AND s.id=${sessionId} AND s.host_player_id=${hostPlayerId} AND s.status IN ('forming','playable','full') FOR UPDATE OF s`;
-    if(!session)throw new Error("找不到可處理的場次。");
+    if(!session)throw new Error(msg("找不到可處理的場次。"));
     const [request]=await tx<{status:string;playerId:string}[]>`SELECT status,player_id AS "playerId" FROM matchmaking_session_members
       WHERE session_id=${sessionId} AND player_id=${requesterId} AND role='member' FOR UPDATE`;
-    if(!request||request.status!=="pending")throw new Error("這個申請已經處理。");
+    if(!request||request.status!=="pending")throw new Error(msg("這個申請已經處理。"));
     const [{count}]=await tx<{count:number|string}[]>`SELECT count(*)::int AS count FROM matchmaking_session_members
       WHERE session_id=${sessionId} AND status='accepted'`;
-    if(action==="accept"&&Number(count)>=2)throw new Error("這個對局已經確認。");
+    if(action==="accept"&&Number(count)>=2)throw new Error(msg("這個對局已經確認。"));
     await tx`UPDATE matchmaking_session_members SET status=${action==="accept"?"accepted":"declined"},responded_at=now(),updated_at=now()
       WHERE session_id=${sessionId} AND player_id=${requesterId}`;
     const accepted=Number(count)+(action==="accept"?1:0),status=formationStatus(accepted,2);
     await tx`UPDATE matchmaking_sessions SET status=${status},updated_at=now() WHERE id=${sessionId}`;
     const [host]=await tx<{name:string}[]>`SELECT name FROM state_players WHERE id=${hostPlayerId}`;
     const [requester]=await tx<{name:string}[]>`SELECT name FROM state_players WHERE id=${requesterId}`;
-    return {status,hostPlayerId,hostName:host?.name??"球友",requesterId,requesterName:requester?.name??"球友",
+    return {status,hostPlayerId,hostName:host?.name??msg("球友"),requesterId,requesterName:requester?.name??msg("球友"),
       startAt:iso(session.startAt),endAt:iso(session.endAt),venue:session.venueName??null};
   });
 }

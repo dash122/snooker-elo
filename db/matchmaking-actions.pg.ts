@@ -4,6 +4,7 @@ import { createOffers, engagedWith } from "./offers.pg";
 import { notifyPlayers } from "./notifications.pg";
 import { intersectIntervals, overlapMinutes, proposeMatchOffers, type Interval } from "../lib/availability";
 import { offerProposed, offerMatched, openCallPosted } from "../lib/notify";
+import { msg } from "../lib/i18n/translate.ts";
 
 /** Multi-step matchmaking flows that span several tables.
  *
@@ -45,7 +46,7 @@ export async function announceAvailability(playerId:string,intervals:Interval[])
   const created=await createOffers(playerId,proposals);
   if(!created.length)return {offers:0};
   const names=await playerNames([playerId]);
-  const from=names.get(playerId)??"球友";
+  const from=names.get(playerId)??msg("球友");
   /* Only the opponents are pushed. The member who just published is looking at the screen that
      created these offers, so notifying them would be an interruption about their own action. */
   await Promise.all(created.map(offer=>notifyPlayers([offer.opponentId],offerProposed(from,{startAt:offer.startAt,endAt:offer.endAt}))));
@@ -56,7 +57,7 @@ export async function announceAvailability(playerId:string,intervals:Interval[])
     neither member can infer anything from silence. */
 export async function announceOfferMatch(playerId:string,opponentId:string,slot:Interval,venue?:string|null){
   const names=await playerNames([playerId]);
-  await notifyPlayers([opponentId],offerMatched(names.get(playerId)??"球友",slot,venue));
+  await notifyPlayers([opponentId],offerMatched(names.get(playerId)??msg("球友"),slot,venue));
 }
 
 /** Push an open call to the members who could actually take it.

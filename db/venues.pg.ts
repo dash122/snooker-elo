@@ -1,6 +1,7 @@
 import { getSql } from "./sql";
 import { addDaysHongKong, hkDate } from "../lib/availability";
 import { overlapView, isCommitment, type Commitment, type OverlapView, type SlotLike } from "../lib/overlap";
+import { msg } from "../lib/i18n/translate.ts";
 
 /* --- 場地 · the data side --------------------------------------------------
  *
@@ -133,14 +134,14 @@ export async function venueDirectory(date:string):Promise<VenueSummary[]|null>{
 export async function setSlot(input:{
   playerId:string; venueId:string; startAt:string; endAt:string; commitment:unknown;
 }):Promise<{id:string}>{
-  if(!isCommitment(input.commitment))throw new Error("唔認得呢個選擇");
+  if(!isCommitment(input.commitment))throw new Error(msg("唔認得呢個選擇"));
   /* Bound before the transaction: TypeScript's narrowing from the guard above does not follow the
      property access into the callback closure below. */
   const commitment:Commitment=input.commitment;
   const start=Date.parse(input.startAt),end=Date.parse(input.endAt);
-  if(!Number.isFinite(start)||!Number.isFinite(end))throw new Error("時間格式唔啱");
-  if(end<=start)throw new Error("結束時間要喺開始之後");
-  if(end-start>12*3600_000)throw new Error("一次最多 12 個鐘");
+  if(!Number.isFinite(start)||!Number.isFinite(end))throw new Error(msg("時間格式唔啱"));
+  if(end<=start)throw new Error(msg("結束時間要喺開始之後"));
+  if(end-start>12*3600_000)throw new Error(msg("一次最多 12 個鐘"));
 
   const sql=getSql();
   const date=hkDate(new Date(start));

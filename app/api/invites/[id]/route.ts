@@ -3,10 +3,12 @@ import { cancelInvite, closeInvite, counterInvite, respondInvite } from "../../.
 import { notifyPlayers } from "../../../../db/notifications";
 import { inviteAccepted, inviteCountered, inviteDeclined } from "../../../../lib/notify";
 import { validateAvailabilityInterval } from "../../../../lib/availability";
+import { getTranslator } from "../../../../lib/i18n/server";
 
 async function member(){const current=await requireMember();return current?.statePlayerId?current:null;}
 
 export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){
+  const { t } = await getTranslator();
   const current=await member();if(!current)return Response.json({error:"A linked member account is required"},{status:403});
   const {id}=await params;
   const me=current.statePlayerId!;
@@ -28,7 +30,7 @@ export async function PATCH(request:Request,{params}:{params:Promise<{id:string}
   if(body.action==="counter"){
     let interval;
     try{ interval=validateAvailabilityInterval({startAt:String(body.startAt),endAt:String(body.endAt)}); }
-    catch{ return Response.json({error:"請揀一個未開始、香港時間上午 10 時至翌日凌晨 2 時之間的時段。"},{status:400}); }
+    catch{ return Response.json({error:t("請揀一個未開始、香港時間上午 10 時至翌日凌晨 2 時之間的時段。")},{status:400}); }
     const venue=typeof body.venue==="string"?body.venue.trim().slice(0,60):undefined;
     const invite=await counterInvite(id,me,interval,venue);
     if(!invite)return Response.json({error:"Invite not found"},{status:404});

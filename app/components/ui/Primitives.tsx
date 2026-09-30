@@ -2,9 +2,11 @@
 import {cloneElement,isValidElement,useId,useLayoutEffect,useRef,useState,type ReactElement} from "react";
 import type {AnchorHTMLAttributes,ButtonHTMLAttributes,CSSProperties,HTMLAttributes,ReactNode} from "react";
 import Link from "next/link";
+import { useT } from "../I18nProvider";
 type ButtonVariant="primary"|"featured"|"secondary"|"quiet"|"danger";
 type ButtonProps=ButtonHTMLAttributes<HTMLButtonElement>&{variant?:ButtonVariant;loading?:boolean};
-export function Button({variant="primary",loading=false,disabled,className="",children,...props}:ButtonProps){return <button {...props} disabled={disabled||loading} aria-busy={loading||undefined} className={`ds-button ds-button--${variant} ${className}`.trim()}>{loading&&<span className="ds-spinner" aria-hidden="true"/>}<span>{loading?"處理中…":children}</span></button>}
+export function Button({variant="primary",loading=false,disabled,className="",children,...props}:ButtonProps){
+  const t = useT();return <button {...props} disabled={disabled||loading} aria-busy={loading||undefined} className={`ds-button ds-button--${variant} ${className}`.trim()}>{loading&&<span className="ds-spinner" aria-hidden="true"/>}<span>{loading?t("處理中…"):children}</span></button>}
 export function ButtonLink({variant="primary",className="",children,...props}:AnchorHTMLAttributes<HTMLAnchorElement>&{href:string;variant?:ButtonVariant}){return <Link {...props} className={`ds-button ds-button--${variant} ${className}`.trim()}><span>{children}</span></Link>}
 export function IconButton({label,className="",children,...props}:ButtonHTMLAttributes<HTMLButtonElement>&{label:string;children:ReactNode}){return <button {...props} aria-label={label} className={`ds-icon-button ${className}`.trim()}>{children}</button>}
 export function Surface({tone="primary",as:Tag="section",padded=true,className="",...props}:HTMLAttributes<HTMLElement>&{tone?:"primary"|"raised"|"featured";as?:"section"|"article"|"li"|"div"|"button";padded?:boolean}){return <Tag {...props} className={`ds-surface ds-surface--${tone}${padded?"":" ds-surface--unpadded"} ${className}`.trim()}/>}

@@ -4,46 +4,49 @@ import { useRef, useState } from "react";
 import { AVATAR_COLOURS, DEFAULT_AVATAR, avatarHex } from "../avatar-colours";
 import { checkAvatar, checkDisplayName, checkEmail, checkInitials, checkPassword, checkUsername, deriveInitials, MAX_AVATAR_CHARS } from "../api/account/validate";
 import { Button } from "../components/ui/Primitives";
+import { useT, useTranslated } from "../components/I18nProvider";
+import type { Translator } from "../../lib/i18n/translate";
+import { msg } from "../../lib/i18n/translate";
 
-const zh = {
-  email: "電郵",
-  editProfile: "編輯資料", profileHint: "更改使用者名稱或電郵需輸入目前密碼。",
-  profileHintGoogle: "你以 Google 登入，更改資料不需要密碼。",
-  avatar: "頭像", upload: "上傳圖片", remove: "移除",
-  initials: "頭像縮寫", initialsHint: "留空則使用球員姓名自動產生。",
-  colour: "圖示顏色", badgePreview: "球員圖示預覽",
-  badgeHint: "縮寫與顏色會即時套用到排行榜、球員卡及對戰紀錄；上傳圖片後，圖片會取代縮寫顯示。",
-  displayName: "顯示名稱", username: "使用者名稱",
-  current: "目前密碼", save: "儲存變更", saving: "儲存中…", saved: "已儲存。", cancel: "取消",
-  changePassword: "變更密碼", newPassword: "新密碼", confirmPassword: "確認新密碼", updatePassword: "更新密碼",
-  passwordSaved: "密碼已更新。",
-  setPassword: "設定密碼", setPasswordHint: "你的帳戶以 Google 建立，尚未設定密碼。設定後即可同時使用密碼登入。", savePassword: "設定密碼",
-  dangerTrigger: "停用帳戶", dangerHint: "停用後將立即登出，且無法再登入，需由管理員重新啟用。球員成績不會被刪除。",
-  confirmLabel: "輸入使用者名稱以確認", deactivate: "確認停用",
+const zhTable = {
+  email: msg("電郵"),
+  editProfile: msg("編輯資料"), profileHint: msg("更改使用者名稱或電郵需輸入目前密碼。"),
+  profileHintGoogle: msg("你以 Google 登入，更改資料不需要密碼。"),
+  avatar: msg("頭像"), upload: msg("上傳圖片"), remove: msg("移除"),
+  initials: msg("頭像縮寫"), initialsHint: msg("留空則使用球員姓名自動產生。"),
+  colour: msg("圖示顏色"), badgePreview: msg("球員圖示預覽"),
+  badgeHint: msg("縮寫與顏色會即時套用到排行榜、球員卡及對戰紀錄；上傳圖片後，圖片會取代縮寫顯示。"),
+  displayName: msg("顯示名稱"), username: msg("使用者名稱"),
+  current: msg("目前密碼"), save: msg("儲存變更"), saving: msg("儲存中…"), saved: msg("已儲存。"), cancel: msg("取消"),
+  changePassword: msg("變更密碼"), newPassword: msg("新密碼"), confirmPassword: msg("確認新密碼"), updatePassword: msg("更新密碼"),
+  passwordSaved: msg("密碼已更新。"),
+  setPassword: msg("設定密碼"), setPasswordHint: msg("你的帳戶以 Google 建立，尚未設定密碼。設定後即可同時使用密碼登入。"), savePassword: msg("設定密碼"),
+  dangerTrigger: msg("停用帳戶"), dangerHint: msg("停用後將立即登出，且無法再登入，需由管理員重新啟用。球員成績不會被刪除。"),
+  confirmLabel: msg("輸入使用者名稱以確認"), deactivate: msg("確認停用"),
 };
 
 const errors: Record<string, string> = {
-  "username-format": "使用者名稱需 3-24 個字元，僅限英文、數字、. _ -。",
-  "email-format": "電郵格式不正確。",
-  "display-name-format": "顯示名稱需 1-40 個字元。",
-  "password-short": "密碼至少需 6 個字元。",
-  "password-required": "請輸入目前密碼。",
-  "password-wrong": "目前密碼不正確。",
-  "password-same": "新密碼不能與目前密碼相同。",
-  "password-mismatch": "兩次輸入的新密碼不一致。",
-  "username-taken": "該使用者名稱已被使用。",
-  "email-taken": "該電郵已被使用。",
-  "avatar-large": "圖片過大，請選擇較小的圖片。",
-  "avatar-format": "僅支援 PNG、JPEG 或 WebP 圖片。",
-  "initials-format": "縮寫需為 1-3 個英文字母。",
-  "colour-unknown": "請從色板中選擇顏色。",
-  "confirm-mismatch": "輸入的使用者名稱不符。",
-  "last-admin": "您是唯一的管理員，無法停用帳戶。",
-  "no-password": "請先設定帳戶密碼。",
-  unknown: "操作失敗，請稍後再試。",
+  "username-format": msg("使用者名稱需 3-24 個字元，僅限英文、數字、. _ -。"),
+  "email-format": msg("電郵格式不正確。"),
+  "display-name-format": msg("顯示名稱需 1-40 個字元。"),
+  "password-short": msg("密碼至少需 6 個字元。"),
+  "password-required": msg("請輸入目前密碼。"),
+  "password-wrong": msg("目前密碼不正確。"),
+  "password-same": msg("新密碼不能與目前密碼相同。"),
+  "password-mismatch": msg("兩次輸入的新密碼不一致。"),
+  "username-taken": msg("該使用者名稱已被使用。"),
+  "email-taken": msg("該電郵已被使用。"),
+  "avatar-large": msg("圖片過大，請選擇較小的圖片。"),
+  "avatar-format": msg("僅支援 PNG、JPEG 或 WebP 圖片。"),
+  "initials-format": msg("縮寫需為 1-3 個英文字母。"),
+  "colour-unknown": msg("請從色板中選擇顏色。"),
+  "confirm-mismatch": msg("輸入的使用者名稱不符。"),
+  "last-admin": msg("您是唯一的管理員，無法停用帳戶。"),
+  "no-password": msg("請先設定帳戶密碼。"),
+  unknown: msg("操作失敗，請稍後再試。"),
 };
 
-const message = (code: string) => errors[code] ?? errors.unknown;
+const message = (t: Translator, code: string) => t(errors[code] ?? errors.unknown);
 
 async function post(url: string, body: unknown) {
   const response = await fetch(url, {
@@ -85,9 +88,10 @@ function readAvatar(file: File) {
 type Member = { username: string; email: string; displayName: string; avatar?: string | null; initials?: string | null; iconColour?: string | null; playerName?: string; googleLinked?: boolean; hasPassword?: boolean };
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  const t = useT();
   return <label className={error ? "field-invalid" : undefined}>
     {label}{children}
-    {error && <small className="field-error">{message(error)}</small>}
+    {error && <small className="field-error">{message(t, error)}</small>}
   </label>;
 }
 
@@ -108,35 +112,36 @@ function GoogleMark() {
 }
 
 function GoogleConnection({ linked, status, hasPassword }: { linked: boolean; status?: string; hasPassword: boolean }) {
+  const t = useT();
   const [isLinked, setIsLinked] = useState(linked);
   const [disconnecting, setDisconnecting] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [disconnectStatus, setDisconnectStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
   const [disconnectError, setDisconnectError] = useState("");
-  const message_ = status === "connected" ? "Google 帳戶已成功連結。" : status === "already-connected" ? "這個 Google 帳戶早已連結。" : status === "account-already-linked" ? "你的會員帳戶已連結另一個 Google 帳戶。" : status === "google-in-use" ? "這個 Google 帳戶已連結至另一個會員帳戶。" : status === "cancelled" ? "你已取消授權，帳戶沒有任何變更。" : status === "session-required" ? "登入狀態已失效，請重新登入再試。" : status ? "暫時未能連結 Google，請稍後再試。" : null;
-  const message_2 = disconnectStatus === "success" ? "Google 帳戶已解除連結。你仍可使用帳戶密碼登入。" : message_;
+  const message_ = status === "connected" ? t("Google 帳戶已成功連結。") : status === "already-connected" ? t("這個 Google 帳戶早已連結。") : status === "account-already-linked" ? t("你的會員帳戶已連結另一個 Google 帳戶。") : status === "google-in-use" ? t("這個 Google 帳戶已連結至另一個會員帳戶。") : status === "cancelled" ? t("你已取消授權，帳戶沒有任何變更。") : status === "session-required" ? t("登入狀態已失效，請重新登入再試。") : status ? t("暫時未能連結 Google，請稍後再試。") : null;
+  const message_2 = disconnectStatus === "success" ? t("Google 帳戶已解除連結。你仍可使用帳戶密碼登入。") : message_;
 
   async function disconnect(event: React.FormEvent) {
     event.preventDefault();
-    if (hasPassword && !currentPassword) return setDisconnectError("請輸入目前密碼以確認。");
+    if (hasPassword && !currentPassword) return setDisconnectError(t("請輸入目前密碼以確認。"));
     setDisconnectStatus("saving"); setDisconnectError("");
     const failure = await post("/api/account/google", { currentPassword });
     if (failure) {
       setDisconnectStatus("error");
-      setDisconnectError(failure.error === "password-wrong" ? "目前密碼不正確，Google 仍然保持連結。" : failure.error === "rate-limited" ? "嘗試次數過多，請稍後再試。" : failure.error === "no-password" ? "請先設定帳戶密碼，否則解除連結後將無法登入。" : failure.error === "not-linked" ? "Google 帳戶已經解除連結。" : "暫時未能解除連結，請稍後再試。");
+      setDisconnectError(failure.error === "password-wrong" ? t("目前密碼不正確，Google 仍然保持連結。") : failure.error === "rate-limited" ? t("嘗試次數過多，請稍後再試。") : failure.error === "no-password" ? t("請先設定帳戶密碼，否則解除連結後將無法登入。") : failure.error === "not-linked" ? t("Google 帳戶已經解除連結。") : t("暫時未能解除連結，請稍後再試。"));
       return;
     }
     setIsLinked(false); setDisconnecting(false); setCurrentPassword(""); setDisconnectStatus("success");
   }
 
   return <section className="google-connection" aria-labelledby="google-connection-title">
-    <div className="google-connection-copy"><span className="google-mark"><GoogleMark /></span><div><h3 id="google-connection-title">Google 登入</h3><p>{isLinked ? "已連結。下次可直接使用 Google 安全登入。" : "連結後可免密碼登入；不會更改你的會員電郵或球員紀錄。"}</p></div></div>
-    {isLinked ? <div className="google-linked-actions"><span className="google-linked"><i aria-hidden="true">✓</i> 已連結</span>{hasPassword && <button type="button" className="google-disconnect-trigger" onClick={() => { setDisconnecting(true); setDisconnectStatus("idle"); }}>解除連結</button>}</div> : <a className="google-connect-button" href="/api/auth/google?intent=connect">連結 Google</a>}
+    <div className="google-connection-copy"><span className="google-mark"><GoogleMark /></span><div><h3 id="google-connection-title">{t("Google 登入")}</h3><p>{isLinked ? t("已連結。下次可直接使用 Google 安全登入。") : t("連結後可免密碼登入；不會更改你的會員電郵或球員紀錄。")}</p></div></div>
+    {isLinked ? <div className="google-linked-actions"><span className="google-linked"><i aria-hidden="true">✓</i>  {t("已連結")}</span>{hasPassword && <button type="button" className="google-disconnect-trigger" onClick={() => { setDisconnecting(true); setDisconnectStatus("idle"); }}>{t("解除連結")}</button>}</div> : <a className="google-connect-button" href="/api/auth/google?intent=connect">{t("連結 Google")}</a>}
     {disconnecting && <form className="google-disconnect-form" onSubmit={disconnect}>
-      <p>解除後將無法使用 Google 登入。請輸入目前密碼，確認你仍可使用密碼登入帳戶。</p>
-      <label htmlFor="google-disconnect-password">目前密碼<input id="google-disconnect-password" type="password" autoComplete="current-password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} aria-invalid={Boolean(disconnectError)} /></label>
+      <p>{t("解除後將無法使用 Google 登入。請輸入目前密碼，確認你仍可使用密碼登入帳戶。")}</p>
+      <label htmlFor="google-disconnect-password">{t("目前密碼")}<input id="google-disconnect-password" type="password" autoComplete="current-password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} aria-invalid={Boolean(disconnectError)} /></label>
       {disconnectError && <p className="field-error" role="alert">{disconnectError}</p>}
-      <div><Button variant="quiet" onClick={() => { setDisconnecting(false); setCurrentPassword(""); setDisconnectError(""); }}>取消</Button><Button variant="danger" type="submit" disabled={disconnectStatus === "saving"}>{disconnectStatus === "saving" ? "解除中…" : "確認解除"}</Button></div>
+      <div><Button variant="quiet" onClick={() => { setDisconnecting(false); setCurrentPassword(""); setDisconnectError(""); }}>{t("取消")}</Button><Button variant="danger" type="submit" disabled={disconnectStatus === "saving"}>{disconnectStatus === "saving" ? t("解除中…") : t("確認解除")}</Button></div>
     </form>}
     {message_2 && <p className={disconnectStatus === "success" || status === "connected" || status === "already-connected" ? "form-success google-status" : "form-error google-status"} role="status">{message_2}</p>}
   </section>;
@@ -145,6 +150,7 @@ function GoogleConnection({ linked, status, hasPassword }: { linked: boolean; st
 // Read-only by default — most visits are to check a stat, not to edit
 // anything. Editing is an explicit second step.
 function ProfileSection({ member, hasPassword }: { member: Member; hasPassword: boolean }) {
+  const zh = useTranslated(zhTable);
   const [editing, setEditing] = useState(false);
   if (!editing) {
     return <section className="account-summary-row">
@@ -156,6 +162,8 @@ function ProfileSection({ member, hasPassword }: { member: Member; hasPassword: 
 }
 
 function ProfileForm({ member, hasPassword, onDone }: { member: Member; hasPassword: boolean; onDone: () => void }) {
+  const t = useT();
+  const zh = useTranslated(zhTable);
   const [username, setUsername] = useState(member.username);
   const [email, setEmail] = useState(member.email);
   const [displayName, setDisplayName] = useState(member.displayName);
@@ -226,7 +234,7 @@ function ProfileForm({ member, hasPassword, onDone }: { member: Member; hasPassw
         <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden
           onChange={event => { void pickAvatar(event.target.files?.[0]); event.target.value = ""; }} />
       </div>
-      {fieldErrors.avatar && <small className="field-error">{message(fieldErrors.avatar)}</small>}
+      {fieldErrors.avatar && <small className="field-error">{message(t, fieldErrors.avatar)}</small>}
     </div>
 
     {/* The badge the rest of the app draws, shown at the size it appears in a
@@ -248,11 +256,11 @@ function ProfileForm({ member, hasPassword, onDone }: { member: Member; hasPassw
       <span className="colour-field-label" id="icon-colour-label">{zh.colour}</span>
       <div className="colour-grid" role="radiogroup" aria-label={zh.colour}>
         {AVATAR_COLOURS.map(option => <button key={option.id} type="button" role="radio"
-          aria-checked={iconColour === option.id} aria-label={option.name} title={option.name}
+          aria-checked={iconColour === option.id} aria-label={t(option.name)} title={t(option.name)}
           className={`colour-swatch${iconColour === option.id ? " active" : ""}`}
           style={{ background: option.hex }} onClick={() => setIconColour(option.id)} />)}
       </div>
-      {fieldErrors.iconColour && <small className="field-error">{message(fieldErrors.iconColour)}</small>}
+      {fieldErrors.iconColour && <small className="field-error">{message(t, fieldErrors.iconColour)}</small>}
     </div>
 
     <Field label={zh.displayName} error={fieldErrors.displayName}>
@@ -267,7 +275,7 @@ function ProfileForm({ member, hasPassword, onDone }: { member: Member; hasPassw
     {identityChanged && <Field label={zh.current} error={fieldErrors.currentPassword}>
       <input value={currentPassword} type="password" autoComplete="current-password" onChange={event => setCurrentPassword(event.target.value)} />
     </Field>}
-    {fieldErrors.form && <p className="form-error">{message(fieldErrors.form)}</p>}
+    {fieldErrors.form && <p className="form-error">{message(t, fieldErrors.form)}</p>}
     {status === "saved" && <p className="form-success">{zh.saved}</p>}
     <div className="account-form-actions">
       <Button variant="quiet" onClick={onDone}>{zh.cancel}</Button>
@@ -277,6 +285,7 @@ function ProfileForm({ member, hasPassword, onDone }: { member: Member; hasPassw
 }
 
 function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
+  const zh = useTranslated(zhTable);
   const [editing, setEditing] = useState(false);
   if (!editing) {
     return <section className="account-summary-row">
@@ -287,6 +296,8 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
 }
 
 function PasswordForm({ hasPassword, onDone }: { hasPassword: boolean; onDone: () => void }) {
+  const t = useT();
+  const zh = useTranslated(zhTable);
   const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -330,7 +341,7 @@ function PasswordForm({ hasPassword, onDone }: { hasPassword: boolean; onDone: (
     <Field label={zh.confirmPassword} error={errors_.confirm}>
       <input value={confirm} type="password" autoComplete="new-password" onChange={event => setConfirm(event.target.value)} />
     </Field>
-    {errors_.form && <p className="form-error">{message(errors_.form)}</p>}
+    {errors_.form && <p className="form-error">{message(t, errors_.form)}</p>}
     {status === "saved" && <p className="form-success">{zh.passwordSaved}</p>}
     <div className="account-form-actions">
       <Button variant="quiet" onClick={onDone}>{zh.cancel}</Button>
@@ -340,6 +351,8 @@ function PasswordForm({ hasPassword, onDone }: { hasPassword: boolean; onDone: (
 }
 
 function DangerZone({ username, hasPassword }: { username: string; hasPassword: boolean }) {
+  const t = useT();
+  const zh = useTranslated(zhTable);
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -372,13 +385,13 @@ function DangerZone({ username, hasPassword }: { username: string; hasPassword: 
   return <section className="account-danger">
     <p>{zh.dangerHint}</p>
     <form className="auth-form" onSubmit={submit} noValidate>
-      <Field label={`${zh.confirmLabel}（${username}）`} error={fieldErrors.confirm}>
+      <Field label={t("{confirmLabel}（{username}）", {confirmLabel: zh.confirmLabel, username})} error={fieldErrors.confirm}>
         <input value={confirm} onChange={event => setConfirm(event.target.value)} />
       </Field>
       {hasPassword && <Field label={zh.current} error={fieldErrors.currentPassword}>
         <input value={currentPassword} type="password" autoComplete="current-password" onChange={event => setCurrentPassword(event.target.value)} />
       </Field>}
-      {fieldErrors.form && <p className="form-error">{message(fieldErrors.form)}</p>}
+      {fieldErrors.form && <p className="form-error">{message(t, fieldErrors.form)}</p>}
       <div className="account-danger-actions">
         <Button variant="quiet" onClick={() => { setOpen(false); setFieldErrors({}); }}>{zh.cancel}</Button>
         <Button variant="danger" type="submit" disabled={status === "saving"}>{status === "saving" ? zh.saving : zh.deactivate}</Button>

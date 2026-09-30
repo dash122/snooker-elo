@@ -15,6 +15,8 @@ import {
   switchShootoutTurn,
 } from "../lib/shootout.ts";
 
+import { createTranslator } from "../lib/i18n/translate.ts";
+const t = createTranslator("zh-Hant");
 const readyState = () => ({...createShootoutState("陳大文", "李志強"), openingPlayer: "a"});
 
 test("requires two distinct players and an opening player", () => {
@@ -26,7 +28,7 @@ test("requires two distinct players and an opening player", () => {
 test("starting begins both clocks together without starting during setup", () => {
   const setup = readyState();
   assert.equal(getShootoutView(setup, 5_000).matchRemainingMs, SHOOTOUT_MATCH_MS);
-  const started = startShootout(setup, 5_000);
+  const started = startShootout(t, setup, 5_000);
   assert.equal(started.status, "live");
   assert.equal(started.activePlayer, "a");
   assert.equal(started.matchRemainingMs, SHOOTOUT_MATCH_MS);
@@ -34,7 +36,7 @@ test("starting begins both clocks together without starting during setup", () =>
 });
 
 test("the five-minute boundary changes immediately to ten seconds and caps an active shot", () => {
-  const started = startShootout(readyState(), 1_000);
+  const started = startShootout(t, readyState(), 1_000);
   const boundary = {...started, matchRemainingMs: SHOOTOUT_PHASE_CHANGE_MS + 500, shotRemainingMs: SHOOTOUT_LONG_SHOT_MS, lastUpdatedAt: 2_000};
   const view = getShootoutView(boundary, 2_500);
   assert.equal(view.matchRemainingMs, SHOOTOUT_PHASE_CHANGE_MS);
@@ -44,7 +46,7 @@ test("the five-minute boundary changes immediately to ten seconds and caps an ac
 });
 
 test("shot expiry leaves the player unchanged while the match clock continues", () => {
-  const started = startShootout(readyState(), 1_000);
+  const started = startShootout(t, readyState(), 1_000);
   const expiredView = getShootoutView(started, 17_000);
   assert.equal(expiredView.status, "expired");
   assert.equal(expiredView.activePlayer, "a");
@@ -54,8 +56,8 @@ test("shot expiry leaves the player unchanged while the match clock continues", 
 });
 
 test("only a manual switch after expiry changes player and starts a fresh shot clock", () => {
-  const started = startShootout(readyState(), 1_000);
-  const switched = switchShootoutTurn(started, 17_000);
+  const started = startShootout(t, readyState(), 1_000);
+  const switched = switchShootoutTurn(t, started, 17_000);
   assert.equal(switched.status, "live");
   assert.equal(switched.activePlayer, "b");
   assert.equal(switched.shotRemainingMs, SHOOTOUT_LONG_SHOT_MS);
@@ -63,8 +65,8 @@ test("only a manual switch after expiry changes player and starts a fresh shot c
 });
 
 test("pausing only the shot clock does not stop the match clock", () => {
-  const started = startShootout(readyState(), 1_000);
-  const paused = setPause(started, "shot", 6_000);
+  const started = startShootout(t, readyState(), 1_000);
+  const paused = setPause(t, started, "shot", 6_000);
   const view = getShootoutView(paused, 9_000);
   assert.equal(view.shotClockPaused, true);
   assert.equal(view.shotRemainingMs, 10_000);
@@ -72,9 +74,9 @@ test("pausing only the shot clock does not stop the match clock", () => {
 });
 
 test("undo restores the previous player without adding match time back", () => {
-  const started = startShootout(readyState(), 0);
-  const switched = switchShootoutTurn(started, 4_000);
-  const undone = restorePreviousTurn(switched, 6_000);
+  const started = startShootout(t, readyState(), 0);
+  const switched = switchShootoutTurn(t, started, 4_000);
+  const undone = restorePreviousTurn(t, switched, 6_000);
   assert.equal(undone.activePlayer, "a");
   assert.equal(undone.matchRemainingMs, SHOOTOUT_MATCH_MS - 6_000);
   assert.equal(undone.shotRemainingMs, 9_000);
@@ -82,8 +84,8 @@ test("undo restores the previous player without adding match time back", () => {
 });
 
 test("a referee correction can recover an expired shot clock without changing player", () => {
-  const started = startShootout(readyState(), 0);
-  const corrected = resetShotClock(started, 16_000, true);
+  const started = startShootout(t, readyState(), 0);
+  const corrected = resetShotClock(t, started, 16_000, true);
   assert.equal(corrected.activePlayer, "a");
   assert.equal(corrected.status, "live");
   assert.equal(corrected.shotRemainingMs, SHOOTOUT_LONG_SHOT_MS);

@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { PlayerBadge } from "../UiBits";
 import { EmptyState, SegmentedControl, Surface } from "../components/ui/Primitives";
 import { SectionHeader } from "../components/shell/AppShell";
+import { useT } from "../components/I18nProvider";
+import { msg } from "../../lib/i18n/translate";
 
 export type MatchRecord = {
   id: string;
@@ -28,14 +30,14 @@ export type MatchRecord = {
 
 const PAGE = 8;
 const filters = [
-  { id: "all", label: "全部" },
-  { id: "W", label: "勝" },
-  { id: "L", label: "負" },
-  { id: "D", label: "和" },
+  { id: "all", label: msg("全部") },
+  { id: "W", label: msg("勝") },
+  { id: "L", label: msg("負") },
+  { id: "D", label: msg("和") },
 ] as const;
 type Filter = (typeof filters)[number]["id"];
 
-const resultLabel = { W: "勝", L: "負", D: "和" } as const;
+const resultLabel = { W: msg("勝"), L: msg("負"), D: msg("和") } as const;
 
 function day(iso: string) {
   if (!iso) return { day: "—", year: "" };
@@ -50,6 +52,7 @@ function day(iso: string) {
  * that would otherwise crowd the list.
  */
 export default function MatchHistory({ records }: { records: MatchRecord[] }) {
+  const t = useT();
   const [filter, setFilter] = useState<Filter>("all");
   const [shown, setShown] = useState(PAGE);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -67,15 +70,15 @@ export default function MatchHistory({ records }: { records: MatchRecord[] }) {
   }), [records]);
 
   return <Surface className="account-panel match-history">
-    <SectionHeader title="我的每一場" description="按賽果篩選，點選任何一場查看讓分與賽前勝算。" meta={`${records.length} 場`} />
+    <SectionHeader title={t("我的每一場")} description={t("按賽果篩選，點選任何一場查看讓分與賽前勝算。")} meta={t("{records} 場", {records: records.length})} />
 
     {records.length === 0
-      ? <EmptyState title="尚未有比賽紀錄" description="完成第一場後，這裡會列出每場的對手、比分與 ELO 變化。" />
+      ? <EmptyState title={t("尚未有比賽紀錄")} description={t("完成第一場後，這裡會列出每場的對手、比分與 ELO 變化。")} />
       : <>
-        <SegmentedControl label="賽果篩選" value={filter} items={filters.map(option=>({value:option.id,label:`${option.label} ${counts[option.id]}`}))} onChange={value=>{setFilter(value as Filter);setShown(PAGE);setOpenId(null)}} />
+        <SegmentedControl label={t("賽果篩選")} value={filter} items={filters.map(option=>({value:option.id,label:`${t(option.label)} ${counts[option.id]}`}))} onChange={value=>{setFilter(value as Filter);setShown(PAGE);setOpenId(null)}} />
 
         {visible.length === 0
-          ? <EmptyState title="沒有符合的賽果" description="試試其他篩選條件。" />
+          ? <EmptyState title={t("沒有符合的賽果")} description={t("試試其他篩選條件。")} />
           : <ul className="match-history-list">
             {visible.map(record => {
               const open = openId === record.id;
@@ -84,31 +87,30 @@ export default function MatchHistory({ records }: { records: MatchRecord[] }) {
                 <button type="button" className="match-row-main" aria-expanded={open}
                   onClick={() => setOpenId(current => current === record.id ? null : record.id)}>
                   <span className="match-row-date"><b>{stamp.day}</b><small>{stamp.year}</small></span>
-                  <span className="match-row-badge">{resultLabel[record.result]}</span>{record.mode==="2v2"&&<span className="match-row-entertainment">潮拍 2v2</span>}
+                  <span className="match-row-badge">{t(resultLabel[record.result])}</span>{record.mode==="2v2"&&<span className="match-row-entertainment">{t("潮拍 2v2")}</span>}
                   <span className="match-row-opponent">
                     <PlayerBadge player={{ short: record.opponentShort, colour: record.opponentColour, avatar: record.opponentAvatar }}/>
-                    <span><b>{record.opponent}</b><small>{record.opponentRating != null ? `ELO ${Math.round(record.opponentRating)}` : "已移除球員"}</small></span>
+                    <span><b>{record.opponent}</b><small>{record.opponentRating != null ? `ELO ${Math.round(record.opponentRating)}` : t("已移除球員")}</small></span>
                   </span>
                   <span className="match-row-score"><b>{record.ownScore}</b><em>–</em><b>{record.opponentScore}</b></span>
                   <span className={`match-row-delta ${record.mode==="2v2" ? "neutral" : record.delta >= 0 ? "positive" : "negative"}`}>
-                    <b>{record.mode==="2v2"?"不計 ELO":`${record.delta >= 0 ? "+" : ""}${Math.round(record.delta)}`}</b>
-                    <small>{record.mode==="2v2"?"娛樂模式":`${Math.round(record.before)} → ${Math.round(record.after)}`}</small>
+                    <b>{record.mode==="2v2"?t("不計 ELO"):`${record.delta >= 0 ? "+" : ""}${Math.round(record.delta)}`}</b>
+                    <small>{record.mode==="2v2"?t("娛樂模式"):`${Math.round(record.before)} → ${Math.round(record.after)}`}</small>
                   </span>
-                  {record.highBreaks.length > 0 && <span className="match-row-break">單桿 {record.highBreaks.join(" / ")}</span>}
+                  {record.highBreaks.length > 0 && <span className="match-row-break">{t("單桿 {v}", {v: record.highBreaks.join(" / ")})}</span>}
                 </button>
                 {open && <dl className="match-row-detail">
-                  <div><dt>讓分</dt><dd>{record.handicap === 0 ? "無" : record.handicap > 0 ? `你讓 ${record.handicap}` : `對手讓 ${Math.abs(record.handicap)}`}</dd></div>
-                  <div><dt>賽前勝算</dt><dd>{Math.round(record.expected * 100)}%</dd></div>
-                  <div><dt>局數</dt><dd>{record.score}</dd></div>
-                  <div><dt>單桿</dt><dd>{record.highBreaks.length ? record.highBreaks.join(" / ") : "—"}</dd></div>
+                  <div><dt>{t("讓分")}</dt><dd>{record.handicap === 0 ? t("無") : record.handicap > 0 ? t("你讓 {handicap}", {handicap: record.handicap}) : t("對手讓 {v}", {v: Math.abs(record.handicap)})}</dd></div>
+                  <div><dt>{t("賽前勝算")}</dt><dd>{Math.round(record.expected * 100)}%</dd></div>
+                  <div><dt>{t("局數")}</dt><dd>{record.score}</dd></div>
+                  <div><dt>{t("單桿")}</dt><dd>{record.highBreaks.length ? record.highBreaks.join(" / ") : "—"}</dd></div>
                 </dl>}
               </Surface>;
             })}
           </ul>}
 
         {shown < filtered.length && <button type="button" className="match-history-more" onClick={() => setShown(count => count + PAGE)}>
-          顯示更多（尚有 {filtered.length - shown} 場）
-        </button>}
+          {t("顯示更多（尚有 {v} 場）", {v: filtered.length - shown})}</button>}
       </>}
   </Surface>;
 }

@@ -21,6 +21,7 @@
    stays in the copy module and arrives here already written. */
 import type { CupShareState } from "./cup-share";
 import type { MatchShareState, RecordShareState } from "./match-share";
+import type { Translator } from "./i18n/translate.ts";
 
 export const STORY_WIDTH = 1080;
 export const STORY_HEIGHT = 1920;
@@ -297,7 +298,7 @@ function svgDocument(body: string): string {
 
 /** The one match card. Two rows, not two columns: Cantonese names are wide, and a vertical
     scoreline reads at a glance at story size where a side-by-side one crushes the names. */
-export function resultStorySvg(card: ResultStoryCard, hex: (colour: string | null) => string): string {
+export function resultStorySvg(t: Translator, card: ResultStoryCard, hex: (colour: string | null) => string): string {
   const boardY = 480, boardHeight = 620, rowGap = 280;
   const rows = [boardY + 170, boardY + 170 + rowGap];
   const parts: string[] = [wordmark(card.cupRound)];
@@ -315,7 +316,7 @@ export function resultStorySvg(card: ResultStoryCard, hex: (colour: string | nul
     parts.push(badge(side.person, 210, y, 78, hex(side.person.colour)));
     /* A 2v2 side is a team, so the team's name leads and the four players are listed under it —
        otherwise the card credits a name nobody at the table answers to. */
-    const sub = side.members.join("、");
+    const sub = side.members.join(t("、"));
     /* The names stop where the score starts. Two digits of score is the widest case, so the room a
        name gets is measured against that rather than against the score this match happens to have —
        a card whose layout depends on the result is a card that breaks on the next result. */
@@ -332,7 +333,7 @@ export function resultStorySvg(card: ResultStoryCard, hex: (colour: string | nul
 
   const dividerY = boardY + 170 + rowGap / 2;
   parts.push(`<line x1="140" y1="${dividerY}" x2="${STORY_WIDTH - 140}" y2="${dividerY}" stroke="rgba(255,255,255,.12)" stroke-width="2"/>`);
-  const badgeLabel = card.drawn ? "打成平手" : "VS";
+  const badgeLabel = card.drawn ? t("打成平手") : "VS";
   const labelWidth = textWidth(badgeLabel, 30) + 56;
   parts.push(`<rect x="${STORY_WIDTH / 2 - labelWidth / 2}" y="${dividerY - 26}" width="${labelWidth}" height="52" rx="26" fill="#0a3125" stroke="rgba(255,255,255,.18)" stroke-width="2"/>`);
   parts.push(text(badgeLabel, STORY_WIDTH / 2, dividerY + 11, { size: 30, weight: 700, anchor: "middle", opacity: 0.8 }));
@@ -340,7 +341,7 @@ export function resultStorySvg(card: ResultStoryCard, hex: (colour: string | nul
   const chips: { label: string; tone?: "plain" | "gold" }[] = [];
   if (card.handicap) chips.push({ label: ellipsize(card.handicap, 30, 620) });
   if (card.eloDelta > 0) chips.push({ label: `ELO ±${card.eloDelta}`, tone: "gold" });
-  if (!card.eloDelta) chips.push({ label: "友誼賽 · 不計 ELO" });
+  if (!card.eloDelta) chips.push({ label: t("友誼賽 · 不計 ELO") });
   parts.push(pillRow(chips, STORY_WIDTH / 2, 1180, 30));
 
   /* A break is the one number a snooker player brags about, so when there is one it gets a band of
@@ -348,7 +349,7 @@ export function resultStorySvg(card: ResultStoryCard, hex: (colour: string | nul
   const top = card.breaks[0];
   if (top) {
     parts.push(`<rect x="76" y="1290" width="${STORY_WIDTH - 152}" height="150" rx="38" fill="rgba(232,194,106,.10)" stroke="rgba(232,194,106,.34)" stroke-width="2"/>`);
-    parts.push(text("最高單桿", 130, 1350, { size: 30, fill: GOLD_DIM, weight: 700 }));
+    parts.push(text(t("最高單桿"), 130, 1350, { size: 30, fill: GOLD_DIM, weight: 700 }));
     parts.push(text(ellipsize(top.name, 34, 380), 130, 1400, { size: 34, opacity: 0.85 }));
     parts.push(text(String(top.value), STORY_WIDTH - 130, 1392, { size: 96, weight: 800, fill: GOLD, anchor: "end" }));
   }
@@ -364,7 +365,7 @@ export function resultStorySvg(card: ResultStoryCard, hex: (colour: string | nul
 
 /** The player's standing. What a member posts when there is no fresh result to show — and the card
     most likely to be seen by someone who has never played at the club. */
-export function recordStorySvg(card: RecordStoryCard, hex: (colour: string | null) => string): string {
+export function recordStorySvg(t: Translator, card: RecordStoryCard, hex: (colour: string | null) => string): string {
   const parts: string[] = [wordmark(card.honour)];
 
   /* A quiet hero panel gives the portrait and rating one visual home, so the card reads as a
@@ -376,24 +377,24 @@ export function recordStorySvg(card: RecordStoryCard, hex: (colour: string | nul
   parts.push(text(ellipsize(card.person.name, recordNameSize, 880), STORY_WIDTH / 2, 636, { size: recordNameSize, weight: 800, anchor: "middle" }));
 
   const identity: { label: string; tone?: "plain" | "gold" }[] = [];
-  if (card.rank > 0) identity.push({ label: `球會排名 #${card.rank}`, tone: "gold" });
-  identity.push({ label: card.provisional ? "臨時 ELO" : "正式 ELO" });
+  if (card.rank > 0) identity.push({ label: t("球會排名 #{rank}", {rank: card.rank}), tone: "gold" });
+  identity.push({ label: card.provisional ? t("臨時 ELO") : t("正式 ELO") });
   parts.push(pillRow(identity, STORY_WIDTH / 2, 690, 30));
 
-  parts.push(text("目前 ELO", STORY_WIDTH / 2, 814, { size: 30, anchor: "middle", opacity: 0.55, spacing: 4 }));
+  parts.push(text(t("目前 ELO"), STORY_WIDTH / 2, 814, { size: 30, anchor: "middle", opacity: 0.55, spacing: 4 }));
   const ratingText = String(card.rating);
   const ratingSize = fitSize(ratingText, 176, 112, 700);
   parts.push(text(ratingText, STORY_WIDTH / 2, 954, { size: ratingSize, weight: 800, fill: GOLD, anchor: "middle" }));
   if (card.swing !== 0) {
-    const label = `近期 ${card.swing > 0 ? "+" : "−"}${Math.abs(card.swing)}`;
+    const label = t("近期 {v}{v2}", {v: card.swing > 0 ? "+" : "−", v2: Math.abs(card.swing)});
     parts.push(pillRow([{ label, tone: card.swing > 0 ? "gold" : "plain" }], STORY_WIDTH / 2, 970, 30));
   }
 
   const cells = [
-    { label: "場數", value: String(card.played) },
-    { label: "勝／負／和", value: `${card.wins}/${card.losses}/${card.draws}` },
-    { label: "局數勝率", value: `${Math.round(card.frameRate * 100)}%` },
-    { label: "最高單桿", value: card.highestBreak > 0 ? String(card.highestBreak) : "—" },
+    { label: t("場數"), value: String(card.played) },
+    { label: t("勝／負／和"), value: `${card.wins}/${card.losses}/${card.draws}` },
+    { label: t("局數勝率"), value: `${Math.round(card.frameRate * 100)}%` },
+    { label: t("最高單桿"), value: card.highestBreak > 0 ? String(card.highestBreak) : "—" },
   ];
   const gridY = 1090, cellWidth = (STORY_WIDTH - 152 - 24) / 2, cellHeight = 160;
   cells.forEach((cell, index) => {
@@ -411,7 +412,7 @@ export function recordStorySvg(card: RecordStoryCard, hex: (colour: string | nul
     const size = 62, gap = 18;
     const total = dots.length * size + (dots.length - 1) * gap;
     let x = STORY_WIDTH / 2 - total / 2;
-    parts.push(text("近期 5 場", STORY_WIDTH / 2, 1490, { size: 30, anchor: "middle", opacity: 0.55 }));
+    parts.push(text(t("近期 5 場"), STORY_WIDTH / 2, 1490, { size: 30, anchor: "middle", opacity: 0.55 }));
     for (const result of dots) {
       const fill = result === "W" ? "#1f8a5a" : result === "L" ? "#a4192a" : "#5a6570";
       parts.push(`<rect x="${x}" y="1514" width="${size}" height="${size}" rx="20" fill="${fill}"/>`);
@@ -438,7 +439,7 @@ export function recordStorySvg(card: RecordStoryCard, hex: (colour: string | nul
  *
  *  The elbows are the point. A column of scores is a table; a table with elbows is a bracket, and a
  *  bracket is the picture that says "this is a competition someone won". */
-function bracketPanel(rounds: StoryBracketRound[], x: number, y: number, width: number, height: number,
+function bracketPanel(t: Translator, rounds: StoryBracketRound[], x: number, y: number, width: number, height: number,
   options: { title?: string; focus?: number } = {}): string {
   const columns = rounds.length;
   if (!columns) return "";
@@ -469,7 +470,7 @@ function bracketPanel(rounds: StoryBracketRound[], x: number, y: number, width: 
   };
 
   const parts: string[] = [
-    text(options.title ?? "賽 事 對 陣", x + width / 2, bodyY - 56,
+    text(options.title ?? t("賽 事 對 陣"), x + width / 2, bodyY - 56,
       { size: 26, anchor: "middle", opacity: 0.42, weight: 700, spacing: 8 }),
   ];
 
@@ -564,7 +565,7 @@ function bracketPanel(rounds: StoryBracketRound[], x: number, y: number, width: 
  *  face at portrait size. Underneath it, the bracket, because "who won" is only half the claim — the
  *  other half is that they beat five people to do it, and a tree says that in one glance where a
  *  sentence would need a paragraph. */
-function cupDoneSvg(card: CupStoryCard, hex: (colour: string | null) => string): string {
+function cupDoneSvg(t: Translator, card: CupStoryCard, hex: (colour: string | null) => string): string {
   const parts: string[] = [
     `<defs>
       <radialGradient id="crownglow" cx="0.5" cy="0.5" r="0.5">
@@ -589,7 +590,7 @@ function cupDoneSvg(card: CupStoryCard, hex: (colour: string | null) => string):
   const heroY = 530;
   parts.push(`<circle cx="${STORY_WIDTH / 2}" cy="${heroY}" r="300" fill="url(#crownglow)"/>`);
   parts.push(trophy(STORY_WIDTH / 2, 390, 3.1, GOLD));
-  parts.push(text("冠 軍", STORY_WIDTH / 2, 456, { size: 32, fill: GOLD_DIM, weight: 800, anchor: "middle", spacing: 14 }));
+  parts.push(text(t("冠 軍"), STORY_WIDTH / 2, 456, { size: 32, fill: GOLD_DIM, weight: 800, anchor: "middle", spacing: 14 }));
 
   if (champion) {
     parts.push(`<circle cx="${STORY_WIDTH / 2}" cy="${heroY}" r="120" fill="none" stroke="rgba(232,194,106,.34)" stroke-width="2"/>`);
@@ -603,7 +604,7 @@ function cupDoneSvg(card: CupStoryCard, hex: (colour: string | null) => string):
   /* The plinth: a hairline that fades out at both ends, so the champion stands on something without
      a hard rule cutting the frame in two. */
   parts.push(`<rect x="${STORY_WIDTH / 2 - 290}" y="${heroY + 218}" width="580" height="3" fill="url(#plinth)"/>`);
-  parts.push(text(`${card.headline} 人參賽`, STORY_WIDTH / 2, heroY + 266, {
+  parts.push(text(t("{headline} 人參賽", {headline: card.headline}), STORY_WIDTH / 2, heroY + 266, {
     size: 30, anchor: "middle", opacity: 0.6, spacing: 3,
   }));
 
@@ -611,7 +612,7 @@ function cupDoneSvg(card: CupStoryCard, hex: (colour: string | null) => string):
      purpose: a champion with no bracket under them is a claim, and a champion with one is a record. */
   const panelTop = 872;
   const panelHeight = 1396 - panelTop;
-  if (card.bracket.length) parts.push(bracketPanel(card.bracket, 56, panelTop, STORY_WIDTH - 112, panelHeight));
+  if (card.bracket.length) parts.push(bracketPanel(t, card.bracket, 56, panelTop, STORY_WIDTH - 112, panelHeight));
 
   parts.push(text(card.cta, STORY_WIDTH / 2, 1452, { size: 42, weight: 800, anchor: "middle" }));
   const host = card.url.replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -621,7 +622,7 @@ function cupDoneSvg(card: CupStoryCard, hex: (colour: string | null) => string):
   parts.push(text(ellipsize(host, linkSize, 800), STORY_WIDTH / 2, 1496 + 58 + linkSize * 0.36, {
     size: linkSize, weight: 800, fill: GOLD, anchor: "middle",
   }));
-  parts.push(text("開連結貼紙貼上，或者照打呢條網址", STORY_WIDTH / 2, SAFE_BOTTOM - 12, {
+  parts.push(text(t("開連結貼紙貼上，或者照打呢條網址"), STORY_WIDTH / 2, SAFE_BOTTOM - 12, {
     size: 30, anchor: "middle", opacity: 0.55,
   }));
 
@@ -640,21 +641,21 @@ function cupDoneSvg(card: CupStoryCard, hex: (colour: string | null) => string):
  *
  *  It keeps the wordmark, palette and drawn link button of the other two cup cards, so the three
  *  read as one family. */
-function cupDrawSvg(card: CupStoryCard, hex: (colour: string | null) => string): string {
+function cupDrawSvg(t: Translator, card: CupStoryCard, hex: (colour: string | null) => string): string {
   const parts: string[] = [wordmark(card.statusLabel)];
 
   const nameSize = fitSize(card.name, 74, 44, 880);
   parts.push(text(ellipsize(card.name, nameSize, 900), STORY_WIDTH / 2, 330, {
     size: nameSize, weight: 900, anchor: "middle",
   }));
-  parts.push(text("對 陣 抽 籤", STORY_WIDTH / 2, 392, {
+  parts.push(text(t("對 陣 抽 籤"), STORY_WIDTH / 2, 392, {
     size: 30, fill: GOLD, weight: 800, anchor: "middle", spacing: 12,
   }));
 
   /* The two facts a tree cannot state itself: how big the field is, and which round these ties are.
      Everything else on the card is the drawing. */
   parts.push(pillRow([
-    { label: `${card.headline} 人參賽` },
+    { label: t("{headline} 人參賽", {headline: card.headline}) },
     ...(card.round ? [{ label: card.round, tone: "gold" as const }] : []),
   ], STORY_WIDTH / 2, 424, 30));
 
@@ -664,8 +665,8 @@ function cupDrawSvg(card: CupStoryCard, hex: (colour: string | null) => string):
     round.ties.some(tie => !tie.dead && tie.seats.every(seat => !seat.pending) && !tie.seats.some(seat => seat.won)));
 
   const panelTop = 566;
-  parts.push(bracketPanel(card.bracket, 56, panelTop, STORY_WIDTH - 112, 1352 - panelTop, {
-    title: "今 屆 對 陣 表",
+  parts.push(bracketPanel(t, card.bracket, 56, panelTop, STORY_WIDTH - 112, 1352 - panelTop, {
+    title: t("今 屆 對 陣 表"),
     focus: focus >= 0 ? focus : undefined,
   }));
 
@@ -694,7 +695,7 @@ function cupDrawSvg(card: CupStoryCard, hex: (colour: string | null) => string):
   parts.push(text(ellipsize(host, linkSize, 800), STORY_WIDTH / 2, 1524 + 52 + linkSize * 0.36, {
     size: linkSize, weight: 800, fill: GOLD, anchor: "middle",
   }));
-  parts.push(text("開連結貼紙貼上，或者照打呢條網址", STORY_WIDTH / 2, SAFE_BOTTOM - 12, {
+  parts.push(text(t("開連結貼紙貼上，或者照打呢條網址"), STORY_WIDTH / 2, SAFE_BOTTOM - 12, {
     size: 30, anchor: "middle", opacity: 0.55,
   }));
 
@@ -713,12 +714,12 @@ function cupDrawSvg(card: CupStoryCard, hex: (colour: string | null) => string):
  *  like the button it cannot be, and the app copies it to the clipboard at the same moment so the
  *  poster can drop it into a link sticker with one paste. Everything above it exists to make that
  *  worth doing: the cup's name, the clock, and how many are already in. */
-export function cupStorySvg(card: CupStoryCard, hex: (colour: string | null) => string): string {
+export function cupStorySvg(t: Translator, card: CupStoryCard, hex: (colour: string | null) => string): string {
   /* A finished cup is a different card entirely — see `cupDoneSvg`. It keeps the same wordmark,
      palette and link button, so the two read as one family rather than two apps. */
-  if (card.status === "done" && card.champion) return cupDoneSvg(card, hex);
+  if (card.status === "done" && card.champion) return cupDoneSvg(t, card, hex);
   /* A cup that has been drawn is about its bracket, not about how many people entered. */
-  if (card.status === "live" && card.bracket.length) return cupDrawSvg(card, hex);
+  if (card.status === "live" && card.bracket.length) return cupDrawSvg(t, card, hex);
   const parts: string[] = [wordmark(card.statusLabel)];
 
   const nameSize = fitSize(card.name, 96, 52, 880);
@@ -763,7 +764,7 @@ export function cupStorySvg(card: CupStoryCard, hex: (colour: string | null) => 
   }
 
   if (card.champion) {
-    parts.push(text("冠軍", STORY_WIDTH / 2, 1080, { size: 32, anchor: "middle", opacity: 0.55, spacing: 4 }));
+    parts.push(text(t("冠軍"), STORY_WIDTH / 2, 1080, { size: 32, anchor: "middle", opacity: 0.55, spacing: 4 }));
     parts.push(badge(card.champion, STORY_WIDTH / 2, 1180, 82, hex(card.champion.colour)));
     parts.push(text(ellipsize(card.champion.name, 52, 800), STORY_WIDTH / 2, 1320, {
       size: 52, weight: 800, fill: GOLD, anchor: "middle",
@@ -779,7 +780,7 @@ export function cupStorySvg(card: CupStoryCard, hex: (colour: string | null) => 
   parts.push(text(ellipsize(host, linkSize, 800), STORY_WIDTH / 2, 1500 + 60 + linkSize * 0.36, {
     size: linkSize, weight: 800, fill: GOLD, anchor: "middle",
   }));
-  parts.push(text("開連結貼紙貼上，或者照打呢條網址", STORY_WIDTH / 2, SAFE_BOTTOM - 8, {
+  parts.push(text(t("開連結貼紙貼上，或者照打呢條網址"), STORY_WIDTH / 2, SAFE_BOTTOM - 8, {
     size: 30, anchor: "middle", opacity: 0.55,
   }));
 
@@ -787,39 +788,39 @@ export function cupStorySvg(card: CupStoryCard, hex: (colour: string | null) => 
   return svgDocument(parts.join(""));
 }
 
-export function storySvg(card: StoryCard, hex: (colour: string | null) => string): string {
-  return card.kind === "result" ? resultStorySvg(card, hex)
-    : card.kind === "cup" ? cupStorySvg(card, hex)
-    : recordStorySvg(card, hex);
+export function storySvg(t: Translator, card: StoryCard, hex: (colour: string | null) => string): string {
+  return card.kind === "result" ? resultStorySvg(t, card, hex)
+    : card.kind === "cup" ? cupStorySvg(t, card, hex)
+    : recordStorySvg(t, card, hex);
 }
 
 /** The story card a cup becomes. Every number on it comes from the same `CupShareState` the WhatsApp
     message and the link poster read, so the three can never quote a different field or deadline. */
-export function cupStoryCard(name: string, state: CupShareState, url: string,
+export function cupStoryCard(t: Translator, name: string, state: CupShareState, url: string,
   entrants: StoryPerson[], champion: StoryPerson | null, bracket: StoryBracketRound[] = []): CupStoryCard {
-  const statusLabel = state.status === "signup" ? "報名中" : state.status === "live" ? "進行中"
-    : state.status === "done" ? "已完成" : "未能開賽";
+  const statusLabel = state.status === "signup" ? t("報名中") : state.status === "live" ? t("進行中")
+    : state.status === "done" ? t("已完成") : t("未能開賽");
   const recruiting = state.status === "signup";
   return {
     kind: "cup",
     name, status: state.status, statusLabel,
-    urgency: recruiting && state.urgency.label !== "報名開放中" ? state.urgency.label : "",
+    urgency: recruiting && state.urgency.label !== t("報名開放中") ? state.urgency.label : "",
     round: state.status === "live" ? state.roundName : "",
     hot: state.urgency.hot,
     headline: String(state.entrants),
-    headlineLabel: recruiting ? "已報名人數"
-      : state.status === "live" ? `${state.roundName} · 參賽人數`
-      : state.status === "done" ? "參賽人數" : "報名人數",
-    deadline: recruiting ? `${state.deadline} 截止，截止即刻抽籤` : "",
+    headlineLabel: recruiting ? t("已報名人數")
+      : state.status === "live" ? t("{roundName} · 參賽人數", {roundName: state.roundName})
+      : state.status === "done" ? t("參賽人數") : t("報名人數"),
+    deadline: recruiting ? t("{deadline} 截止，截止即刻抽籤", {deadline: state.deadline}) : "",
     entrants: state.status === "done" ? [] : entrants,
     entrantsMore: state.status === "done" ? 0 : Math.max(0, state.entrants - entrants.length),
     champion: state.status === "done" ? champion : null,
     /* Once the draw is made the tree is the card, live or finished. Before it there is nothing to
        draw — a bracket of 待定 against 待定 is a diagram of a competition, not a competition. */
     bracket: state.status === "done" || state.status === "live" ? bracket : [],
-    cta: recruiting ? "撳呢條連結即刻報名"
-      : state.status === "live" ? "撳呢條連結睇成個對陣表"
-      : "撳呢條連結睇對陣同賽果",
+    cta: recruiting ? t("撳呢條連結即刻報名")
+      : state.status === "live" ? t("撳呢條連結睇成個對陣表")
+      : t("撳呢條連結睇對陣同賽果"),
     url,
   };
 }
@@ -838,11 +839,11 @@ export const BANNER_HEIGHT = 630;
  *  Rasterised once into `public/` by `scripts/render-share-images.mjs`, not served per request:
  *  WhatsApp's crawler will not render SVG, and the alternative is an image service this app does
  *  not need. */
-export function shareBannerSvg(kind: "match" | "record"): string {
-  const headline = kind === "match" ? "球會賽果" : "球員紀錄";
-  const second = kind === "match" ? "比分・讓分・ELO" : "排名・走勢・單桿";
-  const sub = kind === "match" ? "撳入去睇今場詳情，同全會排名" : "撳入去睇 ELO 走勢同對戰紀錄";
-  const chips = kind === "match" ? ["即時賽果", "ELO 排名", "單桿紀錄"] : ["ELO 走勢", "球會排名", "約戰對手"];
+export function shareBannerSvg(t: Translator, kind: "match" | "record"): string {
+  const headline = kind === "match" ? t("球會賽果") : t("球員紀錄");
+  const second = kind === "match" ? t("比分・讓分・ELO") : t("排名・走勢・單桿");
+  const sub = kind === "match" ? t("撳入去睇今場詳情，同全會排名") : t("撳入去睇 ELO 走勢同對戰紀錄");
+  const chips = kind === "match" ? [t("即時賽果"), t("ELO 排名"), t("單桿紀錄")] : [t("ELO 走勢"), t("球會排名"), t("約戰對手")];
 
   const ball = (cx: number, cy: number, r: number, colour: string) =>
     `<g><circle cx="${cx}" cy="${cy}" r="${r}" fill="${colour}"/>`
@@ -884,12 +885,12 @@ export function shareBannerSvg(kind: "match" | "record"): string {
 
 /** The card a shared match becomes. Every fact on it already exists in the share state, so the two
     surfaces — the WhatsApp message and the story image — can never quote different numbers. */
-export function resultStoryCard(state: MatchShareState, url: string): ResultStoryCard {
+export function resultStoryCard(t: Translator, state: MatchShareState, url: string): ResultStoryCard {
   return {
     kind: "result",
     /* The cup's own name stays the headline and the round rides in the ribbon above it, so the two
        never compete for the same line — 「南華會週年盃賽 · 準決賽」 on one row shrinks both. */
-    occasion: state.kind === "cup" ? state.cup!.name : state.kind === "fun" ? "潮拍 2v2 · 不計 ELO" : "球會對局",
+    occasion: state.kind === "cup" ? state.cup!.name : state.kind === "fun" ? t("潮拍 2v2 · 不計 ELO") : t("球會對局"),
     cupRound: state.cup?.round ?? "",
     playedOn: state.playedOn,
     sides: [state.left, state.right].map(side => ({

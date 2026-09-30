@@ -1,4 +1,5 @@
 import { getCurrentMember, savePreliminaryRating } from "../../../db/auth";
+import { getTranslator } from "../../../lib/i18n/server";
 
 const q1Scores = new Map([
   ["450", 450], ["550", 550], ["1000", 1000], ["1200", 1200],
@@ -7,15 +8,16 @@ const q1Scores = new Map([
 ]);
 
 export async function POST(request: Request) {
+  const { t } = await getTranslator();
   const member = await getCurrentMember();
-  if (!member) return Response.json({ error: "未登入。" }, { status: 401 });
+  if (!member) return Response.json({ error: t("未登入。") }, { status: 401 });
 
   const body = await request.json().catch(() => null) as { q1?: unknown } | null;
   const q1 = typeof body?.q1 === "string" ? q1Scores.get(body.q1) : undefined;
-  if (q1 === undefined) return Response.json({ error: "請完成第一條問題。" }, { status: 400 });
+  if (q1 === undefined) return Response.json({ error: t("請完成第一條問題。") }, { status: 400 });
 
   const finalRating = q1;
   const saved = await savePreliminaryRating(member.email, q1, finalRating, new Date().toISOString());
-  if (!saved) return Response.json({ error: "未能儲存評級，請稍後再試。" }, { status: 500 });
+  if (!saved) return Response.json({ error: t("未能儲存評級，請稍後再試。") }, { status: 500 });
   return Response.json({ finalRating });
 }

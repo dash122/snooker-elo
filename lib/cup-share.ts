@@ -10,6 +10,7 @@
  *  disagree about the club-local format. */
 
 import { formatTournamentDateTime } from "./tournament.ts";
+import type { Translator } from "./i18n/translate.ts";
 
 export type CupShareState = {
   status:"signup"|"live"|"done"|"short";
@@ -36,7 +37,7 @@ export type CupShareInput = {
   now?:number;
 };
 
-const dateText=(value:string,now=Date.now())=>formatTournamentDateTime(value,new Date(now));
+const dateText=(t: Translator, value:string,now=Date.now())=>formatTournamentDateTime(t, value,new Date(now));
 const DAY=86400000;
 
 /** Days to the deadline. A naive `2026-08-20T23:59` is read as club-local time, exactly the way
@@ -47,15 +48,15 @@ function daysUntil(deadline:string,now:number):number {
   return Math.max(0,Math.floor((at-now)/DAY));
 }
 
-export function cupShareState(input:CupShareInput):CupShareState {
+export function cupShareState(t: Translator, input:CupShareInput):CupShareState {
   const status=!input.closed?"signup":!input.drew?"short":input.championName?"done":"live";
   const daysLeft=daysUntil(input.signupDeadline,input.now??Date.now());
   return {
     status,entrants:input.entrants,
-    deadline:dateText(input.signupDeadline,input.now??Date.now()),
+    deadline:dateText(t, input.signupDeadline,input.now??Date.now()),
     roundName:input.roundName,
     championName:input.championName??"",
-    daysLeft,urgency:urgencyFor(status,daysLeft),
+    daysLeft,urgency:urgencyFor(t, status,daysLeft),
   };
 }
 
@@ -65,13 +66,13 @@ export function cupShareState(input:CupShareInput):CupShareState {
  *  ignored on both. The clock is the only honest source of urgency a cup has — the club sets a
  *  deadline, and after it there is no way in — so it is quoted plainly and gets louder as it nears.
  *  Nothing here invents scarcity the club did not declare. */
-function urgencyFor(status:CupShareState["status"],daysLeft:number):{label:string;hot:boolean} {
+function urgencyFor(t: Translator, status:CupShareState["status"],daysLeft:number):{label:string;hot:boolean} {
   if(status!=="signup")return {label:"",hot:false};
-  if(daysLeft===0)return {label:"今日最後召集",hot:true};
-  if(daysLeft===1)return {label:"仲有 1 日截止",hot:true};
-  if(daysLeft<=3)return {label:`仲有 ${daysLeft} 日截止`,hot:true};
-  if(daysLeft<=7)return {label:`仲有 ${daysLeft} 日截止`,hot:false};
-  return {label:"報名開放中",hot:false};
+  if(daysLeft===0)return {label:t("今日最後召集"),hot:true};
+  if(daysLeft===1)return {label:t("仲有 1 日截止"),hot:true};
+  if(daysLeft<=3)return {label:t("仲有 {daysLeft} 日截止", {daysLeft}),hot:true};
+  if(daysLeft<=7)return {label:t("仲有 {daysLeft} 日截止", {daysLeft}),hot:false};
+  return {label:t("報名開放中"),hot:false};
 }
 
 export function cupUrgency(state:CupShareState):{label:string;hot:boolean} {
@@ -80,40 +81,40 @@ export function cupUrgency(state:CupShareState):{label:string;hot:boolean} {
 
 /** The `<title>` / og:title pair. WhatsApp truncates hard, so the cup's own name leads and the
     status rides behind it — never the app name, which tells a reader nothing they want. */
-export function cupShareTitle(name:string,state:CupShareState):string {
-  const suffix=state.status==="signup"?"報名中"
-    :state.status==="done"?"已完成"
+export function cupShareTitle(t: Translator, name:string,state:CupShareState):string {
+  const suffix=state.status==="signup"?t("報名中")
+    :state.status==="done"?t("已完成")
     :state.status==="short"?"":state.roundName;
   return suffix?`${name} · ${suffix}`:name;
 }
 
-export function cupShareDescription(state:CupShareState):string {
+export function cupShareDescription(t: Translator, state:CupShareState):string {
   /* A cup has no declared capacity — the bracket simply rounds up to the next power of two — so a
      specific "3 places left" was a number the club never actually set. 名額有限 says the true thing:
      entries close, and the field is finite. The deadline in front of it is the part that moves. */
-  if(state.status==="signup")return `${state.urgency.label} · 名額有限，已有 ${state.entrants} 人報名。撳入去一撳報名，抽籤即刻有對手。`;
-  if(state.status==="done")return `${state.entrants} 人參賽，冠軍 ${state.championName}。撳入去睇完整對陣圖同賽果。`;
-  if(state.status==="short")return "今屆報名人數不足，未能開賽。";
-  return `${state.entrants} 人參賽，打到${state.roundName}。撳入去睇對陣圖、賽果同下一場。`;
+  if(state.status==="signup")return t("{label} · 名額有限，已有 {entrants} 人報名。撳入去一撳報名，抽籤即刻有對手。", {label: state.urgency.label, entrants: state.entrants});
+  if(state.status==="done")return t("{entrants} 人參賽，冠軍 {championName}。撳入去睇完整對陣圖同賽果。", {entrants: state.entrants, championName: state.championName});
+  if(state.status==="short")return t("今屆報名人數不足，未能開賽。");
+  return t("{entrants} 人參賽，打到{roundName}。撳入去睇對陣圖、賽果同下一場。", {entrants: state.entrants, roundName: state.roundName});
 }
 
 /** The text a member sends. Ends with the bare URL on its own line: WhatsApp only renders the link
     preview when the URL is the last thing in the message, and the preview *is* the pitch. */
-export function cupShareMessage(name:string,state:CupShareState,url:string):string {
+export function cupShareMessage(t: Translator, name:string,state:CupShareState,url:string):string {
   const lead=state.status==="signup"
     /* The cup's own name is the first thing on the first line, because in a group chat that name is
        what a member recognises — not the app's. Then the clock, then the crowd already in it, then
        one instruction. Four short lines: any longer and WhatsApp collapses it behind 「閱讀更多」,
        which hides the ask. */
-    ?[`🏆 ${name}｜${state.urgency.label}`,
-      `🎱 已有 ${state.entrants} 位會友報名，${state.deadline} 截止`,
-      "截止即刻抽籤，人人有對手，唔使自己搵人。",
-      "撳個連結就報到名 👇"]
+    ?[t("🏆 {name}｜{label}", {name, label: state.urgency.label}),
+      t("🎱 已有 {entrants} 位會友報名，{deadline} 截止", {entrants: state.entrants, deadline: state.deadline}),
+      t("截止即刻抽籤，人人有對手，唔使自己搵人。"),
+      t("撳個連結就報到名 👇")]
     :state.status==="done"
-    ?[`🏆 ${name} 完滿結束`,`冠軍：${state.championName}`,"完整對陣圖同賽果喺呢度 👇"]
+    ?[t("🏆 {name} 完滿結束", {name}),t("冠軍：{championName}", {championName: state.championName}),t("完整對陣圖同賽果喺呢度 👇")]
     :state.status==="short"
-    ?[`🏆 ${name}`,"今屆報名人數不足，未能開賽。"]
-    :[`🏆 ${name} 打到${state.roundName}`,`${state.entrants} 人參賽`,"睇下邊個入決賽 👇"];
+    ?[`🏆 ${name}`,t("今屆報名人數不足，未能開賽。")]
+    :[t("🏆 {name} 打到{roundName}", {name, roundName: state.roundName}),t("{entrants} 人參賽", {entrants: state.entrants}),t("睇下邊個入決賽 👇")];
   return `${lead.join("\n")}\n${url}`;
 }
 
@@ -127,14 +128,14 @@ export function whatsappLink(message:string):string {
  *  about why they would press it. While a cup is recruiting the button has one job — get another
  *  member into the draw — so it names the destination the tap actually ends in (WhatsApp, where the
  *  club's group already is) and the outcome it is for. */
-export function cupShareCta(state:CupShareState):{label:string;hint:string} {
+export function cupShareCta(t: Translator, state:CupShareState):{label:string;hint:string} {
   if(state.status==="signup")return {
-    label:"WhatsApp 叫人一齊報名",
-    hint:"貼入球會群組，會友撳個連結就報到名 — 唔使登入都睇到。",
+    label:t("WhatsApp 叫人一齊報名"),
+    hint:t("貼入球會群組，會友撳個連結就報到名 — 唔使登入都睇到。"),
   };
-  if(state.status==="done")return {label:"WhatsApp 分享賽果",hint:"畀成個群組睇吓今屆冠軍係邊個。"};
-  if(state.status==="short")return {label:"WhatsApp 分享盃賽",hint:"叫多幾個人留意下屆。"};
-  return {label:"WhatsApp 分享賽程",hint:"畀群組追住睇對陣圖，睇邊個入決賽。"};
+  if(state.status==="done")return {label:t("WhatsApp 分享賽果"),hint:t("畀成個群組睇吓今屆冠軍係邊個。")};
+  if(state.status==="short")return {label:t("WhatsApp 分享盃賽"),hint:t("叫多幾個人留意下屆。")};
+  return {label:t("WhatsApp 分享賽程"),hint:t("畀群組追住睇對陣圖，睇邊個入決賽。")};
 }
 
 /** The link-preview image for one cup.

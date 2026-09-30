@@ -8,7 +8,7 @@ export type EloTrendPoint = {
   id:string; elo:number; before:number; delta:number; date:string;
   opponent:string; opponentShort:string; score:string; result:"W"|"L"|"D"|"start";
 };
-export const sortLabels:Record<SortKey,string>={rank:"排名",name:"球員",rating:"ELO",change:"近10天ELO變化",form:"近況",official:"正式評分",suggested:"建議評分",games:"場數",winRate:"勝率",frameRate:"局數勝率"};
+export const sortLabels:Record<SortKey,string>={rank:msg("排名"),name:msg("球員"),rating:"ELO",change:msg("近10天ELO變化"),form:msg("近況"),official:msg("正式評分"),suggested:msg("建議評分"),games:msg("場數"),winRate:msg("勝率"),frameRate:msg("局數勝率")};
 
 /**
  * The primary navigation's five icons share a quiet matchroom vocabulary:
@@ -52,6 +52,8 @@ export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"availability"|"
 }
 
 import { AVATAR_COLOURS, DEFAULT_AVATAR, avatarHex, avatarStyle } from "./avatar-colours";
+import { useT } from "./components/I18nProvider";
+import { msg } from "../lib/i18n/translate";
 export { AVATAR_COLOURS, DEFAULT_AVATAR, avatarHex, avatarStyle };
 
 /**
@@ -85,6 +87,7 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
   // pick reads as one continuous motion instead of two separate taps.
   autoOpenSignal?:number;
 }) {
+  const t = useT();
   const [query,setQuery]=useState("");
   const [open,setOpen]=useState(false);
   const listId=useId();
@@ -118,7 +121,7 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
         }}/>}
     {open&&<ul id={listId} className="player-combobox-list" role="listbox">
       {allowClear&&<li role="option" aria-selected={!value}><button type="button" onMouseDown={event=>event.preventDefault()} onClick={()=>pick("")}>{clearLabel??placeholder}</button></li>}
-      {filtered.length===0?<li className="player-combobox-empty">沒有符合的球員</li>:filtered.map(p=><li key={p.id} role="option" aria-selected={p.id===value}><button type="button" onMouseDown={event=>event.preventDefault()} onClick={()=>pick(p.id)}>{p.name}</button></li>)}
+      {filtered.length===0?<li className="player-combobox-empty">{t("沒有符合的球員")}</li>:filtered.map(p=><li key={p.id} role="option" aria-selected={p.id===value}><button type="button" onMouseDown={event=>event.preventDefault()} onClick={()=>pick(p.id)}>{p.name}</button></li>)}
     </ul>}
   </div>;
 }
@@ -128,9 +131,10 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
  * both render it through here: same size, same winner treatment, no drift.
  */
 export function Scoreline({left,right,scoreLeft,scoreRight,eloLeft,eloRight,onLeftClick,onRightClick}:{left:string;right:string;scoreLeft:number;scoreRight:number;eloLeft?:{before:number;after:number;delta:number};eloRight?:{before:number;after:number;delta:number};onLeftClick?:()=>void;onRightClick?:()=>void}) {
+  const t = useT();
   const leftWins=scoreLeft>scoreRight,rightWins=scoreRight>scoreLeft,drawn=scoreLeft===scoreRight;
   const side=(wins:boolean)=>drawn?"drawn":wins?"winner":"loser";
-  return <div className={`scoreline${eloLeft||eloRight?" with-elo":""}`} role="group" aria-label={`${left} ${scoreLeft} 比 ${scoreRight} ${right}${drawn?"，和局":`，${leftWins?left:right} 勝`}`}>
+  return <div className={`scoreline${eloLeft||eloRight?" with-elo":""}`} role="group" aria-label={t("{left} {scoreLeft} 比 {scoreRight} {right}{v}", {left, scoreLeft, scoreRight, right, v: drawn?t("，和局"):t("，{v} 勝", {v: leftWins?left:right})})}>
     {onLeftClick?<button type="button" className={`scoreline-name ${side(leftWins)}`} onClick={onLeftClick}>{left}</button>:<span className={`scoreline-name ${side(leftWins)}`}>{left}</span>}
     <b className={side(leftWins)}>{scoreLeft}</b>
     <em aria-hidden="true">–</em>
@@ -159,7 +163,8 @@ export function CupMark({className="cup-mark"}:{className?:string}) {
 }
 
 export function SortControls({sort,dir,onSort}:{sort:SortKey;dir:"asc"|"desc";onSort:(key:SortKey)=>void}) {
-  return <div className="sort-controls"><label><span className="sort-controls-label">排序</span><select value={sort} onChange={event=>onSort(event.target.value as SortKey)}>{(Object.keys(sortLabels) as SortKey[]).map(key=><option key={key} value={key}>{sortLabels[key]}</option>)}</select></label><button aria-label={dir==="asc"?"目前升序，切換為降序":"目前降序，切換為升序"} onClick={()=>onSort(sort)}>{dir==="asc"?"↑":"↓"}<span className="sort-controls-dir-label">{dir==="asc"?" 升序":" 降序"}</span></button></div>;
+  const t = useT();
+  return <div className="sort-controls"><label><span className="sort-controls-label">{t("排序")}</span><select value={sort} onChange={event=>onSort(event.target.value as SortKey)}>{(Object.keys(sortLabels) as SortKey[]).map(key=><option key={key} value={key}>{t(sortLabels[key])}</option>)}</select></label><button aria-label={dir==="asc"?t("目前升序，切換為降序"):t("目前降序，切換為升序")} onClick={()=>onSort(sort)}>{dir==="asc"?"↑":"↓"}<span className="sort-controls-dir-label">{dir==="asc"?t(" 升序"):t(" 降序")}</span></button></div>;
 }
 
 export function SortArrow({active,dir}:{active:boolean;dir:"asc"|"desc"}) {
@@ -167,9 +172,10 @@ export function SortArrow({active,dir}:{active:boolean;dir:"asc"|"desc"}) {
 }
 
 export function Sparkline({values,label}:{values:number[];label:string}) {
+  const t = useT();
   const min=Math.min(...values),max=Math.max(...values),range=Math.max(1,max-min);
   const points=values.map((v,i)=>`${values.length===1?50:i/(values.length-1)*100},${28-(v-min)/range*24}`).join(" ");
-  return <svg className="sparkline" viewBox="0 0 100 32" role="img" aria-label={`${label}；由 ${Math.round(values[0])} 至 ${Math.round(values.at(-1)??values[0])}`}><polyline points={points}/><circle cx={values.length===1?50:100} cy={28-((values.at(-1)??min)-min)/range*24} r="2.5"/></svg>;
+  return <svg className="sparkline" viewBox="0 0 100 32" role="img" aria-label={t("{label}；由 {v} 至 {v2}", {label, v: Math.round(values[0]), v2: Math.round(values.at(-1)??values[0])})}><polyline points={points}/><circle cx={values.length===1?50:100} cy={28-((values.at(-1)??min)-min)/range*24} r="2.5"/></svg>;
 }
 
 export type CalibrationHistoryPoint = { estimate:number; usableMatches:number; at:string };
@@ -182,6 +188,7 @@ export type CalibrationHistoryPoint = { estimate:number; usableMatches:number; a
  * translates the number into a concrete handicap the reader recognises.
  */
 export function CalibrationTrend({history,lower,upper,conversion,confidence,example}:{history:CalibrationHistoryPoint[];lower:number;upper:number;conversion:number;confidence:string;example:{points:number;elo:number}}) {
+  const t = useT();
   const [activeIndex,setActiveIndex]=useState<number|null>(null);
   const estimates=history.map(point=>point.estimate);
   const domain=[...estimates,lower,upper];
@@ -208,18 +215,18 @@ export function CalibrationTrend({history,lower,upper,conversion,confidence,exam
   const outsideBand=current<lower||current>upper;
   return <section className="calibration-trend">
     <div className="calibration-trend-head">
-      <div><p className="kicker">模型演變</p><h2>換算率校準趨勢</h2></div>
-      <span className={`calibration-state ${settled?"steady":"moving"}`}>{settled?"● 已趨穩定":"● 仍在調整"}</span>
+      <div><p className="kicker">{t("模型演變")}</p><h2>{t("換算率校準趨勢")}</h2></div>
+      <span className={`calibration-state ${settled?"steady":"moving"}`}>{settled?t("● 已趨穩定"):t("● 仍在調整")}</span>
     </div>
     <div className="calibration-readout">
-      <div><small>目前換算率</small><b>{conversion}<em>ELO／分</em></b></div>
-      <div><small>自首次校準</small><b className={change>=0?"positive":"negative"}>{change>=0?"+":""}{Math.round(change*100)/100}<em>ELO／分</em></b></div>
-      <div><small>合理範圍</small><b>{lower}–{upper}<em>校準信心 {confidence}</em></b></div>
+      <div><small>{t("目前換算率")}</small><b>{conversion}<em>{t("ELO／分")}</em></b></div>
+      <div><small>{t("自首次校準")}</small><b className={change>=0?"positive":"negative"}>{change>=0?"+":""}{Math.round(change*100)/100}<em>{t("ELO／分")}</em></b></div>
+      <div><small>{t("合理範圍")}</small><b>{lower}–{upper}<em>{t("校準信心 {confidence}", {confidence})}</em></b></div>
     </div>
     <div className="calibration-plot">
       <div className="calibration-axis-y">{ticks.map(tick=><span key={tick}>{Math.round(tick*10)/10}</span>)}</div>
       <div className="calibration-canvas" onPointerLeave={()=>setActiveIndex(null)}>
-        <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label={`換算率校準趨勢，由 ${first} 變至 ${current} ELO／分，目前合理範圍 ${lower} 至 ${upper}`}>
+        <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label={t("換算率校準趨勢，由 {first} 變至 {current} ELO／分，目前合理範圍 {lower} 至 {upper}", {first, current, lower, upper})}>
           {ticks.map(tick=><line key={tick} x1="6" y1={y(tick)} x2="94" y2={y(tick)} className="calibration-grid"/>)}
           <rect x="6" y={y(upper)} width="88" height={Math.max(.6,y(lower)-y(upper))} className="calibration-band"/>
           <polyline points={line} className="calibration-line"/>
@@ -230,24 +237,23 @@ export function CalibrationTrend({history,lower,upper,conversion,confidence,exam
           style={{left:`${x(index)}%`,top:`${y(point.estimate)/60*100}%`}}
           onPointerEnter={()=>setActiveIndex(index)} onFocus={()=>setActiveIndex(index)} onBlur={()=>setActiveIndex(null)}
           onClick={()=>setActiveIndex(previous=>previous===index?null:index)}
-          aria-label={`第 ${index+1} 次校準，${point.at.slice(0,10)}，估算 ${point.estimate} ELO／分，依據 ${point.usableMatches} 筆記錄`}/>)}
+          aria-label={t("第 {v} 次校準，{v2}，估算 {estimate} ELO／分，依據 {usableMatches} 筆記錄", {v: index+1, v2: point.at.slice(0,10), estimate: point.estimate, usableMatches: point.usableMatches})}/>)}
         {active&&<div className={`calibration-tip ${x(activeIndex!)>68?"align-right":x(activeIndex!)<32?"align-left":""}`} style={{left:`${x(activeIndex!)}%`,top:`${Math.max(2,y(active.estimate)/60*100-8)}%`}} role="status">
-          <small>{active.at.slice(0,10)}</small><b>{active.estimate} ELO／分</b><span>依據 {active.usableMatches} 筆可用記錄</span>
+          <small>{active.at.slice(0,10)}</small><b>{t("{estimate} ELO／分", {estimate: active.estimate})}</b><span>{t("依據 {usableMatches} 筆可用記錄", {usableMatches: active.usableMatches})}</span>
         </div>}
       </div>
-      <div className="calibration-axis-x"><span>{firstDay}</span><span>{history.length} 次校準</span><span>{firstDay===lastDay?"同日":lastDay}</span></div>
+      <div className="calibration-axis-x"><span>{firstDay}</span><span>{t("{history} 次校準", {history: history.length})}</span><span>{firstDay===lastDay?t("同日"):lastDay}</span></div>
     </div>
-    <div className="calibration-legend"><span className="legend-line">每次校準的估算</span><span className="legend-band">目前合理範圍</span></div>
+    <div className="calibration-legend"><span className="legend-line">{t("每次校準的估算")}</span><span className="legend-band">{t("目前合理範圍")}</span></div>
     <p className="calibration-meaning">
-      現時<b>每讓 1 分約值 {conversion} ELO</b>，即讓 {example.points} 分相當於 <b>{example.elo} ELO</b> 的實力差距。
-      {settled
-        ?`最近五次估算只在 ${Math.round(drift*100)/100} 之內浮動，換算率已大致穩定。`
-        :`最近五次估算仍有 ${Math.round(drift*100)/100} 的浮動，累積更多不同讓分的賽果後會更穩定。`}
+      {t("現時")}<b>{t("每讓 1 分約值 {conversion} ELO", {conversion})}</b>{t("，即讓 {points} 分相當於", {points: example.points})} <b>{example.elo} ELO</b>  {t("的實力差距。")}{settled
+        ?t("最近五次估算只在 {v} 之內浮動，換算率已大致穩定。", {v: Math.round(drift*100)/100})
+        :t("最近五次估算仍有 {v} 的浮動，累積更多不同讓分的賽果後會更穩定。", {v: Math.round(drift*100)/100})}
       {change>=0
-        ?"與首次校準相比，系統認為同樣的讓分代表更大的實力差距。"
-        :"與首次校準相比，系統認為同樣的讓分代表較小的實力差距。"}
+        ?t("與首次校準相比，系統認為同樣的讓分代表更大的實力差距。")
+        :t("與首次校準相比，系統認為同樣的讓分代表較小的實力差距。")}
     </p>
-    {outsideBand&&<p className="calibration-caution">目前換算率仍在向資料支持的範圍（{lower}–{upper}）靠攏。系統每次只作小幅調整，避免單一批賽果造成大幅波動。</p>}
+    {outsideBand&&<p className="calibration-caution">{t("目前換算率仍在向資料支持的範圍（{lower}–{upper}）靠攏。系統每次只作小幅調整，避免單一批賽果造成大幅波動。", {lower, upper})}</p>}
   </section>;
 }
 
@@ -277,6 +283,7 @@ function smoothPath(pts:[number,number][]){
 const DENSE_TREND_POINTS=24;
 
 export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label:string}) {
+  const t = useT();
   const [range,setRange]=useState<"recent"|"all">("recent");
   const [activeId,setActiveId]=useState<string|null>(null);
   const recentMatches=points.filter(point=>point.result!=="start").slice(-10);
@@ -304,12 +311,12 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
   const active=visible.find(point=>point.id===activeId)??null;
   const activeIndex=active?visible.findIndex(point=>point.id===active.id):-1;
   const periodChange=visible.at(-1)!.elo-visible[0].elo;
-  const resultLabel=(result:EloTrendPoint["result"])=>result==="W"?"勝":result==="L"?"負":result==="D"?"和":"起始";
+  const resultLabel=(result:EloTrendPoint["result"])=>result==="W"?t("勝"):result==="L"?t("負"):result==="D"?t("和"):t("起始");
   return <div className="interactive-trend">
-    <div className="trend-overview"><div><small>{range==="recent"?"最近十場":"完整記錄"}</small><b className={periodChange>=0?"positive":"negative"}>{periodChange>=0?"+":""}{Math.round(periodChange)} <em>ELO</em></b></div><SlidingToggleGroup className="ds-toggle-control" aria-label="ELO 走勢範圍"><button className={range==="recent"?"active":""} onClick={()=>{setRange("recent");setActiveId(null)}}>最近十場</button><button className={range==="all"?"active":""} onClick={()=>{setRange("all");setActiveId(null)}}>全部</button></SlidingToggleGroup></div>
+    <div className="trend-overview"><div><small>{range==="recent"?t("最近十場"):t("完整記錄")}</small><b className={periodChange>=0?"positive":"negative"}>{periodChange>=0?"+":""}{Math.round(periodChange)} <em>ELO</em></b></div><SlidingToggleGroup className="ds-toggle-control" aria-label={t("ELO 走勢範圍")}><button className={range==="recent"?"active":""} onClick={()=>{setRange("recent");setActiveId(null)}}>{t("最近十場")}</button><button className={range==="all"?"active":""} onClick={()=>{setRange("all");setActiveId(null)}}>{t("全部")}</button></SlidingToggleGroup></div>
     <div className={`trend-plot${dense?" dense":""}`} onPointerLeave={event=>{if(!dense||event.pointerType==="mouse")setActiveId(null)}}
       {...(dense?{
-        tabIndex:0,role:"group","aria-label":`${label}，可用左右方向鍵逐場查看`,
+        tabIndex:0,role:"group","aria-label":t("{label}，可用左右方向鍵逐場查看", {label}),
         onPointerDown:scrub,onPointerMove:scrub,
         onKeyDown:(event:KeyboardEvent<HTMLDivElement>)=>{
           if(event.key!=="ArrowLeft"&&event.key!=="ArrowRight")return;
@@ -329,18 +336,19 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
         <span className="trend-peak" style={{left:`${x(peakIndex)}%`,top:`${y(rawMax)/60*100}%`}} aria-hidden="true"><em>{Math.round(rawMax)}</em></span>
         {active&&<span className={`trend-point trend-cursor ${active.result==="start"?"start":active.result.toLowerCase()}`} style={{left:`${x(activeIndex)}%`,top:`${y(active.elo)/60*100}%`}} aria-hidden="true"/>}
       </>}
-      {!dense&&visible.map((point,index)=><button key={point.id} className={`trend-point ${point.result==="start"?"start":point.result.toLowerCase()} ${activeId===point.id?"active":""}`} style={{left:`${x(index)}%`,top:`${y(point.elo)/60*100}%`}} onPointerEnter={()=>setActiveId(point.id)} onFocus={()=>setActiveId(point.id)} onBlur={()=>setActiveId(null)} onClick={()=>setActiveId(current=>current===point.id?null:point.id)} aria-label={point.result==="start"?`起始 ELO ${Math.round(point.elo)}`:`${point.date}，${resultLabel(point.result)} ${point.opponent} ${point.score}，ELO ${point.delta>=0?"上升":"下降"} ${Math.abs(Math.round(point.delta))} 至 ${Math.round(point.elo)}`}/>)}
-      {active&&<div className={`trend-tooltip ${x(activeIndex)>70?"align-right":x(activeIndex)<30?"align-left":""}`} style={{left:`${x(activeIndex)}%`,top:`${Math.max(3,y(active.elo)/60*100-7)}%`}} role="status"><small>{active.result==="start"?"評分起點":active.date}</small><b>{active.result==="start"?"起始 ELO":`${resultLabel(active.result)} ${active.opponent} ${active.score}`}</b><span>{active.result==="start"?Math.round(active.elo):<>{Math.round(active.before)} → {Math.round(active.elo)} <strong className={active.delta>=0?"positive":"negative"}>{active.delta>=0?"+":""}{Math.round(active.delta)}</strong></>}</span></div>}
+      {!dense&&visible.map((point,index)=><button key={point.id} className={`trend-point ${point.result==="start"?"start":point.result.toLowerCase()} ${activeId===point.id?"active":""}`} style={{left:`${x(index)}%`,top:`${y(point.elo)/60*100}%`}} onPointerEnter={()=>setActiveId(point.id)} onFocus={()=>setActiveId(point.id)} onBlur={()=>setActiveId(null)} onClick={()=>setActiveId(current=>current===point.id?null:point.id)} aria-label={point.result==="start"?t("起始 ELO {v}", {v: Math.round(point.elo)}):t("{date}，{v} {opponent} {score}，ELO {v2} {v3} 至 {v4}", {date: point.date, v: resultLabel(point.result), opponent: point.opponent, score: point.score, v2: point.delta>=0?t("上升"):t("下降"), v3: Math.abs(Math.round(point.delta)), v4: Math.round(point.elo)})}/>)}
+      {active&&<div className={`trend-tooltip ${x(activeIndex)>70?"align-right":x(activeIndex)<30?"align-left":""}`} style={{left:`${x(activeIndex)}%`,top:`${Math.max(3,y(active.elo)/60*100-7)}%`}} role="status"><small>{active.result==="start"?t("評分起點"):active.date}</small><b>{active.result==="start"?t("起始 ELO"):`${resultLabel(active.result)} ${active.opponent} ${active.score}`}</b><span>{active.result==="start"?Math.round(active.elo):<>{Math.round(active.before)} → {Math.round(active.elo)} <strong className={active.delta>=0?"positive":"negative"}>{active.delta>=0?"+":""}{Math.round(active.delta)}</strong></>}</span></div>}
     </div>
     <div className="trend-scale"><span>{Math.round(max)}</span><span>{Math.round(middle)}</span><span>{Math.round(min)}</span></div>
     {dense&&<div className="trend-dates" aria-hidden="true"><span>{visible.find(point=>point.date)?.date}</span><span>{visible.at(-1)!.date}</span></div>}
-    <p className="trend-help">{dense?`共 ${visible.length-1} 場；在圖上左右滑動或移動，查看該場對手、比分與 ELO 變化。`:"移至或點按資料點，查看該場對手、比分與 ELO 變化。"}</p>
+    <p className="trend-help">{dense?t("共 {v} 場；在圖上左右滑動或移動，查看該場對手、比分與 ELO 變化。", {v: visible.length-1}):t("移至或點按資料點，查看該場對手、比分與 ELO 變化。")}</p>
   </div>;
 }
 
 export function RecentMatches({points,onViewAll,onMatch}:{points:EloTrendPoint[];onViewAll?:()=>void;onMatch:(matchId:string)=>void}) {
+  const t = useT();
   const matches=points.filter(point=>point.result!=="start").slice(-5).reverse();
-  return <section className="profile-section recent-form" aria-labelledby="recent-form-title"><div className="profile-section-head"><div><p className="kicker">近期狀態</p><h3 id="recent-form-title">最近五場</h3></div>{onViewAll&&<button type="button" className="recent-form-action in-head" onClick={onViewAll}><span>查看所有賽事</span><i aria-hidden="true">→</i></button>}</div>{matches.length===0?<p className="recent-form-empty">尚未有比賽記錄</p>:<div className="recent-match-grid">{matches.map(point=><button type="button" className={`recent-result ${point.result.toLowerCase()}`} key={point.id} onClick={()=>onMatch(point.id)} aria-label={`查看對 ${point.opponent} 的賽事：${point.score}`}><div><b>{point.result==="W"?"勝":point.result==="L"?"負":"和"}</b><time>{point.date.slice(5).replace("-","/")}</time></div><strong>{point.score}</strong><span><i>{point.opponentShort}</i>{point.opponent}</span><small className={point.delta>=0?"positive":"negative"}>{point.delta>=0?"+":""}{Math.round(point.delta)} ELO</small></button>)}</div>}</section>;
+  return <section className="profile-section recent-form" aria-labelledby="recent-form-title"><div className="profile-section-head"><div><p className="kicker">{t("近期狀態")}</p><h3 id="recent-form-title">{t("最近五場")}</h3></div>{onViewAll&&<button type="button" className="recent-form-action in-head" onClick={onViewAll}><span>{t("查看所有賽事")}</span><i aria-hidden="true">→</i></button>}</div>{matches.length===0?<p className="recent-form-empty">{t("尚未有比賽記錄")}</p>:<div className="recent-match-grid">{matches.map(point=><button type="button" className={`recent-result ${point.result.toLowerCase()}`} key={point.id} onClick={()=>onMatch(point.id)} aria-label={t("查看對 {opponent} 的賽事：{score}", {opponent: point.opponent, score: point.score})}><div><b>{point.result==="W"?t("勝"):point.result==="L"?t("負"):t("和")}</b><time>{point.date.slice(5).replace("-","/")}</time></div><strong>{point.score}</strong><span><i>{point.opponentShort}</i>{point.opponent}</span><small className={point.delta>=0?"positive":"negative"}>{point.delta>=0?"+":""}{Math.round(point.delta)} ELO</small></button>)}</div>}</section>;
 }
 
 export function Empty({text,sub}:{text:string;sub:string}) {
@@ -348,15 +356,17 @@ export function Empty({text,sub}:{text:string;sub:string}) {
 }
 
 export function Term({label,tip}:{label:string;tip:string}) {
-  return <span className="term" tabIndex={0} aria-label={`${label}：${tip}`}>{label}<i aria-hidden="true">ⓘ</i><span className="term-tip" role="tooltip">{tip}</span></span>;
+  const t = useT();
+  return <span className="term" tabIndex={0} aria-label={t("{label}：{tip}", {label, tip})}>{label}<i aria-hidden="true">ⓘ</i><span className="term-tip" role="tooltip">{tip}</span></span>;
 }
 
 export function PlayerForm({form,setForm,editing,canEditRating=false,onSave}:{form:any;setForm:any;editing:boolean;canEditRating?:boolean;onSave:()=>void}) {
+  const t = useT();
   const update=(key:string,value:string)=>setForm((current:any)=>({...current,[key]:value}));
-  return <><p className="kicker">公開管理</p><h2>{editing?"編輯球員":"新增球員"}</h2><p className="sub">所有球員沒有賽事記錄時會使用預設起始 ELO；管理員也可以為個別球員設定自己的起始 ELO。</p><label>顯示名稱<input value={form.name} onChange={event=>update("name",event.target.value)}/></label><label>短名稱／縮寫<input maxLength={3} value={form.short} onChange={event=>update("short",event.target.value)}/></label>{canEditRating&&<label>個人起始 ELO<input type="number" min="200" max="3000" step="10" value={form.rating} onChange={event=>update("rating",event.target.value)}/><small>儲存後會從此起始值重播這位球員的歷史賽事。</small></label>}<label>正式讓分<input type="number" step="2" value={form.handicap} onChange={event=>update("handicap",event.target.value)}/></label>
-    <div className="colour-field"><span className="colour-field-label">圖示顏色</span>
-      <div className="colour-preview"><i style={avatarStyle(form.colour)}>{(form.short||"?").toUpperCase().slice(0,3)}</i><small>{AVATAR_COLOURS.find(option=>option.id===(form.colour||DEFAULT_AVATAR))?.name}</small></div>
-      <div className="colour-grid" role="radiogroup" aria-label="圖示顏色">{AVATAR_COLOURS.map(option=><button key={option.id} type="button" role="radio" aria-checked={(form.colour||DEFAULT_AVATAR)===option.id} aria-label={option.name} title={option.name} className={`colour-swatch${(form.colour||DEFAULT_AVATAR)===option.id?" active":""}`} style={{background:option.hex}} onClick={()=>update("colour",option.id)}/>)}</div>
+  return <><p className="kicker">{t("公開管理")}</p><h2>{editing?t("編輯球員"):t("新增球員")}</h2><p className="sub">{t("所有球員沒有賽事記錄時會使用預設起始 ELO；管理員也可以為個別球員設定自己的起始 ELO。")}</p><label>{t("顯示名稱")}<input value={form.name} onChange={event=>update("name",event.target.value)}/></label><label>{t("短名稱／縮寫")}<input maxLength={3} value={form.short} onChange={event=>update("short",event.target.value)}/></label>{canEditRating&&<label>{t("個人起始 ELO")}<input type="number" min="200" max="3000" step="10" value={form.rating} onChange={event=>update("rating",event.target.value)}/><small>{t("儲存後會從此起始值重播這位球員的歷史賽事。")}</small></label>}<label>{t("正式讓分")}<input type="number" step="2" value={form.handicap} onChange={event=>update("handicap",event.target.value)}/></label>
+    <div className="colour-field"><span className="colour-field-label">{t("圖示顏色")}</span>
+      <div className="colour-preview"><i style={avatarStyle(form.colour)}>{(form.short||"?").toUpperCase().slice(0,3)}</i><small>{t(AVATAR_COLOURS.find(option=>option.id===(form.colour||DEFAULT_AVATAR))?.name??"")}</small></div>
+      <div className="colour-grid" role="radiogroup" aria-label={t("圖示顏色")}>{AVATAR_COLOURS.map(option=><button key={option.id} type="button" role="radio" aria-checked={(form.colour||DEFAULT_AVATAR)===option.id} aria-label={t(option.name)} title={t(option.name)} className={`colour-swatch${(form.colour||DEFAULT_AVATAR)===option.id?" active":""}`} style={{background:option.hex}} onClick={()=>update("colour",option.id)}/>)}</div>
     </div>
-    <Button className="full" onClick={onSave}>{editing?"儲存並重播":"新增球員"}</Button></>;
+    <Button className="full" onClick={onSave}>{editing?t("儲存並重播"):t("新增球員")}</Button></>;
 }

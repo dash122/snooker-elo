@@ -1,6 +1,7 @@
 import { getSql } from "./sql";
 import { insertChunks } from "../lib/bulk-insert";
 import { addDaysHongKong, composeAvailabilityInterval, hkDate, recurrenceDates, validateAvailabilityInterval } from "../lib/availability";
+import { msg } from "../lib/i18n/translate.ts";
 
 /** Recurring availability — "每逢星期三 19:00–22:00".
  *
@@ -65,7 +66,7 @@ export async function createRecurrence(playerId:string,input:{weekday:number;sta
     VALUES (${id},${playerId},${input.weekday},${input.startTime},${input.endTime})
     ON CONFLICT DO NOTHING
     RETURNING id,player_id AS "playerId",weekday,start_time AS "startTime",end_time AS "endTime",active,created_at AS "createdAt"`;
-  if(!rows[0])throw new Error("你已經有一條相同嘅每週時段");
+  if(!rows[0])throw new Error(msg("你已經有一條相同嘅每週時段"));
   await materialiseRecurrence(playerId);
   return hydrate(rows[0]);
 }

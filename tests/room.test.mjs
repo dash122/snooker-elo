@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { extendedEnd, levelLabel, licenceNote, preferenceLicence, rankRoom, remainingLabel, roomScore, shouldOfferUnconfirmed } from "../lib/room.ts";
 
+import { createTranslator } from "../lib/i18n/translate.ts";
+const t = createTranslator("zh-Hant");
 const now=Date.parse("2026-08-01T11:00:00.000Z"); // 19:00 HK
 const at=(iso)=>Date.parse(iso);
 const window=(startAt,endAt)=>({startAt,endAt});
@@ -22,7 +24,7 @@ test("a preference welcomes the players it was written for, and nobody is ever e
 test("a licence is never a barrier — 'neutral' only means no tag to show",()=>{
   // The room must not hide anyone: the whole point of showing the market is that a member's own
   // judgement about who is worth asking beats the score's.
-  const entries=rankRoom({myRating:1500,now,members:[
+  const entries=rankRoom(t, {myRating:1500,now,members:[
     live("mentor",1900,{preference:"mentor"}),
     live("picky",1900,{preference:"even"}),
   ]});
@@ -33,26 +35,26 @@ test("a licence is never a barrier — 'neutral' only means no tag to show",()=>
 });
 
 test("licence notes are only produced when the licence is real",()=>{
-  assert.equal(licenceNote("mentor",300),"佢歡迎水平低啲嘅球友");
-  assert.equal(licenceNote("mentor",-300),null);
+  assert.equal(licenceNote(t, "mentor",300),"佢歡迎水平低啲嘅球友");
+  assert.equal(licenceNote(t, "mentor",-300),null);
 });
 
 /* --- Level, said from my side --------------------------------------------- */
 
 test("level reads as a distance from me, never as their standing",()=>{
-  assert.equal(levelLabel(1500,1680),"高你 180 分");
-  assert.equal(levelLabel(1500,1410),"低你 90 分");
-  assert.equal(levelLabel(1500,1510),"水平差唔多","inside the noise floor it is not worth a number");
+  assert.equal(levelLabel(t, 1500,1680),"高你 180 分");
+  assert.equal(levelLabel(t, 1500,1410),"低你 90 分");
+  assert.equal(levelLabel(t, 1500,1510),"水平差唔多","inside the noise floor it is not worth a number");
 });
 
 /* --- The clock ------------------------------------------------------------- */
 
 test("the countdown never rounds in the member's favour",()=>{
   const end="2026-08-01T12:40:00.000Z";
-  assert.equal(remainingLabel(end,now),"仲有 1 小時 40 分");
-  assert.equal(remainingLabel(end,at("2026-08-01T12:10:00.000Z")),"仲有 30 分鐘");
-  assert.equal(remainingLabel(end,at("2026-08-01T13:00:00.000Z")),"已經完咗");
-  assert.equal(remainingLabel("2026-08-01T13:00:00.000Z",now),"仲有 2 小時","an exact hour drops the minutes");
+  assert.equal(remainingLabel(t, end,now),"仲有 1 小時 40 分");
+  assert.equal(remainingLabel(t, end,at("2026-08-01T12:10:00.000Z")),"仲有 30 分鐘");
+  assert.equal(remainingLabel(t, end,at("2026-08-01T13:00:00.000Z")),"已經完咗");
+  assert.equal(remainingLabel(t, "2026-08-01T13:00:00.000Z",now),"仲有 2 小時","an exact hour drops the minutes");
 });
 
 test("extending adds an hour but cannot rebuild an all-night claim",()=>{
@@ -71,7 +73,7 @@ test("extending adds an hour but cannot rebuild an all-night claim",()=>{
 test("presence outranks every other signal",()=>{
   // Someone holding a cue right now converts at a rate no calendar entry ever will, so a perfectly
   // matched opponent who is merely free must not sit above them.
-  const entries=rankRoom({myRating:1500,now,members:[
+  const entries=rankRoom(t, {myRating:1500,now,members:[
     live("perfect",1500,{preference:"even"}),
     live("here",1900,{preference:"even",atClub:true}),
   ]});
@@ -81,7 +83,7 @@ test("presence outranks every other signal",()=>{
 });
 
 test("groups are ordered before fit, so tonight always beats a better game later",()=>{
-  const entries=rankRoom({myRating:1500,now,members:[
+  const entries=rankRoom(t, {myRating:1500,now,members:[
     live("tuesday",1500,{window:window("2026-08-04T11:00:00.000Z","2026-08-04T15:00:00.000Z")}),
     live("tonight",1800,{}),
   ]});
@@ -92,7 +94,7 @@ test("groups are ordered before fit, so tonight always beats a better game later
 test("unconfirmed members sort last, and are marked as a question rather than an answer",()=>{
   // A three-week-old published slot is not evidence anybody is free. It earns them a poke, not a row
   // that claims they are available.
-  const entries=rankRoom({myRating:1500,now,members:[
+  const entries=rankRoom(t, {myRating:1500,now,members:[
     {id:"stale",rating:1500,tier:"unconfirmed",window:window("2026-08-01T11:00:00.000Z","2026-08-01T15:00:00.000Z"),preference:"any",atClub:false},
     live("said-so",1900,{}),
   ]});
@@ -103,7 +105,7 @@ test("unconfirmed members sort last, and are marked as a question rather than an
 
 test("a declared welcome outweighs a marginally better ELO match",()=>{
   // The point of the preference field: a game that gets asked for beats a better one that doesn't.
-  const entries=rankRoom({myRating:1500,now,members:[
+  const entries=rankRoom(t, {myRating:1500,now,members:[
     live("closer",1610,{preference:"even"}),   // 110 apart, so 勢均力敵 does not cover me
     live("welcoming",1700,{preference:"mentor"}),
   ]});
@@ -111,7 +113,7 @@ test("a declared welcome outweighs a marginally better ELO match",()=>{
 });
 
 test("a member with no window still ranks — 'ask me' is a real answer",()=>{
-  const entries=rankRoom({myRating:1500,now,members:[live("standby",1500,{window:null})]});
+  const entries=rankRoom(t, {myRating:1500,now,members:[live("standby",1500,{window:null})]});
   assert.equal(entries[0].group,"later");
   assert.equal(entries[0].window,null);
   assert.ok(entries[0].score>0);

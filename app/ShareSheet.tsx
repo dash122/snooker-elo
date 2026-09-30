@@ -5,6 +5,8 @@ import { avatarHex } from "./avatar-colours";
 import { shareStory, shareText, svgDataUrl } from "./story-image";
 import { storySvg, type StoryCard } from "../lib/story-card";
 import { storyCaption } from "../lib/match-share";
+import { useT } from "./components/I18nProvider";
+import type { Translator } from "../lib/i18n/translate";
 
 /** The one place a member shares from.
  *
@@ -19,14 +21,15 @@ import { storyCaption } from "../lib/match-share";
 /** The two headings ShareSheet's own kicker+h2 can read as. Shared so a wrapper that
  *  supplies its own heading (the `Sheet` primitive's `title` prop) can match it exactly
  *  instead of drifting into its own copy of this string. */
-export function shareSheetTitle(kind: StoryCard["kind"]) {
-  return kind === "result" ? "分享今場賽果" : "分享我嘅紀錄";
+export function shareSheetTitle(t: Translator, kind: StoryCard["kind"]) {
+  return kind === "result" ? t("分享今場賽果") : t("分享我嘅紀錄");
 }
 
 export default function ShareSheet({ card, message, url, title, heading = true }: { card: StoryCard; message: string; url: string; title: string; heading?: boolean }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  const svg = useMemo(() => storySvg(card, avatarHex), [card]);
+  const svg = useMemo(() => storySvg(t, card, avatarHex), [card, t]);
 
   const toStory = async () => {
     setBusy(true);
@@ -37,8 +40,8 @@ export default function ShareSheet({ card, message, url, title, heading = true }
       text: storyCaption(url),
     });
     setBusy(false);
-    if (outcome === "downloaded") setNote("已儲存圖片。喺手機開 Instagram → 限時動態 → 揀呢張相就發到。");
-    else if (outcome === "failed") setNote("圖片整唔到，請再試一次。");
+    if (outcome === "downloaded") setNote(t("已儲存圖片。喺手機開 Instagram → 限時動態 → 揀呢張相就發到。"));
+    else if (outcome === "failed") setNote(t("圖片整唔到，請再試一次。"));
   };
 
   const toWhatsApp = () => { void shareText(message, title); };
@@ -46,37 +49,37 @@ export default function ShareSheet({ card, message, url, title, heading = true }
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
-      setNote("已複製連結。");
-    } catch { setNote("複製唔到，請長按連結手動複製。"); }
+      setNote(t("已複製連結。"));
+    } catch { setNote(t("複製唔到，請長按連結手動複製。")); }
   };
 
   return <div className="share-sheet">
-    {heading && <p className="kicker">分享</p>}
-    {heading && <h2>{shareSheetTitle(card.kind)}</h2>}
-    <p className="sub">WhatsApp 分享連結，Instagram 分享限時動態圖。</p>
+    {heading && <p className="kicker">{t("分享")}</p>}
+    {heading && <h2>{shareSheetTitle(t, card.kind)}</h2>}
+    <p className="sub">{t("WhatsApp 分享連結，Instagram 分享限時動態圖。")}</p>
 
     <div className="story-preview">
       {/* eslint-disable-next-line @next/next/no-img-element -- inline SVG data URI, no loader involved */}
-      <img src={svgDataUrl(svg)} alt="Instagram 限時動態預覽" width={1080} height={1920} />
+      <img src={svgDataUrl(svg)} alt={t("Instagram 限時動態預覽")} width={1080} height={1920} />
     </div>
 
     <div className="share-actions">
       <button type="button" className="share-btn whatsapp" onClick={toWhatsApp}>
         <ShareGlyph kind="whatsapp" />
-        <span><b>WhatsApp 分享</b><small>連結會顯示賽果預覽</small></span>
+        <span><b>{t("WhatsApp 分享")}</b><small>{t("連結會顯示賽果預覽")}</small></span>
       </button>
       <button type="button" className="share-btn instagram" disabled={busy} onClick={() => void toStory()}>
         <ShareGlyph kind="instagram" />
-        <span><b>{busy ? "整緊圖…" : "Instagram 限時動態"}</b><small>1080×1920 · 直接出 Story</small></span>
+        <span><b>{busy ? t("整緊圖…") : t("Instagram 限時動態")}</b><small>{t("1080×1920 · 直接出 Story")}</small></span>
       </button>
       <button type="button" className="share-btn plain" onClick={() => void copy()}>
         <ShareGlyph kind="link" />
-        <span><b>複製連結</b><small>{url.replace(/^https?:\/\//, "")}</small></span>
+        <span><b>{t("複製連結")}</b><small>{url.replace(/^https?:\/\//, "")}</small></span>
       </button>
     </div>
 
     {note && <p className="share-sheet-note" role="status">{note}</p>}
-    <p className="share-sheet-foot">連結唔使登入都睇到，收到嘅人一撳就見到賽果。</p>
+    <p className="share-sheet-foot">{t("連結唔使登入都睇到，收到嘅人一撳就見到賽果。")}</p>
   </div>;
 }
 

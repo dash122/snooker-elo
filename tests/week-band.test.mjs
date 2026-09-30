@@ -4,6 +4,8 @@ import { BAND_COLUMNS, BAND_START_HOUR, MIN_COLUMNS, TAP_COLUMNS, clampColumn, c
   columnInstant, density, instantColumn, normaliseWindow, overlapping, peakOf, peakWindow,
   ratingBand, sharedWindow } from "../lib/week-band.ts";
 
+import { createTranslator } from "../lib/i18n/translate.ts";
+const t = createTranslator("zh-Hant");
 const col = (hhmm) => {
   const [h, m] = hhmm.split(":").map(Number);
   return ((h < BAND_START_HOUR ? h + 24 : h) * 60 + m - BAND_START_HOUR * 60) / 30;

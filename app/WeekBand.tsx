@@ -3,10 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { PlayerBadge } from "./UiBits";
 import { Button, InlineNotice } from "./components/ui/Primitives";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
-import { addDaysHongKong, hkDate } from "../lib/availability";
+import { addDaysHongKong, hkDate, hkWeekdayLabel } from "../lib/availability";
 import { BAND_COLUMNS, TAP_COLUMNS, clampColumn, columnClock, columnInstant, density,
   normaliseWindow, overlapping, peakOf, peakWindow, sharedWindow,
   type Window } from "../lib/week-band";
+import { useT } from "./components/I18nProvider";
+import type { Translator } from "../lib/i18n/translate";
 
 /* --- 時段軸 · 一個手勢，同時是查詢，也是宣告 ---------------------------------
  *
@@ -33,10 +35,10 @@ type Gate = { locked:boolean; anonymous:boolean; inGrace:boolean; hasPublished:b
 type Stats = { streakWeeks:number; publishedThisWeek:boolean; clubPublishedThisWeek:number };
 type WeekData = { start:string; days:Day[]; gate:Gate; stats:Stats; atClub:boolean; me:string|null };
 
-const dayLabel=(date:string,today:string)=>{
-  if(date===today)return "今日";
-  if(date===addDaysHongKong(today,1))return "明日";
-  return new Intl.DateTimeFormat("zh-HK",{timeZone:"Asia/Hong_Kong",weekday:"short"}).format(new Date(`${date}T00:00:00+08:00`));
+const dayLabel=(t: Translator, date:string,today:string)=>{
+  if(date===today)return t("今日");
+  if(date===addDaysHongKong(today,1))return t("明日");
+  return hkWeekdayLabel(date,t.locale);
 };
 
 /** 半小時一格的下拉選單，作為拖曳的後備。拖曳在觸控上快，但需要精細動作；下拉選單則對任何人、任何輸入
@@ -44,8 +46,9 @@ const dayLabel=(date:string,today:string)=>{
 const COLUMN_OPTIONS=Array.from({length:BAND_COLUMNS+1},(_,index)=>({index,label:columnClock(index)}));
 
 function OwnWindowFields({window:current,onChange}:{window:Window;onChange:(next:Window)=>void}){
+  const t = useT();
   return <div className="wb-fields">
-    <label><span>開始</span>
+    <label><span>{t("開始")}</span>
       <select value={current.from} onChange={event=>{
         const from=Number(event.target.value);
         onChange(normaliseWindow({from,to:Math.max(current.to,from+1)}));
@@ -54,7 +57,7 @@ function OwnWindowFields({window:current,onChange}:{window:Window;onChange:(next
           <option key={option.index} value={option.index}>{option.label}</option>)}
       </select>
     </label>
-    <label><span>結束</span>
+    <label><span>{t("結束")}</span>
       <select value={current.to} onChange={event=>{
         const to=Number(event.target.value);
         onChange(normaliseWindow({from:Math.min(current.from,to-1),to}));
@@ -84,6 +87,7 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
       兩張並存就是這次改版要消滅的重複。 */
   showList?:boolean;
 }){
+  const t = useT();
   const today=useMemo(()=>hkDate(),[]);
   const [data,setData]=useState<WeekData|null>(null);
   const [state,setState]=useState<"loading"|"ready"|"error">("loading");
@@ -200,26 +204,26 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
         const response=await fetch("/api/availability",{method:"POST",headers:{"content-type":"application/json"},
           body:JSON.stringify({slots:[{startAt:columnInstant(date,value.from),endAt:columnInstant(date,value.to)}]})});
         const body=await response.json();
-        if(!response.ok)throw new Error(body?.error??"未能公開時段，請再試一次。");
+        if(!response.ok)throw new Error(body?.error??t("未能公開時段，請再試一次。"));
       }
       trackAvailabilityEvent("week_band_publish");
-      setMessage(`已公開 ${label} ${columnClock(value.from)}–${columnClock(value.to)}。`);
+      setMessage(t("已公開 {label} {v}–{v2}。", {label, v: columnClock(value.from), v2: columnClock(value.to)}));
       setNonce(value=>value+1);setOverride(null);onChanged?.();
-    }catch(error){setMessage(error instanceof Error?error.message:"網絡連線失敗，請再試一次。")}
+    }catch(error){setMessage(error instanceof Error?error.message:t("網絡連線失敗，請再試一次。"))}
     finally{setBusy(false);setApplying(null)}
-  },[onChanged,onPublish]);
+  },[onChanged,onPublish, t]);
 
   /* 到咗會所 — 現正在會所是名單上排第一的標記，所以這個開關必須就在同一張卡上，而不是另一個畫面。 */
   const togglePresence=useCallback(async(here:boolean)=>{
     setBusy(true);setMessage("");
     try{
       const response=await fetch("/api/presence",{method:here?"POST":"DELETE"});
-      if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body?.error??"未能更新狀態，請再試一次。")}
-      setMessage(here?"已標示你現正在會所，90 分鐘後自動失效。":"已取消會所狀態。");
+      if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body?.error??t("未能更新狀態，請再試一次。"))}
+      setMessage(here?t("已標示你現正在會所，90 分鐘後自動失效。"):t("已取消會所狀態。"));
       setNonce(value=>value+1);onChanged?.();
-    }catch(error){setMessage(error instanceof Error?error.message:"網絡連線失敗，請再試一次。")}
+    }catch(error){setMessage(error instanceof Error?error.message:t("網絡連線失敗，請再試一次。"))}
     finally{setBusy(false)}
-  },[onChanged]);
+  },[onChanged, t]);
 
   const withdraw=useCallback(async()=>{
     const slot=day?.mine[0];
@@ -227,18 +231,17 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
     setBusy(true);setMessage("");
     try{
       const response=await fetch(`/api/availability/${slot.id}`,{method:"DELETE"});
-      if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body?.error??"未能取消，請再試一次。")}
+      if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body?.error??t("未能取消，請再試一次。"))}
       trackAvailabilityEvent("week_band_withdraw");
-      setMessage("已取消公開。");
+      setMessage(t("已取消公開。"));
       setNonce(value=>value+1);setOverride(null);onChanged?.();
-    }catch(error){setMessage(error instanceof Error?error.message:"網絡連線失敗，請再試一次。")}
+    }catch(error){setMessage(error instanceof Error?error.message:t("網絡連線失敗，請再試一次。"))}
     finally{setBusy(false)}
-  },[day,onChanged]);
+  },[day,onChanged, t]);
 
   if(state==="error")return <section className="wb-card wb-error">
-    <InlineNotice tone="warning" title="未能載入本週的時段資料">
-      其他球員的時段暫時載入不到，你仍然可以用下面的「公開空檔」公開自己的時間。
-      <Button variant="secondary" onClick={()=>{setState("loading");setReloadToken(value=>value+1)}}>重試</Button>
+    <InlineNotice tone="warning" title={t("未能載入本週的時段資料")}>
+      {t("其他球員的時段暫時載入不到，你仍然可以用下面的「公開空檔」公開自己的時間。")}<Button variant="secondary" onClick={()=>{setState("loading");setReloadToken(value=>value+1)}}>{t("重試")}</Button>
     </InlineNotice>
   </section>;
   /* 骨架只代表「還在載入」。一份載得到卻沒有日子的回應，如果也畫骨架，就會變成一張永遠停在
@@ -246,55 +249,54 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
      路徑，所以在這裡分開處理，而不是靠上面的逾時兜底。 */
   if(state==="loading")return <section className="wb-card" aria-busy="true"><div className="wb-skeleton"/></section>;
   if(!data||!day)return <section className="wb-card wb-error">
-    <InlineNotice tone="warning" title="未能載入本週的時段資料">
-      其他球員的時段暫時載入不到，你仍然可以用下面的「公開空檔」公開自己的時間。
-      <Button variant="secondary" onClick={()=>{setState("loading");setReloadToken(value=>value+1)}}>重試</Button>
+    <InlineNotice tone="warning" title={t("未能載入本週的時段資料")}>
+      {t("其他球員的時段暫時載入不到，你仍然可以用下面的「公開空檔」公開自己的時間。")}<Button variant="secondary" onClick={()=>{setState("loading");setReloadToken(value=>value+1)}}>{t("重試")}</Button>
     </InlineNotice>
   </section>;
 
   const {gate,stats}=data;
   const locked=gate.locked||gate.anonymous;
   const maxPeak=Math.max(1,...data.days.map(item=>peakOf(density(item.people))));
-  const label=dayLabel(day.date,today);
+  const label=dayLabel(t, day.date,today);
 
   return <section className="wb-card">
     <header className="wb-head">
-      <p className="wb-kicker">SCAA · 約戰</p>
-      <h2>{published?"你已公開時段":"本週哪一晚最多人？"}</h2>
+      <p className="wb-kicker">{t("SCAA · 約戰")}</p>
+      <h2>{published?t("你已公開時段"):t("本週哪一晚最多人？")}</h2>
       <p>{published
-        ? "名單已解鎖，可直接發出邀請。拖動時段軸即可修改。"
-        : "選一晚，再拖出你有空的時間 — 立即知道有誰重疊。"}</p>
+        ? t("名單已解鎖，可直接發出邀請。拖動時段軸即可修改。")
+        : t("選一晚，再拖出你有空的時間 — 立即知道有誰重疊。")}</p>
     </header>
 
     {/* 七晚密度。數字是同時在場人數，不是全日人次：八個人分散在六小時，誰也碰不上。 */}
-    <div className="wb-week" role="tablist" aria-label="未來七晚">
+    <div className="wb-week" role="tablist" aria-label={t("未來七晚")}>
       {data.days.map((item,index)=>{
         const nightPeak=peakOf(density(item.people));
         const height=Math.max(10,Math.round(nightPeak/maxPeak*66));
         const tone=nightPeak>=maxPeak&&nightPeak>0?" hot":nightPeak<=1?" cold":"";
         return <button key={item.date} type="button" role="tab" aria-selected={index===selected}
           className={`wb-day${index===selected?" active":""}`}
-          aria-label={`${dayLabel(item.date,today)}，最多 ${nightPeak} 位球員同時在場`}
+          aria-label={t("{v}，最多 {nightPeak} 位球員同時在場", {v: dayLabel(t, item.date,today), nightPeak})}
           onClick={()=>{setSelected(index);setMessage("");onSelectDate?.(item.date)}}>
           <b>{nightPeak}</b>
           {item.mine.length>0&&<i className="wb-day-mark" aria-hidden="true"/>}
           <i className={`wb-day-bar${tone}`} style={{height:`${height}px`}}/>
-          <small>{dayLabel(item.date,today)}</small>
+          <small>{dayLabel(t, item.date,today)}</small>
         </button>;
       })}
     </div>
-    <p className="wb-week-foot"><span>數字＝同時在場人數</span><span>本週峰值 {maxPeak} 人</span></p>
+    <p className="wb-week-foot"><span>{t("數字＝同時在場人數")}</span><span>{t("本週峰值 {maxPeak} 人", {maxPeak})}</span></p>
 
     {/* 時段軸本身。背景是全會所的半小時密度，前景那一格是會員自己的時段。 */}
     <div className="wb-band-wrap">
       <div className={`wb-band${signedIn?"":" is-readonly"}`} ref={bandRef}
         role="slider" tabIndex={signedIn?0:-1}
-        aria-label="你的時段，方向鍵每次移動 30 分鐘，按住 Shift 調整長度"
+        aria-label={t("你的時段，方向鍵每次移動 30 分鐘，按住 Shift 調整長度")}
         aria-valuemin={0} aria-valuemax={BAND_COLUMNS} aria-valuenow={window.from}
-        aria-valuetext={`${columnClock(window.from)} 至 ${columnClock(window.to)}`}
+        aria-valuetext={t("{v} 至 {v2}", {v: columnClock(window.from), v2: columnClock(window.to)})}
         onPointerDown={onPointerDown} onPointerMove={onPointerMove}
         onPointerUp={onPointerUp} onPointerCancel={onPointerUp} onKeyDown={onKeyDown}>
-        <p className="wb-band-head"><span>{label}</span><b>{published?"已公開":"未公開"}</b></p>
+        <p className="wb-band-head"><span>{label}</span><b>{published?t("已公開"):t("未公開")}</b></p>
         <div className="wb-cols">
           {columns.map((value,index)=><span className="wb-col" key={index}>
             <i className={value>0&&value===peak?"is-peak":""}
@@ -309,68 +311,68 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
         <p className="wb-axis"><span>17:00</span><span>20:00</span><span>23:00</span><span>01:00</span></p>
       </div>
       <p className="wb-band-note">{!signedIn
-        ? "登入之後即可公開你的時段。"
+        ? t("登入之後即可公開你的時段。")
         : peak===0
           /* 全會所都沒有人公開時，柱是空的 —— 那不是壞掉，而是這一晚真的還沒有人。與其讓會員盯著
              一條空白的軸猜，不如直接說出來，並告訴他先公開仍然有用。 */
-          ? "這一晚還沒有人公開時段。你先公開，其他人就能看到你。"
-          : published&&!touched?"拖動即可修改已公開的時段。":"拖出你有空的時間。深色柱是會所人最多的時候。"}</p>
+          ? t("這一晚還沒有人公開時段。你先公開，其他人就能看到你。")
+          : published&&!touched?t("拖動即可修改已公開的時段。"):t("拖出你有空的時間。深色柱是會所人最多的時候。")}</p>
       {signedIn&&<>
         <Button variant="quiet" className="wb-fields-toggle" aria-expanded={showFields}
           onClick={()=>setShowFields(value=>!value)}>
-          {showFields?"收起時間選單":"改用時間選單"}</Button>
+          {showFields?t("收起時間選單"):t("改用時間選單")}</Button>
         {showFields&&<OwnWindowFields window={window} onChange={setChecked}/>}
       </>}
     </div>
 
     {/* 這一格的答案。公開之前就看得見，這正是接縫被拿掉的地方。 */}
     <div className="wb-readout" aria-live="polite">
-      <p className="wb-readout-n"><b>{overlap.length}</b><span>位球員與你這段時間重疊</span></p>
+      <p className="wb-readout-n"><b>{overlap.length}</b><span>{t("位球員與你這段時間重疊")}</span></p>
       {overlap.length>0&&<span className="wb-faces">
         {overlap.slice(0,6).map(person=><PlayerBadge key={person.playerId}
-          player={{short:person.short??"？",colour:person.colour,avatar:person.avatar}}/>)}
+          player={{short:person.short??t("？"),colour:person.colour,avatar:person.avatar}}/>)}
       </span>}
       <small>{overlap.length
-        ? locked?"公開你的時段後，即可看到姓名並發出邀請。":"可直接發出邀請，時間已預先填好。"
-        : "這段時間暫時沒有人。試試拖到柱最高的位置。"}</small>
+        ? locked?t("公開你的時段後，即可看到姓名並發出邀請。"):t("可直接發出邀請，時間已預先填好。")
+        : t("這段時間暫時沒有人。試試拖到柱最高的位置。")}</small>
     </div>
 
     {showList&&overlap.length>0&&<div className="wb-list">
       <div className="wb-list-head">
-        <h3>{columnClock(window.from)}–{columnClock(window.to)} 有空的球員</h3>
-        <span>{overlap.length} 位</span>
+        <h3>{t("{v}–{v2} 有空的球員", {v: columnClock(window.from), v2: columnClock(window.to)})}</h3>
+        <span>{t("{overlap} 位", {overlap: overlap.length})}</span>
       </div>
       {overlap.map(person=>{
         const shared=sharedWindow(person,window);
         const slot=person.slots[0];
         return <div className={`wb-row${locked?" is-locked":""}`} key={person.playerId}>
-          <PlayerBadge player={{short:person.short??"？",colour:person.colour,avatar:person.avatar}}/>
+          <PlayerBadge player={{short:person.short??t("？"),colour:person.colour,avatar:person.avatar}}/>
           <span className="wb-who">
             {locked||!onOpenPlayer
               ? <b>{person.name??"●●●"}</b>
               : <button type="button" className="wb-who-link" onClick={()=>onOpenPlayer(person.playerId)}>{person.name}</button>}
             <small>{person.rating!==null?`${person.rating} ELO`:`${person.ratingBand} ELO`}</small>
             <span className="wb-chips">
-              {person.atClub&&<span className="wb-chip live">現正在會所</span>}
-              <span className="wb-chip">{locked?"🔒 時段":`${columnClock(Math.round(slot.from))}–${columnClock(Math.round(slot.to))}`}</span>
+              {person.atClub&&<span className="wb-chip live">{t("現正在會所")}</span>}
+              <span className="wb-chip">{locked?t("🔒 時段"):`${columnClock(Math.round(slot.from))}–${columnClock(Math.round(slot.to))}`}</span>
             </span>
           </span>
           {locked
             ? <button type="button" className="wb-ask is-locked" onClick={()=>setShowFields(true)}
-                aria-label="公開你的時段後即可發出邀請">🔒</button>
+                aria-label={t("公開你的時段後即可發出邀請")}>🔒</button>
             : <Button className="wb-ask" disabled={!shared}
                 onClick={()=>shared&&onInvite?.(person.playerId,
-                  {startAt:columnInstant(day.date,shared.from),endAt:columnInstant(day.date,shared.to)})}>邀請</Button>}
+                  {startAt:columnInstant(day.date,shared.from),endAt:columnInstant(day.date,shared.to)})}>{t("邀請")}</Button>}
         </div>;
       })}
-      {locked&&<p className="wb-gate-line">公開你的時段後，即可看到姓名並發出邀請。</p>}
+      {locked&&<p className="wb-gate-line">{t("公開你的時段後，即可看到姓名並發出邀請。")}</p>}
     </div>}
 
     {signedIn&&<div className="wb-presence">
       <Button variant={data.atClub?"secondary":"quiet"} disabled={busy}
         aria-pressed={data.atClub} onClick={()=>void togglePresence(!data.atClub)}>
-        {data.atClub?"✓ 現正在會所":"我在會所"}</Button>
-      <small>{data.atClub?"其他球員會在名單最上方看到你。90 分鐘後自動失效。":"標示之後，你會排在今晚名單的最上方。"}</small>
+        {data.atClub?t("✓ 現正在會所"):t("我在會所")}</Button>
+      <small>{data.atClub?t("其他球員會在名單最上方看到你。90 分鐘後自動失效。"):t("標示之後，你會排在今晚名單的最上方。")}</small>
     </div>}
 
     {message&&<p key={message} className="wb-message" role="status">{message}</p>}
@@ -379,17 +381,16 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
       {published&&!touched
         ? <Button variant="secondary" className="wb-commit-button" disabled={busy} aria-busy={busy}
             onClick={()=>void withdraw()}>
-            已公開 · {label} {columnClock(window.from)}–{columnClock(window.to)}｜取消公開</Button>
+            {t("已公開 · {label} {v}–{v2}｜取消公開", {label, v: columnClock(window.from), v2: columnClock(window.to)})}</Button>
         : <Button className="wb-commit-button is-primary" disabled={busy} aria-busy={busy}
             onClick={()=>void publish(day.date,window,label)}>
-            公開 {label} {columnClock(window.from)}–{columnClock(window.to)}
-            <small>{overlap.length?`同時解鎖 ${overlap.length} 位重疊球員的姓名`:"暫時沒有人重疊，仍可公開等人"}</small>
+            {t("公開 {label} {v}–{v2}", {label, v: columnClock(window.from), v2: columnClock(window.to)})}<small>{overlap.length?t("同時解鎖 {overlap} 位重疊球員的姓名", {overlap: overlap.length}):t("暫時沒有人重疊，仍可公開等人")}</small>
           </Button>}
     </div>}
 
     {/* 多晚公開不需要另一個介面：同一格，其餘各晚各按一下。 */}
     {published&&signedIn&&<div className="wb-apply">
-      <p>套用至其他晚上</p>
+      <p>{t("套用至其他晚上")}</p>
       <div className="wb-apply-row">
         {data.days.map((item,index)=>index===selected?null:{item,index})
           .filter((entry): entry is {item:Day;index:number}=>entry!==null)
@@ -397,8 +398,8 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
             const done=item.mine.length>0;
             return <button key={item.date} type="button" className={done?"is-done":""}
               disabled={busy||done} aria-pressed={done}
-              onClick={()=>{setApplying(index);void publish(item.date,window,dayLabel(item.date,today))}}>
-              {dayLabel(item.date,today)} {done?"✓":applying===index?"…":"＋"}
+              onClick={()=>{setApplying(index);void publish(item.date,window,dayLabel(t, item.date,today))}}>
+              {dayLabel(t, item.date,today)} {done?"✓":applying===index?"…":"＋"}
             </button>;
           })}
       </div>
@@ -407,8 +408,8 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
     {published&&stats.streakWeeks>0&&<div className="wb-streak">
       <span className="wb-streak-n">{stats.streakWeeks}</span>
       <div>
-        <b>連續 {stats.streakWeeks} 週公開時段</b>
-        <small>本週已有 {stats.clubPublishedThisWeek} 位球員公開時段。</small>
+        <b>{t("連續 {streakWeeks} 週公開時段", {streakWeeks: stats.streakWeeks})}</b>
+        <small>{t("本週已有 {clubPublishedThisWeek} 位球員公開時段。", {clubPublishedThisWeek: stats.clubPublishedThisWeek})}</small>
       </div>
     </div>}
   </section>;

@@ -1,3 +1,5 @@
+
+import type { Translator } from "./i18n/translate.ts";
 /* --- The proposed handicap -------------------------------------------------
  *
  * 讓分 is the social technology that makes an uneven game worth playing, and the competing 約腳 apps
@@ -56,15 +58,15 @@ export type HandicapProposal = {
 
 /** What the two of us should play off, said to me about them. The displayed integer indexes are
     authoritative: a 37 player facing a 56 player gives 19 points. */
-export function proposeHandicap(myRating:number,theirRating:number,settings:HandicapSettings):HandicapProposal {
+export function proposeHandicap(t: Translator, myRating:number,theirRating:number,settings:HandicapSettings):HandicapProposal {
   const start=settings.start??1500;
   const myHandicap=roundToNearestInteger(DEFAULT_SUGGESTED_HANDICAP-(myRating-start)/HANDICAP_ELO_PER_POINT);
   const theirHandicap=roundToNearestInteger(DEFAULT_SUGGESTED_HANDICAP-(theirRating-start)/HANDICAP_ELO_PER_POINT);
   const points=theirHandicap-myHandicap;
-  if(points===0)return {points:0,direction:"level",label:"平手打就啱"};
+  if(points===0)return {points:0,direction:"level",label:t("平手打就啱")};
   return points>0
-    ?{points,direction:"give",label:`建議你讓 ${points} 分`}
-    :{points,direction:"receive",label:`建議佢讓 ${Math.abs(points)} 分`};
+    ?{points,direction:"give",label:t("建議你讓 {points} 分", {points})}
+    :{points,direction:"receive",label:t("建議佢讓 {v} 分", {v: Math.abs(points)})};
 }
 
 /* --- Does it actually produce a close game? --------------------------------
@@ -82,7 +84,7 @@ export type HeadToHead = {played:number;myWins:number;theirWins:number;label:str
  *  Deliberately silent below three games: "你哋打過 1 局，你贏咗" is not evidence of anything, and
  *  dressing it up as a reason to trust the handicap would be the app overclaiming — which costs more
  *  trust than saying nothing. */
-export function headToHead(matches:PastMatch[],me:string,them:string):HeadToHead {
+export function headToHead(t: Translator, matches:PastMatch[],me:string,them:string):HeadToHead {
   const played=matches.filter(match=>match.status==="confirmed"
     &&((match.a===me&&match.b===them)||(match.a===them&&match.b===me)));
   let myWins=0,theirWins=0;
@@ -91,7 +93,7 @@ export function headToHead(matches:PastMatch[],me:string,them:string):HeadToHead
     const theirs=match.a===me?match.scoreB:match.scoreA;
     if(mine>theirs)myWins+=1; else if(theirs>mine)theirWins+=1;
   }
-  const label=played.length>=3?`你哋過往 ${played.length} 局 ${myWins} : ${theirWins}`:null;
+  const label=played.length>=3?t("你哋過往 {played} 局 {myWins} : {theirWins}", {played: played.length, myWins, theirWins}):null;
   return {played:played.length,myWins,theirWins,label};
 }
 
@@ -100,12 +102,12 @@ export function headToHead(matches:PastMatch[],me:string,them:string):HeadToHead
  *  Two members who have never met get the proposal alone — which is exactly when it is worth the
  *  most, because there is no shared history to fall back on and the handicap is the only thing
  *  standing between "he is way better than me" and a game worth turning up for. */
-export function handicapSentence(input:{
+export function handicapSentence(t: Translator, input:{
   myRating:number; theirRating:number; settings:HandicapSettings;
   matches:PastMatch[]; me:string; them:string;
 }){
-  const proposal=proposeHandicap(input.myRating,input.theirRating,input.settings);
-  const record=headToHead(input.matches,input.me,input.them);
+  const proposal=proposeHandicap(t, input.myRating,input.theirRating,input.settings);
+  const record=headToHead(t, input.matches,input.me,input.them);
   return {...proposal,evidence:record.label,played:record.played};
 }
 

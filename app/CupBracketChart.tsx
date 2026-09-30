@@ -1,6 +1,8 @@
 "use client";
 import { PlayerBadge } from "./UiBits";
 import type { StoryBracketRound } from "../lib/story-card";
+import { useT } from "./components/I18nProvider";
+import type { Translator } from "../lib/i18n/translate";
 
 /** The bracket, at a glance.
  *
@@ -37,14 +39,14 @@ function shortDate(value:string):string{
 
 /** An empty seat says which kind of empty it is. In a bye the other side simply walks through, and
     「待定」 there would promise an opponent who is never coming. */
-const seatName=(player:ChartPlayer|null,state?:string)=>
-  player?player.name||player.short:state==="bye"?"輪空":"待定";
+const seatName=(t: Translator, player:ChartPlayer|null,state?:string)=>
+  player?player.name||player.short:state==="bye"?t("輪空"):t("待定");
 
 /** The same seats, in the shape the Instagram card draws.
  *
  *  Both surfaces show one bracket, so both read one flattening. The card cannot be tapped and has no
  *  colours to spare, so it takes names, scores and the winner and drops everything else. */
-export function storyBracket(chart:BracketChartData):StoryBracketRound[]{
+export function storyBracket(t: Translator, chart:BracketChartData):StoryBracketRound[]{
   return chart.rounds.map(round=>({
     name:round.name,
     ties:round.nodes.map(node=>({
@@ -52,7 +54,7 @@ export function storyBracket(chart:BracketChartData):StoryBracketRound[]{
       /* 待定 is marked, not just named: on a freshly drawn cup the card draws the empty half of the
          tree faintly so the first-round pairings stay the thing you read. A bye is a real outcome,
          so it is not pending. */
-      seats:node.seats.map(seat=>({name:seatName(seat.player,node.state),score:seat.score,won:seat.won,
+      seats:node.seats.map(seat=>({name:seatName(t, seat.player,node.state),score:seat.score,won:seat.won,
         pending:!seat.player&&node.state!=="bye"})),
     })),
   }));
@@ -65,9 +67,10 @@ export default function CupBracketChart({chart,activeRound,onPick}:{
   /** Omitted on the public page, where a node has nowhere to take a reader who cannot act. */
   onPick?:(round:number,index:number)=>void;
 }){
+  const t = useT();
   if(!chart.rounds.length)return null;
   const total=chart.rounds.length;
-  return <div className="cup-mini" role="group" aria-label="賽事對陣圖">
+  return <div className="cup-mini" role="group" aria-label={t("賽事對陣圖")}>
     <div className="cup-mini-rail" aria-hidden="true">{chart.rounds.map(round=>
       <span key={round.round} className={round.round===activeRound?"active":""}>{round.name}</span>)}</div>
     <div className="cup-mini-tree">
@@ -87,11 +90,11 @@ export default function CupBracketChart({chart,activeRound,onPick}:{
                 {seat.player?<PlayerBadge player={seat.player}/>:<i aria-hidden="true"/>}
                 {/* min-width:0 on the name is what keeps the tree inside its column: it ellipsizes
                     rather than pushing the score off the right edge. */}
-                <b className="cup-mini-name">{seatName(seat.player,node.state)}</b>
+                <b className="cup-mini-name">{seatName(t, seat.player,node.state)}</b>
                 {seat.score!=null?<em>{seat.score}</em>:null}
               </span>);
-            const names=node.seats.map(seat=>seatName(seat.player,node.state)).join(" 對 ");
-            const label=`${round.name} 第 ${node.index} 場，${names}${node.date?`，${node.date}`:""}`;
+            const names=node.seats.map(seat=>seatName(t, seat.player,node.state)).join(t(" 對 "));
+            const label=t("{name} 第 {index} 場，{names}{v}", {name: round.name, index: node.index, names, v: node.date?t("，{date}", {date: node.date}):""});
             const body=<>
               {seats}
               {node.date&&!dead
@@ -110,7 +113,7 @@ export default function CupBracketChart({chart,activeRound,onPick}:{
       {chart.champion&&<div className="cup-mini-crown">
         <span aria-hidden="true">🏆</span>
         <PlayerBadge player={chart.champion}/>
-        <b>{seatName(chart.champion)}</b>
+        <b>{seatName(t, chart.champion)}</b>
       </div>}
     </div>
   </div>;

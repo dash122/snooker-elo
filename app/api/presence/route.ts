@@ -1,6 +1,7 @@
 import { requireMember } from "../../../db/auth";
 import { arriveAtClub, leaveClub, myPresence } from "../../../db/presence.pg";
 
+import { getTranslator } from "../../../lib/i18n/server";
 /** 我而家喺會所 / 收工.
  *
  *  Deliberately not folded into the intent routes. Being at the club and wanting a game are separate
@@ -22,7 +23,7 @@ export async function POST(){
   try{
     const presence=await arriveAtClub(member.statePlayerId);
     return Response.json({presence},{status:201});
-  }catch(error){return Response.json({error:error instanceof Error?error.message:"Could not update presence"},{status:400});}
+  }catch(error){return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Could not update presence"},{status:400});}
 }
 
 export async function DELETE(){

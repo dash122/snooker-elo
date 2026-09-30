@@ -1,3 +1,5 @@
+
+import type { Translator } from "./i18n/translate.ts";
 /** What a shared match result says about itself.
  *
  *  A result is the one thing a player wants to show off the moment it happens, and the moment is
@@ -107,32 +109,32 @@ export function cupText(cup: ShareCup | null): string {
   return cup.round ? `${cup.name} · ${cup.round}` : cup.name;
 }
 
-export function matchShareDescription(state: MatchShareState): string {
-  const where = state.kind === "cup" ? cupText(state.cup) : state.kind === "fun" ? "潮拍 2v2" : "球會對局";
+export function matchShareDescription(t: Translator, state: MatchShareState): string {
+  const where = state.kind === "cup" ? cupText(state.cup) : state.kind === "fun" ? t("潮拍 2v2") : t("球會對局");
   const top = state.breaks[0];
   const parts = [`${where} · ${state.playedOn}`];
-  if (state.drawn) parts.push("打成平手");
-  else parts.push(`${shareWinner(state)!.name} 贏 ${shareScoreline(state)}`);
+  if (state.drawn) parts.push(t("打成平手"));
+  else parts.push(t("{name} 贏 {v}", {name: shareWinner(state)!.name, v: shareScoreline(state)}));
   if (state.eloDelta > 0) parts.push(`ELO ±${state.eloDelta}`);
-  if (top) parts.push(`單桿 ${top.value}（${top.name}）`);
-  return `${parts.join(" · ")}。撳入去睇埋排名、走勢同全部賽果。`;
+  if (top) parts.push(t("單桿 {value}（{name}）", {value: top.value, name: top.name}));
+  return t("{v}。撳入去睇埋排名、走勢同全部賽果。", {v: parts.join(" · ")});
 }
 
 /** The text a member sends. Ends with the bare URL on its own line: WhatsApp only renders the link
     preview when the URL is the last thing in the message, and the preview is what does the work. */
-export function matchShareMessage(state: MatchShareState, url: string): string {
+export function matchShareMessage(t: Translator, state: MatchShareState, url: string): string {
   /* The round leads the cup's own name: "準決賽" is the fact that makes somebody in a group chat
      stop scrolling, and a semi-final announced as just another fixture wastes it. */
   const head = state.kind === "cup" ? `🏆 ${state.cup!.round || state.cup!.name}${state.cup!.round ? ` · ${state.cup!.name}` : ""}`
-    : state.kind === "fun" ? "🎱 潮拍 2v2" : "🎱 球會對局";
+    : state.kind === "fun" ? t("🎱 潮拍 2v2") : t("🎱 球會對局");
   const lines = [head];
-  if (state.drawn) lines.push(`${state.left.name} ${shareScoreline(state)} ${state.right.name} — 打成平手`);
+  if (state.drawn) lines.push(t("{name} {v} {name2} — 打成平手", {name: state.left.name, v: shareScoreline(state), name2: state.right.name}));
   else lines.push(`${shareWinner(state)!.name} ${shareScoreline(state)} ${shareLoser(state)!.name}`);
   if (state.handicap) lines.push(state.handicap);
   const top = state.breaks[0];
-  if (top) lines.push(`單桿最高 ${top.value} — ${top.name}`);
-  if (state.eloDelta > 0) lines.push(`今場 ELO 波動 ${state.eloDelta} 分`);
-  lines.push("睇完整賽果同排名 👇");
+  if (top) lines.push(t("單桿最高 {value} — {name}", {value: top.value, name: top.name}));
+  if (state.eloDelta > 0) lines.push(t("今場 ELO 波動 {eloDelta} 分", {eloDelta: state.eloDelta}));
+  lines.push(t("睇完整賽果同排名 👇"));
   return `${lines.join("\n")}\n${url}`;
 }
 
@@ -147,12 +149,12 @@ export type ShareHonour = { name: string; place: "champion" | "runnerUp" };
  *  collapse to a count, because three cup names in a row on a story card is a paragraph, and a
  *  paragraph is not a badge. Runner-up appears only in the absence of any title, which is the
  *  honest reading of "best finish". */
-export function honourText(honours: ShareHonour[]): string {
+export function honourText(t: Translator, honours: ShareHonour[]): string {
   const titles = honours.filter(item => item.place === "champion");
   const best = titles.length ? titles : honours.filter(item => item.place === "runnerUp");
   if (!best.length) return "";
-  const place = titles.length ? "冠軍" : "亞軍";
-  return best.length === 1 ? `${best[0].name} ${place}` : `盃賽${place} ×${best.length}`;
+  const place = titles.length ? t("冠軍") : t("亞軍");
+  return best.length === 1 ? `${best[0].name} ${place}` : t("盃賽{place} ×{best}", {place, best: best.length});
 }
 
 export type RecordShareState = {
@@ -181,27 +183,27 @@ export function recordShareTitle(state: RecordShareState): string {
   return `${state.name} · ELO ${state.rating}`;
 }
 
-export function recordShareDescription(state: RecordShareState): string {
-  const honour = honourText(state.honours);
+export function recordShareDescription(t: Translator, state: RecordShareState): string {
+  const honour = honourText(t, state.honours);
   /* A title outranks a rank: a rank is this month, a cup is forever, and it is the first thing a
      reader who has never met this person should be told. */
   const parts = [...(honour ? [`🏆 ${honour}`] : []),
-    state.rank > 0 ? `球會排名 #${state.rank}` : "球會成員", `ELO ${state.rating}`,
-    `${state.played} 場 ${state.wins}勝${state.losses}負${state.draws}和`,
-    `局數勝率 ${Math.round(state.frameRate * 100)}%`];
-  if (state.highestBreak > 0) parts.push(`最高單桿 ${state.highestBreak}`);
-  return `${parts.join(" · ")}。撳入去睇 ELO 走勢同對戰紀錄。`;
+    state.rank > 0 ? t("球會排名 #{rank}", {rank: state.rank}) : t("球會成員"), `ELO ${state.rating}`,
+    t("{played} 場 {wins}勝{losses}負{draws}和", {played: state.played, wins: state.wins, losses: state.losses, draws: state.draws}),
+    t("局數勝率 {v}%", {v: Math.round(state.frameRate * 100)})];
+  if (state.highestBreak > 0) parts.push(t("最高單桿 {highestBreak}", {highestBreak: state.highestBreak}));
+  return t("{v}。撳入去睇 ELO 走勢同對戰紀錄。", {v: parts.join(" · ")});
 }
 
-export function recordShareMessage(state: RecordShareState, url: string): string {
-  const honour = honourText(state.honours);
-  const lines = [`🎱 ${state.name} 嘅球會紀錄`];
+export function recordShareMessage(t: Translator, state: RecordShareState, url: string): string {
+  const honour = honourText(t, state.honours);
+  const lines = [t("🎱 {name} 嘅球會紀錄", {name: state.name})];
   if (honour) lines.push(`🏆 ${honour}`);
-  if (state.rank > 0) lines.push(`排名 #${state.rank} · ELO ${state.rating}${state.provisional ? "（臨時）" : ""}`);
-  else lines.push(`ELO ${state.rating}${state.provisional ? "（臨時）" : ""}`);
-  lines.push(`${state.played} 場 · ${state.wins}勝${state.losses}負${state.draws}和 · 局數勝率 ${Math.round(state.frameRate * 100)}%`);
-  if (state.highestBreak > 0) lines.push(`最高單桿 ${state.highestBreak}`);
-  lines.push("想開波？撳入去約我 👇");
+  if (state.rank > 0) lines.push(t("排名 #{rank} · ELO {rating}{v}", {rank: state.rank, rating: state.rating, v: state.provisional ? t("（臨時）") : ""}));
+  else lines.push(`ELO ${state.rating}${state.provisional ? t("（臨時）") : ""}`);
+  lines.push(t("{played} 場 · {wins}勝{losses}負{draws}和 · 局數勝率 {v}%", {played: state.played, wins: state.wins, losses: state.losses, draws: state.draws, v: Math.round(state.frameRate * 100)}));
+  if (state.highestBreak > 0) lines.push(t("最高單桿 {highestBreak}", {highestBreak: state.highestBreak}));
+  lines.push(t("想開波？撳入去約我 👇"));
   return `${lines.join("\n")}\n${url}`;
 }
 
@@ -216,19 +218,19 @@ export type ShareMatchLike = {
 
 /** The handicap in words, phrased exactly as the match card in the app phrases it. Two surfaces
     describing the same match differently is how a reader starts doubting both. */
-export function handicapText(points: number, leftLabel: string, rightLabel: string): string {
-  if (points > 0) return `${leftLabel} 每局讓 ${rightLabel} ${points} 分`;
-  if (points < 0) return `${rightLabel} 每局讓 ${leftLabel} ${Math.abs(points)} 分`;
-  return "不設讓分";
+export function handicapText(t: Translator, points: number, leftLabel: string, rightLabel: string): string {
+  if (points > 0) return t("{leftLabel} 每局讓 {rightLabel} {points} 分", {leftLabel, rightLabel, points});
+  if (points < 0) return t("{rightLabel} 每局讓 {leftLabel} {v} 分", {rightLabel, leftLabel, v: Math.abs(points)});
+  return t("不設讓分");
 }
 
 /** One description of a match, built once and used by every share surface: the app's compose sheet,
     the story card, and the public page's meta tags. Structurally typed on purpose — the app's `Match`
     and the state JSON the share page parses are the same shape, and neither should have to import
     the other's declaration to be described. */
-export function describeMatch(match: ShareMatchLike, players: SharePlayerLike[], cup: ShareCup | null = null): MatchShareState {
+export function describeMatch(t: Translator, match: ShareMatchLike, players: SharePlayerLike[], cup: ShareCup | null = null): MatchShareState {
   const find = (id: string) => players.find(player => player.id === id);
-  const label = (id: string) => find(id)?.name ?? "已移除球員";
+  const label = (id: string) => find(id)?.name ?? t("已移除球員");
   const team = (mode: "A" | "B") => (mode === "A" ? [match.a, match.a2] : [match.b, match.b2])
     .filter((id): id is string => Boolean(id));
   const fun = match.mode === "2v2";
@@ -241,7 +243,7 @@ export function describeMatch(match: ShareMatchLike, players: SharePlayerLike[],
       /* A 2v2 is played by a named team, so the team's name leads and the players ride underneath;
          a singles match is played by a person, and inventing a team name for one would be a label
          nobody at the table used. */
-      name: fun ? (teamName || (mode === "A" ? "Team A" : "Team B")) : (lead?.name ?? "已移除球員"),
+      name: fun ? (teamName || (mode === "A" ? "Team A" : "Team B")) : (lead?.name ?? t("已移除球員")),
       short: fun ? mode : (lead?.short ?? "?"),
       colour: fun ? null : (lead?.colour ?? null),
       avatar: fun ? null : (lead?.avatar ?? null),
@@ -256,7 +258,7 @@ export function describeMatch(match: ShareMatchLike, players: SharePlayerLike[],
     left, right,
     playedOn: match.playedOn,
     eloDelta: match.deltaA,
-    handicap: handicapText(match.actual, left.name, right.name),
+    handicap: handicapText(t, match.actual, left.name, right.name),
     breaks: (match.highBreaks ?? []).map(item => ({ name: label(item.playerId), value: item.value })),
   });
 }

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { STRIP_START_MINUTES, clockLabel, isCommitment, overlapHeadline, overlapView,
   overlapWithMine, visibleBuckets } from "../lib/overlap.ts";
 
+import { createTranslator } from "../lib/i18n/translate.ts";
+const t = createTranslator("zh-Hant");
 /* 2026-09-01 00:00 Hong Kong = 2026-08-31T16:00Z */
 const DAY = Date.parse("2026-08-31T16:00:00.000Z");
 const at = (hhmm) => {
@@ -24,7 +26,7 @@ test("people who never share an hour do not count as an overlap",()=>{
   const v=view([slot("a","14:00","17:00"),slot("b","21:00","23:00")]);
   assert.equal(v.goingTotal,2,"both are going, and the all-day figure says so");
   assert.equal(v.peak,1,"but they are never in the room together");
-  assert.match(overlapHeadline(v),/^1 人/,"and the headline reports the truth, not the day count");
+  assert.match(overlapHeadline(t, v),/^1 人/,"and the headline reports the truth, not the day count");
 });
 
 test("the peak is the busiest moment, and its window is the longest run at that level",()=>{
@@ -79,13 +81,13 @@ test("an empty day says so rather than reporting a small number",()=>{
   const v=view([]);
   assert.equal(v.peak,0);
   assert.equal(v.goingTotal,0);
-  assert.equal(overlapHeadline(v),"今日未有人");
+  assert.equal(overlapHeadline(t, v),"今日未有人");
 });
 
 test("a day where everybody misses everybody is distinguished from an empty one",()=>{
   const v=view([slot("a","14:00","15:00")]);
   assert.equal(v.peak,1);
-  assert.notEqual(overlapHeadline(v),"今日未有人");
+  assert.notEqual(overlapHeadline(t, v),"今日未有人");
 });
 
 /* --- Malformed input ------------------------------------------------------- */

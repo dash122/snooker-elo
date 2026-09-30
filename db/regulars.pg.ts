@@ -1,4 +1,5 @@
 import { getSql } from "./sql";
+import { msg } from "../lib/i18n/translate.ts";
 
 /* A personal, one-directional shortlist -- not a friend graph. Starring someone changes nothing
    about who can see or join their 局; it only lets the client show "你哋打過" instead of a stranger
@@ -12,10 +13,10 @@ export async function listRegulars(playerId:string):Promise<string[]>{
 }
 
 export async function addRegular(playerId:string,regularId:string):Promise<void>{
-  if(playerId===regularId)throw new Error("唔可以將自己加為常打對手。");
+  if(playerId===regularId)throw new Error(msg("唔可以將自己加為常打對手。"));
   const sql=getSql();
   const [player]=await sql<{id:string}[]>`SELECT id FROM state_players WHERE id=${regularId}`;
-  if(!player)throw new Error("搵唔到呢位球員。");
+  if(!player)throw new Error(msg("搵唔到呢位球員。"));
   await sql`INSERT INTO player_regulars (player_id,regular_id) VALUES (${playerId},${regularId})
     ON CONFLICT (player_id,regular_id) DO NOTHING`;
 }

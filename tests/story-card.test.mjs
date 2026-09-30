@@ -8,18 +8,20 @@ import {
 import { cupShareState } from "../lib/cup-share.ts";
 import { describeMatch, honourText } from "../lib/match-share.ts";
 
+import { createTranslator } from "../lib/i18n/translate.ts";
+const t = createTranslator("zh-Hant");
 const hex = () => "#155e52";
 
 const players = [
   { id: "p1", name: "陳大文", short: "CTM", colour: "wine", avatar: null },
   { id: "p2", name: "李小強", short: "LSK", colour: "ocean", avatar: null },
 ];
-const state = (overrides = {}) => describeMatch({
+const state = (overrides = {}) => describeMatch(t, {
   a: "p1", b: "p2", scoreA: 4, scoreB: 2, playedOn: "2026-08-08",
   actual: -4, deltaA: 18.4, highBreaks: [{ playerId: "p1", value: 87 }], ...overrides,
 }, players, overrides.cup ?? null);
 
-const resultSvg = (overrides = {}) => storySvg(resultStoryCard(state(overrides), "https://x.hk/m/1"), hex);
+const resultSvg = (overrides = {}) => storySvg(t, resultStoryCard(t, state(overrides), "https://x.hk/m/1"), hex);
 
 /* Wired the way the real callers wire it: the honour's wording comes from the copy module and is
    handed to the card, so a change to either shows up here. */
@@ -27,7 +29,7 @@ const record = (overrides = {}) => recordStoryCard({
   name: "陳大文", short: "CTM", colour: "wine", avatar: null, rank: 3, rating: 1642,
   provisional: false, played: 48, wins: 29, losses: 16, draws: 3, frameRate: 0.583,
   highestBreak: 102, form: ["W", "W", "L", "W", "D"], swing: 34, honours: [], ...overrides,
-}, "https://x.hk/p/p1", honourText(overrides.honours ?? []));
+}, "https://x.hk/p/p1", honourText(t, overrides.honours ?? []));
 
 test("a story card is Instagram's frame, exactly", () => {
   const svg = resultSvg();
@@ -38,7 +40,7 @@ test("a story card is Instagram's frame, exactly", () => {
 test("the card is self-contained: no remote fonts, no remote images", () => {
   // A webfont rasterises to the wrong font, and a remote image taints the canvas and blocks the
   // export outright — so a reference to either is a broken share, not a cosmetic issue.
-  for (const svg of [resultSvg(), storySvg(record(), hex), shareBannerSvg("match"), shareBannerSvg("record")]) {
+  for (const svg of [resultSvg(), storySvg(t, record(), hex), shareBannerSvg(t, "match"), shareBannerSvg(t, "record")]) {
     assert.doesNotMatch(svg, /@import|<link|https?:\/\/(?!www\.w3\.org)/);
     assert.doesNotMatch(svg, /href="(?!#|data:)/);
   }
@@ -73,7 +75,7 @@ test("the cup's name headlines the card and the round stays in the ribbon", () =
 test("the trophy is drawn, never typed", () => {
   // An emoji would depend on whichever colour emoji font the rasterising browser has; a path does
   // not. The story card and the banners must contain no emoji at all.
-  for (const svg of [resultSvg({ cup: CUP }), resultSvg(), storySvg(record(), hex), shareBannerSvg("match")]) {
+  for (const svg of [resultSvg({ cup: CUP }), resultSvg(), storySvg(t, record(), hex), shareBannerSvg(t, "match")]) {
     assert.doesNotMatch(svg, /\p{Extended_Pictographic}/u);
   }
 });
@@ -87,11 +89,11 @@ test("a cup tie with no nameable round falls back to the plain rule, not an empt
 test("a champion wears the ribbon a cup tie wears, in the same slot", () => {
   // One slot, one meaning: the distinction this card carries. On a result that is the round; on a
   // record it is the cup — and neither costs the card any height.
-  const svg = storySvg(record({ honours: [{ name: "南華會週年會友盃", place: "champion" }] }), hex);
+  const svg = storySvg(t, record({ honours: [{ name: "南華會週年會友盃", place: "champion" }] }), hex);
   assert.equal((svg.match(/<line[^>]*y1="244"/g) ?? []).length, 2);
   assert.match(svg, /南華會週年會友盃 冠軍/);
   // A player with no cup history keeps the plain rule rather than an empty ribbon.
-  assert.equal((storySvg(record(), hex).match(/<line[^>]*y1="244"/g) ?? []).length, 1);
+  assert.equal((storySvg(t, record(), hex).match(/<line[^>]*y1="244"/g) ?? []).length, 1);
 });
 
 test("a friendly 2v2 is labelled as one and shows no ELO swing", () => {
@@ -121,7 +123,7 @@ test("a card with no break omits the break band rather than showing an empty one
 });
 
 test("every drawn element stays inside the frame", () => {
-  for (const svg of [resultSvg(), resultSvg({ highBreaks: [] }), storySvg(record(), hex), storySvg(record({ form: [], swing: 0, rank: 0 }), hex)]) {
+  for (const svg of [resultSvg(), resultSvg({ highBreaks: [] }), storySvg(t, record(), hex), storySvg(t, record({ form: [], swing: 0, rank: 0 }), hex)]) {
     for (const [, value] of svg.matchAll(/\sy="(-?\d+(?:\.\d+)?)"/g)) {
       assert.ok(Number(value) >= 0 && Number(value) <= STORY_HEIGHT, `y=${value} outside the card`);
     }
@@ -138,7 +140,7 @@ test("a name gives up type size before it gives up letters", () => {
   assert.ok(fitSize("Alexander Wong", 56, 34, 440) < 56);
   assert.ok(fitSize("Alexander Wong", 56, 34, 440) >= 34);
   const long = { ...players[1], name: "極長名字極長名字極長名字極長名字極長名字" };
-  const svg = storySvg(resultStoryCard(describeMatch({
+  const svg = storySvg(t, resultStoryCard(t, describeMatch(t, {
     a: "p1", b: "x", scoreA: 4, scoreB: 2, playedOn: "2026-08-08", actual: 0, deltaA: 1,
   }, [players[0], { ...long, id: "x" }]), "https://x.hk/m/1"), hex);
   assert.match(svg, /…/);
@@ -152,7 +154,7 @@ test("shortening measures the ellipsis it adds", () => {
 });
 
 test("a name with XML in it cannot break the document", () => {
-  const svg = storySvg(record({ name: '<script>&"x"' }), hex);
+  const svg = storySvg(t, record({ name: '<script>&"x"' }), hex);
   assert.doesNotMatch(svg, /<script>/);
   assert.match(svg, /&lt;script&gt;/);
 });
@@ -160,16 +162,16 @@ test("a name with XML in it cannot break the document", () => {
 test("an avatar is embedded only when it is already a data URI", () => {
   // A remote avatar taints the canvas and the PNG export fails outright, so the card falls back to
   // the initials the app draws everywhere else.
-  assert.match(storySvg(record({ avatar: "https://cdn.example/a.png" }), hex), />CTM</);
-  assert.doesNotMatch(storySvg(record({ avatar: "https://cdn.example/a.png" }), hex), /<image/);
-  assert.match(storySvg(record({ avatar: "data:image/png;base64,AAA" }), hex), /<image/);
+  assert.match(storySvg(t, record({ avatar: "https://cdn.example/a.png" }), hex), />CTM</);
+  assert.doesNotMatch(storySvg(t, record({ avatar: "https://cdn.example/a.png" }), hex), /<image/);
+  assert.match(storySvg(t, record({ avatar: "data:image/png;base64,AAA" }), hex), /<image/);
 });
 
 test("the link-preview banner is Open Graph's frame and names which share it is", () => {
-  assert.match(shareBannerSvg("match"), new RegExp(`width="${BANNER_WIDTH}" height="${BANNER_HEIGHT}"`));
+  assert.match(shareBannerSvg(t, "match"), new RegExp(`width="${BANNER_WIDTH}" height="${BANNER_HEIGHT}"`));
   assert.equal(BANNER_WIDTH / BANNER_HEIGHT, 1200 / 630);
-  assert.match(shareBannerSvg("match"), /MATCH RESULT/);
-  assert.match(shareBannerSvg("record"), /PLAYER RECORD/);
+  assert.match(shareBannerSvg(t, "match"), /MATCH RESULT/);
+  assert.match(shareBannerSvg(t, "record"), /PLAYER RECORD/);
 });
 
 test("escaping covers every character that can end an attribute or a tag", () => {
@@ -185,12 +187,12 @@ test("escaping covers every character that can end an attribute or a tag", () =>
 
 const NOW = Date.parse("2026-08-15T12:00");
 const cupPerson = name => ({ name, short: name.slice(0, 2), colour: "#2b5fa8", avatar: null });
-const cupState = (overrides = {}) => cupShareState({
+const cupState = (overrides = {}) => cupShareState(t, {
   signupDeadline: "2026-08-20T23:59", entrants: 12, closed: false, drew: false, roundName: "", now: NOW, ...overrides,
 });
 
 test("a recruiting cup story leads with the cup, the clock and the field", () => {
-  const card = cupStoryCard("南華會週年會友盃", cupState(), "https://scaa.example/c/t1",
+  const card = cupStoryCard(t, "南華會週年會友盃", cupState(), "https://scaa.example/c/t1",
     ["陳大文", "李小明"].map(cupPerson), null);
   assert.equal(card.status, "signup");
   assert.equal(card.urgency, "仲有 5 日截止");
@@ -202,7 +204,7 @@ test("a recruiting cup story leads with the cup, the clock and the field", () =>
 
 test("the url is drawn on the card, because Instagram will not make it tappable", () => {
   const url = "https://scaa.example/c/t1";
-  const svg = cupStorySvg(cupStoryCard("南華會週年會友盃", cupState(), url, [cupPerson("陳大文")], null), hex);
+  const svg = cupStorySvg(t, cupStoryCard(t, "南華會週年會友盃", cupState(), url, [cupPerson("陳大文")], null), hex);
   // The host, not the scheme — a story viewer retypes what they can read.
   assert.ok(svg.includes("scaa.example/c/t1"));
   assert.ok(svg.includes("南華會週年會友盃"));
@@ -215,9 +217,9 @@ test("the url is drawn on the card, because Instagram will not make it tappable"
 
 test("a cup with no clock left to quote does not invent one", () => {
   // 「報名開放中」 is the status, not news; on the card it would sit under a pill already saying 報名中.
-  const early = cupStoryCard("盃", cupState({ signupDeadline: "2026-09-30T23:59" }), "https://x/c/1", [], null);
+  const early = cupStoryCard(t, "盃", cupState({ signupDeadline: "2026-09-30T23:59" }), "https://x/c/1", [], null);
   assert.equal(early.urgency, "");
-  const finished = cupStoryCard("盃", cupState({
+  const finished = cupStoryCard(t, "盃", cupState({
     signupDeadline: "2020-01-01T00:00", closed: true, drew: true, roundName: "決賽", championName: "陳大文",
   }), "https://x/c/1", [cupPerson("陳大文")], cupPerson("陳大文"));
   assert.equal(finished.urgency, "");
@@ -246,13 +248,13 @@ const tree = [
 ];
 
 test("a drawn cup carries its bracket, and one still taking entries does not", () => {
-  const done = cupStoryCard("盃", finishedState(), "https://x/c/1", [], cupPerson("陳大文"), tree);
+  const done = cupStoryCard(t, "盃", finishedState(), "https://x/c/1", [], cupPerson("陳大文"), tree);
   assert.equal(done.bracket, tree);
   // Drawn and being played: the tree is the news, so it rides on the card too.
-  const live = cupStoryCard("盃", liveState(), "https://x/c/1", [], null, tree);
+  const live = cupStoryCard(t, "盃", liveState(), "https://x/c/1", [], null, tree);
   assert.equal(live.bracket, tree);
   // Still recruiting: there is nothing drawn yet, so there is nothing to draw.
-  const signup = cupStoryCard("盃", cupState(), "https://x/c/1", [], null, tree);
+  const signup = cupStoryCard(t, "盃", cupState(), "https://x/c/1", [], null, tree);
   assert.deepEqual(signup.bracket, []);
 });
 
@@ -276,11 +278,11 @@ const drawnTree = [
 ];
 
 test("the drawn card leads with the bracket, not with the entry count", () => {
-  const card = cupStoryCard("南華會週年會友盃", liveState(), "https://x/c/1",
+  const card = cupStoryCard(t, "南華會週年會友盃", liveState(), "https://x/c/1",
     ["陳大文", "李小強"].map(cupPerson), null, drawnTree);
   assert.equal(card.status, "live");
   assert.equal(card.round, "準決賽");
-  const svg = cupStorySvg(card, hex);
+  const svg = cupStorySvg(t, card, hex);
   assert.ok(svg.includes("對 陣 抽 籤"));
   assert.ok(svg.includes("今 屆 對 陣 表"));
   // Every drawn pairing is on the card, both rounds are named, and the field size is a footnote.
@@ -295,7 +297,7 @@ test("the drawn card leads with the bracket, not with the entry count", () => {
 });
 
 test("the round still being played is the lit column, and 待定 seats stay faint", () => {
-  const svg = cupStorySvg(cupStoryCard("盃", liveState(), "https://x/c/1", [], null, drawnTree), hex);
+  const svg = cupStorySvg(t, cupStoryCard(t, "盃", liveState(), "https://x/c/1", [], null, drawnTree), hex);
   // 待定 is drawn, so the shape of the rest of the tree is visible, but at a third of the weight.
   assert.ok(svg.includes("待定"));
   assert.match(svg, /opacity="0.34"[^>]*>待定/);
@@ -304,20 +306,20 @@ test("the round still being played is the lit column, and 待定 seats stay fain
 });
 
 test("a drawn cup with no tree yet falls back to the poster rather than an empty frame", () => {
-  const svg = cupStorySvg(cupStoryCard("盃", liveState(), "https://x/c/1", [cupPerson("陳大文")], null, []), hex);
+  const svg = cupStorySvg(t, cupStoryCard(t, "盃", liveState(), "https://x/c/1", [cupPerson("陳大文")], null, []), hex);
   assert.ok(!svg.includes("對 陣 抽 籤"));
 });
 
 test("nothing on the drawn card is drawn outside the frame", () => {
-  const svg = cupStorySvg(cupStoryCard("盃", liveState(), "https://x/c/1",
+  const svg = cupStorySvg(t, cupStoryCard(t, "盃", liveState(), "https://x/c/1",
     ["陳大文", "李小強"].map(cupPerson), null, drawnTree), hex);
   const coordinates = [...svg.matchAll(/ (?:x|cx)="(-?[\d.]+)"/g)].map(match => Number(match[1]));
   assert.ok(Math.min(...coordinates) >= -340 && Math.max(...coordinates) <= STORY_WIDTH + 340);
 });
 
 test("the finished card draws the champion and every tie that produced them", () => {
-  const svg = cupStorySvg(
-    cupStoryCard("南華會週年會友盃", finishedState(), "https://x/c/1", [], cupPerson("陳大文"), tree), hex);
+  const svg = cupStorySvg(t, 
+    cupStoryCard(t, "南華會週年會友盃", finishedState(), "https://x/c/1", [], cupPerson("陳大文"), tree), hex);
   assert.ok(svg.includes("冠 軍"));
   assert.ok(svg.includes("賽 事 對 陣"));
   for (const name of ["陳大文", "李小強", "黃志明", "何家豪"]) assert.ok(svg.includes(name), name);
@@ -339,17 +341,17 @@ test("a dead slot in an odd-sized draw is left blank rather than drawn as a tie"
       { seats: [{ name: "陳大文", score: 4, won: true }, { name: "黃志明", score: 3, won: false }] },
     ] },
   ];
-  const svg = cupStorySvg(
-    cupStoryCard("盃", finishedState(), "https://x/c/1", [], cupPerson("陳大文"), odd), hex);
+  const svg = cupStorySvg(t, 
+    cupStoryCard(t, "盃", finishedState(), "https://x/c/1", [], cupPerson("陳大文"), odd), hex);
   assert.ok(!svg.includes("待定"));
 });
 
 test("a finished cup with no champion on record keeps the recruiting layout rather than an empty plinth", () => {
-  const svg = cupStorySvg(cupStoryCard("盃", finishedState(), "https://x/c/1", [], null, tree), hex);
+  const svg = cupStorySvg(t, cupStoryCard(t, "盃", finishedState(), "https://x/c/1", [], null, tree), hex);
   assert.ok(!svg.includes("冠 軍"));
 });
 
 test("storySvg dispatches a cup card to the cup drawing", () => {
-  const card = cupStoryCard("盃", cupState(), "https://x/c/1", [], null);
-  assert.equal(storySvg(card, hex), cupStorySvg(card, hex));
+  const card = cupStoryCard(t, "盃", cupState(), "https://x/c/1", [], null);
+  assert.equal(storySvg(t, card, hex), cupStorySvg(t, card, hex));
 });

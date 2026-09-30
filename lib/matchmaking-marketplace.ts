@@ -1,5 +1,6 @@
 import type {Interval} from "./availability.ts";
 import type {FormationStatus} from "./matchmaking-formation.ts";
+import { msg } from "./i18n/translate.ts";
 
 /** Marketplace contracts are separate from legacy SlotConditions / host-owned sessions. */
 export type MatchConditions = {
@@ -59,7 +60,7 @@ export function validateGroupRange(range: GroupRange): GroupRange {
   const {minPlayers, targetSize, maxPlayers} = range;
   if (![minPlayers, targetSize, maxPlayers].every(Number.isInteger)
     || minPlayers < 2 || minPlayers > targetSize || targetSize > maxPlayers || maxPlayers > 6) {
-    throw new Error("人數必須符合 2 ≤ 最少 ≤ 理想 ≤ 最多 ≤ 6。");
+    throw new Error(msg("人數必須符合 2 ≤ 最少 ≤ 理想 ≤ 最多 ≤ 6。"));
   }
   return {minPlayers, targetSize, maxPlayers};
 }
@@ -161,7 +162,7 @@ export function marketplaceOpportunities(viewer:string,pool:MarketPool):Opportun
       result.push({startAt,endAt,venueId,minPlayers,targetSize,maxPlayers,key:`session:${session.id}:${mine.id}`,sessionId:session.id,slotId:mine.id,
         acceptedPlayers:session.accepted.map(s=>s.player),compatibleCount:session.accepted.length,
         score:10000+session.accepted.length*100+scoreGroup([mine,...session.accepted],viewer,session,session.targetSize,pool),
-        hints:["時間及場地合適",session.accepted.length+1>=session.minPlayers?"你加入後可以成局":"正在招募球友"]});
+        hints:[msg("時間及場地合適"),session.accepted.length+1>=session.minPlayers?msg("你加入後可以成局"):msg("正在招募球友")]});
     }
     for(const size of [2,3,4,5,6]){
       if(mine.minPlayers>size||mine.maxPlayers<size)continue;
@@ -182,7 +183,7 @@ export function marketplaceOpportunities(viewer:string,pool:MarketPool):Opportun
         const key=`candidate:${group.map(s=>s.id).sort().join(":")}:${size}`;
         result.push({...window,minPlayers,targetSize:size,maxPlayers,key,sessionId:null,slotId:mine.id,
           acceptedPlayers:[],compatibleCount:size-1,score:scoreGroup(group,viewer,window,size,pool),
-          hints:["球友尚未加入",difference<=100?"水平相近":difference<=200?"擴闊水平範圍":group.every(s=>s.conditions.handicap)?"水平有差距 · 可按 ELO 建議讓分":"水平有差距"]});
+          hints:[msg("球友尚未加入"),difference<=100?msg("水平相近"):difference<=200?msg("擴闊水平範圍"):group.every(s=>s.conditions.handicap)?msg("水平有差距 · 可按 ELO 建議讓分"):msg("水平有差距")]});
       }
     }
   }
@@ -199,16 +200,16 @@ export function marketplaceOpportunities(viewer:string,pool:MarketPool):Opportun
 export function parseVenueScope(value: unknown, venueId: string | null): VenueScope {
   const scope = value === undefined ? (venueId ? "exact" : "any_hk") : value;
   if (scope !== "exact" && scope !== "district" && scope !== "any_hk") {
-    throw new Error("請選擇有效的場地彈性。");
+    throw new Error(msg("請選擇有效的場地彈性。"));
   }
-  if (scope !== "any_hk" && !venueId) throw new Error("指定場地或地區需要先選擇波房。");
+  if (scope !== "any_hk" && !venueId) throw new Error(msg("指定場地或地區需要先選擇波房。"));
   return scope;
 }
 
 /** Strict parsing for new writes. Historical OpenBoard costSplit/levelOnly are not reinterpreted. */
 export function parseMatchConditions(value: unknown): MatchConditions {
   if (value === undefined) return {};
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("約戰條件格式不正確。");
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(msg("約戰條件格式不正確。"));
   const raw = value as Record<string, unknown>;
   const result: MatchConditions = {};
   for (const key of ["handicap", "noSmoking", "levelStrict"] as const) {
@@ -228,7 +229,7 @@ export function parseMatchConditions(value: unknown): MatchConditions {
     if (raw.tempo !== "sport" && raw.tempo !== "casual" && raw.tempo !== "any") throw new Error("Invalid tempo");
     result.tempo = raw.tempo;
   }
-  if (result.levelStrict && result.levelPreference === "any") throw new Error("不限水平不能同時設為嚴格水平限制。");
+  if (result.levelStrict && result.levelPreference === "any") throw new Error(msg("不限水平不能同時設為嚴格水平限制。"));
   return result;
 }
 
@@ -236,7 +237,7 @@ export function parseMatchConditions(value: unknown): MatchConditions {
 export function parseStoredMatchConditions(value:unknown):MatchConditions {
   if(typeof value!=="string")return parseMatchConditions(value);
   try{return parseMatchConditions(JSON.parse(value));}
-  catch(error){if(error instanceof SyntaxError)throw new Error("儲存的約戰條件格式不正確。");throw error;}
+  catch(error){if(error instanceof SyntaxError)throw new Error(msg("儲存的約戰條件格式不正確。"));throw error;}
 }
 
 /** Call after consent changes on live sessions only; never reopen completed/cancelled sessions. */

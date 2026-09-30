@@ -10,6 +10,9 @@ import MatchHistory, { type MatchRecord } from "./MatchHistory";
 import { deriveInitials, resolveInitials } from "../api/account/validate";
 import { Button, InlineNotice, Skeleton, StatTile, Surface } from "../components/ui/Primitives";
 import { SectionHeader } from "../components/shell/AppShell";
+import { useT, useTranslated } from "../components/I18nProvider";
+import { msg } from "../../lib/i18n/translate";
+import type { Translator } from "../../lib/i18n/translate";
 
 type AccountMember = {
   email: string; username: string; displayName: string; role: "admin" | "member";
@@ -30,14 +33,14 @@ type Match = {
 type State = { players?: Player[]; matches?: Match[] };
 type LoadStatus = "loading" | "ready" | "failed";
 
-const zh = {
-  account: "會員帳戶", signout: "登出", leaderboard: "排行榜", manage: "管理會員",
-  admin: "管理員", member: "會員", rank: "club 排名", elo: "目前 ELO", winRate: "勝率", form: "近五場",
-  record: "勝／負／和", games: "總場數", frames: "局數勝率", handicap: "正式讓分", peak: "最高 ELO", start: "起始 ELO", recent: "近五場淨變化",
-  trend: "ELO 走勢", trendKicker: "表現軌跡", highlights: "個人紀錄", bestBreak: "最佳單桿", streak: "最長連勝", bestGain: "單場最大升幅",
-  settings: "帳戶設定", settingsKicker: "個人資料", settingsHint: "更新頭像、顯示名稱、電郵或密碼。",
-  unlinkedTitle: "尚未連結球員檔案",
-  unlinkedBody: "你的會員帳戶還沒有對應的球員檔案，所以暫時看不到 ELO 與賽事紀錄。請聯絡管理員為你連結，之後這一頁就會顯示你的完整成績。",
+const zhTable = {
+  account: msg("會員帳戶"), signout: msg("登出"), leaderboard: msg("排行榜"), manage: msg("管理會員"),
+  admin: msg("管理員"), member: msg("會員"), rank: msg("club 排名"), elo: msg("目前 ELO"), winRate: msg("勝率"), form: msg("近五場"),
+  record: msg("勝／負／和"), games: msg("總場數"), frames: msg("局數勝率"), handicap: msg("正式讓分"), peak: msg("最高 ELO"), start: msg("起始 ELO"), recent: msg("近五場淨變化"),
+  trend: msg("ELO 走勢"), trendKicker: msg("表現軌跡"), highlights: msg("個人紀錄"), bestBreak: msg("最佳單桿"), streak: msg("最長連勝"), bestGain: msg("單場最大升幅"),
+  settings: msg("帳戶設定"), settingsKicker: msg("個人資料"), settingsHint: msg("更新頭像、顯示名稱、電郵或密碼。"),
+  unlinkedTitle: msg("尚未連結球員檔案"),
+  unlinkedBody: msg("你的會員帳戶還沒有對應的球員檔案，所以暫時看不到 ELO 與賽事紀錄。請聯絡管理員為你連結，之後這一頁就會顯示你的完整成績。"),
 };
 
 function playerMatchBefore(match: Match, playerId: string) {
@@ -54,19 +57,19 @@ function playerMatchAfter(match: Match, playerId: string) {
   if (match.b2 === playerId) return match.afterB2 ?? match.afterB;
   return 0;
 }
-function teamLabel(match: Match, players: Player[], side: "A" | "B") {
+function teamLabel(t: Translator, match: Match, players: Player[], side: "A" | "B") {
   if (match.mode === "2v2") return (side === "A" ? match.teamAName : match.teamBName)?.trim() || `Team ${side}`;
   const id = side === "A" ? match.a : match.b;
-  return players.find(player => player.id === id)?.name ?? "已移除球員";
+  return players.find(player => player.id === id)?.name ?? t("已移除球員");
 }
-function trendPoints(player: Player, matches: Match[], players: Player[]): EloTrendPoint[] {
+function trendPoints(t: Translator, player: Player, matches: Match[], players: Player[]): EloTrendPoint[] {
   const start: EloTrendPoint = {
     id: `${player.id}-start`, elo: player.initialRating ?? player.rating, before: player.initialRating ?? player.rating,
     delta: 0, date: "", opponent: "", opponentShort: "", score: "", result: "start",
   };
   return [start, ...matches.map(match => {
     const isA = match.a === player.id || match.a2 === player.id;
-    const opponent = isA ? teamLabel(match, players, "B") : teamLabel(match, players, "A");
+    const opponent = isA ? teamLabel(t, match, players, "B") : teamLabel(t, match, players, "A");
     const ownScore = isA ? match.scoreA : match.scoreB, opponentScore = isA ? match.scoreB : match.scoreA;
     const before = playerMatchBefore(match, player.id), elo = playerMatchAfter(match, player.id);
     return {
@@ -76,11 +79,11 @@ function trendPoints(player: Player, matches: Match[], players: Player[]): EloTr
     } satisfies EloTrendPoint;
   })];
 }
-function matchRecords(player: Player, matches: Match[], players: Player[]): MatchRecord[] {
+function matchRecords(t: Translator, player: Player, matches: Match[], players: Player[]): MatchRecord[] {
   return matches.map(match => {
     const isA = match.a === player.id || match.a2 === player.id;
     const opponentIds = isA ? [match.b, match.b2] : [match.a, match.a2];
-    const opponentName = isA ? teamLabel(match, players, "B") : teamLabel(match, players, "A");
+    const opponentName = isA ? teamLabel(t, match, players, "B") : teamLabel(t, match, players, "A");
     const opponentPlayer = players.find(item => opponentIds.some(id => id === item.id));
     const ownScore = isA ? match.scoreA : match.scoreB, opponentScore = isA ? match.scoreB : match.scoreA;
     const before = playerMatchBefore(match, player.id), after = playerMatchAfter(match, player.id);
@@ -104,6 +107,7 @@ function longestStreak(results: ("W" | "L" | "D")[]) {
 }
 
 function AccountTopbar({ member }: { member: AccountMember }) {
+  const zh = useTranslated(zhTable);
   return <header className="account-topbar">
     <BrandLogo className="auth-brand"/>
     <nav className="account-topbar-links">
@@ -115,6 +119,8 @@ function AccountTopbar({ member }: { member: AccountMember }) {
 }
 
 export default function AccountDashboard({ member, googleStatus }: { member: AccountMember; googleStatus?: string }) {
+  const zh = useTranslated(zhTable);
+  const t = useT();
   const [state, setState] = useState<State | null>(null);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState("");
@@ -131,7 +137,7 @@ export default function AccountDashboard({ member, googleStatus }: { member: Acc
         const response = await fetch("/api/state", { cache: "no-store", signal: controller.signal });
         const value = await response.json().catch(() => null) as State & { error?: string } | null;
         if (!response.ok || !Array.isArray(value?.players) || !Array.isArray(value?.matches)) {
-          throw new Error(typeof value?.error === "string" ? value.error : "資料格式無效");
+          throw new Error(typeof value?.error === "string" ? value.error : t("資料格式無效"));
         }
         if (cancelled) return;
         setState(value);
@@ -144,14 +150,14 @@ export default function AccountDashboard({ member, googleStatus }: { member: Acc
           return;
         }
         setStatus("failed");
-        setError(reason instanceof Error && reason.name === "AbortError" ? "資料載入逾時。" : "資料暫時未能載入。請稍後再試。");
+        setError(reason instanceof Error && reason.name === "AbortError" ? t("資料載入逾時。") : t("資料暫時未能載入。請稍後再試。"));
       } finally {
         clearTimeout(timeout);
       }
     };
     void load(0);
     return () => { cancelled = true; clearTimeout(retryTimer); controller?.abort(); };
-  }, [retry]);
+  }, [retry, t]);
 
   const players = state?.players ?? [];
   const player = players.find(item => item.id === member.statePlayerId);
@@ -168,7 +174,7 @@ export default function AccountDashboard({ member, googleStatus }: { member: Acc
       {status === "loading" && <div className="account-hero-metrics account-hero-metrics-loading"><Skeleton height="3.5rem" /></div>}
     </section>
 
-    {status === "failed" && <Surface className="account-panel"><InlineNotice tone="danger" title="未能載入帳戶資料"><span>{error}</span> <Button variant="secondary" onClick={() => { setStatus("loading"); setError(""); setRetry(value => value + 1); }}>重試</Button></InlineNotice></Surface>}
+    {status === "failed" && <Surface className="account-panel"><InlineNotice tone="danger" title={t("未能載入帳戶資料")}><span>{error}</span> <Button variant="secondary" onClick={() => { setStatus("loading"); setError(""); setRetry(value => value + 1); }}>{t("重試")}</Button></InlineNotice></Surface>}
     {status === "loading" && <AccountLoadingBody />}
     {status === "ready" && <AccountBody member={member} googleStatus={googleStatus} player={player} players={players} state={state!} />}
     {status === "failed" && <AccountSettings member={{ ...member, iconColour: member.iconColour ?? player?.colour }} googleStatus={googleStatus} />}
@@ -176,9 +182,11 @@ export default function AccountDashboard({ member, googleStatus }: { member: Acc
 }
 
 function AccountMetrics({ player, players, state }: { player: Player; players: Player[]; state: State }) {
+  const zh = useTranslated(zhTable);
+  const t = useT();
   const confirmed = (state.matches ?? []).filter(match => match.status !== "void");
   const mine = confirmed.filter(match => match.a === player.id || match.b === player.id || match.a2 === player.id || match.b2 === player.id).sort((x, y) => (x.playedOn || x.createdAt).localeCompare(y.playedOn || y.createdAt) || x.createdAt.localeCompare(y.createdAt));
-  const records = matchRecords(player, mine, players), ratedRecords = records.filter(record => record.mode !== "2v2");
+  const records = matchRecords(t, player, mine, players), ratedRecords = records.filter(record => record.mode !== "2v2");
   const games = player.wins + player.losses + player.draws;
   const recentDelta = ratedRecords.slice(0, 5).reduce((sum, record) => sum + record.delta, 0);
   const form = ratedRecords.slice(0, 5).map(record => record.result).reverse();
@@ -194,18 +202,22 @@ function AccountMetrics({ player, players, state }: { player: Player; players: P
 }
 
 function AccountLoadingBody() {
+  const zh = useTranslated(zhTable);
+  const t = useT();
   return <div className="account-layout">
     <div className="account-column">
       <Surface className="account-panel"><SectionHeader title={zh.trend} /><Skeleton height="220px" /></Surface>
       <Surface className="account-panel"><Skeleton height="8rem" /></Surface>
     </div>
     <div className="account-column">
-      <Surface className="account-panel account-stat-panel"><SectionHeader title="成績一覽" /><Skeleton height="10rem" /></Surface>
+      <Surface className="account-panel account-stat-panel"><SectionHeader title={t("成績一覽")} /><Skeleton height="10rem" /></Surface>
     </div>
   </div>;
 }
 
 function AccountBody({ member, googleStatus, player, players, state }: { member: AccountMember; googleStatus?: string; player?: Player; players: Player[]; state: State }) {
+  const zh = useTranslated(zhTable);
+  const t = useT();
   if (!player) return <div className="account-layout single">
     <Surface className="account-panel account-unlinked"><p className="kicker">{zh.account}</p><h2>{zh.unlinkedTitle}</h2><p>{zh.unlinkedBody}</p></Surface>
     <AccountSettings member={member} googleStatus={googleStatus} />
@@ -214,8 +226,8 @@ function AccountBody({ member, googleStatus, player, players, state }: { member:
   const confirmed = (state.matches ?? []).filter(match => match.status !== "void");
   const mine = confirmed.filter(match => match.a === player.id || match.b === player.id || match.a2 === player.id || match.b2 === player.id).sort((x, y) => (x.playedOn || x.createdAt).localeCompare(y.playedOn || y.createdAt) || x.createdAt.localeCompare(y.createdAt));
   const ratedMine = mine.filter(match => match.mode !== "2v2");
-  const points = trendPoints(player, ratedMine, players);
-  const records = matchRecords(player, mine, players);
+  const points = trendPoints(t, player, ratedMine, players);
+  const records = matchRecords(t, player, mine, players);
   const ratedRecords = records.filter(record => record.mode !== "2v2");
   const games = player.wins + player.losses + player.draws;
   const frames = (player.framesWon ?? 0) + (player.framesLost ?? 0);
@@ -227,14 +239,15 @@ function AccountBody({ member, googleStatus, player, players, state }: { member:
   const frameRate = frames ? Math.round(((player.framesWon ?? 0) / frames) * 100) : 0;
 
   return <div className="account-layout">
-    <div className="account-column"><Surface className="account-panel"><SectionHeader title={zh.trend} meta={`${zh.peak} ${Math.round(peak)}`} /><InteractiveEloChart points={points} label={`${player.name} 的 ELO 走勢`} /></Surface><MatchHistory records={records} /></div>
+    <div className="account-column"><Surface className="account-panel"><SectionHeader title={zh.trend} meta={`${zh.peak} ${Math.round(peak)}`} /><InteractiveEloChart points={points} label={t("{name} 的 ELO 走勢", {name: player.name})} /></Surface><MatchHistory records={records} /></div>
     <div className="account-column">
-      <Surface className="account-panel account-stat-panel"><SectionHeader title="成績一覽" /><div className="account-stat-grid"><StatTile label={zh.record} value={`${player.wins}/${player.losses}/${player.draws}`} /><StatTile label={zh.games} value={games} /><StatTile label={zh.frames} value={`${frameRate}%`} /><StatTile label={zh.handicap} value={player.handicap ?? "—"} /><StatTile label={zh.start} value={Math.round(player.initialRating ?? player.rating)} /><StatTile label={zh.peak} value={Math.round(peak)} /></div><ul className="account-highlights"><li><span>{zh.bestBreak}</span><b>{bestBreak ?? "—"}</b></li><li><span>{zh.streak}</span><b>{streak ? `${streak} 場` : "—"}</b></li><li><span>{zh.bestGain}</span><b className={bestGain > 0 ? "positive" : undefined}>{bestGain > 0 ? `+${Math.round(bestGain)}` : "—"}</b></li></ul></Surface>
+      <Surface className="account-panel account-stat-panel"><SectionHeader title={t("成績一覽")} /><div className="account-stat-grid"><StatTile label={zh.record} value={`${player.wins}/${player.losses}/${player.draws}`} /><StatTile label={zh.games} value={games} /><StatTile label={zh.frames} value={`${frameRate}%`} /><StatTile label={zh.handicap} value={player.handicap ?? "—"} /><StatTile label={zh.start} value={Math.round(player.initialRating ?? player.rating)} /><StatTile label={zh.peak} value={Math.round(peak)} /></div><ul className="account-highlights"><li><span>{zh.bestBreak}</span><b>{bestBreak ?? "—"}</b></li><li><span>{zh.streak}</span><b>{streak ? t("{streak} 場", {streak}) : "—"}</b></li><li><span>{zh.bestGain}</span><b className={bestGain > 0 ? "positive" : undefined}>{bestGain > 0 ? `+${Math.round(bestGain)}` : "—"}</b></li></ul></Surface>
       <AccountSettings member={{ ...member, iconColour: member.iconColour ?? player.colour, playerName: player.name }} googleStatus={googleStatus} />
     </div>
   </div>;
 }
 
 function AccountSettings({ member, googleStatus }: { member: AccountMember & { playerName?: string }; googleStatus?: string }) {
+  const zh = useTranslated(zhTable);
   return <Surface className="account-panel account-settings"><SectionHeader title={zh.settings} description={zh.settingsHint} /><AccountForms googleStatus={googleStatus} member={member} /></Surface>;
 }

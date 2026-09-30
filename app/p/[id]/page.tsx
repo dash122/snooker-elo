@@ -6,6 +6,8 @@ import { recordStoryCard } from "../../../lib/story-card";
 import { playerHonours, type TournamentLike } from "../../../lib/tournament";
 import { shareOrigin } from "../../share-origin";
 import RecordShareView from "./RecordShareView";
+import { getTranslator } from "../../../lib/i18n/server";
+import type { Translator } from "../../../lib/i18n/translate";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +41,7 @@ function recentSwing(id: string, matches: StoredMatch[]): number {
   }, 0);
 }
 
-async function load(id: string): Promise<{ share: RecordShareState } | null> {
+async function load(t: Translator, id: string): Promise<{ share: RecordShareState } | null> {
   const raw = await getState().catch(() => null);
   if (!raw) return null;
   let state: State;
@@ -70,17 +72,18 @@ async function load(id: string): Promise<{ share: RecordShareState } | null> {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const [data, site] = await Promise.all([load(id), shareOrigin()]);
-  if (!data) return { title: "搵唔到呢位球員｜SCAA Snooker", robots: { index: false } };
+  const { locale, t } = await getTranslator();
+  const [data, site] = await Promise.all([load(t, id), shareOrigin()]);
+  if (!data) return { title: t("搵唔到呢位球員｜SCAA Snooker"), robots: { index: false } };
   const title = recordShareTitle(data.share);
-  const description = recordShareDescription(data.share);
+  const description = recordShareDescription(t, data.share);
   const url = site ? playerShareUrl(site, id) : undefined;
   const image = site ? `${site}/record-share.jpg` : "/record-share.jpg";
   return {
     title, description,
     openGraph: {
-      title, description, url, type: "profile", siteName: "SCAA Snooker", locale: "zh_HK",
-      images: [{ url: image, width: 1200, height: 630, alt: "SCAA Snooker 球員紀錄" }],
+      title, description, url, type: "profile", siteName: "SCAA Snooker", locale: locale === "en" ? "en_GB" : "zh_HK",
+      images: [{ url: image, width: 1200, height: 630, alt: t("SCAA Snooker 球員紀錄") }],
     },
     twitter: { card: "summary_large_image", title, description, images: [image] },
     alternates: url ? { canonical: url } : undefined,
@@ -89,13 +92,14 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function SharedRecordPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [member, data, site] = await Promise.all([getCurrentMember(), load(id), shareOrigin()]);
+  const { t } = await getTranslator();
+  const [member, data, site] = await Promise.all([getCurrentMember(), load(t, id), shareOrigin()]);
   if (!data) return <RecordShareView share={null} card={null} message="" url="" signedIn={false} />;
   const url = site ? playerShareUrl(site, id) : "";
   return <RecordShareView
     share={data.share}
-    card={recordStoryCard(data.share, url, honourText(data.share.honours))}
-    message={recordShareMessage(data.share, url)}
+    card={recordStoryCard(data.share, url, honourText(t, data.share.honours))}
+    message={recordShareMessage(t, data.share, url)}
     url={url}
     signedIn={Boolean(member?.statePlayerId)} />;
 }

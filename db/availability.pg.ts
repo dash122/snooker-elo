@@ -1,6 +1,7 @@
 import { getSql } from "./sql";
 import { mergeAvailabilitySlots, type AvailabilitySlot, type SlotConditions } from "../lib/availability";
 import { materialiseRecurrence, materialiseRecurrenceThrottled, materialiseRecurrenceThrottledForPlayer } from "./recurrence.pg";
+import { msg } from "../lib/i18n/translate.ts";
 
 export type AvailabilityMember = { id:string; name:string; short:string; rating:number; colour?:string|null; avatar?:string|null; slots:AvailabilitySlot[] };
 
@@ -68,7 +69,7 @@ async function ownActiveSlots(tx:any,playerId:string){
     to SCAA, so adding a second club cannot silently pour its rows into the first one. */
 async function defaultVenueId(tx:any):Promise<string>{
   const [row]=await tx`SELECT id FROM venues WHERE active ORDER BY created_at LIMIT 1`;
-  if(!row)throw new Error("未設定任何球會");
+  if(!row)throw new Error(msg("未設定任何球會"));
   return row.id;
 }
 

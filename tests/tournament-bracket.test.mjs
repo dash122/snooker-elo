@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { addEntrant, bracketShape, buildBracket, computeDraw, doubleEliminationRounds, firstRoundPairings, formatTournamentDateTime, matchRoundLabel, playerEliminated, playerHonours, opponentIn, playerSlot, randomizeDraw, removeEntrant, reorderDraw, roundLabel, shuffleDraw, signupsClosed, swapPlayer } from "../lib/tournament.ts";
 
+import { createTranslator } from "../lib/i18n/translate.ts";
+const t = createTranslator("zh-Hant");
 const PAST = "2020-01-01T00:00";
 const FUTURE = "2999-01-01T00:00";
 
@@ -26,10 +28,10 @@ test("sign-ups close on the Hong Kong deadline, not the viewer's midnight", () =
 
 test("tournament date/time uses Chinese dates, 12-hour clocks and a one-year year window", () => {
   const now = new Date("2026-08-04T12:00:00+08:00");
-  assert.equal(formatTournamentDateTime("2026-09-05T20:30", now), "9月5日 8:30pm");
-  assert.equal(formatTournamentDateTime("2026-09-05T08:05", now), "9月5日 8:05am");
-  assert.equal(formatTournamentDateTime("2027-09-04T20:30", now), "2027年9月4日 8:30pm");
-  assert.equal(formatTournamentDateTime("2026-09-05", now), "9月5日");
+  assert.equal(formatTournamentDateTime(t, "2026-09-05T20:30", now), "9月5日 8:30pm");
+  assert.equal(formatTournamentDateTime(t, "2026-09-05T08:05", now), "9月5日 8:05am");
+  assert.equal(formatTournamentDateTime(t, "2027-09-04T20:30", now), "2027年9月4日 8:30pm");
+  assert.equal(formatTournamentDateTime(t, "2026-09-05", now), "9月5日");
 });
 
 test("bracket shape rounds up to a power of two", () => {
@@ -40,9 +42,9 @@ test("bracket shape rounds up to a power of two", () => {
 });
 
 test("round labels count backwards from the final", () => {
-  assert.equal(roundLabel(3, 3), "決賽");
-  assert.equal(roundLabel(2, 3), "四強");
-  assert.equal(roundLabel(1, 3), "八強");
+  assert.equal(roundLabel(t, 3, 3), "決賽");
+  assert.equal(roundLabel(t, 2, 3), "四強");
+  assert.equal(roundLabel(t, 1, 3), "八強");
 });
 
 test("double elimination uses a winners bracket and losers bracket for six and seven entrants", () => {
@@ -175,7 +177,7 @@ test("first-round pairings name each entrant's own opponent, byes included", () 
 
 test("swapping two entrants trades their boxes and leaves the rest of the draw alone", () => {
   const drawn = cup({ signups: ["p1", "p2", "p3", "p4"], draw: ["p1", "p2", "p3", "p4"] });
-  const swapped = swapPlayer(drawn, "p1", "p4");
+  const swapped = swapPlayer(t, drawn, "p1", "p4");
   assert.equal(swapped.ok, true);
   assert.equal(swapped.kind, "swap");
   assert.deepEqual(swapped.tournament.draw, ["p4", "p2", "p3", "p1"]);
@@ -186,7 +188,7 @@ test("swapping two entrants trades their boxes and leaves the rest of the draw a
 
 test("substituting a reserve keeps the box and adds them to the roster", () => {
   const drawn = cup({ draw: ["p1", "p2", "p3", "p4"], walkovers: [{ round: 1, index: 1, winner: "p1" }] });
-  const swapped = swapPlayer(drawn, "p1", "p9");
+  const swapped = swapPlayer(t, drawn, "p1", "p9");
   assert.equal(swapped.ok, true);
   assert.equal(swapped.kind, "substitute");
   assert.deepEqual(swapped.tournament.draw, ["p9", "p2", "p3", "p4"]);
@@ -197,21 +199,21 @@ test("substituting a reserve keeps the box and adds them to the roster", () => {
 test("a swap on an undrawn but closed cup freezes the order it would have drawn", () => {
   const closed = cup({ signups: ["p1", "p2", "p3", "p4"] });
   const order = computeDraw(closed);
-  const swapped = swapPlayer(closed, order[0], order[3]);
+  const swapped = swapPlayer(t, closed, order[0], order[3]);
   assert.equal(swapped.ok, true);
   assert.deepEqual(swapped.tournament.draw, [order[3], order[1], order[2], order[0]]);
 });
 
 test("swaps are refused for unknown, self-paired or already-played entrants", () => {
   const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
-  assert.equal(swapPlayer(drawn, "p9", "p1").ok, false);
-  assert.equal(swapPlayer(drawn, "p1", "p1").ok, false);
-  assert.equal(swapPlayer(drawn, "p1", "").ok, false);
-  const withResult = swapPlayer(drawn, "p1", "p9", [result(1, 1, "p1", "p2", 3, 0)]);
+  assert.equal(swapPlayer(t, drawn, "p9", "p1").ok, false);
+  assert.equal(swapPlayer(t, drawn, "p1", "p1").ok, false);
+  assert.equal(swapPlayer(t, drawn, "p1", "").ok, false);
+  const withResult = swapPlayer(t, drawn, "p1", "p9", [result(1, 1, "p1", "p2", 3, 0)]);
   assert.equal(withResult.ok, false);
   assert.equal(withResult.error, "該球員已有賽果，不能更換");
-  assert.equal(swapPlayer(drawn, "p3", "p1", [result(1, 1, "p1", "p2", 3, 0)]).ok, false);
-  assert.equal(swapPlayer(drawn, "p3", "p9", [result(1, 1, "p1", "p2", 3, 0)]).ok, true);
+  assert.equal(swapPlayer(t, drawn, "p3", "p1", [result(1, 1, "p1", "p2", 3, 0)]).ok, false);
+  assert.equal(swapPlayer(t, drawn, "p3", "p9", [result(1, 1, "p1", "p2", 3, 0)]).ok, true);
 });
 
 test("swapping two entrants trades exactly their two pairings and leaves every other box alone", () => {
@@ -221,7 +223,7 @@ test("swapping two entrants trades exactly their two pairings and leaves every o
   const drawn = cup({ signups: ["p1", "p2", "p3", "p4", "p5", "p6"], draw: ["p1", "p2", "p3", "p4", "p5", "p6"] });
   const pairsOf = (t) => Object.fromEntries(firstRoundPairings(t).map(entry => [entry.playerId, entry.opponentId]));
   const before = pairsOf(drawn);
-  const swapped = swapPlayer(drawn, "p1", "p5");
+  const swapped = swapPlayer(t, drawn, "p1", "p5");
   assert.equal(swapped.ok, true);
   const after = pairsOf(swapped.tournament);
   assert.equal(after.p1, before.p5);
@@ -237,7 +239,7 @@ test("swapping two entrants trades exactly their two pairings and leaves every o
 test("swapping a bye-holder hands the bye to the other player", () => {
   const drawn = cup({ signups: ["p1", "p2", "p3"], draw: ["p1", "p2", "p3"] });
   const before = firstRoundPairings(drawn).find(entry => entry.opponentId === "");
-  const swapped = swapPlayer(drawn, before.playerId, before.playerId === "p1" ? "p2" : "p1");
+  const swapped = swapPlayer(t, drawn, before.playerId, before.playerId === "p1" ? "p2" : "p1");
   assert.equal(swapped.ok, true);
   const after = firstRoundPairings(swapped.tournament).find(entry => entry.opponentId === "");
   assert.notEqual(after.playerId, before.playerId);
@@ -245,7 +247,7 @@ test("swapping a bye-holder hands the bye to the other player", () => {
 
 test("shuffling re-rolls the draw order and clears stale walkovers", () => {
   const drawn = cup({ draw: ["p1", "p2", "p3", "p4"], walkovers: [{ round: 1, index: 1, winner: "p1" }] });
-  const shuffled = shuffleDraw(drawn, []);
+  const shuffled = shuffleDraw(t, drawn, []);
   assert.equal(shuffled.ok, true);
   assert.equal(shuffled.tournament.draw.length, 4);
   assert.deepEqual([...shuffled.tournament.draw].sort(), ["p1", "p2", "p3", "p4"]);
@@ -255,50 +257,50 @@ test("shuffling re-rolls the draw order and clears stale walkovers", () => {
 
 test("shuffling an undrawn but closed cup freezes a fresh order", () => {
   const closed = cup({ signups: ["p1", "p2", "p3", "p4"] });
-  const shuffled = shuffleDraw(closed, []);
+  const shuffled = shuffleDraw(t, closed, []);
   assert.equal(shuffled.ok, true);
   assert.deepEqual([...shuffled.tournament.draw].sort(), ["p1", "p2", "p3", "p4"]);
 });
 
 test("shuffling is refused once any tie has a recorded result", () => {
   const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
-  const withResult = shuffleDraw(drawn, [result(1, 1, "p1", "p2", 3, 0)]);
+  const withResult = shuffleDraw(t, drawn, [result(1, 1, "p1", "p2", 3, 0)]);
   assert.equal(withResult.ok, false);
   assert.equal(withResult.error, "已有賽果，不能重新抽籤");
 });
 
 test("shuffling is refused for fewer than two entrants", () => {
-  assert.equal(shuffleDraw(cup({ signups: ["p1"], draw: ["p1"] }), []).ok, false);
+  assert.equal(shuffleDraw(t, cup({ signups: ["p1"], draw: ["p1"] }), []).ok, false);
 });
 
 test("shuffling before the sign-up deadline is refused, so a late signup can't be frozen out of a draw that hasn't happened yet", () => {
   const open = cup({ signups: ["p1", "p2", "p3", "p4"], signupDeadline: FUTURE });
-  const shuffled = shuffleDraw(open, []);
+  const shuffled = shuffleDraw(t, open, []);
   assert.equal(shuffled.ok, false);
   assert.equal(shuffled.error, "報名尚未截止，未能重新抽籤");
 });
 
 test("dragging an entrant onto another moves it there, shifting the rest along", () => {
   const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
-  const moved = reorderDraw(drawn, "p1", "p3", []);
+  const moved = reorderDraw(t, drawn, "p1", "p3", []);
   assert.equal(moved.ok, true);
   assert.deepEqual(moved.tournament.draw, ["p2", "p1", "p3", "p4"]);
 });
 
 test("dropping a player back on itself is a no-op", () => {
   const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
-  const same = reorderDraw(drawn, "p2", "p2", []);
+  const same = reorderDraw(t, drawn, "p2", "p2", []);
   assert.equal(same.ok, true);
   assert.deepEqual(same.tournament.draw, drawn.draw);
 });
 
 test("reordering is refused during a live cup but remains available after completion", () => {
   const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
-  assert.equal(reorderDraw(drawn, "p9", "p1", []).ok, false);
-  const withResult = reorderDraw(drawn, "p3", "p4", [result(1, 1, "p1", "p2", 3, 0)]);
+  assert.equal(reorderDraw(t, drawn, "p9", "p1", []).ok, false);
+  const withResult = reorderDraw(t, drawn, "p3", "p4", [result(1, 1, "p1", "p2", 3, 0)]);
   assert.equal(withResult.ok, false);
   assert.equal(withResult.error, "賽事進行中，完成後才可調整名單順序");
-  const completed = reorderDraw(drawn, "p4", "p3", [
+  const completed = reorderDraw(t, drawn, "p4", "p3", [
     result(1, 1, "p1", "p2", 3, 0), result(1, 2, "p3", "p4", 3, 0), result(2, 1, "p1", "p3", 3, 0),
   ]);
   assert.equal(completed.ok, true);
@@ -308,7 +310,7 @@ test("reordering is refused during a live cup but remains available after comple
 
 test("adding an entrant after the draw puts them in the bracket and the sign-up list", () => {
   const drawn = cup({ signups: ["p1", "p2", "p3", "p4"], draw: ["p1", "p2", "p3", "p4"] });
-  const added = addEntrant(drawn, "p9", []);
+  const added = addEntrant(t, drawn, "p9", []);
   assert.equal(added.ok, true);
   assert.deepEqual(added.tournament.draw, ["p1", "p2", "p3", "p4", "p9"]);
   assert.deepEqual(added.tournament.signups, ["p1", "p2", "p3", "p4", "p9"]);
@@ -319,7 +321,7 @@ test("adding an entrant after the draw puts them in the bracket and the sign-up 
 
 test("a late signup can be added to the frozen draw without re-running it", () => {
   const drawn = cup({ signups: ["p1", "p2", "p3", "p4", "p5"], draw: ["p1", "p2", "p3", "p4"] });
-  const added = addEntrant(drawn, "p5", []);
+  const added = addEntrant(t, drawn, "p5", []);
   assert.equal(added.ok, true);
   assert.deepEqual(added.tournament.draw, ["p1", "p2", "p3", "p4", "p5"]);
   assert.deepEqual(added.tournament.signups, ["p1", "p2", "p3", "p4", "p5"]);
@@ -327,11 +329,11 @@ test("a late signup can be added to the frozen draw without re-running it", () =
 
 test("adding is refused for a duplicate, a played cup, or one whose sign-ups are still open", () => {
   const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
-  assert.equal(addEntrant(drawn, "", []).ok, false);
-  assert.equal(addEntrant(drawn, "p2", []).error, "該球員已在籤表內");
-  assert.equal(addEntrant(drawn, "p9", [result(1, 1, "p1", "p2", 3, 0)]).error, "已有賽果，不能加入球員；可改為替換名單上的球員");
+  assert.equal(addEntrant(t, drawn, "", []).ok, false);
+  assert.equal(addEntrant(t, drawn, "p2", []).error, "該球員已在籤表內");
+  assert.equal(addEntrant(t, drawn, "p9", [result(1, 1, "p1", "p2", 3, 0)]).error, "已有賽果，不能加入球員；可改為替換名單上的球員");
   const open = cup({ signups: ["p1", "p2", "p3", "p4"], signupDeadline: FUTURE });
-  assert.equal(addEntrant(open, "p9", []).error, "報名尚未截止，未能調整參賽名單");
+  assert.equal(addEntrant(t, open, "p9", []).error, "報名尚未截止，未能調整參賽名單");
 });
 
 test("removing an entrant closes the gap behind them and drops their walkover and arrival time", () => {
@@ -341,7 +343,7 @@ test("removing an entrant closes the gap behind them and drops their walkover an
     walkovers: [{ round: 1, index: 1, winner: "p1" }, { round: 1, index: 2, winner: "p3" }],
     arrivalTimes: { p1: "19:00", p3: "20:00" },
   });
-  const removed = removeEntrant(drawn, "p1", []);
+  const removed = removeEntrant(t, drawn, "p1", []);
   assert.equal(removed.ok, true);
   assert.deepEqual(removed.tournament.draw, ["p2", "p3", "p4"]);
   assert.deepEqual(removed.tournament.signups, ["p2", "p3", "p4"]);
@@ -352,7 +354,7 @@ test("removing an entrant closes the gap behind them and drops their walkover an
 
 test("removing a signup who never made the draw touches nothing else, even mid-cup", () => {
   const drawn = cup({ signups: ["p1", "p2", "p3", "p4", "p5"], draw: ["p1", "p2", "p3", "p4"] });
-  const removed = removeEntrant(drawn, "p5", [result(1, 1, "p1", "p2", 3, 0)]);
+  const removed = removeEntrant(t, drawn, "p5", [result(1, 1, "p1", "p2", 3, 0)]);
   assert.equal(removed.ok, true);
   assert.deepEqual(removed.tournament.draw, ["p1", "p2", "p3", "p4"]);
   assert.deepEqual(removed.tournament.signups, ["p1", "p2", "p3", "p4"]);
@@ -360,16 +362,16 @@ test("removing a signup who never made the draw touches nothing else, even mid-c
 
 test("removing is refused for an unknown player, a played cup, or a field that would drop below two", () => {
   const drawn = cup({ draw: ["p1", "p2", "p3", "p4"] });
-  assert.equal(removeEntrant(drawn, "p9", []).error, "該球員不在名單內");
-  assert.equal(removeEntrant(drawn, "p1", [result(1, 1, "p1", "p2", 3, 0)]).error, "已有賽果，不能移除球員；可改為判定對手晉級");
-  assert.equal(removeEntrant(cup({ signups: ["p1", "p2"], draw: ["p1", "p2"] }), "p1", []).error, "移除後不足兩人，不能移除球員");
+  assert.equal(removeEntrant(t, drawn, "p9", []).error, "該球員不在名單內");
+  assert.equal(removeEntrant(t, drawn, "p1", [result(1, 1, "p1", "p2", 3, 0)]).error, "已有賽果，不能移除球員；可改為判定對手晉級");
+  assert.equal(removeEntrant(t, cup({ signups: ["p1", "p2"], draw: ["p1", "p2"] }), "p1", []).error, "移除後不足兩人，不能移除球員");
   const open = cup({ signups: ["p1", "p2", "p3", "p4"], signupDeadline: FUTURE });
-  assert.equal(removeEntrant(open, "p1", []).error, "報名尚未截止，未能調整參賽名單");
+  assert.equal(removeEntrant(t, open, "p1", []).error, "報名尚未截止，未能調整參賽名單");
 });
 
 test("reordering an undrawn cup before the sign-up deadline is refused, so dragging can't freeze a draw early either", () => {
   const open = cup({ signups: ["p1", "p2", "p3", "p4"], signupDeadline: FUTURE });
-  const reordered = reorderDraw(open, "p1", "p3", []);
+  const reordered = reorderDraw(t, open, "p1", "p3", []);
   assert.equal(reordered.ok, false);
   assert.equal(reordered.error, "報名尚未截止，未能調整籤表順序");
 });
@@ -421,10 +423,10 @@ test("titles accumulate across cups", () => {
 });
 
 test("a match's round is named without building a bracket, and an impossible round names nothing", () => {
-  assert.equal(matchRoundLabel(4, 1), "四強");
-  assert.equal(matchRoundLabel(4, 2), "決賽");
-  assert.equal(matchRoundLabel(8, 1), "八強");
-  assert.equal(matchRoundLabel(5, 1), "八強");
-  for (const bad of [0, 4, null, undefined]) assert.equal(matchRoundLabel(4, bad), "");
-  assert.equal(matchRoundLabel(1, 1), "");
+  assert.equal(matchRoundLabel(t, 4, 1), "四強");
+  assert.equal(matchRoundLabel(t, 4, 2), "決賽");
+  assert.equal(matchRoundLabel(t, 8, 1), "八強");
+  assert.equal(matchRoundLabel(t, 5, 1), "八強");
+  for (const bad of [0, 4, null, undefined]) assert.equal(matchRoundLabel(t, 4, bad), "");
+  assert.equal(matchRoundLabel(t, 1, 1), "");
 });

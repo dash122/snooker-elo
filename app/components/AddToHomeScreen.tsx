@@ -3,12 +3,14 @@ import {useEffect,useState} from "react";
 import {A2HS_STORAGE_KEY,dismissA2hs,isIosSafari,parseA2hsState,shouldPromptAddToHomeScreen,type A2hsState} from "../../lib/add-to-home-screen";
 import {Button} from "./ui/Primitives";
 import {Sheet} from "./ui/Overlay";
+import { useT } from "./I18nProvider";
 
 const read=():A2hsState=>{try{return parseA2hsState(localStorage.getItem(A2HS_STORAGE_KEY))}catch{return {visits:0,snoozeUntil:0,never:false}}};
 const write=(state:A2hsState)=>{try{localStorage.setItem(A2HS_STORAGE_KEY,JSON.stringify(state))}catch{}};
 const isStandalone=()=>window.matchMedia("(display-mode: standalone)").matches||(navigator as Navigator&{standalone?:boolean}).standalone===true;
 
 export function AddToHomeScreen(){
+  const t = useT();
   const [open,setOpen]=useState(false);
 
   useEffect(()=>{
@@ -24,16 +26,16 @@ export function AddToHomeScreen(){
 
   const close=(never:boolean)=>{write(dismissA2hs(read(),never,Date.now()));setOpen(false)};
 
-  return <Sheet open={open} title="加到主畫面，用得更順手" onClose={()=>close(false)} className="a2hs-sheet">
-    <p>加到主畫面後會像 App 一樣全螢幕開啟，開波前一按即到，亦可收到比賽通知。</p>
+  return <Sheet open={open} title={t("加到主畫面，用得更順手")} onClose={()=>close(false)} className="a2hs-sheet">
+    <p>{t("加到主畫面後會像 App 一樣全螢幕開啟，開波前一按即到，亦可收到比賽通知。")}</p>
     <ol className="a2hs-steps">
-      <li>按 Safari 底部的分享按鈕 <ShareGlyph/></li>
-      <li>選擇「加入主畫面」<span className="a2hs-plus">＋</span></li>
-      <li>按右上角「加入」即完成</li>
+      <li>{t("按 Safari 底部的分享按鈕")} <ShareGlyph/></li>
+      <li>{t("選擇「加入主畫面」")}<span className="a2hs-plus">＋</span></li>
+      <li>{t("按右上角「加入」即完成")}</li>
     </ol>
     <div className="a2hs-actions">
-      <Button className="a2hs-primary" onClick={()=>close(false)}>知道了</Button>
-      <button className="a2hs-quiet" onClick={()=>close(true)}>不用再提醒我</button>
+      <Button className="a2hs-primary" onClick={()=>close(false)}>{t("知道了")}</Button>
+      <button className="a2hs-quiet" onClick={()=>close(true)}>{t("不用再提醒我")}</button>
     </div>
   </Sheet>;
 }

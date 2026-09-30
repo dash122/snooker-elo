@@ -5,6 +5,7 @@ import { clubPublishedThisWeek, memberJoinedAt, publishStreak } from "../../../.
 import { addDaysHongKong, dayRangeHongKong, hkDate } from "../../../../lib/availability";
 import { BAND_COLUMNS, instantColumn, ratingBand } from "../../../../lib/week-band";
 
+import { getTranslator } from "../../../../lib/i18n/server";
 /* --- 約戰 · one read for the whole tab --------------------------------------
  *
  * The band recomputes overlap on every frame of a drag, so it cannot ask the server who overlaps —
@@ -126,6 +127,6 @@ export async function GET(request:Request){
       me,
     },{headers:{"cache-control":"no-store"}});
   }catch(error){
-    return Response.json({error:error instanceof Error?error.message:"Matchmaking unavailable"},{status:500});
+    return Response.json({error:error instanceof Error?(await getTranslator()).t(error.message):"Matchmaking unavailable"},{status:500});
   }
 }

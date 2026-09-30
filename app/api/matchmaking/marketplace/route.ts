@@ -4,17 +4,20 @@ import {marketplaceDatabase,isMarketplaceReady,deliverMarketplaceNotifications} 
 import {marketplaceDashboard,MarketplaceError,marketplaceWrite,type MarketAction} from "../../../../db/matchmaking-marketplace-store";
 import {recordEvents} from "../../../../db/analytics";
 import {hkDate} from "../../../../lib/availability";
+import { getTranslator } from "../../../../lib/i18n/server";
+import type { Translator } from "../../../../lib/i18n/translate";
 
 const headers={"cache-control":"no-store"};
 const context=(request:Request,started:number)=>({route:"/api/matchmaking/marketplace",requestId:request.headers.get("x-vercel-id"),ms:Date.now()-started});
-function failure(error:unknown,request:Request,started:number){
-  if(error instanceof MarketplaceError)return Response.json({error:error.message},{status:error.status,headers});
+function failure(t: Translator, error:unknown,request:Request,started:number){
+  if(error instanceof MarketplaceError)return Response.json({error:t(error.message)},{status:error.status,headers});
   const detail=error&&typeof error==="object"?error as {name?:string;message?:string;code?:string;constraint?:string}:{};
   console.error(JSON.stringify({level:"error",msg:"marketplace_failed",...context(request,started),error:detail.name??"unknown",
     detail:detail.message?.slice(0,240)??null,code:detail.code??null,constraint:detail.constraint??null}));
-  return Response.json({error:"約戰暫時未能更新，請重新載入後再試。"},{status:500,headers});
+  return Response.json({error:t("約戰暫時未能更新，請重新載入後再試。")},{status:500,headers});
 }
 export async function GET(request:Request){
+  const { t } = await getTranslator();
   const started=Date.now();
   try{
     if(!await isMarketplaceReady()){console.log(JSON.stringify({level:"info",msg:"marketplace_not_ready",...context(request,started)}));return Response.json({ready:false},{headers});}
@@ -23,20 +26,21 @@ export async function GET(request:Request){
     after(async()=>{try{const delivery=await deliverMarketplaceNotifications();if(delivery.claimed)console.log(JSON.stringify({level:"info",msg:"marketplace_delivery",...delivery}));}catch(error){console.error(JSON.stringify({level:"error",msg:"marketplace_delivery_failed",error:error instanceof Error?error.name:"unknown"}));}});
     console.log(JSON.stringify({level:"info",msg:"marketplace_done",method:"GET",...context(request,started)}));
     return Response.json(dashboard,{headers});
-  }catch(error){return failure(error,request,started);}
+  }catch(error){return failure(t, error,request,started);}
 }
 const actions:MarketAction[]=["publish","edit","activate","withdraw","create","join","leave","invite","accept","decline","avoid","unavoid","result"];
 export async function POST(request:Request){
+  const { t } = await getTranslator();
   const started=Date.now();
   try{
     const member=await requireMember();
-    if(!member)return Response.json({error:"請先登入。"},{status:401,headers});
-    if(!member.statePlayerId)return Response.json({error:"請先連結球員檔案。"},{status:403,headers});
-    if(!await isMarketplaceReady())return Response.json({error:"新版約戰尚未啟用。"},{status:503,headers});
+    if(!member)return Response.json({error:t("請先登入。")},{status:401,headers});
+    if(!member.statePlayerId)return Response.json({error:t("請先連結球員檔案。")},{status:403,headers});
+    if(!await isMarketplaceReady())return Response.json({error:t("新版約戰尚未啟用。")},{status:503,headers});
     let body:Record<string,unknown>;
     try{const raw=await request.json();if(!raw||typeof raw!=="object"||Array.isArray(raw))throw new Error();body=raw;}
-    catch{return Response.json({error:"請提交有效約戰資料。"},{status:400,headers});}
-    if(!actions.includes(body.action as MarketAction))return Response.json({error:"無效操作。"},{status:400,headers});
+    catch{return Response.json({error:t("請提交有效約戰資料。")},{status:400,headers});}
+    if(!actions.includes(body.action as MarketAction))return Response.json({error:t("無效操作。")},{status:400,headers});
     const action=body.action as MarketAction;
     let result;
     try{result=await marketplaceWrite(marketplaceDatabase(),member.statePlayerId,action,body);}
@@ -47,5 +51,5 @@ export async function POST(request:Request){
     });
     console.log(JSON.stringify({level:"info",msg:"marketplace_done",method:"POST",action,...context(request,started)}));
     return Response.json({id:"id" in result?result.id:undefined,ok:true},{headers});
-  }catch(error){return failure(error,request,started);}
+  }catch(error){return failure(t, error,request,started);}
 }
