@@ -7,6 +7,7 @@ import GuestIntro from "./GuestIntro";
 import { FirstStepsChecklist, IntroTour } from "./FirstSteps";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
+import { SquadAddedNotices, SquadCenter, SquadScopeChip, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
@@ -698,6 +699,21 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
      free. Personal actionable items (invites needing a reply, live offers) still win when there are
      any, since those are more urgent than "someone else opened a 局". */
   const matchmakingBadge=actionableCount(matchmakingSummary?.counts)||matchmakingSummary?.tonight.openCalls||0;
+  /* 球隊: the leaderboard filtered to one of the viewer's squads. Held in `?squad=` so a view can be
+     shared and survives a reload; an id the viewer no longer belongs to falls back to the club. */
+  const {squads,loaded:squadsLoaded,refresh:refreshSquads}=useSquads(Boolean(ownPlayerId));
+  const squadId=useUrlParam("squad");
+  const [squadSheet,setSquadSheet]=useState<SquadSheet>(null);
+  const selectSquad=useCallback((id:string|null)=>writeUrlParam("squad",id),[]);
+  const activeSquad=squads.find(squad=>squad.id===squadId)??null;
+  const squadAction=(id:string,action:"leave"|"seen")=>{
+    const path=`/api/squads/${encodeURIComponent(id)}`;
+    const request=action==="seen"?fetch(`${path}/seen`,{method:"POST"})
+      :fetch(`${path}/members?playerId=${encodeURIComponent(ownPlayerId??"")}`,{method:"DELETE"}).then(async response=>{
+        if(!response.ok)setToast((await response.json().catch(()=>({})) as {error?:string}).error??t("未能更新球隊，請稍後再試。"));
+      });
+    void request.catch(()=>{}).finally(()=>void refreshSquads());
+  };
   /* Notifications deep-link to /?tab=availability, and the click handler navigates an already-open
      tab there, so the parameter has to be honoured on mount and on subsequent navigations alike. */
   useEffect(()=>{
@@ -1478,7 +1494,8 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {tab==="leaderboard"&&!user&&<GuestIntro onStartTour={()=>setTourOpen(true)}/>}
       {tab==="leaderboard"&&user&&ownPlayerId&&!user.needsOnboarding&&<FirstStepsChecklist hasMatch={data.matches.some(match=>match.a===ownPlayerId||match.b===ownPlayerId)} hasAvailability={Boolean(matchmakingSummary?.mine)} onRecord={()=>newMatch()} onAvailability={()=>goTab("availability")} onTour={()=>setTourOpen(true)}/>}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
-      {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} ownPlayerId={ownPlayerId} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");showTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
+      {tab==="leaderboard"&&<SquadAddedNotices squads={squads} players={data.players} onView={id=>{squadAction(id,"seen");selectSquad(id)}} onLeave={id=>squadAction(id,"leave")} onDismiss={id=>squadAction(id,"seen")}/>}
+      {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} ownPlayerId={ownPlayerId} squad={activeSquad} squadScope={ownPlayerId?<SquadScopeChip squad={activeSquad} onOpen={()=>setSquadSheet("picker")} onManage={()=>setSquadSheet("manage")}/>:null} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");showTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",format:"single",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,format:tournament.format??"single",handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
       {/* Public availability, recommendations and arrangements share one marketplace flow. */}
       {tab==="availability"&&<MatchmakingMarketplace onRecordSession={(opponentId,sessionId,date)=>{newMatch("1v1",opponentId,date);marketplaceOrigin.current=sessionId;}} key={ownPlayerId??"guest"} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
@@ -1576,6 +1593,8 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     </div>}
     {leavingAvailability&&<ConfirmDialog kicker={t("未儲存的變更")} titleId="leave-availability-title" title={t("離開後變更會消失")} description={t("你在「可配對」的時段變更尚未儲存，離開這一頁後不會保留。")} onClose={()=>setLeavingAvailability(null)}><Button variant="secondary" onClick={()=>setLeavingAvailability(null)}>{t("留在此頁")}</Button><Button variant="danger" onClick={()=>{const next=leavingAvailability;setLeavingAvailability(null);setAvailabilityDirty(false);setHighlightMatch(null);showTab(next)}}>{t("捨棄變更離開")}</Button></ConfirmDialog>}
     {pendingConfirm&&<ConfirmDialog kicker={pendingConfirm.kicker} titleId="pending-confirm-title" title={pendingConfirm.title} description={pendingConfirm.description} onClose={()=>setPendingConfirm(null)}><Button variant="secondary" onClick={()=>setPendingConfirm(null)}>{t("取消")}</Button><Button variant="danger" onClick={()=>{const run=pendingConfirm.onConfirm;setPendingConfirm(null);run()}}>{pendingConfirm.confirmLabel}</Button></ConfirmDialog>}
+    <SquadCenter sheet={squadSheet} setSheet={setSquadSheet} squads={squads} loaded={squadsLoaded} refresh={refreshSquads} selectedId={squadId} onSelect={selectSquad}
+      players={data.players} ownPlayerId={ownPlayerId} signedIn={Boolean(user)} notify={name=>setToast(t("已加入「{squad}」", {squad:name}))}/>
     {toast&&<div className={`toast${undoSnapshot?" toast-expiring":""}`} role="status"><span>{toast}</span>{undoSnapshot&&<Button variant="quiet" onClick={undoDelete}>{t("復原")}</Button>}</div>}
     {regularPrompt&&<div className="regular-prompt" role="status">
       <b>{t("你哋第一次對戰")}</b>
@@ -1704,7 +1723,7 @@ function BreakNudgeStrip({nudge,onOpen}:{nudge:BreakNudge;onOpen:()=>void}){
     </button>
   </div>;
 }
-function Leaderboard({ranked,data,ownPlayerId,onRecord,onPlayer,onMatch,onRivalry}:{ranked:Player[];data:AppState;ownPlayerId?:string;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
+function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer,onMatch,onRivalry}:{ranked:Player[];data:AppState;ownPlayerId?:string;squad:MySquad|null;squadScope:ReactNode;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
   const t = useT();
   const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall"|"recent"|"monthly">("players"),[homeView,setHomeView]=useState<"ranking"|"breaks"|"recent">("ranking"),[rankingMode,setRankingMode]=useState<"all"|"official"|"trend">("all");
   const officialOnly=rankingMode==="official";
@@ -1712,7 +1731,9 @@ function Leaderboard({ranked,data,ownPlayerId,onRecord,onPlayer,onMatch,onRivalr
   const month=confirmed.filter(m=>m.playedOn.slice(0,7)===today.slice(0,7)).length,total=confirmed.length;
   // Toggling to 正式球手 re-sequences ranks among only the visible players,
   // rather than keeping their position in the full board with gaps.
-  const visibleRanked=useMemo(()=>officialOnly?ranked.filter(p=>games(p)>=data.settings.provisionalGames):ranked,[ranked,officialOnly,data.settings.provisionalGames]);
+  // A squad view is the same table filtered to its members, re-ranked among themselves.
+  const squadIds=useMemo(()=>squad?new Set(squad.members.map(member=>member.playerId)):null,[squad]);
+  const visibleRanked=useMemo(()=>ranked.filter(p=>(!squadIds||squadIds.has(p.id))&&(!officialOnly||games(p)>=data.settings.provisionalGames)),[ranked,squadIds,officialOnly,data.settings.provisionalGames]);
   const shown=sortPlayers(visibleRanked,data,sort,dir),rankOf=new Map(visibleRanked.map((p,i)=>[p.id,i+1]));
   // Movement compares today's table against the standings 30 days ago. A single
   // Ten days balances recent momentum with enough matches for a meaningful comparison.
@@ -1765,9 +1786,10 @@ function Leaderboard({ranked,data,ownPlayerId,onRecord,onPlayer,onMatch,onRivalr
     <section className="home-view-panel ranking-panel" aria-labelledby="ranking-title">
       <div className="home-panel-head"><div><p className="kicker">{t("即時競爭形勢")}</p><h2 id="ranking-title">{t("目前排名")}</h2><p>{rankingMode==="trend"?t("各球員 ELO 評分隨日期的走勢，取每日最後一場賽事後的評分。"):t("每場結果都會即時反映在 ELO 與近期狀態。")}</p></div>
       <SlidingToggleGroup className="ds-toggle-control ranking-scope-toggle" aria-label={t("排名顯示方式")}><button aria-pressed={rankingMode==="all"} className={rankingMode==="all"?"active":""} onClick={()=>setRankingMode("all")}>{t("全部球員")}</button><button aria-pressed={rankingMode==="official"} className={rankingMode==="official"?"active":""} onClick={()=>setRankingMode("official")}>{t("正式球手")}</button><button aria-pressed={rankingMode==="trend"} className={rankingMode==="trend"?"active":""} onClick={()=>setRankingMode("trend")}>{t("ELO走勢")}</button></SlidingToggleGroup></div>
+    {squadScope}
     {rankingMode!=="trend"?<>
     <SortControls sort={sort} dir={dir} onSort={sortBy}/>
-    <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?t("尚未有正式球手"):t("尚未有球員")} sub={officialOnly?t("未有球員完成臨時門檻，暫時未有正式評分。"):t("前往球員頁面新增第一位球員。")}/>:<><div className="table-head sortable"><button title={t("箭嘴為過去 10 天的排名升跌")} onClick={()=>sortBy("rank")}>{t("排名")}<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>{t("球員")}<SortArrow active={sort==="name"} dir={dir}/></button><button title={t("最近五筆比賽；較近期結果權重較高")} onClick={()=>sortBy("form")}>{t("近況")}<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>{t("場數／勝率")}<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>{t("建議／正式評分")}<SortArrow active={sort==="suggested"} dir={dir}/></button><button title={t("ELO 及近10天ELO變化")} onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
+    <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?t("尚未有正式球手"):t("尚未有球員")} sub={officialOnly?t("未有球員完成臨時門檻，暫時未有正式評分。"):squad?t("呢個球隊暫時未有球員。"):t("前往球員頁面新增第一位球員。")}/>:<><div className="table-head sortable"><button title={t("箭嘴為過去 10 天的排名升跌")} onClick={()=>sortBy("rank")}>{t("排名")}<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>{t("球員")}<SortArrow active={sort==="name"} dir={dir}/></button><button title={t("最近五筆比賽；較近期結果權重較高")} onClick={()=>sortBy("form")}>{t("近況")}<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>{t("場數／勝率")}<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>{t("建議／正式評分")}<SortArrow active={sort==="suggested"} dir={dir}/></button><button title={t("ELO 及近10天ELO變化")} onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
       <MobileSortHead sort={sort}/>
       {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=recentDeltaDays(p,data,10),played=games(p),rate=played?Math.round(p.wins/played*100):0,provisional=played<data.settings.provisionalGames,trailing=trailingStat(t, sort,p,data,suggested);
         return <button className={`row ${rank===1?"top":""} ${provisional?"provisional":""}`} key={p.id} onClick={()=>onPlayer(p)} aria-label={t("{name}，排名 {rank}，ELO {v}，近10天ELO變化 {v2}{v3}，建議讓分 {suggested}{v4}", {name: p.name, rank, v: Math.round(p.rating), v2: swing>=0?"+":"", v3: Math.round(swing), suggested, v4: provisional?t("，臨時評分"):""})}>

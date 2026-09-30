@@ -11,6 +11,7 @@ import "./styles/cup.css";
 import "./styles/calibration.css";
 import "./styles/home.css";
 import "./styles/break-nudge.css";
+import "./styles/squads.css";
 import "./styles/match-entry-form.css";
 import "./styles/calendar.css";
 import "./styles/member-auth.css";
