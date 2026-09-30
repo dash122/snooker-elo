@@ -37,6 +37,10 @@
 .squad-join-name small{color:var(--ds-text-secondary);font-size:var(--fs-caption)}
 
 /* Manage sheet — an overview of calm rows, with edits and irreversible actions on their own step. */
+/* Every grid here is minmax(0,1fr): an "auto" track grows to its widest unbreakable child (the
+   one-line invite link, a long name) and pushes the sheet sideways on narrow phones and in the PWA. */
+.squad-sheet,.squad-sheet *{min-width:0}
+.squad-manage-body,.squad-section,.squad-card,.squad-card-head,.squad-add,.squad-step,.squad-settings,.squad-action-list{grid-template-columns:minmax(0,1fr)}
 .squad-manage-body{display:grid;gap:var(--sp-4)}
 .squad-manage-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);margin:0}
 .squad-manage-meta>span:last-child{color:var(--ds-text-secondary);font-size:var(--fs-caption)}
