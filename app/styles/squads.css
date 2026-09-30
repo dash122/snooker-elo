@@ -45,13 +45,13 @@
 .squad-manage-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);margin:0}
 .squad-manage-meta>span:last-child{color:var(--ds-text-secondary);font-size:var(--fs-caption)}
 .squad-section{display:grid;gap:var(--sp-2)}
-.squad-section h3{display:flex;align-items:center;gap:var(--sp-2);margin:0;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:800;letter-spacing:.06em}
+.squad-section h3{display:flex;align-items:center;gap:var(--sp-2);margin:0;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:700;letter-spacing:.06em}
 .squad-count{padding:0 var(--sp-1-5);border-radius:var(--radius-pill);background:var(--ds-canvas-muted);color:var(--ds-text-secondary);font-size:var(--fs-label)}
 
 .squad-card{display:grid;gap:var(--sp-3);padding:var(--sp-4);border-radius:var(--ds-radius-card);background:var(--ds-accent-veil-soft);box-shadow:inset 0 0 0 1px var(--ds-accent-veil)}
 .squad-card-head{display:grid;gap:var(--sp-1)}
-.squad-card-head h3{margin:0;font-size:var(--fs-body);font-weight:800}
-.squad-card-head small{color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+.squad-card-head h3{margin:0;font-size:var(--fs-body);font-weight:700}
+.squad-card-head small{font-weight:400;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
 .squad-invite-row{display:flex;align-items:center;gap:var(--sp-2)}
 .squad-invite-link{flex:1;min-width:0;overflow:hidden;padding:var(--sp-2-5) var(--sp-3);border-radius:var(--radius-sm);background:var(--ds-surface-raised);color:var(--ds-text-secondary);font-size:var(--fs-caption);text-overflow:ellipsis;white-space:nowrap;user-select:all}
 .squad-invite-row .ds-button{flex:none}
@@ -67,8 +67,8 @@
 .squad-members li+li{border-top:1px solid var(--ds-border-subtle)}
 .squad-members .player-badge,.squad-badge-placeholder{flex:none;width:2rem;height:2rem;font-size:var(--fs-caption)}
 .squad-member-name{display:flex;flex:1;align-items:baseline;gap:var(--sp-1);min-width:0}
-.squad-member-name b{overflow:hidden;font-size:var(--fs-sm);text-overflow:ellipsis;white-space:nowrap}
-.squad-member-name small{flex:none;color:var(--ds-text-tertiary);font-size:var(--fs-caption);font-weight:600}
+.squad-member-name b{font-weight:700;overflow:hidden;font-size:var(--fs-sm);text-overflow:ellipsis;white-space:nowrap}
+.squad-member-name small{flex:none;color:var(--ds-text-tertiary);font-size:var(--fs-caption);font-weight:400}
 .squad-members .ds-chip{flex:none}
 .squad-sheet .squad-more{flex:none;min-width:var(--control-sm);min-height:var(--control-sm);border-color:transparent;background:transparent;box-shadow:none;color:var(--ds-text-secondary)}
 .squad-sheet .squad-more:hover:not(:disabled){background:var(--ds-canvas-muted)}
@@ -79,13 +79,13 @@
 .squad-setting+.squad-setting{border-top:1px solid var(--ds-border-subtle)}
 .squad-setting:hover{background:var(--ds-accent-veil-soft)}
 .squad-setting:focus-visible{outline:2px solid var(--ds-focus);outline-offset:-2px}
-.squad-setting>span{flex:none;font-weight:700}
-.squad-setting>b{flex:1;min-width:0;overflow:hidden;color:var(--ds-text-secondary);font-weight:600;text-align:right;text-overflow:ellipsis;white-space:nowrap}
+.squad-setting>span{flex:none;font-weight:500}
+.squad-setting>b{flex:1;min-width:0;overflow:hidden;color:var(--ds-text-secondary);font-weight:400;text-align:right;text-overflow:ellipsis;white-space:nowrap}
 .squad-chevron{flex:none;width:.9rem;height:.9rem;fill:none;stroke:var(--ds-text-tertiary);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 .squad-danger{padding-top:var(--sp-2)}
 .squad-danger-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-5)}
-.squad-text-action{min-height:var(--control-sm);padding:0 var(--sp-2);border:0;background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:700;cursor:pointer}
+.squad-text-action{min-height:var(--control-sm);padding:0 var(--sp-2);border:0;background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:500;cursor:pointer}
 .squad-text-action--danger{color:var(--ds-danger)}
 .squad-text-action:disabled{opacity:.45;cursor:not-allowed}
 .squad-text-action:focus-visible,.squad-back:focus-visible,.squad-action:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px}
@@ -107,7 +107,7 @@
 .squad-action:hover:not(:disabled){background:var(--ds-accent-veil-soft)}
 .squad-action:disabled{opacity:.5;cursor:not-allowed}
 .squad-action span{display:grid;gap:var(--sp-1)}
-.squad-action b{font-size:var(--fs-sm)}
+.squad-action b{font-weight:600;font-size:var(--fs-sm)}
 .squad-action small{color:var(--ds-text-secondary);font-size:var(--fs-caption)}
 .squad-action--danger b{color:var(--ds-danger)}
 
