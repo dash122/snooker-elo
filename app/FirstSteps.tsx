@@ -6,12 +6,28 @@ import type {Destination} from "./components/shell/Navigation";
 import { useT } from "./components/I18nProvider";
 import { msg } from "../lib/i18n/translate";
 
-const TOUR:{tab:Destination;title:string;body:string}[]=[
-  {tab:"leaderboard",title:msg("排行榜"),body:msg("所有球員按 ELO 評分排名。點選任何球員，即可查看其評分走勢、勝率及建議讓分。")},
-  {tab:"matches",title:msg("賽事紀錄"),body:msg("每場比賽的局分、讓分及單桿紀錄均公開存檔，盃賽賽程亦可在此查看。")},
-  {tab:"availability",title:msg("約戰配對"),body:msg("登記你有空的時段，系統會為你配對時間吻合、實力相近的對手。")},
-  {tab:"players",title:msg("球員資料"),body:msg("瀏覽每位球員的個人主頁，並可一鍵分享至 WhatsApp 或 Instagram。")},
+/** `targets` are tried in order: the element each step points at, then progressively coarser stand-ins
+    for when the ideal one is absent (an empty club has no podium, a guest has no 而家得閒 button). */
+const TOUR:{tab:Destination;title:string;body:string;targets:string[]}[]=[
+  {tab:"leaderboard",title:msg("排行榜"),body:msg("所有球員按 ELO 評分排名。點選任何球員，即可查看其評分走勢、勝率及建議讓分。"),targets:[".table-card .row.top",".table-card"]},
+  {tab:"matches",title:msg("賽事紀錄"),body:msg("每場比賽的局分、讓分及單桿紀錄均公開存檔，盃賽賽程亦可在此查看。"),targets:[".match-list .match",".match-list"]},
+  {tab:"availability",title:msg("約戰配對"),body:msg("登記你有空的時段，系統會為你配對時間吻合、實力相近的對手。"),targets:[".mp-actions",".mp-dates",".mp-hero",".mp-page"]},
+  {tab:"players",title:msg("球員資料"),body:msg("瀏覽每位球員的個人主頁，並可一鍵分享至 WhatsApp 或 Instagram。"),targets:[".players-rows .players-row",".players-view"]},
 ];
+
+const TOP_INSET=24,CARD_GAP=16;
+/** Scrolls so the target sits centred in the part of the viewport the coach card does not cover, and
+    marks it so CSS can ring it. Measures the card rather than assuming its height, since it grows with
+    the step's copy and switches between a corner card and a full-width one at the tablet breakpoint. */
+function focusTarget(target:HTMLElement,card:HTMLElement|null){
+  target.setAttribute("data-tour-focus","");
+  const rect=target.getBoundingClientRect();
+  const floor=(card?card.getBoundingClientRect().top:window.innerHeight)-CARD_GAP;
+  const room=floor-TOP_INSET;
+  const desired=rect.height<room?TOP_INSET+(room-rect.height)/2:TOP_INSET;
+  const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollTo({top:Math.max(0,window.scrollY+rect.top-desired),behavior:reduce?"auto":"smooth"});
+}
 
 /** The guided tour. It walks the real tabs rather than screenshots of them, so it sits as a small
     card above the bottom navigation instead of a modal that would hide the very page it describes.
@@ -29,11 +45,31 @@ export function IntroTour({tab,signedIn,onShow,onClose}:{tab:string;signedIn:boo
     const match=TOUR.findIndex(item=>item.tab===tab);
     if(match>=0&&step<last&&TOUR[step].tab!==tab)setStep(match);
   }
-  useEffect(()=>{titleRef.current?.focus()},[step]);
+  const cardRef=useRef<HTMLElement>(null);
+  useEffect(()=>{titleRef.current?.focus({preventScroll:true})},[step]);
+  // Runs once the step's own tab is showing. The tab swaps a render after the tap, so the target is
+  // polled for rather than assumed present.
+  useEffect(()=>{
+    const item=TOUR[step];
+    if(!item||item.tab!==tab)return;
+    let frame=0,tries=0,found:HTMLElement|null=null,cancelled=false;
+    const seek=()=>{
+      if(cancelled)return;
+      for(const selector of item.targets){
+        // Skip matches that exist but are not laid out (legacy hidden sections, collapsed panels).
+        found=Array.from(document.querySelectorAll<HTMLElement>(selector)).find(el=>el.getClientRects().length>0)??null;
+        if(found)break;
+      }
+      if(found)return focusTarget(found,cardRef.current);
+      if(++tries<90)frame=requestAnimationFrame(seek);
+    };
+    seek();
+    return()=>{cancelled=true;cancelAnimationFrame(frame);found?.removeAttribute("data-tour-focus")};
+  },[step,tab]);
   useEffect(()=>{const onKey=(event:KeyboardEvent)=>event.key==="Escape"&&onClose();document.addEventListener("keydown",onKey);return()=>document.removeEventListener("keydown",onKey)},[onClose]);
   const go=(next:number)=>{setStep(next);if(next<last)onShow(TOUR[next].tab)};
   const current=step<last?TOUR[step]:null;
-  return <section className="intro-tour" role="dialog" aria-modal="false" aria-labelledby="intro-tour-title">
+  return <section ref={cardRef} className="intro-tour" role="dialog" aria-modal="false" aria-labelledby="intro-tour-title">
     <div className="intro-tour-head">
       <p className="intro-tour-progress">{t("第 {current} 步，共 {total} 步",{current:step+1,total:last+1})}</p>
       <IconButton type="button" className="intro-tour-close" label={t("結束導覽")} onClick={onClose}><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m6 6 12 12M18 6 6 18"/></svg></IconButton>

@@ -65,6 +65,10 @@
   .intro-tour-actions .ds-button--secondary{background:transparent;color:var(--ds-text-on-brand);border-color:var(--ds-inverse-border)}
   .intro-tour-actions .ds-button--secondary:disabled{opacity:.4}
 
+  /* The element the current tour step points at. Set from script, so it is an attribute rather than a class React could overwrite. */
+  [data-tour-focus]{outline:3px solid var(--ds-accent-primary);outline-offset:var(--sp-1);animation:tour-focus-pulse 1.4s var(--ds-ease-standard) 2}
+  @keyframes tour-focus-pulse{50%{outline-offset:var(--sp-2);outline-color:var(--ds-accent-primary-hover)}}
+
   /* New-member checklist. */
   .first-steps{
     display:grid;gap:var(--sp-3);
