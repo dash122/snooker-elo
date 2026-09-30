@@ -7,7 +7,8 @@ import GuestIntro from "./GuestIntro";
 import { FirstStepsChecklist, IntroTour } from "./FirstSteps";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
-import { SquadAddedNotices, SquadCenter, SquadScopeChip, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
+import { SQUAD_SWING_DAYS, daysSinceLastMatch, headToHead, isInactive, ratingSwing } from "../lib/squad-rivalry";
+import { SquadAddedNotices, SquadCenter, SquadScopeChip, useSquadViewTracking, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
@@ -706,6 +707,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const [squadSheet,setSquadSheet]=useState<SquadSheet>(null);
   const selectSquad=useCallback((id:string|null)=>writeUrlParam("squad",id),[]);
   const activeSquad=squads.find(squad=>squad.id===squadId)??null;
+  useSquadViewTracking(tab==="leaderboard"?activeSquad:null);
   const squadAction=(id:string,action:"leave"|"seen")=>{
     const path=`/api/squads/${encodeURIComponent(id)}`;
     const request=action==="seen"?fetch(`${path}/seen`,{method:"POST"})
@@ -1735,10 +1737,18 @@ function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer
   const squadIds=useMemo(()=>squad?new Set(squad.members.map(member=>member.playerId)):null,[squad]);
   const visibleRanked=useMemo(()=>ranked.filter(p=>(!squadIds||squadIds.has(p.id))&&(!officialOnly||games(p)>=data.settings.provisionalGames)),[ranked,squadIds,officialOnly,data.settings.provisionalGames]);
   const shown=sortPlayers(visibleRanked,data,sort,dir),rankOf=new Map(visibleRanked.map((p,i)=>[p.id,i+1]));
+  /* A squad table measures movement over a month (a group of eight barely moves in ten days), shows
+     each squad-mate's record against the viewer, and fades out whoever has stopped playing. */
+  const swingDays=squad?SQUAD_SWING_DAYS:10;
+  const viewerInSquad=Boolean(squad&&ownPlayerId&&squadIds?.has(ownPlayerId));
+  const rivalry=useMemo(()=>squad?new Map(visibleRanked.map(p=>[p.id,{
+    record:viewerInSquad&&ownPlayerId&&p.id!==ownPlayerId?headToHead(data.matches,ownPlayerId,p.id):null,
+    idleDays:daysSinceLastMatch(data.matches,p.id),
+  }])):null,[squad,visibleRanked,viewerInSquad,ownPlayerId,data.matches]);
   // Movement compares today's table against the standings 30 days ago. A single
   // Ten days balances recent momentum with enough matches for a meaningful comparison.
   const movement=useMemo(()=>{
-    const recent=confirmed.filter(m=>isInPastTenDays(m.playedOn));
+    const recent=confirmed.filter(m=>squad?isInPastThirtyDays(m.playedOn):isInPastTenDays(m.playedOn));
     if(!recent.length)return {map:new Map<string,number>(),active:false};
     const before=visibleRanked.map(p=>{
       const swing=recent.filter(m=>m.a===p.id||m.b===p.id)
@@ -1747,7 +1757,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer
     }).sort((a,b)=>b.rating-a.rating||a.name.localeCompare(b.name));
     const priorRank=new Map(before.map((p,i)=>[p.id,i+1]));
     return {map:new Map(visibleRanked.map((p,i)=>[p.id,(priorRank.get(p.id)??i+1)-(i+1)])),active:true};
-  },[confirmed,visibleRanked]);
+  },[confirmed,visibleRanked,squad]);
   const breakRecords=useMemo(()=>{
     const playerById=new Map(data.players.map(player=>[player.id,player]));
     const records=data.matches.flatMap(match=>match.status==="confirmed"?(match.highBreaks??[])
@@ -1789,13 +1799,15 @@ function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer
     {squadScope}
     {rankingMode!=="trend"?<>
     <SortControls sort={sort} dir={dir} onSort={sortBy}/>
-    <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?t("尚未有正式球手"):t("尚未有球員")} sub={officialOnly?t("未有球員完成臨時門檻，暫時未有正式評分。"):squad?t("呢個球隊暫時未有球員。"):t("前往球員頁面新增第一位球員。")}/>:<><div className="table-head sortable"><button title={t("箭嘴為過去 10 天的排名升跌")} onClick={()=>sortBy("rank")}>{t("排名")}<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>{t("球員")}<SortArrow active={sort==="name"} dir={dir}/></button><button title={t("最近五筆比賽；較近期結果權重較高")} onClick={()=>sortBy("form")}>{t("近況")}<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>{t("場數／勝率")}<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>{t("建議／正式評分")}<SortArrow active={sort==="suggested"} dir={dir}/></button><button title={t("ELO 及近10天ELO變化")} onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
+    <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?t("尚未有正式球手"):t("尚未有球員")} sub={officialOnly?t("未有球員完成臨時門檻，暫時未有正式評分。"):squad?t("呢個球隊暫時未有球員。"):t("前往球員頁面新增第一位球員。")}/>:<><div className="table-head sortable"><button title={squad?t("箭嘴為過去 30 天的排名升跌"):t("箭嘴為過去 10 天的排名升跌")} onClick={()=>sortBy("rank")}>{t("排名")}<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>{t("球員")}<SortArrow active={sort==="name"} dir={dir}/></button><button title={t("最近五筆比賽；較近期結果權重較高")} onClick={()=>sortBy("form")}>{t("近況")}<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>{t("場數／勝率")}<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>{t("建議／正式評分")}<SortArrow active={sort==="suggested"} dir={dir}/></button><button title={squad?t("ELO 及近30天ELO變化"):t("ELO 及近10天ELO變化")} onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
       <MobileSortHead sort={sort}/>
-      {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=recentDeltaDays(p,data,10),played=games(p),rate=played?Math.round(p.wins/played*100):0,provisional=played<data.settings.provisionalGames,trailing=trailingStat(t, sort,p,data,suggested);
-        return <button className={`row ${rank===1?"top":""} ${provisional?"provisional":""}`} key={p.id} onClick={()=>onPlayer(p)} aria-label={t("{name}，排名 {rank}，ELO {v}，近10天ELO變化 {v2}{v3}，建議讓分 {suggested}{v4}", {name: p.name, rank, v: Math.round(p.rating), v2: swing>=0?"+":"", v3: Math.round(swing), suggested, v4: provisional?t("，臨時評分"):""})}>
+      {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=squad?ratingSwing(data.matches,p.id,SQUAD_SWING_DAYS):recentDeltaDays(p,data,10),played=games(p),rival=rivalry?.get(p.id),idle=rival&&isInactive(rival.idleDays),rate=played?Math.round(p.wins/played*100):0,provisional=played<data.settings.provisionalGames,trailing=trailingStat(t, sort,p,data,suggested);
+        const rivalText=rival?.record?(rival.record.wins+rival.record.losses+rival.record.draws?t("對你 {wins}勝{losses}負", {wins:rival.record.wins,losses:rival.record.losses}):t("未同你交手")):null;
+        const idleText=idle?(rival.idleDays===null?t("未有賽事"):t("{days} 日未打", {days:rival.idleDays})):null;
+        return <button className={`row ${rank===1?"top":""} ${provisional?"provisional":""} ${idle?"squad-inactive":""}`} key={p.id} onClick={()=>onPlayer(p)} aria-label={[t("{name}，排名 {rank}，ELO {v}，近{days}天ELO變化 {v2}{v3}，建議讓分 {suggested}{v4}", {name: p.name, rank, v: Math.round(p.rating), days: swingDays, v2: swing>=0?"+":"", v3: Math.round(swing), suggested, v4: provisional?t("，臨時評分"):""}),rivalText,idleText].filter(Boolean).join("，")}>
         <span className="rank">{rank===1?"♛":rank}{(()=>{if(!movement.active)return null;const move=movement.map.get(p.id)??0;
-          return move===0?<em className="move flat" aria-label={t("10 天內排名不變")}>–</em>
-          :<em className={`move ${move>0?"up":"down"}`} aria-label={t("較 10 天前{v} {v2} 位", {v: move>0?t("上升"):t("下跌"), v2: Math.abs(move)})}>{move>0?"▲":"▼"}{Math.abs(move)}</em>})()}</span><span className="person"><PlayerBadge player={p}/><b>{p.name}<small>{played<data.settings.provisionalGames?t("臨時"):<span className="official-only">{t("正式")}</span>}<span className="rating-kind-suffix">{t("評分")}</span><em className="person-meta">  {t("· {played} 場", {played})}</em></small></b></span>
+          return move===0?<em className="move flat" aria-label={t("{days} 天內排名不變", {days:swingDays})}>–</em>
+          :<em className={`move ${move>0?"up":"down"}`} aria-label={t("較 {days} 天前{v} {v2} 位", {days:swingDays, v: move>0?t("上升"):t("下跌"), v2: Math.abs(move)})}>{move>0?"▲":"▼"}{Math.abs(move)}</em>})()}</span><span className="person"><PlayerBadge player={p}/><b>{p.name}<small>{played<data.settings.provisionalGames?t("臨時"):<span className="official-only">{t("正式")}</span>}<span className="rating-kind-suffix">{t("評分")}</span><em className="person-meta">  {t("· {played} 場", {played})}</em></small>{(rivalText||idleText)&&<span className="squad-rival" aria-hidden="true">{rivalText&&<em>{rivalText}</em>}{idleText&&<em className="squad-idle">{idleText}</em>}</span>}</b></span>
         <span className="form">{p.form.map((x,j)=><i className={x.toLowerCase()} key={j}>{x}</i>)}</span>
         <span>{t("{played} 場", {played})}<small>{t("{rate}% 勝率", {rate})}</small></span><span className="dual-rating"><b>{suggested}</b><small>{t("正式")} {p.handicap==null?"—":p.handicap}</small></span>
         {trailing?<span className="elo"><b className={trailing.cls}>{trailing.big}</b><small>{trailing.sub}</small></span>

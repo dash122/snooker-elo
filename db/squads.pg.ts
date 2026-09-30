@@ -118,20 +118,31 @@ export async function previewInvite(code: string): Promise<{ id: string; name: s
   return row ? { id: row.id, name: row.name, memberCount: row.member_count } : null;
 }
 
-export async function browsePublicSquads(viewer: string, query: string): Promise<SquadSummary[]> {
+/** The public directory, most relevant first: squads holding the most people the viewer has
+    actually played (confirmed singles), then the largest. A squad of strangers is a weaker reason
+    to join than one of familiar opponents. */
+export async function browsePublicSquads(viewer: string, query: string): Promise<(SquadSummary & { playedWith: number })[]> {
   const sql = getSql();
   const pattern = `%${query.replace(/[\\%_]/g, char => `\\${char}`)}%`;
-  const rows = await sql<{ id: string; name: string; member_count: number }[]>`
-    SELECT s.id, s.name, count(m.player_id)::int AS member_count
-    FROM squads s JOIN squad_members m ON m.squad_id=s.id
+  const rows = await sql<{ id: string; name: string; member_count: number; played_with: number }[]>`
+    WITH opponents AS (
+      SELECT player_b AS id FROM state_matches WHERE player_a=${viewer} AND status='confirmed' AND mode IS DISTINCT FROM '2v2'
+      UNION
+      SELECT player_a FROM state_matches WHERE player_b=${viewer} AND status='confirmed' AND mode IS DISTINCT FROM '2v2'
+    )
+    SELECT s.id, s.name, count(m.player_id)::int AS member_count,
+      count(o.id)::int AS played_with
+    FROM squads s
+    JOIN squad_members m ON m.squad_id=s.id
+    LEFT JOIN opponents o ON o.id=m.player_id
     WHERE s.visibility='public'
       AND s.name ILIKE ${pattern}
       AND NOT EXISTS (SELECT 1 FROM squad_members mine WHERE mine.squad_id=s.id AND mine.player_id=${viewer})
     GROUP BY s.id, s.name
     HAVING count(m.player_id) >= ${PUBLIC_LISTING_MIN_MEMBERS}
-    ORDER BY count(m.player_id) DESC, s.name
+    ORDER BY played_with DESC, member_count DESC, s.name
     LIMIT 30`;
-  return rows.map(row => ({ id: row.id, name: row.name, visibility: "public", memberCount: row.member_count, role: null }));
+  return rows.map(row => ({ id: row.id, name: row.name, visibility: "public", memberCount: row.member_count, role: null, playedWith: row.played_with }));
 }
 
 /** Players who could be added to a squad: linked to an active member account. */
@@ -176,13 +187,14 @@ export async function deleteSquad(actor: string, squadId: string) {
 }
 
 /** A host adds someone directly. Refused for anyone without an account, and for anyone who left
-    this squad themselves — only they can bring themselves back. */
-export async function addSquadMember(actor: string, squadId: string, playerId: string) {
+    this squad themselves — only they can bring themselves back. Resolves true when a row was added
+    (false when they were already in). */
+export async function addSquadMember(actor: string, squadId: string, playerId: string): Promise<boolean> {
   const sql = getSql();
-  await sql.begin(async tx => {
+  return sql.begin(async tx => {
     const { members } = await lockSquad(tx, squadId);
     requireHost(members, actor);
-    if (members.some(member => member.playerId === playerId)) return;
+    if (members.some(member => member.playerId === playerId)) return false;
     if (members.length >= MAX_SQUAD_MEMBERS) throw new SquadError(msg("球隊人數已滿。"));
     if (!await hasActiveAccount(tx, playerId)) throw new SquadError(msg("只可以加入已登記帳戶的球員。"));
     const [exited] = await tx`SELECT 1 FROM squad_exits WHERE squad_id=${squadId} AND player_id=${playerId}`;
@@ -190,11 +202,13 @@ export async function addSquadMember(actor: string, squadId: string, playerId: s
     await tx`SELECT pg_advisory_xact_lock(hashtext(${`squads:${playerId}`}))`;
     if (await squadCountFor(tx, playerId) >= MAX_SQUADS_PER_PLAYER) throw new SquadError(msg("呢位球員已加入太多球隊。"));
     await tx`INSERT INTO squad_members (squad_id,player_id,role,added_by) VALUES (${squadId},${playerId},'member',${actor})`;
+    return true;
   });
 }
 
-/** The player joins themselves: through the invite code, or one tap on a public squad. */
-export async function joinSquad(actor: string, via: { code: string } | { squadId: string }): Promise<string> {
+/** The player joins themselves: through the invite code, or one tap on a public squad. `joined` is
+    false when they were already a member. */
+export async function joinSquad(actor: string, via: { code: string } | { squadId: string }): Promise<{ id: string; joined: boolean }> {
   const sql = getSql();
   return sql.begin(async tx => {
     const [target] = "code" in via
@@ -202,13 +216,13 @@ export async function joinSquad(actor: string, via: { code: string } | { squadId
       : await tx<{ id: string }[]>`SELECT id FROM squads WHERE id=${via.squadId} AND visibility='public'`;
     if (!target) throw new SquadError("code" in via ? msg("邀請連結無效或已更新。") : msg("搵唔到呢個球隊。"), 404);
     const { members } = await lockSquad(tx, target.id);
-    if (members.some(member => member.playerId === actor)) return target.id;
+    if (members.some(member => member.playerId === actor)) return { id: target.id, joined: false };
     if (members.length >= MAX_SQUAD_MEMBERS) throw new SquadError(msg("球隊人數已滿。"));
     await tx`SELECT pg_advisory_xact_lock(hashtext(${`squads:${actor}`}))`;
     if (await squadCountFor(tx, actor) >= MAX_SQUADS_PER_PLAYER) throw new SquadError(msg("你已加入太多球隊，請先退出部分球隊。"));
     await tx`INSERT INTO squad_members (squad_id,player_id,role,added_by,seen_at) VALUES (${target.id},${actor},'member',${actor},now())`;
     await tx`DELETE FROM squad_exits WHERE squad_id=${target.id} AND player_id=${actor}`;
-    return target.id;
+    return { id: target.id, joined: true };
   });
 }
 

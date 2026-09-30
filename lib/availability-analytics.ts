@@ -24,6 +24,9 @@ export type AvailabilityEvent =
      moments: arriving, opening a 局, and joining one. The ratio of `join` to `create` is the one
      that says whether merge-at-input is working: a club where everyone creates and nobody joins is
      a club that has gone back to six people opening six 局. */
+  /* 球隊 — viewing a squad's table. Joins, leaves and settings are recorded server-side by
+     app/api/squads; this is the one signal only the client sees. */
+  | "squad_view"
   | "open_board_view"
   | "open_board_create"
   | "open_board_join"

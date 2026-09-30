@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import type { MySquad, SquadDetail, SquadSummary } from "../db/squads.pg";
 import { SQUAD_NAME_MAX, type SquadRole, type SquadVisibility } from "../lib/squads";
 import { useT } from "./components/I18nProvider";
+import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { Button, Chip, EmptyState, FormField, IconButton, InlineNotice, SegmentedControl, Skeleton } from "./components/ui/Primitives";
 import { Sheet } from "./components/ui/Overlay";
 import { PlayerBadge, PlayerCombobox } from "./UiBits";
@@ -19,6 +20,7 @@ export type SquadSheet = "picker" | "manage" | "browse" | "create" | null;
 
 const PIN_KEY = "scaa:squads:pinned", RECENT_KEY = "scaa:squads:recent", PENDING_JOIN_KEY = "scaa:squads:pending-join";
 const SEARCH_THRESHOLD = 8;
+type PublicSquad = SquadSummary & { playedWith: number };
 
 /* Pins and recents are a per-viewer convenience, so browser storage is right for them — and every
    access is guarded, because storage can be absent or throw (private windows, blocked site data). */
@@ -79,6 +81,12 @@ export function useResumePendingJoin(signedIn: boolean) {
     try { saved = sessionStorage.getItem(PENDING_JOIN_KEY); sessionStorage.removeItem(PENDING_JOIN_KEY); } catch { /* nothing to resume */ }
     if (saved) writeUrlParam("join", saved);
   }, [signedIn]);
+}
+
+/** Records each arrival on a squad's table (not re-renders of the same one). */
+export function useSquadViewTracking(squad: MySquad | null) {
+  const id = squad?.id, size = squad?.memberCount;
+  useEffect(() => { if (id) trackAvailabilityEvent("squad_view", { squadId: id, memberCount: size }); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /** The one control the ranking panel carries: names the current view and opens the picker. */
@@ -217,12 +225,12 @@ function CreateSquad({ onClose, onCreated }: { onClose: () => void; onCreated: (
 
 function BrowseSquads({ onClose, onJoined }: { onClose: () => void; onJoined: (id: string, name: string) => Promise<void> }) {
   const t = useT();
-  const [query, setQuery] = useState(""), [results, setResults] = useState<SquadSummary[] | null>(null);
+  const [query, setQuery] = useState(""), [results, setResults] = useState<PublicSquad[] | null>(null);
   const [joining, setJoining] = useState<string | null>(null), [error, setError] = useState("");
   useEffect(() => {
     let live = true;
     const timer = setTimeout(() => {
-      call<{ squads: SquadSummary[] }>(`/api/squads/browse?q=${encodeURIComponent(query.trim())}`)
+      call<{ squads: PublicSquad[] }>(`/api/squads/browse?q=${encodeURIComponent(query.trim())}`)
         .then(body => live && setResults(body.squads))
         .catch(err => live && setError(err instanceof Error ? err.message : t("未能載入球隊。")));
     }, query ? 250 : 0);
@@ -239,7 +247,7 @@ function BrowseSquads({ onClose, onJoined }: { onClose: () => void; onJoined: (i
     {results === null ? <Skeleton height="3rem" /> : results.length === 0
       ? <EmptyState title={t("未有符合嘅公開球隊")} description={t("可以自己建立一個，再邀請朋友加入。")} />
       : <ul className="squad-list">{results.map(squad => <li key={squad.id} className="squad-row">
-        <span className="squad-option squad-option--static"><span className="squad-option-main"><b>{squad.name}</b><small>{t("{count} 位隊員", { count: squad.memberCount })}</small></span></span>
+        <span className="squad-option squad-option--static"><span className="squad-option-main"><b>{squad.name}</b><small>{squad.playedWith ? t("{count} 位隊員 · 你打過 {played} 位", { count: squad.memberCount, played: squad.playedWith }) : t("{count} 位隊員", { count: squad.memberCount })}</small></span></span>
         <Button variant="secondary" type="button" loading={joining === squad.id} disabled={Boolean(joining)} onClick={() => void join(squad)}>{t("加入")}</Button>
       </li>)}</ul>}
   </Sheet>;

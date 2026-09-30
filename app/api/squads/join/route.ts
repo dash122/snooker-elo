@@ -1,7 +1,7 @@
 import { joinSquad, previewInvite } from "../../../../db/squads.pg";
 import { getTranslator } from "../../../../lib/i18n/server";
 import { normaliseInviteCode } from "../../../../lib/squads";
-import { noStore, readJson, withSquadActor } from "../handle";
+import { noStore, readJson, trackSquad, withSquadActor } from "../handle";
 
 /* GET ?code= previews an invite (name and size only); POST joins by {code} or, for a public squad,
    by {squadId}. Joining is always the player's own act — see addSquadMember for the host route. */
@@ -22,10 +22,14 @@ export async function POST(request:Request){
     if(body.code!==undefined){
       const code=normaliseInviteCode(body.code);
       if(!code)return Response.json({error:t("邀請連結無效或已更新。")},{status:404});
-      return Response.json({id:await joinSquad(actor,{code})});
+      const {id,joined}=await joinSquad(actor,{code});
+      if(joined)trackSquad(actor,"squad_joined",{squadId:id,source:"invite"});
+      return Response.json({id});
     }
     const squadId=typeof body.squadId==="string"?body.squadId:"";
     if(!squadId)return Response.json({error:t("搵唔到呢個球隊。")},{status:404});
-    return Response.json({id:await joinSquad(actor,{squadId})});
+    const {id,joined}=await joinSquad(actor,{squadId});
+    if(joined)trackSquad(actor,"squad_joined",{squadId:id,source:"public"});
+    return Response.json({id});
   });
 }

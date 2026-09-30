@@ -1,7 +1,7 @@
 import { deleteSquad, getSquad, updateSquad } from "../../../../db/squads.pg";
 import { getTranslator } from "../../../../lib/i18n/server";
 import { isVisibility, normaliseSquadName } from "../../../../lib/squads";
-import { noStore, readJson, withSquadActor } from "../handle";
+import { noStore, readJson, trackSquad, withSquadActor } from "../handle";
 
 type Params={params:Promise<{id:string}>};
 
@@ -33,6 +33,7 @@ export async function PATCH(request:Request,{params}:Params){
     }
     if(body.rotateInvite===true)input.rotateInvite=true;
     await updateSquad(actor,id,input);
+    trackSquad(actor,"squad_settings_changed",{squadId:id,renamed:input.name!==undefined,visibility:input.visibility??null,rotatedInvite:Boolean(input.rotateInvite)});
     return Response.json({squad:await getSquad(actor,id)});
   });
 }
@@ -41,6 +42,7 @@ export async function DELETE(_request:Request,{params}:Params){
   const {id}=await params;
   return withSquadActor(async actor=>{
     await deleteSquad(actor,id);
+    trackSquad(actor,"squad_deleted",{squadId:id});
     return Response.json({ok:true});
   });
 }
