@@ -1,6 +1,7 @@
 import { requireMember } from "../../../db/auth";
 import { getTranslator } from "../../../lib/i18n/server";
 import { SquadError } from "../../../lib/squads";
+import { recordEvents } from "../../../db/analytics";
 
 /* Shared by every /api/squads route: a signed-in member with a linked player, and SquadError's
    translatable message + status passed straight through. Anything else is a generic 500. */
@@ -26,3 +27,10 @@ export async function readJson(request:Request):Promise<Record<string,unknown>>{
 }
 
 export const noStore={"cache-control":"no-store"};
+
+/* Squad events are recorded here, after the write has succeeded, rather than from the client: a
+   join or leave is a fact the server already knows, and the funnel should not depend on a beacon
+   surviving the page. Best-effort — analytics never fails a member's request. */
+export function trackSquad(playerId:string,event:"squad_created"|"squad_joined"|"squad_left"|"squad_member_removed"|"squad_settings_changed"|"squad_deleted",props:Record<string,unknown>){
+  void recordEvents(playerId,[{event,props,at:new Date().toISOString()}]).catch(()=>{});
+}

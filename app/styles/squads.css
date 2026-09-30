@@ -58,3 +58,10 @@
   .squad-members li{flex-wrap:wrap}
   .squad-member-actions{width:100%;justify-content:flex-end}
 }
+
+/* Squad table extras: record against the viewer, and squad-mates who have gone quiet. */
+.squad-rival{display:flex;flex-wrap:wrap;gap:var(--sp-1-5);margin-top:var(--sp-1)}
+.squad-rival em{padding:0 var(--sp-1-5);border-radius:var(--radius-pill);background:var(--ds-accent-veil-soft);color:var(--ds-accent-action);font-size:var(--fs-label);font-style:normal;font-weight:800;white-space:nowrap}
+.squad-rival em.squad-idle{background:var(--ds-canvas-muted);color:var(--ds-text-secondary)}
+.table-card .row.squad-inactive>:not(.person){opacity:.55}
+.table-card .row.squad-inactive .person b{color:var(--ds-text-secondary)}

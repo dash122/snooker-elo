@@ -68,3 +68,37 @@ test("squads migration enforces its storage contract", async () => {
     assert.deepEqual(policies, ["squad_exits", "squad_members", "squads"]);
   } finally { await db.close(); }
 });
+
+import { SQUAD_INACTIVE_DAYS, daysSinceLastMatch, headToHead, isInactive, ratingSwing } from "../lib/squad-rivalry.ts";
+
+const NOW = Date.parse("2026-09-30T12:00:00Z");
+const m = (a, b, scoreA, scoreB, deltaA, playedOn, extra = {}) => ({ a, b, scoreA, scoreB, deltaA, playedOn, createdAt: `${playedOn}T10:00:00Z`, status: "confirmed", ...extra });
+const matches = [
+  m("me", "ken", 3, 1, 12, "2026-09-25"),
+  m("ken", "me", 2, 1, 8, "2026-09-10"),
+  m("me", "ken", 2, 2, 0, "2026-08-01"),
+  m("me", "ken", 3, 0, 20, "2026-09-20", { status: "pending" }),
+  m("me", "ken", 1, 0, 5, "2026-09-21", { mode: "2v2", a2: "x", b2: "y" }),
+  m("me", "amy", 0, 3, -15, "2026-06-01"),
+];
+
+test("head-to-head counts confirmed singles from both sides and ignores doubles and pending", () => {
+  assert.deepEqual(headToHead(matches, "me", "ken"), { wins: 1, losses: 1, draws: 1 });
+  assert.deepEqual(headToHead(matches, "ken", "me"), { wins: 1, losses: 1, draws: 1 });
+  assert.deepEqual(headToHead(matches, "me", "nobody"), { wins: 0, losses: 0, draws: 0 });
+});
+
+test("30-day swing sums rating movement inside the window only", () => {
+  assert.equal(ratingSwing(matches, "me", 30, NOW), 12 - 8);
+  assert.equal(ratingSwing(matches, "ken", 30, NOW), -12 + 8);
+  assert.equal(ratingSwing(matches, "amy", 30, NOW), 0);
+});
+
+test("idle days mark squad-mates who stopped playing", () => {
+  assert.equal(daysSinceLastMatch(matches, "me", NOW), 5);
+  assert.equal(daysSinceLastMatch(matches, "amy", NOW), 121);
+  assert.equal(daysSinceLastMatch(matches, "nobody", NOW), null);
+  assert.ok(!isInactive(5));
+  assert.ok(isInactive(SQUAD_INACTIVE_DAYS));
+  assert.ok(isInactive(null), "never played reads as inactive");
+});
