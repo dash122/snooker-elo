@@ -19,6 +19,20 @@ export async function withSquadActor(run:(actor:string)=>Promise<Response>):Prom
   }
 }
 
+/* For read-only routes that expose public squads: signed-in viewers get their own player id (so
+   private squads they belong to still resolve), everyone else gets null. */
+export async function withOptionalSquadActor(run:(actor:string|null)=>Promise<Response>):Promise<Response>{
+  const { t } = await getTranslator();
+  const member=await requireMember();
+  try{
+    return await run(member?.statePlayerId??null);
+  }catch(error){
+    if(error instanceof SquadError)return Response.json({error:t(error.message)},{status:error.status});
+    console.error("squads:",error);
+    return Response.json({error:t("未能更新球隊，請稍後再試。")},{status:500});
+  }
+}
+
 export async function readJson(request:Request):Promise<Record<string,unknown>>{
   try{
     const body=await request.json();

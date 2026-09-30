@@ -8,7 +8,7 @@ import { FirstStepsChecklist, IntroTour } from "./FirstSteps";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
 import { SQUAD_SWING_DAYS, daysSinceLastMatch, headToHead, isInactive, ratingSwing } from "../lib/squad-rivalry";
-import { SquadAddedNotices, SquadCenter, SquadScopeChip, useSquadViewTracking, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
+import { SquadAddedNotices, SquadCenter, SquadScopeChip, usePublicSquad, useSquadViewTracking, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
@@ -706,7 +706,8 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const squadId=useUrlParam("squad");
   const [squadSheet,setSquadSheet]=useState<SquadSheet>(null);
   const selectSquad=useCallback((id:string|null)=>writeUrlParam("squad",id),[]);
-  const activeSquad=squads.find(squad=>squad.id===squadId)??null;
+  const publicSquad=usePublicSquad(squadId,squads,ownPlayerId?squadsLoaded:true);
+  const activeSquad=squads.find(squad=>squad.id===squadId)??publicSquad;
   useSquadViewTracking(tab==="leaderboard"?activeSquad:null);
   const squadAction=(id:string,action:"leave"|"seen")=>{
     const path=`/api/squads/${encodeURIComponent(id)}`;
@@ -1497,7 +1498,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {tab==="leaderboard"&&user&&ownPlayerId&&!user.needsOnboarding&&<FirstStepsChecklist hasMatch={data.matches.some(match=>match.a===ownPlayerId||match.b===ownPlayerId)} hasAvailability={Boolean(matchmakingSummary?.mine)} onRecord={()=>newMatch()} onAvailability={()=>goTab("availability")} onTour={()=>setTourOpen(true)}/>}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
       {tab==="leaderboard"&&<SquadAddedNotices squads={squads} players={data.players} onView={id=>{squadAction(id,"seen");selectSquad(id)}} onLeave={id=>squadAction(id,"leave")} onDismiss={id=>squadAction(id,"seen")}/>}
-      {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} ownPlayerId={ownPlayerId} squad={activeSquad} squadScope={ownPlayerId?<SquadScopeChip squad={activeSquad} onOpen={()=>setSquadSheet("picker")} onManage={()=>setSquadSheet("manage")}/>:null} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");showTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
+      {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} ownPlayerId={ownPlayerId} squad={activeSquad} squadScope={<SquadScopeChip squad={activeSquad} onOpen={()=>setSquadSheet("picker")} onManage={()=>setSquadSheet("manage")}/>} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");showTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",format:"single",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,format:tournament.format??"single",handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
       {/* Public availability, recommendations and arrangements share one marketplace flow. */}
       {tab==="availability"&&<MatchmakingMarketplace onRecordSession={(opponentId,sessionId,date)=>{newMatch("1v1",opponentId,date);marketplaceOrigin.current=sessionId;}} key={ownPlayerId??"guest"} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}

@@ -55,6 +55,21 @@ export function useSquads(enabled: boolean) {
   return { squads, loaded, refresh };
 }
 
+/** The squad named by `?squad=` when the viewer isn't a member of it: public squads are visible to
+    everyone, signed in or not. Private ones 404 and read as no selection. */
+export function usePublicSquad(id: string | null, mine: MySquad[], mineLoaded: boolean) {
+  const [found, setFound] = useState<SquadDetail | null>(null);
+  const isMine = Boolean(id && mine.some(squad => squad.id === id));
+  useEffect(() => {
+    if (!id || isMine || !mineLoaded) return;
+    let live = true;
+    call<{ squad: SquadDetail }>(`/api/squads/${encodeURIComponent(id)}`)
+      .then(body => live && setFound(body.squad)).catch(() => live && setFound(null));
+    return () => { live = false; };
+  }, [id, isMine, mineLoaded]);
+  return found && found.id === id && !isMine ? { ...found, addedBy: null } as MySquad : null;
+}
+
 /* `?squad=` keeps the selected view shareable and across reloads; `?join=` carries an invite.
    Both are read straight from the URL (null during server render), so there is no copy in React
    state to fall out of step with it. */
@@ -98,7 +113,7 @@ export function SquadScopeChip({ squad, onOpen, onManage }: { squad: MySquad | n
       <b>{squad ? squad.name : t("全會")}</b>
       <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" /></svg>
     </button>
-    {squad && <Button variant="secondary" className="squad-scope-manage" type="button" onClick={onManage}>{squad.role === "host" ? t("管理球隊") : t("球隊資料")}</Button>}
+    {squad?.role && <Button variant="secondary" className="squad-scope-manage" type="button" onClick={onManage}>{squad.role === "host" ? t("管理球隊") : t("球隊資料")}</Button>}
   </div>;
 }
 
@@ -134,17 +149,17 @@ export function SquadCenter({ sheet, setSheet, squads, loaded, refresh, selected
   const clearJoinCode = () => writeUrlParam("join", null);
   const selected = squads.find(squad => squad.id === selectedId) ?? null;
   return <>
-    {sheet === "picker" && <SquadPicker squads={squads} loaded={loaded} selectedId={selectedId} onSelect={id => { onSelect(id); close(); }} onBrowse={() => setSheet("browse")} onCreate={() => setSheet("create")} onClose={close} />}
+    {sheet === "picker" && <SquadPicker squads={squads} loaded={loaded} signedIn={signedIn} selectedId={selectedId} onSelect={id => { onSelect(id); close(); }} onBrowse={() => setSheet("browse")} onCreate={() => setSheet("create")} onClose={close} />}
     {sheet === "create" && <CreateSquad onClose={close} onCreated={async id => { await refresh(); onSelect(id); setSheet("manage"); }} />}
-    {sheet === "browse" && <BrowseSquads onClose={close} onJoined={async (id, name) => { await refresh(); onSelect(id); close(); notify(name); }} />}
+    {sheet === "browse" && <BrowseSquads signedIn={signedIn} onView={id => { onSelect(id); close(); }} onClose={close} onJoined={async (id, name) => { await refresh(); onSelect(id); close(); notify(name); }} />}
     {joinCode && <JoinSquad code={joinCode} signedIn={signedIn} onClose={clearJoinCode} onJoined={async (id, name) => { clearJoinCode(); await refresh(); onSelect(id); notify(name); }} />}
     {sheet === "manage" && selected && ownPlayerId && <ManageSquad squad={selected} players={players} ownPlayerId={ownPlayerId} refresh={refresh}
       onGone={async () => { onSelect(null); close(); await refresh(); }} onClose={close} />}
   </>;
 }
 
-function SquadPicker({ squads, loaded, selectedId, onSelect, onBrowse, onCreate, onClose }: {
-  squads: MySquad[]; loaded: boolean; selectedId: string | null; onSelect: (id: string | null) => void; onBrowse: () => void; onCreate: () => void; onClose: () => void;
+function SquadPicker({ squads, loaded, signedIn, selectedId, onSelect, onBrowse, onCreate, onClose }: {
+  squads: MySquad[]; loaded: boolean; signedIn: boolean; selectedId: string | null; onSelect: (id: string | null) => void; onBrowse: () => void; onCreate: () => void; onClose: () => void;
 }) {
   const t = useT();
   // Only ever rendered after a tap, never on the server, so storage can be read on first render.
@@ -179,10 +194,10 @@ function SquadPicker({ squads, loaded, selectedId, onSelect, onBrowse, onCreate,
       </li>)}
       {loaded && query && !ordered.length && <li className="squad-list-empty">{t("沒有符合的球隊")}</li>}
     </ul>
-    {loaded && !squads.length && <p className="squad-hint">{t("組個球隊，同經常打波嘅朋友睇自己嘅排名。")}</p>}
+    {signedIn && loaded && !squads.length && <p className="squad-hint">{t("組個球隊，同經常打波嘅朋友睇自己嘅排名。")}</p>}
     <div className="squad-sheet-actions">
       <Button variant="secondary" type="button" onClick={onBrowse}>{t("瀏覽公開球隊")}</Button>
-      <Button type="button" onClick={onCreate}>{t("建立球隊")}</Button>
+      {signedIn && <Button type="button" onClick={onCreate}>{t("建立球隊")}</Button>}
     </div>
   </Sheet>;
 }
@@ -223,7 +238,7 @@ function CreateSquad({ onClose, onCreated }: { onClose: () => void; onCreated: (
   </Sheet>;
 }
 
-function BrowseSquads({ onClose, onJoined }: { onClose: () => void; onJoined: (id: string, name: string) => Promise<void> }) {
+function BrowseSquads({ signedIn, onView, onClose, onJoined }: { signedIn: boolean; onView: (id: string) => void; onClose: () => void; onJoined: (id: string, name: string) => Promise<void> }) {
   const t = useT();
   const [query, setQuery] = useState(""), [results, setResults] = useState<PublicSquad[] | null>(null);
   const [joining, setJoining] = useState<string | null>(null), [error, setError] = useState("");
@@ -248,7 +263,8 @@ function BrowseSquads({ onClose, onJoined }: { onClose: () => void; onJoined: (i
       ? <EmptyState title={t("未有符合嘅公開球隊")} description={t("可以自己建立一個，再邀請朋友加入。")} />
       : <ul className="squad-list">{results.map(squad => <li key={squad.id} className="squad-row">
         <span className="squad-option squad-option--static"><span className="squad-option-main"><b>{squad.name}</b><small>{squad.playedWith ? t("{count} 位隊員 · 你打過 {played} 位", { count: squad.memberCount, played: squad.playedWith }) : t("{count} 位隊員", { count: squad.memberCount })}</small></span></span>
-        <Button variant="secondary" type="button" loading={joining === squad.id} disabled={Boolean(joining)} onClick={() => void join(squad)}>{t("加入")}</Button>
+        <Button variant="secondary" type="button" disabled={Boolean(joining)} onClick={() => onView(squad.id)}>{t("查看")}</Button>
+        {signedIn && <Button type="button" loading={joining === squad.id} disabled={Boolean(joining)} onClick={() => void join(squad)}>{t("加入")}</Button>}
       </li>)}</ul>}
   </Sheet>;
 }

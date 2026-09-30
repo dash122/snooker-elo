@@ -1,14 +1,14 @@
 import { deleteSquad, getSquad, updateSquad } from "../../../../db/squads.pg";
 import { getTranslator } from "../../../../lib/i18n/server";
 import { isVisibility, normaliseSquadName } from "../../../../lib/squads";
-import { noStore, readJson, trackSquad, withSquadActor } from "../handle";
+import { noStore, readJson, trackSquad, withOptionalSquadActor, withSquadActor } from "../handle";
 
 type Params={params:Promise<{id:string}>};
 
 export async function GET(_request:Request,{params}:Params){
   const { t } = await getTranslator();
   const {id}=await params;
-  return withSquadActor(async actor=>{
+  return withOptionalSquadActor(async actor=>{
     const squad=await getSquad(actor,id);
     if(!squad)return Response.json({error:t("搵唔到呢個球隊。")},{status:404});
     return Response.json({squad},{headers:noStore});
