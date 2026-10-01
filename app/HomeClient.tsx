@@ -1716,16 +1716,16 @@ function breakNudgeCopy(t: Translator, nudge:BreakNudge){
     case "open":return {big:t("任何"),title:t("近30日單桿榜尚餘 {openSlots} 位", {openSlots: nudge.openSlots}),sub:t("任何單桿即可上榜"),hint:t("任何單桿即可上榜")};
   }
 }
-function BreakNudgeStrip({nudge,onOpen}:{nudge:BreakNudge;onOpen:()=>void}){
+/* A welcome-back line inside the hero rather than an alert under it: a quiet greeting whose second
+   half is the day's high-break target, and that opens the 30-day break board. */
+function HeroWelcome({name,nudge,onOpen}:{name:string;nudge:BreakNudge;onOpen:()=>void}){
   const t = useT();
   const copy=breakNudgeCopy(t, nudge);
-  return <div className={`break-nudge${nudge.kind==="expiring"?" break-nudge--warning":""}`} role="status">
-    <button type="button" className="break-nudge-main" onClick={onOpen}>
-      <strong className="break-nudge-target" aria-hidden="true">{copy.big}</strong>
-      <span className="break-nudge-copy"><b>{copy.title}</b><small>{copy.sub}</small></span>
-      <span className="break-nudge-go" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg></span>
-    </button>
-  </div>;
+  return <button type="button" className="hero-welcome" onClick={onOpen}>
+    <span className="hero-welcome-name">{t("歡迎回來，{name}", {name})}</span>
+    <span className="hero-welcome-line"><b>{copy.title}</b><small>{copy.sub}</small></span>
+    <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg>
+  </button>;
 }
 function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer,onMatch,onRivalry,onClubScope}:{ranked:Player[];data:AppState;ownPlayerId?:string;squad:MySquad|null;squadScope:ReactNode;onClubScope:()=>void;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
   const t = useT();
@@ -1779,16 +1779,17 @@ function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer
   const displayedBreaks=breakView==="monthly"?breakRecords.overall:breakRecords[breakView];
   const nudge=useMemo(()=>ownPlayerId&&data.players.some(player=>player.id===ownPlayerId)
     ?breakNudge(breakRecords.recent.map(record=>({playerId:record.player.id,value:record.value,date:record.date})),ownPlayerId,today):null,[breakRecords.recent,data.players,ownPlayerId]);
+  const ownPlayer=ownPlayerId?data.players.find(player=>player.id===ownPlayerId):undefined;
   const openNudge=()=>{setBreakView("recent");setHomeView("breaks");if(squad)onClubScope()};
   const sortBy=(key:SortKey)=>{if(sort===key)setDir(x=>x==="asc"?"desc":"asc");else{setSort(key);setDir(key==="rank"||key==="name"?"asc":"desc")}};
   return <><section className="hero"><div><h1>{t("讓每一局，")}<br/><span>{t("都推動進步。")}</span></h1><p>{t("追蹤實力、看見成長，找到旗鼓相當的對手。")}</p>
+      {nudge&&ownPlayer&&<HeroWelcome name={ownPlayer.name} nudge={nudge} onOpen={openNudge}/>}
       <div className="podium-stats">
         <span><b>{ranked.length}</b><small>{t("活躍球員")}</small></span>
         <span><b>{month}</b><small>{t("本月比賽")}</small></span>
         <span><b>{total}</b><small>{t("歷來總場數")}</small></span>
       </div>
     </div><Button className="hero-action" onClick={onRecord}><span aria-hidden="true" className="hero-action-icon">＋</span><b>{t("記錄新賽果")}</b><small>{t("更新排名與近期狀態")}</small></Button></section>
-    {nudge&&homeView==="ranking"&&<BreakNudgeStrip nudge={nudge} onOpen={openNudge}/>}
     {squadScope}
     {squad?(
     <SlidingToggleGroup as="nav" className="page-tabs home-view-nav" aria-label={t("球隊內容")} role="tablist">

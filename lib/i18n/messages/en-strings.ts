@@ -2175,6 +2175,7 @@ export const enStrings: Record<string, string> = {
   "切換球隊": "Switch squad",
   "數據": "Stats",
   "球隊內容": "Squad content",
+  "歡迎回來，{name}": "Welcome back, {name}",
   "查看全隊對賽矩陣": "View squad head-to-head matrix",
   "未同你交手": "Not played you",
   "未有賽事": "No matches yet",
