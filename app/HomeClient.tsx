@@ -1499,7 +1499,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {/* Public availability, recommendations and arrangements share one marketplace flow. */}
       {tab==="availability"&&<MatchmakingMarketplace onRecordSession={(opponentId,sessionId,date)=>{newMatch("1v1",opponentId,date);marketplaceOrigin.current=sessionId;}} key={ownPlayerId??"guest"} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} managementMode={Boolean(isAdmin&&managementMode)} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast(t("只有管理員可以新增球員。"));return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
-      {tab==="settings"&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast(t("只有管理員可以修改 ELO 設定。"))} onReset={resetAll} canReset={user?.role==="admin"}/>}
+      {tab==="settings"&&isAdmin&&<SettingsView data={data} onEdit={()=>isAdmin?setModal("settings"):setToast(t("只有管理員可以修改 ELO 設定。"))} onReset={resetAll} canReset={user?.role==="admin"}/>}
       </>}
       </PageFrame>
     </main>
@@ -1612,6 +1612,11 @@ type MonthlyBreak={month:string;record:BreakRecord|null;top:BreakRecord[]};
  *  newest last, plus up to the 10 highest breaks in that month. Months without
  *  a recorded break stay in the series as gaps so the timeline reads evenly;
  *  the chart scrolls when there are more than a screenful. */
+/** The ten-row break table every 最高單桿 view shares, padded with N/A so the layout never shifts. */
+function BreakRankList({records}:{records:BreakRecord[]}){
+  const t = useT();
+  return <ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=records[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>{t("對 {opponent}", {opponent: record.opponent})}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title={t("破百單桿")}>{t("破百")}</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>;
+}
 function monthlyBreakRecords(records:BreakRecord[]):MonthlyBreak[]{
   const byMonth=new Map<string,BreakRecord[]>();
   // records arrive sorted by value desc, so each month's list stays sorted too.
@@ -1630,7 +1635,7 @@ function monthlyBreakRecords(records:BreakRecord[]):MonthlyBreak[]{
 }
 /** Monthly high breaks as a column chart: the shape of the club's best month-to-month,
  *  with the holder and opponent for whichever month is selected. */
-function MonthlyBreakChart({months,onPlayer}:{months:MonthlyBreak[];onPlayer:(p:Player)=>void}) {
+function MonthlyBreakChart({months}:{months:MonthlyBreak[]}) {
   const t = useT();
   const withRecord=months.filter(month=>month.record);
   const lastIndex=months.map(month=>!!month.record).lastIndexOf(true);
@@ -1653,28 +1658,14 @@ function MonthlyBreakChart({months,onPlayer}:{months:MonthlyBreak[];onPlayer:(p:
           <button type="button" className={`monthly-break-column${selected===index?" active":""}${record?"":" empty"}${record&&record.value>=100?" century":""}`}
             aria-pressed={selected===index} disabled={!record}
             aria-label={record?t("{label}，最高單桿 {value} 分，{name} 對 {opponent}", {label, value: record.value, name: record.player.name, opponent: record.opponent}):t("{label}，未有單桿紀錄", {label})}
-            onClick={()=>setSelected(current=>current===index?null:index)}>
+            onClick={()=>setSelected(index)}>
             {record?<><em>{record.value}</em><i style={{height:`${Math.max(6,record.value/scale*100)}%`}}/></>:<i className="monthly-break-gap"/>}
           </button>
           <small>{monthShortLabel(month.month.slice(5),t.locale)}{(index===0||month.month.endsWith("-01"))&&<span>{month.month.slice(2,4)}</span>}</small>
         </li>})}</ol>
       </div>
     </div>
-    {active?.record?<div className="monthly-break-detail">
-      <button type="button" onClick={()=>onPlayer(active.record!.player)}>
-        <PlayerBadge player={active.record.player}/>
-        <span><small>{t("{month}最高單桿", {month: monthYearLabel(active.month.slice(0,4),active.month.slice(5),t.locale)})}</small><b>{active.record.player.name}</b><em>{t("對 {opponent} · {date}", {opponent: active.record.opponent, date: active.record.date})}</em></span>
-      </button>
-      <strong>{active.record.value>=100&&<em className="century-badge" title={t("破百單桿")}>{t("破百")}</em>}{active.record.value}</strong>
-    </div>:<p className="monthly-break-hint">{t("點擊柱狀圖查看該月的單桿紀錄保持者。")}</p>}
-    {active&&active.top.length>1&&<ol className="monthly-break-top5">{active.top.map((record,index)=>
-      <li key={record.key} className={index===0?"lead":""}>
-        <span className="monthly-break-top5-rank">{index+1}</span>
-        <button type="button" onClick={()=>onPlayer(record.player)}><PlayerBadge player={record.player}/><b>{record.player.name}</b></button>
-        <em>{t("對 {opponent} · {date}", {opponent: record.opponent, date: record.date})}</em>
-        <strong>{record.value>=100&&<i className="century-badge" title={t("破百單桿")}>{t("破百")}</i>}{record.value}</strong>
-      </li>)}
-    </ol>}
+    {active&&<><p className="monthly-break-heading">{t("{month}最高單桿", {month: monthYearLabel(active.month.slice(0,4),active.month.slice(5),t.locale)})}</p><BreakRankList records={active.top}/></>}
     <p className="chart-summary">{t("{month}至今，共 {months} 個月", {month: monthYearLabel(months[0].month.slice(0,4),months[0].month.slice(5),t.locale), months: months.length})}{months.length>12?t("；可左右捲動查看更早月份。"):t("。")}</p>
   </div>;
 }
@@ -1801,15 +1792,14 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
       {value:"breaks",label:<span>{t("最高單桿")}</span>},
       {value:"recent",label:<span>{t("數據")}</span>},
     ]}/>
-    {homeView==="ranking"&&!defaultSort&&<div className="board-chips">
-      {!defaultSort&&<FilterChip label={<>{t("排序：{v}", {v: t(sortLabels[sort])})} {dir==="asc"?"↑":"↓"}</>} clearLabel={t("清除排序")} onClear={()=>{setSort("rank");setDir("asc")}}/>}
-    </div>}
-    {homeView==="breaks"&&breakView!=="players"&&<div className="board-chips"><FilterChip label={t(BREAK_VIEWS.find(item=>item.value===breakView)!.label)} clearLabel={t("顯示球員最高")} onClear={()=>setBreakView("players")}/></div>}
     <TabPanel id={homeTabsId} value="ranking" active={homeView==="ranking"}>
     <section className="home-view-panel ranking-panel" aria-labelledby="ranking-title">
       <h2 id="ranking-title" className="ds-sr-only">{t("目前排名")}</h2>
     <div className="board-toolbar">
     {visibleRanked.length>8&&<label className="board-search"><SearchIcon/><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={t("搜尋球員")} aria-label={t("搜尋球員")}/></label>}
+      {!defaultSort&&<div className="board-chips">
+        <FilterChip label={<>{t("排序：{v}", {v: t(sortLabels[sort])})} {dir==="asc"?"↑":"↓"}</>} clearLabel={t("清除排序")} onClear={()=>{setSort("rank");setDir("asc")}}/>
+      </div>}
       <Menu className="board-filter" label={t("排序及篩選")} triggerClassName={`ds-button ds-button--secondary board-filter__trigger${defaultSort?"":" is-active"}`} trigger={()=><><FilterIcon/><span>{t("篩選")}</span></>}
         sections={[
           {title:t("排序"),items:(Object.keys(sortLabels) as SortKey[]).filter(key=>key!=="official").map(key=>({key,label:t(sortLabels[key]),checked:sort===key,detail:sort===key?(dir==="asc"?"↑":"↓"):undefined,onSelect:()=>sortBy(key)}))},
@@ -1821,7 +1811,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
         const rivalText=rival?.record?(rival.record.wins+rival.record.losses+rival.record.draws?t("你 {wins}勝 {losses}負", {wins:rival.record.wins,losses:rival.record.losses}):t("未同你交手")):null;
         const idleText=idle?(rival.idleDays===null?t("未有賽事"):t("{days} 日未打", {days:rival.idleDays})):null;
         return <button className={`row ${rank===1?"top":""} ${rank<=3?`podium-${rank}`:""} ${provisional?"provisional":""} ${idle?"squad-inactive":""} ${p.id===ownPlayerId?"is-self":""}`} type="button" id={p.id===ownPlayerId?homeTabsId+"-self":undefined} data-self={p.id===ownPlayerId||undefined} key={p.id} onClick={()=>onPlayer(p)} aria-label={[p.id===ownPlayerId?t("你"):null,t("{name}，排名 {rank}，ELO {v}，近{days}天ELO變化 {v2}{v3}，建議讓分 {suggested}{v4}", {name: p.name, rank, v: Math.round(p.rating), days: swingDays, v2: swing>=0?"+":"", v3: Math.round(swing), suggested, v4: provisional?t("，臨時評分"):""}),rivalText,idleText].filter(Boolean).join("，")}>
-        <span className="rank">{rank}{(()=>{if(!movement.active)return null;const move=movement.map.get(p.id)??0;
+        <span className="rank">{rank<=3?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][rank-1]}</i>:rank}{(()=>{if(!movement.active)return null;const move=movement.map.get(p.id)??0;
           // Only real movement earns a mark; a dash on every unchanged row is noise at 100+ players.
           return move===0?null
           :<em className={`move ${move>0?"up":"down"}`} aria-label={t("較 {days} 天前{v} {v2} 位", {days:swingDays, v: move>0?t("上升"):t("下跌"), v2: Math.abs(move)})}>{move>0?"▲":"▼"}{Math.abs(move)}</em>})()}</span><span className="person"><PlayerBadge player={p}/><b>{p.name}{p.id===ownPlayerId&&<em className="board-self-label">{t("你")}</em>}<small>{played<data.settings.provisionalGames?t("臨時"):<span className="official-only">{t("正式")}</span>}<span className="rating-kind-suffix">{t("評分")}</span><em className="person-meta">  {t("· {played} 場", {played})}</em></small>{(rivalText||idleText)&&<span className="squad-rival" aria-hidden="true">{rivalText&&<em>{rivalText}</em>}{idleText&&<em className="squad-idle">{idleText}</em>}</span>}</b></span>
@@ -1833,10 +1823,12 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
     </section></TabPanel>
     {!squad&&<TabPanel id={homeTabsId} value="breaks" active={homeView==="breaks"} as="section" className="home-view-panel break-records-panel">
       <h2 id="break-records-title" className="ds-sr-only">{t("最高單桿紀錄")}</h2>
-      <div className="board-toolbar board-toolbar--end">      <Menu className="board-filter" label={t("單桿紀錄顯示方式")} triggerClassName={`ds-button ds-button--secondary board-filter__trigger${breakView==="players"?"":" is-active"}`} trigger={()=><><FilterIcon/><span>{t("顯示")}</span></>}
+      <div className="board-toolbar board-toolbar--end">
+      {breakView!=="players"&&<div className="board-chips"><FilterChip label={t(BREAK_VIEWS.find(item=>item.value===breakView)!.label)} clearLabel={t("顯示球員最高")} onClear={()=>setBreakView("players")}/></div>}
+      <Menu className="board-filter" label={t("單桿紀錄顯示方式")} triggerClassName={`ds-button ds-button--secondary board-filter__trigger${breakView==="players"?"":" is-active"}`} trigger={()=><><FilterIcon/><span>{t("顯示")}</span></>}
         sections={[{title:t("顯示"),items:BREAK_VIEWS.map(item=>({key:item.value,label:t(item.label),checked:breakView===item.value,onSelect:()=>setBreakView(item.value)}))}]}/>
 </div>
-      {breakView==="monthly"?<MonthlyBreakChart months={breakRecords.monthly} onPlayer={onPlayer}/>:<>{breakView==="recent"&&nudge&&breakNudgeCopy(t, nudge).hint&&<p className="break-nudge-hint">{breakNudgeCopy(t, nudge).hint}</p>}<ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>{t("對 {opponent}", {opponent: record.opponent})}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title={t("破百單桿")}>{t("破百")}</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
+      {breakView==="monthly"?<MonthlyBreakChart months={breakRecords.monthly}/>:<>{breakView==="recent"&&nudge&&breakNudgeCopy(t, nudge).hint&&<p className="break-nudge-hint">{breakNudgeCopy(t, nudge).hint}</p>}<BreakRankList records={displayedBreaks}/>
       <p className="chart-summary">{breakView==="players"?t("每位球員只顯示其最高單桿。"):breakView==="overall"?t("按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。"):t("{thirtyDaysAgo} 至 {today} 的最高單桿，每位球員只顯示其最高單桿。", {thirtyDaysAgo, today})}</p></>}
     </TabPanel>}
     {squad&&<>

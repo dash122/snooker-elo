@@ -108,7 +108,6 @@
     grid-template-columns: 1.75rem minmax(0, 1fr) 3.25rem 3.75rem; column-gap: var(--sp-2);
     min-height: 3.25rem; padding: var(--sp-1-5) var(--sp-1);
   }
-  .ds-app-shell .ranking-panel .table-card .row.top { background: transparent; }
   .ds-app-shell .ranking-panel .table-card .row.is-self { background: var(--ds-highlight-wash); }
   .ds-app-shell .ranking-panel .table-card .rank { font-size: var(--fs-sm); }
   .ds-app-shell .ranking-panel .table-card .move { font-size: var(--fs-label); }
@@ -160,3 +159,6 @@
 .ds-app-shell .board-toolbar .board-search { flex: 1; min-width: 0; }
 .ds-app-shell .board-toolbar .board-filter { flex: none; margin-inline-start: auto; }
 .ds-app-shell .board-toolbar--end { justify-content: flex-end; }
+/* An active filter chip shares the toolbar row with the filter button. */
+.ds-app-shell .board-toolbar .board-chips { flex: 0 1 auto; flex-wrap: nowrap; min-width: 0; margin: 0 0 0 auto; }
+.ds-app-shell .board-toolbar .board-chips + .board-filter { margin-inline-start: 0; }

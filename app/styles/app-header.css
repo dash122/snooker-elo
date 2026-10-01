@@ -8,6 +8,9 @@
 .app-account-trigger svg { flex: none; }
 .app-account-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-account-menu { min-width: 0; }
+.app-language-trigger { gap: var(--sp-2); font-weight: 600; }
+.app-language-trigger svg { flex: none; }
+@media (max-width: 599px) { .app-language-trigger > span { display: none; } }
 @media (max-width: 820px) {
   .ds-app-shell > main > .app-header { min-height: var(--control-lg); }
   .app-header-actions { gap: var(--sp-2); }
