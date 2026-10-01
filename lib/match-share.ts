@@ -276,5 +276,5 @@ export function playerShareUrl(origin: string, id: string): string {
     by handing the OS an image. So the IG path shares a file and this caption travels with it, for
     the platforms whose share sheet accepts both. */
 export function storyCaption(url: string): string {
-  return `🎱 SCAA Snooker\n${url}`;
+  return `🎱 Snooker ELO\n${url}`;
 }

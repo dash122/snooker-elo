@@ -74,7 +74,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const { locale, t } = await getTranslator();
   const [data, site] = await Promise.all([load(t, id), shareOrigin()]);
-  if (!data) return { title: t("搵唔到呢位球員｜SCAA Snooker"), robots: { index: false } };
+  if (!data) return { title: t("搵唔到呢位球員｜Snooker ELO"), robots: { index: false } };
   const title = recordShareTitle(data.share);
   const description = recordShareDescription(t, data.share);
   const url = site ? playerShareUrl(site, id) : undefined;
@@ -82,8 +82,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title, description,
     openGraph: {
-      title, description, url, type: "profile", siteName: "SCAA Snooker", locale: locale === "en" ? "en_GB" : "zh_HK",
-      images: [{ url: image, width: 1200, height: 630, alt: t("SCAA Snooker 球員紀錄") }],
+      title, description, url, type: "profile", siteName: "Snooker ELO", locale: locale === "en" ? "en_GB" : "zh_HK",
+      images: [{ url: image, width: 1200, height: 630, alt: t("Snooker ELO 球員紀錄") }],
     },
     twitter: { card: "summary_large_image", title, description, images: [image] },
     alternates: url ? { canonical: url } : undefined,

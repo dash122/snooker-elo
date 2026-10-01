@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const { locale, t } = await getTranslator();
   const [data, site] = await Promise.all([load(t, id), shareOrigin()]);
-  if (!data) return { title: t("搵唔到呢場比賽｜SCAA Snooker"), robots: { index: false } };
+  if (!data) return { title: t("搵唔到呢場比賽｜Snooker ELO"), robots: { index: false } };
   const title = matchShareTitle(data.share);
   const description = matchShareDescription(t, data.share);
   const url = site ? matchShareUrl(site, id) : undefined;
@@ -54,8 +54,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     /* WhatsApp reads Open Graph and nothing else; Telegram and iMessage follow the same tags, and the
        Twitter card keeps a summary_large_image rather than falling back to a bare link. */
     openGraph: {
-      title, description, url, type: "website", siteName: "SCAA Snooker", locale: locale === "en" ? "en_GB" : "zh_HK",
-      images: [{ url: image, width: 1200, height: 630, alt: t("SCAA Snooker 球會賽果") }],
+      title, description, url, type: "website", siteName: "Snooker ELO", locale: locale === "en" ? "en_GB" : "zh_HK",
+      images: [{ url: image, width: 1200, height: 630, alt: t("Snooker ELO 球會賽果") }],
     },
     twitter: { card: "summary_large_image", title, description, images: [image] },
     alternates: url ? { canonical: url } : undefined,

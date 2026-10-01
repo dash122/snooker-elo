@@ -259,7 +259,7 @@ function trophy(cx: number, cy: number, scale: number, fill: string): string {
  *  player won. It costs no vertical space at all, which is the point: the card's job is the score or
  *  the rating, and a banner above it would push the thing people came for down the frame. */
 function wordmark(ribbon = ""): string {
-  const mark = text("SCAA SNOOKER", STORY_WIDTH / 2, SAFE_TOP, { size: 34, fill: GOLD, weight: 800, anchor: "middle", spacing: 12 });
+  const mark = text("SNOOKER ELO", STORY_WIDTH / 2, SAFE_TOP, { size: 34, fill: GOLD, weight: 800, anchor: "middle", spacing: 12 });
   const ruleY = SAFE_TOP + 34;
   const rule = (from: number, to: number) =>
     `<line x1="${from}" y1="${ruleY}" x2="${to}" y2="${ruleY}" stroke="${GOLD_DIM}" stroke-opacity="0.7" stroke-width="2"/>`;
@@ -356,7 +356,7 @@ export function resultStorySvg(t: Translator, card: ResultStoryCard, hex: (colou
 
   /* The match itself is the share. Keep the footer branded and quiet instead of repeating a URL
      that is already carried by the share action. */
-  parts.push(text("SCAA SNOOKER  ·  MATCH RESULT", STORY_WIDTH / 2, SAFE_BOTTOM - 34, {
+  parts.push(text("SNOOKER ELO  ·  MATCH RESULT", STORY_WIDTH / 2, SAFE_BOTTOM - 34, {
     size: 24, fill: GOLD_DIM, weight: 700, anchor: "middle", spacing: 4, opacity: 0.8,
   }));
   parts.push(balls());
@@ -423,7 +423,7 @@ export function recordStorySvg(t: Translator, card: RecordStoryCard, hex: (colou
 
   /* This is a shareable record snapshot, not a landing-page ad. The player, ELO and form are the
      complete story; leaving the footer quiet also keeps the exported image useful when reposted. */
-  parts.push(text("SCAA SNOOKER  ·  PLAYER RECORD", STORY_WIDTH / 2, SAFE_BOTTOM - 34, {
+  parts.push(text("SNOOKER ELO  ·  PLAYER RECORD", STORY_WIDTH / 2, SAFE_BOTTOM - 34, {
     size: 24, fill: GOLD_DIM, weight: 700, anchor: "middle", spacing: 4, opacity: 0.8,
   }));
   parts.push(balls());
@@ -860,7 +860,7 @@ export function shareBannerSvg(t: Translator, kind: "match" | "record"): string 
 
   const body = `<rect x="78" y="66" width="62" height="62" rx="18" fill="${GOLD}"/>`
     + text("S", 109, 112, { size: 38, fill: "#0a3125", weight: 900, anchor: "middle" })
-    + text("SCAA Snooker", 160, 100, { size: 34, weight: 800 })
+    + text("Snooker ELO", 160, 100, { size: 34, weight: 800 })
     + text(kind === "match" ? "MATCH RESULT" : "PLAYER RECORD", 160, 128, { size: 18, fill: GOLD_DIM, weight: 700, spacing: 6 })
     + text(headline, 78, 268, { size: 82, weight: 900 })
     + text(second, 78, 372, { size: 82, weight: 900, fill: GOLD })

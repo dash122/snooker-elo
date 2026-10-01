@@ -228,11 +228,10 @@
    readable and the zoom controls sit beneath it. */
 .h2h-matrix-modes-row{display:flex;align-items:center;gap:var(--sp-2)}
 .h2h-matrix-modes-row>.h2h-matrix-modes{flex:1 1 auto;min-width:0}
-.h2h-matrix-zoom{flex:0 0 auto;display:flex;align-items:center;gap:var(--sp-1-5)}
-.h2h-matrix-zoom-value{min-width:2.75rem;height:36px;padding:0 var(--sp-1-5);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-control);
-  background:var(--ds-surface-primary);color:var(--ds-text-primary);font-size:var(--fs-caption);font-weight:800;font-variant-numeric:tabular-nums}
-.h2h-matrix-zoom-value:active{transform:scale(.96)}
-.h2h-matrix-zoom .ds-icon-button{width:36px;min-height:var(--control-sm)}
+/* Pinches belong to the matrix zoom, not the browser; one-finger panning still scrolls. */
+.h2h-matrix[data-compact],.h2h-matrix-scroll{touch-action:pan-x pan-y}
+/* Zoomed far out, the avatar goes first so the short name stays readable. */
+.h2h-matrix[data-compact] .h2h-matrix-rowhead .player-badge{display:none}
 /* Heatmap cells carry their colour inline (a continuous diverging scale, not a fixed
    class), so this only adds the polish a plain <td> doesn't get for free: a soft
    transition into view and a legend swatch that isn't boxed like the discrete grid's. */
@@ -241,10 +240,9 @@
 .h2h-heatmap td b{font-size:calc(var(--fs-sm) * var(--matrix-zoom,1));font-weight:800}
 .h2h-heatmap-legend i{border-radius:var(--radius-pill);border-color:transparent}
 
-@media(max-width:820px){.h2h-matrix-modes-row{display:grid;gap:var(--sp-2)}.h2h-matrix-modes{width:100%}.h2h-matrix-modes .ds-segmented{width:100%}.h2h-matrix-modes .ds-segmented button{padding-inline:var(--sp-1-5);overflow:visible;text-overflow:clip}.h2h-matrix-zoom{justify-content:flex-end}}
+@media(max-width:820px){.h2h-matrix-modes{width:100%}.h2h-matrix-modes .ds-segmented{width:100%}.h2h-matrix-modes .ds-segmented button{padding-inline:var(--sp-1-5);overflow:visible;text-overflow:clip}}
 
 @media(min-width:821px){.h2h-matrix-toolbar{grid-template-columns:auto minmax(0,18rem);align-items:end;justify-content:space-between}.h2h-matrix-modes-row{justify-self:start;width:max-content}.h2h-matrix-modes:not(:has(.ds-segmented)) button{padding:0 var(--sp-4)}.h2h-matrix-grid tbody th,.h2h-matrix-grid thead th:first-child{width:calc(10rem * var(--matrix-zoom,1));min-width:calc(10rem * var(--matrix-zoom,1))}.h2h-matrix-grid thead th,.h2h-matrix-grid tbody td{min-width:calc(3.5rem * var(--matrix-zoom,1))}
-.h2h-matrix-zoom-value{height:44px;min-width:3.25rem;font-size:var(--fs-sm)}.h2h-matrix-zoom .ds-icon-button{width:44px;min-height:var(--control-md)}
 }/* ==========================================================================
    Sharing a result
    Two destinations, two different acts: WhatsApp tells the group (text plus a
@@ -441,3 +439,57 @@
 .cup-roster-arrival{display:inline-flex;align-items:center;gap:2px;color:var(--ds-text-secondary)}
 .cup-roster-arrival i{font-style:normal;opacity:.85}
 .cup-roster-remove{flex:0 0 auto;color:var(--ds-danger)}.cup-roster-remove:hover{background:var(--ds-danger-wash);color:var(--ds-danger)}
+
+/* Player view: one grouped surface with hairline dividers instead of a card per opponent,
+   and a quiet one-line summary instead of a three-box stat card. */
+.h2h-matrix-rows{gap:0;border:1px solid var(--line);border-radius:var(--radius-lg);background:var(--ds-surface-primary);overflow:hidden}
+.h2h-matrix-rows li+li{border-top:1px solid var(--line)}
+.h2h-matrix-rows button{border:0;border-radius:0;background:transparent}
+.h2h-matrix-rows button:active{transform:none;background:var(--ds-canvas-muted)}
+.h2h-matrix-row-main small{font-weight:var(--fw-secondary)}
+/* Zoom floats over the grid, bottom-right above the tab bar, so the toolbar is only the mode switch. */
+.h2h-matrix-zoom-float{position:sticky;z-index:5;bottom:calc(5.5rem + env(safe-area-inset-bottom));height:0;display:flex;justify-content:flex-end;pointer-events:none}
+@media(min-width:821px){.h2h-matrix-zoom-float{bottom:var(--sp-5)}}
+/* Quiet grid: the player diagonal is a plain muted tile (no dash), unplayed pairs a faint dot,
+   and the row under the pointer tints so a wide row is easy to follow. */
+.h2h-matrix-grid td.self{background:var(--ds-canvas-muted);font-size:0}
+.h2h-matrix-grid td.none{font-size:calc(var(--fs-caption) * var(--matrix-zoom,1));color:var(--ds-text-quaternary)}
+@media(hover:hover){.h2h-matrix-grid tbody tr:hover th,.h2h-matrix-grid tbody tr:hover td.none{background-color:var(--ds-canvas-functional)}}
+.h2h-heat-key{display:flex;align-items:center;gap:var(--sp-2);color:var(--ds-text-secondary);font-size:var(--fs-label)}
+.h2h-heat-key i{flex:1;max-width:12rem;height:.5rem;border-radius:var(--radius-pill)}
+
+
+/* Matches hero: title block on the left, scope pill + match total on the right. Overflow is open so the
+   scope list can drop below the hero's edge; the decorative circle is dropped for the same reason. */
+.matches-hero{z-index:20;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:var(--sp-4);overflow:visible}
+.matches-hero:before{border-radius:inherit}
+.matches-hero:after{display:none}
+.matches-hero-copy{min-width:0;flex:1 1 14rem}
+.matches-hero-meta{z-index:2;display:flex;flex-direction:column;align-items:flex-end;gap:var(--sp-3);flex:0 0 auto}
+.matches-hero-count{display:grid;justify-items:end;line-height:1.1}
+.matches-hero-count b{font-size:var(--fs-stat);font-weight:800;font-variant-numeric:tabular-nums}
+.matches-hero-count span{font-size:var(--fs-caption);opacity:.8}
+.scope-menu__trigger{display:inline-flex;align-items:center;gap:var(--sp-1-5);min-height:var(--control-sm);padding:0 var(--sp-3);border:0;border-radius:var(--radius-pill);background:color-mix(in srgb,white 16%,transparent);color:white;font-size:var(--fs-sm);font-weight:700}
+.scope-menu__trigger i{width:.4rem;height:.4rem;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-20%) rotate(45deg)}
+.scope-menu__trigger i[data-open]{transform:translateY(20%) rotate(-135deg)}
+.matches-hero .scope-menu .ds-menu__list{right:0;left:auto;width:max-content;min-width:min(14rem,calc(100vw - 2 * var(--sp-4)));max-width:calc(100vw - 2 * var(--sp-4));color:var(--ds-text-primary);text-align:left}
+@media(max-width:599px){.matches-hero{align-items:flex-start}.matches-hero-meta{flex-direction:row-reverse;align-items:center;justify-content:space-between;width:100%}.matches-hero-count{justify-items:start}}
+/* The display switch lives in the grid's empty top-left corner, pinned like the headers. */
+.h2h-matrix-grid thead th.h2h-corner-cell{padding:var(--sp-1)}
+.h2h-corner{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1-5);width:100%;min-height:var(--control-sm);padding:0 var(--sp-2);border:0;border-radius:var(--radius-pill);background:var(--ds-canvas-muted);color:var(--ds-accent-action);font-size:var(--fs-caption);font-weight:800;white-space:nowrap}
+.h2h-corner i{font-style:normal;font-size:var(--fs-caption)}
+.h2h-corner:active{transform:scale(.97)}
+/* One quiet fit / 100% button, frosted so the grid reads through it. */
+.h2h-matrix-zoom{display:grid;place-items:center;width:var(--control-md);height:var(--control-md);padding:0;border:1px solid var(--line);border-radius:var(--radius-pill);color:var(--ds-text-primary);
+  background:color-mix(in srgb,var(--ds-surface-primary) 78%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:var(--ds-elevation-3)}
+.h2h-matrix-zoom:active{transform:scale(.95)}
+
+/* Matches hero photo: the club photo again, cropped on the lamps and the pack so it reads as a
+   different shot from the leaderboard. The left-heavy scrim keeps the title legible. */
+.matches-hero{background:
+    linear-gradient(90deg,color-mix(in srgb,var(--baize-deep) 96%,transparent) 0%,color-mix(in srgb,var(--baize-deep) 82%,transparent) 45%,color-mix(in srgb,var(--baize-deep) 30%,transparent) 100%),
+    linear-gradient(0deg,color-mix(in srgb,var(--baize-deep) 70%,transparent),transparent 60%),
+    url('/snooker-club-hero.webp') 88% 38%/cover no-repeat}
+/* The scope filter is a control, so it is a solid light pill rather than a ghost on the photo. */
+.scope-menu__trigger{background:var(--ds-surface-primary);color:var(--ds-accent-action);box-shadow:var(--ds-elevation-2);font-weight:800}
+.matches-hero{box-shadow:none}

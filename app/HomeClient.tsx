@@ -10,7 +10,7 @@ import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBrack
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
 import { SQUAD_SWING_DAYS, daysSinceLastMatch, headToHead, isInactive, ratingSwing } from "../lib/squad-rivalry";
 import { SquadStatsPanel } from "./SquadStats";
-import { SquadAddedNotices, SquadCenter, SquadScope, defaultSquadId, usePublicSquad, useSquadViewTracking, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
+import { SquadAddedNotices, SquadCenter, SquadScopeMenu, defaultSquadId, usePublicSquad, useSquadViewTracking, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
@@ -1490,7 +1490,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
       {tab==="leaderboard"&&<SquadAddedNotices squads={squads} players={data.players} onView={id=>{squadAction(id,"seen");selectSquad(id)}} onLeave={id=>squadAction(id,"leave")} onDismiss={id=>squadAction(id,"seen")}/>}
       {tab==="leaderboard"&&<Leaderboard onClubScope={()=>selectSquad(null)} ranked={ranked} data={data} ownPlayerId={ownPlayerId} squad={activeSquad} scope={{squads,onSelect:selectSquad,onMore:()=>setSquadSheet("picker"),onManage:()=>setSquadSheet("manage")}} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");showTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
-      {tab==="matches"&&<Matches squad={activeSquad} squadScope={<SquadScope squad={activeSquad} players={data.players} onClub={()=>selectSquad(null)} onSquad={()=>{const id=defaultSquadId(squads);if(id)selectSquad(id);else setSquadSheet("picker")}} onSwitch={()=>setSquadSheet("picker")} onManage={()=>setSquadSheet("manage")} compact/>} data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",format:"single",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,format:tournament.format??"single",handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
+      {tab==="matches"&&<Matches squad={activeSquad} scopeMenu={<SquadScopeMenu squad={activeSquad} squads={squads} onSelect={selectSquad} onSwitch={()=>setSquadSheet("picker")} onManage={()=>setSquadSheet("manage")}/>} data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",format:"single",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,format:tournament.format??"single",handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
       {/* Public availability, recommendations and arrangements share one marketplace flow. */}
       {tab==="availability"&&<MatchmakingMarketplace onRecordSession={(opponentId,sessionId,date)=>{newMatch("1v1",opponentId,date);marketplaceOrigin.current=sessionId;}} key={ownPlayerId??"guest"} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} managementMode={Boolean(isAdmin&&managementMode)} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast(t("只有管理員可以新增球員。"));return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
@@ -1830,7 +1830,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
     </TabPanel>}
     {squad&&<>
     <TabPanel id={homeTabsId} value="squad" active={homeView==="squad"}><TrendSection players={ranked.filter(p=>squadIds?.has(p.id))} data={data}/><SquadStatsPanel squad={squad} players={data.players} matches={data.matches} onMatrix={()=>setHomeView("matrix")} onPlayer={id=>{const player=data.players.find(p=>p.id===id);if(player)onPlayer(player)}}/></TabPanel>
-    <TabPanel id={homeTabsId} value="matrix" active={homeView==="matrix"}><HeadToHeadMatrix squad={squad} squadScope={null} data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{const one=data.players.find(p=>p.id===first),two=data.players.find(p=>p.id===second);if(one&&two)onRivalry(one,two)}}/></TabPanel></>}
+    <TabPanel id={homeTabsId} value="matrix" active={homeView==="matrix"}><HeadToHeadMatrix squad={squad} data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{const one=data.players.find(p=>p.id===first),two=data.players.find(p=>p.id===second);if(one&&two)onRivalry(one,two)}}/></TabPanel></>}
     {!squad&&<TabPanel id={homeTabsId} value="recent" active={homeView==="recent"}><TrendSection players={ranked} data={data}/><ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/></TabPanel>}</>;
 }
 
@@ -2123,17 +2123,18 @@ function headToHeadPlayerStats(index:Map<string,H2HRecord>){
    same shrink-to-fit-more/grow-to-read power without relying on a gesture the toolbar can't
    hint at. Scaling through a CSS variable — not a transform — keeps position:sticky headers
    and row names working exactly as before, just at a different rem size. */
-const MATRIX_ZOOM_MIN=.7,MATRIX_ZOOM_MAX=1.8,MATRIX_ZOOM_STEP=.15;
-function MatrixZoomControls({zoom,setZoom}:{zoom:number;setZoom:(value:number)=>void}){
+const MATRIX_ZOOM_MIN=.45,MATRIX_ZOOM_MAX=1.8;
+const clampMatrixZoom=(value:number)=>Math.min(MATRIX_ZOOM_MAX,Math.max(MATRIX_ZOOM_MIN,Math.round(value*100)/100));
+/* A single quiet button: from any other zoom it returns to 100%, from 100% it fits every player on
+   screen. Pinch handles anything in between. */
+function MatrixZoomControls({zoom,onToggle}:{zoom:number;onToggle:()=>void}){
   const t = useT();
-  const clamp=(value:number)=>Math.min(MATRIX_ZOOM_MAX,Math.max(MATRIX_ZOOM_MIN,Math.round(value*100)/100));
-  return <div className="h2h-matrix-zoom" role="group" aria-label={t("矩陣縮放")}>
-    <IconButton label={t("縮小矩陣")} onClick={()=>setZoom(clamp(zoom-MATRIX_ZOOM_STEP))} disabled={zoom<=MATRIX_ZOOM_MIN}>－</IconButton>
-    <button type="button" className="h2h-matrix-zoom-value" onClick={()=>setZoom(1)} aria-label={t("重設縮放至 100%")}>{Math.round(zoom*100)}%</button>
-    <IconButton label={t("放大矩陣")} onClick={()=>setZoom(clamp(zoom+MATRIX_ZOOM_STEP))} disabled={zoom>=MATRIX_ZOOM_MAX}>＋</IconButton>
-  </div>;
+  const fitted=zoom!==1;
+  return <button type="button" className="h2h-matrix-zoom" onClick={onToggle} aria-label={fitted?t("重設縮放至 100%"):t("縮放至符合畫面")} title={fitted?t("重設縮放至 100%"):t("縮放至符合畫面")}>
+    <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{fitted?<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>:<path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/>}</svg>
+  </button>;
 }
-function HeadToHeadMatrix({squad,squadScope,data,ownPlayerId,onOpenPair}:{squad:MySquad|null;squadScope:ReactNode;data:AppState;ownPlayerId?:string;onOpenPair:(first:string,second:string)=>void}){
+function HeadToHeadMatrix({squad,data,ownPlayerId,onOpenPair}:{squad:MySquad|null;data:AppState;ownPlayerId?:string;onOpenPair:(first:string,second:string)=>void}){
   const t = useT();
   const index=useMemo(()=>headToHeadIndex(data.matches),[data.matches]);
   const playerStats=useMemo(()=>headToHeadPlayerStats(index),[index]);
@@ -2145,82 +2146,56 @@ function HeadToHeadMatrix({squad,squadScope,data,ownPlayerId,onOpenPair}:{squad:
     const members=squad?new Set(squad.members.map(member=>member.playerId)):null;
     return data.players.filter(player=>met.has(player.id)&&(!members||members.has(player.id))).sort((left,right)=>right.rating-left.rating||left.name.localeCompare(right.name,"zh-HK"));
   },[data.players,index,squad]);
-  const [mode,setMode]=useState<"list"|"grid"|"heatmap">(squad?"heatmap":"list");
+  const [mode,setMode]=useState<"grid"|"heatmap">(squad?"heatmap":"grid");
   const [zoom,setZoom]=useState(1);
-  const [focusId,setFocusId]=useState("");
-  const focus=players.find(player=>player.id===focusId)
-    ??players.find(player=>player.id===ownPlayerId)
-    ??players[0];
-  const rows=useMemo(()=>{
-    if(!focus)return [];
-    return players
-      .filter(player=>player.id!==focus.id)
-      .map(opponent=>({opponent,record:index.get(h2hKey(focus.id,opponent.id))}))
-      .filter((row):row is {opponent:Player;record:H2HRecord}=>Boolean(row.record))
-      .sort((left,right)=>right.record.total-left.record.total||right.record.last.localeCompare(left.record.last));
-  },[players,index,focus]);
-  const totals=rows.reduce((sum,row)=>{
-    sum.played+=row.record.total;
-    sum.wins+=row.record.wins[focus!.id];
-    sum.losses+=row.record.total-row.record.wins[focus!.id]-row.record.draws;
-    return sum;
-  },{played:0,wins:0,losses:0});
-  const scopeNote=squadScope;
-  if(!focus)return <>{scopeNote}<Empty text={t("尚未有對賽記錄")} sub={t("記錄第一場 1v1 比賽後，球員之間的對賽矩陣會顯示在這裡。")}/></>;
-  const shareOf=(record:H2HRecord,id:string)=>Math.round((record.wins[id]+record.draws/2)/Math.max(1,record.total)*100);
+  const sectionRef=useRef<HTMLElement>(null);
+  const zoomRef=useRef(zoom);
+  useEffect(()=>{zoomRef.current=zoom},[zoom]);
+  // The table is rem-sized off --matrix-zoom, so its width scales linearly with zoom and
+  // the fitting zoom is just the current zoom times (available width / current width).
+  const fitZoom=()=>{
+    const scroller=sectionRef.current?.querySelector<HTMLElement>(".h2h-matrix-scroll");
+    if(!scroller||!scroller.scrollWidth)return;
+    setZoom(Math.min(1,clampMatrixZoom(Math.floor(zoomRef.current*scroller.clientWidth/scroller.scrollWidth*100)/100)));
+  };
+  // Open already fitted to the screen, so most people never touch the zoom control.
+  useEffect(()=>{const frame=requestAnimationFrame(fitZoom);return()=>cancelAnimationFrame(frame)},[mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Two-finger pinch on the grid drives the same zoom the buttons do. touch-action in CSS
+  // hands pinches to us instead of the browser; one-finger panning is untouched.
+  useEffect(()=>{
+    const el=sectionRef.current;
+    if(!el)return;
+    let startDistance=0,startZoom=1;
+    const distance=(event:TouchEvent)=>Math.hypot(event.touches[0].clientX-event.touches[1].clientX,event.touches[0].clientY-event.touches[1].clientY);
+    const onStart=(event:TouchEvent)=>{if(event.touches.length===2){startDistance=distance(event);startZoom=zoomRef.current}};
+    const onMove=(event:TouchEvent)=>{
+      if(event.touches.length!==2||!startDistance)return;
+      event.preventDefault();
+      setZoom(clampMatrixZoom(startZoom*distance(event)/startDistance));
+    };
+    const onEnd=()=>{startDistance=0};
+    el.addEventListener("touchstart",onStart,{passive:true});
+    el.addEventListener("touchmove",onMove,{passive:false});
+    el.addEventListener("touchend",onEnd);
+    el.addEventListener("touchcancel",onEnd);
+    return()=>{el.removeEventListener("touchstart",onStart);el.removeEventListener("touchmove",onMove);el.removeEventListener("touchend",onEnd);el.removeEventListener("touchcancel",onEnd)};
+  },[]);
+  // Rows light up for the signed-in player; there is no separate "focus" player any more.
+  const focusId=players.some(player=>player.id===ownPlayerId)?ownPlayerId??"":"";
+  if(players.length===0)return <Empty text={t("尚未有對賽記錄")} sub={t("記錄第一場 1v1 比賽後，球員之間的對賽矩陣會顯示在這裡。")}/>;
 
-  return <section className="h2h-matrix" aria-label={t("對賽矩陣")} style={{"--matrix-zoom":mode==="list"?1:zoom} as CSSProperties}>
-    {scopeNote}
-    <div className="h2h-matrix-toolbar">
-      <div className="h2h-matrix-modes-row">
-        <div className="h2h-matrix-modes"><SegmentedControl label={t("對賽矩陣顯示方式")} value={mode} onChange={value=>setMode(value as typeof mode)} items={[{value:"list",label:t("清單")},{value:"grid",label:t("全隊")},{value:"heatmap",label:t("勝率")}]}/></div>
-        {mode!=="list"&&<MatrixZoomControls zoom={zoom} setZoom={setZoom}/>}
-      </div>
-      {mode==="list"&&<div className="h2h-matrix-focus">
-        <span className="match-filter-label">{t("球員")}</span>
-        <div className="match-player-picker">
-          <PlayerCombobox players={players} value={focus.id} onChange={id=>{if(id)setFocusId(id)}} placeholder={t("選擇球員")} ariaLabel={t("對賽矩陣主角球員")}/>
-        </div>
-      </div>}
-    </div>
-    {mode==="heatmap"?<WinRateHeatmap players={players} index={index} focusId={focus.id} onOpenPair={onOpenPair}/>
-    :mode==="list"?<>
-      <div className="h2h-matrix-summary">
-        <div><small>{t("對手")}</small><b>{rows.length}</b></div>
-        <div><small>{t("對賽場數")}</small><b>{totals.played}</b></div>
-        <div><small>{t("勝負")}</small><b>{totals.wins}<em>–</em>{totals.losses}</b></div>
-      </div>
-      {rows.length===0
-        ? <Empty text={t("這位球員未有 1v1 對賽記錄")} sub={t("記錄一場 1v1 比賽後，對手就會在這裡出現。")}/>
-        : <ul className="h2h-matrix-rows">{rows.map(({opponent,record})=>{
-            const share=shareOf(record,focus.id);
-            const losses=record.total-record.wins[focus.id]-record.draws;
-            return <li key={opponent.id}>
-              <button type="button" onClick={()=>onOpenPair(focus.id,opponent.id)} aria-label={t("查看 {name} 對 {name2} 的對賽紀錄，{v} 勝 {losses} 負", {name: focus.name, name2: opponent.name, v: record.wins[focus.id], losses})}>
-                <PlayerBadge player={opponent}/>
-                <span className="h2h-matrix-row-main">
-                  <b>{opponent.name}</b>
-                  <small>{t("{total} 場 · 局數 {v}–{v2} · 最近", {total: record.total, v: record.frames[focus.id], v2: record.frames[opponent.id]})} {record.last||"—"}</small>
-                  <i className="h2h-matrix-bar" aria-hidden="true"><em style={{width:`${share}%`,background:fadeHex(avatarHex(focus.colour),share<50?.38:1)}}/></i>
-                </span>
-                <span className={`h2h-matrix-score ${share>50?"ahead":share<50?"behind":"level"}`}>
-                  <b>{record.wins[focus.id]}<em>–</em>{losses}</b>
-                  {record.draws>0&&<small>{t("{draws} 和", {draws: record.draws})}</small>}
-                </span>
-              </button>
-            </li>;
-          })}</ul>}
-    </>:<>
-      <p className="h2h-matrix-hint">{t("橫行為該球員的局數勝負，向右捲動可看更多對手。")}</p>
+  return <section ref={sectionRef} className="h2h-matrix" data-compact={zoom<.85?"true":undefined} aria-label={t("對賽矩陣")} style={{"--matrix-zoom":zoom} as CSSProperties}>
+    {mode==="heatmap"?<WinRateHeatmap players={players} index={index} focusId={focusId} onToggle={()=>setMode("grid")} onOpenPair={onOpenPair}/>
+    :<>
       <div className="h2h-matrix-scroll">
         <table className="h2h-matrix-grid">
           <caption className="sr-only">{t("球員之間的 1v1 對賽局數勝負矩陣，橫行球員對直行球員")}</caption>
-          <thead><tr><th scope="col"><span className="sr-only">{t("球員")}</span></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
+          <thead><tr><th scope="col" className="h2h-corner-cell"><button type="button" className="h2h-corner" onClick={()=>setMode(mode==="grid"?"heatmap":"grid")} aria-label={t("切換顯示：{mode}", {mode: mode==="grid"?t("勝率"):t("比分")})}><span>{mode==="grid"?t("比分"):t("勝率")}</span><i aria-hidden="true">⇄</i></button></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
           <tbody>{players.map(row=>{
             const stats=playerStats.get(row.id)??{opponents:0,framesWon:0,framesPlayed:0};
             const rate=stats.framesPlayed?Math.round(stats.framesWon/stats.framesPlayed*100):0;
             const statsLabel=t("對手 {opponents} 位 · 勝局 {framesWon} 局 · 局數勝率 {rate}%", {opponents: stats.opponents, framesWon: stats.framesWon, rate});
-            return <tr key={row.id} className={row.id===focus.id?"focused":""}>
+            return <tr key={row.id} className={row.id===focusId?"focused":""}>
             <th scope="row"><span className="h2h-matrix-rowhead"><span className="h2h-matrix-player-trigger" tabIndex={0} title={t("{name}：{statsLabel}", {name: row.name, statsLabel})} aria-describedby={`h2h-player-stats-${row.id}`}><PlayerBadge player={row}/><span className="h2h-matrix-player-name-text">{row.short||row.name}</span><span className="h2h-matrix-player-stats" id={`h2h-player-stats-${row.id}`} role="tooltip"><b>{row.name}</b><span>{statsLabel}</span></span></span></span></th>
             {players.map(column=>{
               if(column.id===row.id)return <td key={column.id} className="self" aria-label={t("同一位球員")}>—</td>;
@@ -2240,20 +2215,20 @@ function HeadToHeadMatrix({squad,squadScope,data,ownPlayerId,onOpenPair}:{squad:
       </div>
       <div className="h2h-matrix-legend"><span><i className="ahead"/>{t("領先")}</span><span><i className="level"/>{t("均勢")}</span><span><i className="behind"/>{t("落後")}</span><span><i className="none"/>{t("未交手")}</span></div>
     </>}
+    <div className="h2h-matrix-zoom-float"><MatrixZoomControls zoom={zoom} onToggle={()=>zoom===1?fitZoom():setZoom(1)}/></div>
   </section>;
 }
 
 /* "誰打得贏誰" now reflects recorded frames, not an ELO forecast. A diverging heat scale
    keeps the same scan-friendly shape while blanking pairings with no actual meeting. */
-function WinRateHeatmap({players,index,focusId,onOpenPair}:{players:Player[];index:Map<string,H2HRecord>;focusId:string;onOpenPair:(first:string,second:string)=>void}){
+function WinRateHeatmap({players,index,focusId,onToggle,onOpenPair}:{players:Player[];index:Map<string,H2HRecord>;focusId:string;onToggle:()=>void;onOpenPair:(first:string,second:string)=>void}){
   const t = useT();
   if(players.length<2)return <Empty text={t("尚未有足夠對賽記錄")} sub={t("至少兩位球員記錄過 1v1 比賽後，實際局數勝率矩陣會顯示在這裡。")}/>;
   return <>
-    <p className="h2h-matrix-hint">{t("有交手記錄時，顯示橫行球員對直行球員的實際局數勝率；顏色越深代表局數優勢越大。")}</p>
     <div className="h2h-matrix-scroll">
       <table className="h2h-matrix-grid h2h-heatmap">
         <caption className="sr-only">{t("球員之間的實際局數勝率矩陣，橫行球員對直行球員")}</caption>
-        <thead><tr><th scope="col"><span className="sr-only">{t("球員")}</span></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
+        <thead><tr><th scope="col" className="h2h-corner-cell"><button type="button" className="h2h-corner" onClick={onToggle} aria-label={t("切換顯示：{mode}", {mode: t("比分")})}><span>{t("勝率")}</span><i aria-hidden="true">⇄</i></button></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
         <tbody>{players.map(row=><tr key={row.id} className={row.id===focusId?"focused":""}>
           <th scope="row"><span className="h2h-matrix-rowhead"><PlayerBadge player={row}/><span>{row.short||row.name}</span></span></th>
           {players.map(column=>{
@@ -2272,18 +2247,20 @@ function WinRateHeatmap({players,index,focusId,onOpenPair}:{players:Player[];ind
         </tr>)}</tbody>
       </table>
     </div>
-    <div className="h2h-matrix-legend h2h-heatmap-legend">
-      <span><i style={winRateHeat(85)}/>{t("較高局數勝率")}</span>
-      <span><i style={winRateHeat(50)}/>{t("局數均勢")}</span>
-      <span><i style={winRateHeat(15)}/>{t("較低局數勝率")}</span>
-      <span><i className="none"/>{t("未曾交手")}</span>
-    </div>
+    <div className="h2h-heat-key" aria-hidden="true"><span>{t("較低局數勝率")}</span><i style={{background:`linear-gradient(90deg, ${winRateHeat(0).background}, ${winRateHeat(50).background}, ${winRateHeat(100).background})`}}/><span>{t("較高局數勝率")}</span></div>
   </>;
 }
 
-function Matches({squad,squadScope,data,canManageMatch,canManageCup,onEdit,onVoid,onShare,onPlayer,view,setView,pair,setPair,highlight,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament,onSetArrivalTime,onRecordSlot,onArrange,onWalkover,onEditRoster,onShuffleRoster,onReorderRoster,onRefresh}:{squad:MySquad|null;squadScope:ReactNode;data:AppState;canManageMatch:(match:Match)=>boolean;canManageCup:(tournament:Tournament)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onShare:(m:Match)=>void;onPlayer:(player:Player)=>void;view:"history"|"calendar"|"cup"|"matrix";setView:(view:"history"|"calendar"|"cup"|"matrix")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void;highlight:string|null;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string,arrivalTime?:string)=>void;onSetArrivalTime:(tournamentId:string,arrivalTime:string)=>void;onRecordSlot:(tournament:Tournament,slot:BracketSlot<Match>)=>void;onArrange:(opponentId:string)=>void;onWalkover:(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string)=>void;onEditRoster:(tournament:Tournament,outgoingId:string,incomingId:string)=>void;onShuffleRoster:(tournament:Tournament)=>void;onReorderRoster:(tournament:Tournament,draggedId:string,targetId:string)=>void;onRefresh:()=>void}) {
+function Matches({squad,scopeMenu,data,canManageMatch,canManageCup,onEdit,onVoid,onShare,onPlayer,view,setView,pair,setPair,highlight,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament,onSetArrivalTime,onRecordSlot,onArrange,onWalkover,onEditRoster,onShuffleRoster,onReorderRoster,onRefresh}:{squad:MySquad|null;scopeMenu:ReactNode;data:AppState;canManageMatch:(match:Match)=>boolean;canManageCup:(tournament:Tournament)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onShare:(m:Match)=>void;onPlayer:(player:Player)=>void;view:"history"|"calendar"|"cup"|"matrix";setView:(view:"history"|"calendar"|"cup"|"matrix")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void;highlight:string|null;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string,arrivalTime?:string)=>void;onSetArrivalTime:(tournamentId:string,arrivalTime:string)=>void;onRecordSlot:(tournament:Tournament,slot:BracketSlot<Match>)=>void;onArrange:(opponentId:string)=>void;onWalkover:(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string)=>void;onEditRoster:(tournament:Tournament,outgoingId:string,incomingId:string)=>void;onShuffleRoster:(tournament:Tournament)=>void;onReorderRoster:(tournament:Tournament,draggedId:string,targetId:string)=>void;onRefresh:()=>void}) {
   const matchTabsId=useId();
   const t = useT();
+  // The active squad narrows history and calendar to games played entirely among its members.
+  const squadMatches=useMemo(()=>{
+    if(!squad)return data.matches;
+    const members=new Set(squad.members.map(member=>member.playerId));
+    return data.matches.filter(match=>[match.a,match.b,match.a2,match.b2].filter(Boolean).every(id=>members.has(id as string)));
+  },[data.matches,squad]);
+  const scopedData=useMemo(()=>squad?{...data,matches:squadMatches}:data,[data,squad,squadMatches]);
   const [sortBy,setSortBy]=useState<"playedOn"|"createdAt">("playedOn");
   const [sortDirection,setSortDirection]=useState<"desc"|"asc">("desc");
   const [modeFilter,setModeFilter]=useState<"all"|MatchMode>("all");
@@ -2319,10 +2296,13 @@ function Matches({squad,squadScope,data,canManageMatch,canManageCup,onEdit,onVoi
     setModeFilter(current=>current==="2v2"?"all":current);
   },[pair.a,pair.b]);
   const name=(id:string)=>data.players.find(p=>p.id===id)?.name??t("已刪除球員");
-  const roster=[...data.players].sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
-  const focusPlayer=pair.a;
-  const opponent=data.players.find(p=>p.id===pair.b);
-  const a=data.players.find(p=>p.id===pair.a);
+  // With a squad active the player filters offer only its members; a player picked before the
+  // squad changed simply stops applying rather than leaving the list empty.
+  const squadMemberIds=useMemo(()=>squad?new Set(squad.members.map(member=>member.playerId)):null,[squad]);
+  const roster=data.players.filter(player=>!squadMemberIds||squadMemberIds.has(player.id)).sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
+  const a=roster.find(p=>p.id===pair.a);
+  const focusPlayer=a?a.id:"";
+  const opponent=a?roster.find(p=>p.id===pair.b):undefined;
   // Picking a second player switches the same list into a head-to-head
   // comparison instead of jumping to a separate screen — one mental model,
   // one match card, for both "my results" and "us against each other".
@@ -2332,7 +2312,7 @@ function Matches({squad,squadScope,data,canManageMatch,canManageCup,onEdit,onVoi
   const matches=useMemo(()=>{
     const matchesMode=(match:Match)=>modeFilter==="all"||matchMode(match)===modeFilter;
     if(comparing){
-      return data.matches
+      return squadMatches
         .filter(m=>matchesMode(m)&&m.status==="confirmed"&&(
           matchMode(m)==="2v2"
             ? modeFilter==="all"&&isParticipant(m,a!.id)&&isParticipant(m,opponent!.id)
@@ -2340,7 +2320,7 @@ function Matches({squad,squadScope,data,canManageMatch,canManageCup,onEdit,onVoi
         ))
         .sort((left,right)=>{const primary=left[sortBy].localeCompare(right[sortBy]);const tieBreak=left.createdAt.localeCompare(right.createdAt);return sortDirection==="asc"?(primary||tieBreak):-(primary||tieBreak)});
     }
-    return [...data.matches]
+    return [...squadMatches]
       .filter(m=>matchesMode(m)&&(
         filteringShared2v2
           ? isParticipant(m,a!.id)&&isParticipant(m,opponent!.id)
@@ -2351,7 +2331,7 @@ function Matches({squad,squadScope,data,canManageMatch,canManageCup,onEdit,onVoi
         const tieBreak=left.createdAt.localeCompare(right.createdAt);
         return sortDirection==="asc"?(primary||tieBreak):-(primary||tieBreak);
       });
-  },[data.matches,sortBy,sortDirection,modeFilter,focusPlayer,comparing,filteringShared2v2,a,opponent]);
+  },[squadMatches,sortBy,sortDirection,modeFilter,focusPlayer,comparing,filteringShared2v2,a,opponent]);
   const headToHeadMatches=useMemo(
     ()=>matches.filter(match=>matchMode(match)!=="2v2").sort((left,right)=>right.playedOn.localeCompare(left.playedOn)||right.createdAt.localeCompare(left.createdAt)),
     [matches]
@@ -2389,7 +2369,8 @@ function Matches({squad,squadScope,data,canManageMatch,canManageCup,onEdit,onVoi
     return order.map(key=>({key,matches:map.get(key)!}));
   },[matches,comparing]);
   const defaultSort=sortBy==="playedOn"&&sortDirection==="desc";
-  return <div className="matches-page"><section className="hero small"><div><p className="kicker">{t("完整可追溯")}</p><h1>{t("比賽記錄")}</h1><p>{t("查看比分、讓分與每場 ELO 變化。")}</p></div></section>
+  return <div className="matches-page"><section className="hero small matches-hero"><div className="matches-hero-copy"><p className="kicker">{t("完整可追溯")}</p><h1>{t("比賽記錄")}</h1><p>{t("查看比分、讓分與每場 ELO 變化。")}</p></div>
+      <div className="matches-hero-meta">{view!=="cup"&&scopeMenu}<div className="matches-hero-count"><b>{(view==="cup"?data.matches:squadMatches).filter(match=>match.status==="confirmed").length}</b><span>{t("比賽場數")}</span></div></div></section>
     <TabList id={matchTabsId} className="ds-toggle-control match-view-toggle" label={t("比賽資料檢視")} value={view} onChange={value=>setView(value as typeof view)} items={[
       {value:"history",label:t("賽事記錄")},
       {value:"calendar",label:t("日曆")},
@@ -2398,7 +2379,7 @@ function Matches({squad,squadScope,data,canManageMatch,canManageCup,onEdit,onVoi
     ]}/>
     {["history","calendar","matrix","cup"].filter(item=>item!==view).map(item=><TabPanel key={item} id={matchTabsId} value={item} active={false}>{null}</TabPanel>)}
     <TabPanel id={matchTabsId} value={view} active>
-    {view==="matrix"?<HeadToHeadMatrix squad={squad} squadScope={squadScope} data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{setPair({a:first,b:second});setModeFilter("all");setView("history")}}/> : view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid} onShare={onShare}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament} onSetArrivalTime={onSetArrivalTime} onRecordSlot={onRecordSlot} onArrange={onArrange} onWalkover={onWalkover} onEditRoster={onEditRoster} onShuffleRoster={onShuffleRoster} onReorderRoster={onReorderRoster} onRefresh={onRefresh}/> : <>
+    {view==="matrix"?<HeadToHeadMatrix squad={squad} data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{setPair({a:first,b:second});setModeFilter("all");setView("history")}}/> : view==="calendar"?<CalendarView data={scopedData} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid} onShare={onShare}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament} onSetArrivalTime={onSetArrivalTime} onRecordSlot={onRecordSlot} onArrange={onArrange} onWalkover={onWalkover} onEditRoster={onEditRoster} onShuffleRoster={onShuffleRoster} onReorderRoster={onReorderRoster} onRefresh={onRefresh}/> : <>
     <section className="match-filters" aria-label={t("篩選及排序比賽記錄")}>
       <div className="match-search">
         <SearchIcon/>
@@ -2694,7 +2675,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     ].filter(section=>section.entries.length>0);
     return <section className="cup">
       <div className="cup-intro">
-        <div><p className="sl-eyebrow">{t("SCAA 盃賽")}</p><h2>{t("盃賽")}</h2><p>{t("報名、抽籤、對陣同賽果，一頁睇晒。")}</p></div>
+        <div><h2>{t("盃賽")}</h2><p>{t("報名、抽籤、對陣同賽果，一頁睇晒。")}</p></div>
         {isAdmin&&<Button onClick={onCreateTournament}>{t("＋ 新增盃賽")}</Button>}
       </div>
       {championTable.length>0&&<section className="cup-honours" aria-labelledby="cup-honours-title">
