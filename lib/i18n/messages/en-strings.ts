@@ -2171,8 +2171,6 @@ export const enStrings: Record<string, string> = {
   "交手覆蓋": "Pairings played",
   "{met} / {total} 組已交手": "{met} of {total} pairs have met",
   "查看全隊對賽矩陣": "View squad head-to-head matrix",
-  "球隊：{name}": "Squad: {name}",
-  "查看全會": "View whole club",
   "未同你交手": "Not played you",
   "未有賽事": "No matches yet",
   "{days} 日未打": "Idle {days} days",
