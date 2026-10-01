@@ -1,0 +1,16 @@
+/* Player card stat strip: four open figures divided by hairlines, with no tinted panel behind them, so
+   an uneven count never leaves a grey empty cell. Phones use a 2×2 grid. */
+.profile-body .profile-stats.profile-progress {
+  grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0;
+  border: 0; border-block: 1px solid var(--line); border-radius: 0; background: none; overflow: visible;
+}
+.profile-body .profile-stats.profile-progress > div { padding-inline: var(--sp-3-5); background: none; }
+.profile-body .profile-stats.profile-progress > div:first-child { padding-inline-start: 0; }
+.profile-body .profile-stats.profile-progress > div + div { border-inline-start: 1px solid var(--line); }
+@media (max-width: 820px) {
+  .profile-body .profile-stats.profile-progress { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile-body .profile-stats.profile-progress > div { padding-inline: 0; }
+  .profile-body .profile-stats.profile-progress > div + div { border-inline-start: 0; border-top: 0; }
+  .profile-body .profile-stats.profile-progress > div:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .profile-body .profile-stats.profile-progress > div:nth-child(even) { padding-inline-start: var(--sp-3-5); border-inline-start: 1px solid var(--line); }
+}

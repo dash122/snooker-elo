@@ -37,6 +37,8 @@ import "./styles/home-compact.css";
 import "./styles/language-menu.css";
 import "./styles/menu.css";
 import "./styles/app-header.css";
+import "./styles/en-typography.css";
+import "./styles/profile-progress.css";
 import { AddToHomeScreen } from "./components/AddToHomeScreen";
 import { I18nProvider } from "./components/I18nProvider";
 import { TimeZoneSync } from "./components/TimeZoneSync";

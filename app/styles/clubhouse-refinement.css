@@ -132,3 +132,11 @@
   .ds-app-shell .ranking-panel :is(.row, .row-head-mobile) { grid-template-columns: 1.5rem minmax(0, 1fr) 3.125rem 3rem; column-gap: var(--sp-1); }
   .ds-app-shell .ranking-panel .row > .form { width: 3.125rem; }
 }
+
+/* Break list: header, rows and summary share the ranking table's inset, so their text lines up with each other and the page. */
+.ds-app-shell .break-records-panel .break-ranking { padding-inline: 0; }
+.ds-app-shell .break-records-panel .break-ranking li { padding-inline: var(--sp-1); }
+.ds-app-shell .break-records-panel :is(.board-head, .chart-summary) { padding-inline: var(--sp-1); }
+/* Tighter name / opponent-date stack in the break list. */
+.ds-app-shell .break-ranking li > b > span { line-height: 1.2; }
+.ds-app-shell .break-ranking li > b > small { margin-top: 0; line-height: 1.2; }

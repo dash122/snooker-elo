@@ -54,3 +54,12 @@
 }
 .row-head-mobile>span:last-child{position:relative}.row-head-mobile .row-head-sub{display:block;position:absolute;right:0;top:100%;white-space:nowrap;font-size:var(--fs-label);font-weight:600;text-transform:none;letter-spacing:0}
 .row-head-mobile:has(.row-head-sub){margin-bottom:var(--sp-4)}
+/* Phone: the header row sits flat on the page (no rounded wash), and "建議評分" is named once under ELO
+   instead of repeating "建議" on every row. */
+.table-head.sortable .head-suggested { display: none; }
+@media(max-width:820px){
+  .ds-app-shell .ranking-panel .table-card .table-head.sortable{border-radius:0;background:transparent}
+  .ds-app-shell .ranking-panel .table-card .table-head.sortable>:last-child{flex-direction:column;align-items:flex-end;gap:0;line-height:1.2}
+  .ds-app-shell .ranking-panel .table-card .table-head.sortable .head-elo{display:inline-flex;align-items:center;gap:var(--sp-1)}
+  .ds-app-shell .ranking-panel .table-card .table-head.sortable .head-suggested{display:block;font-size:var(--fs-label);font-weight:400;text-align:right;white-space:normal;max-width:100%;overflow-wrap:anywhere}
+}
