@@ -1,0 +1,151 @@
+/* Home declutter — the leaderboard should start in the first screenful on a phone.
+   Loaded after clubhouse-refinement.css; selectors carry `.home-hero` so they outrank its hero rules
+   without !important. */
+
+/* Hero: one headline line, the club numbers as a single quiet row. */
+.ds-app-shell .app-page-leaderboard > .hero.home-hero {
+  min-height: 0;
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+}
+.ds-app-shell .app-page-leaderboard > .hero.home-hero h1 {
+  font-size: var(--fs-display);
+  line-height: 1.15;
+}
+.ds-app-shell .app-page-leaderboard > .hero.home-hero h1 span:lang(en) { margin-inline-start: .25em; }
+.ds-app-shell .app-page-leaderboard > .hero.home-hero .podium-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-4);
+  margin-top: var(--sp-3);
+  padding-top: 0;
+  border-top: 0;
+}
+.ds-app-shell .app-page-leaderboard > .hero.home-hero .podium-stats > span {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--sp-1);
+}
+.ds-app-shell .app-page-leaderboard > .hero.home-hero .podium-stats b { font-size: var(--fs-body); }
+.ds-app-shell .app-page-leaderboard > .hero.home-hero .podium-stats small {
+  font-size: var(--fs-caption);
+  color: var(--ds-text-on-brand-secondary);
+}
+
+/* Phones: the bottom bar's ＋ already records a match, so the hero doesn't repeat it. */
+@media (max-width: 820px) {
+  .ds-app-shell .app-page-leaderboard > .hero.home-hero .hero-action { display: none; }
+}
+
+/* Ranking and break panels: the tab above already names the view, so the panel drops its own card
+   chrome on phones and the table is the only surface. */
+@media (max-width: 599px) {
+  .ds-app-shell .ranking-panel,
+  .ds-app-shell .break-records-panel {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .ds-app-shell :is(.ranking-panel, .break-records-panel) .home-panel-head {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+  /* The title block holds only a screen-reader heading, so it shouldn't take a gap's worth of space. */
+  .ds-app-shell .home-panel-head > div:not(:has(> :not(.ds-sr-only))) { display: contents; }
+  .ds-app-shell .ranking-panel .sort-controls {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+}
+
+/* --- Leaderboard header: title menu (scope) + trailing sort/filter menu ------------------------- */
+.ds-app-shell .board-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-4); }
+.ds-app-shell .board-scope { min-width: 0; }
+.ds-app-shell .board-scope__trigger {
+  display: inline-flex; align-items: center; gap: var(--sp-1); max-width: 100%;
+  min-height: var(--control-md); padding: 0; border: 0; background: none;
+  color: var(--ds-text-primary); font-family: var(--font-display); font-size: var(--fs-h2); font-weight: 800; letter-spacing: -.02em;
+}
+.ds-app-shell .board-scope__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-app-shell .board-scope__trigger svg { flex: none; color: var(--ds-text-secondary); transition: transform var(--ds-duration-standard) var(--ds-ease-standard); }
+.ds-app-shell .board-scope__trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
+.ds-app-shell .board-filter__trigger {
+  display: grid; place-items: center; width: var(--control-md); height: var(--control-md); padding: 0;
+  border: 1px solid var(--ds-border-muted); border-radius: var(--radius-pill);
+  background: var(--ds-surface-primary); color: var(--ds-text-primary);
+  transition: background var(--ds-duration-standard) var(--ds-ease-standard);
+}
+.ds-app-shell .board-filter__trigger.is-active { border-color: transparent; background: var(--ds-accent-action); color: var(--ds-text-on-brand); }
+.ds-app-shell .board-sub { margin: 0; color: var(--ds-text-secondary); font-size: var(--fs-caption); }
+.ds-app-shell .board-head + .home-view-nav,
+.ds-app-shell .board-sub + .home-view-nav { margin-top: var(--sp-3); }
+
+/* Chips: each non-default choice, in words, clearable in one tap. */
+.ds-app-shell .board-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+.ds-app-shell .board-chip {
+  display: inline-flex; align-items: center; gap: var(--sp-1-5); min-height: var(--control-sm); padding: 0 var(--sp-3);
+  border: 0; border-radius: var(--radius-pill); background: var(--ds-accent-pale); color: var(--ds-accent-action);
+  font-size: var(--fs-caption); font-weight: 700;
+}
+
+/* Search: an inset field, iOS style. */
+.ds-app-shell .board-search {
+  display: flex; align-items: center; gap: var(--sp-2); min-height: var(--control-md); margin-bottom: var(--sp-3); padding: 0 var(--sp-3);
+  border-radius: var(--radius-md); background: var(--ds-canvas-muted); color: var(--ds-text-secondary);
+}
+.ds-app-shell .board-search:focus-within { outline: 3px solid var(--ds-focus); outline-offset: 2px; }
+.ds-app-shell .board-search input { flex: 1; min-width: 0; min-height: var(--control-md); padding: 0; border: 0; background: transparent; color: var(--ds-text-primary); font-size: var(--fs-input); outline: none; }
+.ds-app-shell .board-empty { margin: 0; padding: var(--sp-5); color: var(--ds-text-secondary); font-size: var(--fs-sm); text-align: center; }
+
+/* --- Rows: podium ranks by colour, self highlighted -------------------------------------------- */
+.ds-app-shell .ranking-panel .row.podium-1 .rank { color: var(--gold-on-light); }
+.ds-app-shell .ranking-panel .row.podium-2 .rank { color: var(--ds-medal-silver); }
+.ds-app-shell .ranking-panel .row.podium-3 .rank { color: var(--ds-medal-bronze); }
+.ds-app-shell .ranking-panel .row.is-self { background: var(--ds-highlight-wash); }
+
+/* Pinned self: rides the bottom of the list while the real row is off-screen. */
+.ds-app-shell .pinned-self {
+  position: sticky; bottom: var(--sp-4); z-index: 2;
+  display: grid; grid-template-columns: 1.75rem 2rem minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2);
+  width: 100%; min-height: var(--control-md); margin-top: var(--sp-2); padding: var(--sp-1-5) var(--sp-3) var(--sp-1-5) var(--sp-1);
+  border: 1px solid var(--ds-border-subtle); border-radius: var(--radius-md);
+  background: var(--ds-surface-primary); color: var(--ds-text-primary); box-shadow: var(--ds-elevation-3);
+  font-size: var(--fs-sm); text-align: left;
+}
+.ds-app-shell .pinned-self__rank { color: var(--ds-text-secondary); font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+.ds-app-shell .pinned-self .player-badge { display: grid; place-items: center; width: 2rem; height: 2rem; overflow: hidden; border-radius: 50%; color: var(--ds-text-on-brand); font-size: var(--fs-label); font-style: normal; font-weight: 800; }
+.ds-app-shell .pinned-self .player-badge img { width: 100%; height: 100%; object-fit: cover; }
+.ds-app-shell .pinned-self__elo { font-weight: 800; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 820px) {
+  .ds-app-shell .pinned-self { bottom: calc(var(--ds-mobile-nav-height) + var(--ds-safe-bottom) + var(--sp-3)); }
+
+  /* Compact rows (~52px, down from ~64-70px): smaller avatar, one-line name, the provisional
+     label as an inline tag, no tinted #1 row. Sized for a 100+ player board. */
+  .ds-app-shell .ranking-panel .table-card { padding: 0 var(--sp-1); }
+  .ds-app-shell .ranking-panel .table-card .row {
+    grid-template-columns: 1.75rem minmax(0, 1fr) 3.25rem 3.75rem; column-gap: var(--sp-2);
+    min-height: 3.25rem; padding: var(--sp-1-5) var(--sp-1);
+  }
+  .ds-app-shell .ranking-panel .table-card .row.top { background: transparent; }
+  .ds-app-shell .ranking-panel .table-card .row.is-self { background: var(--ds-highlight-wash); }
+  .ds-app-shell .ranking-panel .table-card .rank { font-size: var(--fs-sm); }
+  .ds-app-shell .ranking-panel .table-card .move { font-size: var(--fs-label); }
+  .ds-app-shell .ranking-panel .table-card .person { gap: var(--sp-2); }
+  .ds-app-shell .ranking-panel .table-card .person > i { width: 2rem; height: 2rem; font-size: var(--fs-label); }
+  .ds-app-shell .ranking-panel .table-card .person b {
+    display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--sp-1-5); row-gap: 0;
+    font-size: var(--fs-sm); line-height: 1.3;
+  }
+  .ds-app-shell .ranking-panel .table-card .person b > small {
+    margin: 0; padding: 0 var(--sp-1); border: 1px solid var(--ds-border-subtle); border-radius: var(--radius-xs);
+    color: var(--ds-text-secondary); font-size: var(--fs-label); font-weight: 400; line-height: 1.5;
+  }
+  .ds-app-shell .ranking-panel .table-card .row:not(.provisional) .person b > small { display: none; }
+  .ds-app-shell .ranking-panel .table-card .person .squad-rival { flex-basis: 100%; }
+  .ds-app-shell .ranking-panel .table-card .row > .form { width: 3.25rem; }
+  .ds-app-shell .ranking-panel .table-card .elo b { font-size: var(--fs-body); }
+  .ds-app-shell .ranking-panel .table-card .elo-suggested { font-weight: 400; }
+}
