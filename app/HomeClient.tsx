@@ -1491,7 +1491,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {/* The club's pulse, on the screen members actually open. Matchmaking used to live entirely
           behind a tab, so "is anyone playing tonight?" was unanswerable without going to look. */}
       {tab==="leaderboard"&&!user&&<GuestIntro onStartTour={()=>setTourOpen(true)}/>}
-      {tab==="leaderboard"&&user&&ownPlayerId&&!user.needsOnboarding&&<FirstStepsChecklist hasMatch={data.matches.some(match=>match.a===ownPlayerId||match.b===ownPlayerId)} hasAvailability={Boolean(matchmakingSummary?.mine)} onRecord={()=>newMatch()} onAvailability={()=>goTab("availability")} onTour={()=>setTourOpen(true)}/>}
+      {tab==="leaderboard"&&user&&ownPlayerId&&!user.needsOnboarding&&<FirstStepsChecklist hasMatch={data.matches.some(match=>match.a===ownPlayerId||match.b===ownPlayerId)} onRecord={()=>newMatch()} onTour={()=>setTourOpen(true)}/>}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
       {tab==="leaderboard"&&<SquadAddedNotices squads={squads} players={data.players} onView={id=>{squadAction(id,"seen");selectSquad(id)}} onLeave={id=>squadAction(id,"leave")} onDismiss={id=>squadAction(id,"seen")}/>}
       {tab==="leaderboard"&&<Leaderboard onClubScope={()=>selectSquad(null)} ranked={ranked} data={data} ownPlayerId={ownPlayerId} squad={activeSquad} scope={{squads,onSelect:selectSquad,onMore:()=>setSquadSheet("picker"),onManage:()=>setSquadSheet("manage")}} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");showTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
@@ -1680,7 +1680,7 @@ function MonthlyBreakChart({months,onPlayer}:{months:MonthlyBreak[];onPlayer:(p:
 }
 function breakNudgeCopy(t: Translator, nudge:BreakNudge){
   switch(nudge.kind){
-    case "top":return {big:String(nudge.target),title:t("近30日單桿第 1（{current} 分）", {current: nudge.current}),sub:t("打 {target} 分刷新紀錄", {target: nudge.target}),hint:t("打 {target} 分刷新紀錄", {target: nudge.target})};
+    case "top":return {big:String(nudge.target),title:t("近30日單桿第 1（{current} 分）", {current: nudge.current}),sub:"",hint:""};
     case "climb":return {big:String(nudge.target),title:t("打 {target} 分，近30日單桿升第 {nextPosition}", {target: nudge.target, nextPosition: nudge.nextPosition}),sub:t("你現時 {current} 分 · 第 {position} 名", {current: nudge.current, position: nudge.position}),hint:t("打 {target} 分升第 {nextPosition}", {target: nudge.target, nextPosition: nudge.nextPosition})};
     case "expiring":return {big:String(nudge.target),title:nudge.daysLeft===0?t("你的 {current} 分今日後過期", {current: nudge.current}):t("你的 {current} 分 {daysLeft} 日後過期", {current: nudge.current, daysLeft: nudge.daysLeft}),sub:t("打 {target} 分保住近30日榜", {target: nudge.target}),hint:t("打 {target} 分保住位置", {target: nudge.target})};
     case "enter":return {big:String(nudge.target),title:t("打 {target} 分，登上近30日單桿榜", {target: nudge.target}),sub:t("第 10 名：{lastValue} 分", {lastValue: nudge.lastValue}),hint:t("打 {target} 分即可上榜", {target: nudge.target})};
@@ -1694,7 +1694,7 @@ function HeroWelcome({name,nudge,onOpen}:{name:string;nudge:BreakNudge;onOpen:()
   const copy=breakNudgeCopy(t, nudge);
   return <button type="button" className="hero-welcome" onClick={onOpen}>
     <span className="hero-welcome-name">{t("歡迎回來，{name}", {name})}</span>
-    <span className="hero-welcome-line"><b>{copy.title}</b><small>{copy.sub}</small></span>
+    <span className="hero-welcome-line"><b>{copy.title}</b>{copy.sub&&<small>{copy.sub}</small>}</span>
     <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg>
   </button>;
 }
@@ -1836,7 +1836,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
       <div className="board-toolbar board-toolbar--end">      <Menu className="board-filter" label={t("單桿紀錄顯示方式")} triggerClassName={`ds-button ds-button--secondary board-filter__trigger${breakView==="players"?"":" is-active"}`} trigger={()=><><FilterIcon/><span>{t("顯示")}</span></>}
         sections={[{title:t("顯示"),items:BREAK_VIEWS.map(item=>({key:item.value,label:t(item.label),checked:breakView===item.value,onSelect:()=>setBreakView(item.value)}))}]}/>
 </div>
-      {breakView==="monthly"?<MonthlyBreakChart months={breakRecords.monthly} onPlayer={onPlayer}/>:<>{breakView==="recent"&&nudge&&<p className="break-nudge-hint">{breakNudgeCopy(t, nudge).hint}</p>}<ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>{t("對 {opponent}", {opponent: record.opponent})}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title={t("破百單桿")}>{t("破百")}</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
+      {breakView==="monthly"?<MonthlyBreakChart months={breakRecords.monthly} onPlayer={onPlayer}/>:<>{breakView==="recent"&&nudge&&breakNudgeCopy(t, nudge).hint&&<p className="break-nudge-hint">{breakNudgeCopy(t, nudge).hint}</p>}<ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>{t("對 {opponent}", {opponent: record.opponent})}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title={t("破百單桿")}>{t("破百")}</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
       <p className="chart-summary">{breakView==="players"?t("每位球員只顯示其最高單桿。"):breakView==="overall"?t("按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。"):t("{thirtyDaysAgo} 至 {today} 的最高單桿，每位球員只顯示其最高單桿。", {thirtyDaysAgo, today})}</p></>}
     </TabPanel>}
     {squad&&<>

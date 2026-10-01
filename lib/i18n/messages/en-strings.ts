@@ -387,7 +387,6 @@ export const enStrings: Record<string, string> = {
   "{month}至今，共 {months} 個月": "{month} to date, {months, plural, one {# month} other {# months}}",
   "；可左右捲動查看更早月份。": "; scroll sideways for earlier months.",
   "近30日單桿第 1（{current} 分）": "#1 break of the last 30 days ({current} pts)",
-  "打 {target} 分刷新紀錄": "Score {target} to set a new record",
   "打 {target} 分，近30日單桿升第 {nextPosition}": "Score {target} to reach #{nextPosition} on the 30-day break board",
   "你現時 {current} 分 · 第 {position} 名": "You're on {current} · #{position}",
   "打 {target} 分升第 {nextPosition}": "Score {target} to reach #{nextPosition}",

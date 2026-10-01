@@ -122,7 +122,7 @@ export function IntroTour({tab,signedIn,onShow,onClose}:{tab:string;signedIn:boo
 }
 
 const CHECKLIST_KEY="scaa-first-steps";
-type Progress={match?:boolean;availability?:boolean;hidden?:boolean};
+type Progress={match?:boolean;hidden?:boolean};
 const listeners=new Set<()=>void>();
 const subscribeProgress=(notify:()=>void)=>{listeners.add(notify);window.addEventListener("storage",notify);return ()=>{listeners.delete(notify);window.removeEventListener("storage",notify)}};
 const readProgressRaw=()=>{try{return localStorage.getItem(CHECKLIST_KEY)??""}catch{return ""}};
@@ -130,21 +130,19 @@ const serverProgress=()=>JSON.stringify({hidden:true});
 function writeProgress(next:Progress){try{localStorage.setItem(CHECKLIST_KEY,JSON.stringify(next))}catch{}listeners.forEach(notify=>notify())}
 
 /** A new member's next moves, on the screen they land on after onboarding. Each item is ticked from
-    real activity (a recorded match, a posted availability) and remembered locally, so a finished
-    step stays finished even after an availability post expires. The card removes itself once
-    everything is done, or when the member dismisses it. */
-export function FirstStepsChecklist({hasMatch,hasAvailability,onRecord,onAvailability,onTour}:{hasMatch:boolean;hasAvailability:boolean;onRecord:()=>void;onAvailability:()=>void;onTour:()=>void}){
+    real activity (a recorded match) and remembered locally, so a finished step stays finished.
+    The card removes itself once everything is done, or when the member dismisses it. */
+export function FirstStepsChecklist({hasMatch,onRecord,onTour}:{hasMatch:boolean;onRecord:()=>void;onTour:()=>void}){
   const t = useT();
   const raw=useSyncExternalStore(subscribeProgress,readProgressRaw,serverProgress);
   let stored:Progress={};try{stored=raw?JSON.parse(raw) as Progress:{}}catch{}
-  const progress={match:Boolean(stored.match||hasMatch),availability:Boolean(stored.availability||hasAvailability),hidden:Boolean(stored.hidden)};
-  useEffect(()=>{if((hasMatch&&!stored.match)||(hasAvailability&&!stored.availability))writeProgress({...stored,match:progress.match,availability:progress.availability})});
-  if(progress.hidden||(progress.match&&progress.availability))return null;
-  const done=1+Number(progress.match)+Number(progress.availability);
+  const progress={match:Boolean(stored.match||hasMatch),hidden:Boolean(stored.hidden)};
+  useEffect(()=>{if(hasMatch&&!stored.match)writeProgress({...stored,match:progress.match})});
+  if(progress.hidden||progress.match)return null;
+  const done=1+Number(progress.match);
   const items=[
     {id:"profile",done:true,title:msg("完成個人設定"),body:msg("頭像及初始評級已設定。"),action:null},
     {id:"match",done:progress.match,title:msg("記錄第一場比賽"),body:msg("登記局分後，雙方評分即會更新。"),action:{label:msg("記錄賽果"),run:onRecord}},
-    {id:"availability",done:progress.availability,title:msg("登記有空時段"),body:msg("讓系統為你配對合適的對手。"),action:{label:msg("前往約戰"),run:onAvailability}},
   ];
   return <section className="first-steps" aria-labelledby="first-steps-title">
     <div className="first-steps-head">
