@@ -615,21 +615,16 @@ name. These aren't the same two-node shape with different text (the `StatTile` c
 different numbers and roles of children, so a shared wrapper would need enough conditional slots to
 stop being simpler than the status quo. Left alone.
 
-**Filter row / toolbar: not extracted.** The row-of-toggle-buttons shape repeats often
-(`.match-history-filters`, `.sl-mode-switch`, `.sl-day-chips`, `.players-chips`,
-`.h2h-matrix-modes`, `.admin-chips`), and a `SegmentedControl` primitive already exists in
-`Primitives.tsx` with exactly this role=tablist shape. But checking each site against it surfaced
-real, not cosmetic, divergence: `.h2h-matrix-modes`/`.admin-chips` use `role="group"` +
-`aria-pressed` (a toggle-group semantic), while the rest use `role="tablist"` + `aria-selected` (a
-tab semantic) — not interchangeable without changing what the control announces to a screen reader.
-More decisively, the pages that *do* share the tablist/aria-selected semantic style their active
-state off a page-authored `.active` class on the button
-(`.sl-day-chips button.active`/`.match-history-filters button[class="active"]`-style rules), while
-`SegmentedControl`'s own CSS keys off `button[aria-selected=true]` and ships its own opinionated
-background/border/shadow. Adopting it at any of these sites would mean the page's existing
-`.active`-keyed rule stops matching (no such class is rendered) while `SegmentedControl`'s unrelated
-visual design silently takes over — the exact kind of un-verifiable override the `StatTile` pass
-avoided with `SectionHeading`. Left every one of these as page-owned markup.
+**Filter row / toolbar: specialised presentation retained.** Choice controls and content tabs
+now have separate shared semantics. `SegmentedControl` in `Primitives.tsx` renders a labelled
+`role="group"` with `aria-pressed` buttons; its selected styling uses `aria-pressed`.
+`TabList` and `TabPanel` in `app/components/ui/Tabs.tsx` provide linked content panels,
+roving focus and horizontal arrow/Home/End navigation, including disabled-tab skipping.
+Home and match views use these tab components with their existing visual classes.
+Date, venue, session and player filters use group/pressed semantics while retaining their
+specialised layouts and domain behaviour. Admin report periods remain navigation links
+with `aria-current="page"`. Similar button rows do not by themselves justify replacing
+page-specific presentation with the segmented control's visual skin.
 
 **`ChipRow` — extracted.** While checking `.sl-chips`/`.share-chip` occurrences turned up during
 the filter-row grep, found a genuine duplicate one level down: `app/Slots.tsx` has the identical

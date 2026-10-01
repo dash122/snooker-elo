@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
 import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, NavIcon, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, SortControls, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import MatchmakingMarketplace from "./MatchmakingMarketplace";
 import GuestIntro from "./GuestIntro";
@@ -29,6 +29,7 @@ import { DesktopNavigation, MobileBottomNav, type Destination } from "./componen
 import { BrandLogo } from "./components/BrandLogo";
 import { addEntrant, buildBracket, canManageTournament, cupMatches, currentRoundLabel, formatTournamentDateTime, isTournamentHost, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, removeEntrant, reorderDraw, rosterOrder, roundLabel, shuffleDraw, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 import { Button, IconButton, InlineNotice, SegmentedControl, Skeleton, SlidingToggleGroup, StatTile, Surface } from "./components/ui/Primitives";
+import { TabList, TabPanel } from "./components/ui/Tabs";
 import { Sheet, ConfirmDialog } from "./components/ui/Overlay";
 import { msg } from "../lib/i18n/translate";
 import { monthShortLabel, monthYearLabel } from "../lib/i18n/format";
@@ -1727,6 +1728,7 @@ function BreakNudgeStrip({nudge,onOpen}:{nudge:BreakNudge;onOpen:()=>void}){
   </div>;
 }
 function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer,onMatch,onRivalry}:{ranked:Player[];data:AppState;ownPlayerId?:string;squad:MySquad|null;squadScope:ReactNode;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
+  const homeTabsId=useId();
   const t = useT();
   const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall"|"recent"|"monthly">("players"),[homeView,setHomeView]=useState<"ranking"|"breaks"|"recent">("ranking"),[rankingMode,setRankingMode]=useState<"all"|"official"|"trend">("all");
   const officialOnly=rankingMode==="official";
@@ -1787,12 +1789,12 @@ function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer
       </div>
     </div><Button className="hero-action" onClick={onRecord}><span aria-hidden="true" className="hero-action-icon">＋</span><b>{t("記錄新賽果")}</b><small>{t("更新排名與近期狀態")}</small></Button></section>
     {nudge&&homeView==="ranking"&&<BreakNudgeStrip nudge={nudge} onOpen={openNudge}/>}
-    <SlidingToggleGroup as="nav" className="page-tabs home-view-nav" aria-label={t("首頁內容")} role="tablist">
-      <button role="tab" aria-selected={homeView==="ranking"} className={homeView==="ranking"?"active":""} onClick={()=>setHomeView("ranking")}><span>{t("目前排名")}</span></button>
-      <button role="tab" aria-selected={homeView==="breaks"} className={homeView==="breaks"?"active":""} onClick={()=>setHomeView("breaks")}><span>{t("最高單桿紀錄")}</span></button>
-      <button role="tab" aria-selected={homeView==="recent"} className={homeView==="recent"?"active":""} onClick={()=>setHomeView("recent")}><span>{t("近三十日統計")}</span></button>
-    </SlidingToggleGroup>
-    {homeView==="ranking"&&<>
+    <TabList id={homeTabsId} as="nav" className="page-tabs home-view-nav" label={t("首頁內容")} value={homeView} onChange={value=>setHomeView(value as typeof homeView)} items={[
+      {value:"ranking",label:<span>{t("目前排名")}</span>},
+      {value:"breaks",label:<span>{t("最高單桿紀錄")}</span>},
+      {value:"recent",label:<span>{t("近三十日統計")}</span>},
+    ]}/>
+    <TabPanel id={homeTabsId} value="ranking" active={homeView==="ranking"}>
     <Overview top={visibleRanked.slice(0,3)} data={data} onPlayer={onPlayer}/>
     <section className="home-view-panel ranking-panel" aria-labelledby="ranking-title">
       <div className="home-panel-head"><div><p className="kicker">{t("即時競爭形勢")}</p><h2 id="ranking-title">{t("目前排名")}</h2><p>{rankingMode==="trend"?t("各球員 ELO 評分隨日期的走勢，取每日最後一場賽事後的評分。"):t("每場結果都會即時反映在 ELO 與近期狀態。")}</p></div>
@@ -1814,13 +1816,13 @@ function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer
         {trailing?<span className="elo"><b className={trailing.cls}>{trailing.big}</b><small>{trailing.sub}</small></span>
         :<span className="elo"><b>{Math.round(p.rating)}</b><small className={swing>=0?"positive":"negative"}>{swing>=0?"+":""}{Math.round(swing)}</small><em className="elo-suggested">{t.locale==="en"?`(${suggested})`:t("建議 {suggested}", {suggested})}</em></span>}</button>})}</>}</Surface>
     </>:<EloTrendChart players={visibleRanked} data={data}/>}
-    </section></>}
-    {homeView==="breaks"&&<section className="home-view-panel break-records-panel" aria-labelledby="break-records-title">
+    </section></TabPanel>
+    <TabPanel id={homeTabsId} value="breaks" active={homeView==="breaks"} as="section" className="home-view-panel break-records-panel">
       <div className="home-panel-head"><div><p className="kicker">HIGH BREAK RECORDS</p><h2 id="break-records-title">{t("最高單桿紀錄")}</h2><p>{t("查看每位球員的個人最佳、歷史最高，或近 30 日最高紀錄。")}</p></div><SlidingToggleGroup className="ds-toggle-control break-toggle" aria-label={t("單桿紀錄顯示方式")}><button aria-pressed={breakView==="players"} className={breakView==="players"?"active":""} onClick={()=>setBreakView("players")}>{t("球員最高")}</button><button aria-pressed={breakView==="overall"} className={breakView==="overall"?"active":""} onClick={()=>setBreakView("overall")}>{t("歷史")}</button><button aria-pressed={breakView==="recent"} className={breakView==="recent"?"active":""} onClick={()=>setBreakView("recent")}>{t("近30日")}</button><button aria-pressed={breakView==="monthly"} className={breakView==="monthly"?"active":""} onClick={()=>setBreakView("monthly")}>{t("每月")}</button></SlidingToggleGroup></div>
       {breakView==="monthly"?<MonthlyBreakChart months={breakRecords.monthly} onPlayer={onPlayer}/>:<>{breakView==="recent"&&nudge&&<p className="break-nudge-hint">{breakNudgeCopy(t, nudge).hint}</p>}<ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>{t("對 {opponent}", {opponent: record.opponent})}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title={t("破百單桿")}>{t("破百")}</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
       <p className="chart-summary">{breakView==="players"?t("每位球員只顯示其最高單桿。"):breakView==="overall"?t("按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。"):t("{thirtyDaysAgo} 至 {today} 的最高單桿，每位球員只顯示其最高單桿。", {thirtyDaysAgo, today})}</p></>}
-    </section>}
-    {homeView==="recent"&&<ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/>}</>;
+    </TabPanel>
+    <TabPanel id={homeTabsId} value="recent" active={homeView==="recent"}><ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/></TabPanel></>;
 }
 
 function HomeLoadingSkeleton() {
@@ -2259,6 +2261,7 @@ function WinRateHeatmap({players,index,focusId,onOpenPair}:{players:Player[];ind
 }
 
 function Matches({data,canManageMatch,canManageCup,onEdit,onVoid,onShare,onPlayer,view,setView,pair,setPair,highlight,isAdmin,onCreateTournament,onEditTournament,onDeleteTournament,ownPlayerId,onSignUpTournament,onSetArrivalTime,onRecordSlot,onArrange,onWalkover,onEditRoster,onShuffleRoster,onReorderRoster,onRefresh}:{data:AppState;canManageMatch:(match:Match)=>boolean;canManageCup:(tournament:Tournament)=>boolean;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onShare:(m:Match)=>void;onPlayer:(player:Player)=>void;view:"history"|"calendar"|"cup"|"matrix";setView:(view:"history"|"calendar"|"cup"|"matrix")=>void;pair:{a:string;b:string};setPair:(pair:{a:string;b:string})=>void;highlight:string|null;isAdmin:boolean;onCreateTournament:()=>void;onEditTournament:(tournament:Tournament)=>void;onDeleteTournament:(tournament:Tournament)=>void;ownPlayerId?:string;onSignUpTournament:(id:string,arrivalTime?:string)=>void;onSetArrivalTime:(tournamentId:string,arrivalTime:string)=>void;onRecordSlot:(tournament:Tournament,slot:BracketSlot<Match>)=>void;onArrange:(opponentId:string)=>void;onWalkover:(tournament:Tournament,slot:BracketSlot<Match>,winnerId:string)=>void;onEditRoster:(tournament:Tournament,outgoingId:string,incomingId:string)=>void;onShuffleRoster:(tournament:Tournament)=>void;onReorderRoster:(tournament:Tournament,draggedId:string,targetId:string)=>void;onRefresh:()=>void}) {
+  const matchTabsId=useId();
   const t = useT();
   const [sortBy,setSortBy]=useState<"playedOn"|"createdAt">("playedOn");
   const [monthOpen,setMonthOpen]=useState<Record<string,boolean>>({});
@@ -2367,7 +2370,14 @@ function Matches({data,canManageMatch,canManageCup,onEdit,onVoid,onShare,onPlaye
   },[matches,comparing]);
   const newestMonth=groups.reduce((latest,group)=>group.key>latest?group.key:latest,"");
   return <><section className="hero small"><div><p className="kicker">{t("完整可追溯")}</p><h1>{t("比賽記錄")}</h1><p>{t("查看比分、讓分與每場 ELO 變化。")}</p></div></section>
-    <SlidingToggleGroup className="page-tabs match-view-toggle" role="tablist" aria-label={t("比賽資料檢視")}><button role="tab" aria-selected={view==="history"} className={view==="history"?"active":""} onClick={()=>setView("history")}>{t("賽事記錄")}</button><button role="tab" aria-selected={view==="calendar"} className={view==="calendar"?"active":""} onClick={()=>setView("calendar")}>{t("日曆")}</button><button role="tab" aria-selected={view==="matrix"} className={view==="matrix"?"active":""} onClick={()=>setView("matrix")}>{t("對賽矩陣")}</button><button role="tab" aria-selected={view==="cup"} aria-label={t("盃賽{v}", {v: openTournamentCount>0?t("，{openTournamentCount} 個盃賽開放報名", {openTournamentCount}):""})} className={view==="cup"?"active":""} onClick={()=>setView("cup")}>{t("盃賽")}{openTournamentCount>0&&<span className="match-tab-count" aria-hidden="true">{openTournamentCount>9?"9+":openTournamentCount}</span>}</button></SlidingToggleGroup>
+    <TabList id={matchTabsId} className="page-tabs match-view-toggle" label={t("比賽資料檢視")} value={view} onChange={value=>setView(value as typeof view)} items={[
+      {value:"history",label:t("賽事記錄")},
+      {value:"calendar",label:t("日曆")},
+      {value:"matrix",label:t("對賽矩陣")},
+      {value:"cup",accessibleLabel:t("盃賽{v}", {v: openTournamentCount>0?t("，{openTournamentCount} 個盃賽開放報名", {openTournamentCount}):""}),label:<>{t("盃賽")}{openTournamentCount>0&&<span className="match-tab-count" aria-hidden="true">{openTournamentCount>9?"9+":openTournamentCount}</span>}</>},
+    ]}/>
+    {["history","calendar","matrix","cup"].filter(item=>item!==view).map(item=><TabPanel key={item} id={matchTabsId} value={item} active={false}>{null}</TabPanel>)}
+    <TabPanel id={matchTabsId} value={view} active>
     {view==="matrix"?<HeadToHeadMatrix data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{setPair({a:first,b:second});setModeFilter("all");setView("history")}}/> : view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid} onShare={onShare}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament} onSetArrivalTime={onSetArrivalTime} onRecordSlot={onRecordSlot} onArrange={onArrange} onWalkover={onWalkover} onEditRoster={onEditRoster} onShuffleRoster={onShuffleRoster} onReorderRoster={onReorderRoster} onRefresh={onRefresh}/> : <>
     <section className="match-filter-toolbar" aria-label={t("篩選及排序比賽記錄")}>
       <div className="match-filter-control player-control">
@@ -2424,7 +2434,7 @@ function Matches({data,canManageMatch,canManageCup,onEdit,onVoid,onShare,onPlaye
         </button>
         {open&&<div className="match-month-cards" id={panelId}>{cards}</div>}
       </section>;
-    })}</div></>}</>;
+    })}</div></>}</TabPanel></>;
 }
 
 type CupStatus="signup"|"live"|"done"|"short";
@@ -3370,10 +3380,10 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
       <div className="players-search"><input type="text" value={query} onChange={e=>setQuery(e.target.value)} placeholder={t("搜尋姓名或縮寫")} aria-label={t("搜尋球員")}/></div>
       <button type="button" className="players-sort-btn" onClick={cycleSort}>{t("排序 · {v}", {v: t(sortLabels[sort])})}</button>
     </div>
-    <div className="players-chips" role="tablist" aria-label={t("球員篩選")}>
+    <div className="players-chips" role="group" aria-label={t("球員篩選")}>
       {chipDefs.map(([id,label])=>{
         const n=counts[id],isEmpty=n===0&&id!=="all",isActive=activeChip===id&&!isEmpty;
-        return <button key={id} type="button" role="tab" aria-selected={isActive} disabled={isEmpty} className={`players-chip${isActive?" active":""}${isEmpty?" is-empty":""}`} onClick={()=>setChip(id)}>{label} {n}</button>;
+        return <button key={id} type="button" aria-pressed={isActive} disabled={isEmpty} className={`players-chip${isActive?" active":""}${isEmpty?" is-empty":""}`} onClick={()=>setChip(id)}>{label} {n}</button>;
       })}
     </div>
     <div className="players-list-head">

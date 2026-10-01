@@ -15,6 +15,7 @@ Before creating a local component, inspect these sources and existing callers:
 | Buttons/links | `app/components/ui/Primitives.tsx`: `Button`, `ButtonLink`, `IconButton` |
 | Surfaces/forms/feedback | Same file: `Surface`, `FormField`, `EmptyState`, `InlineNotice`, `Skeleton` |
 | Selection/metadata | Same file: `SegmentedControl`, `SlidingToggleGroup`, `StatTile`, `Chip`, `ChipRow` |
+| Content tabs | `app/components/ui/Tabs.tsx`: `TabList`, `TabPanel` |
 | Modal scaffolds | `app/components/ui/Overlay.tsx`: `Dialog`, `Sheet`, `ConfirmDialog`, `BackdropSheet` |
 | Player/match UI | `app/UiBits.tsx`, `app/MatchmakingBits.tsx` |
 | Navigation | `app/components/shell/` |
