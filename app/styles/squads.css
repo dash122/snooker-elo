@@ -121,3 +121,10 @@
 .squad-rival em.squad-idle{background:var(--ds-canvas-muted);color:var(--ds-text-secondary)}
 .table-card .row.squad-inactive>:not(.person){opacity:.55}
 .table-card .row.squad-inactive .person b{color:var(--ds-text-secondary)}
+
+/* Teammate-vs-teammate matchup under the squad table. */
+.squad-matchup{display:grid;gap:var(--sp-3);padding:var(--sp-4);margin-top:var(--sp-4)}
+.squad-matchup h3{margin:0;font-size:var(--fs-lead)}
+.squad-matchup-pick{display:grid;grid-template-columns:1fr auto 1fr;gap:var(--sp-2);align-items:center}
+.squad-matchup-pick select{min-height:var(--control-md);font-size:var(--fs-input);min-width:0}
+.squad-matchup-record{margin:0;font-size:var(--fs-body);font-weight:700}

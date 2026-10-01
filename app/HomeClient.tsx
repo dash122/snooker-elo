@@ -1803,7 +1803,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer
     <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?t("尚未有正式球手"):t("尚未有球員")} sub={officialOnly?t("未有球員完成臨時門檻，暫時未有正式評分。"):squad?t("呢個球隊暫時未有球員。"):t("前往球員頁面新增第一位球員。")}/>:<><div className="table-head sortable"><button title={squad?t("箭嘴為過去 30 天的排名升跌"):t("箭嘴為過去 10 天的排名升跌")} onClick={()=>sortBy("rank")}>{t("排名")}<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>{t("球員")}<SortArrow active={sort==="name"} dir={dir}/></button><button title={t("最近五筆比賽；較近期結果權重較高")} onClick={()=>sortBy("form")}>{t("近況")}<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>{t("場數／勝率")}<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>{t("建議／正式評分")}<SortArrow active={sort==="suggested"} dir={dir}/></button><button title={squad?t("ELO 及近30天ELO變化"):t("ELO 及近10天ELO變化")} onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
       <MobileSortHead sort={sort}/>
       {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=squad?ratingSwing(data.matches,p.id,SQUAD_SWING_DAYS):recentDeltaDays(p,data,10),played=games(p),rival=rivalry?.get(p.id),idle=rival&&isInactive(rival.idleDays),rate=played?Math.round(p.wins/played*100):0,provisional=played<data.settings.provisionalGames,trailing=trailingStat(t, sort,p,data,suggested);
-        const rivalText=rival?.record?(rival.record.wins+rival.record.losses+rival.record.draws?t("對你 {wins}勝{losses}負", {wins:rival.record.wins,losses:rival.record.losses}):t("未同你交手")):null;
+        const rivalText=rival?.record?(rival.record.wins+rival.record.losses+rival.record.draws?t("你 {wins}勝 {losses}負（對佢）", {wins:rival.record.wins,losses:rival.record.losses}):t("未同你交手")):null;
         const idleText=idle?(rival.idleDays===null?t("未有賽事"):t("{days} 日未打", {days:rival.idleDays})):null;
         return <button className={`row ${rank===1?"top":""} ${provisional?"provisional":""} ${idle?"squad-inactive":""}`} key={p.id} onClick={()=>onPlayer(p)} aria-label={[t("{name}，排名 {rank}，ELO {v}，近{days}天ELO變化 {v2}{v3}，建議讓分 {suggested}{v4}", {name: p.name, rank, v: Math.round(p.rating), days: swingDays, v2: swing>=0?"+":"", v3: Math.round(swing), suggested, v4: provisional?t("，臨時評分"):""}),rivalText,idleText].filter(Boolean).join("，")}>
         <span className="rank">{rank===1?"♛":rank}{(()=>{if(!movement.active)return null;const move=movement.map.get(p.id)??0;
@@ -1813,6 +1813,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer
         <span>{t("{played} 場", {played})}<small>{t("{rate}% 勝率", {rate})}</small></span><span className="dual-rating"><b>{suggested}</b><small>{t("正式")} {p.handicap==null?"—":p.handicap}</small></span>
         {trailing?<span className="elo"><b className={trailing.cls}>{trailing.big}</b><small>{trailing.sub}</small></span>
         :<span className="elo"><b>{Math.round(p.rating)}</b><small className={swing>=0?"positive":"negative"}>{swing>=0?"+":""}{Math.round(swing)}</small><em className="elo-suggested">{t.locale==="en"?`(${suggested})`:t("建議 {suggested}", {suggested})}</em></span>}</button>})}</>}</Surface>
+    {squad&&<SquadMatchup players={visibleRanked} matches={data.matches} ownPlayerId={ownPlayerId} onOpen={onRivalry}/>}
     </>:<EloTrendChart players={visibleRanked} data={data}/>}
     </section></>}
     {homeView==="breaks"&&<section className="home-view-panel break-records-panel" aria-labelledby="break-records-title">
@@ -1954,6 +1955,27 @@ function RecentStatIcon({kind}:{kind:"matches"|"frames"|"players"|"average"|"act
   };
   return <span className="recent-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24">{paths[kind]}</svg></span>;
 }
+/* 球隊 head-to-head: any two squad-mates, not only the viewer against each of them. */
+function SquadMatchup({players,matches,ownPlayerId,onOpen}:{players:Player[];matches:AppState["matches"];ownPlayerId?:string;onOpen:(first:Player,second:Player)=>void}){
+  const t=useT();
+  const [pick,setPick]=useState<{a:string;b:string}>({a:"",b:""});
+  if(players.length<2)return null;
+  const a=players.find(p=>p.id===pick.a)??(players.find(p=>p.id===ownPlayerId)??players[0]);
+  const b=players.find(p=>p.id===pick.b&&p.id!==a.id)??players.find(p=>p.id!==a.id)!;
+  const record=headToHead(matches,a.id,b.id),total=record.wins+record.losses+record.draws;
+  const options=(exclude:string)=>players.filter(p=>p.id!==exclude).map(p=><option key={p.id} value={p.id}>{p.name}</option>);
+  return <Surface as="div" className="squad-matchup">
+    <h3>{t("隊友對戰")}</h3>
+    <div className="squad-matchup-pick">
+      <select aria-label={t("球員 A")} value={a.id} onChange={event=>setPick({a:event.target.value,b:b.id===event.target.value?"":b.id})}>{options(b.id)}</select>
+      <span aria-hidden="true">vs</span>
+      <select aria-label={t("球員 B")} value={b.id} onChange={event=>setPick({a:a.id,b:event.target.value})}>{options(a.id)}</select>
+    </div>
+    <p className="squad-matchup-record">{total?t("{a} {wins}勝 {losses}負{draws}", {a:a.name,wins:record.wins,losses:record.losses,draws:record.draws?t(" {draws}和", {draws:record.draws}):""}):t("{a} 同 {b} 未交手", {a:a.name,b:b.name})}</p>
+    <Button variant="secondary" onClick={()=>onOpen(a,b)}>{t("查看詳細對戰")}</Button>
+  </Surface>;
+}
+
 function ThirtyDayStats({data,onPlayer,onMatch,onRivalry}:{data:AppState;onPlayer:(player:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}){
   const t = useT();
   const stats=useMemo(()=>{
