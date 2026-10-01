@@ -20,8 +20,7 @@
   .home-view-nav{display:flex;gap:var(--sp-1-5);padding:var(--sp-1);background:var(--ds-surface-secondary);border:1px solid var(--ds-border-subtle);border-radius:calc(var(--ds-radius-control) + .25rem);overflow:auto;scrollbar-width:none;margin-block:var(--sp-4) var(--sp-5)}
   .home-view-nav::-webkit-scrollbar{display:none}.home-view-nav button{flex:1 0 max-content;min-height:var(--control-md);padding:var(--sp-2-5) var(--sp-4);border:0;background:transparent;border-radius:var(--ds-radius-control);color:var(--ds-text-secondary);font-weight:750}.home-view-nav button.active{background:var(--ds-surface-raised);color:var(--ds-text-primary);box-shadow:var(--ds-shadow-resting)}
 
-  .podium-section,.home-view-panel{background:var(--ds-surface-primary);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-card);box-shadow:var(--ds-shadow-resting)}
-  .podium-section{padding:clamp(.8rem,2.5vw,1.4rem);margin-bottom:var(--sp-4)}.podium{gap:var(--sp-3)}.podium-card{border-color:var(--ds-border-subtle);background:linear-gradient(180deg,var(--ds-surface-raised),var(--ds-surface-secondary));box-shadow:none;transition:transform var(--ds-duration-fast) var(--ds-ease-standard),border-color var(--ds-duration-fast) var(--ds-ease-standard)}.podium-card:hover{transform:translateY(-2px);border-color:var(--ds-border-strong)}.podium-card.place-1{border-color:color-mix(in srgb,var(--ds-accent-primary) 55%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--ds-accent-primary) 9%,var(--ds-surface-raised)),var(--ds-surface-primary))}.podium-place{color:var(--ds-accent-primary)}.podium-card>b,.leader-rating,.rank-num{font-variant-numeric:tabular-nums}
+  .home-view-panel{background:var(--ds-surface-primary);border:1px solid var(--ds-border-subtle);border-radius:var(--ds-radius-card);box-shadow:var(--ds-shadow-resting)}.leader-rating,.rank-num{font-variant-numeric:tabular-nums}
   .home-view-panel{padding:clamp(1rem,3vw,1.6rem);margin-bottom:var(--sp-4-5)}.home-panel-head{gap:var(--sp-4);align-items:flex-end}.home-panel-head h2{letter-spacing:-.025em}.home-panel-head p{color:var(--ds-text-secondary)}
   .table-card{border:1px solid var(--ds-border-subtle);border-radius:calc(var(--ds-radius-card) - .25rem);overflow:hidden;background:var(--ds-surface-raised)}
   .table-head{background:var(--ds-surface-secondary);border-bottom:1px solid var(--ds-border-subtle)}.table-head button{color:var(--ds-text-secondary)}
@@ -45,17 +44,15 @@
 
   @media(max-width:820px){
     .hero:not(.small){display:grid;gap:var(--sp-4-5);margin-inline:0}.hero .hero-action{width:100%;align-self:auto}.hero:not(.small) h1{max-width:11ch}
-    .podium{display:grid;grid-template-columns:1fr}.podium-card{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;text-align:left;gap:var(--sp-3);padding:var(--sp-3-5)}.podium-card h3,.podium-card>b,.podium-card small{margin:0}.podium-card .form{grid-column:3/-1}.podium-card.place-1{order:-1}
     .home-panel-head{align-items:stretch;flex-direction:column}.ranking-scope-toggle{width:100%;display:grid;grid-template-columns:repeat(3,1fr)}
     .table-head{display:none}.table-card{border-radius:var(--ds-radius-control)}
     .row-head-mobile{display:grid}.player-row{min-width:0}.player-row>*{min-width:0}
   }
   @media(max-width:599px){
     .hero:not(.small){padding:var(--sp-4);border-radius:var(--radius-lg)}.hero:not(.small) h1{font-size:var(--fs-display-lg)}.hero .podium-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-2-5)}.hero .podium-stats span{min-width:0}.hero .podium-stats b{font-size:var(--fs-h3)}.hero .podium-stats small{font-size:var(--fs-label)}
-    .home-view-panel{padding:var(--sp-3)}.podium-section{padding:var(--sp-2-5)}.podium-card{grid-template-columns:auto auto minmax(0,1fr);}.podium-card>b{grid-column:3}.podium-card .form,.podium-card small{grid-column:3/-1}.score-inputs,.score-fields,.match-score-input{gap:var(--sp-1-5)}
+    .home-view-panel{padding:var(--sp-3)}.score-inputs,.score-fields,.match-score-input{gap:var(--sp-1-5)}
   }
 }
-.podium-card small{font-size:var(--fs-label)}
 
 /* Player-card supporting records must not inherit the row button weight. */
 .rivalry-person em{font-weight:var(--fw-secondary);color:var(--ds-text-secondary);font-size:var(--fs-label);font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

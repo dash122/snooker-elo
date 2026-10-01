@@ -11,7 +11,7 @@
   padding: var(--sp-1) 0;
   border: 0;
   background: transparent;
-  color: var(--ds-text-on-brand);
+  color: var(--ds-text-primary);
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -19,7 +19,7 @@
 
 .hero-welcome-name {
   grid-column: 1 / -1;
-  color: var(--ds-text-on-brand-secondary);
+  color: var(--ds-text-secondary);
   font-size: var(--fs-caption);
   font-weight: 700;
 }
@@ -30,13 +30,13 @@
 .hero-welcome-line small { display: block; }
 
 .hero-welcome-line b {
-  color: var(--ds-accent-primary);
+  color: var(--ds-accent-action);
   font-size: var(--fs-sm);
   line-height: 1.45;
 }
 
 .hero-welcome-line small {
-  color: var(--ds-text-on-brand-secondary);
+  color: var(--ds-text-secondary);
   font-size: var(--fs-caption);
 }
 
@@ -44,7 +44,7 @@
   width: 16px;
   height: 16px;
   fill: none;
-  stroke: var(--ds-accent-primary);
+  stroke: var(--ds-accent-action);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
