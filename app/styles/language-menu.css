@@ -32,4 +32,6 @@
   .language-menu--compact .language-menu__current { display: none; }
   .language-menu--compact .language-menu__trigger { min-width: var(--control-sm); justify-content: center; padding: 0 var(--sp-2); }
 }
-.auth-panel-inner > .auth-language { display: block; width: max-content; margin: 0 0 var(--sp-3) auto; }
+.auth-panel-top { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-3); }
+.auth-panel-top > .auth-language { display: block; width: max-content; margin: 0 0 0 auto; }
+.auth-panel-top > .auth-mobile-brand { margin-bottom: 0; }

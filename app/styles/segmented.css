@@ -3,9 +3,12 @@
    TabList / SlidingToggleGroup (.ds-toggle-control). Underlined page tab bars, the bottom nav and the green
    handicap picker keep their own looks. */
 :is(.ds-segmented,.sliding-toggle-group.ds-toggle-control,.match-view-toggle){gap:0;padding:var(--sp-1);border:0;border-radius:var(--radius-pill);background:var(--ds-segmented-track);box-shadow:none}
-:is(.ds-segmented,.sliding-toggle-group.ds-toggle-control,.match-view-toggle)>button{border-radius:var(--radius-pill);color:var(--ds-text-secondary);font-weight:600}
-:is(.ds-segmented,.sliding-toggle-group.ds-toggle-control,.match-view-toggle)>button>span{font-weight:inherit}
-:is(.ds-segmented>button[aria-pressed="true"],.sliding-toggle-group:is(.ds-toggle-control,.match-view-toggle)>button:is(.active,[aria-selected="true"],[aria-pressed="true"])){color:var(--ds-text-primary);font-weight:700}
+:is(.ds-segmented,.sliding-toggle-group.ds-toggle-control,.match-view-toggle)>:is(button,a){border-radius:var(--radius-pill);color:var(--ds-text-secondary);font-weight:600}
+:is(.ds-segmented,.sliding-toggle-group.ds-toggle-control,.match-view-toggle)>:is(button,a)>span{font-weight:inherit}
+:is(.ds-segmented>button[aria-pressed="true"],.sliding-toggle-group:is(.ds-toggle-control,.match-view-toggle)>:is(button,a):is(.active,[aria-selected="true"],[aria-pressed="true"],[aria-current="page"])){color:var(--ds-text-primary);font-weight:700}
 :is(.ds-segmented__indicator,.sliding-toggle-group:is(.ds-toggle-control,.match-view-toggle)>.sliding-toggle-thumb){border-radius:var(--radius-pill);background:var(--ds-surface-primary);box-shadow:var(--ds-segmented-thumb-shadow)}
 /* SegmentedControl spaces its thumb with a 4px gap per segment; keep that maths intact. */
 .ds-segmented{gap:var(--sp-1)}
+
+/* Link-based toggles (login / sign-up) share the capsule; anchors just need centring and no underline. */
+.sliding-toggle-group.ds-toggle-control>a{display:grid;place-items:center;text-decoration:none}

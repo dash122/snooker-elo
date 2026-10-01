@@ -2,7 +2,7 @@
 .ds-menu { position: relative; display: inline-block; }
 .ds-menu__list {
   position: absolute; top: calc(100% + var(--sp-1-5)); z-index: 60;
-  min-width: 14rem; max-width: min(20rem, calc(100vw - 2 * var(--sp-4)));
+  min-width: 10rem; max-width: min(14rem, calc(100vw - 2 * var(--sp-4)));
   max-height: min(28rem, 70vh); overflow-y: auto;
   padding: var(--sp-1); border: 1px solid var(--ds-border-muted); border-radius: var(--radius-md);
   background: var(--ds-surface-primary); box-shadow: var(--ds-elevation-4);
@@ -24,6 +24,6 @@
 .ds-menu__item:hover, .ds-menu__item:focus-visible { background: var(--ds-canvas-functional); outline: none; }
 .ds-menu__item[aria-checked="true"] { font-weight: 700; }
 .ds-menu__check { display: grid; place-items: center; color: var(--ds-accent-action); }
-.ds-menu__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-menu__label { line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-menu__detail { color: var(--ds-text-secondary); font-size: var(--fs-caption); }
 @media (prefers-reduced-motion: reduce) { .ds-menu__list { animation: none; } }

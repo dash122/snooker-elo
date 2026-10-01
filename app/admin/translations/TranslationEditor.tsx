@@ -29,7 +29,7 @@ function Row({ row }: { row: TranslationRow }) {
 
   return <li className="translation-row">
     <p className="translation-source" lang="zh-Hant">{row.source}</p>
-    <textarea className="translation-input" aria-label={`English: ${row.source}`} rows={Math.max(2, Math.ceil(draft.length / 48))} value={draft} aria-invalid={error ? true : undefined}
+    <textarea className="translation-input" aria-label={`English: ${row.source}`} rows={Math.max(1, Math.ceil(draft.length / 56))} value={draft} aria-invalid={error ? true : undefined}
       onChange={event => { setDraft(event.target.value); setError(""); }} />
     {error && <p className="translation-error" role="alert">{error}</p>}
     <div className="translation-actions">

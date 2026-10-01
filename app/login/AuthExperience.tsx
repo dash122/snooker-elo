@@ -67,9 +67,11 @@ export default async function AuthExperience({
 
       <section className="auth-panel">
         <div className="auth-panel-inner">
-          <LanguageMenu className="auth-language"/>
-          <BrandLogo className="auth-mobile-brand" compact/>
-          <SlidingToggleGroup as="nav" className="auth-tabs" aria-label={t("帳戶選項")}>
+          <div className="auth-panel-top">
+            <BrandLogo className="auth-mobile-brand" compact/>
+            <LanguageMenu className="auth-language"/>
+          </div>
+          <SlidingToggleGroup as="nav" className="auth-tabs ds-toggle-control" aria-label={t("帳戶選項")}>
             <Link href="/login" aria-current={!signup ? "page" : undefined}>{t("登入")}</Link>
             <Link href="/login?mode=signup" aria-current={signup ? "page" : undefined}>{t("註冊")}</Link>
           </SlidingToggleGroup>

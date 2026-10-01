@@ -5,7 +5,7 @@ import { listAdminPlayers, listSnapshots } from "../../db/state";
 import MemberDirectory, { Avatar, type Member } from "./MemberDirectory";
 import PlayerLinkCombobox from "./PlayerLinkCombobox";
 import SnapshotList from "./SnapshotList";
-import { Button, ButtonLink, InlineNotice, StatTile, Surface } from "../components/ui/Primitives";
+import { Button, ButtonLink, InlineNotice } from "../components/ui/Primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -78,27 +78,23 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           : zh.invalid}
       </InlineNotice>}
 
-      <div className="admin-stats">
-        <StatTile label={zh.statAccounts} value={members.length} />
-        <StatTile label={zh.statAdmins} value={admins} />
-        <StatTile className={unlinked.length ? "warn" : ""}
-          label={unlinked.length ? zh.statUnlinked : zh.statAllLinked}
-          value={unlinked.length || "✓"} />
-        <StatTile className={needAccount.length ? "warn" : ""}
-          label={needAccount.length ? zh.statNoAccount : zh.statAllHaveAccounts}
-          value={needAccount.length || "✓"} />
-      </div>
+      <dl className="admin-summary">
+        <div><dt>{zh.statAccounts}</dt><dd>{members.length}</dd></div>
+        <div><dt>{zh.statAdmins}</dt><dd>{admins}</dd></div>
+        <div className={unlinked.length ? "warn" : ""}><dt>{unlinked.length ? zh.statUnlinked : zh.statAllLinked}</dt><dd>{unlinked.length || "✓"}</dd></div>
+        <div className={needAccount.length ? "warn" : ""}><dt>{needAccount.length ? zh.statNoAccount : zh.statAllHaveAccounts}</dt><dd>{needAccount.length || "✓"}</dd></div>
+      </dl>
 
       <div className="admin-toolbar">
-        <ButtonLink href="/?tab=players&manage=1">{zh.playersOpen}</ButtonLink>
+        <ButtonLink href="/?tab=players&manage=1" variant="secondary">{zh.playersOpen}</ButtonLink>
         <ButtonLink href="/admin/reports" variant="secondary">{zh.reportsOpen}</ButtonLink>
         <ButtonLink href="/admin/translations" variant="secondary">{zh.translationsOpen}</ButtonLink>
       </div>
 
-      {unlinked.length > 0 && <Surface className="admin-attention">
-        <h2>{zh.attentionTitle}<em>{unlinked.length}</em></h2>
+      {unlinked.length > 0 && <details className="admin-attention" open={unlinked.length <= 5}>
+        <summary><h2>{zh.attentionTitle}<em>{unlinked.length}</em></h2></summary>
         <p>{zh.attentionSub}</p>
-        <div className="member-list">{unlinked.map(member =>
+        <div className="member-list admin-scroll">{unlinked.map(member =>
           <div key={member.email} className="admin-unlinked-row">
             <Avatar member={member} />
             <span className="admin-row-id"><b>{member.displayName}</b><small>@{member.username} · {member.email}</small></span>
@@ -111,19 +107,19 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             </form>
           </div>)}
         </div>
-      </Surface>}
+      </details>}
 
-      {needAccount.length > 0 && <Surface className="admin-attention players">
-        <h2>{zh.noAccountTitle}<em>{needAccount.length}</em></h2>
+      {needAccount.length > 0 && <details className="admin-attention players" open={needAccount.length <= 5}>
+        <summary><h2>{zh.noAccountTitle}<em>{needAccount.length}</em></h2></summary>
         <p>{zh.noAccountSub}</p>
-        <ul className="admin-player-list">{needAccount.map(player =>
+        <ul className="admin-player-list admin-scroll">{needAccount.map(player =>
           <li key={player.id}>
             <span className="admin-avatar" aria-hidden="true">{player.name.slice(0, 2).toUpperCase()}</span>
             <b>{player.name}</b>
             <ButtonLink className="more" variant="quiet" href={`/admin?player=${encodeURIComponent(player.id)}#create`}>{zh.createAccount}</ButtonLink>
           </li>)}
         </ul>
-      </Surface>}
+      </details>}
 
       <details className="admin-section" id="create" open={!!prefill}>
         <summary>{zh.addSection}</summary>

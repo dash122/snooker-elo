@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { BrandLogo } from "../components/BrandLogo";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { InteractiveEloChart, type EloTrendPoint } from "../UiBits";
 import { avatarHex } from "../avatar-colours";
@@ -9,7 +8,9 @@ import AccountForms from "./AccountForms";
 import MatchHistory, { type MatchRecord } from "./MatchHistory";
 import { deriveInitials, resolveInitials } from "../api/account/validate";
 import { Button, InlineNotice, Skeleton, StatTile, Surface } from "../components/ui/Primitives";
-import { SectionHeader } from "../components/shell/AppShell";
+import { AppShell, PageFrame, SectionHeader } from "../components/shell/AppShell";
+import { AppHeader } from "../components/shell/AppHeader";
+import { DesktopNavigation, MobileBottomNav, type Destination } from "../components/shell/Navigation";
 import { useT, useTranslated } from "../components/I18nProvider";
 import { msg } from "../../lib/i18n/translate";
 import type { Translator } from "../../lib/i18n/translate";
@@ -106,21 +107,10 @@ function longestStreak(results: ("W" | "L" | "D")[]) {
   return best;
 }
 
-function AccountTopbar({ member }: { member: AccountMember }) {
-  const zh = useTranslated(zhTable);
-  return <header className="account-topbar">
-    <BrandLogo className="auth-brand"/>
-    <nav className="account-topbar-links">
-      {member.role === "admin" && <a href="/admin">{zh.manage}</a>}
-      <Link href="/">{zh.leaderboard}</Link>
-      <Link className="account-signout" href="/logout">{zh.signout}</Link>
-    </nav>
-  </header>;
-}
-
 export default function AccountDashboard({ member, googleStatus }: { member: AccountMember; googleStatus?: string }) {
   const zh = useTranslated(zhTable);
   const t = useT();
+  const router = useRouter();
   const [state, setState] = useState<State | null>(null);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState("");
@@ -163,8 +153,14 @@ export default function AccountDashboard({ member, googleStatus }: { member: Acc
   const player = players.find(item => item.id === member.statePlayerId);
   const initials = resolveInitials(member, player);
 
-  return <main className="account-page">
-    <AccountTopbar member={member} />
+  const goTab = (id: Destination) => router.push(id === "leaderboard" ? "/" : `/?tab=${id}`);
+  const noBadge = () => 0;
+
+  return <AppShell signedIn>
+    <DesktopNavigation active={null} onNavigate={goTab} badge={noBadge} signedIn />
+    <main>
+    <AppHeader user={member} loadStatus={status} saving={false} onSettings={() => goTab("settings")} />
+    <PageFrame className="app-page-account">
     <section className="account-hero">
       <div className="account-identity">
         <div className="member-avatar" style={{ background: avatarHex(member.iconColour ?? player?.colour) }}>{initials}</div>
@@ -178,7 +174,10 @@ export default function AccountDashboard({ member, googleStatus }: { member: Acc
     {status === "loading" && <AccountLoadingBody />}
     {status === "ready" && <AccountBody member={member} googleStatus={googleStatus} player={player} players={players} state={state!} />}
     {status === "failed" && <AccountSettings member={{ ...member, iconColour: member.iconColour ?? player?.colour }} googleStatus={googleStatus} />}
-  </main>;
+    </PageFrame>
+    </main>
+    <MobileBottomNav active={null} onNavigate={goTab} onRecord={() => router.push("/?start=record")} recordOpen={false} badge={noBadge} />
+  </AppShell>;
 }
 
 function AccountMetrics({ player, players, state }: { player: Player; players: Player[]; state: State }) {
@@ -249,5 +248,6 @@ function AccountBody({ member, googleStatus, player, players, state }: { member:
 
 function AccountSettings({ member, googleStatus }: { member: AccountMember & { playerName?: string }; googleStatus?: string }) {
   const zh = useTranslated(zhTable);
-  return <Surface className="account-panel account-settings"><SectionHeader title={zh.settings} description={zh.settingsHint} /><AccountForms googleStatus={googleStatus} member={member} /></Surface>;
+  return <Surface className="account-panel account-settings"><SectionHeader title={zh.settings} description={zh.settingsHint} /><AccountForms googleStatus={googleStatus} member={member} />
+</Surface>;
 }
