@@ -1,24 +1,17 @@
 "use client";
 import {useState,useSyncExternalStore} from "react";
-import {Button, ButtonLink} from "./components/ui/Primitives";
+import {Button, IconButton} from "./components/ui/Primitives";
 import { useT } from "./components/I18nProvider";
-import { msg } from "../lib/i18n/translate";
 
 const COLLAPSE_KEY="scaa-guest-intro-dismissed";
 const subscribeCollapse=(notify:()=>void)=>{window.addEventListener("storage",notify);return ()=>window.removeEventListener("storage",notify)};
 const readCollapse=()=>{try{return localStorage.getItem(COLLAPSE_KEY)==="1"}catch{return false}};
 const serverCollapse=()=>true;
 
-const STEPS=[
-  {title:msg("查看排行榜"),body:msg("了解每位球員的評分、近況及建議讓分。")},
-  {title:msg("記錄賽果"),body:msg("比賽完成後，登入並登記雙方局分。")},
-  {title:msg("評分自動更新"),body:msg("系統按賽果即時調整評分，毋須人手計算。")},
-];
-
-/** Guests land straight on the real leaderboard, so this card is the only explanation they get. It
-    stays open by default and answers "what do I do here?" in three steps; the detail lives in the
-    guided tour it launches. Closing it only shrinks it to a chip — it can always be reopened, since
-    a first visit is rarely the moment someone is ready to read it. */
+/** Guests land straight on the real leaderboard, so this banner is the only explanation they get. It is
+    one line and one action — the guided tour carries the detail — so the leaderboard stays in the first
+    screenful. Closing it only shrinks it to a chip; it can always be reopened, since a first visit is
+    rarely the moment someone is ready to read it. Sign-up already lives in the header. */
 export default function GuestIntro({onStartTour}:{onStartTour:()=>void}){
   const t = useT();
   const [override,setOverride]=useState<boolean|null>(null);
@@ -32,18 +25,13 @@ export default function GuestIntro({onStartTour}:{onStartTour:()=>void}){
     </button>
   </div>;
   return <section className="guest-intro" aria-labelledby="guest-intro-title">
-    <p className="guest-intro-kicker">{t("新手指南")}</p>
-    <h2 id="guest-intro-title">{t("三步了解球會評分")}</h2>
-    <ol className="guest-intro-steps">
-      {STEPS.map((step,index)=><li key={step.title}>
-        <span className="guest-intro-step-number" aria-hidden="true">{index+1}</span>
-        <span><b>{t(step.title)}</b><small>{t(step.body)}</small></span>
-      </li>)}
-    </ol>
-    <div className="guest-intro-actions">
-      <Button variant="featured" onClick={onStartTour}>{t("開始導覽")}</Button>
-      <ButtonLink variant="secondary" href="/login?mode=signup">{t("建立帳戶")}</ButtonLink>
-      <Button variant="quiet" className="guest-intro-later" onClick={()=>setCollapsed(true)}>{t("稍後再看")}</Button>
-    </div>
+    <span className="guest-intro-text">
+      <b id="guest-intro-title">{t("第一次使用？")}</b>
+      <small>{t("一分鐘了解評分如何運作。")}</small>
+    </span>
+    <Button variant="featured" className="guest-intro-tour" onClick={onStartTour}>{t("開始導覽")}</Button>
+    <IconButton className="guest-intro-close" label={t("稍後再看")} onClick={()=>setCollapsed(true)}>
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+    </IconButton>
   </section>;
 }

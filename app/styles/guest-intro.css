@@ -1,26 +1,21 @@
 @layer components {
-  /* Guest welcome — open by default, three steps, one primary action. */
+  /* Guest welcome — a single row: what this is, one action, and a way to dismiss it. */
   .guest-intro{
-    display:grid;
-    gap:var(--sp-4);
-    padding:var(--sp-5);
-    margin-block:var(--sp-2) var(--sp-5);
+    display:flex;
+    align-items:center;
+    gap:var(--sp-3);
+    padding:var(--sp-2-5) var(--sp-2) var(--sp-2-5) var(--sp-4);
+    margin-block:var(--sp-2) var(--sp-3);
     border:1px solid var(--ds-border-subtle);
     border-radius:var(--radius-lg);
     background:var(--ds-surface-primary);
     color:var(--ds-text-primary);
-    box-shadow:var(--ds-elevation-2);
   }
-  .guest-intro-kicker{margin:0;color:var(--ds-accent-text);font-size:var(--fs-label);font-weight:850;letter-spacing:.14em}
-  .guest-intro h2{margin:calc(-1 * var(--sp-2)) 0 0;font-size:var(--fs-h2);line-height:1.3}
-  .guest-intro-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-3)}
-  .guest-intro-steps li{display:flex;align-items:flex-start;gap:var(--sp-3);padding:var(--sp-3-5);border-radius:var(--radius-md);background:var(--ds-canvas-functional)}
-  .guest-intro-step-number{flex:none;display:grid;place-items:center;width:1.75rem;height:1.75rem;border-radius:50%;background:var(--ds-surface-featured);color:var(--ds-accent-primary);font-size:var(--fs-caption);font-weight:900}
-  .guest-intro-steps b{display:block;font-size:var(--fs-body)}
-  .guest-intro-steps small{display:block;margin-top:var(--sp-1);color:var(--ds-text-secondary);font-size:var(--fs-caption);line-height:1.55}
-  .guest-intro-actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3)}
-  .guest-intro-actions .ds-button{min-height:var(--control-md);text-decoration:none}
-  .guest-intro-later{margin-left:auto;color:var(--ds-text-secondary)}
+  .guest-intro-text{flex:1;min-width:0}
+  .guest-intro-text b{display:block;font-size:var(--fs-sm)}
+  .guest-intro-text small{display:block;margin-top:var(--sp-1);color:var(--ds-text-secondary);font-size:var(--fs-caption);line-height:1.4}
+  .guest-intro .guest-intro-tour{flex:none;min-height:var(--control-sm);padding-inline:var(--sp-3-5)}
+  .guest-intro .guest-intro-close{flex:none;width:var(--control-sm);height:var(--control-sm);color:var(--ds-text-secondary)}
 
   /* Collapsed state — a way back in, never a dead end. */
   .guest-intro-chip-row{display:flex;margin-block:var(--sp-2) var(--sp-3)}
@@ -104,11 +99,6 @@
     .intro-tour{left:var(--sp-4);right:var(--sp-4);width:auto;bottom:calc(var(--ds-mobile-nav-height) + var(--sp-3) + var(--ds-safe-bottom))}
   }
   @media(max-width:599px){
-    .guest-intro{padding:var(--sp-4)}
-    .guest-intro-steps{grid-template-columns:1fr;gap:var(--sp-2)}
-    .guest-intro-actions{display:grid;grid-template-columns:1fr 1fr}
-    .guest-intro-actions > :first-child{grid-column:1 / -1}
-    .guest-intro-later{margin-left:0}
     .first-steps-list li{flex-wrap:wrap}
     .first-steps-list .ds-button{width:100%}
   }
