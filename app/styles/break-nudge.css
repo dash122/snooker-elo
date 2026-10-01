@@ -1,85 +1,58 @@
-/* Home "today's high break target" strip — a one-line nudge between the hero and the tabs
-   that opens the past-30-days break board. */
-.break-nudge {
-  display: flex;
+/* Home welcome-back line — sits inside the hero under the tagline and opens the past-30-days break
+   board. Text only: a greeting with the day's break target, not an alert. */
+.hero-welcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--sp-1);
-  margin: var(--sp-4) 0 0;
-  padding: var(--sp-1);
-  border-radius: var(--radius-lg);
-  background: var(--ds-surface-featured);
-  color: var(--ds-text-on-brand);
-  box-shadow: var(--ds-elevation-3);
-}
-
-.break-nudge-main {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: var(--sp-3);
-  min-width: 0;
-  min-height: var(--control-md);
-  padding: var(--sp-2);
+  column-gap: var(--sp-2);
+  max-width: 100%;
+  min-height: var(--control-sm);
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-1) 0;
   border: 0;
-  border-radius: var(--radius-md);
   background: transparent;
-  color: inherit;
+  color: var(--ds-text-on-brand);
+  font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.break-nudge-target {
-  flex: 0 0 auto;
-  min-width: 3ch;
-  color: var(--ds-accent-primary);
-  font-family: var(--font-display);
-  font-size: var(--fs-stat);
-  line-height: 1;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.break-nudge-copy { flex: 1; min-width: 0; }
-
-.break-nudge-copy b,
-.break-nudge-copy small { display: block; }
-
-.break-nudge-copy b { font-size: var(--fs-sm); line-height: 1.4; }
-
-.break-nudge-copy small {
-  margin-top: var(--sp-1);
+.hero-welcome-name {
+  grid-column: 1 / -1;
   color: var(--ds-text-on-brand-secondary);
-  font-size: var(--fs-label);
+  font-size: var(--fs-caption);
+  font-weight: 700;
 }
 
-.break-nudge-go {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: var(--control-sm);
-  height: var(--control-sm);
-  margin-left: var(--sp-1);
-  border-radius: var(--radius-pill);
-  background: var(--ds-accent-primary);
-  color: var(--ds-text-on-accent);
+.hero-welcome-line { min-width: 0; }
+
+.hero-welcome-line b,
+.hero-welcome-line small { display: block; }
+
+.hero-welcome-line b {
+  color: var(--ds-accent-primary);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
 }
 
-.break-nudge-go svg {
+.hero-welcome-line small {
+  color: var(--ds-text-on-brand-secondary);
+  font-size: var(--fs-caption);
+}
+
+.hero-welcome svg {
   width: 16px;
   height: 16px;
   fill: none;
-  stroke: currentcolor;
+  stroke: var(--ds-accent-primary);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: transform var(--ds-duration-fast) var(--ds-ease-standard);
 }
 
-.break-nudge-main:focus-visible { outline: 3px solid var(--ds-focus); outline-offset: -3px; }
-
-.break-nudge--warning { background: var(--ds-warning-wash); color: var(--ds-text-primary); }
-.break-nudge--warning .break-nudge-target { color: var(--ds-warning); }
-.break-nudge--warning .break-nudge-copy small { color: var(--ds-warning-wash-text); }
-.break-nudge--warning .break-nudge-go { background: var(--ds-warning); color: var(--ds-text-on-danger); }
+.hero-welcome:hover svg { transform: translateX(3px); }
+.hero-welcome:focus-visible { outline: 3px solid var(--ds-focus); outline-offset: 2px; border-radius: var(--radius-xs); }
 
 .break-nudge-hint {
   margin: 0 0 var(--sp-2);

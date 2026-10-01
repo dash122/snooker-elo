@@ -1,13 +1,18 @@
-/* 球隊 — the leaderboard scope chip, the added-to-squad notice and the squad sheets (app/Squads.tsx). */
+/* 球隊 — the club/squad scope switch, the added-to-squad notice and the squad sheets (app/Squads.tsx). */
 
-.squad-scope{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);margin-block:var(--sp-3)}
-.squad-scope-chip{display:inline-flex;align-items:center;gap:var(--sp-2);min-height:var(--control-md);max-width:100%;padding:var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-4);border:1px solid var(--ds-border-strong);border-radius:var(--radius-pill);background:var(--ds-surface-primary);color:var(--ds-text-primary);font-size:var(--fs-sm);cursor:pointer;transition:border-color var(--ds-duration-fast) var(--ds-ease-standard)}
-.squad-scope-chip:hover{border-color:var(--ds-accent-action)}
-.squad-scope-chip:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px}
-.squad-scope-chip b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800}
-.squad-scope-chip svg{width:1rem;height:1rem;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.squad-scope-kicker{color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:700}
-.squad-scope-manage{min-height:var(--control-md)}
+.squad-scope{display:grid;gap:var(--sp-3);margin-block:var(--sp-3)}
+.squad-hub{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-lg);background:var(--ds-surface-featured);color:var(--ds-surface-raised)}
+.squad-hub-faces{display:flex}
+.squad-hub-faces>*{margin-left:calc(var(--sp-2) * -1);box-shadow:0 0 0 2px var(--ds-surface-featured)}
+.squad-hub-faces>:first-child{margin-left:0}
+.squad-hub-name{display:grid;min-width:0}
+.squad-hub-actions{grid-column:1/-1;display:flex;gap:var(--sp-2)}
+.squad-hub-actions .ds-button{flex:1;min-width:0}
+.squad-hub--compact{grid-template-columns:minmax(0,1fr) auto}
+.squad-hub--compact .squad-hub-actions{grid-column:auto}
+.squad-hub-name b{font-size:var(--fs-lead);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.squad-hub-name small{color:var(--ds-icon-muted);font-size:var(--fs-caption)}
+.squad-hub--compact{padding:var(--sp-2) var(--sp-3)}
 
 .squad-added-notices{display:grid;gap:var(--sp-2);margin-block:var(--sp-3)}
 .squad-added-actions{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-2)}
@@ -111,9 +116,6 @@
 .squad-action small{color:var(--ds-text-secondary);font-size:var(--fs-caption)}
 .squad-action--danger b{color:var(--ds-danger)}
 
-@media(max-width:599px){
-  .squad-scope-chip{flex:1}
-}
 
 /* Squad table extras: record against the viewer, and squad-mates who have gone quiet. */
 .squad-rival{display:flex;flex-wrap:wrap;gap:var(--sp-1-5);margin-top:var(--sp-1)}
@@ -121,3 +123,4 @@
 .squad-rival em.squad-idle{background:var(--ds-canvas-muted);color:var(--ds-text-secondary)}
 .table-card .row.squad-inactive>:not(.person){opacity:.55}
 .table-card .row.squad-inactive .person b{color:var(--ds-text-secondary)}
+
