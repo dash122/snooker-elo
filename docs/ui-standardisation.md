@@ -2,7 +2,23 @@
 
 Reviewed 2026-09-06 against source. This is a code review and migration plan, not a browser-verified visual audit. No application components changed in this pass.
 
-## Guidance findings
+## Overlay follow-up — 2026-10-01
+
+The overlay priority below describes the September baseline. `Dialog`, `Sheet`, `ConfirmDialog` and `BackdropSheet` now share a focus/scroll lifecycle and mixed-family stack. They use unique accessible title IDs, current callbacks without restarting focus effects, live visible/enabled focus targets, fallback panel focus, topmost Escape/backdrop dismissal, inert background content and focus restoration. Scroll locking lasts until the final overlay closes and restores the original page styles and scroll position. Existing skins and caller-owned busy rules remain.
+
+The gallery includes legacy/shared stacking, typing, busy dismissal, hidden/disabled controls, long forms and a confirmation with no enabled controls. Shared button styles now honour `hidden`.
+
+Verification: build and repository tests passed (396 passed, 2 skipped); changed-file ESLint and TypeScript passed; CSS lint passed with 478 existing warnings; design metrics unchanged. Full ESLint still reports existing errors in untouched application/domain files and `.claude/worktrees`. Browser checks covered desktop and 390px mobile gallery focus wrapping, typing, three-layer Escape/restoration, busy dismissal, empty-panel focus and sheet layout. Installed iOS PWA, physical safe-area and software-keyboard behaviour remain device checks. Page-frame and broader sheet-geometry migration remain separate work.
+
+## Selection follow-up — 2026-10-01
+
+`SegmentedControl` now represents a labelled group of pressed buttons. Enabled filters stay in the normal Tab order; optional disabled items are skipped natively. This corrects account result filters, invitation/duration/privacy choices and matrix display modes through the shared component. Date/venue/night/player filters now use the same selection semantics while retaining their specialised layouts. The date scroller follows the pressed selection when scrolling it into view. Admin report periods remain links with `aria-current="page"`, rather than tab roles on navigation.
+
+True home and match content tabs use `app/components/ui/Tabs.tsx`: a `useId()` group ID, linked `TabList`/`TabPanel`, one enabled tab stop, automatic Left/Right/Home/End activation and disabled-option skipping. Every panel ID exists, including inactive panels; inactive content still unmounts. Tab enters the active panel before its content. Existing sliding indicators, Chinese labels, cup counts, focus styles and view state remain.
+
+The gallery distinguishes choices from tabs and includes disabled items and a long Chinese label. Four keyboard-navigation regression tests cover wrapping, disabled skipping, Home/End, removed/empty selections and native keys. Build/tests passed (400 passed, 2 skipped), TypeScript and focused shared-component lint passed, CSS lint has the same 478 warnings, and design metrics are unchanged. Full ESLint retains its prior 258 errors/44 warnings, including existing effect errors in feature files. Desktop/mobile browser checks covered the gallery and public home/match pages; authenticated account/admin screens and installed PWA assistive-technology behaviour require separate checks.
+
+## September guidance findings
 
 The checkout had `CLAUDE.md` but no `AGENTS.md`. The old guidance omitted newer primitives and described colour literals as lint-blocked even though they warn. `AGENTS.md` now provides the shared entry point, inventory, reuse rules, exceptions and proportionate validation. `CLAUDE.md` delegates to it to avoid competing copies.
 

@@ -68,11 +68,11 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
 
       <div className="reports-head">
         <SectionHeader title={zh.eventsTitle} description={zh.eventsSub} />
-        <div className="reports-window-tabs" role="tablist" aria-label={zh.eventsTitle}>
+        <nav className="reports-window-tabs" aria-label={zh.eventsTitle}>
           {WINDOWS.map(w => <a key={w.days} href={reportHref(w.days,selectedEvent ?? undefined)}
-            role="tab" aria-selected={w.days === activeDays}
+            aria-current={w.days === activeDays ? "page" : undefined}
             className={`reports-window-tab${w.days === activeDays ? " active" : ""}`}>{w.label}</a>)}
-        </div>
+        </nav>
       </div>
 
       {counts.length === 0

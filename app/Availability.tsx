@@ -71,13 +71,13 @@ function DateScroller({dates,selected,counts,onSelect}:{dates:string[];selected:
   const t = useT();
  const scrollRef=useRef<HTMLDivElement>(null);
  const move=(direction:-1|1)=>scrollRef.current?.scrollBy({left:direction*Math.max(220,scrollRef.current.clientWidth*.72),behavior:"smooth"});
- useEffect(()=>{scrollRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"})},[selected]);
+ useEffect(()=>{scrollRef.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"})},[selected]);
  return <section className="availability-date-selector" aria-label={t("未來 14 日")}>
   <div className="availability-date-selector-head"><b>{t("選擇日期")}</b><span aria-hidden="true">{t("左右滑動查看未來 14 日")} <i>↔</i></span></div>
   <div className="availability-date-strip-wrap">
    <IconButton className="availability-date-scroll-button previous" label={t("向前捲動日期")} onClick={()=>move(-1)}>‹</IconButton>
-   <div className="availability-date-strip" role="tablist" aria-label={t("選擇日期，左右滑動查看更多")} ref={scrollRef}>
-    {dates.map((value,index)=>{const active=value===selected,count=counts[value]??0,weekday=hkWeekdayLabel(value,t.locale);return <button type="button" key={value} role="tab" aria-label={t("{v}，{date}，{count} 位球員有空", {v: index===0?t("今日"):index===1?t("明日"):weekday, date: hkDateLabel(value,t.locale), count})} aria-selected={active} aria-current={active?"date":undefined} className={active?"active":""} onClick={()=>onSelect(value)}><small>{index===0?t("今日"):index===1?t("明日"):weekday}</small><span>{Number(value.slice(5,7))}/{Number(value.slice(8,10))}</span><strong>{t("{count} 位", {count})}</strong></button>})}
+   <div className="availability-date-strip" role="group" aria-label={t("選擇日期，左右滑動查看更多")} ref={scrollRef}>
+    {dates.map((value,index)=>{const active=value===selected,count=counts[value]??0,weekday=hkWeekdayLabel(value,t.locale);return <button type="button" key={value} aria-label={t("{v}，{date}，{count} 位球員有空", {v: index===0?t("今日"):index===1?t("明日"):weekday, date: hkDateLabel(value,t.locale), count})} aria-pressed={active} aria-current={active?"date":undefined} className={active?"active":""} onClick={()=>onSelect(value)}><small>{index===0?t("今日"):index===1?t("明日"):weekday}</small><span>{Number(value.slice(5,7))}/{Number(value.slice(8,10))}</span><strong>{t("{count} 位", {count})}</strong></button>})}
    </div>
    <IconButton className="availability-date-scroll-button next" label={t("向後捲動日期")} onClick={()=>move(1)}>›</IconButton>
   </div>
