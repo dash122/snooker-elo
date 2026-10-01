@@ -99,12 +99,12 @@ export default function AccountForms({ member, googleStatus }: { member: Member;
   // An account created by signing in with Google has no password of its own,
   // so nothing on this page may ask it to confirm with one.
   const hasPassword = member.hasPassword !== false;
-  return <>
-    <GoogleConnection linked={Boolean(member.googleLinked)} status={googleStatus} hasPassword={hasPassword} />
+  return <div className="settings-list">
     <ProfileSection member={member} hasPassword={hasPassword} />
     <PasswordSection hasPassword={hasPassword} />
+    <GoogleConnection linked={Boolean(member.googleLinked)} status={googleStatus} hasPassword={hasPassword} />
     <DangerZone username={member.username} hasPassword={hasPassword} />
-  </>;
+  </div>;
 }
 
 function GoogleMark() {
@@ -135,8 +135,8 @@ function GoogleConnection({ linked, status, hasPassword }: { linked: boolean; st
   }
 
   return <section className="google-connection" aria-labelledby="google-connection-title">
-    <div className="google-connection-copy"><span className="google-mark"><GoogleMark /></span><div><h3 id="google-connection-title">{t("Google 登入")}</h3><p>{isLinked ? t("已連結。下次可直接使用 Google 安全登入。") : t("連結後可免密碼登入；不會更改你的會員電郵或球員紀錄。")}</p></div></div>
-    {isLinked ? <div className="google-linked-actions"><span className="google-linked"><i aria-hidden="true">✓</i>  {t("已連結")}</span>{hasPassword && <button type="button" className="google-disconnect-trigger" onClick={() => { setDisconnecting(true); setDisconnectStatus("idle"); }}>{t("解除連結")}</button>}</div> : <a className="google-connect-button" href="/api/auth/google?intent=connect">{t("連結 Google")}</a>}
+    <div className="google-connection-copy"><span className="google-mark"><GoogleMark /></span><div><h3 id="google-connection-title">{t("Google 登入")}</h3><p>{isLinked ? t("已連結") : t("連結後可免密碼登入；不會更改你的會員電郵或球員紀錄。")}</p></div></div>
+    {isLinked ? <div className="google-linked-actions"><span className="google-linked"><i aria-hidden="true">✓</i></span>{hasPassword && <button type="button" className="google-disconnect-trigger" onClick={() => { setDisconnecting(true); setDisconnectStatus("idle"); }}>{t("解除連結")}</button>}</div> : <a className="google-connect-button" href="/api/auth/google?intent=connect">{t("連結 Google")}</a>}
     {disconnecting && <form className="google-disconnect-form" onSubmit={disconnect}>
       <p>{t("解除後將無法使用 Google 登入。請輸入目前密碼，確認你仍可使用密碼登入帳戶。")}</p>
       <label htmlFor="google-disconnect-password">{t("目前密碼")}<input id="google-disconnect-password" type="password" autoComplete="current-password" value={currentPassword} onChange={event => setCurrentPassword(event.target.value)} aria-invalid={Boolean(disconnectError)} /></label>
@@ -150,12 +150,13 @@ function GoogleConnection({ linked, status, hasPassword }: { linked: boolean; st
 // Read-only by default — most visits are to check a stat, not to edit
 // anything. Editing is an explicit second step.
 function ProfileSection({ member, hasPassword }: { member: Member; hasPassword: boolean }) {
+  const t = useT();
   const zh = useTranslated(zhTable);
   const [editing, setEditing] = useState(false);
   if (!editing) {
-    return <section className="account-summary-row">
-      <span className="account-summary-email">{member.email}</span>
-      <Button variant="quiet" className="link-trigger" onClick={() => setEditing(true)}>{zh.editProfile}</Button>
+    return <section className="settings-row">
+      <div className="settings-row-copy"><h3>{t("個人資料")}</h3><p>{member.email}</p></div>
+      <Button variant="secondary" aria-label={zh.editProfile} onClick={() => setEditing(true)}>{t("編輯")}</Button>
     </section>;
   }
   return <ProfileForm member={member} hasPassword={hasPassword} onDone={() => setEditing(false)} />;
@@ -228,23 +229,23 @@ function ProfileForm({ member, hasPassword, onDone }: { member: Member; hasPassw
         // eslint-disable-next-line @next/next/no-img-element -- data URI, no loader needed
         ? <img className="member-avatar" src={avatar} alt="" />
         : <div className="member-avatar" style={{ background: avatarHex(iconColour) }}>{shownInitials}</div>}
-      <div className="avatar-picker-actions">
-        <Button variant="quiet" onClick={() => fileInput.current?.click()}>{zh.upload}</Button>
-        {avatar && <Button variant="quiet" onClick={() => setAvatar(null)}>{zh.remove}</Button>}
-        <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden
-          onChange={event => { void pickAvatar(event.target.files?.[0]); event.target.value = ""; }} />
+      <div className="avatar-picker-side">
+        <div className="avatar-picker-actions">
+          <Button variant="secondary" onClick={() => fileInput.current?.click()}>{zh.upload}</Button>
+          {avatar && <Button variant="quiet" onClick={() => setAvatar(null)}>{zh.remove}</Button>}
+          <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" hidden
+            onChange={event => { void pickAvatar(event.target.files?.[0]); event.target.value = ""; }} />
+        </div>
+        {/* The badge the rest of the app draws, at the size it appears in a leaderboard row. */}
+        <div className="badge-preview" aria-label={zh.badgePreview}>
+          {avatar
+            // eslint-disable-next-line @next/next/no-img-element -- data URI, no loader needed
+            ? <i className="player-badge has-photo"><img src={avatar} alt="" /></i>
+            : <i className="player-badge" style={{ background: avatarHex(iconColour) }}>{shownInitials}</i>}
+          <span>{zh.badgePreview}</span>
+        </div>
       </div>
       {fieldErrors.avatar && <small className="field-error">{message(t, fieldErrors.avatar)}</small>}
-    </div>
-
-    {/* The badge the rest of the app draws, shown at the size it appears in a
-        leaderboard row so the choice is judged at its real scale. */}
-    <div className="badge-preview" aria-label={zh.badgePreview}>
-      {avatar
-        // eslint-disable-next-line @next/next/no-img-element -- data URI, no loader needed
-        ? <i className="player-badge has-photo"><img src={avatar} alt="" /></i>
-        : <i className="player-badge" style={{ background: avatarHex(iconColour) }}>{shownInitials}</i>}
-      <p>{zh.badgeHint}</p>
     </div>
 
     <Field label={zh.initials} error={fieldErrors.initials}>
@@ -263,15 +264,17 @@ function ProfileForm({ member, hasPassword, onDone }: { member: Member; hasPassw
       {fieldErrors.iconColour && <small className="field-error">{message(t, fieldErrors.iconColour)}</small>}
     </div>
 
-    <Field label={zh.displayName} error={fieldErrors.displayName}>
-      <input value={displayName} maxLength={40} onChange={event => setDisplayName(event.target.value)} />
-    </Field>
-    <Field label={zh.username} error={fieldErrors.username}>
-      <input value={username} autoComplete="username" onChange={event => setUsername(event.target.value)} />
-    </Field>
-    <Field label={zh.email} error={fieldErrors.email}>
-      <input value={email} type="email" autoComplete="email" onChange={event => setEmail(event.target.value)} />
-    </Field>
+    <div className="account-form-grid">
+      <Field label={zh.displayName} error={fieldErrors.displayName}>
+        <input value={displayName} maxLength={40} onChange={event => setDisplayName(event.target.value)} />
+      </Field>
+      <Field label={zh.username} error={fieldErrors.username}>
+        <input value={username} autoComplete="username" onChange={event => setUsername(event.target.value)} />
+      </Field>
+      <Field label={zh.email} error={fieldErrors.email}>
+        <input value={email} type="email" autoComplete="email" onChange={event => setEmail(event.target.value)} />
+      </Field>
+    </div>
     {identityChanged && <Field label={zh.current} error={fieldErrors.currentPassword}>
       <input value={currentPassword} type="password" autoComplete="current-password" onChange={event => setCurrentPassword(event.target.value)} />
     </Field>}
@@ -285,11 +288,13 @@ function ProfileForm({ member, hasPassword, onDone }: { member: Member; hasPassw
 }
 
 function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
+  const t = useT();
   const zh = useTranslated(zhTable);
   const [editing, setEditing] = useState(false);
   if (!editing) {
-    return <section className="account-summary-row">
-      <Button variant="quiet" className="link-trigger" onClick={() => setEditing(true)}>{hasPassword ? zh.changePassword : zh.setPassword}</Button>
+    return <section className="settings-row">
+      <div className="settings-row-copy"><h3>{t("密碼")}</h3><p>{hasPassword ? "••••••••" : zh.setPasswordHint}</p></div>
+      <Button variant="secondary" aria-label={hasPassword ? zh.changePassword : zh.setPassword} onClick={() => setEditing(true)}>{hasPassword ? t("編輯") : zh.setPassword}</Button>
     </section>;
   }
   return <PasswordForm hasPassword={hasPassword} onDone={() => setEditing(false)} />;
@@ -378,7 +383,7 @@ function DangerZone({ username, hasPassword }: { username: string; hasPassword: 
   }
 
   if (!open) {
-    return <section className="account-danger-trigger">
+    return <section className="settings-danger">
       <Button variant="quiet" className="link-trigger link-trigger-muted" onClick={() => setOpen(true)}>{zh.dangerTrigger}</Button>
     </section>;
   }

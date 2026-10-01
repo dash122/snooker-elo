@@ -12,3 +12,15 @@
 .translation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .translation-badge { font-size: var(--fs-label); }
 .translation-pager { display: flex; justify-content: center; align-items: center; gap: var(--sp-4); font-size: var(--fs-sm); }
+/* One row = source on the left, the editable English on the right. */
+.translation-list { gap: 0; }
+.translation-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); align-items: start; column-gap: var(--sp-4); row-gap: var(--sp-1-5); padding-block: var(--sp-2); }
+.translation-source { grid-row: 1 / span 3; padding-top: var(--sp-1-5); }
+.translation-row > :not(.translation-source) { grid-column: 2; }
+.translation-input { padding: var(--sp-1-5) var(--sp-2-5); line-height: 1.4; }
+.translation-actions .ds-button { min-height: var(--control-sm); }
+@media (max-width: 820px) {
+  .translation-row { grid-template-columns: minmax(0, 1fr); }
+  .translation-source { grid-row: auto; padding-top: 0; }
+  .translation-row > :not(.translation-source) { grid-column: 1; }
+}

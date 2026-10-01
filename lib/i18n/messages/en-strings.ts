@@ -301,7 +301,7 @@ export const enStrings: Record<string, string> = {
   "載入失敗": "Failed to Load",
   "儲存中…": "Saving…",
   "已同步": "Synced",
-  "評分設定與紀錄": "Rating Settings and History",
+  "評分設定": "Rating Settings",
   "完成新會員設定": "Finish Setting Up",
   "設定頭像並回答問題後，即可取得初始評級；完成前無法記錄比賽。": "Set up your avatar and answer a few questions to get your starting rating. You can't record matches until it's done.",
   "立即完成": "Finish Now",

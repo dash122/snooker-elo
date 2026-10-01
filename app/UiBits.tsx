@@ -9,44 +9,34 @@ export type EloTrendPoint = {
   opponent:string; opponentShort:string; score:string; result:"W"|"L"|"D"|"start";
 };
 export const sortLabels:Record<SortKey,string>={rank:msg("排名"),name:msg("球員"),rating:"ELO",change:msg("近10天ELO變化"),form:msg("近況"),official:msg("正式評分"),suggested:msg("建議評分"),games:msg("場數"),winRate:msg("勝率"),frameRate:msg("局數勝率")};
-
-/**
- * The primary navigation's five icons share a quiet matchroom vocabulary:
- * podium, scorecard, calendar slot, roster and rating dial. Active state is
- * a stroke-width/colour change only — no partial fills — so the set reads
- * as one coherent family at the 20px size used by both desktop and mobile
- * navigation.
- */
+/** Tab-bar glyphs: one simple rounded silhouette each. Selection is carried by the tab's own colour and
+    highlight plus a soft tint inside the same fine outline (never a solid fill, which fought the pill). */
 export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"availability"|"players"|"settings";active:boolean}) {
-  const line={fill:"none",stroke:"currentColor",strokeWidth:active?2.1:1.75,strokeLinecap:"round" as const,strokeLinejoin:"round" as const};
-  const svgProps={width:21,height:21,viewBox:"0 0 24 24","aria-hidden":true,focusable:"false" as const};
+  const svgProps={width:24,height:24,viewBox:"0 0 24 24","aria-hidden":true,focusable:"false" as const};
+  const line={fill:"none",stroke:"currentColor",strokeWidth:1.5,strokeLinecap:"round" as const,strokeLinejoin:"round" as const};
+  const body={...line,fill:active?"currentColor":"none",fillOpacity:.16};
   switch(id){
     case "leaderboard":return <svg {...svgProps}>
-      <path d="M3.5 19.5h17" {...line}/>
-      <rect x="5" y="12" width="4" height="7.5" rx="1" {...line}/>
-      <rect x="10" y="8" width="4" height="11.5" rx="1" {...line}/>
-      <rect x="15" y="4.5" width="4" height="15" rx="1" {...line}/>
+      <rect x="3.5" y="12" width="5.2" height="8.5" rx="1.8" {...body}/>
+      <rect x="9.4" y="4.5" width="5.2" height="16" rx="1.8" {...body}/>
+      <rect x="15.3" y="9" width="5.2" height="11.5" rx="1.8" {...body}/>
     </svg>;
     case "matches":return <svg {...svgProps}>
-      <rect x="3.5" y="5" width="17" height="14" rx="2.5" {...line}/>
-      <path d="M5.5 9h13M12 9v8M6.5 12.5h3M14.5 12.5h3M6.5 16h3M14.5 16h3" {...line}/>
-      <circle cx="8" cy="7" r="1" {...line}/><circle cx="16" cy="7" r="1" {...line}/>
+      <circle cx="12" cy="12" r="8.5" {...body}/>
+      <circle cx="12" cy="12" r="3.1" {...line}/>
     </svg>;
     case "availability":return <svg {...svgProps}>
-      <rect x="4" y="5.5" width="16" height="14" rx="2.5" {...line}/>
-      <path d="M8 3.5v4M16 3.5v4M4 9.5h16M8 13h.01M12 13h.01M16 13h.01M8 16.5h.01M12 16.5h.01" {...line}/>
-      <circle cx="16" cy="16.5" r="1.05" {...line}/>
+      <rect x="4" y="5.5" width="16" height="14.5" rx="3.5" {...body}/>
+      <path d="M4 10.8h16M8.5 3.3v3.4M15.5 3.3v3.4" {...line}/>
     </svg>;
     case "players":return <svg {...svgProps}>
-      <circle cx="9" cy="8" r="3.1" {...line}/>
-      <path d="M3.5 19.5c.2-3.4 2.3-5.5 5.5-5.5 2.2 0 3.9.9 4.8 2.6" {...line}/>
-      <circle cx="16.5" cy="9" r="2.4" {...line}/>
-      <path d="M13.8 15.3c.8-.8 1.8-1.3 3.1-1.3 2.3 0 3.8 1.8 4.1 5.5" {...line}/>
+      <circle cx="12" cy="7.9" r="3.8" {...body}/>
+      <path d="M4.6 20.2c0-3.9 3.2-6.2 7.4-6.2s7.4 2.3 7.4 6.2" {...body}/>
     </svg>;
     case "settings":return <svg {...svgProps}>
-      <circle cx="12" cy="12" r="4.2" {...line}/>
-      <path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2" {...line}/>
-      <circle cx="12" cy="12" r="1.15" {...line}/>
+      <path d="M4 8h2.2M11.8 8H20M4 16h8.2M17.8 16H20" {...line}/>
+      <circle cx="9" cy="8" r="2.8" {...body}/>
+      <circle cx="15" cy="16" r="2.8" {...body}/>
     </svg>;
   }
 }
