@@ -1,6 +1,8 @@
 @layer tokens {
   :root {
     color-scheme: light;
+    /* Supporting descriptions and metadata stay regular, even inside bold controls. */
+    --fw-secondary:400;
     --ds-canvas-brand:#082c27;--ds-canvas-brand-deep:#041f1b;
     --ds-canvas-functional:#f4f3ed;--ds-canvas-muted:#e9ece6;
     --ds-surface-primary:#fffefa;--ds-surface-secondary:#f7f6ef;

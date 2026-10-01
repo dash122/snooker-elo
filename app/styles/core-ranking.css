@@ -56,3 +56,7 @@
   }
 }
 .podium-card small{font-size:var(--fs-label)}
+
+/* Player-card supporting records must not inherit the row button weight. */
+.rivalry-person em{font-weight:var(--fw-secondary);color:var(--ds-text-secondary);font-size:var(--fs-label);font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rivalry-heat>small{font-weight:var(--fw-secondary);font-size:var(--fs-label);color:var(--ds-text-secondary)}

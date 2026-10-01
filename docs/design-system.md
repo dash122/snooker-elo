@@ -9,6 +9,11 @@ historical migration notes below are not an exhaustive account of today's config
 
 ## Type — use a token, never a number
 
+Supporting descriptions and metadata use `font-weight: var(--fw-secondary)` (400).
+This includes win/loss/draw summaries, team member counts, form hints, notice descriptions
+and stat labels. Set the weight on the supporting text itself so bold buttons or headings
+cannot pass their weight down to it. Keep names, headings, actions and primary values emphasized.
+
 ```css
 font-size: var(--fs-body);   /* ✅ */
 font-size: 14px;             /* ❌ stylelint rejects this */
