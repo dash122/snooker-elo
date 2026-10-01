@@ -101,7 +101,11 @@ export function useResumePendingJoin(signedIn: boolean) {
 /** Records each arrival on a squad's table (not re-renders of the same one). */
 export function useSquadViewTracking(squad: MySquad | null) {
   const id = squad?.id, size = squad?.memberCount;
-  useEffect(() => { if (id) trackAvailabilityEvent("squad_view", { squadId: id, memberCount: size }); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!id) return;
+    writeList(RECENT_KEY, [id, ...readList(RECENT_KEY).filter(item => item !== id)].slice(0, 20));
+    trackAvailabilityEvent("squad_view", { squadId: id, memberCount: size });
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /** The squad to land on when someone flips the scope to 球隊: last used, then pinned, then any of theirs. */
