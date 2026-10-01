@@ -23,7 +23,7 @@ export default function SnapshotList({ snapshots, restoreLabel, confirmMessage }
         </form>
       </li>)}
     </ul>
-    {pendingForm && <ConfirmDialog kicker="還原快照" titleId="restore-snapshot-title" title={confirmMessage} description="還原後，目前的資料會被取代。" onClose={() => setPendingForm(null)}>
+    {pendingForm && <ConfirmDialog kicker="還原快照" titleId="restore-snapshot-title" title={confirmMessage} description="目前的球會資料會由快照取代；會員帳戶及約戰資料不包括在內。" onClose={() => setPendingForm(null)}>
       <Button variant="secondary" onClick={() => setPendingForm(null)}>取消</Button>
       <Button variant="danger" onClick={() => { const form = pendingForm; setPendingForm(null); skipConfirm.current = true; form.requestSubmit(); }}>確定還原</Button>
     </ConfirmDialog>}

@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
+import type { JSONValue } from "postgres";
 import { getSql } from "./sql";
 import { insertChunks } from "../lib/bulk-insert";
+import { retainedSnapshotIds, sameSnapshotItems, type SnapshotItem } from "../lib/snapshot-policy";
+import { changedStateUpsert } from "./state-upsert";
 
 type Player = { id:string; name:string; short:string; handicap:number|null; rating:number; colour?:string; avatar?:string|null; initialRating:number; preliminaryRating?:number|null; active:boolean; wins:number; losses:number; draws:number; framesWon:number; framesLost:number; lastChange:number; form:string[] };
 type Match = { id:string; a:string; b:string; a2?:string; b2?:string; mode?:string; teamAName?:string; teamBName?:string; scoreA:number; scoreB:number; playedOn:string; entryMode?:("match"|"aggregate"); frameEvidence?:number; performanceScore?:number; evidenceWeight?:number; handicapAdjustment?:number; overHandicapElo?:number; overHandicapMultiplier?:number; highBreaks?:{playerId:string;value:number}[]; actual:number; giver:string|null; official:number|null; extra:number; expectedA:number; beforeA:number; beforeB:number; beforeA2?:number; beforeB2?:number; afterA:number; afterB:number; afterA2?:number; afterB2?:number; deltaA:number; deltaB?:number; deltaA2?:number; deltaB2?:number; marginMultiplier?:number; status:("confirmed"|"void"); createdAt:string; tournamentId?:string; tournamentRound?:number; tournamentMatchIndex?:number };
@@ -259,8 +262,8 @@ export async function getMatchmakingSlice(): Promise<MatchmakingSlice> {
 const isoUtc = (column: string) => `to_char(${column} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
 /* A cheap "has anything changed?" fingerprint, used to answer a conditional GET without
-   building the whole document. Every save goes through putState, which always rewrites
-   state_settings.updated_at, so that timestamp alone moves on any ordinary edit; the counts
+   building the whole document. putState advances state_settings.updated_at only when
+   live data changes, including deletions and audit edits; the counts
    and per-table high-water marks are belt and braces for anything that writes a state table
    directly. Rows are tiny, so this is orders of magnitude cheaper than the document query. */
 const versionExpression = (hasUpdatedAt: boolean) => `md5(json_build_object(
@@ -292,7 +295,7 @@ const versionExpression = (hasUpdatedAt: boolean) => `md5(json_build_object(
    So: probe the catalog instead. It is a cheap, lock-free read, cached per instance, and the
    schema is left to migrations. When the columns really are missing we degrade — the version
    fingerprint drops those high-water marks (counts plus state_settings.updated_at still move
-   on every ordinary edit, since putState always rewrites that row) and writes simply omit the
+   on every real state change, since putState advances that marker) and writes simply omit the
    columns. */
 let updatedAtColumnsPresent: Promise<boolean> | null = null;
 function hasUpdatedAtColumns(): Promise<boolean> {
@@ -518,12 +521,6 @@ export async function putState(data: string) {
   const stamped = <T extends Record<string, unknown>>(row: T) => (hasUpdatedAt ? { ...row, updated_at: new Date() } : row);
   const state = JSON.parse(data) as State;
   const sql = getSql();
-  /* A nested sql`` fragment, NOT a string. postgres.js interpolates a plain JS string as a bind
-     parameter — `...excluded.form${",updated_at=excluded.updated_at"}` compiled to
-     `...excluded.form$469`, and every save died on "column excluded.form$469 does not exist".
-     Only a value that is itself a Query is spliced in as SQL (see stringifyValue in
-     postgres/src/types.js), so the two branches have to be fragments, empty one included. */
-  const stampedSet = hasUpdatedAt ? sql`,updated_at=excluded.updated_at` : sql``;
   await sql.begin(async tx => {
     // The database role can have a short lock_timeout configured globally.
     // State writes are intentionally serialized by the advisory lock below,
@@ -536,51 +533,47 @@ export async function putState(data: string) {
     // — previously it could sit for 10+ minutes, queueing up every other write.
     await tx`SET LOCAL idle_in_transaction_session_timeout = '10s'`;
     await tx`SELECT pg_advisory_xact_lock(72591003)`;
-    // Snapshots exist for admin rollback, not per-save auditing — writing one
-    // on every save (some of which are near-identical, seconds apart) grew the
-    // table without bound. Throttle to at most one per hour and cap history to
-    // the most recent 100, so storage stays flat regardless of save frequency.
-    const snapshotRows = await tx<{ id: number }[]>`INSERT INTO app_state_snapshots (state)
-      SELECT NULL::jsonb
-      WHERE NOT EXISTS (SELECT 1 FROM app_state_snapshots WHERE saved_at > now() - interval '1 hour')
-      RETURNING id`;
-    if (snapshotRows.length) {
-      const snapshotId = snapshotRows[0].id;
-      // Enumerate and hash once. This walks every player, match, tournament and
-      // audit entry and canonicalises each to JSON before hashing it, so doing it
-      // a second time for the items rows meant hashing the entire club twice on a
-      // 10-second serverless budget.
-      const hashed = snapshotEntities(state).map(entity => ({
-        ...entity,
-        contentHash: snapshotHash(entity.entityType, entity.entityId, entity.payload),
-      }));
-      const entities = hashed.map(entity => ({
-        content_hash: entity.contentHash,
-        entity_type: entity.entityType,
-        entity_id: entity.entityId,
-        payload: tx.json(entity.payload as any),
-      }));
-      for (const chunk of insertChunks(entities)) await tx`INSERT INTO app_state_snapshot_entities ${tx(chunk)} ON CONFLICT (content_hash) DO NOTHING`;
-      const items = hashed.map(entity => ({
-        snapshot_id: snapshotId,
-        entity_type: entity.entityType,
-        entity_id: entity.entityId,
-        content_hash: entity.contentHash,
-        position: entity.position,
-      }));
-      for (const chunk of insertChunks(items)) await tx`INSERT INTO app_state_snapshot_items ${tx(chunk)}`;
-      // Inside the `if`, not after it. Trimming can only have work to do when a
-      // snapshot was just added — no new snapshot means none fell off the end of
-      // the hundred, which means no entity was orphaned either. Run
-      // unconditionally, these were the two most expensive statements in an
-      // ordinary save: app_state_snapshot_items holds up to a hundred snapshots
-      // times every player and match in the club, and the orphan sweep is an
-      // anti-join across the whole of it and the whole entities table. Gated,
-      // they run at most once an hour, which is the snapshot rate anyway.
-      await tx`DELETE FROM app_state_snapshots WHERE id NOT IN (SELECT id FROM app_state_snapshots ORDER BY saved_at DESC LIMIT 100)`;
-      await tx`DELETE FROM app_state_snapshot_entities e WHERE NOT EXISTS (SELECT 1 FROM app_state_snapshot_items i WHERE i.content_hash = e.content_hash)`;
+    const [snapshotClock] = await tx<{ now: Date; due: boolean }[]>`SELECT now() AS now,
+      NOT EXISTS (SELECT 1 FROM app_state_snapshots WHERE saved_at > now() - interval '1 hour') AS due`;
+    if (snapshotClock.due) {
+      const [latest] = await tx<{ id: number; state: State | null }[]>`SELECT id, state FROM app_state_snapshots ORDER BY saved_at DESC, id DESC LIMIT 1`;
+      const previousItems = latest && !latest.state
+        ? await tx<SnapshotItem[]>`SELECT entity_type AS "entityType", entity_id AS "entityId", content_hash AS "contentHash", position FROM app_state_snapshot_items WHERE snapshot_id = ${latest.id}`
+        : [];
+      // Canonicalise once, and compare the complete manifest before inserting.
+      const hashed = snapshotEntities(state).map(entity => ({ ...entity,
+        contentHash: snapshotHash(entity.entityType, entity.entityId, entity.payload) }));
+      if (!latest || latest.state || !sameSnapshotItems(previousItems, hashed)) {
+        const [snapshot] = await tx<{ id: number }[]>`INSERT INTO app_state_snapshots (state) VALUES (NULL) RETURNING id`;
+        const snapshotId = snapshot.id;
+        const entities = hashed.map(entity => ({
+          content_hash: entity.contentHash,
+          entity_type: entity.entityType,
+          entity_id: entity.entityId,
+          payload: tx.json(entity.payload as JSONValue),
+        }));
+        for (const chunk of insertChunks(entities)) await tx`INSERT INTO app_state_snapshot_entities ${tx(chunk)} ON CONFLICT (content_hash) DO NOTHING`;
+        const items = hashed.map(entity => ({
+          snapshot_id: snapshotId,
+          entity_type: entity.entityType,
+          entity_id: entity.entityId,
+          content_hash: entity.contentHash,
+          position: entity.position,
+        }));
+        for (const chunk of insertChunks(items)) await tx`INSERT INTO app_state_snapshot_items ${tx(chunk)}`;
+      }
+      // Also runs for an identical eligible save, so old deployments converge
+      // to the smaller policy without needing a new snapshot first.
+      const snapshots = await tx<{ id: number; savedAt: Date }[]>`SELECT id, saved_at AS "savedAt" FROM app_state_snapshots`;
+      const keepIds = retainedSnapshotIds(snapshots, +new Date(snapshotClock.now));
+      if (snapshots.length > keepIds.length) {
+        await tx`DELETE FROM app_state_snapshots WHERE NOT (id = ANY(${keepIds}::bigint[]))`;
+        await tx`DELETE FROM app_state_snapshot_entities e WHERE NOT EXISTS (SELECT 1 FROM app_state_snapshot_items i WHERE i.content_hash = e.content_hash)`;
+      }
     }
-    await tx`INSERT INTO state_settings (id, data, updated_at) VALUES (true, ${tx.json(state.settings as any)}, now()) ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`;
+    let changed = false;
+    const track = (result: { count: number }) => { if (result.count > 0) changed = true; };
+    track(await tx`INSERT INTO state_settings (id, data, updated_at) VALUES (true, ${tx.json(state.settings as JSONValue)}, now()) ON CONFLICT (id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at WHERE state_settings.data IS DISTINCT FROM excluded.data`);
 
     // Each table below does at most one bulk upsert plus one bulk stale-row
     // delete, instead of a round trip per row — a save with dozens of players
@@ -595,7 +588,7 @@ export async function putState(data: string) {
     // Matches are deleted before players are touched: state_matches has an
     // ON DELETE RESTRICT FK to state_players, so a stale match referencing a
     // stale player would block that player's delete if it were still around.
-    await tx`DELETE FROM state_matches WHERE NOT (id = ANY(${matchIds}::text[]))`;
+    track(await tx`DELETE FROM state_matches WHERE NOT (id = ANY(${matchIds}::text[]))`);
 
     if (state.players.length) {
       const rows = state.players.map(p => ({
@@ -605,10 +598,9 @@ export async function putState(data: string) {
         frames_won: p.framesWon, frames_lost: p.framesLost, last_change: p.lastChange,
         form: tx.json(p.form),
       })).map(stamped);
-      for (const chunk of insertChunks(rows)) await tx`INSERT INTO state_players ${tx(chunk)}
-        ON CONFLICT (id) DO UPDATE SET name=excluded.name,short=excluded.short,handicap=excluded.handicap,rating=excluded.rating,colour=excluded.colour,avatar=excluded.avatar,initial_rating=excluded.initial_rating,preliminary_rating=excluded.preliminary_rating,active=excluded.active,wins=excluded.wins,losses=excluded.losses,draws=excluded.draws,frames_won=excluded.frames_won,frames_lost=excluded.frames_lost,last_change=excluded.last_change,form=excluded.form${stampedSet}`;
+      for (const chunk of insertChunks(rows)) track(await changedStateUpsert(tx, "state_players", chunk));
     }
-    await tx`DELETE FROM state_players WHERE NOT (id = ANY(${playerIds}::text[]))`;
+    track(await tx`DELETE FROM state_players WHERE NOT (id = ANY(${playerIds}::text[]))`);
 
     if (state.matches.length) {
       const rows = state.matches.map(m => ({
@@ -625,8 +617,7 @@ export async function putState(data: string) {
         margin_multiplier: m.marginMultiplier ?? null, tournament_id: m.tournamentId ?? null, tournament_round: m.tournamentRound ?? null, tournament_match_index: m.tournamentMatchIndex ?? null,
         status: m.status, created_at: m.createdAt,
       })).map(stamped);
-      for (const chunk of insertChunks(rows)) await tx`INSERT INTO state_matches ${tx(chunk)}
-        ON CONFLICT (id) DO UPDATE SET player_a=excluded.player_a,player_b=excluded.player_b,player_a2=excluded.player_a2,player_b2=excluded.player_b2,mode=excluded.mode,team_a_name=excluded.team_a_name,team_b_name=excluded.team_b_name,score_a=excluded.score_a,score_b=excluded.score_b,played_on=excluded.played_on,entry_mode=excluded.entry_mode,frame_evidence=excluded.frame_evidence,performance_score=excluded.performance_score,evidence_weight=excluded.evidence_weight,handicap_adjustment=excluded.handicap_adjustment,over_handicap_elo=excluded.over_handicap_elo,over_handicap_multiplier=excluded.over_handicap_multiplier,high_breaks=excluded.high_breaks,actual=excluded.actual,giver=excluded.giver,official=excluded.official,extra=excluded.extra,expected_a=excluded.expected_a,before_a=excluded.before_a,before_b=excluded.before_b,before_a2=excluded.before_a2,before_b2=excluded.before_b2,after_a=excluded.after_a,after_b=excluded.after_b,after_a2=excluded.after_a2,after_b2=excluded.after_b2,delta_a=excluded.delta_a,delta_b=excluded.delta_b,delta_a2=excluded.delta_a2,delta_b2=excluded.delta_b2,margin_multiplier=excluded.margin_multiplier,tournament_id=excluded.tournament_id,tournament_round=excluded.tournament_round,tournament_match_index=excluded.tournament_match_index,status=excluded.status,created_at=excluded.created_at${stampedSet}`;
+      for (const chunk of insertChunks(rows)) track(await changedStateUpsert(tx, "state_matches", chunk));
     }
 
     if (state.tournaments.length) {
@@ -641,19 +632,15 @@ export async function putState(data: string) {
         drawn_at: t.drawnAt ?? null, walkovers: t.walkovers?.length ? tx.json(t.walkovers) : null,
         ...(hasArrivalTimes ? { arrival_times: tx.json(t.arrivalTimes ?? {}) } : {}),
       })).map(stamped);
-      const coHostsSet = hasCoHosts ? sql`,co_hosts=excluded.co_hosts` : sql``;
-      const rosterOrderSet = hasRosterOrder ? sql`,roster_order=excluded.roster_order` : sql``;
-      const arrivalTimesSet = hasArrivalTimes ? sql`,arrival_times=excluded.arrival_times` : sql``;
-      for (const chunk of insertChunks(rows)) await tx`INSERT INTO state_tournaments ${tx(chunk)}
-        ON CONFLICT (id) DO UPDATE SET name=excluded.name,handicap_mode=excluded.handicap_mode,start_at=excluded.start_at,signup_deadline=excluded.signup_deadline,created_at=excluded.created_at,created_by=excluded.created_by${coHostsSet}${rosterOrderSet},signups=excluded.signups,draw=excluded.draw,drawn_at=excluded.drawn_at,walkovers=excluded.walkovers${arrivalTimesSet}${stampedSet}`;
+      for (const chunk of insertChunks(rows)) track(await changedStateUpsert(tx, "state_tournaments", chunk));
     }
-    await tx`DELETE FROM state_tournaments WHERE NOT (id = ANY(${tournamentIds}::text[]))`;
+    track(await tx`DELETE FROM state_tournaments WHERE NOT (id = ANY(${tournamentIds}::text[]))`);
     if (state.audits.length) {
       const rows = state.audits.map(a => ({ id: a.id, text: a.text, occurred_at: a.at }));
-      for (const chunk of insertChunks(rows)) await tx`INSERT INTO state_audits ${tx(chunk)}
-        ON CONFLICT (id) DO UPDATE SET text=excluded.text,occurred_at=excluded.occurred_at`;
+      for (const chunk of insertChunks(rows)) track(await changedStateUpsert(tx, "state_audits", chunk));
     }
-    await tx`DELETE FROM state_audits WHERE NOT (id = ANY(${auditIds}::text[]))`;
+    track(await tx`DELETE FROM state_audits WHERE NOT (id = ANY(${auditIds}::text[]))`);
+    if (changed) await tx`UPDATE state_settings SET updated_at = now() WHERE id = true`;
   });
 }
 
