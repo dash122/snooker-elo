@@ -2144,8 +2144,6 @@ export const enStrings: Record<string, string> = {
   "ELO 及近30天ELO變化": "ELO and 30-day ELO change",
   "你 {wins}勝 {losses}負（對佢）": "You {wins}W–{losses}L",
   "隊友對戰": "Teammate matchup",
-  "球員 A": "Player A",
-  "球員 B": "Player B",
   "{a} {wins}勝 {losses}負{draws}": "{a} {wins}W–{losses}L{draws}",
   " {draws}和": "–{draws}D",
   "{a} 同 {b} 未交手": "{a} and {b} haven't played",
