@@ -1,0 +1,18 @@
+/* One account entry contains preferences; transient sync status stays quiet. */
+.ds-app-shell > main > .app-header { min-height: var(--control-lg); padding-block: var(--sp-2); gap: var(--sp-3); }
+.app-header-actions { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; margin-inline-start: auto; }
+.app-header-status { color: var(--ds-text-secondary); font-size: var(--fs-caption); }
+.app-header-status:empty { display: none; }
+.app-header-status.is-error { color: var(--ds-danger); }
+.app-account-trigger { gap: var(--sp-2); max-width: 12rem; font-weight: 600; }
+.app-account-trigger svg { flex: none; }
+.app-account-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-account-menu { min-width: 0; }
+@media (max-width: 820px) {
+  .ds-app-shell > main > .app-header { min-height: var(--control-lg); }
+  .app-header-actions { gap: var(--sp-2); }
+  .app-account-trigger { max-width: 8rem; padding-inline: var(--sp-3); }
+}
+@media (max-width: 380px) {
+  .app-header-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+}

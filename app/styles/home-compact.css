@@ -60,8 +60,8 @@
   }
 }
 
-/* --- Leaderboard header: title menu (scope) + trailing sort/filter menu ------------------------- */
-.ds-app-shell .board-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-4); }
+/* Scope identity; search and filters live with the list below. */
+.ds-app-shell .board-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-3); }
 .ds-app-shell .board-scope { min-width: 0; }
 .ds-app-shell .board-scope__trigger {
   display: inline-flex; align-items: center; gap: var(--sp-1); max-width: 100%;
@@ -71,12 +71,7 @@
 .ds-app-shell .board-scope__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ds-app-shell .board-scope__trigger svg { flex: none; color: var(--ds-text-secondary); transition: transform var(--ds-duration-standard) var(--ds-ease-standard); }
 .ds-app-shell .board-scope__trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
-.ds-app-shell .board-filter__trigger {
-  display: grid; place-items: center; width: var(--control-md); height: var(--control-md); padding: 0;
-  border: 1px solid var(--ds-border-muted); border-radius: var(--radius-pill);
-  background: var(--ds-surface-primary); color: var(--ds-text-primary);
-  transition: background var(--ds-duration-standard) var(--ds-ease-standard);
-}
+.ds-app-shell .board-filter__trigger { gap: var(--sp-1-5); padding: var(--sp-2) var(--sp-3); white-space: nowrap; font-weight: 600; }
 .ds-app-shell .board-filter__trigger.is-active { border-color: transparent; background: var(--ds-accent-action); color: var(--ds-text-on-brand); }
 .ds-app-shell .board-sub { margin: 0; color: var(--ds-text-secondary); font-size: var(--fs-caption); }
 .ds-app-shell .board-head + .home-view-nav,
@@ -92,7 +87,7 @@
 
 /* Search: an inset field, iOS style. */
 .ds-app-shell .board-search {
-  display: flex; align-items: center; gap: var(--sp-2); min-height: var(--control-md); margin-bottom: var(--sp-3); padding: 0 var(--sp-3);
+  display: flex; align-items: center; gap: var(--sp-2); min-height: var(--control-md); margin-bottom: 0; padding: 0 var(--sp-3);
   border-radius: var(--radius-md); background: var(--ds-canvas-muted); color: var(--ds-text-secondary);
 }
 .ds-app-shell .board-search:focus-within { outline: 3px solid var(--ds-focus); outline-offset: 2px; }
@@ -139,6 +134,29 @@
 .ds-app-shell .board-heading { min-width: 0; }
 .ds-app-shell .board-title { margin: 0; font-size: var(--fs-h2); letter-spacing: -.02em; }
 .ds-app-shell .board-sub { margin-top: var(--sp-1); }
+.ds-app-shell .board-heading { width: 100%; }
 .ds-app-shell .board-self-label { margin-inline-start: var(--sp-2); color: var(--ds-accent-action); font-size: var(--fs-label); font-style: normal; font-weight: 600; }
 .ds-app-shell .ranking-panel { padding: 0; border: 0; background: transparent; box-shadow: none; }
 .ds-app-shell .ranking-panel .table-card { box-shadow: none; }
+
+/* Content navigation is a light underline; scope above remains a segmented choice. */
+.ds-app-shell .app-page-leaderboard > .board-view-tabs {
+  display: flex; width: 100%; min-height: var(--control-md); height: auto; gap: var(--sp-2); margin: var(--sp-2) 0 var(--sp-3); padding: 0;
+  border: 0; border-bottom: 1px solid var(--ds-border-subtle); border-radius: 0;
+  background: var(--ds-canvas-functional); box-shadow: none;
+}
+.ds-app-shell .app-page-leaderboard > .board-view-tabs > button {
+  flex: 1 1 0; min-width: 0; min-height: var(--control-md); height: var(--control-md); padding: var(--sp-2) var(--sp-1);
+  border-radius: 0; font-weight: 500; color: var(--ds-text-secondary);
+}
+.ds-app-shell .app-page-leaderboard > .board-view-tabs > button.active { color: var(--ds-accent-action); font-weight: 700; }
+.ds-app-shell .app-page-leaderboard > .board-view-tabs > .sliding-toggle-thumb {
+  top: auto; bottom: 0; height: 2px; border-radius: var(--radius-2xs); background: var(--ds-accent-action); box-shadow: none;
+}
+.ds-app-shell .app-page-leaderboard > .board-view-tabs > button.active::after,
+.ds-app-shell .app-page-leaderboard > .board-view-tabs > button.active span::after { content: none; }
+.ds-app-shell .app-page-leaderboard > .board-view-tabs > button.active span { height: auto; }
+.ds-app-shell .board-toolbar { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.ds-app-shell .board-toolbar .board-search { flex: 1; min-width: 0; }
+.ds-app-shell .board-toolbar .board-filter { flex: none; margin-inline-start: auto; }
+.ds-app-shell .board-toolbar--end { justify-content: flex-end; }

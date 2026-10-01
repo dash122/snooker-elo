@@ -65,9 +65,6 @@
 @media (max-width: 820px) {
   .ds-app-shell > main { padding-bottom: calc(6.5rem + env(safe-area-inset-bottom)); }
   .ds-app-shell > main > header { min-height: 4.5rem; height: auto; gap: var(--sp-2); padding-block: var(--sp-2); }
-  .ds-app-shell .account-actions { gap: var(--sp-2); min-width: 0; }
-  .ds-app-shell .account-link { min-height: var(--club-control-height); max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ds-app-shell .header-settings { min-width: var(--club-control-height); min-height: var(--club-control-height); }
   .ds-app-shell .app-page-leaderboard > .hero { margin-inline: 0; border-radius: var(--radius-md); min-height: 0; padding: var(--sp-6) var(--sp-5); box-shadow: none; }
   .ds-app-shell .app-page-leaderboard > .hero h1 { font-size: clamp(2rem, 8.5vw, 3rem); line-height: 1.15; letter-spacing: -.025em; }
   .ds-app-shell .app-page-leaderboard > .hero p:not(.kicker) { font-size: var(--fs-sm); line-height: 1.7; color: var(--ds-text-on-brand-secondary); }
@@ -122,8 +119,6 @@
 @media (max-width: 380px) {
   .ds-app-shell .mobile-brand .site-brand-wordmark { width: 5.75rem; }
   .ds-app-shell .mobile-brand .site-brand-mark { width: 30px; height: 30px; }
-  .ds-app-shell .account-actions { gap: var(--sp-1); }
-  .ds-app-shell .account-link { font-size: var(--fs-label); padding-inline: var(--sp-2); }
   .ds-app-shell .home-view-panel { padding-inline: var(--sp-3); }
   .ds-app-shell .ranking-panel :is(.row, .row-head-mobile) { grid-template-columns: 1.5rem minmax(0, 1fr) 3.125rem 3rem; column-gap: var(--sp-1); }
   .ds-app-shell .ranking-panel .row > .form { width: 3.125rem; }

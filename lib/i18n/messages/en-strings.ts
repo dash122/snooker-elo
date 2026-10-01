@@ -2,6 +2,9 @@
  *  Generated once from the source strings; edit values freely, and add an entry whenever new Chinese copy
  *  is added to the app. `tests/i18n.test.mjs` fails if a `t("…")` or `msg("…")` literal has no entry here. */
 export const enStrings: Record<string, string> = {
+  "帳戶及偏好": "Account and Preferences",
+  "帳戶": "Account",
+  "篩選": "Filter",
   "對話框": "Dialog",
   // app/Availability.tsx
   "{hours} 小時{v}": "{hours, plural, one {# hour} other {# hours}}{v}",

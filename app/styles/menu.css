@@ -18,7 +18,8 @@
   display: grid; grid-template-columns: 1.25rem minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2);
   width: 100%; min-height: var(--control-md); padding: 0 var(--sp-3) 0 var(--sp-2);
   border: 0; border-radius: var(--radius-sm); background: transparent;
-  color: var(--ds-text-primary); font-size: var(--fs-sm); text-align: left;
+  color: var(--ds-text-primary); font-size: var(--fs-sm); font-weight: 500; text-align: left;
+  text-decoration: none;
 }
 .ds-menu__item:hover, .ds-menu__item:focus-visible { background: var(--ds-canvas-functional); outline: none; }
 .ds-menu__item[aria-checked="true"] { font-weight: 700; }
