@@ -36,10 +36,10 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
   const t = useT();
   const [copied,setCopied]=useState(false);
   if(!cup)return <main className="share-page"><div className="share-card">
-    <p className="share-kicker">{t("SCAA Snooker · 盃賽")}</p>
+    <p className="share-kicker">{t("Snooker ELO · 盃賽")}</p>
     <h1>{t("搵唔到呢個盃賽")}</h1>
     <p className="share-note">{t("連結可能已經失效，或者盃賽已被刪除。")}</p>
-    <Link className="primary full share-cta" href="/">{t("開啟 SCAA Snooker")}</Link>
+    <Link className="primary full share-cta" href="/">{t("開啟 Snooker ELO")}</Link>
   </div></main>;
 
   const {share}=cup;
@@ -66,7 +66,7 @@ export default function CupShareView({cup,url,signedIn}:{cup:SharedCup|null;url:
         <span className="cup-art-cup">🏆</span><i className="cup-art-ball red"/><i className="cup-art-ball white"/><i className="cup-art-arc"/>
       </div>
       <div className="cup-share-hero-body">
-        <p className="share-kicker">{t("SCAA Snooker · 盃賽")}</p>
+        <p className="share-kicker">{t("Snooker ELO · 盃賽")}</p>
         <h1>{cup.name}</h1>
         <p className="cup-share-status"><span className={`cup-chip is-${share.status}`}>{t(STATUS_LABEL[share.status])}</span>
           {urgency.label&&share.status==="signup"&&<span className={`cup-urgency${urgency.hot?" hot":""}`}>{urgency.label}</span>}

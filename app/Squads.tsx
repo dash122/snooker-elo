@@ -6,6 +6,7 @@ import { useT } from "./components/I18nProvider";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { Button, Chip, EmptyState, FormField, IconButton, InlineNotice, SegmentedControl, Skeleton } from "./components/ui/Primitives";
 import { Sheet } from "./components/ui/Overlay";
+import { Menu } from "./components/ui/Menu";
 import { PlayerBadge, PlayerCombobox } from "./UiBits";
 
 /* 球隊 — member-formed groups whose leaderboard is the club ELO filtered to the squad. Everything
@@ -134,6 +135,28 @@ export function SquadScope({ squad, players, onClub, onSquad, onSwitch, onManage
       </span>
     </div>}
   </div>;
+}
+
+/** Scope as a title, not a toggle: "全會 ⌄" / "球隊名稱 ⌄" opens a pull-down listing the club and the viewer's
+    squads (checkmark on the current one), then the switch / manage actions. Replaces the segmented
+    SquadScope + squad card where the page title can carry it. */
+export function SquadScopeMenu({ squad, squads, onSelect, onSwitch, onManage }: {
+  squad: MySquad | null; squads: MySquad[]; onSelect: (id: string | null) => void; onSwitch: () => void; onManage: () => void;
+}) {
+  const t = useT();
+  const current = squad ? squad.name : t("全會");
+  return <Menu label={t("檢視範圍")} align="start" className="scope-menu" triggerClassName="scope-menu__trigger"
+    trigger={open => <><span>{current}</span><i aria-hidden="true" data-open={open || undefined} /></>}
+    sections={[
+      { items: [
+        { key: "club", label: t("全會"), checked: !squad, onSelect: () => onSelect(null) },
+        ...squads.map(item => ({ key: item.id, label: item.name, checked: squad?.id === item.id, detail: t("{count} 位隊員", { count: item.memberCount }), onSelect: () => onSelect(item.id) })),
+      ] },
+      { items: [
+        { key: "switch", label: t("切換球隊"), onSelect: onSwitch },
+        ...(squad?.role ? [{ key: "manage", label: squad.role === "host" ? t("管理球隊") : t("球隊資料"), onSelect: onManage }] : []),
+      ] },
+    ]} />;
 }
 
 /** Shown once for each squad someone else added the viewer to: the consent step a direct add skips. */

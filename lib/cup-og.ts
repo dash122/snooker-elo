@@ -65,7 +65,7 @@ export function cupOgCard(t: Translator, name:string,state:CupShareState):CupOgC
  *  Google's `css2?text=` endpoint returns a face containing only the glyphs asked for — a few
  *  kilobytes — which is why this list has to be exact rather than approximate. */
 export function cupOgGlyphs(t: Translator, card:CupOgCard):string {
-  const all=[card.status,card.urgency,card.name,card.standfirst,card.cta,t("SCAA SNOOKER 盃賽"),
+  const all=[card.status,card.urgency,card.name,card.standfirst,card.cta,t("SNOOKER ELO 盃賽"),
     ...card.facts.flatMap(fact=>[fact.label,fact.value])].join("");
   return [...new Set(all)].join("");
 }

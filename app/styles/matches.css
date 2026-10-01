@@ -7,11 +7,13 @@
 
 /* Search field + chip row, sitting on the page rather than in a boxed card. */
 .match-filters{display:grid;gap:var(--sp-3);margin:0 0 var(--sp-3)}
-.match-search{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);min-height:var(--control-md);padding:var(--sp-1) var(--sp-3);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);background:var(--ds-surface-primary)}
+.match-search{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);min-height:var(--control-md);padding:var(--sp-1) var(--sp-3);border:1px solid var(--ds-border-strong);border-radius:var(--radius-md);background:var(--ds-surface-primary)}
+/* Shared with the matrix player picker (cup.css) so both player fields look identical. */
 .match-search:focus-within{border-color:var(--ds-accent-action);box-shadow:0 0 0 3px color-mix(in srgb,var(--ds-accent-action) 18%,transparent)}
-.match-search>svg{flex:none;color:var(--ds-text-tertiary)}
+.match-search>svg{flex:none;color:var(--ds-text-secondary)}
 .match-search .player-combobox{position:relative;flex:1;min-width:8rem}
 .match-search .player-combobox input{width:100%;min-height:var(--control-sm);padding:0;border:0;background:transparent;box-shadow:none;outline:0;font-size:var(--fs-input)}
+.match-search .player-combobox input::placeholder{color:var(--ds-text-secondary);font-weight:400}
 .match-search .match-player-chip{display:inline-flex;align-items:center;gap:var(--sp-1);min-height:var(--control-sm);padding:0 var(--sp-1) 0 var(--sp-3);border-radius:var(--radius-pill);background:var(--ds-canvas-muted);color:var(--ds-text-primary);font-size:var(--fs-sm);font-weight:650}
 .match-search .match-player-chip.compare{background:var(--ds-success-wash)}
 .match-search .match-player-chip .ds-icon-button{min-height:var(--control-sm);min-width:var(--control-sm);border:0;background:transparent;color:var(--ds-text-tertiary)}
@@ -68,7 +70,7 @@
 .matches-page .calendar-day-list{display:grid;gap:var(--sp-3)}
 
 @media(max-width:599px){
-  .matches-page .match-view-toggle>button{padding-inline:var(--sp-1);font-size:var(--fs-caption)}
+  .matches-page .match-view-toggle>button{padding-inline:var(--sp-1)}
 }
 
 /* Phones: let the sticky month label run edge to edge across the page gutter so cards don't peek past it. */

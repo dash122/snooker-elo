@@ -23,10 +23,10 @@ export default function MatchShareView({ share, card, message, url, signedIn }: 
 }) {
   const t = useT();
   if (!share || !card) return <main className="share-page"><div className="share-card">
-    <p className="share-kicker">{t("SCAA Snooker · 賽果")}</p>
+    <p className="share-kicker">{t("Snooker ELO · 賽果")}</p>
     <h1>{t("搵唔到呢場比賽")}</h1>
     <p className="share-note">{t("連結可能已經失效，或者呢場賽事已被刪除。")}</p>
-    <Link className="primary full share-cta" href="/">{t("開啟 SCAA Snooker")}</Link>
+    <Link className="primary full share-cta" href="/">{t("開啟 Snooker ELO")}</Link>
   </div></main>;
 
   const sides = [share.left, share.right];
@@ -34,7 +34,7 @@ export default function MatchShareView({ share, card, message, url, signedIn }: 
 
   return <main className="cup-share-page match-share-page">
     <div className="match-share-hero">
-      <p className="share-kicker">SCAA Snooker · {t(OCCASION[share.kind])}</p>
+      <p className="share-kicker">Snooker ELO · {t(OCCASION[share.kind])}</p>
       {/* The round rides above the cup's name in a hairline ribbon, the same shape the story card
           uses, so the page and the image a reader may have arrived from read as one thing. */}
       {share.cup?.round && <p className="cup-ribbon"><span><CupMark />{share.cup.round}</span></p>}
@@ -69,9 +69,9 @@ export default function MatchShareView({ share, card, message, url, signedIn }: 
     </div>
 
     <section className="match-share-resend">
-      <ShareSheet card={card} message={message} url={url} title={t("SCAA Snooker 賽果")} />
+      <ShareSheet card={card} message={message} url={url} title={t("Snooker ELO 賽果")} />
     </section>
 
-    <p className="share-foot">{t("未係會員都睇到呢頁 — SCAA Snooker 嘅賽果連結。")}</p>
+    <p className="share-foot">{t("未係會員都睇到呢頁 — Snooker ELO 嘅賽果連結。")}</p>
   </main>;
 }

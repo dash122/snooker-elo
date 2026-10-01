@@ -19,7 +19,7 @@ export async function generateMetadata({params}:{params:Promise<{id:string}>}):P
   const { locale, t } = await getTranslator();
   const data=await loadCupShare(t, id);
   const site=await shareOrigin();
-  if(!data)return {title:t("搵唔到呢個盃賽｜SCAA Snooker"),robots:{index:false}};
+  if(!data)return {title:t("搵唔到呢個盃賽｜Snooker ELO"),robots:{index:false}};
   const title=cupShareTitle(t, data.tournament.name,data.share);
   const description=cupShareDescription(t, data.share);
   const url=site?cupShareUrl(site,id):undefined;
@@ -30,8 +30,8 @@ export async function generateMetadata({params}:{params:Promise<{id:string}>}):P
     title,description,
     /* WhatsApp reads Open Graph and nothing else; Telegram and iMessage follow the same tags, and the
        Twitter card keeps a summary_large_image rather than falling back to a bare link. */
-    openGraph:{title,description,url,type:"website",siteName:"SCAA Snooker",locale:locale==="en"?"en_GB":"zh_HK",
-      images:[{url:image,width:1200,height:630,alt:t("{name}｜SCAA Snooker 盃賽", {name: data.tournament.name})}]},
+    openGraph:{title,description,url,type:"website",siteName:"Snooker ELO",locale:locale==="en"?"en_GB":"zh_HK",
+      images:[{url:image,width:1200,height:630,alt:t("{name}｜Snooker ELO 盃賽", {name: data.tournament.name})}]},
     twitter:{card:"summary_large_image",title,description,images:[image]},
     alternates:url?{canonical:url}:undefined,
   };

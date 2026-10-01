@@ -17,10 +17,10 @@ export default function RecordShareView({ share, card, message, url, signedIn }:
 }) {
   const t = useT();
   if (!share || !card) return <main className="share-page"><div className="share-card">
-    <p className="share-kicker">{t("SCAA Snooker · 球員")}</p>
+    <p className="share-kicker">{t("Snooker ELO · 球員")}</p>
     <h1>{t("搵唔到呢位球員")}</h1>
     <p className="share-note">{t("連結可能已經失效，或者球員紀錄已被移除。")}</p>
-    <Link className="primary full share-cta" href="/">{t("開啟 SCAA Snooker")}</Link>
+    <Link className="primary full share-cta" href="/">{t("開啟 Snooker ELO")}</Link>
   </div></main>;
 
   const honour = honourText(t, share.honours);
@@ -65,9 +65,9 @@ export default function RecordShareView({ share, card, message, url, signedIn }:
     </div>
 
     <section className="match-share-resend">
-      <ShareSheet card={card} message={message} url={url} title={`${share.name} · SCAA Snooker`} />
+      <ShareSheet card={card} message={message} url={url} title={`${share.name} · Snooker ELO`} />
     </section>
 
-    <p className="share-foot">{t("未係會員都睇到呢頁 — SCAA Snooker 嘅球員紀錄。")}</p>
+    <p className="share-foot">{t("未係會員都睇到呢頁 — Snooker ELO 嘅球員紀錄。")}</p>
   </main>;
 }
