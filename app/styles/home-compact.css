@@ -5,16 +5,10 @@
 /* Hero: one headline line, the club numbers as a single quiet row. */
 .ds-app-shell .app-page-leaderboard > .hero.home-hero {
   min-height: 0;
-  padding: var(--sp-4) 0;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  color: var(--ds-text-primary);
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
 }
 .ds-app-shell .app-page-leaderboard > .hero.home-hero h1 {
-  font-size: var(--fs-h2);
-  color: var(--ds-text-primary);
-  text-shadow: none;
+  font-size: var(--fs-display);
   line-height: 1.15;
 }
 .ds-app-shell .app-page-leaderboard > .hero.home-hero h1 span:lang(en) { margin-inline-start: .25em; }
@@ -35,7 +29,7 @@
 .ds-app-shell .app-page-leaderboard > .hero.home-hero .podium-stats b { font-size: var(--fs-body); }
 .ds-app-shell .app-page-leaderboard > .hero.home-hero .podium-stats small {
   font-size: var(--fs-caption);
-  color: var(--ds-text-secondary);
+  color: var(--ds-text-on-brand-secondary);
 }
 
 /* Phones: the bottom bar's ＋ already records a match, so the hero doesn't repeat it. */
@@ -141,16 +135,10 @@
 }
 
 /* Two explicit scopes; squad identity stays visible above its content. */
-.ds-app-shell .home-hero::before,
-.ds-app-shell .home-hero::after { display: none; }
-.ds-app-shell .home-hero h1 span { color: var(--ds-accent-action); }
-.ds-app-shell .app-page-leaderboard > .hero.home-hero .podium-stats b { color: var(--ds-text-primary); }
 .ds-app-shell .board-scope-switch { margin-top: var(--sp-2); }
 .ds-app-shell .board-heading { min-width: 0; }
 .ds-app-shell .board-title { margin: 0; font-size: var(--fs-h2); letter-spacing: -.02em; }
 .ds-app-shell .board-sub { margin-top: var(--sp-1); }
-.ds-app-shell .board-self-action { display: flex; justify-content: flex-end; margin-bottom: var(--sp-2); }
 .ds-app-shell .board-self-label { margin-inline-start: var(--sp-2); color: var(--ds-accent-action); font-size: var(--fs-label); font-style: normal; font-weight: 600; }
 .ds-app-shell .ranking-panel { padding: 0; border: 0; background: transparent; box-shadow: none; }
 .ds-app-shell .ranking-panel .table-card { box-shadow: none; }
-.ds-app-shell .ranking-panel .row.is-self { scroll-margin-block: var(--sp-6); }
