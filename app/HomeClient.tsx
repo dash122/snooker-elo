@@ -1819,11 +1819,6 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
     <TabPanel id={homeTabsId} value="ranking" active={homeView==="ranking"}>
     <section className="home-view-panel ranking-panel" aria-labelledby="ranking-title">
       <h2 id="ranking-title" className="ds-sr-only">{t("目前排名")}</h2>
-    {ownPlayerId&&shown.some(p=>p.id===ownPlayerId)&&<div className="board-self-action"><Button type="button" variant="quiet" onClick={()=>{
-      const row=document.getElementById(homeTabsId+"-self");
-      row?.scrollIntoView({block:"center",behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
-      row?.focus({preventScroll:true});
-    }}>{t("跳到你的排名：第 {rank} 名", {rank:rankOf.get(ownPlayerId)})}</Button></div>}
     {visibleRanked.length>8&&<label className="board-search"><SearchIcon/><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={t("搜尋球員")} aria-label={t("搜尋球員")}/></label>}
     <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?t("尚未有正式球手"):t("尚未有球員")} sub={officialOnly?t("未有球員完成臨時門檻，暫時未有正式評分。"):squad?t("呢個球隊暫時未有球員。"):t("前往球員頁面新增第一位球員。")}/>:<><div className="table-head sortable"><button title={squad?t("箭嘴為過去 30 天的排名升跌"):t("箭嘴為過去 10 天的排名升跌")} onClick={()=>sortBy("rank")}>{t("排名")}<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>{t("球員")}<SortArrow active={sort==="name"} dir={dir}/></button><button title={t("最近五筆比賽；較近期結果權重較高")} onClick={()=>sortBy("form")}>{t("近況")}<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>{t("場數／勝率")}<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>{t("建議／正式評分")}<SortArrow active={sort==="suggested"} dir={dir}/></button><button title={squad?t("ELO 及近30天ELO變化"):t("ELO 及近10天ELO變化")} onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
       {shown.length===0&&<p className="board-empty">{t("沒有符合「{query}」的球員", {query: query.trim()})}</p>}
