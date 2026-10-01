@@ -8,6 +8,7 @@ import { FirstStepsChecklist, IntroTour } from "./FirstSteps";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
 import { SQUAD_SWING_DAYS, daysSinceLastMatch, headToHead, isInactive, ratingSwing } from "../lib/squad-rivalry";
+import { SquadStatsPanel } from "./SquadStats";
 import { SquadAddedNotices, SquadCenter, SquadScopeChip, usePublicSquad, useSquadViewTracking, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
@@ -1728,7 +1729,8 @@ function BreakNudgeStrip({nudge,onOpen}:{nudge:BreakNudge;onOpen:()=>void}){
 }
 function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer,onMatch,onRivalry,onSquadMatrix}:{ranked:Player[];data:AppState;ownPlayerId?:string;squad:MySquad|null;squadScope:ReactNode;onSquadMatrix:()=>void;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
   const t = useT();
-  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall"|"recent"|"monthly">("players"),[homeView,setHomeView]=useState<"ranking"|"breaks"|"recent">("ranking"),[rankingMode,setRankingMode]=useState<"all"|"official"|"trend">("all");
+  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall"|"recent"|"monthly">("players"),[homeViewRaw,setHomeView]=useState<"ranking"|"breaks"|"recent"|"squad">("ranking"),[rankingMode,setRankingMode]=useState<"all"|"official"|"trend">("all");
+  const homeView=homeViewRaw==="squad"&&!squad?"ranking":homeViewRaw;
   const officialOnly=rankingMode==="official";
   const confirmed=data.matches.filter(m=>m.status==="confirmed");
   const month=confirmed.filter(m=>m.playedOn.slice(0,7)===today.slice(0,7)).length,total=confirmed.length;
@@ -1791,6 +1793,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer
       <button role="tab" aria-selected={homeView==="ranking"} className={homeView==="ranking"?"active":""} onClick={()=>setHomeView("ranking")}><span>{t("目前排名")}</span></button>
       <button role="tab" aria-selected={homeView==="breaks"} className={homeView==="breaks"?"active":""} onClick={()=>setHomeView("breaks")}><span>{t("最高單桿紀錄")}</span></button>
       <button role="tab" aria-selected={homeView==="recent"} className={homeView==="recent"?"active":""} onClick={()=>setHomeView("recent")}><span>{t("近三十日統計")}</span></button>
+      {squad&&<button role="tab" aria-selected={homeView==="squad"} className={homeView==="squad"?"active":""} onClick={()=>setHomeView("squad")}><span>{t("球隊數據")}</span></button>}
     </SlidingToggleGroup>
     {homeView==="ranking"&&<>
     <Overview top={visibleRanked.slice(0,3)} data={data} onPlayer={onPlayer}/>
@@ -1821,6 +1824,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer
       {breakView==="monthly"?<MonthlyBreakChart months={breakRecords.monthly} onPlayer={onPlayer}/>:<>{breakView==="recent"&&nudge&&<p className="break-nudge-hint">{breakNudgeCopy(t, nudge).hint}</p>}<ol className="break-ranking">{Array.from({length:10},(_,index)=>{const record=displayedBreaks[index];const medal=["gold","silver","bronze"][index];return <li key={record?.key??`empty-${index}`} className={`${record?"":"empty-rank"}${medal?` medal medal-${medal}`:""}`}><span className="break-position">{medal?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][index]}</i>:index+1}</span>{record?<><PlayerBadge player={record.player}/><b><span>{record.player.name}</span><small>{t("對 {opponent}", {opponent: record.opponent})}<span className="break-date-inline"> · {record.date}</span></small></b><time dateTime={record.date}>{record.date}</time><strong>{record.value>=100&&<em className="century-badge" title={t("破百單桿")}>{t("破百")}</em>}{record.value}</strong></>:<b>N/A</b>}</li>})}</ol>
       <p className="chart-summary">{breakView==="players"?t("每位球員只顯示其最高單桿。"):breakView==="overall"?t("按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。"):t("{thirtyDaysAgo} 至 {today} 的最高單桿，每位球員只顯示其最高單桿。", {thirtyDaysAgo, today})}</p></>}
     </section>}
+    {homeView==="squad"&&squad&&<SquadStatsPanel squad={squad} players={data.players} matches={data.matches} onMatrix={onSquadMatrix} onPlayer={id=>{const player=data.players.find(p=>p.id===id);if(player)onPlayer(player)}}/>}
     {homeView==="recent"&&<ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/>}</>;
 }
 
