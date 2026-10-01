@@ -38,5 +38,19 @@
   .row>.form{width:3.75rem;justify-content:flex-end;gap:.125rem}
   .row>.form i{max-width:.75rem;width:.75rem;height:.75rem;border-radius:var(--radius-2xs)}
 }
+/* Phone ranking table: the column header stays above the rows, and the five form pips keep a fixed
+   size however many matches a player has (the row and header share one column template). */
+@media(max-width:820px){
+  .ds-app-shell .ranking-panel .table-card{--rk-rank:1.75rem;--rk-form:4.875rem;--rk-elo:3.5rem}
+  .ds-app-shell .ranking-panel .table-card :is(.row,.table-head.sortable){grid-template-columns:var(--rk-rank) minmax(0,1fr) var(--rk-form) var(--rk-elo);column-gap:var(--sp-2);padding-inline:var(--sp-1)}
+  .ds-app-shell .ranking-panel .table-card .table-head.sortable{display:grid;align-items:center;padding-block:var(--sp-2);border-radius:var(--radius-sm)}
+  .ds-app-shell .ranking-panel .table-card .table-head.sortable>:is(:nth-child(4),:nth-child(5)){display:none}
+  .ds-app-shell .ranking-panel .table-card .table-head.sortable>button{min-width:0;padding:0;white-space:nowrap}
+  .ds-app-shell .ranking-panel .table-card .table-head.sortable>:is(:nth-child(3),:last-child){justify-content:flex-end;text-align:right}
+  .ds-app-shell .ranking-panel .table-card .table-head.sortable .sort-arrow:not(.active),.table-head.sortable>:first-child .sort-arrow{display:none}
+  .ds-app-shell .ranking-panel .table-card .table-head.sortable>:first-child{justify-content:center}
+  html .ds-app-shell .ranking-panel .table-card .row>.form{width:auto;justify-content:flex-end;gap:2px}
+  html .ds-app-shell .ranking-panel .table-card .row>.form i{flex:none;width:.875rem;height:.875rem;max-width:none;aspect-ratio:auto}
+}
 .row-head-mobile>span:last-child{position:relative}.row-head-mobile .row-head-sub{display:block;position:absolute;right:0;top:100%;white-space:nowrap;font-size:var(--fs-label);font-weight:600;text-transform:none;letter-spacing:0}
 .row-head-mobile:has(.row-head-sub){margin-bottom:var(--sp-4)}

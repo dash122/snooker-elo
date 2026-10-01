@@ -35,8 +35,17 @@
 }
 .ds-app-shell .home-view-panel { background: var(--ds-surface-primary); }
 .ds-app-shell .ranking-panel .table-card { border: 0; background: transparent; }
+/* The break list sits on the page like the ranking table does: no panel card, same inset. */
+.ds-app-shell .home-view-panel.break-records-panel { padding: 0; border: 0; background: transparent; }
+.ds-app-shell .break-records-panel .break-ranking { padding: var(--sp-2) var(--sp-3-5); }
 .ds-app-shell .ranking-panel .row { border-radius: 0; }
-.ds-app-shell .ranking-panel .row.top { border-radius: var(--radius-sm); background: var(--ds-highlight-wash); }
+/* Podium: the leaderboard and the break table tint their top three identically (medal icon + a soft
+   metal wash fading to the right), so the two tabs read as one system. */
+.ds-app-shell :is(.ranking-panel .row.podium-1, .break-ranking li.medal-gold) { border-radius: var(--radius-sm); background: linear-gradient(90deg, color-mix(in srgb, var(--gold-on-light) 16%, transparent), transparent 85%); }
+.ds-app-shell :is(.ranking-panel .row.podium-2, .break-ranking li.medal-silver) { border-radius: var(--radius-sm); background: linear-gradient(90deg, color-mix(in srgb, var(--ds-medal-silver) 16%, transparent), transparent 85%); }
+.ds-app-shell :is(.ranking-panel .row.podium-3, .break-ranking li.medal-bronze) { border-radius: var(--radius-sm); background: linear-gradient(90deg, color-mix(in srgb, var(--ds-medal-bronze) 16%, transparent), transparent 85%); }
+.ds-app-shell .ranking-panel .row .rank .medal-icon { font-size: var(--fs-lead); }
+.ds-app-shell .monthly-break-heading { margin: var(--sp-4) 0 var(--sp-1); color: var(--gold-on-light); font-size: var(--fs-label); font-weight: 800; }
 .ds-app-shell .ranking-panel .elo b { font-family: var(--font-display); font-size: var(--fs-stat); font-variant-numeric: tabular-nums; }
 .ds-app-shell :is(.mini-toggle, .match-view-toggle) button { min-height: var(--club-control-height); }
 .ds-app-shell .home-view-nav { box-shadow: none; }
