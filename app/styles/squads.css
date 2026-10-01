@@ -122,9 +122,7 @@
 .table-card .row.squad-inactive>:not(.person){opacity:.55}
 .table-card .row.squad-inactive .person b{color:var(--ds-text-secondary)}
 
-/* Teammate-vs-teammate matchup under the squad table. */
-.squad-matchup{display:grid;gap:var(--sp-3);padding:var(--sp-4);margin-top:var(--sp-4)}
-.squad-matchup h3{margin:0;font-size:var(--fs-lead)}
-.squad-matchup-pick{display:grid;grid-template-columns:1fr auto 1fr;gap:var(--sp-2);align-items:center}
-.squad-matchup-pick select{min-height:var(--control-md);font-size:var(--fs-input);min-width:0}
-.squad-matchup-record{margin:0;font-size:var(--fs-body);font-weight:700}
+/* Squad head-to-head: entry point under the squad table, and the scope banner on the matrix. */
+.squad-matrix-cta{width:100%;margin-top:var(--sp-4)}
+.squad-matrix-scope{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);margin-bottom:var(--sp-3);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-pill);background:var(--ds-accent-veil-soft);color:var(--ds-accent-action);font-size:var(--fs-sm);font-weight:800}
+.squad-matrix-scope button{min-height:var(--control-sm);background:none;border:0;color:inherit;font:inherit;text-decoration:underline;cursor:pointer}
