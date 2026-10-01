@@ -124,8 +124,10 @@ export function SquadScope({ squad, players, onClub, onSquad, onSwitch, onManage
     {squad && <div className={`squad-hub${compact ? " squad-hub--compact" : ""}`}>
       {!compact && <span className="squad-hub-faces" aria-hidden="true">{faces.map(person => <PlayerBadge key={person.id} player={person} />)}</span>}
       <span className="squad-hub-name"><b>{squad.name}</b><small>{t("{count} 位隊員", { count: squad.memberCount })}</small></span>
-      <Button variant="secondary" type="button" onClick={onSwitch}>{t("切換球隊")}</Button>
-      {squad.role && !compact && <Button variant="secondary" type="button" onClick={onManage}>{squad.role === "host" ? t("管理球隊") : t("球隊資料")}</Button>}
+      <span className="squad-hub-actions">
+        <Button variant="secondary" type="button" onClick={onSwitch}>{t("切換球隊")}</Button>
+        {squad.role && !compact && <Button variant="secondary" type="button" onClick={onManage}>{squad.role === "host" ? t("管理球隊") : t("球隊資料")}</Button>}
+      </span>
     </div>}
   </div>;
 }

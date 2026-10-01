@@ -243,7 +243,7 @@
 
 @media(max-width:820px){.h2h-matrix-modes-row{display:grid;gap:var(--sp-2)}.h2h-matrix-modes{width:100%}.h2h-matrix-modes .ds-segmented{width:100%}.h2h-matrix-modes .ds-segmented button{padding-inline:var(--sp-1-5);overflow:visible;text-overflow:clip}.h2h-matrix-zoom{justify-content:flex-end}}
 
-@media(min-width:821px){.h2h-matrix-toolbar{grid-template-columns:minmax(0,18rem) auto;align-items:end;justify-content:space-between}.h2h-matrix-modes-row{justify-self:end;width:max-content}.h2h-matrix-modes:not(:has(.ds-segmented)) button{padding:0 var(--sp-4)}.h2h-matrix-grid tbody th,.h2h-matrix-grid thead th:first-child{width:calc(10rem * var(--matrix-zoom,1));min-width:calc(10rem * var(--matrix-zoom,1))}.h2h-matrix-grid thead th,.h2h-matrix-grid tbody td{min-width:calc(3.5rem * var(--matrix-zoom,1))}
+@media(min-width:821px){.h2h-matrix-toolbar{grid-template-columns:auto minmax(0,18rem);align-items:end;justify-content:space-between}.h2h-matrix-modes-row{justify-self:start;width:max-content}.h2h-matrix-modes:not(:has(.ds-segmented)) button{padding:0 var(--sp-4)}.h2h-matrix-grid tbody th,.h2h-matrix-grid thead th:first-child{width:calc(10rem * var(--matrix-zoom,1));min-width:calc(10rem * var(--matrix-zoom,1))}.h2h-matrix-grid thead th,.h2h-matrix-grid tbody td{min-width:calc(3.5rem * var(--matrix-zoom,1))}
 .h2h-matrix-zoom-value{height:44px;min-width:3.25rem;font-size:var(--fs-sm)}.h2h-matrix-zoom .ds-icon-button{width:44px;min-height:var(--control-md)}
 }/* ==========================================================================
    Sharing a result

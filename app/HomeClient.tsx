@@ -1499,7 +1499,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {tab==="leaderboard"&&user&&ownPlayerId&&!user.needsOnboarding&&<FirstStepsChecklist hasMatch={data.matches.some(match=>match.a===ownPlayerId||match.b===ownPlayerId)} hasAvailability={Boolean(matchmakingSummary?.mine)} onRecord={()=>newMatch()} onAvailability={()=>goTab("availability")} onTour={()=>setTourOpen(true)}/>}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
       {tab==="leaderboard"&&<SquadAddedNotices squads={squads} players={data.players} onView={id=>{squadAction(id,"seen");selectSquad(id)}} onLeave={id=>squadAction(id,"leave")} onDismiss={id=>squadAction(id,"seen")}/>}
-      {tab==="leaderboard"&&<Leaderboard ranked={ranked} data={data} ownPlayerId={ownPlayerId} squad={activeSquad} squadScope={<SquadScope squad={activeSquad} players={data.players} onClub={()=>selectSquad(null)} onSquad={()=>{const id=defaultSquadId(squads);if(id)selectSquad(id);else setSquadSheet("picker")}} onSwitch={()=>setSquadSheet("picker")} onManage={()=>setSquadSheet("manage")}/>} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");showTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
+      {tab==="leaderboard"&&<Leaderboard onClubScope={()=>selectSquad(null)} ranked={ranked} data={data} ownPlayerId={ownPlayerId} squad={activeSquad} squadScope={<SquadScope squad={activeSquad} players={data.players} onClub={()=>selectSquad(null)} onSquad={()=>{const id=defaultSquadId(squads);if(id)selectSquad(id);else setSquadSheet("picker")}} onSwitch={()=>setSquadSheet("picker")} onManage={()=>setSquadSheet("manage")}/>} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");showTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
       {tab==="matches"&&<Matches squad={activeSquad} squadScope={<SquadScope squad={activeSquad} players={data.players} onClub={()=>selectSquad(null)} onSquad={()=>{const id=defaultSquadId(squads);if(id)selectSquad(id);else setSquadSheet("picker")}} onSwitch={()=>setSquadSheet("picker")} onManage={()=>setSquadSheet("manage")} compact/>} data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",format:"single",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,format:tournament.format??"single",handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
       {/* Public availability, recommendations and arrangements share one marketplace flow. */}
       {tab==="availability"&&<MatchmakingMarketplace onRecordSession={(opponentId,sessionId,date)=>{newMatch("1v1",opponentId,date);marketplaceOrigin.current=sessionId;}} key={ownPlayerId??"guest"} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
@@ -1727,7 +1727,7 @@ function BreakNudgeStrip({nudge,onOpen}:{nudge:BreakNudge;onOpen:()=>void}){
     </button>
   </div>;
 }
-function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer,onMatch,onRivalry}:{ranked:Player[];data:AppState;ownPlayerId?:string;squad:MySquad|null;squadScope:ReactNode;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
+function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer,onMatch,onRivalry,onClubScope}:{ranked:Player[];data:AppState;ownPlayerId?:string;squad:MySquad|null;squadScope:ReactNode;onClubScope:()=>void;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
   const t = useT();
   const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<"players"|"overall"|"recent"|"monthly">("players"),[homeViewRaw,setHomeView]=useState<"ranking"|"breaks"|"recent"|"squad"|"matrix">("ranking"),[rankingMode,setRankingMode]=useState<"all"|"official"|"trend">("all");
   const homeView=(squad?["ranking","squad","matrix"]:["ranking","breaks","recent"]).includes(homeViewRaw)?homeViewRaw:"ranking";
@@ -1779,7 +1779,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,squadScope,onRecord,onPlayer
   const displayedBreaks=breakView==="monthly"?breakRecords.overall:breakRecords[breakView];
   const nudge=useMemo(()=>ownPlayerId&&data.players.some(player=>player.id===ownPlayerId)
     ?breakNudge(breakRecords.recent.map(record=>({playerId:record.player.id,value:record.value,date:record.date})),ownPlayerId,today):null,[breakRecords.recent,data.players,ownPlayerId]);
-  const openNudge=()=>{setBreakView("recent");setHomeView("breaks")};
+  const openNudge=()=>{setBreakView("recent");setHomeView("breaks");if(squad)onClubScope()};
   const sortBy=(key:SortKey)=>{if(sort===key)setDir(x=>x==="asc"?"desc":"asc");else{setSort(key);setDir(key==="rank"||key==="name"?"asc":"desc")}};
   return <><section className="hero"><div><h1>{t("讓每一局，")}<br/><span>{t("都推動進步。")}</span></h1><p>{t("追蹤實力、看見成長，找到旗鼓相當的對手。")}</p>
       <div className="podium-stats">
@@ -2164,16 +2164,16 @@ function HeadToHeadMatrix({squad,squadScope,data,ownPlayerId,onOpenPair}:{squad:
   return <section className="h2h-matrix" aria-label={t("對賽矩陣")} style={{"--matrix-zoom":mode==="list"?1:zoom} as CSSProperties}>
     {scopeNote}
     <div className="h2h-matrix-toolbar">
-      <div className="h2h-matrix-focus">
-        <span className="match-filter-label">{t("球員")}</span>
-        <div className="match-player-picker">
-          <PlayerCombobox players={players} value={focus.id} onChange={id=>{if(id)setFocusId(id)}} placeholder={t("選擇球員")} ariaLabel={t("對賽矩陣主角球員")}/>
-        </div>
-      </div>
       <div className="h2h-matrix-modes-row">
         <div className="h2h-matrix-modes"><SegmentedControl label={t("對賽矩陣顯示方式")} value={mode} onChange={value=>setMode(value as typeof mode)} items={[{value:"list",label:t("清單")},{value:"grid",label:t("全隊")},{value:"heatmap",label:t("勝率")}]}/></div>
         {mode!=="list"&&<MatrixZoomControls zoom={zoom} setZoom={setZoom}/>}
       </div>
+      {mode==="list"&&<div className="h2h-matrix-focus">
+        <span className="match-filter-label">{t("球員")}</span>
+        <div className="match-player-picker">
+          <PlayerCombobox players={players} value={focus.id} onChange={id=>{if(id)setFocusId(id)}} placeholder={t("選擇球員")} ariaLabel={t("對賽矩陣主角球員")}/>
+        </div>
+      </div>}
     </div>
     {mode==="heatmap"?<WinRateHeatmap players={players} index={index} focusId={focus.id} onOpenPair={onOpenPair}/>
     :mode==="list"?<>
