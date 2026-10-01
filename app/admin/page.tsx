@@ -20,7 +20,7 @@ const zh = {
   rolePassword: "更改帳戶類型需要重新輸入正確的管理員密碼。",
   hasMatches: "此球員已有比賽紀錄，無法刪除檔案。請先停用帳戶，或移除相關賽事後再試。",
   restored: "資料已還原至所選快照。",
-  snapshotsSection: "資料備份快照", snapshotsSub: "系統每小時最多保留一個完整資料備份，最多保留 100 個；此頁顯示最近 20 個。還原會以該時間點的資料覆蓋目前所有資料。",
+  snapshotsSection: "資料備份快照", snapshotsSub: "資料有變更時，系統每小時最多建立一個快照。保留最近 24 個、近 14 日每日一個及近 8 週每週一個（按香港時間，重複只計一次），最多 46 個；此頁顯示最近 20 個。還原會覆蓋球員、賽事、盃賽、ELO 設定及審計記錄。會員帳戶及約戰資料不包括在內。",
   snapshotsEmpty: "暫無備份快照。", restore: "還原",
   settings: "ELO 設定", playersOpen: "管理球員及個人起始 ELO", reportsOpen: "使用統計報告", translationsOpen: "英文翻譯", statAccounts: "帳戶總數", statAdmins: "管理員", statUnlinked: "待連結球員檔案", statAllLinked: "全部已連結",
   statNoAccount: "球員待開帳戶", statAllHaveAccounts: "球員全部已開帳戶",
@@ -152,7 +152,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <p className="admin-section-sub">{zh.snapshotsSub}</p>
         {snapshots.length === 0
           ? <p className="admin-section-sub">{zh.snapshotsEmpty}</p>
-          : <SnapshotList snapshots={snapshots} restoreLabel={zh.restore} confirmMessage="確定要以此快照覆蓋目前所有資料嗎？此操作無法復原。" />}
+          : <SnapshotList snapshots={snapshots} restoreLabel={zh.restore} confirmMessage="確定要以此快照覆蓋球員、賽事、盃賽、ELO 設定及審計記錄嗎？此操作無法復原。" />}
       </details>
 
       <ButtonLink className="admin-back" variant="quiet" href="/account">{zh.back}</ButtonLink>
