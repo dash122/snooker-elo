@@ -1,87 +1,142 @@
 "use client";
-import {useEffect,useId,useRef,type ReactNode} from "react";
+import {useEffect,useId,useRef,type ReactNode,type RefObject} from "react";
 import {IconButton} from "./Primitives";
-import { useT } from "../I18nProvider";
-const CloseIcon=()=> <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg>;
+import {useT} from "../I18nProvider";
 
-/** Keep the latest `onClose` reachable from an effect without making it a dependency of one.
- *
- *  Every overlay here traps focus in an effect whose cleanup restores focus to whatever was focused
- *  before it opened. Listing `onClose` in that effect's dependencies looked harmless, but call sites
- *  pass an inline arrow — `onClose={()=>!busy&&setOpen(false)}` — which is a new function on every
- *  render, so *any* state change inside an open overlay tore the effect down and set it up again.
- *  The visible symptom was a text field losing focus after a single keystroke: the cleanup moved
- *  focus back to the trigger, then the setup moved it to the overlay's first control.
- *
- *  Reading the handler through a ref keeps Escape and backdrop clicks calling the current closure
- *  while the effect depends only on `open`. */
-function useLatest<T>(value:T){
-  const ref=useRef(value);
-  useEffect(()=>{ref.current=value});
-  return ref;
+const CloseIcon=()=> <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg>;
+const overlays:HTMLElement[]=[];
+const returnTargets=new Map<HTMLElement,HTMLElement|null>();
+let overlayOrder=100;
+const inertElements=new Map<HTMLElement,boolean>();
+function updateBackground(){
+  inertElements.forEach((inert,node)=>{node.inert=inert});
+  inertElements.clear();
+  let current:HTMLElement|undefined=overlays.at(-1);
+  while(current&&current!==document.body){
+    for(const sibling of Array.from(current.parentElement?.children??[])){
+      if(sibling!==current&&sibling instanceof HTMLElement){inertElements.set(sibling,sibling.inert);sibling.inert=true;}
+    }
+    current=current.parentElement??undefined;
+  }
 }
+
+function controlsWithin(root:HTMLElement){
+  return Array.from(root.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex], [contenteditable="true"]'))
+    .filter(element=>element.tabIndex>=0&&!element.matches(':disabled, input[type="hidden"]')&&!element.closest('[hidden], [inert], [aria-hidden="true"]')&&element.getClientRects().length>0&&getComputedStyle(element).visibility!=="hidden")
+    .sort((a,b)=>(a.tabIndex||Infinity)-(b.tabIndex||Infinity));
+}
+
+let unlockPage:(()=>void)|undefined;
+function lockPage(){
+  const body=document.body,html=document.documentElement;
+  const x=window.scrollX,y=window.scrollY;
+  const properties=["position","top","left","width","overflow","padding-right"] as const;
+  const original=properties.map(name=>[name,body.style.getPropertyValue(name),body.style.getPropertyPriority(name)]);
+  const overflow=html.style.getPropertyValue("overflow"),priority=html.style.getPropertyPriority("overflow");
+  const gutter=window.innerWidth-html.clientWidth;
+  if(gutter>0)body.style.paddingRight=`${parseFloat(getComputedStyle(body).paddingRight)+gutter}px`;
+  body.style.position="fixed";body.style.top=`-${y}px`;body.style.left=`-${x}px`;
+  body.style.width="100%";body.style.overflow="hidden";html.style.overflow="hidden";
+  return()=>{
+    original.forEach(([name,value,important])=>{if(value)body.style.setProperty(name,value,important);else body.style.removeProperty(name)});
+    if(overflow)html.style.setProperty("overflow",overflow,priority);else html.style.removeProperty("overflow");
+    // Avoid animated scroll restoration, including in iOS standalone mode.
+    const behavior=html.style.getPropertyValue("scroll-behavior"),behaviorPriority=html.style.getPropertyPriority("scroll-behavior");
+    html.style.setProperty("scroll-behavior","auto","important");window.scrollTo(x,y);
+    if(behavior)html.style.setProperty("scroll-behavior",behavior,behaviorPriority);else html.style.removeProperty("scroll-behavior");
+  };
+}
+
+/** Callback updates must not restart focus effects. All visual shells share one stack. */
+function useOverlay(open:boolean,ref:RefObject<HTMLElement|null>,onClose:()=>void){
+  const latest=useRef(onClose);
+  useEffect(()=>{latest.current=onClose});
+  useEffect(()=>{
+    if(!open||!ref.current)return;
+    const root:HTMLElement=ref.current;
+    const previous=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    returnTargets.set(root,previous);
+    const backdrop=root.closest<HTMLElement>('[data-overlay-backdrop]')!;
+    const oldZ=backdrop.style.zIndex;
+    if(!overlays.length)unlockPage=lockPage();
+    overlays.push(root);
+    // Mixed legacy/shared shells paint in the same order as their focus stack.
+    backdrop.style.zIndex=String(++overlayOrder);
+    updateBackground();
+    const topmost=()=>overlays.at(-1)===root;
+    const enter=()=>{(controlsWithin(root)[0]??root).focus({preventScroll:true})};
+    enter();
+    function key(event:KeyboardEvent){
+      if(!topmost()||event.defaultPrevented)return;
+      if(event.key==="Escape"){
+        event.preventDefault();event.stopImmediatePropagation();latest.current();return;
+      }
+      if(event.key!=="Tab")return;
+      const controls=controlsWithin(root),index=controls.indexOf(document.activeElement as HTMLElement);
+      if(!controls.length){event.preventDefault();root.focus({preventScroll:true});return;}
+      if(index===-1||event.shiftKey&&index===0||!event.shiftKey&&index===controls.length-1){
+        event.preventDefault();controls[event.shiftKey?controls.length-1:0].focus({preventScroll:true});
+      }
+    }
+    function focus(event:FocusEvent){if(topmost()&&!root.contains(event.target as Node))enter()}
+    document.addEventListener("keydown",key);document.addEventListener("focusin",focus);
+    return()=>{
+      const wasTop=topmost();
+      const returnTarget=returnTargets.get(root);
+      // If a parent disappears first, its child's return path still reaches the original opener.
+      returnTargets.forEach((target,overlay)=>{if(target&&root.contains(target))returnTargets.set(overlay,returnTarget??null)});
+      returnTargets.delete(root);
+      overlays.splice(overlays.indexOf(root),1);backdrop.style.zIndex=oldZ;
+      updateBackground();
+      document.removeEventListener("keydown",key);document.removeEventListener("focusin",focus);
+      if(!overlays.length){unlockPage?.();unlockPage=undefined;overlayOrder=100;}
+      if(wasTop){
+        const parent=overlays.at(-1);
+        if(returnTarget?.isConnected&&!returnTarget.matches(':disabled')&&!returnTarget.closest('[hidden], [inert]')&&returnTarget.getClientRects().length&&(!parent||parent.contains(returnTarget)))returnTarget.focus({preventScroll:true});
+        else if(parent)(controlsWithin(parent)[0]??parent).focus({preventScroll:true});
+      }
+    };
+  },[open,ref]);
+  return()=>{if(ref.current&&overlays.at(-1)===ref.current)latest.current()};
+}
+
 export function Dialog({open,title,children,onClose}:{open:boolean;title:string;children:ReactNode;onClose:()=>void}){
-  const t = useT();const ref=useRef<HTMLDivElement>(null);const latest=useLatest(onClose);useEffect(()=>{if(!open)return;const before=document.activeElement as HTMLElement|null;ref.current?.querySelector<HTMLElement>("button,input,select,textarea,a")?.focus();const key=(event:KeyboardEvent)=>event.key==="Escape"&&latest.current();document.addEventListener("keydown",key);return()=>{document.removeEventListener("keydown",key);before?.focus()}},[open,latest]);if(!open)return null;return <div className="ds-overlay" onMouseDown={event=>event.target===event.currentTarget&&onClose()}><div ref={ref} className="ds-dialog" role="dialog" aria-modal="true" aria-labelledby="ds-dialog-title"><IconButton className="ds-dialog-close" onClick={onClose} label={t("關閉")}><CloseIcon/></IconButton><h2 id="ds-dialog-title">{title}</h2>{children}</div></div>}
-export function Sheet({open,title,children,onClose,className=""}:{open:boolean;title:string;children:ReactNode;onClose:()=>void;className?:string}){
-  const t = useT();
-  const ref=useRef<HTMLElement>(null);
-  const titleId=useId();
-  const latest=useLatest(onClose);
-  useEffect(()=>{
-    if(!open)return;
-    const previous=document.activeElement as HTMLElement|null;
-    const controls=()=>ref.current?Array.from(ref.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(element=>!element.matches(':disabled, [hidden], [aria-hidden="true"]')&&element.getClientRects().length>0):[];
-    (controls()[0]??ref.current)?.focus();
-    function onKey(ev:KeyboardEvent){
-      if(Array.from(document.querySelectorAll('.ds-sheet')).at(-1)!==ref.current)return;
-      if(ev.key==="Escape"){latest.current();return}
-      if(ev.key!=="Tab")return;
-      const focusable=controls();
-      if(!focusable.length){ev.preventDefault();ref.current?.focus();return;}
-      const first=focusable[0],last=focusable[focusable.length-1];
-      if(!ref.current?.contains(document.activeElement)){ev.preventDefault();first.focus()}
-      else if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus()}
-      else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus()}
-    }
-    document.addEventListener("keydown",onKey);
-    return()=>{document.removeEventListener("keydown",onKey);if(previous?.isConnected)previous.focus()}
-  },[open,latest]);
+  const t=useT(),ref=useRef<HTMLDivElement>(null),titleId=useId();
+  const dismiss=useOverlay(open,ref,onClose);
   if(!open)return null;
-  return <div className="ds-overlay ds-overlay--sheet" onMouseDown={event=>event.target===event.currentTarget&&onClose()}><section ref={ref as never} tabIndex={-1} className={`ds-sheet${className?` ${className}`:""}`} role="dialog" aria-modal="true" aria-labelledby={titleId}><IconButton className="ds-dialog-close" onClick={onClose} label={t("關閉")}><CloseIcon/></IconButton><h2 id={titleId}>{title}</h2>{children}</section></div>
+  return <div data-overlay-backdrop className="ds-overlay" onMouseDown={event=>event.target===event.currentTarget&&dismiss()}><div ref={ref} tabIndex={-1} className="ds-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}><IconButton type="button" className="ds-dialog-close" onClick={dismiss} label={t("關閉")}><CloseIcon/></IconButton><h2 id={titleId}>{title}</h2>{children}</div></div>;
 }
-/** Shared scaffold for the app's pre-existing `.backdrop`/`.sheet.invite-sheet` bottom-sheet pattern
-    (invite composers, session/slot creation, counter-offers). Kept on the legacy classes rather than
-    `.ds-sheet` since those carry their own established styling — this only removes the identical
-    backdrop/close-button/aria wiring that was duplicated across each call site. */
-/** Shared scaffold for the app's `.availability-dialog-backdrop`/`.availability-dialog`
-    alertdialog pattern (destructive confirmations, unsaved-changes prompts). Owns its own
-    focus trap + Escape handling so call sites stop re-implementing the same wiring. */
+
+export function Sheet({open,title,children,onClose,className=""}:{open:boolean;title:string;children:ReactNode;onClose:()=>void;className?:string}){
+  const t=useT(),ref=useRef<HTMLElement>(null),titleId=useId();
+  const dismiss=useOverlay(open,ref,onClose);
+  if(!open)return null;
+  return <div data-overlay-backdrop className="ds-overlay ds-overlay--sheet" onMouseDown={event=>event.target===event.currentTarget&&dismiss()}><section ref={ref} tabIndex={-1} className={`ds-sheet${className?` ${className}`:""}`} role="dialog" aria-modal="true" aria-labelledby={titleId}><IconButton type="button" className="ds-dialog-close" onClick={dismiss} label={t("關閉")}><CloseIcon/></IconButton><h2 id={titleId}>{title}</h2>{children}</section></div>;
+}
+
 export function ConfirmDialog({kicker,title,titleId,description,extra,children,onClose}:{kicker:string;title:ReactNode;titleId:string;description:ReactNode;extra?:ReactNode;children:ReactNode;onClose:()=>void}){
-  const ref=useRef<HTMLElement>(null);
-  const latest=useLatest(onClose);
-  useEffect(()=>{
-    const previous=document.activeElement as HTMLElement|null;
-    const focusable=ref.current?Array.from(ref.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')):[];
-    focusable[0]?.focus();
-    function onKey(ev:KeyboardEvent){
-      if(ev.key==="Escape"){latest.current();return}
-      if(ev.key==="Tab"&&focusable.length){const first=focusable[0],last=focusable[focusable.length-1];if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus()}else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus()}}
-    }
-    document.addEventListener("keydown",onKey);
-    return()=>{document.removeEventListener("keydown",onKey);previous?.focus()}
-  },[latest]);
-  return <div className="availability-dialog-backdrop" onMouseDown={onClose}><section ref={ref as never} className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby={titleId} onMouseDown={event=>event.stopPropagation()}><small>{kicker}</small><h2 id={titleId}>{title}</h2><p>{description}</p>{extra}<div>{children}</div></section></div>
+  const ref=useRef<HTMLElement>(null),id=useId(),descriptionId=useId();
+  const uniqueTitleId=`${titleId}-${id}`;
+  const dismiss=useOverlay(true,ref,onClose);
+  return <div data-overlay-backdrop className="availability-dialog-backdrop" onMouseDown={event=>event.target===event.currentTarget&&dismiss()}><section ref={ref} tabIndex={-1} className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby={uniqueTitleId} aria-describedby={descriptionId}><small>{kicker}</small><h2 id={uniqueTitleId}>{title}</h2><p id={descriptionId}>{description}</p>{extra}<div>{children}</div></section></div>;
 }
+
+/** Preserve legacy skins; include the sibling close button inside the focus boundary. */
 export function BackdropSheet({onClose,labelledBy,className,shellClassName,children}:{onClose:()=>void;labelledBy?:string;className?:string;shellClassName?:string;children:ReactNode}){
-  const t = useT();
+  const t=useT(),ref=useRef<HTMLElement>(null),titleId=useId();
+  const dismiss=useOverlay(true,ref,onClose);
+  useEffect(()=>{
+    const root=ref.current;
+    const heading=labelledBy?Array.from(root?.querySelectorAll<HTMLElement>('[id]')??[]).find(node=>node.id===labelledBy):root?.querySelector<HTMLElement>('h1,h2,h3');
+    if(!root||!heading)return;
+    const oldId=heading.id;
+    heading.id=titleId;root.setAttribute("aria-labelledby",titleId);
+    return()=>{heading.id=oldId};
+  },[labelledBy,titleId]);
   const sheetClassName=`sheet${shellClassName?"":" invite-sheet"}${className?` ${className}`:""}`;
-  /* Same element the match-entry modal in HomeClient uses for its own close button
-     (`<IconButton className="close">`), not a bare button with the class alone — the base
-     `.ds-button,.ds-icon-button` layer supplies the flex centering `.close`'s own rule never did,
-     so the × sat visibly off-center here while it was centered there. */
-  const close=<IconButton className="close" label={t("關閉")} onClick={onClose}><CloseIcon/></IconButton>;
-  return <div className="backdrop invite-backdrop" onMouseDown={onClose}>{shellClassName
-    ? <div className={`sheet-shell ${shellClassName}`} onMouseDown={event=>event.stopPropagation()}>{close}<section className={sheetClassName} role="dialog" aria-modal="true" aria-labelledby={labelledBy}>{children}</section></div>
-    : <section className={sheetClassName} onMouseDown={event=>event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={labelledBy}>{close}{children}</section>}
+  const close=<IconButton type="button" className="close" label={t("關閉")} onClick={dismiss}><CloseIcon/></IconButton>;
+  return <div data-overlay-backdrop className="backdrop invite-backdrop" onMouseDown={event=>event.target===event.currentTarget&&dismiss()}>{shellClassName
+    ? <div ref={ref as RefObject<HTMLDivElement|null>} tabIndex={-1} className={`sheet-shell ${shellClassName}`} role="dialog" aria-modal="true" aria-labelledby={labelledBy} aria-label={labelledBy?undefined:t("對話框")}>{close}<section className={sheetClassName}>{children}</section></div>
+    : <section ref={ref} tabIndex={-1} className={sheetClassName} role="dialog" aria-modal="true" aria-labelledby={labelledBy} aria-label={labelledBy?undefined:t("對話框")}>{close}{children}</section>}
   </div>;
 }

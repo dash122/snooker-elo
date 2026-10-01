@@ -3,6 +3,7 @@
      link underline/colour here so an anchor-based button doesn't read as a text link. */
   .ds-button,.ds-icon-button{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);min-height:var(--control-md);border-radius:var(--ds-radius-control);border:1px solid transparent;font-weight:800;text-decoration:none;transition:transform var(--ds-duration-fast) var(--ds-ease-standard),background var(--ds-duration-fast) var(--ds-ease-standard)}
   .ds-button{padding:var(--sp-3) var(--sp-4)}.ds-button:active,.ds-icon-button:active{transform:translateY(1px) scale(.98)}
+  .ds-button[hidden],.ds-icon-button[hidden]{display:none}
   /* `@layer legacy`'s `button,input,select{font:inherit}` always wins over any font-size set
      directly on `.ds-button` (unlayered beats named layers, and legacy is declared last of all
      named layers — see docs/design-system.md). Styling the text-wrapping <span> instead sidesteps
@@ -22,7 +23,8 @@
   .ds-segmented__indicator{position:absolute;z-index:0;top:var(--sp-1);bottom:var(--sp-1);left:var(--sp-1);width:var(--segment-width);border-radius:calc(var(--ds-radius-control) - .2rem);background:var(--ds-surface-primary);box-shadow:0 2px 10px var(--ds-selected-shadow);transform:translateX(var(--segment-translate));transition:transform var(--ds-duration-toggle) var(--ds-ease-toggle)}
   .ds-segmented button{position:relative;z-index:1;min-height:var(--control-md);min-width:0;padding:var(--sp-2);border:0;border-radius:calc(var(--ds-radius-control) - .2rem);background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color var(--ds-duration-toggle) var(--ds-ease-toggle)}
   .ds-segmented button>span{font-weight:800}
-  .ds-segmented button[aria-selected=true]{background:transparent;color:var(--ds-accent-action);box-shadow:none}
+  .ds-segmented button[aria-pressed=true]{background:transparent;color:var(--ds-accent-action);box-shadow:none}
+  .ds-segmented button:disabled{opacity:.5;cursor:not-allowed}
   /* One compact control contract for secondary choices. Feature pages may still
      choose their layout (for example, sticky page tabs), but the typography,
      tap target and selected surface stay shared. */

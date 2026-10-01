@@ -167,8 +167,8 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
         count; this row is the only thing the product knows that nobody else does. Quiet venues stay
         listed and say so: hiding them would make the row a lie and strand a new venue in a cold
         start it could never climb out of. */}
-    {venues.length>1&&<div className="vb-venues" role="tablist" aria-label={t("揀場地")}>
-      {venues.map(item=><button key={item.id} type="button" role="tab" aria-selected={item.id===venue.id}
+    {venues.length>1&&<div className="vb-venues" role="group" aria-label={t("揀場地")}>
+      {venues.map(item=><button key={item.id} type="button" aria-pressed={item.id===venue.id}
         className={`vb-venue-chip${item.id===venue.id?" active":""}`}
         onClick={()=>{setVenueId(item.id);setMessage("")}}>
         <b>{item.name}</b>
@@ -235,8 +235,8 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
 
     {message&&<p key={message} className="vb-message" role="status">{message}</p>}
 
-    <div className="vb-week" role="tablist" aria-label={t("揀日子")}>
-      {week.map(value=><button key={value} type="button" role="tab" aria-selected={value===date}
+    <div className="vb-week" role="group" aria-label={t("揀日子")}>
+      {week.map(value=><button key={value} type="button" aria-pressed={value===date}
         className={`vb-day${value===date?" active":""}`}
         onClick={()=>{setDate(value);setMessage("")}}>
         <small>{dayLabel(t, value,today)}</small>

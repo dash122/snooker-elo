@@ -269,12 +269,12 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
     </header>
 
     {/* 七晚密度。數字是同時在場人數，不是全日人次：八個人分散在六小時，誰也碰不上。 */}
-    <div className="wb-week" role="tablist" aria-label={t("未來七晚")}>
+    <div className="wb-week" role="group" aria-label={t("未來七晚")}>
       {data.days.map((item,index)=>{
         const nightPeak=peakOf(density(item.people));
         const height=Math.max(10,Math.round(nightPeak/maxPeak*66));
         const tone=nightPeak>=maxPeak&&nightPeak>0?" hot":nightPeak<=1?" cold":"";
-        return <button key={item.date} type="button" role="tab" aria-selected={index===selected}
+        return <button key={item.date} type="button" aria-pressed={index===selected}
           className={`wb-day${index===selected?" active":""}`}
           aria-label={t("{v}，最多 {nightPeak} 位球員同時在場", {v: dayLabel(t, item.date,today), nightPeak})}
           onClick={()=>{setSelected(index);setMessage("");onSelectDate?.(item.date)}}>
