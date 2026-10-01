@@ -1,0 +1,77 @@
+/* Matches tab: segmented sub-views, search + chips, sticky month labels, compact
+   cards and the match detail sheet. Calendar, H2H and Cup share the same pieces. */
+
+/* Segmented control for the four sub-views — full width, never wraps. */
+.matches-page .match-view-toggle{width:100%;margin:0 0 var(--sp-4)}
+.matches-page .match-view-toggle>button{white-space:nowrap}
+
+/* Search field + chip row, sitting on the page rather than in a boxed card. */
+.match-filters{display:grid;gap:var(--sp-3);margin:0 0 var(--sp-3)}
+.match-search{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);min-height:var(--control-md);padding:var(--sp-1) var(--sp-3);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-sm);background:var(--ds-surface-primary)}
+.match-search:focus-within{border-color:var(--ds-accent-action);box-shadow:0 0 0 3px color-mix(in srgb,var(--ds-accent-action) 18%,transparent)}
+.match-search>svg{flex:none;color:var(--ds-text-tertiary)}
+.match-search .player-combobox{position:relative;flex:1;min-width:8rem}
+.match-search .player-combobox input{width:100%;min-height:var(--control-sm);padding:0;border:0;background:transparent;box-shadow:none;outline:0;font-size:var(--fs-input)}
+.match-search .match-player-chip{display:inline-flex;align-items:center;gap:var(--sp-1);min-height:var(--control-sm);padding:0 var(--sp-1) 0 var(--sp-3);border-radius:var(--radius-pill);background:var(--ds-canvas-muted);color:var(--ds-text-primary);font-size:var(--fs-sm);font-weight:650}
+.match-search .match-player-chip.compare{background:var(--ds-success-wash)}
+.match-search .match-player-chip .ds-icon-button{min-height:var(--control-sm);min-width:var(--control-sm);border:0;background:transparent;color:var(--ds-text-tertiary)}
+.match-filter-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2)}
+.match-filter-row .board-filter{flex:none}
+.match-filter-row .board-filter__trigger{min-height:var(--control-sm);padding:0 var(--sp-3)}
+.matches-page .match-filter-status{margin:0 0 var(--sp-2)}
+
+/* Month groups: a quiet sticky label instead of a collapsible card. */
+.matches-page .match-list{margin-top:0}
+.matches-page .match-month-group{display:grid;gap:var(--sp-2);margin:0 0 var(--sp-4)}
+.matches-page .match-month-cards{display:grid;gap:var(--sp-3)}
+
+/* Compact card. */
+.match-board{padding:var(--sp-2-5) var(--sp-4) var(--sp-4-5)}
+.match-top{min-height:var(--control-sm)}
+.match-board .scoreline{margin-top:0}
+.match-board .scoreline.with-elo{row-gap:var(--sp-1)}
+.match-board:after{display:none}
+.match-summary-row{display:flex;align-items:center;min-height:0;margin-top:var(--sp-2);padding-bottom:0;color:var(--mint);font-size:var(--fs-caption)}
+/* The whole card opens details. Share and the › indicator sit top-right, spaced apart so a tap
+   meant for one doesn't land on the other; share is the bigger, distinct target, › stays quiet. */
+.match{cursor:pointer}
+.match:active:not(:has(button:active)){transform:scale(.99)}
+.match-top-actions{display:flex;flex:none;align-items:center;gap:var(--sp-3);margin-left:auto}
+.match .match-top .card-tool.share{width:var(--control-sm);height:var(--control-sm);min-height:var(--control-sm);color:var(--ds-icon-muted)}
+.match .match-top .card-tool.details{width:var(--control-sm);height:var(--control-sm);min-height:var(--control-sm);max-width:none;margin-right:calc(var(--sp-2) * -1);background:transparent;color:var(--ds-icon-muted)}
+.match-top .card-tool.details i{width:.5rem;height:.5rem;border-top:2px solid currentColor;border-right:2px solid currentColor;transform:translateX(-.1rem) rotate(45deg)}
+.match:hover .match-top .card-tool.details{color:white}
+
+/* Match detail sheet. */
+.match-sheet{display:grid;gap:var(--sp-4)}
+.match-sheet>h2{margin-bottom:0;font-size:var(--fs-h3)}
+.match-sheet__meta{margin:calc(var(--sp-3) * -1) 0 0;color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:600}
+.match-sheet__board{padding:var(--sp-4);border-radius:var(--radius-md);background:linear-gradient(135deg,var(--baize) 0%,var(--baize-deep) 100%);color:white}
+.match-sheet__board .scoreline-name{font-size:var(--fs-lead)}
+.match-sheet__board .scoreline-name.winner{color:white}
+.match-sheet__board .scoreline-name.loser,.match-sheet__board .scoreline-name.drawn{color:var(--ds-text-muted-teal)}
+.match-sheet__board .scoreline>b.winner{background:var(--ball-yellow);color:var(--baize-deep)}
+.match-sheet__board .scoreline>b.loser{background:transparent;color:var(--match-loser-text)}
+.match-sheet__board .scoreline>em{color:var(--match-em-text)}
+.match-sheet .elo-change{display:inline-flex;align-items:baseline;gap:var(--sp-2);font-variant-numeric:tabular-nums}
+.match-sheet .elo-change b{font-weight:800}
+.match-sheet .elo-change.positive b{color:var(--ds-success)}
+.match-sheet .elo-change.negative b{color:var(--ds-danger)}
+.match-sheet__actions{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.match-sheet__actions .ds-button{flex:1 1 0;min-width:7rem}
+
+/* Calendar, H2H and Cup: same section label and surface language as the list. */
+.matches-page .calendar-view,.matches-page .h2h-matrix-card,.matches-page .cup-view{margin-top:0}
+.matches-page .calendar-day-head{display:flex;align-items:baseline;justify-content:space-between;padding:var(--sp-2) var(--sp-1);color:var(--ds-text-secondary)}
+.matches-page .calendar-day-head h3{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.matches-page .calendar-day-head span{color:var(--ds-text-tertiary);font-size:var(--fs-caption);font-weight:600}
+.matches-page .calendar-day-list{display:grid;gap:var(--sp-3)}
+
+@media(max-width:599px){
+  .matches-page .match-view-toggle>button{padding-inline:var(--sp-1);font-size:var(--fs-caption)}
+}
+
+/* Phones: let the sticky month label run edge to edge across the page gutter so cards don't peek past it. */
+@media(max-width:820px){
+  .matches-page .ds-section-label.is-sticky{margin-inline:calc(var(--sp-3-5) * -1);padding-inline:calc(var(--sp-3-5) + var(--sp-1))}
+}

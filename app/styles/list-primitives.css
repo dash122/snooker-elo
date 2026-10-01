@@ -1,0 +1,25 @@
+/* Apple-style list primitives: ChipGroup, SectionLabel and the grouped
+   key/value list (.ds-list). Built for the Matches tab first, meant for every page. */
+@layer components {
+
+  /* Filter chips. */
+  .ds-chip-group{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+  .ds-filter-chip{display:inline-flex;align-items:center;min-height:var(--control-sm);padding:0 var(--sp-3-5);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-pill);background:var(--ds-surface-primary);color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:650;cursor:pointer;transition:background var(--ds-duration-standard) var(--ds-ease-standard),color var(--ds-duration-standard) var(--ds-ease-standard),border-color var(--ds-duration-standard) var(--ds-ease-standard)}
+  .ds-filter-chip:hover{border-color:var(--ds-border-strong);color:var(--ds-text-primary)}
+  .ds-filter-chip[aria-pressed="true"]{border-color:transparent;background:var(--ds-accent-action);color:var(--ds-text-on-brand)}
+
+  /* Section label above a group of rows. */
+  .ds-section-label{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-2);margin:0;padding:var(--sp-2) var(--sp-1);color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .ds-section-label small{color:var(--ds-text-tertiary);font-size:var(--fs-caption);font-weight:600;letter-spacing:0;text-transform:none}
+  .ds-section-label.is-sticky{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--ds-canvas-functional) 90%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+
+  /* Grouped key/value rows, like an iOS Settings table. */
+  .ds-list{margin:0;border-radius:var(--radius-md);background:var(--ds-surface-secondary);overflow:hidden}
+  .ds-list>div{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-4);min-height:var(--control-md);padding:var(--sp-3) var(--sp-4)}
+  .ds-list>div+div{border-top:1px solid var(--ds-border-subtle)}
+  .ds-list dt{flex:none;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:600}
+  .ds-list dd{display:grid;justify-items:end;gap:var(--sp-1);margin:0;min-width:0;color:var(--ds-text-primary);font-size:var(--fs-sm);font-weight:650;text-align:right}
+  .ds-list dd small{color:var(--ds-text-tertiary);font-size:var(--fs-caption);font-weight:500}
+
+  @media(prefers-reduced-motion:reduce){.ds-filter-chip{transition:none}}
+}

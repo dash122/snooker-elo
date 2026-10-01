@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
 import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import MatchmakingMarketplace from "./MatchmakingMarketplace";
@@ -28,7 +29,7 @@ import { AppHeader } from "./components/shell/AppHeader";
 import { useT } from "./components/I18nProvider";
 import { DesktopNavigation, MobileBottomNav, type Destination } from "./components/shell/Navigation";
 import { addEntrant, buildBracket, canManageTournament, cupMatches, currentRoundLabel, formatTournamentDateTime, isTournamentHost, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, removeEntrant, reorderDraw, rosterOrder, roundLabel, shuffleDraw, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
-import { Button, IconButton, InlineNotice, SegmentedControl, Skeleton, SlidingToggleGroup, StatTile, Surface } from "./components/ui/Primitives";
+import { Button, ChipGroup, IconButton, InlineNotice, SectionLabel, SegmentedControl, Skeleton, SlidingToggleGroup, StatTile, Surface } from "./components/ui/Primitives";
 import { TabList, TabPanel } from "./components/ui/Tabs";
 import { Sheet, ConfirmDialog } from "./components/ui/Overlay";
 import { msg } from "../lib/i18n/translate";
@@ -2284,7 +2285,6 @@ function Matches({squad,squadScope,data,canManageMatch,canManageCup,onEdit,onVoi
   const matchTabsId=useId();
   const t = useT();
   const [sortBy,setSortBy]=useState<"playedOn"|"createdAt">("playedOn");
-  const [monthOpen,setMonthOpen]=useState<Record<string,boolean>>({});
   const [sortDirection,setSortDirection]=useState<"desc"|"asc">("desc");
   const [modeFilter,setModeFilter]=useState<"all"|MatchMode>("all");
   const [selectedTournament,setSelectedTournament]=useState<string>("");
@@ -2388,9 +2388,9 @@ function Matches({squad,squadScope,data,canManageMatch,canManageCup,onEdit,onVoi
     }
     return order.map(key=>({key,matches:map.get(key)!}));
   },[matches,comparing]);
-  const newestMonth=groups.reduce((latest,group)=>group.key>latest?group.key:latest,"");
-  return <><section className="hero small"><div><p className="kicker">{t("完整可追溯")}</p><h1>{t("比賽記錄")}</h1><p>{t("查看比分、讓分與每場 ELO 變化。")}</p></div></section>
-    <TabList id={matchTabsId} className="page-tabs match-view-toggle" label={t("比賽資料檢視")} value={view} onChange={value=>setView(value as typeof view)} items={[
+  const defaultSort=sortBy==="playedOn"&&sortDirection==="desc";
+  return <div className="matches-page"><section className="hero small"><div><p className="kicker">{t("完整可追溯")}</p><h1>{t("比賽記錄")}</h1><p>{t("查看比分、讓分與每場 ELO 變化。")}</p></div></section>
+    <TabList id={matchTabsId} className="ds-toggle-control match-view-toggle" label={t("比賽資料檢視")} value={view} onChange={value=>setView(value as typeof view)} items={[
       {value:"history",label:t("賽事記錄")},
       {value:"calendar",label:t("日曆")},
       {value:"matrix",label:t("對賽矩陣")},
@@ -2399,26 +2399,22 @@ function Matches({squad,squadScope,data,canManageMatch,canManageCup,onEdit,onVoi
     {["history","calendar","matrix","cup"].filter(item=>item!==view).map(item=><TabPanel key={item} id={matchTabsId} value={item} active={false}>{null}</TabPanel>)}
     <TabPanel id={matchTabsId} value={view} active>
     {view==="matrix"?<HeadToHeadMatrix squad={squad} squadScope={squadScope} data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{setPair({a:first,b:second});setModeFilter("all");setView("history")}}/> : view==="calendar"?<CalendarView data={data} canManageMatch={canManageMatch} onPlayer={onPlayer} onEdit={onEdit} onVoid={onVoid} onShare={onShare}/> : view==="cup" ? <CupBracketView data={data} selectedTournament={selectedTournament} setSelectedTournament={setSelectedTournament} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={onEdit} isAdmin={isAdmin} onCreateTournament={onCreateTournament} onEditTournament={onEditTournament} onDeleteTournament={onDeleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={onSignUpTournament} onSetArrivalTime={onSetArrivalTime} onRecordSlot={onRecordSlot} onArrange={onArrange} onWalkover={onWalkover} onEditRoster={onEditRoster} onShuffleRoster={onShuffleRoster} onReorderRoster={onReorderRoster} onRefresh={onRefresh}/> : <>
-    <section className="match-filter-toolbar" aria-label={t("篩選及排序比賽記錄")}>
-      <div className="match-filter-control player-control">
-        <span className="match-filter-label">{t("球員")}</span>
-        <div className="match-player-picker">
-          {a&&<span className="match-player-chip">{a.name}<IconButton label={t("取消選擇 {name}", {name: a.name})} onClick={()=>setFocus("")}>×</IconButton></span>}
-          {opponent&&<span className="match-player-chip compare">{opponent.name}<IconButton label={t("取消比較 {name}", {name: opponent.name})} onClick={()=>setOpponent("")}>×</IconButton></span>}
-          {!focusPlayer&&<PlayerCombobox players={roster} value="" onChange={setFocus} placeholder={t("全部球員")} ariaLabel={t("球員")}/>}
-          {focusPlayer&&!opponent&&<PlayerCombobox players={roster.filter(p=>p.id!==focusPlayer)} value="" onChange={setOpponent} placeholder={t("＋ 比較球員")} ariaLabel={t("選擇比較球員")}/>}
-        </div>
+    <section className="match-filters" aria-label={t("篩選及排序比賽記錄")}>
+      <div className="match-search">
+        <SearchIcon/>
+        {a&&<span className="match-player-chip">{a.name}<IconButton label={t("取消選擇 {name}", {name: a.name})} onClick={()=>setFocus("")}>×</IconButton></span>}
+        {opponent&&<span className="match-player-chip compare">{opponent.name}<IconButton label={t("取消比較 {name}", {name: opponent.name})} onClick={()=>setOpponent("")}>×</IconButton></span>}
+        {!focusPlayer&&<PlayerCombobox players={roster} value="" onChange={setFocus} placeholder={t("搜尋球員")} ariaLabel={t("球員")}/>}
+        {focusPlayer&&!opponent&&<PlayerCombobox players={roster.filter(p=>p.id!==focusPlayer)} value="" onChange={setOpponent} placeholder={t("＋ 比較球員")} ariaLabel={t("選擇比較球員")}/>}
       </div>
-      <div className="match-filter-control type-control sort-control">
-        <span className="match-filter-label">{t("類型")}</span>
-        <select aria-label={t("比賽類型")} value={modeFilter} onChange={event=>setModeFilter(event.target.value as "all"|MatchMode)}>
-          <option value="all">{t("全部")}</option>
-          <option value="1v1">1v1</option>
-          <option value="2v2">2v2</option>
-          <option value="cup">{t("盃賽")}</option>
-        </select>
+      <div className="match-filter-row">
+        <ChipGroup label={t("比賽類型")} value={modeFilter} onChange={value=>setModeFilter(value as "all"|MatchMode)} items={[{value:"all",label:t("全部")},{value:"1v1",label:"1v1"},{value:"2v2",label:"2v2"},{value:"cup",label:t("盃賽")}]}/>
+        <Menu className="board-filter" label={t("排序")} triggerClassName={`ds-button ds-button--secondary board-filter__trigger${defaultSort?"":" is-active"}`} trigger={()=><><FilterIcon/><span>{t("排序")}</span></>}
+          sections={[
+            {title:t("排序依據"),items:([["playedOn",t("比賽日期")],["createdAt",t("加入日期")]] as const).map(([key,label])=>({key,label,checked:sortBy===key,onSelect:()=>setSortBy(key)}))},
+            {title:t("次序"),items:([["desc",t("最新至最舊")],["asc",t("最舊至最新")]] as const).map(([key,label])=>({key,label,checked:sortDirection===key,onSelect:()=>setSortDirection(key)}))},
+          ]}/>
       </div>
-      <div className="match-filter-control sort-control"><span className="match-filter-label">{t("排序")}</span><div className="match-sort-compact"><select aria-label={t("排序依據")} value={sortBy} onChange={event=>setSortBy(event.target.value as "playedOn"|"createdAt")}><option value="playedOn">{t("比賽日期")}</option><option value="createdAt">{t("加入日期")}</option></select><button type="button" aria-label={sortDirection==="desc"?t("目前最新至最舊；按下改為最舊至最新"):t("目前最舊至最新；按下改為最新至最舊")} title={sortDirection==="desc"?t("最新至最舊"):t("最舊至最新")} onClick={()=>setSortDirection(value=>value==="desc"?"asc":"desc")}>{sortDirection==="desc"?"↓":"↑"}</button></div></div>
     </section>
     {(focusPlayer||modeFilter!=="all")&&<div className="match-filter-status"><span>{t("{matches} 場符合記錄", {matches: matches.length})}</span><Button variant="quiet" onClick={clearAll}>{t("清除篩選")}</Button></div>}    {comparing&&a&&opponent&&h2hStats&&<div className="h2h-summary neutral">
       <div className="h2h-hero-players">
@@ -2446,15 +2442,11 @@ function Matches({squad,squadScope,data,canManageMatch,canManageCup,onEdit,onVoi
     <div className="match-list">{groups.length===0?<Empty text={comparing?t("沒有符合的對賽記錄"):filteringShared2v2?t("沒有兩人共同參與的 2v2 記錄"):focusPlayer?t("沒有符合的比賽記錄"):t("尚未有比賽記錄")} sub={comparing?t("記錄兩人的第一場比賽後，對賽記錄會顯示在這裡。"):filteringShared2v2?t("兩位球員可以是隊友或對手；目前沒有同時包含兩人的賽事。"):focusPlayer?t("這位球員暫時沒有已記錄的賽事。"):t("記錄第一場比賽後，詳情會顯示在這裡。")}/>:groups.map(group=>{
       const cards=group.matches.map(m=><MatchCard key={m.id} data={data} match={m} canManage={canManageMatch(m)} name={name} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player)onPlayer(player)}} onEdit={onEdit} onVoid={onVoid} onShare={onShare} highlighted={m.id===highlight}/>);
       if(comparing)return <Fragment key={group.key}>{cards}</Fragment>;
-      const open=monthOpen[group.key]??(group.key===newestMonth||group.matches.some(m=>m.id===highlight));
-      const panelId=`match-month-${group.key}`;
       return <section className="match-month-group" key={group.key}>
-        <button type="button" className="match-month-header" aria-expanded={open} aria-controls={panelId} onClick={()=>setMonthOpen(value=>({...value,[group.key]:!open}))}>
-          <span>{monthGroupLabel(t, group.key)}</span><small>{t("{matches} 場", {matches: group.matches.length})}</small><i aria-hidden="true"/>
-        </button>
-        {open&&<div className="match-month-cards" id={panelId}>{cards}</div>}
+        <SectionLabel meta={t("{matches} 場", {matches: group.matches.length})}>{monthGroupLabel(t, group.key)}</SectionLabel>
+        <div className="match-month-cards">{cards}</div>
       </section>;
-    })}</div></>}</TabPanel></>;
+    })}</div></>}</TabPanel></div>;
 }
 
 type CupStatus="signup"|"live"|"done"|"short";
@@ -3170,35 +3162,56 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
      and a chip naming the round — the edge does the finding, the chip does the telling, and neither
      costs a row. */
   const cup=cupFor(t, m,data);
-  return <article ref={card} className={`match ${m.status}${isEntertainmentMode(m.mode)?" entertainment":""}${cup?" is-cup":""}${highlighted?" just-saved":""}`}>
+  return <article ref={card} className={`match ${m.status}${isEntertainmentMode(m.mode)?" entertainment":""}${cup?" is-cup":""}${highlighted?" just-saved":""}`}
+    // The whole card opens the details sheet; the › button below is the visible cue and the keyboard
+    // route. Taps on the card's own buttons (share, player names) keep their own meaning.
+    onClick={event=>{if(!(event.target as HTMLElement).closest("button,a,input,select,textarea"))setOpen(true)}}>
     <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time>{cup&&<small className={`match-cup-badge${cup.round?" has-round":""}`} title={cup.round?`${cup.name} · ${cup.round}`:cup.name}><CupMark/>{cup.round&&<b>{cup.round}</b>}<span>{cup.name}</span></small>}{isEntertainmentMode(m.mode)&&<small className="match-entertainment-badge">{t("潮拍 2v2 · 不計 ELO")}</small>}{highlighted&&<span className="pill just-saved-pill">{t("剛剛記錄")}</span>}{m.status==="void"&&<span className="pill">{t("已作廢")}</span>}{m.entryMode==="aggregate"&&<span className="pill muted">{t("歷史匯總")}</span>}</span>
       {/* Sharing sits with the card's own tools rather than behind the expander: the urge to show a
           result off lasts about as long as the walk back to the table, and a share hidden one tap
           down is a share that does not happen. Offered to every reader, not only to whoever may
           edit the card — a clubmate posting your win is worth more than you posting it. A voided
           match is excluded; it is not a result any more. */}
-      <span className="card-tools">
-        {m.status!=="void"&&<IconButton className="card-tool share" label={t("分享 {leftLabel} 對 {rightLabel} 的賽果", {leftLabel, rightLabel})} onClick={()=>onShare(m)}><ShareGlyph kind="share" /></IconButton>}
-        {canManage&&<><IconButton className="card-tool" label={t("編輯 {leftLabel} 對 {rightLabel} 的賽事", {leftLabel, rightLabel})} onClick={()=>onEdit(m)}>✎</IconButton><IconButton className="card-tool danger" label={t("刪除 {leftLabel} 對 {rightLabel} 的賽事", {leftLabel, rightLabel})} onClick={()=>onVoid(m)}>✕</IconButton></>}
+      {/* The › sits outside .card-tools, which read-only (signed-out) views hide: everyone can open details. */}
+      <span className="match-top-actions">
+        <span className="card-tools">
+          {m.status!=="void"&&<IconButton className="card-tool share" label={t("分享 {leftLabel} 對 {rightLabel} 的賽果", {leftLabel, rightLabel})} onClick={()=>onShare(m)}><ShareGlyph kind="share" /></IconButton>}
+        </span>
+        <IconButton className="card-tool details" label={t("查看比賽詳情")} aria-haspopup="dialog" onClick={()=>setOpen(true)}><i aria-hidden="true"/></IconButton>
       </span></div>
     <Scoreline left={leftLabel} right={rightLabel} onLeftClick={isEntertainmentMode(m.mode)?undefined:()=>onPlayer(m.a)} onRightClick={isEntertainmentMode(m.mode)?undefined:()=>onPlayer(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}
       eloLeft={isEntertainmentMode(m.mode)?undefined:{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={isEntertainmentMode(m.mode)?undefined:{before:m.beforeB,after:m.afterB,delta:m.deltaB??-m.deltaA}}/>
     {isEntertainmentMode(m.mode)&&<div className="match-team-rosters">{(["A","B"] as const).map(side=><div className={`match-team-roster ${side==="B"?"right":""}`} key={side}>{teamMemberIds(m,side).map(id=>{const player=data.players.find(item=>item.id===id);return <button type="button" key={id} onClick={()=>onPlayer(id)} aria-label={t("查看 {v} 的球員卡", {v: name(id)})}><PlayerBadge player={player??{short:"?"}}/><span>{name(id)}</span></button>})}</div>)}</div>}
-    <button type="button" className="match-summary-row" aria-expanded={open} aria-label={open?t("收起比賽詳情"):t("展開比賽詳情")} onClick={()=>setOpen(value=>!value)}>
-      {!!breaksByPlayer.length&&<span className="match-net-breaks">★ {breaksByPlayer.map((group,index)=><Fragment key={group.playerId}>{index>0&&t("；")}{t("{v} 單桿 {v2}", {v: name(group.playerId), v2: group.values.join(t("、"))})}</Fragment>)}</span>}
-      <span className="match-expand-toggle" aria-hidden="true"><i/></span>
-    </button>
+    {!!breaksByPlayer.length&&<div className="match-summary-row"><span className="match-net-breaks">★ {breaksByPlayer.map((group,index)=><Fragment key={group.playerId}>{index>0&&t("；")}{t("{v} 單桿 {v2}", {v: name(group.playerId), v2: group.values.join(t("、"))})}</Fragment>)}</span></div>}
     </div>
-    {open&&<div className="match-body">
-    {isEntertainmentMode(m.mode)?<div className="elo-impact entertainment-impact"><small>{t("娛樂賽記錄；不影響四位球員的 ELO 或統計。")}</small></div>:<div className="elo-impact" aria-label={t("本場 ELO 影響")}><small>{t("預測 {v} 局數比例 {v2}%", {v: name(m.a), v2: Math.round(m.expectedA*100)})}</small></div>}
-    {!!breaksByPlayer.length&&<div className="match-breaks"><span>{t("單桿")}</span>{breaksByPlayer.map(group=><b key={group.playerId}>{name(group.playerId)} {group.values.join(t("、"))}</b>)}</div>}
-    <div className="match-handicap-summary">
-      <small>{t("本場讓分")}</small>
-      <b>{handicapText(m.actual)}</b>
-      <span>{t("賽前建議：{v}", {v: handicapText(recommendedActual)})}</span>
-    </div>
-    <small className="match-added">{t("加入於 {v}", {v: new Date(m.createdAt).toLocaleString(INTL_LOCALE[t.locale])})}</small></div>}
+    {/* Portalled: the card lifts with a transform on hover, which would otherwise become the
+        containing block for the sheet's fixed overlay and clip it to the card. */}
+    {open&&createPortal(<Sheet open title={t("{leftLabel} 對 {rightLabel}", {leftLabel, rightLabel})} onClose={()=>setOpen(false)} className="match-sheet">
+      <p className="match-sheet__meta"><time dateTime={m.playedOn}>{m.playedOn}</time>{cup&&<> · {cup.round?`${cup.name} · ${cup.round}`:cup.name}</>}{isEntertainmentMode(m.mode)&&<> · {t("潮拍 2v2 · 不計 ELO")}</>}{m.status==="void"&&<> · {t("已作廢")}</>}</p>
+      <div className="match-sheet__board"><Scoreline left={leftLabel} right={rightLabel} scoreLeft={m.scoreA} scoreRight={m.scoreB}/></div>
+      <dl className="ds-list match-sheet__list">
+        {isEntertainmentMode(m.mode)
+          ? <div><dt>ELO</dt><dd>{t("娛樂賽記錄；不影響四位球員的 ELO 或統計。")}</dd></div>
+          : <>
+            <div><dt>{name(m.a)}</dt><dd><EloChange before={m.beforeA} after={m.afterA} delta={m.deltaA}/></dd></div>
+            <div><dt>{name(m.b)}</dt><dd><EloChange before={m.beforeB} after={m.afterB} delta={m.deltaB??-m.deltaA}/></dd></div>
+            <div><dt>{t("預測局數比例")}</dt><dd>{name(m.a)} {Math.round(m.expectedA*100)}%</dd></div>
+          </>}
+        <div><dt>{t("本場讓分")}</dt><dd>{handicapText(m.actual)}<small>{t("賽前建議：{v}", {v: handicapText(recommendedActual)})}</small></dd></div>
+        {!!breaksByPlayer.length&&<div><dt>{t("單桿")}</dt><dd>{breaksByPlayer.map(group=><span key={group.playerId}>{name(group.playerId)} {group.values.join(t("、"))}</span>)}</dd></div>}
+        <div><dt>{t("加入日期")}</dt><dd>{new Date(m.createdAt).toLocaleString(INTL_LOCALE[t.locale])}</dd></div>
+      </dl>
+      <div className="match-sheet__actions">
+        {m.status!=="void"&&<Button variant="secondary" onClick={()=>{setOpen(false);onShare(m)}}>{t("分享")}</Button>}
+        {canManage&&<Button variant="secondary" onClick={()=>{setOpen(false);onEdit(m)}}>{t("編輯")}</Button>}
+        {canManage&&<Button variant="danger" onClick={()=>{setOpen(false);onVoid(m)}}>{t("刪除")}</Button>}
+      </div>
+    </Sheet>,document.body)}
   </article>;
+}
+
+function EloChange({before,after,delta}:{before:number;after:number;delta:number}){
+  return <span className={`elo-change ${delta>=0?"positive":"negative"}`}><b>{delta>=0?"+":""}{Math.round(delta)}</b>{Math.round(before)} → {Math.round(after)}</span>;
 }
 
 const weekdayLabels=[msg("一"),msg("二"),msg("三"),msg("四"),msg("五"),msg("六"),msg("日")];
@@ -3280,7 +3293,7 @@ function CalendarView({data,canManageMatch,onPlayer,onEdit,onVoid,onShare}:{data
       {dayMatches.size===0&&<div className="calendar-empty-overlay"><Empty text={t("本月沒有比賽記錄")} sub={t("使用上方箭嘴切換到有記錄的月份。")}/></div>}
     </div>
     {selectedDay&&<div className="calendar-day-detail">
-      <div className="calendar-day-head"><h3><time dateTime={selectedDay}>{selectedDay}</time></h3><span>{t("{selectedMatches} 場", {selectedMatches: selectedMatches.length})}</span></div>
+      <SectionLabel sticky={false} meta={t("{selectedMatches} 場", {selectedMatches: selectedMatches.length})}><time dateTime={selectedDay}>{selectedDay}</time></SectionLabel>
       <div className="calendar-day-list">{selectedMatches.map(m=>
         <MatchCard key={m.id} data={data} match={m} canManage={canManageMatch(m)} name={name} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player)onPlayer(player)}} onEdit={onEdit} onVoid={onVoid} onShare={onShare}/>)}</div>
     </div>}

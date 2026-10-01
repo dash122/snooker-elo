@@ -18,6 +18,14 @@ export function SegmentedControl({label,value,items,onChange}:{label:string;valu
   const motionStyle={"--segment-width":`calc((100% - ${(items.length+1)*gap}px) / ${items.length})`,"--segment-translate":`calc(${Math.max(0,activeIndex)*100}% + ${Math.max(0,activeIndex)*gap}px)`} as CSSProperties;
   return <div className="ds-segmented" role="group" aria-label={label} style={motionStyle}><i className="ds-segmented__indicator" hidden={activeIndex<0} aria-hidden="true"/>{items.map(item=><button key={item.value} type="button" aria-pressed={value===item.value} disabled={item.disabled} onClick={()=>onChange(item.value)}><span>{item.label}</span></button>)}</div>;
 }
+/** Filter chips: pick one from a short list. Lighter than SegmentedControl, and it wraps instead of squeezing. */
+export function ChipGroup({label,value,items,onChange,className=""}:{label:string;value:string;items:{value:string;label:ReactNode}[];onChange:(value:string)=>void;className?:string}){
+  return <div className={`ds-chip-group ${className}`.trim()} role="group" aria-label={label}>{items.map(item=><button key={item.value} type="button" className="ds-filter-chip" aria-pressed={value===item.value} onClick={()=>onChange(item.value)}>{item.label}</button>)}</div>;
+}
+/** The small label above a list section (iOS grouped-list style). Sticky by default, so a long list keeps its place. */
+export function SectionLabel({children,meta,sticky=true,className=""}:{children:ReactNode;meta?:ReactNode;sticky?:boolean;className?:string}){
+  return <h3 className={`ds-section-label${sticky?" is-sticky":""} ${className}`.trim()}><span>{children}</span>{meta!=null&&<small>{meta}</small>}</h3>;
+}
 export function SlidingToggleGroup({as:Tag="div",className="",children,style,...props}:HTMLAttributes<HTMLElement>&{as?:"div"|"nav"}){const ref=useRef<HTMLElement|null>(null);const [thumb,setThumb]=useState({x:0,y:0,width:0,height:0});useLayoutEffect(()=>{const group=ref.current;if(!group)return;const measure=()=>{const active=group.querySelector<HTMLElement>('button.active,button[aria-selected="true"],button[aria-pressed="true"],a[aria-current="page"]');if(active)setThumb({x:active.offsetLeft,y:active.offsetTop,width:active.offsetWidth,height:active.offsetHeight})};measure();const observer=new ResizeObserver(measure);observer.observe(group);return()=>observer.disconnect()},[children]);const motionStyle={...style,"--toggle-x":`${thumb.x}px`,"--toggle-y":`${thumb.y}px`,"--toggle-width":`${thumb.width}px`,"--toggle-height":`${thumb.height}px`} as CSSProperties;return <Tag {...props} ref={node=>{ref.current=node}} className={`sliding-toggle-group ${className}`.trim()} style={motionStyle}><i className="sliding-toggle-thumb" aria-hidden="true"/>{children}</Tag>}
 export function FormField({label,hint,error,children}:{label:string;hint?:string;error?:string;children:ReactNode}){
   const messageId=useId();
