@@ -49,6 +49,12 @@ export function SquadStatsPanel({ squad, players, matches, onMatrix, onPlayer }:
     {stats.matches === 0
       ? <EmptyState title={t("隊員之間未有賽事")} description={period === "30d" ? t("近30日隊員之間未有已確認賽事，試試查看「全部」。") : t("隊員之間打完第一場單打後，數據就會顯示在這裡。")} />
       : <>
+        <Surface as="div" className="sq-card sq-coverage">
+          <div className="sq-card-head"><h3>{t("交手覆蓋")}</h3><small>{t("{met} / {total} 組已交手", { met: stats.pairsMet, total: stats.pairsPossible })}</small></div>
+          <div className="sq-coverage-bar" role="img" aria-label={`${coverage}%`}><i style={{ width: `${coverage}%` }} /></div>
+          <Button variant="secondary" onClick={onMatrix}>{t("查看全隊對賽矩陣")}</Button>
+        </Surface>
+
         <div className="sq-kpis">
           <Surface as="div" className="sq-kpi sq-kpi--lead"><small>{t("隊內賽事")}</small><b>{stats.matches}</b><em>{t("{draws} 場和局", { draws: stats.draws })}</em></Surface>
           <Surface as="div" className="sq-kpi"><small>{t("總局數")}</small><b>{stats.frames}</b><em>{t("平均每場 {avg} 局", { avg: stats.averageFrames.toFixed(1) })}</em></Surface>
@@ -93,12 +99,6 @@ export function SquadStatsPanel({ squad, players, matches, onMatrix, onPlayer }:
               </button></li>;
             })}
           </ol>
-        </Surface>
-
-        <Surface as="div" className="sq-card sq-coverage">
-          <div className="sq-card-head"><h3>{t("交手覆蓋")}</h3><small>{t("{met} / {total} 組已交手", { met: stats.pairsMet, total: stats.pairsPossible })}</small></div>
-          <div className="sq-coverage-bar" role="img" aria-label={`${coverage}%`}><i style={{ width: `${coverage}%` }} /></div>
-          <Button variant="secondary" onClick={onMatrix}>{t("查看全隊對賽矩陣")}</Button>
         </Surface>
       </>}
   </section>;
