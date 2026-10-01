@@ -12,6 +12,8 @@
     --ds-border-subtle:rgba(20,65,57,.12);--ds-border-strong:rgba(20,65,57,.24);
     --ds-accent-primary:#d5a94d;--ds-accent-primary-hover:#e1b96f;--ds-focus:#e4b452;
     --ds-accent-shadow:rgba(151,103,31,.18);--ds-selected-shadow:rgba(9,47,40,.08);
+    /* Apple-style segmented control: a soft grey capsule track and a white capsule thumb. */
+    --ds-segmented-track:rgba(118,128,124,.14);--ds-segmented-thumb-shadow:0 3px 8px rgba(9,30,26,.12),0 3px 1px rgba(9,30,26,.04);
     /* The app's real primary-action colour (buttons the member actually taps to
        commit something) has always been this green, not --ds-accent-primary's
        gold -- gold is the highlight/feature accent (badges, hero glow, ratings).
