@@ -1713,15 +1713,13 @@ function FilterChip({label,clearLabel,onClear}:{label:ReactNode;clearLabel:strin
 function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMatch,onRivalry,onClubScope}:{ranked:Player[];data:AppState;ownPlayerId?:string;squad:MySquad|null;scope:BoardScope;onClubScope:()=>void;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
   const homeTabsId=useId();
   const t = useT();
-  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<BreakView>("players"),[homeViewRaw,setHomeView]=useState<"ranking"|"breaks"|"recent"|"squad"|"matrix">("ranking"),[officialOnly,setOfficialOnly]=useState(false),[query,setQuery]=useState("");
+  const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<BreakView>("players"),[homeViewRaw,setHomeView]=useState<"ranking"|"breaks"|"recent"|"squad"|"matrix">("ranking"),[query,setQuery]=useState("");
   const homeView=(squad?["ranking","squad","matrix"]:["ranking","breaks","recent"]).includes(homeViewRaw)?homeViewRaw:"ranking";
   const confirmed=data.matches.filter(m=>m.status==="confirmed");
   const month=confirmed.filter(m=>m.playedOn.slice(0,7)===today.slice(0,7)).length,total=confirmed.length;
-  // Toggling to 正式球手 re-sequences ranks among only the visible players,
-  // rather than keeping their position in the full board with gaps.
   // A squad view is the same table filtered to its members, re-ranked among themselves.
   const squadIds=useMemo(()=>squad?new Set(squad.members.map(member=>member.playerId)):null,[squad]);
-  const visibleRanked=useMemo(()=>ranked.filter(p=>(!squadIds||squadIds.has(p.id))&&(!officialOnly||games(p)>=data.settings.provisionalGames)),[ranked,squadIds,officialOnly,data.settings.provisionalGames]);
+  const visibleRanked=useMemo(()=>ranked.filter(p=>!squadIds||squadIds.has(p.id)),[ranked,squadIds]);
   // Search narrows the list without re-ranking it: a match keeps its real position on the board.
   const needle=query.trim().toLocaleLowerCase();
   const shown=sortPlayers(needle?visibleRanked.filter(p=>p.name.toLocaleLowerCase().includes(needle)||(p.short??"").toLocaleLowerCase().includes(needle)):visibleRanked,data,sort,dir),rankOf=new Map(visibleRanked.map((p,i)=>[p.id,i+1]));
@@ -1783,17 +1781,17 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
         items={[{value:"club",label:t("全會")},{value:"squad",label:t("球隊")}]}
         onChange={value=>{setQuery("");setHomeView("ranking");if(value==="club")scope.onSelect(null);else{const id=defaultSquadId(scope.squads);if(id)scope.onSelect(id);else scope.onMore()}}}/>
     </div>
-    <div className="board-head">
+    {squad&&<div className="board-head">
       <div className="board-heading">
-      {squad?<Menu className="board-scope" label={t("切換球隊")} align="start" triggerClassName="board-scope__trigger"
+      <Menu className="board-scope" label={t("切換球隊")} align="start" triggerClassName="board-scope__trigger"
         trigger={()=><><span className="board-scope__title">{squad.name}</span><ChevronDown/></>}
         sections={[
           {items:scope.squads.map(item=>({key:item.id,label:item.name,checked:squad.id===item.id,onSelect:()=>{setQuery("");scope.onSelect(item.id)}}))},
           {items:[{key:"more",label:t("瀏覽公開球隊"),onSelect:scope.onMore},...(squad.role?[{key:"manage",label:squad.role==="host"?t("管理球隊"):t("球隊資料"),onSelect:scope.onManage}]:[])]},
-        ]}/>:<h2 className="board-title">{t("全會排名")}</h2>}
-      {squad&&<p className="board-sub">{t("{count} 位隊員", {count:squad.memberCount})}</p>}
+        ]}/>
+      <p className="board-sub">{t("{count} 位隊員", {count:squad.memberCount})}</p>
       </div>
-    </div>
+    </div>}
     <TabList id={homeTabsId} as="nav" className="page-tabs home-view-nav board-view-tabs" label={squad?t("球隊內容"):t("首頁內容")} value={homeView} onChange={value=>setHomeView(value as typeof homeView)} items={squad?[
       {value:"ranking",label:<span>{t("排行榜")}</span>},
       {value:"squad",label:<span>{t("數據")}</span>},
@@ -1803,9 +1801,8 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
       {value:"breaks",label:<span>{t("最高單桿")}</span>},
       {value:"recent",label:<span>{t("數據")}</span>},
     ]}/>
-    {homeView==="ranking"&&(!defaultSort||officialOnly)&&<div className="board-chips">
+    {homeView==="ranking"&&!defaultSort&&<div className="board-chips">
       {!defaultSort&&<FilterChip label={<>{t("排序：{v}", {v: t(sortLabels[sort])})} {dir==="asc"?"↑":"↓"}</>} clearLabel={t("清除排序")} onClear={()=>{setSort("rank");setDir("asc")}}/>}
-      {officialOnly&&<FilterChip label={t("只顯示正式球手")} clearLabel={t("顯示全部球員")} onClear={()=>setOfficialOnly(false)}/>}
     </div>}
     {homeView==="breaks"&&breakView!=="players"&&<div className="board-chips"><FilterChip label={t(BREAK_VIEWS.find(item=>item.value===breakView)!.label)} clearLabel={t("顯示球員最高")} onClear={()=>setBreakView("players")}/></div>}
     <TabPanel id={homeTabsId} value="ranking" active={homeView==="ranking"}>
@@ -1813,13 +1810,12 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
       <h2 id="ranking-title" className="ds-sr-only">{t("目前排名")}</h2>
     <div className="board-toolbar">
     {visibleRanked.length>8&&<label className="board-search"><SearchIcon/><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={t("搜尋球員")} aria-label={t("搜尋球員")}/></label>}
-      <Menu className="board-filter" label={t("排序及篩選")} triggerClassName={`ds-button ds-button--secondary board-filter__trigger${defaultSort&&!officialOnly?"":" is-active"}`} trigger={()=><><FilterIcon/><span>{t("篩選")}</span></>}
+      <Menu className="board-filter" label={t("排序及篩選")} triggerClassName={`ds-button ds-button--secondary board-filter__trigger${defaultSort?"":" is-active"}`} trigger={()=><><FilterIcon/><span>{t("篩選")}</span></>}
         sections={[
-          {title:t("排序"),items:(Object.keys(sortLabels) as SortKey[]).map(key=>({key,label:t(sortLabels[key]),checked:sort===key,detail:sort===key?(dir==="asc"?"↑":"↓"):undefined,onSelect:()=>sortBy(key)}))},
-          {title:t("顯示"),items:[{key:"all",label:t("全部球員"),checked:!officialOnly,onSelect:()=>setOfficialOnly(false)},{key:"official",label:t("只顯示正式球手"),checked:officialOnly,onSelect:()=>setOfficialOnly(true)}]},
+          {title:t("排序"),items:(Object.keys(sortLabels) as SortKey[]).filter(key=>key!=="official").map(key=>({key,label:t(sortLabels[key]),checked:sort===key,detail:sort===key?(dir==="asc"?"↑":"↓"):undefined,onSelect:()=>sortBy(key)}))},
         ]}/>
     </div>
-    <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={officialOnly?t("尚未有正式球手"):t("尚未有球員")} sub={officialOnly?t("未有球員完成臨時門檻，暫時未有正式評分。"):squad?t("呢個球隊暫時未有球員。"):t("前往球員頁面新增第一位球員。")}/>:<><div className="table-head sortable"><button title={squad?t("箭嘴為過去 30 天的排名升跌"):t("箭嘴為過去 10 天的排名升跌")} onClick={()=>sortBy("rank")}>{t("排名")}<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>{t("球員")}<SortArrow active={sort==="name"} dir={dir}/></button><button title={t("最近五筆比賽；較近期結果權重較高")} onClick={()=>sortBy("form")}>{t("近況")}<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>{t("場數／勝率")}<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>{t("建議／正式評分")}<SortArrow active={sort==="suggested"} dir={dir}/></button><button title={squad?t("ELO 及近30天ELO變化"):t("ELO 及近10天ELO變化")} onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
+    <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={t("尚未有球員")} sub={squad?t("呢個球隊暫時未有球員。"):t("前往球員頁面新增第一位球員。")}/>:<><div className="table-head sortable"><button title={squad?t("箭嘴為過去 30 天的排名升跌"):t("箭嘴為過去 10 天的排名升跌")} onClick={()=>sortBy("rank")}>{t("排名")}<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>{t("球員")}<SortArrow active={sort==="name"} dir={dir}/></button><button title={t("最近五筆比賽；較近期結果權重較高")} onClick={()=>sortBy("form")}>{t("近況")}<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>{t("場數／勝率")}<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>{t("建議評分")}<SortArrow active={sort==="suggested"} dir={dir}/></button><button title={squad?t("ELO 及近30天ELO變化"):t("ELO 及近10天ELO變化")} onClick={()=>sortBy("rating")}>ELO<SortArrow active={sort==="rating"} dir={dir}/></button></div>
       {shown.length===0&&<p className="board-empty">{t("沒有符合「{query}」的球員", {query: query.trim()})}</p>}
       {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=squad?ratingSwing(data.matches,p.id,SQUAD_SWING_DAYS):recentDeltaDays(p,data,10),played=games(p),rival=rivalry?.get(p.id),idle=rival&&isInactive(rival.idleDays),rate=played?Math.round(p.wins/played*100):0,provisional=played<data.settings.provisionalGames,trailing=trailingStat(t, sort,p,data,suggested);
         const rivalText=rival?.record?(rival.record.wins+rival.record.losses+rival.record.draws?t("你 {wins}勝 {losses}負", {wins:rival.record.wins,losses:rival.record.losses}):t("未同你交手")):null;
@@ -1830,7 +1826,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
           return move===0?null
           :<em className={`move ${move>0?"up":"down"}`} aria-label={t("較 {days} 天前{v} {v2} 位", {days:swingDays, v: move>0?t("上升"):t("下跌"), v2: Math.abs(move)})}>{move>0?"▲":"▼"}{Math.abs(move)}</em>})()}</span><span className="person"><PlayerBadge player={p}/><b>{p.name}{p.id===ownPlayerId&&<em className="board-self-label">{t("你")}</em>}<small>{played<data.settings.provisionalGames?t("臨時"):<span className="official-only">{t("正式")}</span>}<span className="rating-kind-suffix">{t("評分")}</span><em className="person-meta">  {t("· {played} 場", {played})}</em></small>{(rivalText||idleText)&&<span className="squad-rival" aria-hidden="true">{rivalText&&<em>{rivalText}</em>}{idleText&&<em className="squad-idle">{idleText}</em>}</span>}</b></span>
         <span className="form">{p.form.map((x,j)=><i className={x.toLowerCase()} key={j}>{x}</i>)}</span>
-        <span>{t("{played} 場", {played})}<small>{t("{rate}% 勝率", {rate})}</small></span><span className="dual-rating"><b>{suggested}</b><small>{t("正式")} {p.handicap==null?"—":p.handicap}</small></span>
+        <span>{t("{played} 場", {played})}<small>{t("{rate}% 勝率", {rate})}</small></span><span className="dual-rating"><b>{suggested}</b></span>
         {trailing?<span className="elo"><b className={trailing.cls}>{trailing.big}</b><small>{trailing.sub}</small></span>
         :<span className="elo"><b>{Math.round(p.rating)}</b><small className={swing>=0?"positive":"negative"}>{swing>=0?"+":""}{Math.round(swing)}</small><em className="elo-suggested">{t("建議 {suggested}", {suggested})}</em></span>}</button>})}
 </>}</Surface>
