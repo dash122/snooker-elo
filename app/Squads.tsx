@@ -104,16 +104,29 @@ export function useSquadViewTracking(squad: MySquad | null) {
   useEffect(() => { if (id) trackAvailabilityEvent("squad_view", { squadId: id, memberCount: size }); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-/** The one control the ranking panel carries: names the current view and opens the picker. */
-export function SquadScopeChip({ squad, onOpen, onManage }: { squad: MySquad | null; onOpen: () => void; onManage: () => void }) {
+/** The squad to land on when someone flips the scope to 球隊: last used, then pinned, then any of theirs. */
+export function defaultSquadId(squads: MySquad[]): string | null {
+  const mine = new Set(squads.map(squad => squad.id));
+  return [...readList(RECENT_KEY), ...readList(PIN_KEY)].find(id => mine.has(id)) ?? squads[0]?.id ?? null;
+}
+
+/** The scope control that frames a page as the whole club or one squad. In a squad it also carries the
+    squad's identity (who is in it) and its two actions, so a squad reads as a place rather than a filter. */
+export function SquadScope({ squad, players, onClub, onSquad, onSwitch, onManage, compact = false }: {
+  squad: MySquad | null; players: Person[]; onClub: () => void; onSquad: () => void; onSwitch: () => void; onManage: () => void; compact?: boolean;
+}) {
   const t = useT();
+  const byId = new Map(players.map(player => [player.id, player]));
+  const faces = squad ? squad.members.map(member => byId.get(member.playerId)).filter((person): person is Person => Boolean(person)).slice(0, 5) : [];
   return <div className="squad-scope">
-    <button type="button" className="squad-scope-chip" aria-haspopup="dialog" onClick={onOpen}>
-      <span className="squad-scope-kicker">{t("球隊篩選")}</span>
-      <b>{squad ? squad.name : t("全會")}</b>
-      <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4" /></svg>
-    </button>
-    {squad?.role && <Button variant="secondary" className="squad-scope-manage" type="button" onClick={onManage}>{squad.role === "host" ? t("管理球隊") : t("球隊資料")}</Button>}
+    <SegmentedControl label={t("檢視範圍")} value={squad ? "squad" : "club"} onChange={value => value === "squad" ? onSquad() : onClub()}
+      items={[{ value: "club", label: t("全會") }, { value: "squad", label: t("球隊") }]} />
+    {squad && <div className={`squad-hub${compact ? " squad-hub--compact" : ""}`}>
+      {!compact && <span className="squad-hub-faces" aria-hidden="true">{faces.map(person => <PlayerBadge key={person.id} player={person} />)}</span>}
+      <span className="squad-hub-name"><b>{squad.name}</b><small>{t("{count} 位隊員", { count: squad.memberCount })}</small></span>
+      <Button variant="secondary" type="button" onClick={onSwitch}>{t("切換球隊")}</Button>
+      {squad.role && !compact && <Button variant="secondary" type="button" onClick={onManage}>{squad.role === "host" ? t("管理球隊") : t("球隊資料")}</Button>}
+    </div>}
   </div>;
 }
 
