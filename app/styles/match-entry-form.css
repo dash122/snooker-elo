@@ -18,3 +18,8 @@
    row usable there: the title may shrink, while the date chip gives back just enough padding and
    type size to stay inside the sheet instead of widening the PWA viewport. */
 @media(max-width:380px){.match-title-row{gap:var(--sp-2);flex-wrap:wrap}.match-title-row h2{flex:1 1 8rem;min-width:0;font-size:var(--fs-lead)}.match-date-chip{flex:0 1 auto;min-width:0;max-width:100%;padding-inline:var(--sp-2)}.match-date-chip span{min-width:0;max-width:100%;font-size:var(--fs-body);white-space:nowrap}}
+.match-chips{display:flex;align-items:center;gap:var(--sp-2);flex:none}
+.match-squad__trigger{display:flex;align-items:center;gap:var(--sp-1);min-height:var(--control-md);max-width:9rem;padding:var(--sp-2) var(--sp-3);border:1px solid var(--me-date-chip-border);border-radius:var(--radius-sm);background:var(--me-date-chip-bg);color:var(--me-date-chip-text);font-family:var(--font-display);font-size:var(--fs-lead);font-weight:700;line-height:1}
+.match-squad__trigger span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.match-squad__trigger i{font-style:normal;color:var(--gold-on-light);font-size:var(--fs-sm)}
+@media(max-width:380px){.match-chips{flex:0 1 auto;flex-wrap:wrap}.match-squad__trigger{font-size:var(--fs-body)}}

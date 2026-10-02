@@ -1524,7 +1524,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       <div className={`sheet-shell${modal==="detail"?" player-detail-sheet":""}${modal==="match"?" match-entry-sheet":""}`}>
         <IconButton className="close" label={t("關閉")} onClick={closeModal}>×</IconButton>
         <section className={`sheet${modal==="deleteMatch"?" confirm-sheet":""}`} role="dialog" aria-modal="true">
-          {modal==="match"&&<MatchForm data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} saving={saving} onSave={saveMatch}/>}
+          {modal==="match"&&<MatchForm squads={squads} data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} saving={saving} onSave={saveMatch}/>}
           {modal==="tournament"&&<div>
             <p className="kicker">{t("盃賽")}</p>
             <h2>{editingTournament?t("編輯盃賽"):t("建立新盃賽")}</h2>
@@ -3485,7 +3485,7 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
     {canReset&&<section className="danger-zone"><div><h2>{t("清除並重設資料")}</h2><p>{t("永久刪除共用資料庫內所有球員、比賽及審計記錄，並恢復預設 ELO 設定。")}</p></div><Button variant="danger" onClick={onReset}>{t("清除所有資料")}</Button></section>}</>;
 }
 
-function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;editing:boolean;saving:boolean;onSave:()=>void}) {
+function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave}:{squads:MySquad[];data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;editing:boolean;saving:boolean;onSave:()=>void}) {
   const t = useT();
   const [breakInput,setBreakInput]=useState<Record<string,string>>({});
   const [breakMessage,setBreakMessage]=useState<Record<string,string>>({});
@@ -3499,7 +3499,17 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
      leaving stale values from the previous one behind. */
   const [followingSuggestion,setFollowingSuggestion]=useState(false);
   const update=(k:string,v:any)=>setDraft((d:any)=>({...d,[k]:v}));
-  const players=[...data.players].filter(p=>p.active).sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
+  /* 球隊: a filter on this form only (never saved with the match). "All" lists everyone; picking a squad
+     narrows the player lists to its members and clears any already-picked player outside it. */
+  const [formSquadId,setFormSquadId]=useState<string|null>(null);
+  const formSquad=squads.find(squad=>squad.id===formSquadId)??null;
+  const squadMemberIds=useMemo(()=>formSquad?new Set(formSquad.members.map(member=>member.playerId)):null,[formSquad]);
+  const chooseFormSquad=(id:string|null)=>{
+    setFormSquadId(id);
+    const ids=id?new Set(squads.find(squad=>squad.id===id)?.members.map(member=>member.playerId)):null;
+    if(ids)setDraft((d:any)=>{const next={...d};for(const key of ["a","b","a2","b2"])if(next[key]&&!ids.has(next[key]))next[key]="";return next});
+  };
+  const players=[...data.players].filter(p=>p.active&&(!squadMemberIds||squadMemberIds.has(p.id))).sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
   const isTeamMode=draft.mode==="2v2";
   const isCupMode=draft.mode==="cup";
   const a2=isTeamMode?data.players.find(player=>player.id===draft.a2):undefined;
@@ -3614,7 +3624,9 @@ function MatchForm({data,draft,setDraft,preview,a,b,editing,saving,onSave}:{data
   const handicapLabel=draft.giver&&+draft.points>0?t("{v} 每局讓 {points} 分", {v: draft.mode==="2v2"?([a.id,a2?.id].includes(draft.giver)?teamAName:teamBName):draft.giver===a?.id?a?.name:b?.name, points: draft.points}):t("沒有讓分");
   const dateLabel=draft.date===today?t("今天"):draft.date;
   const fairPoints=Math.abs(fairActual??0);
-  return <div className="match-form"><div className="match-form-head"><div className="match-title-row"><h2 className="accent">{editing?t("編輯比賽"):t("記錄比賽")}</h2><div className="match-date-chip"><span aria-hidden="true">{dateLabel}<i aria-hidden="true">›</i></span><input aria-label={t("比賽日期，目前為{dateLabel}", {dateLabel})} type="date" value={draft.date} onChange={e=>update("date",e.target.value)} onClick={e=>{const input=e.currentTarget;if(typeof input.showPicker==="function")input.showPicker()}}/></div></div></div>
+  return <div className="match-form"><div className="match-form-head"><div className="match-title-row"><h2 className="accent">{editing?t("編輯比賽"):t("記錄比賽")}</h2><div className="match-chips">{squads.length>0&&<Menu className="match-squad" label={t("選擇球隊")} align="end" triggerClassName="match-squad__trigger"
+          trigger={()=><><span>{formSquad?formSquad.name:t("全部")}</span><i aria-hidden="true">›</i></>}
+          sections={[{items:[{key:"all",label:t("全部"),checked:!formSquad,onSelect:()=>chooseFormSquad(null)},...squads.map(item=>({key:item.id,label:item.name,checked:formSquad?.id===item.id,onSelect:()=>chooseFormSquad(item.id)}))]}]}/>}<div className="match-date-chip"><span aria-hidden="true">{dateLabel}<i aria-hidden="true">›</i></span><input aria-label={t("比賽日期，目前為{dateLabel}", {dateLabel})} type="date" value={draft.date} onChange={e=>update("date",e.target.value)} onClick={e=>{const input=e.currentTarget;if(typeof input.showPicker==="function")input.showPicker()}}/></div></div></div></div>
     {editing&&<p className="sub">{draft.mode==="2v2"?t("潮拍娛樂賽只會更新這筆歷史記錄，不會重播或改變 ELO。"):t("儲存後會按日期重播全部賽事，重建雙方及後續 ELO。")}</p>}
     {data.players.length<2&&<p className="warning">{t("請先新增至少兩位活躍球員。")}</p>}
     {isCupMode&&!cupSlotLocked && <div className="tournament-selector tournament-selector-first">

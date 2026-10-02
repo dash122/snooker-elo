@@ -2193,6 +2193,7 @@ export const enStrings: Record<string, string> = {
   "檢視範圍": "View Scope",
   "球隊": "Squad",
   "切換球隊": "Switch Squad",
+  "選擇球隊": "Choose squad",
   "數據": "Stats",
   "球隊內容": "Squad Content",
   "歡迎回來，{name}": "Welcome back, {name}",
