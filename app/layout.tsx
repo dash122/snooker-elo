@@ -42,6 +42,7 @@ import "./styles/en-typography.css";
 import "./styles/matches.css";
 import "./styles/segmented.css";
 import "./styles/profile-progress.css";
+import "./styles/result-colours.css";
 import { AddToHomeScreen } from "./components/AddToHomeScreen";
 import { I18nProvider } from "./components/I18nProvider";
 import { TimeZoneSync } from "./components/TimeZoneSync";

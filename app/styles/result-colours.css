@@ -1,0 +1,12 @@
+/* Result colouring kept deliberately quiet: pips reuse the existing muted chart colours (no new
+   palette), and the record pill is one neutral chip rather than three coloured ones. */
+.form i.w, .players-row-form i.w { background: var(--ds-chart-positive); color: var(--ds-text-on-brand); }
+.form i.d, .players-row-form i.d { background: var(--ds-border-muted); color: var(--ds-text-secondary); }
+.form i.l, .players-row-form i.l { background: var(--ds-chart-negative); color: var(--ds-text-on-brand); }
+
+/* Leaderboard record pill: one chip, a hairline edge so it separates from the row, neutral text. */
+.ds-app-shell .ranking-panel .table-card .person .player-record {
+  gap: var(--sp-2); padding: 0 var(--sp-2); background: var(--ds-surface-secondary);
+  box-shadow: inset 0 0 0 1px var(--ds-border-muted); color: var(--ds-text-secondary);
+}
+.ds-app-shell .ranking-panel .table-card .person .player-record > span { padding: 0; color: inherit; background: none; }
