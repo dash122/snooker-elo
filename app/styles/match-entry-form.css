@@ -177,3 +177,4 @@
 
 /* Phone: even 16px padding on every side of the score panel (the score boxes flex to fit what's left). */
 @media(max-width:820px){.score-panel{padding:var(--sp-4)}}
+@media(max-width:820px){.score-value{line-height:1}}
