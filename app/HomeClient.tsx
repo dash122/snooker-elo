@@ -3642,7 +3642,7 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
   const dateLabel=draft.date===todayLocal?t("今天"):draft.date===yesterdayLocal?t("昨天"):draft.date;
   const looksLikePoints=Math.max(+draft.scoreA,+draft.scoreB)>FRAME_SCORE_SANITY_LIMIT;
   const fairPoints=Math.abs(fairActual??0);
-  return <div className="match-form"><div className="match-form-head"><div className="match-title-row"><h2 className="accent">{editing?t("編輯比賽"):t("記錄比賽")}</h2><div className="match-date-chip"><span aria-hidden="true">{dateLabel}<i aria-hidden="true">›</i></span><input aria-label={t("比賽日期，目前為{dateLabel}", {dateLabel})} type="date" value={draft.date} max={maxDate} onChange={e=>{if(e.target.value)update("date",e.target.value>maxDate?maxDate:e.target.value)}} onClick={e=>{const input=e.currentTarget;if(typeof input.showPicker==="function")input.showPicker()}}/></div></div></div>
+  return <div className="match-form"><div className="match-form-head"><div className="match-title-row"><h2 className="accent">{editing?t("編輯比賽"):t("記錄比賽")}</h2><div className="match-date-chip"><span aria-hidden="true"><em>{t("比賽日期：")}</em><b>{dateLabel}</b><i aria-hidden="true">›</i></span><input aria-label={t("比賽日期，目前為{dateLabel}", {dateLabel})} type="date" value={draft.date} max={maxDate} onChange={e=>{if(e.target.value)update("date",e.target.value>maxDate?maxDate:e.target.value)}} onClick={e=>{const input=e.currentTarget;if(typeof input.showPicker==="function")input.showPicker()}}/></div></div></div>
     
     {editing&&<p className="sub">{draft.mode==="2v2"?t("潮拍娛樂賽只會更新這筆歷史記錄，不會重播或改變 ELO。"):t("儲存後會按日期重播全部賽事，重建雙方及後續 ELO。")}</p>}
     {data.players.length<2&&<p className="warning">{t("請先新增至少兩位活躍球員。")}</p>}

@@ -80,3 +80,9 @@
 .elo-preview span b.negative::before{content:"▼";font-size:var(--fs-label)}
 .elo-preview>div>i{display:none}
 .elo-preview details{margin-top:var(--sp-3);padding-top:var(--sp-2-5);border-top:1px solid var(--ds-border-subtle)}
+
+/* Date chip speaks the same type as the rest of the form: body font, one size, label quieter than value. */
+.match-date-chip span{gap:var(--sp-1);font-family:inherit;font-size:var(--fs-sm);font-weight:700;line-height:1.2;white-space:nowrap}
+.match-date-chip span em{color:var(--ds-text-secondary);font-style:normal;font-weight:600}
+.match-date-chip span b{color:var(--me-date-chip-text);font-weight:800}
+@media(max-width:380px){.match-date-chip span{font-size:var(--fs-caption)}}

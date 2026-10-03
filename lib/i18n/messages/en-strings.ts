@@ -871,6 +871,7 @@ export const enStrings: Record<string, string> = {
   "贏咗幾多局？": "Frames won",
   "記錄每位球員贏咗的局數，唔係每局入球的分數。例如 3–2。": "Enter how many frames each player won, not the points scored. For example, 3–2.",
   "呢個數字好似係分數。請輸入贏咗的局數（例如 3–2），單桿分數請用下面「單桿」記錄。": "That looks like points, not frames. Enter frames won (for example 3–2); record single-visit points with “Break” below.",
+  "比賽日期：": "Match date:",
   "昨天": "Yesterday",
   "{v}減一局": "Remove a frame from {v}",
   "{v}局數": "{v} frames",
