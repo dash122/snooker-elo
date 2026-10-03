@@ -173,3 +173,23 @@ export async function clearSlot(playerId:string,venueId:string,date:string):Prom
      WHERE player_id=${playerId} AND venue_id=${venueId} AND cancelled_at IS NULL
        AND start_at >= ${from}::timestamptz AND start_at < ${to}::timestamptz`;
 }
+
+const normaliseName=(value:string)=>value.replace(/\s+/g,"").toLowerCase();
+
+/** A member adds a venue by typing its name (and, optionally, its district). A name that already exists (ignoring case
+    and spaces) returns the existing venue instead of a second one, so the picker never fills up
+    with near-duplicates. */
+export async function createVenue(input:{name:string;district:string}):Promise<{venue:Venue;existing:boolean}>{
+  const name=input.name.trim().slice(0,60),district=input.district.trim().slice(0,30);
+  if(!name)throw new Error(msg("請輸入場地名稱"));
+  const sql=getSql();
+  const venues=await sql<Venue[]>`SELECT id,name,district,tables FROM venues WHERE active`;
+  const match=venues.find(venue=>normaliseName(venue.name)===normaliseName(name));
+  if(match)return {venue:match,existing:true};
+  const id=`venue-${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`;
+  const [venue]=await sql<Venue[]>`
+    INSERT INTO venues (id,name,district,tables)
+    VALUES (${id},${name},${district},'{}'::jsonb)
+    RETURNING id,name,district,tables`;
+  return {venue,existing:false};
+}

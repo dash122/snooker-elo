@@ -1361,6 +1361,15 @@ export const enStrings: Record<string, string> = {
   "夠人重疊我哋會叫你一次。": "We'll ping you once when enough people overlap.",
   "場次資料暫時載入唔到。": "Couldn't load sessions right now.",
   "揀場地": "Choose a Venue",
+  // app/VenueBoard.tsx — add a venue
+  "新增場地": "Add Venue",
+  "場地名稱": "Venue name",
+  "地區（可省略）": "District (optional)",
+  "儲存場地": "Save Venue",
+  "呢個場地已經有，已經幫你揀咗。": "That venue already exists, so we selected it for you.",
+  "已經新增場地。": "Venue added.",
+  "請輸入場地名稱": "Please enter a venue name",
+
   "今晚未有人": "Nobody tonight yet",
   "全日 {goingTotal} 人，但分散喺唔同時間": "{goingTotal, plural, one {# person} other {# people}} across the day, but at different times",
   "{interestedTotal} 人有興趣，等緊夠人": "{interestedTotal, plural, one {# person is} other {# people are}} interested, waiting for enough players",
