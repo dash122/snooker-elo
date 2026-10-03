@@ -1,0 +1,208 @@
+/* Player card (expanded profile): cinematic hero, centrepiece chart, bento stats, duel rivals and
+   compact result rows. Loaded last so it can restyle the older profile blocks without touching them. */
+
+/* --- Hero: a full-bleed baize header, like the match sheet ---------------- */
+/* The sheet's own padding moves onto the body so the header can run edge to edge and up to the
+   top edge; the sheet shell clips the corners, so the header carries no radius of its own. */
+.sheet-shell.player-detail-sheet>.sheet{padding:0 0 max(var(--sp-6),env(safe-area-inset-bottom))}
+.player-detail-sheet .profile-body{margin-top:var(--sp-4);padding-inline:var(--sp-5)}
+.player-detail-sheet>.close{top:var(--sp-3);margin:var(--sp-3) var(--sp-3) calc(var(--sp-3) * -1 - 2.25rem) auto;border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.14);color:white;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.player-detail-sheet>.close:hover{background:rgba(255,255,255,.24);color:white}
+.profile-head{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-4);padding:var(--sp-5) var(--sp-5) var(--sp-4);border-radius:0;box-shadow:none}
+.profile-id{display:flex;align-items:center;gap:var(--sp-4);min-width:0;padding-inline-end:6rem}
+.profile-id>:first-child{flex:none;width:3.5rem;height:3.5rem;border-radius:var(--radius-md);font-size:var(--fs-lead);box-shadow:0 0 0 1px rgba(255,255,255,.22),0 6px 16px rgba(0,0,0,.25)}
+.profile-head h2{white-space:normal;overflow-wrap:anywhere;font-size:var(--fs-h2)}
+.profile-meta{margin:var(--sp-1) 0 0;color:var(--ds-text-muted-teal);font-size:var(--fs-caption);font-weight:700}
+.profile-identity .profile-chip.honour{display:inline-flex;margin-top:var(--sp-2)}
+.profile-vitals{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);align-items:start;padding-top:var(--sp-3);border-top:1px solid rgba(255,255,255,.14)}
+.profile-vital{display:grid;justify-items:start;align-content:start;gap:var(--sp-1-5);min-width:0}
+.profile-vital+.profile-vital{padding-inline-start:var(--sp-3);border-inline-start:1px solid rgba(255,255,255,.14)}
+.profile-vital>small{color:var(--ds-text-muted-teal);font-size:var(--fs-label);font-weight:800;letter-spacing:.1em}
+.profile-vital-value{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--sp-1) var(--sp-2);min-width:0}
+.profile-vital-value>b{font-family:var(--font-display);font-size:var(--fs-display);line-height:1;font-weight:800;color:white;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.profile-vital:first-child .profile-vital-value>b{color:var(--gold-on-dark)}
+.profile-delta{padding:var(--sp-1) var(--sp-2-5);border:1px solid currentColor;border-radius:var(--radius-pill);font-size:var(--fs-label);font-weight:800;line-height:1.3;font-variant-numeric:tabular-nums}
+.profile-delta.positive{color:var(--ds-positive-soft)}
+.profile-delta.negative{color:var(--match-negative-on-dark)}
+.profile-meta-row{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1-5) var(--sp-3);margin-top:var(--sp-1-5)}
+.profile-meta-row .profile-meta{margin:0}
+.profile-meta-row .profile-form-dots{display:flex;align-items:center;gap:var(--sp-1-5);margin:0}
+.profile-meta-row .profile-form-dots i{width:1.625rem;height:1.625rem;border-width:0;font-size:var(--fs-label);box-shadow:inset 0 -2px 0 rgba(0,0,0,.2)}
+.profile-meta-row .profile-form-dots i.w{background:var(--ds-positive-soft);color:var(--baize-deep)}
+.profile-meta-row .profile-form-dots i.l{background:var(--match-negative-on-dark);color:var(--baize-deep)}
+.profile-meta-row .profile-form-dots i.d{background:rgba(255,255,255,.22);color:white}
+.profile-streak{margin-inline-start:var(--sp-2);padding:var(--sp-1) var(--sp-2-5);border-radius:var(--radius-pill);background:var(--ball-yellow);color:var(--baize-deep);font-size:var(--fs-label);font-style:normal;font-weight:800;white-space:nowrap}
+.profile-head .profile-share{position:absolute;top:var(--sp-3);right:calc(var(--sp-3) + 2.25rem + var(--sp-3-5));z-index:2;width:2.25rem;height:2.25rem;min-height:0;border:1px solid rgba(255,255,255,.28);border-radius:50%;background:rgba(255,255,255,.14);color:white}
+.profile-head .profile-share:hover{background:rgba(255,255,255,.24)}
+/* A cup honour turns the hero charcoal-and-gold, as on the cup match card. */
+.profile-head.has-honour{background:radial-gradient(circle at 88% 8%,rgba(238,222,181,.2),transparent 46%),linear-gradient(135deg,#202528 0%,#0d1012 46%,#171b1d 72%,#050607 100%)}
+
+/* --- Chart as the centrepiece ------------------------------------------- */
+.profile-chart-hero .trend-overview{flex-wrap:nowrap;align-items:center;gap:var(--sp-2-5)}
+.profile-chart-hero .trend-heading{flex:1 1 auto;min-width:0}
+.profile-chart-hero .trend-heading .profile-section-head{margin:0}
+.profile-chart-hero .trend-stat{flex:0 0 auto}
+.profile-chart-hero .trend-stat b{font-size:var(--fs-body)}
+.profile-chart-hero .trend-stat small{font-size:var(--fs-label);white-space:nowrap}
+.profile-chart-hero .trend-overview .ds-toggle-control>button{padding-inline:var(--sp-2)}
+.profile-chart-hero .trend-heading .kicker,.profile-chart-hero .trend-heading h3{white-space:nowrap}
+.profile-chart-hero .trend-overview{margin-top:0}
+.profile-chart-hero .trend-overview small{margin-top:var(--sp-1);font-weight:700;font-variant-numeric:tabular-nums}
+.profile-chart-hero .trend-plot{margin-top:var(--sp-3);min-height:11rem}
+.profile-chart-hero .trend-plot svg{animation:profile-chart-reveal 1200ms var(--ds-ease-standard) .25s both}
+.trend-now{position:absolute;z-index:2;width:.75rem;height:.75rem;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;
+  background:var(--ds-accent-action);box-shadow:0 0 0 3px var(--ds-surface-primary),0 0 1rem color-mix(in srgb,var(--ds-accent-action) 70%,transparent);animation:profile-now-in 400ms ease 1.3s both}
+.trend-now.negative{background:var(--ds-danger);box-shadow:0 0 0 3px var(--ds-surface-primary),0 0 1rem color-mix(in srgb,var(--ds-danger) 70%,transparent)}
+.trend-now:after{content:"";position:absolute;inset:-.375rem;border-radius:50%;border:2px solid currentColor;color:var(--ds-accent-action);opacity:0;animation:profile-now-pulse 2s ease-out 1.8s infinite}
+.trend-now.negative:after{color:var(--ds-danger)}
+
+/* --- Bento stats -------------------------------------------------------- */
+.profile-bento{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-3)}
+.bento-tile{display:grid;align-content:start;gap:var(--sp-1);min-width:0;padding:var(--sp-4);border:1px solid var(--line);border-radius:var(--radius-lg);background:linear-gradient(180deg,var(--ds-surface-raised) 0%,var(--ds-surface-primary) 100%);box-shadow:var(--shadow-panel-soft)}
+.bento-tile>small{color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:800;letter-spacing:.06em}
+.bento-tile>b{font-family:var(--font-display);font-size:var(--fs-display);line-height:1;color:var(--ds-canvas-brand);font-variant-numeric:tabular-nums}
+.bento-sub{color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:600;font-variant-numeric:tabular-nums}
+.bento-ring{justify-items:center;text-align:center;align-content:center}
+.ring-wrap{position:relative;width:min(9.5rem,100%);aspect-ratio:1;margin-bottom:var(--sp-2)}
+.ring-wrap svg{display:block;width:100%;height:100%;-webkit-mask-image:conic-gradient(#000 var(--ring-p),transparent 0);mask-image:conic-gradient(#000 var(--ring-p),transparent 0);animation:profile-ring-sweep 1100ms var(--ds-ease-standard) .2s both}
+.ring-wrap circle{fill:none;stroke-width:11}
+.ring-track{stroke:var(--line);stroke-width:11}
+.ring-w{stroke:var(--ds-accent-action)}.ring-d{stroke:var(--ds-border-strong)}.ring-l{stroke:var(--ds-danger)}
+.ring-center{position:absolute;inset:0;display:grid;place-items:center}
+.ring-center b{font-family:var(--font-display);font-size:var(--fs-stat);color:var(--ds-canvas-brand);font-variant-numeric:tabular-nums}
+.bento-bar{height:.5rem;margin-top:var(--sp-1-5);overflow:hidden;border-radius:var(--radius-pill);background:var(--line)}
+.bento-bar i{display:block;height:100%;border-radius:inherit;background:var(--ds-accent-action);transform-origin:left;animation:match-odds-fill 1100ms var(--ds-ease-standard) .3s both}
+.bento-range{grid-column:1/-1}
+.range-track{position:relative;height:.5rem;margin-block:var(--sp-3) var(--sp-1);border-radius:var(--radius-pill);background:linear-gradient(90deg,var(--ds-danger),var(--ds-border-strong) 50%,var(--ds-accent-action))}
+.range-track i{position:absolute;top:50%;width:1rem;height:1rem;border:3px solid var(--ds-surface-primary);border-radius:50%;background:var(--ds-canvas-brand);box-shadow:var(--ds-elevation-2);transform:translate(-50%,-50%);animation:profile-rise 600ms ease .5s both}
+.range-ends{display:flex;justify-content:space-between;align-items:baseline;font-size:var(--fs-caption);font-weight:700;color:var(--ds-text-secondary);font-variant-numeric:tabular-nums}
+.range-ends b{font-size:var(--fs-lead);color:var(--ds-canvas-brand)}
+
+/* --- Recent results as compact rows -------------------------------------- */
+.profile-body .recent-match-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-2);margin-inline:0;padding:0;overflow:visible}
+.profile-body .recent-result{flex:none;display:grid;grid-template-columns:auto minmax(0,1fr) 3.5rem 5.25rem;align-items:center;gap:var(--sp-3);padding:var(--sp-2-5) var(--sp-3);border-left:4px solid var(--ds-success);border-radius:var(--radius-md)}
+.profile-body .recent-result.l{border-left-color:var(--ds-danger)}
+.profile-body .recent-result.d{border-left-color:var(--ds-border-strong)}
+.profile-body .recent-result>div{grid-column:1;gap:var(--sp-2)}
+.profile-body .recent-result>*{grid-row:1}
+.profile-body .recent-result>span{grid-column:2}
+.profile-body .recent-result>strong{grid-column:3;margin:0;font-size:var(--fs-lead);text-align:center;align-self:center}
+.profile-body .recent-result>small{grid-column:4;justify-self:center;align-self:center;min-width:4.5rem;text-align:center;margin:0;padding:.125rem var(--sp-2);border:1px solid currentColor;border-radius:var(--radius-pill);white-space:nowrap}
+.profile-body .recent-result>small.positive{color:var(--ds-success)}
+.profile-body .recent-result>small.negative{color:var(--ds-danger)}
+.profile-body .recent-result>div{flex-direction:row-reverse}
+
+/* --- Rivals: section head and toggle -------------------------------------- */
+.rivalry-snapshot .profile-section-head{align-items:center;margin-bottom:var(--sp-3)}
+.rivalry-snapshot .matrix-toggle{flex:none;width:auto;padding:2px}
+.rivalry-snapshot .matrix-toggle>button{min-height:var(--control-sm);min-width:4.75rem;padding-inline:var(--sp-4);font-size:var(--fs-caption);white-space:nowrap}
+.matchup-count{margin-inline-start:var(--sp-1);color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:700;font-variant-numeric:tabular-nums}
+
+/* --- Staggered reveal ----------------------------------------------------- */
+.profile-body>*{animation:profile-rise 480ms var(--ds-ease-standard) both}
+.profile-body>:nth-child(2){animation-delay:70ms}.profile-body>:nth-child(3){animation-delay:140ms}.profile-body>:nth-child(4){animation-delay:210ms}.profile-body>:nth-child(n+5){animation-delay:280ms}
+
+@property --ring-p{syntax:"<angle>";inherits:false;initial-value:360deg}
+@keyframes profile-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes profile-ring-sweep{from{--ring-p:0deg}to{--ring-p:360deg}}
+@keyframes profile-chart-reveal{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes profile-now-in{from{opacity:0;transform:translate(-50%,-50%) scale(.2)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes profile-now-pulse{0%{opacity:.7;transform:scale(.6)}100%{opacity:0;transform:scale(1.6)}}
+
+@media(max-width:820px){
+  .profile-head{padding:var(--sp-5) var(--sp-4) var(--sp-4)}
+  .player-detail-sheet .profile-body{padding-inline:var(--sp-4)}
+  .profile-id>:first-child{width:3.25rem;height:3.25rem}
+  .bento-tile{padding:var(--sp-3-5)}
+  .bento-tile>b{font-size:var(--fs-h2)}
+  .bento-tile  .profile-body .recent-result{gap:var(--sp-2);padding:var(--sp-2) var(--sp-2-5)}
+  .profile-body .recent-result>strong{font-size:var(--fs-body)}
+  .profile-body .recent-result{grid-template-columns:auto minmax(0,1fr) 2.75rem 4.75rem}
+  .profile-body .recent-result>small{padding-inline:var(--sp-1-5);min-width:4.25rem}
+}
+@media(prefers-reduced-motion:reduce){
+  .profile-body>*,.profile-chart-hero .trend-plot svg,.ring-wrap svg,.bento-bar i,.range-track i,.trend-now{animation:none}
+  .trend-now:after{animation:none}
+}
+
+/* Time axis under the ELO plot. */
+.trend-xaxis{position:relative;height:1.25rem;margin-top:var(--sp-1);color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:700;font-variant-numeric:tabular-nums}
+.trend-xaxis span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.trend-yaxis{position:absolute;inset:0 auto 0 0;width:8%;pointer-events:none;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:700;font-variant-numeric:tabular-nums}
+.trend-yaxis span{position:absolute;left:0;transform:translateY(-50%)}
+
+.break-stats-subhead small{color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700}
+.trend-xaxis span:first-child{transform:translateX(-25%)}
+.trend-xaxis span:last-child:not(:first-child){transform:translateX(-75%)}
+
+/* Compact stats strip: two short tiles side by side instead of a tall ring card. */
+.profile-bento{gap:var(--sp-2-5)}
+.bento-tile{padding:var(--sp-3);gap:var(--sp-1)}
+.bento-ring{display:flex;align-items:center;justify-content:flex-start;gap:var(--sp-3);text-align:left}
+.bento-ring-text{display:grid;gap:var(--sp-1);min-width:0}
+.bento-ring-text>small{color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:800;letter-spacing:.06em}
+.bento-ring .ring-wrap{flex:none;width:4.25rem;margin:0}
+.bento-ring .ring-wrap circle{stroke-width:13}
+.bento-ring .ring-center b{font-size:var(--fs-sm)}
+.bento-frames>b{font-size:var(--fs-stat)}
+@media(max-width:820px){.bento-tile>b{font-size:var(--fs-stat)}}
+/* Left ring tile: larger type. */
+.bento-ring .ring-wrap{width:5rem}
+.bento-ring .ring-center b{font-size:var(--fs-body)}
+.bento-ring-text>small{font-size:var(--fs-caption)}
+.bento-ring-text>.bento-sub{color:var(--ds-canvas-brand);font-family:var(--font-display);font-size:var(--fs-lead);font-weight:800}
+.bento-ring-text>.bento-sub{font-size:var(--fs-stat);line-height:1.1}
+.bento-ring .ring-center b{font-size:var(--fs-lead)}
+
+/* Recent results: keep the date on phones too. */
+.profile-body .recent-result>div time{display:block;font-size:var(--fs-label)}
+
+/* --- All opponents: a dense heat grid, strength carried by five flat colour steps ------------------ */
+.matchup-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-2)}
+@media(min-width:821px){.matchup-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.matchup-cell{display:grid;justify-items:center;align-content:center;gap:2px;min-width:0;padding:var(--sp-3) var(--sp-2);border:0;border-radius:var(--radius-lg);font:inherit;text-align:center;cursor:pointer;transition:transform var(--ds-duration-standard) var(--ds-ease-standard)}
+.matchup-cell:active{transform:scale(.97)}
+.matchup-name{display:flex;align-items:baseline;justify-content:center;gap:var(--sp-1);max-width:100%;min-width:0}
+.matchup-name b{min-width:0;overflow:hidden;font-size:var(--fs-caption);font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+.matchup-tag{flex:none;font-size:var(--fs-label);font-style:normal;font-weight:800;opacity:.75}
+.matchup-cell strong{max-width:100%;overflow:hidden;margin-block:var(--sp-1);font-family:var(--font-display);font-size:var(--fs-lead);line-height:1.1;font-variant-numeric:tabular-nums;text-overflow:ellipsis;white-space:nowrap}
+.matchup-cell small{max-width:100%;overflow:hidden;font-size:var(--fs-label);font-weight:700;font-variant-numeric:tabular-nums;opacity:.8;text-overflow:ellipsis;white-space:nowrap}
+.matchup-more{display:block;width:100%;min-height:var(--control-md);margin-top:var(--sp-2);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--ds-surface-raised);color:var(--ds-accent-action);font:inherit;font-size:var(--fs-sm);font-weight:800;cursor:pointer}
+.matchup-more:hover{background:var(--ds-surface-secondary)}
+/* Red and green around a neutral middle. Each hue has four steps (pale, light, medium, solid), so the
+   depth says how lopsided the record is; only the last step is a solid fill with white type. */
+.lvl-none{background:var(--ds-surface-secondary);color:var(--ds-text-secondary)}
+.lvl-even{background:var(--ds-surface-secondary);color:var(--ds-text-primary)}
+.lvl-up-1{background:color-mix(in srgb,var(--ds-accent-action) 11%,var(--ds-surface-raised));color:color-mix(in srgb,var(--ds-accent-action) 90%,var(--ds-canvas-brand))}
+.lvl-up-2{background:color-mix(in srgb,var(--ds-accent-action) 24%,var(--ds-surface-raised));color:color-mix(in srgb,var(--ds-accent-action) 88%,var(--ds-canvas-brand))}
+.lvl-up-3{background:color-mix(in srgb,var(--ds-accent-action) 42%,var(--ds-surface-raised));color:color-mix(in srgb,var(--ds-accent-action) 60%,var(--ds-canvas-brand))}
+.lvl-up-4{background:color-mix(in srgb,var(--ds-accent-action) 92%,var(--ds-canvas-brand));color:white}
+.lvl-down-1{background:color-mix(in srgb,var(--ds-danger) 10%,var(--ds-surface-raised));color:color-mix(in srgb,var(--ds-danger) 90%,var(--ds-canvas-brand))}
+.lvl-down-2{background:color-mix(in srgb,var(--ds-danger) 22%,var(--ds-surface-raised));color:color-mix(in srgb,var(--ds-danger) 88%,var(--ds-canvas-brand))}
+.lvl-down-3{background:color-mix(in srgb,var(--ds-danger) 40%,var(--ds-surface-raised));color:color-mix(in srgb,var(--ds-danger) 60%,var(--ds-canvas-brand))}
+.lvl-down-4{background:color-mix(in srgb,var(--ds-danger) 92%,var(--ds-canvas-brand));color:white}
+
+/* Long labels (English especially) never spill: they truncate, and toggles drop to their own line rather
+   than being squeezed or clipped. */
+.profile-vital>small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.profile-meta{overflow-wrap:anywhere}
+.profile-chart-hero .trend-overview{flex-wrap:wrap}
+.profile-chart-hero .trend-heading{flex:1 1 6.5rem;min-width:6.5rem}
+.profile-chart-hero .trend-heading .kicker,.profile-chart-hero .trend-heading h3{overflow:hidden;text-overflow:ellipsis}
+.profile-chart-hero .trend-overview .ds-toggle-control{max-width:100%}
+.profile-chart-hero .trend-overview .ds-toggle-control>button{min-width:max-content;padding-inline:var(--sp-3-5)}
+.rivalry-snapshot .profile-section-head{flex-wrap:wrap}
+.rivalry-snapshot .profile-section-head>div:first-child{flex:1 1 7rem;min-width:7rem}
+.rivalry-snapshot .matrix-toggle{max-width:100%}
+.rivalry-snapshot .matrix-toggle>button{min-width:max-content;padding-inline:var(--sp-4)}
+.recent-form .profile-section-head{flex-wrap:wrap}
+.matchup-cell strong,.matchup-cell small,.matchup-name b{overflow:hidden;text-overflow:ellipsis}
+
+/* Toggles size to their label with comfortable side padding; a toggle that cannot fit drops to its own line. */
+.break-stats .trend-overview .ds-toggle-control>button{min-width:max-content;padding-inline:var(--sp-3-5)}
+/* All opponents: the score leads, the supporting lines recede. */
+.matchup-cell strong{font-size:var(--fs-stat);font-weight:800;line-height:1.05;margin-block:var(--sp-1-5)}
+.matchup-cell small{font-weight:600;opacity:.7}
+.matchup-cell{row-gap:0}
+.matchup-cell small{line-height:1.25}
+.matchup-cell strong+small{margin-top:0}

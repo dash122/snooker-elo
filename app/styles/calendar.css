@@ -10,3 +10,9 @@
 }
 @media(max-width:380px){.calendar-weekdays,.calendar-grid{gap:var(--sp-1)}.calendar-nav{gap:var(--sp-3)}.calendar-nav-title{min-width:6rem}.calendar-nav-title b{font-size:var(--fs-body)}
 }
+/* The month title is the calendar's anchor: the body font at a heading size (the condensed display face
+   made the Chinese digits and characters look small and mismatched), the same on every screen. */
+.calendar-nav-title b{font-family:inherit;font-size:var(--fs-h3);font-weight:800;letter-spacing:-.01em;line-height:1.2}
+.calendar-nav-title{min-width:9rem}
+.calendar-month-total{font-size:var(--fs-caption)}
+@media(max-width:380px){.calendar-nav-title{min-width:7.5rem}}

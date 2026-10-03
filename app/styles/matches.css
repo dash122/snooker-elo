@@ -45,11 +45,19 @@
 .match:hover .match-top .card-tool.details{color:white}
 
 /* Match detail sheet. */
-.match-sheet{display:grid;gap:var(--sp-4)}
-.match-sheet>h2{margin-bottom:0;font-size:var(--fs-h3)}
-.match-sheet__meta{margin:calc(var(--sp-3) * -1) 0 0;color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:600}
-.match-sheet__board{padding:var(--sp-4);border-radius:var(--radius-md);background:linear-gradient(135deg,var(--baize) 0%,var(--baize-deep) 100%);color:white}
-.match-sheet__board .scoreline-name{font-size:var(--fs-lead)}
+.ds-sheet.match-sheet{display:grid;gap:var(--sp-4);padding:0 0 var(--sp-5)}
+.match-sheet>h2{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.match-sheet>:not(.match-sheet__board){margin-inline:var(--sp-5)}
+.match-sheet .ds-dialog-close{z-index:1;color:white}
+.match-sheet__board{display:grid;gap:var(--sp-4);padding:var(--sp-5);background:linear-gradient(135deg,var(--baize) 0%,var(--baize-deep) 100%);color:white}
+.match-sheet__meta{margin:0;padding-inline-end:var(--control-md);color:var(--ds-text-muted-teal);font-size:var(--fs-caption);font-weight:700;letter-spacing:.02em}
+@media(max-width:820px){.match-sheet__board{padding-top:var(--sp-6)}.ds-sheet.match-sheet{padding-bottom:calc(var(--sp-5) + var(--ds-safe-bottom))}}
+.match-sheet__board .scoreline-name{font-size:var(--fs-h3);font-weight:800;line-height:1.2;white-space:normal;overflow-wrap:anywhere}
+.match-sheet__board .scoreline>b{min-width:3rem;padding:.125rem var(--sp-2-5);font-size:var(--fs-display-lg)}
+.match-sheet__board .scoreline{margin:0;gap:var(--sp-3)}
+/* A cup tie keeps its charcoal-and-gold tone when opened, as on the card. */
+.match-sheet.is-cup .match-sheet__board{background:radial-gradient(circle at 52% -30%,rgba(238,222,181,.16),transparent 50%),linear-gradient(135deg,#202528 0%,#0d1012 46%,#171b1d 72%,#050607 100%);box-shadow:inset 0 -1px 0 rgba(225,211,174,.3)}
+.match-sheet.is-cup .match-sheet__meta{color:#ead9ae}
 .match-sheet__board .scoreline-name.winner{color:white}
 .match-sheet__board .scoreline-name.loser,.match-sheet__board .scoreline-name.drawn{color:var(--ds-text-muted-teal)}
 .match-sheet__board .scoreline>b.winner{background:var(--ball-yellow);color:var(--baize-deep)}
@@ -77,3 +85,34 @@
 @media(max-width:820px){
   .matches-page .ds-section-label.is-sticky{margin-inline:calc(var(--sp-3-5) * -1);padding-inline:calc(var(--sp-3-5) + var(--sp-1))}
 }
+
+/* Match detail sheet: header extras, odds bar, tiles and break badges. */
+.match-sheet__board .scoreline-name.winner:not(:empty)::before{content:"♛ ";color:var(--ball-yellow)}
+.match-sheet__board .scoreline>b.winner{box-shadow:0 0 1.5rem color-mix(in srgb,var(--ball-yellow) 45%,transparent)}
+.match-sheet__board{position:relative}
+.match-sheet__elo{display:flex;justify-content:space-between;gap:var(--sp-3);padding-top:var(--sp-3);border-top:1px solid rgba(255,255,255,.14)}
+.match-sheet__elo-side{display:grid;gap:var(--sp-1);min-width:0}
+.match-sheet__elo-side.right{text-align:right}
+.match-sheet__elo-side{justify-items:start}.match-sheet__elo-side.right{justify-items:end}
+.match-sheet__elo-side b{padding:.125rem var(--sp-2-5);border:1px solid currentColor;border-radius:var(--radius-pill);font-size:var(--fs-sm);font-weight:800;line-height:1.35}
+.match-sheet__elo-side.positive b{color:var(--ds-positive-soft)}
+.match-sheet__elo-side.negative b{color:var(--match-negative-on-dark)}
+.match-sheet__elo-side.positive span{color:var(--ds-positive-soft)}.match-sheet__elo-side.negative span{color:var(--match-negative-on-dark)}
+.match-sheet__elo-side span{font-size:var(--fs-caption);font-weight:700;font-variant-numeric:tabular-nums}
+.match-sheet__tag{justify-self:center;padding:var(--sp-1) var(--sp-3);border-radius:var(--radius-pill);background:var(--ball-yellow);color:var(--baize-deep);font-size:var(--fs-label);font-weight:800;letter-spacing:.08em}
+.match-sheet__label{color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:800;letter-spacing:.06em}
+.match-sheet__odds,.match-sheet__tile,.match-sheet__breaks{display:grid;gap:var(--sp-2);padding:var(--sp-4);border-radius:var(--radius-md);background:var(--ds-surface-secondary)}
+.match-sheet__odds-bar{height:.625rem;overflow:hidden;border-radius:var(--radius-pill);background:var(--ds-border-strong)}
+.match-sheet__odds-bar i{display:block;height:100%;border-radius:inherit;background:var(--ds-accent-action);transform-origin:left;animation:match-odds-fill 1100ms var(--ds-ease-toggle) both .3s}
+.match-sheet__odds-legend{display:flex;justify-content:space-between;gap:var(--sp-3);font-size:var(--fs-caption);font-variant-numeric:tabular-nums}
+.match-sheet__tile b{font-size:var(--fs-body);font-weight:800}
+.match-sheet__tile small{color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+.match-sheet__breaks>div{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);font-weight:700}
+.match-sheet__breaks>div>span{margin-inline-end:var(--sp-1)}
+.match-sheet__breaks b{display:inline-grid;place-items:center;min-width:2rem;height:2rem;padding-inline:var(--sp-2);border-radius:var(--radius-pill);background:var(--ball-yellow);color:var(--baize-deep);font-size:var(--fs-sm);font-weight:800;font-variant-numeric:tabular-nums}
+.match-sheet__breaks b.century{background:linear-gradient(135deg,#f2ddb0,#d9b45e)}
+.match-sheet__added,.match-sheet__note{margin-block:0;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+.match-sheet__added{text-align:center}
+.match-sheet.is-cup .match-sheet__tag{background:#ead9ae}
+@keyframes match-odds-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@media(prefers-reduced-motion:reduce){.match-sheet__odds-bar i{animation:none}}

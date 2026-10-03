@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useId,useRef,type ReactNode,type RefObject} from "react";
+import {createPortal} from "react-dom";
 import {IconButton} from "./Primitives";
 import {useT} from "../I18nProvider";
 
@@ -98,6 +99,16 @@ function useOverlay(open:boolean,ref:RefObject<HTMLElement|null>,onClose:()=>voi
     };
   },[open,ref]);
   return()=>{if(ref.current&&overlays.at(-1)===ref.current)latest.current()};
+}
+
+/** A legacy `.backdrop` modal joined to the shared overlay stack, so it layers, traps focus and
+ *  answers Escape in order with the Sheets and Dialogs around it (a match sheet it was opened from). */
+export function OverlayBackdrop({onClose,children}:{onClose:()=>void;children:ReactNode}){
+  const ref=useRef<HTMLDivElement>(null);
+  const dismiss=useOverlay(true,ref,onClose);
+  // Portalled like the Sheets: the app shell is its own stacking context, so a modal left inside it
+  // would always paint under a Sheet that lives on <body>, whatever z-index the stack gave it.
+  return createPortal(<div ref={ref} tabIndex={-1} data-overlay-backdrop className="backdrop" onMouseDown={event=>event.target===event.currentTarget&&dismiss()}>{children}</div>,document.body);
 }
 
 export function Dialog({open,title,children,onClose}:{open:boolean;title:string;children:ReactNode;onClose:()=>void}){
