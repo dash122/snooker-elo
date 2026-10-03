@@ -1798,7 +1798,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
     <section className={`home-view-panel ranking-panel${squad?" squad-scope":""}`} aria-labelledby="ranking-title">
       <h2 id="ranking-title" className="ds-sr-only">{t("目前排名")}</h2>
     <div className="board-toolbar">
-    {visibleRanked.length>8&&<label className="board-search"><SearchIcon/><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={t("搜尋球員")} aria-label={t("搜尋球員")}/></label>}
+    <label className="board-search"><SearchIcon/><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={t("搜尋球員")} aria-label={t("搜尋球員")}/></label>
       {!defaultSort&&<div className="board-chips">
         <FilterChip label={<>{t("排序：{v}", {v: t(sortLabels[sort])})} {dir==="asc"?"↑":"↓"}</>} clearLabel={t("清除排序")} onClear={()=>{setSort("rank");setDir("asc")}}/>
       </div>}
