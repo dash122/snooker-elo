@@ -3485,9 +3485,6 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
     {canReset&&<section className="danger-zone"><div><h2>{t("清除並重設資料")}</h2><p>{t("永久刪除共用資料庫內所有球員、比賽及審計記錄，並恢復預設 ELO 設定。")}</p></div><Button variant="danger" onClick={onReset}>{t("清除所有資料")}</Button></section>}</>;
 }
 
-function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave}:{squads:MySquad[];data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;editing:boolean;saving:boolean;onSave:()=>void}) {
-  const t = useT();
-  const [breakInput,setBreakInput]=useState<Record<string,string>>({});
 /** Replays a short pop on the element whenever `value` changes (not on first paint). Class-toggled, so a focused input is never remounted. */
 function useTick(value:unknown){
   const ref=useRef<HTMLInputElement|null>(null);
@@ -3504,6 +3501,9 @@ const FRAME_SCORE_SANITY_LIMIT=18;
   const [breakMessage,setBreakMessage]=useState<Record<string,string>>({});
   const [breakReminder,setBreakReminder]=useState(false);
   const eloPreviewRef=useRef<HTMLElement|null>(null);
+function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave}:{squads:MySquad[];data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;editing:boolean;saving:boolean;onSave:()=>void}) {
+  const t = useT();
+  const [breakInput,setBreakInput]=useState<Record<string,string>>({});
   const hadEloPreview=useRef(false);
   const [breakOpen,setBreakOpen]=useState<Record<string,boolean>>({});
   const [customHandicap,setCustomHandicap]=useState(editing||Boolean(draft.giver));
@@ -3639,19 +3639,10 @@ const FRAME_SCORE_SANITY_LIMIT=18;
   /* "Today" is the device's calendar day, not UTC's. Allow one day ahead so a player already past
      midnight somewhere east of the server's idea of today is never blocked. */
   const todayLocal=localDate(),yesterdayLocal=localDate(-1),maxDate=localDate(1);
-  const customDate=draft.date!==todayLocal&&draft.date!==yesterdayLocal;
-  const [pickerOpen,setPickerOpen]=useState(false);
-  /* A date chosen in the picker stays shown on that button even when it happens to be today or yesterday. */
-  const [pickedFromPicker,setPickedFromPicker]=useState(false);
-  /* Exactly one segment may read as selected: the sliding thumb tracks the first pressed button it finds. */
-  const onCustom=customDate||pickedFromPicker||pickerOpen,onToday=draft.date===todayLocal&&!onCustom,onYesterday=draft.date===yesterdayLocal&&!onCustom;
-  const dateInputRef=useRef<HTMLInputElement|null>(null);
-  /* React has no onCancel for <input>; dismissing the native picker without choosing fires it. */
-  useEffect(()=>{const input=dateInputRef.current;if(!input)return;const close=()=>setPickerOpen(false);input.addEventListener("cancel",close);return()=>input.removeEventListener("cancel",close)},[]);
   const dateLabel=draft.date===todayLocal?t("今天"):draft.date===yesterdayLocal?t("昨天"):draft.date;
   const looksLikePoints=Math.max(+draft.scoreA,+draft.scoreB)>FRAME_SCORE_SANITY_LIMIT;
   const fairPoints=Math.abs(fairActual??0);
-  return <div className="match-form"><div className="match-form-head"><div className="match-title-row"><h2 className="accent">{editing?t("編輯比賽"):t("記錄比賽")}</h2></div></div>
+  return <div className="match-form"><div className="match-form-head"><div className="match-title-row"><h2 className="accent">{editing?t("編輯比賽"):t("記錄比賽")}</h2><div className="match-date-chip"><span aria-hidden="true">{dateLabel}<i aria-hidden="true">›</i></span><input aria-label={t("比賽日期，目前為{dateLabel}", {dateLabel})} type="date" value={draft.date} max={maxDate} onChange={e=>{if(e.target.value)update("date",e.target.value>maxDate?maxDate:e.target.value)}} onClick={e=>{const input=e.currentTarget;if(typeof input.showPicker==="function")input.showPicker()}}/></div></div></div>
     
     {editing&&<p className="sub">{draft.mode==="2v2"?t("潮拍娛樂賽只會更新這筆歷史記錄，不會重播或改變 ELO。"):t("儲存後會按日期重播全部賽事，重建雙方及後續 ELO。")}</p>}
     {data.players.length<2&&<p className="warning">{t("請先新增至少兩位活躍球員。")}</p>}
@@ -3716,14 +3707,6 @@ const FRAME_SCORE_SANITY_LIMIT=18;
             {customHandicap&&<div className="custom-handicap"><label>{draft.mode==="2v2"?t("讓分隊伍"):t("讓分球員")}<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">{t("沒有讓分")}</option><option value={a?.id}>{draft.mode==="2v2"?t("{teamAName}（{name} / {name2}）", {teamAName, name: a.name, name2: a2?.name}):a?.name}</option><option value={b?.id}>{draft.mode==="2v2"?t("{teamBName}（{name} / {name2}）", {teamBName, name: b.name, name2: b2?.name}):b?.name}</option></select></label><label>{t("每局分數")}<input type="number" inputMode="numeric" min="0" step="1" value={draft.points} onKeyDown={e=>{if([".",",","-","+","e","E"].includes(e.key))e.preventDefault()}} onChange={e=>update("points",Math.max(0,Math.trunc(Number(e.target.value))||0))}/></label></div>}
           </>
       }
-    </section>
-    <section className="match-date-section" aria-labelledby="match-date-title"><h3 id="match-date-title">{t("比賽日期")}</h3>
-      <SlidingToggleGroup className="handicap-segment match-date-segment">
-        <button type="button" className={onToday?"active":""} aria-pressed={onToday} onClick={()=>{setPickerOpen(false);setPickedFromPicker(false);update("date",todayLocal)}}>{t("今天")}</button>
-        <button type="button" className={onYesterday?"active":""} aria-pressed={onYesterday} onClick={()=>{setPickerOpen(false);setPickedFromPicker(false);update("date",yesterdayLocal)}}>{t("昨天")}</button>
-        <button type="button" className={onCustom?"active":""} aria-pressed={onCustom} onClick={()=>{const input=dateInputRef.current;if(!input)return;setPickerOpen(true);if(typeof input.showPicker==="function")input.showPicker();else input.focus()}}>{customDate||pickedFromPicker?draft.date:t("選擇日期")}</button>
-        <input ref={dateInputRef} className="match-date-input" tabIndex={-1} aria-label={t("比賽日期，目前為{dateLabel}", {dateLabel})} type="date" value={draft.date} max={maxDate} onChange={e=>{if(e.target.value){update("date",e.target.value>maxDate?maxDate:e.target.value);setPickedFromPicker(true)}setPickerOpen(false)}}/>
-      </SlidingToggleGroup>
     </section></div>
     <section className="score-panel" aria-labelledby="score-title"><h3 id="score-title">{t("局數")}</h3>{looksLikePoints&&<p className="score-warning" role="alert">{t("呢個數字好似係分數。請輸入贏咗的局數（例如 3–2），單桿分數請用下面「單桿」記錄。")}</p>}<div className="scoreboard-entry">
       <div><b>{isTeamMode?teamAName:(a?.name??t("球員 A"))}</b><div className="score-row"><button type="button" aria-label={t("{v}減一局", {v: isTeamMode?teamAName:(a?.name??t("球員 A"))})} onClick={()=>changeScore("scoreA",-1)}>−</button><input ref={tickA} className="score-value" aria-label={t("{v}局數", {v: isTeamMode?teamAName:(a?.name??t("球員 A"))})} type="number" inputMode="numeric" min="0" value={draft.scoreA} onChange={e=>update("scoreA",Math.max(0,+e.target.value))}/><button type="button" aria-label={t("{v}加一局", {v: isTeamMode?teamAName:(a?.name??t("球員 A"))})} onClick={()=>changeScore("scoreA",1)}>＋</button></div>

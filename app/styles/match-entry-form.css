@@ -24,7 +24,6 @@
 .match-squad__trigger i{font-style:normal;color:var(--gold-on-light);font-size:var(--fs-sm)}
 @media(max-width:380px){.match-chips{flex:0 1 auto;flex-wrap:wrap}.match-squad__trigger{font-size:var(--fs-body)}}
 
-.match-date-section{position:relative;margin-top:var(--sp-4)}.match-date-input{position:absolute;top:0;right:0;width:34%;height:100%;margin:0;padding:0;border:0;opacity:0;pointer-events:none}
 .score-hint{margin:var(--sp-1) 0 0;color:var(--me-heading-text);font-size:var(--fs-caption);text-align:center}.score-warning{margin:var(--sp-2-5) 0 0;padding:var(--sp-2-5) var(--sp-3);border:1px solid rgba(228,180,82,.5);border-radius:var(--radius-sm);background:rgba(228,180,82,.16);color:white;font-size:var(--fs-caption);font-weight:700;line-height:1.4}
 
 .score-panel>h3{margin-bottom:var(--sp-1);color:white;font-family:var(--font-display);font-size:var(--fs-h3);font-weight:800;letter-spacing:0}
