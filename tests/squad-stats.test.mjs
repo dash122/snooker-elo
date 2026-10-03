@@ -59,3 +59,17 @@ test("squadRecords counts win / draw / loss only against other squad members", a
   assert.deepEqual(records.get("y"), { wins: 1, losses: 1, draws: 1 });
   assert.equal(records.has("z"), false);
 });
+
+test("nextOpponents lists never-met squad-mates first, then whoever has waited longest", async () => {
+  const { nextOpponents } = await import("../lib/squad-rivalry.ts");
+  const list = [
+    { ...m("me", "old", 3, 1, "2026-08-01"), deltaA: 0 },
+    { ...m("recent", "me", 1, 3, "2026-09-28"), deltaA: 0 },
+    { ...m("me", "outsider", 3, 0, "2026-07-01"), deltaA: 0 },
+  ];
+  const result = nextOpponents(list, ["me", "old", "recent", "new"], "me", now);
+  assert.deepEqual(result.map(line => line.id), ["new", "old", "recent"]);
+  assert.equal(result[0].daysAgo, null);
+  assert.equal(result[1].daysAgo, 61);
+  assert.deepEqual(result[2].record, { wins: 1, losses: 0, draws: 0 });
+});

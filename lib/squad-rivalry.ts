@@ -73,3 +73,22 @@ export function daysSinceLastMatch(matches: RivalryMatch[], playerId: string, no
 export function isInactive(daysSince: number | null) {
   return daysSince === null || daysSince >= SQUAD_INACTIVE_DAYS;
 }
+
+export type NextOpponent = { id: string; daysAgo: number | null; record: HeadToHead };
+
+/** Squad-mates `playerId` could play next: never-met first, then whoever they have gone longest without
+    facing. Counts all time, since "who haven't I played" shouldn't reset with a stats window. */
+export function nextOpponents(matches: RivalryMatch[], memberIds: Iterable<string>, playerId: string, now = Date.now()): NextOpponent[] {
+  const last = new Map<string, string>();
+  for (const match of matches) {
+    if (!counts(match)) continue;
+    const other = match.a === playerId ? match.b : match.b === playerId ? match.a : null;
+    if (!other || other === playerId) continue;
+    const day = dayOf(match);
+    if (day > (last.get(other) ?? "")) last.set(other, day);
+  }
+  return [...new Set(memberIds)].filter(id => id !== playerId).map(id => {
+    const day = last.get(id);
+    return { id, daysAgo: day ? Math.max(0, Math.floor((now - Date.parse(`${day}T00:00:00Z`)) / DAY)) : null, record: headToHead(matches, playerId, id) };
+  }).sort((x, y) => (y.daysAgo ?? Infinity) - (x.daysAgo ?? Infinity) || x.id.localeCompare(y.id));
+}
