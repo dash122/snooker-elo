@@ -2628,6 +2628,14 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     const live=bracket.slots.find(slot=>slot.state==="ready"||slot.state==="waiting");
     setOpenRound(mySlot?.round??live?.round??bracket.rounds);
   },[bracket,mySlot]);
+  /* Five round names do not fit a phone's width, so the switcher scrolls inside itself — and must
+     bring the selected round along, or 決賽 opens selected but off the edge. */
+  useEffect(()=>{
+    const active=document.querySelector<HTMLElement>(".cup-rounds button.active");
+    const rail=active?.parentElement;
+    if(!active||!rail||rail.scrollWidth<=rail.clientWidth)return;
+    rail.scrollTo({left:active.offsetLeft-(rail.clientWidth-active.offsetWidth)/2,behavior:"smooth"});
+  },[openRound]);
 
   /* The draw is frozen server-side, and whichever member opens the cup first after the deadline is
      what triggers it — no cron, no admin ceremony. The ref keeps a re-render from firing a second
