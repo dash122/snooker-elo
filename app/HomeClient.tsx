@@ -2,8 +2,8 @@
 import "../lib/legacy-storage";
 
 import { createPortal } from "react-dom";
-import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
-import { CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type PointerEvent as ReactPointerEvent, type CSSProperties, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
+import { CountUp, CupMark, DEFAULT_AVATAR, Empty, InteractiveEloChart, PlayerBadge, PlayerCombobox, PlayerForm, RecentMatches, Scoreline, SortArrow, avatarHex, sortLabels, type EloTrendPoint, type SortKey } from "./UiBits";
 import MatchmakingMarketplace from "./MatchmakingMarketplace";
 import GuestIntro from "./GuestIntro";
 import { FirstStepsChecklist, IntroTour } from "./FirstSteps";
@@ -34,11 +34,11 @@ import { DesktopNavigation, MobileBottomNav, type Destination } from "./componen
 import { addEntrant, buildBracket, canManageTournament, cupMatches, currentRoundLabel, formatTournamentDateTime, isTournamentHost, matchRoundLabel, opponentIn, playerHonours, playerEliminated, playerSlot, removeEntrant, reorderDraw, rosterOrder, roundLabel, shuffleDraw, signupsClosed, slotAt, swapPlayer, type Bracket, type BracketSlot, type Walkover } from "../lib/tournament";
 import { Button, ChipGroup, IconButton, InlineNotice, SectionLabel, SegmentedControl, Skeleton, SlidingToggleGroup, StatTile, Surface } from "./components/ui/Primitives";
 import { TabList, TabPanel } from "./components/ui/Tabs";
-import { Sheet, ConfirmDialog } from "./components/ui/Overlay";
+import { Sheet, ConfirmDialog, OverlayBackdrop } from "./components/ui/Overlay";
 import { msg } from "../lib/i18n/translate";
 import { Menu } from "./components/ui/Menu";
-import { monthShortLabel, monthYearLabel } from "../lib/i18n/format";
-import { INTL_LOCALE } from "../lib/i18n/locales";
+import { calendarDateLabel, monthShortLabel, monthYearLabel } from "../lib/i18n/format";
+import { INTL_LOCALE, type Locale } from "../lib/i18n/locales";
 import type { Translator } from "../lib/i18n/translate";
 
 type Player = {
@@ -1519,7 +1519,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     <Sheet open={modal==="share"} title={sharePayload?shareSheetTitle(t, sharePayload.card.kind):""} onClose={closeModal}>
       {sharePayload&&<ShareSheet card={sharePayload.card} message={sharePayload.message} url={sharePayload.url} title={sharePayload.title} heading={false}/>}
     </Sheet>
-    {modal&&modal!=="share"&&<div className="backdrop" onMouseDown={e=>e.target===e.currentTarget&&closeModal()}>
+    {modal&&modal!=="share"&&<OverlayBackdrop onClose={closeModal}>
       {/* `.close` is a sibling of `.sheet`, not a child: `.sheet` is the scrolling box, and a
           descendant can never sit outside it or straddle its edge without being clipped by that
           same overflow. As a sibling inside `.sheet-shell` it floats above the corner, stays put
@@ -1587,7 +1587,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");showTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
         </section>
       </div>
-    </div>}
+    </OverlayBackdrop>}
     {leavingAvailability&&<ConfirmDialog kicker={t("未儲存的變更")} titleId="leave-availability-title" title={t("離開後變更會消失")} description={t("你在「可配對」的時段變更尚未儲存，離開這一頁後不會保留。")} onClose={()=>setLeavingAvailability(null)}><Button variant="secondary" onClick={()=>setLeavingAvailability(null)}>{t("留在此頁")}</Button><Button variant="danger" onClick={()=>{const next=leavingAvailability;setLeavingAvailability(null);setAvailabilityDirty(false);setHighlightMatch(null);showTab(next)}}>{t("捨棄變更離開")}</Button></ConfirmDialog>}
     {pendingConfirm&&<ConfirmDialog kicker={pendingConfirm.kicker} titleId="pending-confirm-title" title={pendingConfirm.title} description={pendingConfirm.description} onClose={()=>setPendingConfirm(null)}><Button variant="secondary" onClick={()=>setPendingConfirm(null)}>{t("取消")}</Button><Button variant="danger" onClick={()=>{const run=pendingConfirm.onConfirm;setPendingConfirm(null);run()}}>{pendingConfirm.confirmLabel}</Button></ConfirmDialog>}
     <SquadCenter sheet={squadSheet} setSheet={setSquadSheet} squads={squads} loaded={squadsLoaded||!ownPlayerId} refresh={refreshSquads} selectedId={squadId} onSelect={selectSquad}
@@ -2129,15 +2129,6 @@ function headToHeadPlayerStats(index:Map<string,H2HRecord>){
    and row names working exactly as before, just at a different rem size. */
 const MATRIX_ZOOM_MIN=.45,MATRIX_ZOOM_MAX=1.8;
 const clampMatrixZoom=(value:number)=>Math.min(MATRIX_ZOOM_MAX,Math.max(MATRIX_ZOOM_MIN,Math.round(value*100)/100));
-/* A single quiet button: from any other zoom it returns to 100%, from 100% it fits every player on
-   screen. Pinch handles anything in between. */
-function MatrixZoomControls({zoom,onToggle}:{zoom:number;onToggle:()=>void}){
-  const t = useT();
-  const fitted=zoom!==1;
-  return <button type="button" className="h2h-matrix-zoom" onClick={onToggle} aria-label={fitted?t("重設縮放至 100%"):t("縮放至符合畫面")} title={fitted?t("重設縮放至 100%"):t("縮放至符合畫面")}>
-    <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{fitted?<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>:<path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/>}</svg>
-  </button>;
-}
 function HeadToHeadMatrix({squad,data,ownPlayerId,onOpenPair}:{squad:MySquad|null;data:AppState;ownPlayerId?:string;onOpenPair:(first:string,second:string)=>void}){
   const t = useT();
   const index=useMemo(()=>headToHeadIndex(data.matches),[data.matches]);
@@ -2178,23 +2169,40 @@ function HeadToHeadMatrix({squad,data,ownPlayerId,onOpenPair}:{squad:MySquad|nul
       setZoom(clampMatrixZoom(startZoom*distance(event)/startDistance));
     };
     const onEnd=()=>{startDistance=0};
+    // Desktop: hold Ctrl (or ⌘) and scroll to zoom, like a map. Plain scrolling is left alone.
+    const onWheel=(event:WheelEvent)=>{
+      if(!event.ctrlKey&&!event.metaKey)return;
+      event.preventDefault();
+      setZoom(clampMatrixZoom(zoomRef.current*(event.deltaY<0?1.08:1/1.08)));
+    };
+    el.addEventListener("wheel",onWheel,{passive:false});
     el.addEventListener("touchstart",onStart,{passive:true});
     el.addEventListener("touchmove",onMove,{passive:false});
     el.addEventListener("touchend",onEnd);
     el.addEventListener("touchcancel",onEnd);
-    return()=>{el.removeEventListener("touchstart",onStart);el.removeEventListener("touchmove",onMove);el.removeEventListener("touchend",onEnd);el.removeEventListener("touchcancel",onEnd)};
+    return()=>{el.removeEventListener("wheel",onWheel);el.removeEventListener("touchstart",onStart);el.removeEventListener("touchmove",onMove);el.removeEventListener("touchend",onEnd);el.removeEventListener("touchcancel",onEnd)};
   },[]);
-  // Rows light up for the signed-in player; there is no separate "focus" player any more.
-  const focusId=players.some(player=>player.id===ownPlayerId)?ownPlayerId??"":"";
+  // No row is singled out: the matrix reads the same for everyone, signed in or not.
+  const focusId="";
   if(players.length===0)return <Empty text={t("尚未有對賽記錄")} sub={t("記錄第一場 1v1 比賽後，球員之間的對賽矩陣會顯示在這裡。")}/>;
 
   return <section ref={sectionRef} className="h2h-matrix" data-compact={zoom<.85?"true":undefined} aria-label={t("對賽矩陣")} style={{"--matrix-zoom":zoom} as CSSProperties}>
-    {mode==="heatmap"?<WinRateHeatmap players={players} index={index} focusId={focusId} onToggle={()=>setMode("grid")} onOpenPair={onOpenPair}/>
+    <div className="h2h-matrix-toolbar">
+      <Menu className="board-scope" label={t("對賽矩陣")} align="start" triggerClassName="board-scope__trigger"
+        trigger={()=><><span className="board-scope__title">{mode==="grid"?t("局數比分"):t("勝率")}</span><ChevronDown/></>}
+        sections={[{items:[{key:"grid",label:t("局數比分"),checked:mode==="grid",onSelect:()=>setMode("grid")},{key:"heatmap",label:t("勝率"),checked:mode==="heatmap",onSelect:()=>setMode("heatmap")}]}]}/>
+      <div className="h2h-zoom" role="group" aria-label={t("縮放")}>
+        <button type="button" className="h2h-zoom-step" onClick={()=>setZoom(clampMatrixZoom(zoom/1.15))} disabled={zoom<=MATRIX_ZOOM_MIN} aria-label={t("縮小")}>−</button>
+        <button type="button" className="h2h-zoom-value" onClick={()=>zoom===1?fitZoom():setZoom(1)} title={zoom!==1?t("重設縮放至 100%"):t("縮放至符合畫面")}>{Math.round(zoom*100)}%</button>
+        <button type="button" className="h2h-zoom-step" onClick={()=>setZoom(clampMatrixZoom(zoom*1.15))} disabled={zoom>=MATRIX_ZOOM_MAX} aria-label={t("放大")}>+</button>
+      </div>
+    </div>
+    {mode==="heatmap"?<WinRateHeatmap players={players} index={index} focusId={focusId} onOpenPair={onOpenPair}/>
     :<>
       <div className="h2h-matrix-scroll">
         <table className="h2h-matrix-grid">
           <caption className="sr-only">{t("球員之間的 1v1 對賽局數勝負矩陣，橫行球員對直行球員")}</caption>
-          <thead><tr><th scope="col" className="h2h-corner-cell"><button type="button" className="h2h-corner" onClick={()=>setMode(mode==="grid"?"heatmap":"grid")} aria-label={t("切換顯示：{mode}", {mode: mode==="grid"?t("勝率"):t("比分")})}><span>{mode==="grid"?t("比分"):t("勝率")}</span><i aria-hidden="true">⇄</i></button></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
+          <thead><tr><th scope="col" className="h2h-corner-cell" aria-hidden="true"></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
           <tbody>{players.map(row=>{
             const stats=playerStats.get(row.id)??{opponents:0,framesWon:0,framesPlayed:0};
             const rate=stats.framesPlayed?Math.round(stats.framesWon/stats.framesPlayed*100):0;
@@ -2219,20 +2227,19 @@ function HeadToHeadMatrix({squad,data,ownPlayerId,onOpenPair}:{squad:MySquad|nul
       </div>
       <div className="h2h-matrix-legend"><span><i className="ahead"/>{t("領先")}</span><span><i className="level"/>{t("均勢")}</span><span><i className="behind"/>{t("落後")}</span><span><i className="none"/>{t("未交手")}</span></div>
     </>}
-    <div className="h2h-matrix-zoom-float"><MatrixZoomControls zoom={zoom} onToggle={()=>zoom===1?fitZoom():setZoom(1)}/></div>
   </section>;
 }
 
 /* "誰打得贏誰" now reflects recorded frames, not an ELO forecast. A diverging heat scale
    keeps the same scan-friendly shape while blanking pairings with no actual meeting. */
-function WinRateHeatmap({players,index,focusId,onToggle,onOpenPair}:{players:Player[];index:Map<string,H2HRecord>;focusId:string;onToggle:()=>void;onOpenPair:(first:string,second:string)=>void}){
+function WinRateHeatmap({players,index,focusId,onOpenPair}:{players:Player[];index:Map<string,H2HRecord>;focusId:string;onOpenPair:(first:string,second:string)=>void}){
   const t = useT();
   if(players.length<2)return <Empty text={t("尚未有足夠對賽記錄")} sub={t("至少兩位球員記錄過 1v1 比賽後，實際局數勝率矩陣會顯示在這裡。")}/>;
   return <>
     <div className="h2h-matrix-scroll">
       <table className="h2h-matrix-grid h2h-heatmap">
         <caption className="sr-only">{t("球員之間的實際局數勝率矩陣，橫行球員對直行球員")}</caption>
-        <thead><tr><th scope="col" className="h2h-corner-cell"><button type="button" className="h2h-corner" onClick={onToggle} aria-label={t("切換顯示：{mode}", {mode: t("比分")})}><span>{t("勝率")}</span><i aria-hidden="true">⇄</i></button></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
+        <thead><tr><th scope="col" className="h2h-corner-cell" aria-hidden="true"></th>{players.map(player=><th key={player.id} scope="col" title={player.name}>{player.short||player.name.slice(0,2)}</th>)}</tr></thead>
         <tbody>{players.map(row=><tr key={row.id} className={row.id===focusId?"focused":""}>
           <th scope="row"><span className="h2h-matrix-rowhead"><PlayerBadge player={row}/><span>{row.short||row.name}</span></span></th>
           {players.map(column=>{
@@ -3118,6 +3125,14 @@ function cupFor(t: Translator, match:Match,data:AppState){
   return {name:tournament.name,round:matchRoundLabel(t, tournament.signups?.length??0,match.tournamentRound)};
 }
 
+/** `8月1日` / `1 Aug` — the year only appears once the match is from a different year than today.
+ *  Matches sit under month headings, so the full ISO date was repeating what the list already says. */
+function shortMatchDate(playedOn:string,locale:Locale){
+  const [y,mo,d]=playedOn.split("-");
+  if(!y||!mo||!d)return playedOn;
+  return calendarDateLabel(y,mo,d.slice(0,2),locale,Number(y)!==new Date().getFullYear());
+}
+
 function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,highlighted=false}:{data:AppState;match:Match;canManage:boolean;name:(id:string)=>string;onPlayer:(id:string)=>void;onEdit:(m:Match)=>void;onVoid:(m:Match)=>void;onShare:(m:Match)=>void;highlighted?:boolean}) {
   const t = useT();
   const [open,setOpen]=useState(false);
@@ -3147,11 +3162,12 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
      and a chip naming the round — the edge does the finding, the chip does the telling, and neither
      costs a row. */
   const cup=cupFor(t, m,data);
+  const decisive=m.status!=="void"&&Math.min(m.scoreA,m.scoreB)===0&&Math.max(m.scoreA,m.scoreB)>=3;
   return <article ref={card} className={`match ${m.status}${isEntertainmentMode(m.mode)?" entertainment":""}${cup?" is-cup":""}${highlighted?" just-saved":""}`}
     // The whole card opens the details sheet; the › button below is the visible cue and the keyboard
     // route. Taps on the card's own buttons (share, player names) keep their own meaning.
     onClick={event=>{if(!(event.target as HTMLElement).closest("button,a,input,select,textarea"))setOpen(true)}}>
-    <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn}>{m.playedOn}</time>{cup&&<small className={`match-cup-badge${cup.round?" has-round":""}`} title={cup.round?`${cup.name} · ${cup.round}`:cup.name}><CupMark/>{cup.round&&<b>{cup.round}</b>}<span>{cup.name}</span></small>}{isEntertainmentMode(m.mode)&&<small className="match-entertainment-badge">{t("潮拍 2v2 · 不計 ELO")}</small>}{highlighted&&<span className="pill just-saved-pill">{t("剛剛記錄")}</span>}{m.status==="void"&&<span className="pill">{t("已作廢")}</span>}{m.entryMode==="aggregate"&&<span className="pill muted">{t("歷史匯總")}</span>}</span>
+    <div className="match-board"><div className="match-top"><span className="match-when"><time dateTime={m.playedOn} title={m.playedOn}>{shortMatchDate(m.playedOn,t.locale)}</time>{cup&&<small className={`match-cup-badge${cup.round?" has-round":""}`} title={cup.round?`${cup.name} · ${cup.round}`:cup.name}><CupMark/>{cup.round&&<b>{cup.round}</b>}<span>{cup.name}</span></small>}{isEntertainmentMode(m.mode)&&<small className="match-entertainment-badge">{t("潮拍 2v2 · 不計 ELO")}</small>}{highlighted&&<span className="pill just-saved-pill">{t("剛剛記錄")}</span>}{m.status==="void"&&<span className="pill">{t("已作廢")}</span>}{m.entryMode==="aggregate"&&<span className="pill muted">{t("歷史匯總")}</span>}</span>
       {/* Sharing sits with the card's own tools rather than behind the expander: the urge to show a
           result off lasts about as long as the walk back to the table, and a share hidden one tap
           down is a share that does not happen. Offered to every reader, not only to whoever may
@@ -3159,33 +3175,29 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
           match is excluded; it is not a result any more. */}
       {/* The › sits outside .card-tools, which read-only (signed-out) views hide: everyone can open details. */}
       <span className="match-top-actions">
-        <span className="card-tools">
-          {m.status!=="void"&&<IconButton className="card-tool share" label={t("分享 {leftLabel} 對 {rightLabel} 的賽果", {leftLabel, rightLabel})} onClick={()=>onShare(m)}><ShareGlyph kind="share" /></IconButton>}
-        </span>
         <IconButton className="card-tool details" label={t("查看比賽詳情")} aria-haspopup="dialog" onClick={()=>setOpen(true)}><i aria-hidden="true"/></IconButton>
       </span></div>
     <Scoreline left={leftLabel} right={rightLabel} onLeftClick={isEntertainmentMode(m.mode)?undefined:()=>onPlayer(m.a)} onRightClick={isEntertainmentMode(m.mode)?undefined:()=>onPlayer(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}
       eloLeft={isEntertainmentMode(m.mode)?undefined:{before:m.beforeA,after:m.afterA,delta:m.deltaA}} eloRight={isEntertainmentMode(m.mode)?undefined:{before:m.beforeB,after:m.afterB,delta:m.deltaB??-m.deltaA}}/>
     {isEntertainmentMode(m.mode)&&<div className="match-team-rosters">{(["A","B"] as const).map(side=><div className={`match-team-roster ${side==="B"?"right":""}`} key={side}>{teamMemberIds(m,side).map(id=>{const player=data.players.find(item=>item.id===id);return <button type="button" key={id} onClick={()=>onPlayer(id)} aria-label={t("查看 {v} 的球員卡", {v: name(id)})}><PlayerBadge player={player??{short:"?"}}/><span>{name(id)}</span></button>})}</div>)}</div>}
-    {!!breaksByPlayer.length&&<div className="match-summary-row"><span className="match-net-breaks">★ {breaksByPlayer.map((group,index)=><Fragment key={group.playerId}>{index>0&&t("；")}{t("{v} 單桿 {v2}", {v: name(group.playerId), v2: group.values.join(t("、"))})}</Fragment>)}</span></div>}
+    {!!breaksByPlayer.length&&<div className="match-summary-row"><span className="match-net-breaks">★ {t("單桿")}{t.locale==="zh-Hant"?"：":": "}{breaksByPlayer.map((group,index)=><Fragment key={group.playerId}>{index>0&&" / "}{name(group.playerId)} {group.values.join(", ")}</Fragment>)}</span></div>}
     </div>
     {/* Portalled: the card lifts with a transform on hover, which would otherwise become the
         containing block for the sheet's fixed overlay and clip it to the card. */}
-    {open&&createPortal(<Sheet open title={t("{leftLabel} 對 {rightLabel}", {leftLabel, rightLabel})} onClose={()=>setOpen(false)} className="match-sheet">
-      <p className="match-sheet__meta"><time dateTime={m.playedOn}>{m.playedOn}</time>{cup&&<> · {cup.round?`${cup.name} · ${cup.round}`:cup.name}</>}{isEntertainmentMode(m.mode)&&<> · {t("潮拍 2v2 · 不計 ELO")}</>}{m.status==="void"&&<> · {t("已作廢")}</>}</p>
-      <div className="match-sheet__board"><Scoreline left={leftLabel} right={rightLabel} scoreLeft={m.scoreA} scoreRight={m.scoreB}/></div>
-      <dl className="ds-list match-sheet__list">
-        {isEntertainmentMode(m.mode)
-          ? <div><dt>ELO</dt><dd>{t("娛樂賽記錄；不影響四位球員的 ELO 或統計。")}</dd></div>
-          : <>
-            <div><dt>{name(m.a)}</dt><dd><EloChange before={m.beforeA} after={m.afterA} delta={m.deltaA}/></dd></div>
-            <div><dt>{name(m.b)}</dt><dd><EloChange before={m.beforeB} after={m.afterB} delta={m.deltaB??-m.deltaA}/></dd></div>
-            <div><dt>{t("預測局數比例")}</dt><dd>{name(m.a)} {Math.round(m.expectedA*100)}%</dd></div>
-          </>}
-        <div><dt>{t("本場讓分")}</dt><dd>{handicapText(m.actual)}<small>{t("賽前建議：{v}", {v: handicapText(recommendedActual)})}</small></dd></div>
-        {!!breaksByPlayer.length&&<div><dt>{t("單桿")}</dt><dd>{breaksByPlayer.map(group=><span key={group.playerId}>{name(group.playerId)} {group.values.join(t("、"))}</span>)}</dd></div>}
-        <div><dt>{t("加入日期")}</dt><dd>{new Date(m.createdAt).toLocaleString(INTL_LOCALE[t.locale])}</dd></div>
-      </dl>
+    {open&&createPortal(<Sheet open title={t("{leftLabel} 對 {rightLabel}", {leftLabel, rightLabel})} onClose={()=>setOpen(false)} className={`match-sheet${cup?" is-cup":""}`}>
+      <div className="match-sheet__board">
+        <p className="match-sheet__meta"><time dateTime={m.playedOn}>{m.playedOn}</time>{cup&&<> · {cup.round?`${cup.name} · ${cup.round}`:cup.name}</>}{isEntertainmentMode(m.mode)&&<> · {t("潮拍 2v2 · 不計 ELO")}</>}{m.status==="void"&&<> · {t("已作廢")}</>}</p>
+  <Scoreline animate left={leftLabel} right={rightLabel} onLeftClick={isEntertainmentMode(m.mode)?undefined:()=>onPlayer(m.a)} onRightClick={isEntertainmentMode(m.mode)?undefined:()=>onPlayer(m.b)} scoreLeft={m.scoreA} scoreRight={m.scoreB}/>
+        {!isEntertainmentMode(m.mode)&&<div className="match-sheet__elo">{([{label:leftLabel,before:m.beforeA,after:m.afterA,delta:m.deltaA},{label:rightLabel,before:m.beforeB,after:m.afterB,delta:m.deltaB??-m.deltaA}]).map((side,index)=><div key={index} className={`match-sheet__elo-side ${index?"right ":""}${side.delta>=0?"positive":"negative"}`}><b>ELO {side.delta>=0?"+":""}{Math.round(side.delta)}</b><span>{Math.round(side.before)} <i aria-hidden="true">→</i> {Math.round(side.after)}</span></div>)}</div>}
+        {decisive&&<span className="match-sheet__tag">{t("完勝")}</span>}
+      </div>
+      {!isEntertainmentMode(m.mode)&&<div className="match-sheet__odds"><span className="match-sheet__label">{t("預測局數比例")}</span>
+        <div className="match-sheet__odds-bar" role="img" aria-label={`${leftLabel} ${Math.round(m.expectedA*100)}% · ${rightLabel} ${100-Math.round(m.expectedA*100)}%`}><i style={{width:`${Math.round(m.expectedA*100)}%`}}/></div>
+        <div className="match-sheet__odds-legend"><b>{leftLabel} {Math.round(m.expectedA*100)}%</b><b>{100-Math.round(m.expectedA*100)}% {rightLabel}</b></div></div>}
+      {isEntertainmentMode(m.mode)&&<p className="match-sheet__note">{t("娛樂賽記錄；不影響四位球員的 ELO 或統計。")}</p>}
+      <div className="match-sheet__tile"><span className="match-sheet__label">{t("本場讓分")}</span><b>{handicapText(m.actual)}</b><small>{t("賽前建議：{v}", {v: handicapText(recommendedActual)})}</small></div>
+      {!!breaksByPlayer.length&&<div className="match-sheet__breaks"><span className="match-sheet__label">{t("單桿")}</span>{breaksByPlayer.map(group=><div key={group.playerId}><span>{name(group.playerId)}</span>{group.values.map((value,index)=><b key={index} className={value>=100?"century":""}>{value}</b>)}</div>)}</div>}
+      <p className="match-sheet__added">{t("加入日期")} · {new Date(m.createdAt).toLocaleString(INTL_LOCALE[t.locale])}</p>
       <div className="match-sheet__actions">
         {m.status!=="void"&&<Button variant="secondary" onClick={()=>{setOpen(false);onShare(m)}}>{t("分享")}</Button>}
         {canManage&&<Button variant="secondary" onClick={()=>{setOpen(false);onEdit(m)}}>{t("編輯")}</Button>}
@@ -3775,7 +3787,8 @@ type RivalSnapshot = {
   latest:string; hasAggregate:boolean; label?:string;
 };
 
-function rivalSnapshots(t: Translator, player:Player,data:AppState):RivalSnapshot[] {
+/** Every opponent the player has met, with the record against each. */
+function opponentRecords(player:Player,data:AppState):RivalSnapshot[] {
   const byOpponent=new Map<string,RivalSnapshot>();
   for(const match of data.matches){
     if(match.status!=="confirmed"||isEntertainmentMode(match.mode)||(match.a!==player.id&&match.b!==player.id))continue;
@@ -3798,75 +3811,107 @@ function rivalSnapshots(t: Translator, player:Player,data:AppState):RivalSnapsho
     const totalFrames=rival.framesWon+rival.framesLost;
     return {...rival,frameRate:totalFrames?rival.framesWon/totalFrames:0};
   });
-  const picks:{label:string;sort:(a:RivalSnapshot,b:RivalSnapshot)=>number}[]=[
-    {label:t("最多交手"),sort:(a,b)=>b.matches-a.matches||(b.framesWon+b.framesLost)-(a.framesWon+a.framesLost)},
-    {label:t("最難應付"),sort:(a,b)=>a.frameRate-b.frameRate||b.matches-a.matches},
-    {label:t("最佳對賽"),sort:(a,b)=>b.frameRate-a.frameRate||b.matches-a.matches},
-    {label:t("勢均力敵"),sort:(a,b)=>Math.abs(a.frameRate-.5)-Math.abs(b.frameRate-.5)||b.matches-a.matches},
-    {label:t("最近交手"),sort:(a,b)=>b.latest.localeCompare(a.latest)}
-  ];
-  const selected:RivalSnapshot[]=[];
-  for(const pick of picks){
-    const rival=[...rivals].filter(item=>!selected.some(chosen=>chosen.opponent.id===item.opponent.id)).sort(pick.sort)[0];
-    if(rival)selected.push({...rival,label:pick.label});
-  }
-  return selected;
+  return rivals;
 }
 
+type MatrixMode="matches"|"frames";
+/** Opponents shown before "show all": three rows of three, so a long history never overwhelms the card. */
+const MATRIX_PREVIEW=9;
+/** The player against every opponent they have met, as a heat grid: each tile is one opponent, tinted
+ *  green where the player is ahead and red where they are behind. The toggle picks the unit: matches
+ *  (won–lost, with the match win rate beneath) or frames (won–lost, with the frame win rate beneath);
+ *  the tint follows that same win rate. */
 function RivalrySnapshot({player,data,onCompare}:{player:Player;data:AppState;onCompare:(opponent:Player)=>void}) {
   const t = useT();
-  const rivals=rivalSnapshots(t, player,data);
-  return <section className="profile-section rivalry-snapshot"><div className="profile-section-head"><div><p className="kicker">{t("對賽概覽")}</p><h3>{t("主要對手")}</h3></div></div>
-    {rivals.length===0?<div className="rivalry-empty"><b>{t("尚未有對賽記錄")}</b><span>{t("記錄第一場比賽後，主要對手會顯示在這裡。")}</span></div>:<div className="rivalry-list">{rivals.map(rival=>{
-      const percent=Math.round(rival.frameRate*100);
-      const confidence=Math.min(1,.28+Math.max(rival.matches,(rival.framesWon+rival.framesLost)/12)*.18);
-      return <button key={rival.opponent.id} className="rivalry-row" onClick={()=>onCompare(rival.opponent)} aria-label={t("查看 {name} 對 {name2} 的詳細對賽", {name: player.name, name2: rival.opponent.name})}>
-        <PlayerBadge player={rival.opponent}/><span className="rivalry-person"><small>{rival.label}</small><b>{rival.opponent.name}</b><em>{rival.matches?t("{wins} 勝 · {losses} 負 · {draws} 和", {wins: rival.wins, losses: rival.losses, draws: rival.draws}):t("歷史局數匯總")}{rival.hasAggregate&&rival.matches?t(" · 另有匯總"):""}</em></span>
-        <span className="rivalry-heat"><b>{percent}%</b><small>{t("局數勝率")}</small><em aria-hidden="true"><i style={{width:`${percent}%`,opacity:confidence}}/></em></span><strong>›</strong>
+  const [mode,setMode]=useState<MatrixMode>("matches");
+  const [expanded,setExpanded]=useState(false);
+  const records=useMemo(()=>opponentRecords(player,data).sort(mode==="matches"
+    ?(a,b)=>(b.wins+b.losses+b.draws)-(a.wins+a.losses+a.draws)||(b.framesWon+b.framesLost)-(a.framesWon+a.framesLost)
+    :(a,b)=>(b.framesWon+b.framesLost)-(a.framesWon+a.framesLost)||(b.wins+b.losses+b.draws)-(a.wins+a.losses+a.draws)),[player,data,mode]);
+  const shown=expanded?records:records.slice(0,MATRIX_PREVIEW);
+  const nameCounts=useMemo(()=>data.players.reduce((counts,item)=>counts.set(item.name.trim().toLowerCase(),(counts.get(item.name.trim().toLowerCase())??0)+1),new Map<string,number>()),[data.players]);
+  return <section className="profile-section rivalry-snapshot"><div className="profile-section-head"><div><p className="kicker">{t("對賽概覽")}</p><h3>{t("所有對手")} <span className="matchup-count">{records.length}</span></h3></div>{records.length>0&&<SlidingToggleGroup className="ds-toggle-control matrix-toggle" aria-label={t("對賽顯示方式")}><button type="button" className={mode==="matches"?"active":""} onClick={()=>setMode("matches")}>{t("場數")}</button><button type="button" className={mode==="frames"?"active":""} onClick={()=>setMode("frames")}>{t("局數")}</button></SlidingToggleGroup>}</div>
+    {records.length===0?<div className="rivalry-empty"><b>{t("尚未有對賽記錄")}</b><span>{t("記錄第一場比賽後，主要對手會顯示在這裡。")}</span></div>:<>
+    <div className="matchup-grid">{shown.map(record=>{
+      const decided=record.wins+record.losses+record.draws;
+      const rate=mode==="matches"?(decided?record.wins/decided:null):(record.framesWon+record.framesLost?record.frameRate:null);
+      /* Red and green around a neutral middle, each in four steps by distance from 50%, so 70% and 100% (or
+         30% and 0%) never look alike: pale, light, medium, then a solid fill for a lopsided record. */
+      const gap=rate==null?0:rate-.5;
+      const step=Math.abs(gap)<.03?0:Math.abs(gap)<.12?1:Math.abs(gap)<.22?2:Math.abs(gap)<.35?3:4;
+      const level=rate==null?"none":step===0?"even":`${gap>0?"up":"down"}-${step}`;
+      const main=mode==="matches"?(decided?`${record.wins}-${record.draws}-${record.losses}`:"—"):`${record.framesWon}–${record.framesLost}`;
+      const opponent=record.opponent;
+      const clashes=(nameCounts.get(opponent.name.trim().toLowerCase())??0)>1;
+      return <button key={opponent.id} className={`matchup-cell lvl-${level}`} onClick={()=>onCompare(opponent)} aria-label={t("查看 {name} 對 {name2} 的詳細對賽", {name: player.name, name2: clashes?`${opponent.name} (${(opponent.short??"").toUpperCase()} · ${Math.round(opponent.rating)})`:opponent.name})}>
+        <span className="matchup-name"><b>{opponent.name}</b>{clashes&&<i className="matchup-tag">{(opponent.short??"").toUpperCase()}</i>}</span>
+        <strong>{main}</strong>
+        <small>ELO {Math.round(opponent.rating)}</small>
+        <small>{mode==="matches"?t("{g} 場", {g: decided}):t("{n} 局", {n: record.framesWon+record.framesLost})} / {rate==null?"—":`${Math.round(rate*100)}%`}</small>
       </button>;
-    })}</div>}
+    })}</div>
+    {records.length>MATRIX_PREVIEW&&<button type="button" className="matchup-more" onClick={()=>setExpanded(open=>!open)}>{expanded?t("收起"):t("顯示全部 {n} 位", {n: records.length})}</button>}</>}
   </section>;
 }
 
 /** Buckets a break value into its ten-point band, e.g. 47→"40-49", 100+→"100+". */
 function breakBand(value:number){ return value>=100?"100+":`${Math.floor(value/10)*10}-${Math.floor(value/10)*10+9}`; }
 /** Groups the player's recorded breaks into ten-point bands (20-29 up to 100+) so the shape of their form shows at a glance, rather than a flat list of individual scores. */
-function BreakMilestoneChart({player,data}:{player:Player;data:AppState}){
+function BreakMilestoneChart({player,data,mode}:{player:Player;data:AppState;mode:BreakChartMode}){
   const t = useT();
-  const [mode,setMode]=useState<BreakChartMode>("monthly");
   const [activeIndex,setActiveIndex]=useState<number|null>(null);
   const points=useMemo(()=>breakChartPoints(t, player,data,mode),[player,data,mode, t]);
+  useEffect(()=>setActiveIndex(null),[mode]);
   if(!points.length)return null;
+  /* Laid out exactly like the ELO trend: same plot box, left value axis, bottom period axis, glowing
+     end dot and left-to-right reveal, so the two charts read as one family. */
   const max=Math.max(...points.map(point=>point.value));
   const yMax=Math.max(10,Math.ceil(max/10)*10);
-  const x=(index:number)=>points.length===1?50:5+index/(points.length-1)*90;
-  const y=(value:number)=>53-(value/yMax)*43;
+  const x=(index:number)=>points.length===1?52:9+index/(points.length-1)*86;
+  const y=(value:number)=>54-(value/yMax)*46;
   const linePath=points.reduce((path,point,index)=>index===0?`M ${x(index)} ${y(point.value)}`:`${path} L ${x(index)} ${y(point.value)}`,"");
-  const areaPath=points.length>1?`${linePath} V 53 H ${x(0)} Z`:"";
-  const tickIndexes=[...new Set([0,Math.floor((points.length-1)/2),points.length-1])];
+  const areaPath=points.length>1?`${linePath} L ${x(points.length-1)} 56 L ${x(0)} 56 Z`:"";
   const periodLabel=mode==="monthly"?t("月份"):t("日期");
+  /* Short labels for the axis (`8月` / `Aug`, `8月12日` / `12 Aug`), the year only when the range
+     crosses one; the tooltip gets the full form with the year. */
+  const spansYears=points[0].period.slice(0,4)!==points[points.length-1].period.slice(0,4);
+  const periodText=(period:string,full:boolean)=>{
+    const [year,month,day]=period.split("-");
+    if(full)return mode==="monthly"?monthYearLabel(year,month,t.locale):calendarDateLabel(year,month,day,t.locale,true);
+    // Axis ticks stay numeric and short in both languages so they never crowd each other.
+    const yy=spansYears?`${year.slice(2)}/`:"";
+    return mode==="monthly"?(spansYears?`${yy}${Number(month)}`:monthShortLabel(month,t.locale)):`${yy}${Number(month)}/${Number(day)}`;
+  };
+  const peakIndex=points.findIndex(point=>point.value===max);
+  const last=points.length-1;
+  const tickIndexes=[...new Set(last<=0?[0]:[0,Math.round(last/3),Math.round(last*2/3),last])];
   const active=activeIndex==null?null:points[activeIndex]??null;
-  return <div className="break-milestone-chart">
-    <div className="break-milestone-plot">
-      <div className="break-chart-y-axis" aria-hidden="true"><span>{yMax}</span><span>{Math.round(yMax/2)}</span><span>0</span></div>
-      <div className="break-chart-canvas" onPointerLeave={()=>setActiveIndex(null)}>
-        <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label={t("{name} {v}單桿圖表", {name: player.name, v: mode==="personal"?t("個人最佳"):t("每月最高")})}>
-          {[10,31,53].map(line=><line key={line} x1="5" y1={line} x2="95" y2={line} className="break-chart-grid"/>)}
-           {active&&<line x1={x(activeIndex!)} y1="6" x2={x(activeIndex!)} y2="56" className="trend-guide"/>}
-          {areaPath&&<path d={areaPath} className="break-chart-area"/>}
-          <path d={linePath} className="break-chart-line"/>
-        </svg>
-               {active&&<div className={`trend-tooltip ${x(activeIndex!)>70?"align-right":x(activeIndex!)<30?"align-left":""}`} style={{left:`${x(activeIndex!)}%`,top:`${Math.max(3,y(active.value)/60*100-7)}%`}} role="status"><small>{active.period}</small><b>{active.value?t("{value} 分", {value: active.value}):"N/A"}</b><span>{active.value?(mode==="personal"?t("個人最佳"):t("該月最高")):t("未記錄單桿")}</span>{active.value>0&&active.date&&<span>{active.date}{active.opponent?t(" · 對 {opponent}", {opponent: active.opponent}):""}</span>}</div>}        {points.map((point,index)=><button key={`${point.period}-${point.value}`} type="button" className={`break-chart-point${activeIndex===index?" active":""}`} style={{left:`${x(index)}%`,top:`${y(point.value)/60*100}%`}} onPointerEnter={()=>setActiveIndex(index)} onFocus={()=>setActiveIndex(index)} onBlur={()=>setActiveIndex(null)} onClick={()=>setActiveIndex(current=>current===index?null:index)} title={t("{periodLabel} {period}：{v}", {periodLabel, period: point.period, v: point.value?t("{v} {value} 分", {v: mode==="personal"?t("個人最佳"):t("該月最高"), value: point.value}):"N/A"})} aria-label={t("{periodLabel} {period}，{v}", {periodLabel, period: point.period, v: point.value?t("{v} {value} 分", {v: mode==="personal"?t("個人最佳"):t("該月最高"), value: point.value}):t("未記錄單桿")})}/>) }
-      </div>
+  const scrub=(event:ReactPointerEvent<HTMLDivElement>)=>{
+    const box=event.currentTarget.getBoundingClientRect();
+    const index=Math.round((((event.clientX-box.left)/box.width*100-9)/86)*last);
+    setActiveIndex(Math.min(last,Math.max(0,index)));
+  };
+  return <div className="interactive-trend break-trend">
+    <div className="trend-plot" onPointerDown={scrub} onPointerMove={scrub} onPointerLeave={()=>setActiveIndex(null)}>
+      <div className="trend-yaxis" aria-hidden="true">{[[yMax,8],[Math.round(yMax/2),31],[0,54]].map(([value,line])=><span key={line} style={{top:`${line/60*100}%`}}>{value}</span>)}</div>
+      <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label={t("{name} {v}單桿圖表", {name: player.name, v: mode==="personal"?t("個人最佳"):t("每月最高")})}>
+        <defs><linearGradient id="break-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#287e69" stopOpacity=".28"/><stop offset="100%" stopColor="#287e69" stopOpacity=".02"/></linearGradient></defs>
+        {[8,31,54].map(line=><line key={line} x1="9" y1={line} x2="95" y2={line} className="trend-grid"/>)}
+        {areaPath&&<path d={areaPath} className="trend-area" style={{fill:"url(#break-area)"}}/>}
+        <path d={linePath} className="trend-line"/>
+        {active&&<line x1={x(activeIndex!)} y1="6" x2={x(activeIndex!)} y2="56" className="trend-guide"/>}
+      </svg>
+      {max>0&&<span className="trend-peak" style={{left:`${x(peakIndex)}%`,top:`${y(max)/60*100}%`}} aria-hidden="true"><em>{max}</em></span>}
+      <span className="trend-now positive" style={{left:`${x(last)}%`,top:`${y(points[last].value)/60*100}%`}} aria-hidden="true"/>
+      {active&&<div className={`trend-tooltip ${x(activeIndex!)>70?"align-right":x(activeIndex!)<30?"align-left":""}`} style={{left:`${x(activeIndex!)}%`,top:`${Math.max(3,y(active.value)/60*100-7)}%`}} role="status"><small>{periodText(active.period,true)}</small><b>{active.value?t("{value} 分", {value: active.value}):"N/A"}</b><span>{active.value?(mode==="personal"?t("個人最佳"):t("該月最高")):t("未記錄單桿")}</span>{active.value>0&&active.date&&<span>{calendarDateLabel(active.date.slice(0,4),active.date.slice(5,7),active.date.slice(8,10),t.locale,true)}</span>}{active.value>0&&active.opponent&&<span>{t("對 {opponent}", {opponent: active.opponent})}</span>}</div>}        {points.map((point,index)=><button key={`${point.period}-${point.value}`} type="button" className={`break-chart-point${activeIndex===index?" active":""}`} style={{left:`${x(index)}%`,top:`${y(point.value)/60*100}%`}} onPointerEnter={()=>setActiveIndex(index)} onFocus={()=>setActiveIndex(index)} onBlur={()=>setActiveIndex(null)} onClick={()=>setActiveIndex(current=>current===index?null:index)} title={t("{periodLabel} {period}：{v}", {periodLabel, period: point.period, v: point.value?t("{v} {value} 分", {v: mode==="personal"?t("個人最佳"):t("該月最高"), value: point.value}):"N/A"})} aria-label={t("{periodLabel} {period}，{v}", {periodLabel, period: point.period, v: point.value?t("{v} {value} 分", {v: mode==="personal"?t("個人最佳"):t("該月最高"), value: point.value}):t("未記錄單桿")})}/>) }
     </div>
-    <div className="break-chart-x-axis" aria-hidden="true">{tickIndexes.map(index=><span key={index} style={{left:`${x(index)}%`}}>{points[index].period}</span>)}</div>
-    <p className="chart-summary">{mode==="personal"?t("共 {points} 次個人最佳里程碑。", {points: points.length}):t("共 {points} 個有賽事記錄月份；N/A 代表該月未記錄單桿。", {points: points.length})}</p>
-    <SlidingToggleGroup className="ds-toggle-control break-milestone-toggle" aria-label={t("高桿圖表顯示方式")}><button type="button" aria-pressed={mode==="monthly"} className={mode==="monthly"?"active":""} onClick={()=>{setMode("monthly");setActiveIndex(null)}}>{t("每月最高")}</button><button type="button" aria-pressed={mode==="personal"} className={mode==="personal"?"active":""} onClick={()=>{setMode("personal");setActiveIndex(null)}}>{t("個人最佳")}</button></SlidingToggleGroup>
+    <div className="trend-xaxis" aria-hidden="true">{tickIndexes.map(index=><span key={index} style={{left:`${x(index)}%`}}>{periodText(points[index].period,false)}</span>)}</div>
   </div>;
 }
 
 function BreakStats({player,data}:{player:Player;data:AppState}) {
   const t = useT();
+  const [mode,setMode]=useState<BreakChartMode>("monthly");
   const breaks=data.matches.filter(m=>m.status==="confirmed").flatMap(m=>
     (m.highBreaks??[]).filter(item=>item.playerId===player.id&&item.value>0&&item.value<=147).map(item=>item.value));
   if(!breaks.length)return null;
@@ -3877,16 +3922,15 @@ function BreakStats({player,data}:{player:Player;data:AppState}) {
   const counts=new Map<string,number>();
   for(const v of breaks) counts.set(band(v),(counts.get(band(v))??0)+1);
   const maxCount=Math.max(1,...allBands.map(b=>counts.get(b)??0));
-  return <section className="profile-section break-stats">
-    <div className="profile-section-head break-milestone-head"><div><p className="kicker">{t("高桿里程碑")}</p><h3>{t("突破軌跡")}</h3></div><div className="break-stats-record"><small>{t("最高單桿")}</small><b>{highest}</b></div></div>
-    <BreakMilestoneChart player={player} data={data}/>
-    <div className="break-stats-subhead"><span>{t("單桿表現")}</span><b>{highest}</b></div>
+  return <section className="profile-section break-stats profile-chart-hero">
+    <div className="trend-overview"><div className="trend-heading"><div className="profile-section-head"><div><p className="kicker">{t("高桿里程碑")}</p><h3>{t("突破軌跡")}</h3></div></div></div><SlidingToggleGroup className="ds-toggle-control break-milestone-toggle" aria-label={t("高桿圖表顯示方式")}><button type="button" aria-pressed={mode==="monthly"} className={mode==="monthly"?"active":""} onClick={()=>setMode("monthly")}>{t("每月最高")}</button><button type="button" aria-pressed={mode==="personal"} className={mode==="personal"?"active":""} onClick={()=>setMode("personal")}>{t("個人最佳")}</button></SlidingToggleGroup></div>
+    <BreakMilestoneChart player={player} data={data} mode={mode}/>
+    <div className="break-stats-subhead"><span>{t("單桿表現")}</span><small>{t("共 {breaks} 桿記錄", {breaks: breaks.length})}</small></div>
     <div className="break-bar-chart">{allBands.map(band=>{const count=counts.get(band)??0;return <div className="break-bar-row" key={band}>
       <span className="break-bar-label">{band}</span>
       <span className="break-bar-track"><i style={{width:count?`${8+count/maxCount*92}%`:"0%"}}/></span>
       <span className="break-bar-count">{count||""}</span>
     </div>})}</div>
-    <p className="chart-summary">{t("共 {breaks} 桿記錄。", {breaks: breaks.length})}</p>
   </section>;
 }
 
@@ -3968,46 +4012,59 @@ function PlayerDetail({player,rank,data,onCompare,onViewAllMatches,onMatch,onFin
      gaps, surfaces and heads come from one place rather than from each section's own margins. */
   /* A plain div, not a <header>: the global `header{height:62px}` page rule would clamp this and
      clip the chip row. */
-  return <><div className="profile-head">
-    <PlayerBadge player={player}/>
-    <div className="profile-identity">
-      <h2>{player.name}</h2>
-      <div className="profile-chips"><span className="profile-chip">{t("排名 #")}{rank||"—"}</span><span className={`profile-chip${provisional?" provisional":""}`}>{provisional?t("臨時 ELO"):t("正式 ELO")}</span><span className="profile-chip">{t("{g} 場", {g})}</span>
-        {/* A cup finish is the one thing on this profile the leaderboard can never show, so it sits
-            in the identity row with the rank rather than in a section below the fold. */}
+  const total=player.wins+player.losses+player.draws,winPct=total?Math.round(player.wins/total*100):0;
+  const framePct=Math.round(frameRate(player)*100);
+  const [now]=useState(()=>Date.now());
+  const monthDelta=useMemo(()=>{
+    const dated=trendPoints.filter(point=>point.date);
+    if(!dated.length)return 0;
+    const cutoff=new Date(now-30*86400000).toISOString().slice(0,10);
+    const earlier=dated.filter(point=>point.date<cutoff);
+    return Math.round(player.rating-(earlier.length?earlier[earlier.length-1].elo:trendPoints[0].elo));
+  },[trendPoints,player.rating,now]);
+  const firstNonWin=player.form.findIndex(result=>result!=="W");
+  const winStreak=player.form[0]==="W"?(firstNonWin===-1?player.form.length:firstNonWin):0;
+  const RING=2*Math.PI*42;
+  const ringSegments=[{kind:"w",value:player.wins},{kind:"d",value:player.draws},{kind:"l",value:player.losses}].reduce((acc,seg)=>{
+    const length=total?seg.value/total*RING:0;
+    acc.items.push({...seg,length,offset:acc.used});acc.used+=length;return acc;
+  },{items:[] as {kind:string;value:number;length:number;offset:number}[],used:0}).items.filter(seg=>seg.length>0);
+  /* One cinematic hero, then a `.profile-body` of tiles: the chart as the centrepiece, a bento of stats,
+     then form, rivals and availability. A plain div, not a <header>: the global `header{height:62px}`
+     page rule would clamp it and clip the chip row. */
+  return <><div className={`profile-head${honour?" has-honour":""}`}>
+    <IconButton className="profile-share" label={t("分享 {name} 的球會紀錄", {name: player.name})} onClick={onShare}><ShareGlyph kind="share" /></IconButton>
+    <div className="profile-id">
+      <PlayerBadge player={player}/>
+      <div className="profile-identity">
+        <h2>{player.name}</h2>
+        <div className="profile-meta-row"><p className="profile-meta">{t("排名 #")}{rank||"—"} · {t("{g} 場", {g})}{provisional&&<> · {t("臨時 ELO")}</>}</p>
+          <span className="profile-form-dots" aria-label={t("最近5場")}>{player.form.slice(0,5).map((result,index)=><i key={`${result}-${index}`} className={result.toLowerCase()}>{result}</i>)}{winStreak>=2&&<em className="profile-streak">{t("{n} 連勝", {n: winStreak})}</em>}</span></div>
+        {/* A cup finish is the one thing on this profile the leaderboard can never show. */}
         {honour&&<span className="profile-chip honour"><CupMark/>{honour}</span>}
-        {/* A profile is the other half of the share story: on a quiet week there is no fresh result
-            to post, but a rating and a rank are always worth showing — and a card carrying the
-            club's name into somebody's Instagram does the same job either way. It rides in the chip
-            row rather than as a fourth column of the hero grid, which has three tracks. */}
-        <Button variant="quiet" className="profile-share" aria-label={t("分享 {name} 的球會紀錄", {name: player.name})} onClick={onShare}><ShareGlyph kind="share" />{t("分享紀錄")}</Button></div>
-      <div className="profile-hero-form"><div><small>{t("最近5場")}</small><span className="profile-form-dots">{player.form.slice(0,5).map((result,index)=><i key={`${result}-${index}`} className={result.toLowerCase()}>{result}</i>)}</span></div></div>
+      </div>
     </div>
-    <div className="profile-hero-elo"><small>{t("目前 ELO")}</small><b>{Math.round(player.rating)}</b></div>
+    <div className="profile-vitals">
+      <div className="profile-vital"><small>{t("目前 ELO")}</small><div className="profile-vital-value"><b><CountUp value={Math.round(player.rating)}/></b>{monthDelta!==0&&<span className={`profile-delta ${monthDelta>0?"positive":"negative"}`}>{monthDelta>0?"+":""}{monthDelta} · {t("近30日")}</span>}</div></div>
+      <div className="profile-vital"><small>{t("讓分")}</small><div className="profile-vital-value"><b>{suggested==null?"—":Math.round(suggested)}</b></div></div>
+      <div className="profile-vital"><small>{t("最高單桿")}</small><div className="profile-vital-value"><b>{highestBreak||"—"}</b></div></div>
+    </div>
   </div>
   <div className="profile-body">
-    {/* Current ELO already leads the hero above, so it isn't repeated here. */}
-    <div className="profile-stats profile-progress">
-      <StatTile label={t("ELO 建議評分")} value={suggested==null?t("未提供"):Math.round(suggested)} />
-      <StatTile label={t("勝／負／和")} value={`${player.wins}/${player.losses}/${player.draws}`} />
-      <div>
-        <small>{t("局數勝率")}</small>
-        <b>{Math.round(frameRate(player)*100)}%</b>
-        <span className="profile-progress-sub">{t("{framesWon} 局獲勝", {framesWon: player.framesWon})}</span>
+    <section className="profile-section interactive-detail profile-chart-hero">
+      <InteractiveEloChart points={trendPoints} label={t("{name} 從起始評分至目前的互動 ELO 走勢", {name: player.name})} heading={<div className="profile-section-head"><div><p className="kicker">{t("評分軌跡")}</p><h3>{t("ELO 走勢")}</h3></div></div>}/>
+    </section>
+    <div className="profile-bento">
+      <div className="bento-tile bento-ring">
+        <div className="ring-wrap"><svg viewBox="0 0 100 100" role="img" aria-label={`${player.wins}/${player.losses}/${player.draws}`}><circle className="ring-track" cx="50" cy="50" r="42"/>
+          {ringSegments.map(seg=><circle key={seg.kind} className={`ring-seg ring-${seg.kind}`} cx="50" cy="50" r="42" strokeDasharray={`${Math.max(0,seg.length-(ringSegments.length>1?2:0))} ${RING}`} strokeDashoffset={-seg.offset} transform="rotate(-90 50 50)"/>)}
+        </svg><div className="ring-center"><b><CountUp value={winPct}/>%</b></div></div>
+        <div className="bento-ring-text"><small>{t("勝／負／和")}</small><span className="bento-sub">{player.wins}/{player.losses}/{player.draws}</span></div>
       </div>
-      <div><small>{t("最高單桿")}</small><b>{highestBreak||"—"}</b><span className="profile-progress-sub">{highestBreak?t("歷史記錄"):t("尚未有單桿記錄")}</span></div>
+      <div className="bento-tile bento-frames"><small>{t("局數勝率")}</small><b><CountUp value={framePct}/>%</b><span className="bento-bar"><i style={{width:`${framePct}%`}}/></span><span className="bento-sub">{t("{framesWon} 局獲勝", {framesWon: player.framesWon})}</span></div>
     </div>
-    <PlayerUpcomingSlots player={player} onFindOpponent={onFindOpponent}/>
     <BreakStats player={player} data={data}/>
     <RecentMatches points={trendPoints} onViewAll={onViewAllMatches} onMatch={onMatch}/>
-    <section className="profile-section interactive-detail">
-      <div className="profile-section-head"><div><p className="kicker">{t("評分軌跡")}</p><h3>{t("ELO 走勢")}</h3></div><span>{t("最高 {v} · 最低 {v2}", {v: Math.round(high), v2: Math.round(low)})}</span></div>
-      <InteractiveEloChart points={trendPoints} label={t("{name} 從起始評分至目前的互動 ELO 走勢", {name: player.name})}/>
-      <div className="chart-axis"><span>{t("起始 {v}", {v: Math.round(series[0])})}</span><span>{t("目前 {v}", {v: Math.round(player.rating)})}</span></div>
-    </section>
     <RivalrySnapshot player={player} data={data} onCompare={onCompare}/>
-    <section className="profile-section">
-      <div className="profile-section-head"><div><p className="kicker">{t("綜合分析")}</p><h3>{t("表現摘要")}</h3></div></div>
-      <p className="summary">{t("{name} 目前為 {v} ELO，最近五場錄得", {name: player.name, v: Math.round(player.rating)})} {player.form.filter(x=>x==="W").length}  {t("勝、")}{player.form.filter(x=>x==="L").length}  {t("負、")}{player.form.filter(x=>x==="D").length}  {t("和；局數勝率為 {v}%。ELO 曾介乎 {v2} 至 {v3}，共有 {related} 筆可追溯賽事記錄。", {v: Math.round(frameRate(player)*100), v2: Math.round(low), v3: Math.round(high), related: related.length})}</p>
-    </section>
+    <PlayerUpcomingSlots player={player} onFindOpponent={onFindOpponent}/>
   </div></>}
