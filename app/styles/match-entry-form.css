@@ -61,11 +61,6 @@
 .match-group .quick-handicap h3 small{font-weight:700;color:var(--ds-accent-action)}
 .match-group .handicap-segment{margin-top:var(--sp-3)}
 
-/* Squad filter: every option visible, no hidden dropdown. */
-.match-squad-row{display:flex;gap:var(--sp-2);margin:0 calc(var(--sp-1) * -1) var(--sp-3);padding:0 var(--sp-1) var(--sp-1);overflow-x:auto;scrollbar-width:none}.match-squad-row::-webkit-scrollbar{display:none}
-.match-squad-row button{flex:none;max-width:12rem;min-height:var(--control-sm);padding:0 var(--sp-3-5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:0;border-radius:var(--radius-pill);background:var(--ds-surface-secondary);color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:700;cursor:pointer;transition:background var(--ds-duration-toggle) var(--ds-ease-toggle),color var(--ds-duration-toggle) var(--ds-ease-toggle)}
-.match-squad-row button.active{background:var(--ds-accent-action);color:white}
-.match-squad-row button:focus-visible{outline:3px solid var(--ds-focus);outline-offset:2px}
 /* Score tick */
 @keyframes score-tick{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
 .score-value.tick{animation:score-tick var(--ds-duration-toggle) var(--ds-ease-toggle)}
@@ -103,7 +98,6 @@
 @media(max-width:599px){
   .match-form-head+.sub{margin:var(--sp-1) 0 0}
   .match-players{margin-top:var(--sp-3)}
-  .match-squad-row{margin-bottom:var(--sp-2)}
   .matchup-card{padding:var(--sp-3) var(--sp-2)}
   .matchup-avatar{width:2.75rem;height:2.75rem}
   .match-group{margin-top:var(--sp-3)}
@@ -120,7 +114,7 @@
 
 /* Wider screens: a little tighter than before, without touching the phone layout. */
 @media(min-width:821px){
-  .match-form-head~.match-players{margin-top:var(--sp-2)}
+  .match-form-head~.match-players{margin-top:var(--sp-3)}
   .matchup-card{padding:var(--sp-4) var(--sp-3)}
   .match-group{margin-top:var(--sp-3)}
   .match-group>section{padding:var(--sp-3) var(--sp-4)}
@@ -130,7 +124,7 @@
 }
 
 /* Header → squad pills: sit right under the title row at every width. */
-.match-form-head~.match-players{margin-top:var(--sp-1)}
+.match-form-head~.match-players{margin-top:var(--sp-3)}
 
 /* Frames panel: one even rhythm — title, scores, breaks, ratio — with matching padding on every side. */
 .score-panel{padding:var(--sp-4)}

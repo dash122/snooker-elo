@@ -15,6 +15,7 @@ import "./styles/break-nudge.css";
 import "./styles/squads.css";
 import "./styles/squad-stats.css";
 import "./styles/match-entry-form.css";
+import "./styles/player-picker.css";
 import "./styles/calendar.css";
 import "./styles/member-auth.css";
 import "./styles/admin-roster.css";
