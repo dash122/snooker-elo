@@ -1363,6 +1363,7 @@ export const enStrings: Record<string, string> = {
   "揀場地": "Choose a Venue",
   // app/VenueBoard.tsx — add a venue
   "新增場地": "Add Venue",
+  "新場地": "New venue",
   "場地名稱": "Venue name",
   "地區（可省略）": "District (optional)",
   "儲存場地": "Save Venue",
