@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_LOCALE, DEFAULT_TIME_ZONE, LOCALES, LOCALE_NAMES, isLocale, resolveLocale, resolveTimeZone } from "../lib/i18n/locales.ts";
+import { DEFAULT_LOCALE, DEFAULT_TIME_ZONE, LOCALES, LOCALE_NAMES, isLocale, negotiateLocale, resolveLocale, resolveTimeZone } from "../lib/i18n/locales.ts";
 import { zhHant } from "../lib/i18n/messages/zh-Hant.ts";
 import { en } from "../lib/i18n/messages/en.ts";
 import { createTranslator, translate, messagesFor } from "../lib/i18n/translate.ts";
@@ -96,4 +96,13 @@ test("English strings only use placeholders their source string provides, and ar
 test("no English string is left as Chinese", () => {
   const stillChinese = Object.entries(enStrings).filter(([, value]) => HAN.test(value)).map(([key]) => key);
   assert.deepEqual(stillChinese, []);
+});
+
+test("negotiateLocale follows Accept-Language order and weights", () => {
+  assert.equal(negotiateLocale(undefined), "zh-Hant");
+  assert.equal(negotiateLocale("en-US,en;q=0.9"), "en");
+  assert.equal(negotiateLocale("zh-HK,zh;q=0.9,en;q=0.8"), "zh-Hant");
+  assert.equal(negotiateLocale("fr-FR,fr;q=0.9,en;q=0.5"), "en");
+  assert.equal(negotiateLocale("en;q=0.4,zh-CN;q=0.9"), "zh-Hant");
+  assert.equal(negotiateLocale("fr-FR"), "zh-Hant");
 });
