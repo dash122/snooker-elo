@@ -163,3 +163,6 @@
   .score-row{gap:var(--sp-1)}
   .score-row button{width:2.25rem}
 }
+
+/* Names and scores sit directly on the green scoreboard — no inner tile. Padding stays so the ":" alignment holds. */
+.score-panel .scoreboard-entry>div{background:transparent;border-radius:0}
