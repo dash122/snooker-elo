@@ -3527,7 +3527,7 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
     }
     return out;
   },[data.matches,ownPlayerId]);
-  const pickerProps={squads,squadId:pickerSquadId,onSquadChange:setPickerSquadId,recent};
+  const pickerProps={squads,squadId:pickerSquadId,onSquadChange:setPickerSquadId,recent,handicapOf:(player:Player)=>suggestedHandicap(player,data)};
   const isTeamMode=draft.mode==="2v2";
   const isCupMode=draft.mode==="cup";
   const a2=isTeamMode?data.players.find(player=>player.id===draft.a2):undefined;

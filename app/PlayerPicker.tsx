@@ -14,7 +14,7 @@ export type RecentOpponent = { id: string; playedOn: string };
  * everyone A–Z. Rows carry ELO and squad so two players with the same name can be told apart.
  * The squad choice is owned by the caller so it carries over from one slot to the next.
  */
-export function PlayerPicker<P extends PickerPlayer>({ players, value, onChange, placeholder, ariaLabel, renderTrigger, autoOpenSignal, squads, squadId, onSquadChange, recent }: {
+export function PlayerPicker<P extends PickerPlayer>({ players, value, onChange, placeholder, ariaLabel, renderTrigger, autoOpenSignal, squads, squadId, onSquadChange, recent, handicapOf }: {
   players: P[]; value: string; onChange: (id: string) => void;
   /** Doubles as the sheet title ("Choose a player", "Choose a teammate"). */
   placeholder: string; ariaLabel: string;
@@ -22,6 +22,8 @@ export function PlayerPicker<P extends PickerPlayer>({ players, value, onChange,
   autoOpenSignal?: number;
   squads: PickerSquad[]; squadId: string | null; onSquadChange: (id: string | null) => void;
   recent: RecentOpponent[];
+  /** Suggested handicap shown beside the ELO, as in the player slots. */
+  handicapOf: (player: P) => number;
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
@@ -51,7 +53,7 @@ export function PlayerPicker<P extends PickerPlayer>({ players, value, onChange,
   const pick = (id: string) => { onChange(id); setOpen(false); };
   const row = (player: P, playedOn?: string) => {
     const squadNames = (squadsByPlayer.get(player.id) ?? []).slice(0, 2).join(" · ");
-    const detail = [`${Math.round(player.rating)} ELO`, playedOn ? t("上次對賽 {date}", { date: playedOn }) : squadNames].filter(Boolean).join(" · ");
+    const detail = [t("{v} ELO / {v2} 分", { v: Math.round(player.rating), v2: Math.round(handicapOf(player)) }), playedOn ? t("上次對賽 {date}", { date: playedOn }) : squadNames].filter(Boolean).join(" · ");
     return <li key={`${playedOn ? "r" : "a"}-${player.id}`}>
       <button type="button" className="player-picker__row" aria-pressed={player.id === value} onClick={() => pick(player.id)}>
         <PlayerBadge player={player} className="player-picker__avatar" />

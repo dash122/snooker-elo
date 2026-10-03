@@ -19,6 +19,6 @@
 .player-picker__row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--fs-body);font-weight:700}
 .player-picker__row small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
 .player-picker__row>i{flex:none;color:var(--ds-accent-action);font-style:normal;font-weight:800}
-.player-picker__avatar{flex:none;width:2.5rem;height:2.5rem;font-size:var(--fs-sm)}
+.player-picker__row .player-picker__avatar{flex:none;color:white;width:2.5rem;height:2.5rem;font-size:var(--fs-sm)}
 .player-picker__empty{margin:var(--sp-5) 0;color:var(--ds-text-secondary);text-align:center}
 @media(max-width:599px){.ds-sheet.player-picker{height:min(85dvh,36rem)}}
