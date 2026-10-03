@@ -22,6 +22,8 @@ import { calculateSnookerElo } from "../lib/snooker-elo";
 import { breakNudge, type BreakNudge } from "../lib/break-nudge";
 import { matchDate, matchupKey, meetingsSince } from "../lib/elo-replay";
 import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
+import { localDate } from "../lib/local-date";
+import { PlayerPicker } from "./PlayerPicker";
 import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story-card";
 import ShareSheet from "./ShareSheet";
 import { AppShell, PageFrame } from "./components/shell/AppShell";
@@ -1059,7 +1061,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     id:"teamB",name:teamLabel(teamMatch,data,"B"),short:teamLabel(teamMatch,data,"B"),handicap:teamHandicap(teamMatch,data,"B"),rating:teamRating(teamMatch,data,"B"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]
   } as Player : b;
   const preview=a&&b&&(!draft.mode||draft.mode==="1v1"||valid2v2||draft.mode==="cup")
-    ? calc(aEntity,bEntity,+draft.scoreA,+draft.scoreB,draft.giver,+draft.points,data.settings,
+    ? calc(aEntity,bEntity,+draft.scoreA,+draft.scoreB,draft.giver,Math.max(0,Math.trunc(+draft.points||0)),data.settings,
         draft.mode==="2v2"?([a.id,a2?.id].includes(draft.giver) ? "A" : [b.id,b2?.id].includes(draft.giver) ? "B" : undefined):undefined)
     : null;
   const openHeadToHead=(player:Player,selectedOpponent?:Player)=>{
@@ -1173,7 +1175,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     setDraft({
       mode,teamAName:"Team A",teamBName:"Team B",a:first,b:second,
       a2:mode==="2v2"?rest[0]?.id??"":"",b2:mode==="2v2"?rest[1]?.id??"":"",
-      scoreA:0,scoreB:0,date:playedOn??today,giver:"",points:0,highBreaks:[],tournamentId:"",tournamentRound:1,tournamentMatchIndex:1,cupSlotLocked:false
+      scoreA:0,scoreB:0,date:playedOn??localDate(),giver:"",points:0,highBreaks:[],tournamentId:"",tournamentRound:1,tournamentMatchIndex:1,cupSlotLocked:false
     });
     setModal("match");
   }
@@ -1524,7 +1526,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       <div className={`sheet-shell${modal==="detail"?" player-detail-sheet":""}${modal==="match"?" match-entry-sheet":""}`}>
         <IconButton className="close" label={t("關閉")} onClick={closeModal}>×</IconButton>
         <section className={`sheet${modal==="deleteMatch"?" confirm-sheet":""}`} role="dialog" aria-modal="true">
-          {modal==="match"&&<MatchForm squads={squads} data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} saving={saving} onSave={saveMatch}/>}
+          {modal==="match"&&<MatchForm ownPlayerId={ownPlayerId} squads={squads} data={data} draft={draft} setDraft={setDraft} preview={preview} a={a} b={b} editing={!!editingMatch} saving={saving} onSave={saveMatch}/>}
           {modal==="tournament"&&<div>
             <p className="kicker">{t("盃賽")}</p>
             <h2>{editingTournament?t("編輯盃賽"):t("建立新盃賽")}</h2>
@@ -3484,7 +3486,20 @@ function SettingsView({data,onEdit,onReset,canReset}:{data:AppState;onEdit:()=>v
     {canReset&&<section className="danger-zone"><div><h2>{t("清除並重設資料")}</h2><p>{t("永久刪除共用資料庫內所有球員、比賽及審計記錄，並恢復預設 ELO 設定。")}</p></div><Button variant="danger" onClick={onReset}>{t("清除所有資料")}</Button></section>}</>;
 }
 
-function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave}:{squads:MySquad[];data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;editing:boolean;saving:boolean;onSave:()=>void}) {
+/** Replays a short pop on the element whenever `value` changes (not on first paint). Class-toggled, so a focused input is never remounted. */
+function useTick(value:unknown){
+  const ref=useRef<HTMLInputElement|null>(null);
+  const first=useRef(true);
+  useEffect(()=>{
+    if(first.current){first.current=false;return;}
+    const el=ref.current;if(!el)return;
+    el.classList.remove("tick");void el.offsetWidth;el.classList.add("tick");
+  },[value]);
+  return ref;
+}
+/** No best-of-N race goes this deep; a bigger number is almost certainly points scored, not frames won. */
+const FRAME_SCORE_SANITY_LIMIT=18;
+function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave,ownPlayerId}:{ownPlayerId?:string;squads:MySquad[];data:AppState;draft:any;setDraft:any;preview:any;a:Player;b:Player;editing:boolean;saving:boolean;onSave:()=>void}) {
   const t = useT();
   const [breakInput,setBreakInput]=useState<Record<string,string>>({});
   const [breakMessage,setBreakMessage]=useState<Record<string,string>>({});
@@ -3498,17 +3513,33 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
      leaving stale values from the previous one behind. */
   const [followingSuggestion,setFollowingSuggestion]=useState(false);
   const update=(k:string,v:any)=>setDraft((d:any)=>({...d,[k]:v}));
-  /* 球隊: a filter on this form only (never saved with the match). "All" lists everyone; picking a squad
-     narrows the player lists to its members and clears any already-picked player outside it. */
-  const [formSquadId,setFormSquadId]=useState<string|null>(null);
-  const formSquad=squads.find(squad=>squad.id===formSquadId)??null;
-  const squadMemberIds=useMemo(()=>formSquad?new Set(formSquad.members.map(member=>member.playerId)):null,[formSquad]);
-  const chooseFormSquad=(id:string|null)=>{
-    setFormSquadId(id);
-    const ids=id?new Set(squads.find(squad=>squad.id===id)?.members.map(member=>member.playerId)):null;
-    if(ids)setDraft((d:any)=>{const next={...d};for(const key of ["a","b","a2","b2"])if(next[key]&&!ids.has(next[key]))next[key]="";return next});
-  };
-  const players=[...data.players].filter(p=>p.active&&(!squadMemberIds||squadMemberIds.has(p.id))).sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
+  /* The squad filter lives inside the player sheet and is kept here so it carries over from slot to slot. */
+  const [pickerSquadId,setPickerSquadId]=useState<string|null>(null);
+  const players=[...data.players].filter(p=>p.active).sort((left,right)=>left.name.localeCompare(right.name,"zh-HK"));
+  /* The viewer's most recent co-players, newest first, for the sheet's "recent" section. */
+  const recent=useMemo(()=>{
+    if(!ownPlayerId)return [] as {id:string;playedOn:string}[];
+    const seen=new Set<string>(),out:{id:string;playedOn:string}[]=[];
+    const mine=data.matches.filter(m=>m.status==="confirmed"&&[m.a,m.b,m.a2,m.b2].includes(ownPlayerId)).sort((x,y)=>(y.playedOn||"").localeCompare(x.playedOn||"")||(y.createdAt||"").localeCompare(x.createdAt||""));
+    for(const m of mine){
+      for(const id of [m.a,m.b,m.a2,m.b2])if(id&&id!==ownPlayerId&&!seen.has(id)){seen.add(id);out.push({id,playedOn:m.playedOn})}
+      if(out.length>=8)break;
+    }
+    return out;
+  },[data.matches,ownPlayerId]);
+  /* When each player last faced the viewer (as an opponent), for the picker rows. */
+  const lastPlayed=useMemo(()=>{
+    const map:Record<string,string>={};
+    if(!ownPlayerId)return map;
+    for(const m of data.matches){
+      if(m.status!=="confirmed"||!m.playedOn)continue;
+      const sideA=[m.a,m.a2],sideB=[m.b,m.b2];
+      const against=sideA.includes(ownPlayerId)?sideB:sideB.includes(ownPlayerId)?sideA:[];
+      for(const id of against)if(id&&(!map[id]||m.playedOn>map[id]))map[id]=m.playedOn;
+    }
+    return map;
+  },[data.matches,ownPlayerId]);
+  const pickerProps={squads,squadId:pickerSquadId,onSquadChange:setPickerSquadId,recent,lastPlayed,handicapOf:(player:Player)=>suggestedHandicap(player,data)};
   const isTeamMode=draft.mode==="2v2";
   const isCupMode=draft.mode==="cup";
   const a2=isTeamMode?data.players.find(player=>player.id===draft.a2):undefined;
@@ -3568,7 +3599,7 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
     setBreakInput(current=>({...current,[playerId]:""}));
     const previousBest=data.matches.filter(match=>match.status==="confirmed").flatMap(match=>(match.highBreaks??[]).filter(item=>item.playerId===playerId).map(item=>item.value)).reduce((best,item)=>Math.max(best,item),0);
     setBreakReminder(false);
-    setBreakMessage(current=>({...current,[playerId]:value>previousBest&&previousBest>0?t("新個人最佳！比之前高 {v} 分 🎉", {v: value-previousBest}):value>previousBest?t("第一個單桿紀錄，繼續突破！"):previousBest-value<=5?t("距離個人最佳 {previousBest} 只差 {v} 分", {previousBest, v: previousBest-value}):t("已記低，下一桿再挑戰更高！")}));
+    setBreakMessage(current=>({...current,[playerId]:value>previousBest&&previousBest>0?t("新個人最佳！比之前高 {v} 分 🎉", {v: value-previousBest}):value>previousBest?"":previousBest-value<=5?t("距離個人最佳 {previousBest} 只差 {v} 分", {previousBest, v: previousBest-value}):""}));
   };
   const removeBreak=(index:number)=>setDraft((d:any)=>({...d,highBreaks:(d.highBreaks??[]).filter((_:unknown,itemIndex:number)=>itemIndex!==index)}));
   const teamEloDifference=draft.mode==="2v2"&&a2&&b2?roundedTeamEloDifference([a,a2],[b,b2]):a.rating-b.rating;
@@ -3607,6 +3638,7 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
     if(cupHandicapMode||!followingSuggestion||fairActual==null)return;
     setDraft((d:any)=>({...d,giver:fairActual>=0?a.id:b.id,points:Math.abs(fairActual)}));
   },[cupHandicapMode,followingSuggestion,fairActual,a.id,b.id,setDraft]);
+  const tickA=useTick(draft.scoreA),tickB=useTick(draft.scoreB);
   const changeScore=(key:"scoreA"|"scoreB",amount:number)=>setDraft((d:any)=>({...d,[key]:Math.max(0,+d[key]+amount)}));
   const totalFrames=+draft.scoreA + +draft.scoreB;
   const hasEloPreview=Boolean(forecast&&totalFrames>0);
@@ -3621,11 +3653,14 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
   const valid=Boolean(a&&b&&a.id!==b.id&&totalFrames>0&&(!isTeamMode||validTeamSelection)&&(!isCupMode||Boolean(draft.tournamentId&&draft.a&&draft.b&&draft.tournamentRound&&draft.tournamentMatchIndex)));
   const resultLabel=!valid?t("輸入最終比分"):draft.scoreA===draft.scoreB?t("{scoreA}–{scoreB} 和局", {scoreA: draft.scoreA, scoreB: draft.scoreB}):draft.scoreA>draft.scoreB?t("{v} 勝 {scoreA}–{scoreB}", {v: isTeamMode?teamAName:a.name, scoreA: draft.scoreA, scoreB: draft.scoreB}):t("{v} 勝 {scoreB}–{scoreA}", {v: isTeamMode?teamBName:b.name, scoreB: draft.scoreB, scoreA: draft.scoreA});
   const handicapLabel=draft.giver&&+draft.points>0?t("{v} 每局讓 {points} 分", {v: draft.mode==="2v2"?([a.id,a2?.id].includes(draft.giver)?teamAName:teamBName):draft.giver===a?.id?a?.name:b?.name, points: draft.points}):t("沒有讓分");
-  const dateLabel=draft.date===today?t("今天"):draft.date;
+  /* "Today" is the device's calendar day, not UTC's. Allow one day ahead so a player already past
+     midnight somewhere east of the server's idea of today is never blocked. */
+  const todayLocal=localDate(),yesterdayLocal=localDate(-1),maxDate=localDate(1);
+  const dateLabel=draft.date===todayLocal?t("今天"):draft.date===yesterdayLocal?t("昨天"):draft.date;
+  const looksLikePoints=Math.max(+draft.scoreA,+draft.scoreB)>FRAME_SCORE_SANITY_LIMIT;
   const fairPoints=Math.abs(fairActual??0);
-  return <div className="match-form"><div className="match-form-head"><div className="match-title-row"><h2 className="accent">{editing?t("編輯比賽"):t("記錄比賽")}</h2><div className="match-chips">{squads.length>0&&<Menu className="match-squad" label={t("選擇球隊")} align="end" triggerClassName="match-squad__trigger"
-          trigger={()=><><span>{formSquad?formSquad.name:t("全部")}</span><i aria-hidden="true">›</i></>}
-          sections={[{items:[{key:"all",label:t("全部"),checked:!formSquad,onSelect:()=>chooseFormSquad(null)},...squads.map(item=>({key:item.id,label:item.name,checked:formSquad?.id===item.id,onSelect:()=>chooseFormSquad(item.id)}))]}]}/>}<div className="match-date-chip"><span aria-hidden="true">{dateLabel}<i aria-hidden="true">›</i></span><input aria-label={t("比賽日期，目前為{dateLabel}", {dateLabel})} type="date" value={draft.date} onChange={e=>update("date",e.target.value)} onClick={e=>{const input=e.currentTarget;if(typeof input.showPicker==="function")input.showPicker()}}/></div></div></div></div>
+  return <div className="match-form"><div className="match-form-head"><div className="match-title-row"><h2 className="accent">{editing?t("編輯比賽"):t("記錄比賽")}</h2><div className="match-date-chip"><span aria-hidden="true"><em>{t("比賽日期：")}</em><b>{dateLabel}</b><i aria-hidden="true">›</i></span><input aria-label={t("比賽日期，目前為{dateLabel}", {dateLabel})} type="date" value={draft.date} max={maxDate} onChange={e=>{if(e.target.value)update("date",e.target.value>maxDate?maxDate:e.target.value)}} onClick={e=>{const input=e.currentTarget;if(typeof input.showPicker==="function")input.showPicker()}}/></div></div></div>
+    
     {editing&&<p className="sub">{draft.mode==="2v2"?t("潮拍娛樂賽只會更新這筆歷史記錄，不會重播或改變 ELO。"):t("儲存後會按日期重播全部賽事，重建雙方及後續 ELO。")}</p>}
     {data.players.length<2&&<p className="warning">{t("請先新增至少兩位活躍球員。")}</p>}
     {isCupMode&&!cupSlotLocked && <div className="tournament-selector tournament-selector-first">
@@ -3636,13 +3671,12 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
       {draft.tournamentId&&!cupBracket?.slots.length&&<p className="mm-note">{t("此盃賽尚未抽籤（報名未截止或人數不足），暫時無法選擇對陣，請待抽籤後再記錄賽果。")}</p>}
     </div>}
     {cupSlotLocked&&<div className="cup-slot-banner"><small>{tournamentLabel}</small><b>{cupBracket?t("{v} · 第 {tournamentMatchIndex} 場", {v: roundLabel(t, Number(draft.tournamentRound),cupBracket.rounds), tournamentMatchIndex: draft.tournamentMatchIndex}):t("第 {tournamentRound} 輪第 {tournamentMatchIndex} 場", {tournamentRound: draft.tournamentRound, tournamentMatchIndex: draft.tournamentMatchIndex})}</b><span>{t("對陣及場次由賽事對陣圖帶入，不可更改。")}</span></div>}
-    <section className="match-players" aria-labelledby="match-players-title"><h3 id="match-players-title" className="visually-hidden">{t("選擇球員")}</h3>
-      {isTeamMode&&<div className="team-name-grid"><label><span>{t("Team A 隊名")}</span><input type="text" maxLength={40} value={draft.teamAName??""} placeholder="Team A" onChange={event=>update("teamAName",event.target.value)}/></label><b aria-hidden="true">{t("對")}</b><label><span>{t("Team B 隊名")}</span><input type="text" maxLength={40} value={draft.teamBName??""} placeholder="Team B" onChange={event=>update("teamBName",event.target.value)}/></label></div>}
+    <section className="match-players" aria-labelledby="match-players-title"><h3 id="match-players-title" className="visually-hidden">{t("選擇球員")}</h3>{isTeamMode&&<div className="team-name-grid"><label><span>{t("Team A 隊名")}</span><input type="text" maxLength={40} value={draft.teamAName??""} placeholder="Team A" onChange={event=>update("teamAName",event.target.value)}/></label><b aria-hidden="true">{t("對")}</b><label><span>{t("Team B 隊名")}</span><input type="text" maxLength={40} value={draft.teamBName??""} placeholder="Team B" onChange={event=>update("teamBName",event.target.value)}/></label></div>}
       {!isTeamMode&&!isCupMode&&<div className="matchup-card">
-        <div className="matchup-slot"><PlayerCombobox players={playersForA} value={draft.a} onChange={pickA} placeholder={t("選擇球員")} ariaLabel={t("球員 A")} autoOpenSignal={openASignal}
+        <div className="matchup-slot"><PlayerPicker {...pickerProps} players={playersForA} value={draft.a} onChange={pickA} placeholder={t("選擇球員")} ariaLabel={t("球員 A")} autoOpenSignal={openASignal}
           renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??t("選擇球員")}</b><small>{selected?t("{v} ELO / {v2} 分", {v: Math.round(selected.rating), v2: Math.round(suggestedHandicap(selected,data))}):"—"}</small></span></button>}/></div>
         <span className="matchup-vs" aria-hidden="true">{t("對")}</span>
-        <div className="matchup-slot"><PlayerCombobox players={playersForB} value={draft.b} onChange={pickB} placeholder={t("選擇球員")} ariaLabel={t("球員 B")} autoOpenSignal={openBSignal}
+        <div className="matchup-slot"><PlayerPicker {...pickerProps} players={playersForB} value={draft.b} onChange={pickB} placeholder={t("選擇球員")} ariaLabel={t("球員 B")} autoOpenSignal={openBSignal}
           renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??t("選擇球員")}</b><small>{selected?t("{v} ELO / {v2} 分", {v: Math.round(selected.rating), v2: Math.round(suggestedHandicap(selected,data))}):"—"}</small></span></button>}/></div>
       </div>}
       {isCupMode&&cupSlotLocked&&<div className="matchup-card cup-matchup-card locked">
@@ -3652,23 +3686,23 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
         </Fragment>)}
       </div>}
       {isCupMode&&!cupSlotLocked&&<div className="matchup-card cup-matchup-card">
-        <div className="matchup-slot"><PlayerCombobox players={players} value={draft.a} onChange={pickCupPlayer} placeholder={t("選擇球員")} ariaLabel={t("選擇球員")} autoOpenSignal={openASignal}
+        <div className="matchup-slot"><PlayerPicker {...pickerProps} players={players} value={draft.a} onChange={pickCupPlayer} placeholder={t("選擇球員")} ariaLabel={t("選擇球員")} autoOpenSignal={openASignal}
           renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??t("選擇球員")}</b><small>{selected?`${Math.round(selected.rating)} ELO` : t("未完成盃賽場次")}</small></span></button>}/></div>
         <span className="matchup-vs" aria-hidden="true">{t("對")}</span>
         <div className="matchup-slot derived-opponent"><span className="matchup-trigger"><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={b??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{draft.b?b.name:t("對手會由賽事名單帶出")}</b><small>{draft.b?t("已按未完成場次配對"):t("先選擇一位球員")}</small></span></span></div>
       </div>}
       {isTeamMode&&<div className="matchup-card team-2v2">
         <div className="matchup-team">
-          <div className="matchup-slot"><PlayerCombobox players={playersForA} value={draft.a} onChange={pickA} placeholder={t("選擇球員")} ariaLabel={t("球員 A")} autoOpenSignal={openASignal}
+          <div className="matchup-slot"><PlayerPicker {...pickerProps} players={playersForA} value={draft.a} onChange={pickA} placeholder={t("選擇球員")} ariaLabel={t("球員 A")} autoOpenSignal={openASignal}
             renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??t("選擇球員")}</b><small>{selected?t("{v} ELO / {v2} 分", {v: Math.round(selected.rating), v2: Math.round(suggestedHandicap(selected,data))}):"—"}</small></span></button>}/></div>
-          <div className="matchup-slot"><PlayerCombobox players={playersForA2} value={draft.a2} onChange={pickA2} placeholder={t("選擇隊友")} ariaLabel={t("球員 A2")} autoOpenSignal={openA2Signal}
+          <div className="matchup-slot"><PlayerPicker {...pickerProps} players={playersForA2} value={draft.a2} onChange={pickA2} placeholder={t("選擇隊友")} ariaLabel={t("球員 A2")} autoOpenSignal={openA2Signal}
             renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??t("選擇隊友")}</b><small>{selected?t("{v} ELO / {v2} 分", {v: Math.round(selected.rating), v2: Math.round(suggestedHandicap(selected,data))}):"—"}</small></span></button>}/></div>
         </div>
         <span className="matchup-vs" aria-hidden="true">{t("對")}</span>
         <div className="matchup-team">
-          <div className="matchup-slot"><PlayerCombobox players={playersForB} value={draft.b} onChange={pickB} placeholder={t("選擇球員")} ariaLabel={t("球員 B")} autoOpenSignal={openBSignal}
+          <div className="matchup-slot"><PlayerPicker {...pickerProps} players={playersForB} value={draft.b} onChange={pickB} placeholder={t("選擇球員")} ariaLabel={t("球員 B")} autoOpenSignal={openBSignal}
             renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??t("選擇球員")}</b><small>{selected?t("{v} ELO / {v2} 分", {v: Math.round(selected.rating), v2: Math.round(suggestedHandicap(selected,data))}):"—"}</small></span></button>}/></div>
-          <div className="matchup-slot"><PlayerCombobox players={playersForB2} value={draft.b2} onChange={pickB2} placeholder={t("選擇隊友")} ariaLabel={t("球員 B2")} autoOpenSignal={openB2Signal}
+          <div className="matchup-slot"><PlayerPicker {...pickerProps} players={playersForB2} value={draft.b2} onChange={pickB2} placeholder={t("選擇隊友")} ariaLabel={t("球員 B2")} autoOpenSignal={openB2Signal}
             renderTrigger={(selected,open)=><button type="button" className="matchup-trigger" onClick={open}><span aria-hidden="true" className="matchup-avatar-wrap"><PlayerBadge player={selected??{short:"?"}} className="matchup-avatar"/></span><span className="matchup-player-info"><b>{selected?.name??t("選擇隊友")}</b><small>{selected?t("{v} ELO / {v2} 分", {v: Math.round(selected.rating), v2: Math.round(suggestedHandicap(selected,data))}):"—"}</small></span></button>}/></div>
         </div>
       </div>}
@@ -3679,29 +3713,30 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
     {isCupMode&&!cupSlotLocked && <div className="tournament-stage"><label>{t("輪次")}<input type="number" min={1} value={draft.tournamentRound||1} onChange={e=>update("tournamentRound",Math.max(1,Number(e.target.value)||1))}/></label>
       <label>{t("場次")}<input type="number" min={1} value={draft.tournamentMatchIndex||1} onChange={e=>update("tournamentMatchIndex",Math.max(1,Number(e.target.value)||1))}/></label></div>}
     {isCupMode&&cupSlot&&cupSlot.state==="played"&&!editing&&<p className="warning">{t("此場次已有賽果，儲存會另建一筆記錄；請改用對陣圖上的「編輯賽果」。")}</p>}
-    <section className="quick-handicap" aria-labelledby="handicap-title"><h3 id="handicap-title">{t("讓分")} <small>{handicapLabel}</small></h3>
+    <div className="match-group">
+    <section className="quick-handicap" aria-labelledby="handicap-title"><h3 id="handicap-title"><span>{t("讓分")}</span> <small>{handicapLabel}</small></h3>
       {isCupMode
         ? <div className="tournament-handicap-note"><b>{t("盃賽模式")}</b><span>{tournament ? (tournament.handicapMode==="suggested" ? t("自動套用建議讓分：每局 {fairPoints} 分", {fairPoints}) : t("此盃賽不設讓分")) : t("未選擇盃賽")}</span></div>
         : <>
             {validTeamSelection&&<div className="entertainment-handicap-note recommended"><b>{t("建議讓分")}</b><span>{fairPoints===0?t("{teamAName} 與 {teamBName} 毋須讓分", {teamAName, teamBName}):t("{v} 每局讓 {v2} {fairPoints} 分", {v: fairActual!>0?teamAName:teamBName, v2: fairActual!>0?teamBName:teamAName, fairPoints})}</span><small>{teamAHandicap!=null&&teamBHandicap!=null?t("{teamAName} 平均 {v} · {teamBName} 平均 {v2}", {teamAName, v: Math.round(teamAHandicap), teamBName, v2: Math.round(teamBHandicap)}):t("隊伍平均 ELO 相差 {v}", {v: Math.abs(teamEloDifference)})}{t("；按球員 ELO 建議讓分計算。")}</small></div>}
             <SlidingToggleGroup className="handicap-segment"><button type="button" className={!draft.giver&&!customHandicap?"active":""} onClick={setNoHandicap}>{t("沒有讓分")}</button><button type="button" disabled={fairActual==null} className={draft.giver&&+draft.points===fairPoints&&!customHandicap?"active":""} onClick={fairPoints===0?setNoHandicap:applyFair}>{t("ELO 建議")}</button><button type="button" className={customHandicap?"active":""} onClick={()=>{setCustomHandicap(value=>!value);setFollowingSuggestion(false);}}>{t("自訂")}</button></SlidingToggleGroup>
-            {customHandicap&&<div className="custom-handicap"><label>{draft.mode==="2v2"?t("讓分隊伍"):t("讓分球員")}<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">{t("沒有讓分")}</option><option value={a?.id}>{draft.mode==="2v2"?t("{teamAName}（{name} / {name2}）", {teamAName, name: a.name, name2: a2?.name}):a?.name}</option><option value={b?.id}>{draft.mode==="2v2"?t("{teamBName}（{name} / {name2}）", {teamBName, name: b.name, name2: b2?.name}):b?.name}</option></select></label><label>{t("每局分數")}<input type="number" inputMode="numeric" min="0" step="1" value={draft.points} onChange={e=>update("points",Math.max(0,+e.target.value))}/></label></div>}
+            {customHandicap&&<div className="custom-handicap"><label>{draft.mode==="2v2"?t("讓分隊伍"):t("讓分球員")}<select value={draft.giver} onChange={e=>update("giver",e.target.value)}><option value="">{t("沒有讓分")}</option><option value={a?.id}>{draft.mode==="2v2"?t("{teamAName}（{name} / {name2}）", {teamAName, name: a.name, name2: a2?.name}):a?.name}</option><option value={b?.id}>{draft.mode==="2v2"?t("{teamBName}（{name} / {name2}）", {teamBName, name: b.name, name2: b2?.name}):b?.name}</option></select></label><label>{t("每局分數")}<input type="number" inputMode="numeric" min="0" step="1" value={draft.points} onKeyDown={e=>{if([".",",","-","+","e","E"].includes(e.key))e.preventDefault()}} onChange={e=>update("points",Math.max(0,Math.trunc(Number(e.target.value))||0))}/></label></div>}
           </>
       }
-    </section>
-    <section className="score-panel" aria-labelledby="score-title">{forecast&&<div className="predicted-ratio"><div><span>{t("預測局數比例")}</span><b>{isTeamMode?teamAName:a.short} {Math.round(forecast.expectedA*100)}% · {Math.round((1-forecast.expectedA)*100)}% {isTeamMode?teamBName:b.short}</b></div><em aria-label={t("{v} {v2}%，{v3} {v4}%", {v: isTeamMode?teamAName:a.name, v2: Math.round(forecast.expectedA*100), v3: isTeamMode?teamBName:b.name, v4: Math.round((1-forecast.expectedA)*100)})}><i style={{width:`${Math.round(forecast.expectedA*100)}%`}}/></em></div>}<h3 id="score-title">{t("最終比分")}</h3>{!isTeamMode&&<div className="break-invitation"><b>{t("今場有冇值得記低嘅單桿？")}</b><span>{t("每次突破，都係進步嘅紀錄。")}</span></div>}<div className="scoreboard-entry">
-      <div><b>{isTeamMode?teamAName:(a?.name??t("球員 A"))}</b><div className="score-row"><button type="button" aria-label={t("{v}減一局", {v: isTeamMode?teamAName:(a?.name??t("球員 A"))})} onClick={()=>changeScore("scoreA",-1)}>−</button><input className="score-value" aria-label={t("{v}局數", {v: isTeamMode?teamAName:(a?.name??t("球員 A"))})} type="number" inputMode="numeric" min="0" value={draft.scoreA} onChange={e=>update("scoreA",Math.max(0,+e.target.value))}/><button type="button" aria-label={t("{v}加一局", {v: isTeamMode?teamAName:(a?.name??t("球員 A"))})} onClick={()=>changeScore("scoreA",1)}>＋</button></div>
-        {!isTeamMode&&a&&<div className="break-inline">{(breakOpen[a.id]||(draft.highBreaks??[]).some((item:{playerId:string})=>item.playerId===a.id))&&<p className="break-heading">{t("已記錄嘅單桿")}</p>}<div className="break-chips">{(draft.highBreaks??[]).map((item:{playerId:string;value:number},index:number)=>item.playerId===a.id?<button type="button" key={index} onClick={()=>removeBreak(index)} aria-label={t("移除 {name} 的 {value} 分單桿度數", {name: a.name, value: item.value})}>{item.value}<span>×</span></button>:null)}</div>
-          {breakOpen[a.id]?<form className="break-add" onSubmit={event=>{event.preventDefault();addBreak(a.id)}}><input autoFocus className="break-value" aria-label={t("{name} 單桿度數", {name: a.name})} type="number" inputMode="numeric" min="1" max="147" placeholder={t("輸入度數")} enterKeyHint="done" value={breakInput[a.id]??""} onChange={event=>setBreakInput(current=>({...current,[a.id]:event.target.value}))}/><button type="submit">{t("記低")}</button></form>:<button type="button" className="break-add-toggle" onClick={()=>setBreakOpen(current=>({...current,[a.id]:true}))}>{t("＋ 記錄單桿")}</button>}
+    </section></div>
+    <section className="score-panel" aria-labelledby="score-title"><h3 id="score-title">{t("局數")}</h3>{looksLikePoints&&<p className="score-warning" role="alert">{t("呢個數字好似係分數。請輸入贏咗的局數（例如 3–2），單桿分數請用下面「單桿」記錄。")}</p>}<div className="scoreboard-entry">
+      <div><b>{isTeamMode?teamAName:(a?.name??t("球員 A"))}</b><div className="score-row"><button type="button" aria-label={t("{v}減一局", {v: isTeamMode?teamAName:(a?.name??t("球員 A"))})} onClick={()=>changeScore("scoreA",-1)}>−</button><input ref={tickA} className="score-value" aria-label={t("{v}局數", {v: isTeamMode?teamAName:(a?.name??t("球員 A"))})} type="number" inputMode="numeric" min="0" value={draft.scoreA} onChange={e=>update("scoreA",Math.max(0,+e.target.value))}/><button type="button" aria-label={t("{v}加一局", {v: isTeamMode?teamAName:(a?.name??t("球員 A"))})} onClick={()=>changeScore("scoreA",1)}>＋</button></div>
+        {!isTeamMode&&a&&<div className="break-inline"><div className="break-chips">{(draft.highBreaks??[]).map((item:{playerId:string;value:number},index:number)=>item.playerId===a.id?<button type="button" key={index} onClick={()=>removeBreak(index)} aria-label={t("移除 {name} 的 {value} 分單桿度數", {name: a.name, value: item.value})}><i aria-hidden="true">★</i>{item.value}<span>×</span></button>:null)}</div>
+          {breakOpen[a.id]?<form className="break-add" onSubmit={event=>{event.preventDefault();addBreak(a.id)}}><input autoFocus className="break-value" aria-label={t("{name} 單桿度數", {name: a.name})} type="number" inputMode="numeric" min="1" max="147" placeholder="52" enterKeyHint="done" value={breakInput[a.id]??""} onChange={event=>setBreakInput(current=>({...current,[a.id]:event.target.value}))}/><button type="submit">{t("記低")}</button></form>:<button type="button" className="break-add-toggle" onClick={()=>setBreakOpen(current=>({...current,[a.id]:true}))}><i aria-hidden="true">★</i>{t("單桿")}<span aria-hidden="true">＋</span></button>}
         {breakMessage[a.id]&&<p className="break-encouragement" role="status">{breakMessage[a.id]}</p>}</div>}
       </div>
-      <strong aria-hidden="true">–</strong>
-      <div><b>{isTeamMode?teamBName:(b?.name??t("球員 B"))}</b><div className="score-row"><button type="button" aria-label={t("{v}減一局", {v: isTeamMode?teamBName:(b?.name??t("球員 B"))})} onClick={()=>changeScore("scoreB",-1)}>−</button><input className="score-value" aria-label={t("{v}局數", {v: isTeamMode?teamBName:(b?.name??t("球員 B"))})} type="number" inputMode="numeric" min="0" value={draft.scoreB} onChange={e=>update("scoreB",Math.max(0,+e.target.value))}/><button type="button" aria-label={t("{v}加一局", {v: isTeamMode?teamBName:(b?.name??t("球員 B"))})} onClick={()=>changeScore("scoreB",1)}>＋</button></div>
-        {!isTeamMode&&b&&<div className="break-inline">{(breakOpen[b.id]||(draft.highBreaks??[]).some((item:{playerId:string})=>item.playerId===b.id))&&<p className="break-heading">{t("已記錄嘅單桿")}</p>}<div className="break-chips">{(draft.highBreaks??[]).map((item:{playerId:string;value:number},index:number)=>item.playerId===b.id?<button type="button" key={index} onClick={()=>removeBreak(index)} aria-label={t("移除 {name} 的 {value} 分單桿度數", {name: b.name, value: item.value})}>{item.value}<span>×</span></button>:null)}</div>
-          {breakOpen[b.id]?<form className="break-add" onSubmit={event=>{event.preventDefault();addBreak(b.id)}}><input autoFocus className="break-value" aria-label={t("{name} 單桿度數", {name: b.name})} type="number" inputMode="numeric" min="1" max="147" placeholder={t("輸入度數")} enterKeyHint="done" value={breakInput[b.id]??""} onChange={event=>setBreakInput(current=>({...current,[b.id]:event.target.value}))}/><button type="submit">{t("記低")}</button></form>:<button type="button" className="break-add-toggle" onClick={()=>setBreakOpen(current=>({...current,[b.id]:true}))}>{t("＋ 記錄單桿")}</button>}
+      <strong aria-hidden="true">:</strong>
+      <div><b>{isTeamMode?teamBName:(b?.name??t("球員 B"))}</b><div className="score-row"><button type="button" aria-label={t("{v}減一局", {v: isTeamMode?teamBName:(b?.name??t("球員 B"))})} onClick={()=>changeScore("scoreB",-1)}>−</button><input ref={tickB} className="score-value" aria-label={t("{v}局數", {v: isTeamMode?teamBName:(b?.name??t("球員 B"))})} type="number" inputMode="numeric" min="0" value={draft.scoreB} onChange={e=>update("scoreB",Math.max(0,+e.target.value))}/><button type="button" aria-label={t("{v}加一局", {v: isTeamMode?teamBName:(b?.name??t("球員 B"))})} onClick={()=>changeScore("scoreB",1)}>＋</button></div>
+        {!isTeamMode&&b&&<div className="break-inline"><div className="break-chips">{(draft.highBreaks??[]).map((item:{playerId:string;value:number},index:number)=>item.playerId===b.id?<button type="button" key={index} onClick={()=>removeBreak(index)} aria-label={t("移除 {name} 的 {value} 分單桿度數", {name: b.name, value: item.value})}><i aria-hidden="true">★</i>{item.value}<span>×</span></button>:null)}</div>
+          {breakOpen[b.id]?<form className="break-add" onSubmit={event=>{event.preventDefault();addBreak(b.id)}}><input autoFocus className="break-value" aria-label={t("{name} 單桿度數", {name: b.name})} type="number" inputMode="numeric" min="1" max="147" placeholder="52" enterKeyHint="done" value={breakInput[b.id]??""} onChange={event=>setBreakInput(current=>({...current,[b.id]:event.target.value}))}/><button type="submit">{t("記低")}</button></form>:<button type="button" className="break-add-toggle" onClick={()=>setBreakOpen(current=>({...current,[b.id]:true}))}><i aria-hidden="true">★</i>{t("單桿")}<span aria-hidden="true">＋</span></button>}
         {breakMessage[b.id]&&<p className="break-encouragement" role="status">{breakMessage[b.id]}</p>}</div>}
       </div>
-    </div></section>
+    </div>{forecast&&<div className="predicted-ratio"><div><span>{t("預測局數比例")}</span><b>{isTeamMode?teamAName:a.short} {Math.round(forecast.expectedA*100)}% · {Math.round((1-forecast.expectedA)*100)}% {isTeamMode?teamBName:b.short}</b></div><em aria-label={t("{v} {v2}%，{v3} {v4}%", {v: isTeamMode?teamAName:a.name, v2: Math.round(forecast.expectedA*100), v3: isTeamMode?teamBName:b.name, v4: Math.round((1-forecast.expectedA)*100)})}><i style={{width:`${Math.round(forecast.expectedA*100)}%`}}/></em></div>}</section>
     {forecast&&totalFrames>0&&(draft.mode==="2v2"?<section ref={eloPreviewRef} className="elo-preview entertainment-preview"><b>{t("潮拍娛樂模式")}</b><p>{t("本場只記錄隊伍、讓分與比分；四位球員的目前 ELO、勝負、局數及近況均不會改變。")}</p></section>:<section ref={eloPreviewRef} className="elo-preview"><div><span><small>{a.name}</small><b className={previewDeltaA!>=0?"positive":"negative"}>{previewDeltaA!>=0?"+":""}{Math.round(previewDeltaA!)} ELO</b></span><i aria-hidden="true">↔</i><span className="right"><small>{b.name}</small><b className={previewDeltaB!>=0?"positive":"negative"}>{previewDeltaB!>=0?"+":""}{Math.round(previewDeltaB!)} ELO</b></span></div><details><summary>{t("查看計算詳情")}</summary><p>{probabilities?t("A 勝 {v}% · 和 {v2}% · ", {v: Math.round(probabilities.win*100), v2: Math.round(probabilities.draw*100)}):""}{t("表現分")} {forecast.performanceScore>=0?"+":""}{t("{v} · 讓分 H", {v: Math.round(forecast.performanceScore)})} {forecast.adjustment>=0?"+":""}{Math.round(forecast.adjustment)}</p></details></section>)}
     <div className="match-save">{breakReminder&&<div className="break-save-reminder" role="status"><b>{t("今場有冇值得記低嘅單桿？")}</b><span><button type="button" onClick={()=>{setBreakReminder(false);setBreakOpen({[a.id]:true,[b.id]:true})}}>{t("返回記錄")}</button><button type="button" onClick={onSave}>{t("今場沒有，照樣儲存")}</button></span></div>}<Button className="full" disabled={!valid||data.players.length<2||saving} aria-busy={saving} onClick={()=>{if(!isTeamMode&&!editing&&(draft.highBreaks??[]).length===0){setBreakReminder(true);return}onSave()}}><strong>{saving?t("儲存中…"):editing?t("儲存變更"):t("儲存賽果")}</strong><small>{saving?t("請稍候"):resultLabel}</small></Button></div>
   </div>;

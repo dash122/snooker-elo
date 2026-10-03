@@ -117,6 +117,8 @@
     --fs-input:1.0625rem;      /* 17px — every text input, select, textarea */
     --fs-display:2rem;         /* 32px — hero headings, empty-state glyphs */
     --fs-display-lg:2.375rem;  /* 38px — the primary ranking hero only */
+    --fs-score:3rem;           /* 48px — the frame count on the match-entry scoreboard */
+    --fs-score-lg:4rem;        /* 64px — the same, on phones where the box has been widened */
 
     /* --- Spacing scale -----------------------------------------------------
        Pick the nearest step. Never split the difference: "just 2px more" is
