@@ -42,6 +42,7 @@ Plus three fixed sizes that don't step:
 | `--fs-display` | 32px | hero headings, empty-state glyphs |
 | `--fs-display-lg` | 38px | the primary ranking hero only |
 | `--fs-score` | 48px | the frame count on the match-entry scoreboard |
+| `--fs-score-lg` | 56px | the frame count on phones |
 
 Nothing resolves below 11px. It isn't legible on a phone — **but the scale only holds where
 something names a role.** Relative sizing compounds off whatever it inherits and slips under the

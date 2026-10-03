@@ -166,3 +166,11 @@
 
 /* Names and scores sit directly on the green scoreboard — no inner tile. Padding stays so the ":" alignment holds. */
 .score-panel .scoreboard-entry>div{background:transparent;border-radius:0}
+
+/* Phone: a little more air above "Frames", and a wider/taller score box so the digits can be larger. */
+@media(max-width:820px){
+  .score-panel{padding:var(--sp-4) var(--sp-2) var(--sp-3)}
+  .score-row{gap:var(--sp-1)}
+  .score-value{flex:1 1 0;width:auto;min-width:0;max-width:4.5rem;height:4.25rem;font-size:var(--fs-score-lg)}
+  .score-panel .scoreboard-entry>strong{height:4.25rem}
+}
