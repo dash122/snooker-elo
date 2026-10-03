@@ -14,7 +14,7 @@ export type RecentOpponent = { id: string; playedOn: string };
  * everyone A–Z. Rows carry ELO and squad so two players with the same name can be told apart.
  * The squad choice is owned by the caller so it carries over from one slot to the next.
  */
-export function PlayerPicker<P extends PickerPlayer>({ players, value, onChange, placeholder, ariaLabel, renderTrigger, autoOpenSignal, squads, squadId, onSquadChange, recent, handicapOf }: {
+export function PlayerPicker<P extends PickerPlayer>({ players, value, onChange, placeholder, ariaLabel, renderTrigger, autoOpenSignal, squads, squadId, onSquadChange, recent, lastPlayed, handicapOf }: {
   players: P[]; value: string; onChange: (id: string) => void;
   /** Doubles as the sheet title ("Choose a player", "Choose a teammate"). */
   placeholder: string; ariaLabel: string;
@@ -22,6 +22,8 @@ export function PlayerPicker<P extends PickerPlayer>({ players, value, onChange,
   autoOpenSignal?: number;
   squads: PickerSquad[]; squadId: string | null; onSquadChange: (id: string | null) => void;
   recent: RecentOpponent[];
+  /** Most recent date each player faced the viewer (player id → YYYY-MM-DD). */
+  lastPlayed: Record<string, string>;
   /** Suggested handicap shown beside the ELO, as in the player slots. */
   handicapOf: (player: P) => number;
 }) {
@@ -47,14 +49,14 @@ export function PlayerPicker<P extends PickerPlayer>({ players, value, onChange,
   const recentRows = useMemo(() => {
     if (needle) return [];
     const byId = new Map(scoped.map(player => [player.id, player]));
-    return recent.flatMap(item => { const player = byId.get(item.id); return player ? [{ player, playedOn: item.playedOn }] : []; }).slice(0, 5);
+    return recent.flatMap(item => { const player = byId.get(item.id); return player ? [{ player }] : []; }).slice(0, 5);
   }, [recent, scoped, needle]);
 
   const pick = (id: string) => { onChange(id); setOpen(false); };
-  const row = (player: P, playedOn?: string) => {
-    const squadNames = (squadsByPlayer.get(player.id) ?? []).slice(0, 2).join(" · ");
-    const detail = [t("{v} ELO / {v2} 分", { v: Math.round(player.rating), v2: Math.round(handicapOf(player)) }), playedOn ? t("上次對賽 {date}", { date: playedOn }) : squadNames].filter(Boolean).join(" · ");
-    return <li key={`${playedOn ? "r" : "a"}-${player.id}`}>
+  const row = (player: P, section: "r" | "a") => {
+    const playedOn = lastPlayed[player.id];
+    const detail = [t("{v} ELO / {v2} 分", { v: Math.round(player.rating), v2: Math.round(handicapOf(player)) }), playedOn ? t("上次對賽 {date}", { date: playedOn }) : ""].filter(Boolean).join(" · ");
+    return <li key={`${section}-${player.id}`}>
       <button type="button" className="player-picker__row" aria-pressed={player.id === value} onClick={() => pick(player.id)}>
         <PlayerBadge player={player} className="player-picker__avatar" />
         <span><b>{player.name}</b><small>{detail}</small></span>
@@ -76,8 +78,8 @@ export function PlayerPicker<P extends PickerPlayer>({ players, value, onChange,
       </div>
       <div className="player-picker__list">
         {matches.length === 0 ? <p className="player-picker__empty">{t("沒有符合的球員")}</p> : <>
-          {recentRows.length > 0 && <section aria-label={t("最近對手")}><h3>{t("最近對手")}</h3><ul>{recentRows.map(item => row(item.player, item.playedOn))}</ul></section>}
-          <section aria-label={t("全部球員")}>{!needle && <h3>{t("全部球員")}</h3>}<ul>{matches.map(player => row(player))}</ul></section>
+          {recentRows.length > 0 && <section aria-label={t("最近對手")}><h3>{t("最近對手")}</h3><ul>{recentRows.map(item => row(item.player, "r"))}</ul></section>}
+          <section aria-label={t("全部球員")}>{!needle && <h3>{t("全部球員")}</h3>}<ul>{matches.map(player => row(player, "a"))}</ul></section>
         </>}
       </div>
     </Sheet>

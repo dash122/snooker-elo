@@ -3527,7 +3527,19 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
     }
     return out;
   },[data.matches,ownPlayerId]);
-  const pickerProps={squads,squadId:pickerSquadId,onSquadChange:setPickerSquadId,recent,handicapOf:(player:Player)=>suggestedHandicap(player,data)};
+  /* When each player last faced the viewer (as an opponent), for the picker rows. */
+  const lastPlayed=useMemo(()=>{
+    const map:Record<string,string>={};
+    if(!ownPlayerId)return map;
+    for(const m of data.matches){
+      if(m.status!=="confirmed"||!m.playedOn)continue;
+      const sideA=[m.a,m.a2],sideB=[m.b,m.b2];
+      const against=sideA.includes(ownPlayerId)?sideB:sideB.includes(ownPlayerId)?sideA:[];
+      for(const id of against)if(id&&(!map[id]||m.playedOn>map[id]))map[id]=m.playedOn;
+    }
+    return map;
+  },[data.matches,ownPlayerId]);
+  const pickerProps={squads,squadId:pickerSquadId,onSquadChange:setPickerSquadId,recent,lastPlayed,handicapOf:(player:Player)=>suggestedHandicap(player,data)};
   const isTeamMode=draft.mode==="2v2";
   const isCupMode=draft.mode==="cup";
   const a2=isTeamMode?data.players.find(player=>player.id===draft.a2):undefined;
