@@ -64,7 +64,10 @@
 @media (min-width: 821px) {
   .ds-app-shell .side { background: var(--ds-canvas-brand); box-shadow: none; }
   .ds-app-shell .side nav { gap: var(--sp-2); }
-  .ds-app-shell .side nav button { min-height: 3.5rem; border-radius: var(--radius-sm); }
+  .ds-app-shell .side nav button {
+    display: flex; align-items: center; justify-content: flex-start; gap: var(--sp-2); text-align: left;
+    min-height: 3.5rem; border-radius: var(--radius-sm);
+  }
   .ds-app-shell .side nav button.active { background: var(--ds-surface-featured); color: var(--ds-accent-pale); box-shadow: inset 0 0 0 1px var(--ds-inverse-border); }
   .ds-app-shell .side nav button:not(.active):hover { background: var(--ds-surface-featured); color: var(--ds-text-on-brand); }
   .ds-app-shell .home-view-panel { padding: var(--sp-6); }

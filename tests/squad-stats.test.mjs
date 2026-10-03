@@ -44,3 +44,18 @@ test("weekly buckets run oldest to newest ending this week", () => {
   const stats = squadStats([m("x", "y", 1, 0, "2026-10-01"), m("x", "y", 1, 0, "2026-09-10")], ["x", "y"], "all", now, 4);
   assert.deepEqual(stats.weekly, [1, 0, 0, 1]);
 });
+
+test("squadRecords counts win / draw / loss only against other squad members", async () => {
+  const { squadRecords } = await import("../lib/squad-rivalry.ts");
+  const records = squadRecords([
+    m("x", "y", 3, 1, "2026-09-30"),
+    m("x", "y", 2, 2, "2026-09-30"),
+    m("y", "x", 3, 0, "2026-09-30"),
+    m("x", "z", 3, 0, "2026-09-30"), // z is outside the squad
+    m("x", "y", 3, 0, "2026-09-30", { status: "pending" }),
+    m("x", "y", 3, 0, "2026-09-30", { mode: "2v2" }),
+  ], ["x", "y"]);
+  assert.deepEqual(records.get("x"), { wins: 1, losses: 1, draws: 1 });
+  assert.deepEqual(records.get("y"), { wins: 1, losses: 1, draws: 1 });
+  assert.equal(records.has("z"), false);
+});

@@ -8,7 +8,7 @@ import GuestIntro from "./GuestIntro";
 import { FirstStepsChecklist, IntroTour } from "./FirstSteps";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
-import { SQUAD_SWING_DAYS, daysSinceLastMatch, headToHead, isInactive, ratingSwing } from "../lib/squad-rivalry";
+import { SQUAD_SWING_DAYS, daysSinceLastMatch, isInactive, ratingSwing, squadRecords } from "../lib/squad-rivalry";
 import { SquadStatsPanel } from "./SquadStats";
 import { SquadAddedNotices, SquadCenter, SquadScopeMenu, defaultSquadId, usePublicSquad, useSquadViewTracking, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
@@ -1705,6 +1705,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
   const month=confirmed.filter(m=>m.playedOn.slice(0,7)===today.slice(0,7)).length,total=confirmed.length;
   // A squad view is the same table filtered to its members, re-ranked among themselves.
   const squadIds=useMemo(()=>squad?new Set(squad.members.map(member=>member.playerId)):null,[squad]);
+  const squadRecordById=useMemo(()=>squadIds?squadRecords(data.matches,squadIds):null,[squadIds,data.matches]);
   const visibleRanked=useMemo(()=>ranked.filter(p=>!squadIds||squadIds.has(p.id)),[ranked,squadIds]);
   // Search narrows the list without re-ranking it: a match keeps its real position on the board.
   const needle=query.trim().toLocaleLowerCase();
@@ -1713,11 +1714,9 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
   /* A squad table measures movement over a month (a group of eight barely moves in ten days), shows
      each squad-mate's record against the viewer, and fades out whoever has stopped playing. */
   const swingDays=squad?SQUAD_SWING_DAYS:10;
-  const viewerInSquad=Boolean(squad&&ownPlayerId&&squadIds?.has(ownPlayerId));
   const rivalry=useMemo(()=>squad?new Map(visibleRanked.map(p=>[p.id,{
-    record:viewerInSquad&&ownPlayerId&&p.id!==ownPlayerId?headToHead(data.matches,ownPlayerId,p.id):null,
     idleDays:daysSinceLastMatch(data.matches,p.id),
-  }])):null,[squad,visibleRanked,viewerInSquad,ownPlayerId,data.matches]);
+  }])):null,[squad,visibleRanked,data.matches]);
   // Movement compares today's table against the standings 30 days ago. A single
   // Ten days balances recent momentum with enough matches for a meaningful comparison.
   const movement=useMemo(()=>{
@@ -1803,13 +1802,13 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
     <Surface as="div" className="table-card">{visibleRanked.length===0?<Empty text={t("尚未有球員")} sub={squad?t("呢個球隊暫時未有球員。"):t("前往球員頁面新增第一位球員。")}/>:<><div className="table-head sortable"><button title={squad?t("箭嘴為過去 30 天的排名升跌"):t("箭嘴為過去 10 天的排名升跌")} onClick={()=>sortBy("rank")}>{t("排名")}<SortArrow active={sort==="rank"} dir={dir}/></button><button onClick={()=>sortBy("name")}>{t("球員")}<SortArrow active={sort==="name"} dir={dir}/></button><button title={t("最近五筆比賽；較近期結果權重較高")} onClick={()=>sortBy("form")}>{t("近況")}<SortArrow active={sort==="form"} dir={dir}/></button><button onClick={()=>sortBy("winRate")}>{t("場數／勝率")}<SortArrow active={sort==="winRate"} dir={dir}/></button><button onClick={()=>sortBy("suggested")}>{t("建議評分")}<SortArrow active={sort==="suggested"} dir={dir}/></button><button title={squad?t("ELO 及近30天ELO變化"):t("ELO 及近10天ELO變化")} onClick={()=>sortBy("rating")}><span className="head-elo">ELO<SortArrow active={sort==="rating"} dir={dir}/></span><small className="head-suggested">{t("建議評分")}</small></button></div>
       {shown.length===0&&<p className="board-empty">{t("沒有符合「{query}」的球員", {query: query.trim()})}</p>}
       {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=squad?ratingSwing(data.matches,p.id,SQUAD_SWING_DAYS):recentDeltaDays(p,data,10),played=games(p),rival=rivalry?.get(p.id),idle=rival&&isInactive(rival.idleDays),rate=played?Math.round(p.wins/played*100):0,provisional=played<data.settings.provisionalGames,trailing=trailingStat(t, sort,p,data,suggested);
-        const rivalText=rival?.record?(rival.record.wins+rival.record.losses+rival.record.draws?t("你 {wins}勝 {losses}負", {wins:rival.record.wins,losses:rival.record.losses}):t("未同你交手")):null;
+        const rec=squadRecordById?(squadRecordById.get(p.id)??{wins:0,draws:0,losses:0}):p,recordLabel=t("勝-和-負 {w}-{d}-{l}",{w:rec.wins,d:rec.draws,l:rec.losses});
         const idleText=idle?(rival.idleDays===null?t("未有賽事"):t("{days} 日未打", {days:rival.idleDays})):null;
-        return <button className={`row ${rank===1?"top":""} ${rank<=3?`podium-${rank}`:""} ${provisional?"provisional":""} ${idle?"squad-inactive":""} ${p.id===ownPlayerId?"is-self":""}`} type="button" id={p.id===ownPlayerId?homeTabsId+"-self":undefined} data-self={p.id===ownPlayerId||undefined} key={p.id} onClick={()=>onPlayer(p)} aria-label={[p.id===ownPlayerId?t("你"):null,t("{name}，排名 {rank}，ELO {v}，近{days}天ELO變化 {v2}{v3}，建議讓分 {suggested}{v4}", {name: p.name, rank, v: Math.round(p.rating), days: swingDays, v2: swing>=0?"+":"", v3: Math.round(swing), suggested, v4: provisional?t("，臨時評分"):""}),rivalText,idleText].filter(Boolean).join("，")}>
+        return <button className={`row ${rank===1?"top":""} ${rank<=3?`podium-${rank}`:""} ${provisional?"provisional":""} ${idle?"squad-inactive":""} ${p.id===ownPlayerId?"is-self":""}`} type="button" id={p.id===ownPlayerId?homeTabsId+"-self":undefined} data-self={p.id===ownPlayerId||undefined} key={p.id} onClick={()=>onPlayer(p)} aria-label={[p.id===ownPlayerId?t("你"):null,t("{name}，排名 {rank}，ELO {v}，近{days}天ELO變化 {v2}{v3}，建議讓分 {suggested}{v4}", {name: p.name, rank, v: Math.round(p.rating), days: swingDays, v2: swing>=0?"+":"", v3: Math.round(swing), suggested, v4: provisional?t("，臨時評分"):""}),recordLabel,idleText].filter(Boolean).join("，")}>
         <span className="rank">{rank<=3?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][rank-1]}</i>:rank}{(()=>{if(!movement.active)return null;const move=movement.map.get(p.id)??0;
           // Only real movement earns a mark; a dash on every unchanged row is noise at 100+ players.
           return move===0?null
-          :<em className={`move ${move>0?"up":"down"}`} aria-label={t("較 {days} 天前{v} {v2} 位", {days:swingDays, v: move>0?t("上升"):t("下跌"), v2: Math.abs(move)})}>{move>0?"▲":"▼"}{Math.abs(move)}</em>})()}</span><span className="person"><PlayerBadge player={p}/><b>{p.name}{p.id===ownPlayerId&&<em className="board-self-label">{t("你")}</em>}<small>{played<data.settings.provisionalGames?t("臨時"):<span className="official-only">{t("正式")}</span>}<span className="rating-kind-suffix">{t("評分")}</span><em className="person-meta">  {t("· {played} 場", {played})}</em></small>{(rivalText||idleText)&&<span className="squad-rival" aria-hidden="true">{rivalText&&<em>{rivalText}</em>}{idleText&&<em className="squad-idle">{idleText}</em>}</span>}</b></span>
+          :<em className={`move ${move>0?"up":"down"}`} aria-label={t("較 {days} 天前{v} {v2} 位", {days:swingDays, v: move>0?t("上升"):t("下跌"), v2: Math.abs(move)})}>{move>0?"▲":"▼"}{Math.abs(move)}</em>})()}</span><span className="person"><PlayerBadge player={p}/><b>{p.name}{p.id===ownPlayerId&&<em className="board-self-label">{t("你")}</em>}{provisional&&<small>{t("臨時")}</small>}<span className="player-record" title={recordLabel}><span className="pr-w">{t("{n}勝",{n:rec.wins})}</span><span className="pr-d">{t("{n}和",{n:rec.draws})}</span><span className="pr-l">{t("{n}負",{n:rec.losses})}</span></span>{idleText&&<span className="squad-rival" aria-hidden="true"><em className="squad-idle">{idleText}</em></span>}</b></span>
         <span className="form">{p.form.map((x,j)=><i className={x.toLowerCase()} key={j}>{x}</i>)}</span>
         <span>{t("{played} 場", {played})}<small>{t("{rate}% 勝率", {rate})}</small></span><span className="dual-rating"><b>{suggested}</b></span>
         {trailing?<span className="elo"><b className={trailing.cls}>{trailing.big}</b><small>{trailing.sub}</small></span>

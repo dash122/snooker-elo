@@ -32,6 +32,18 @@ export function headToHead(matches: RivalryMatch[], playerId: string, opponentId
   return record;
 }
 
+/** Each member's win / draw / loss record counting only confirmed singles between two squad members. */
+export function squadRecords(matches: RivalryMatch[], memberIds: Iterable<string>): Map<string, HeadToHead> {
+  const members = new Set(memberIds), records = new Map<string, HeadToHead>();
+  const of = (id: string) => { let r = records.get(id); if (!r) records.set(id, r = { wins: 0, losses: 0, draws: 0 }); return r; };
+  for (const match of matches) {
+    if (!counts(match) || match.a === match.b || !members.has(match.a) || !members.has(match.b)) continue;
+    const a = of(match.a), b = of(match.b);
+    if (match.scoreA > match.scoreB) { a.wins++; b.losses++; } else if (match.scoreA < match.scoreB) { b.wins++; a.losses++; } else { a.draws++; b.draws++; }
+  }
+  return records;
+}
+
 /** Rating change over the last `days` days, today included. */
 export function ratingSwing(matches: RivalryMatch[], playerId: string, days: number, now = Date.now()): number {
   const from = new Date(now - days * DAY).toISOString().slice(0, 10), to = new Date(now).toISOString().slice(0, 10);
