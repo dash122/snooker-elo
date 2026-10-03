@@ -1,0 +1,416 @@
+/* ==========================================================================
+   Cup page — directory, detail and the draw
+   One material carries the whole competition: the club's cloth, lit from the
+   top-right corner like a table under its lamp. The poster card, the banner,
+   the hall of champions and both bracket trees all sit on it, so the cup reads
+   as one event rather than a stack of settings cards. Everything around the
+   cloth stays quiet and white — the draw is the showpiece.
+   ========================================================================== */
+.cup,.cup-share-page{
+  --cup-gold:var(--gold-on-dark);
+  --cup-gold-veil:color-mix(in srgb,var(--gold-on-dark) 18%,transparent);
+  --cup-gold-line:color-mix(in srgb,var(--gold-on-dark) 70%,transparent);
+  --cup-glass:color-mix(in srgb,var(--ds-text-on-brand) 7%,transparent);
+  --cup-glass-strong:color-mix(in srgb,var(--ds-text-on-brand) 12%,transparent);
+  --cup-hairline:color-mix(in srgb,var(--ds-text-on-brand) 13%,transparent);
+  --cup-elbow:color-mix(in srgb,var(--ds-text-muted-teal) 45%,transparent);
+  --cup-felt:
+    radial-gradient(120% 90% at 100% 0%,color-mix(in srgb,var(--gold-on-dark) 15%,transparent),transparent 55%),
+    radial-gradient(90% 80% at 0% 100%,var(--ds-featured-glow),transparent 60%),
+    linear-gradient(160deg,var(--ds-surface-featured),var(--ds-canvas-brand) 55%,var(--ds-canvas-brand-deep));
+  --cup-felt-gold:
+    radial-gradient(120% 100% at 100% 0%,color-mix(in srgb,var(--gold-on-dark) 30%,transparent),transparent 58%),
+    radial-gradient(90% 80% at 0% 100%,var(--ds-featured-glow),transparent 60%),
+    linear-gradient(160deg,var(--ds-surface-featured),var(--ds-canvas-brand) 55%,var(--ds-canvas-brand-deep));
+  --cup-sheen:inset 0 1px 0 color-mix(in srgb,var(--ds-text-on-brand) 12%,transparent);
+  /* Shared by both trees: the round header is a fixed height so the trophy column can be centred on
+     the final exactly (see .cup-mini-crown). */
+  --cup-round-head:2.25rem;
+  --cup-tree-gap:var(--sp-6);
+}
+.cup{gap:var(--sp-4)}
+
+/* --- The emblem ------------------------------------------------------------ */
+.cup-emblem{--emblem-size:3rem;display:grid;place-items:center;flex:0 0 auto;width:var(--emblem-size);height:var(--emblem-size);
+  border-radius:28%;color:var(--cup-gold);
+  background:radial-gradient(circle at 50% 32%,color-mix(in srgb,var(--gold-on-dark) 32%,transparent),transparent 68%),
+    linear-gradient(160deg,var(--ds-surface-featured),var(--ds-canvas-brand-deep));
+  box-shadow:var(--cup-sheen),inset 0 0 0 1px color-mix(in srgb,var(--gold-on-dark) 26%,transparent),var(--ds-elevation-2)}
+.cup-emblem svg{width:56%;height:56%;fill:currentColor;
+  filter:drop-shadow(0 2px 6px color-mix(in srgb,var(--gold-on-dark) 45%,transparent))}
+
+/* --- Directory --------------------------------------------------------------- */
+.cup-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-4);flex-wrap:wrap;padding-top:var(--sp-1)}
+.cup-intro h2{margin:0;color:var(--ds-text-primary);font-size:var(--fs-display);font-weight:800;letter-spacing:-.045em;line-height:1}
+.cup-intro p{margin:var(--sp-2) 0 0;color:var(--ds-text-secondary);font-size:var(--fs-body);line-height:1.5}
+.cup-sections{display:grid;gap:var(--sp-6)}
+.cup-section{display:grid;gap:var(--sp-3-5)}
+.cup-section-head{display:flex;align-items:baseline;gap:var(--sp-2)}
+.cup-section-head h3{margin:0;color:var(--ds-text-primary);font-size:var(--fs-h3);font-weight:800;letter-spacing:-.025em}
+.cup-section-head span{color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:700;font-variant-numeric:tabular-nums}
+.cup-list{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--sp-3)}
+
+.cup-card{position:relative;display:grid;grid-template-columns:minmax(0,1fr);align-items:start;
+  padding:var(--sp-4);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-xl);background:var(--ds-surface-raised);
+  box-shadow:var(--ds-elevation-1);
+  transition:transform var(--ds-duration-standard) var(--ds-ease-standard),box-shadow var(--ds-duration-standard) var(--ds-ease-standard)}
+@media(hover:hover){.cup-card:hover{transform:translateY(-2px);box-shadow:var(--ds-elevation-3)}}
+.cup-card-body{display:grid;align-content:start;gap:var(--sp-2);min-width:0}
+.cup-card-top{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);min-height:var(--control-sm)}
+.cup-card-body h3{margin:0;color:var(--ds-text-primary);font-size:var(--fs-lead);font-weight:800;letter-spacing:-.02em;line-height:1.25;overflow-wrap:anywhere}
+.cup-card-line{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-caption);line-height:1.45}
+.cup-card-people{display:flex;align-items:center;gap:var(--sp-2);color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700}
+.cup-card-people>span:last-child{white-space:nowrap}
+.cup-card-actions{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-1)}
+.cup-card-actions>*{flex:1 1 6rem}
+/* In the grid the emblem rides in the chip row, so the title gets the card's full width. */
+.cup-card:not(.is-featured) .cup-card-emblem{--emblem-size:var(--control-sm);position:absolute;top:var(--sp-4);left:var(--sp-4)}
+.cup-card:not(.is-featured) .cup-card-top{padding-left:calc(var(--control-sm) + var(--sp-2-5))}
+
+/* The poster: whichever cup leads the page wears the cloth. */
+.cup-card.is-featured{grid-template-columns:minmax(0,1fr) auto;gap:var(--sp-3-5);overflow:hidden;isolation:isolate;padding:var(--sp-5) var(--sp-4-5);
+  border-color:color-mix(in srgb,var(--gold-on-dark) 24%,transparent);color:var(--ds-text-on-brand);background:var(--cup-felt-gold);
+  box-shadow:var(--cup-sheen),var(--ds-elevation-5)}
+.cup-card.is-featured::before{content:"";position:absolute;z-index:-1;top:-6rem;right:-6rem;width:16rem;height:16rem;border-radius:50%;
+  border:1px solid color-mix(in srgb,var(--gold-on-dark) 16%,transparent);
+  box-shadow:0 0 0 2.5rem color-mix(in srgb,var(--gold-on-dark) 4%,transparent),0 0 0 5rem color-mix(in srgb,var(--gold-on-dark) 3%,transparent)}
+.cup-card.is-featured .cup-card-emblem{--emblem-size:3.75rem;grid-column:2;grid-row:1}
+.cup-card.is-featured .cup-card-body{grid-column:1;grid-row:1;gap:var(--sp-2-5)}
+.cup-card.is-featured h3{color:var(--ds-text-on-brand);font-size:var(--fs-h2);letter-spacing:-.035em;line-height:1.1;text-wrap:balance}
+.cup-card.is-featured .cup-card-line,.cup-card.is-featured .cup-card-people{color:var(--ds-text-on-brand-secondary)}
+.cup-card.is-featured .cup-avatars .player-badge,.cup-card.is-featured .cup-avatars i{border-color:var(--ds-canvas-brand)}
+.cup-card.is-featured .cup-chip{background:var(--cup-glass-strong);color:var(--ds-accent-pale)}
+.cup-card.is-featured .cup-admin-btn{border-color:var(--cup-hairline);background:var(--cup-glass);color:var(--ds-text-on-brand)}
+.cup-card.is-featured .cup-btn.ds-button--primary{background:var(--ds-accent-primary);color:var(--ds-text-on-accent);box-shadow:0 8px 24px var(--ds-accent-shadow)}
+.cup-card.is-featured .cup-btn.ds-button--secondary,.cup-card.is-featured .cup-btn.ghost{border-color:var(--cup-hairline);background:var(--cup-glass);color:var(--ds-text-on-brand)}
+.cup-card.is-featured .cup-card-actions{margin-top:var(--sp-2)}
+
+/* --- Hall of champions ------------------------------------------------------- */
+.cup-honours{position:relative;overflow:hidden;isolation:isolate;display:grid;gap:var(--sp-4);padding:var(--sp-5) var(--sp-4-5);
+  border-radius:var(--radius-xl);color:var(--ds-text-on-brand);background:var(--cup-felt);box-shadow:var(--cup-sheen),var(--ds-elevation-4)}
+.cup-honours::after{content:"";position:absolute;z-index:-1;top:-7rem;right:-5rem;width:14rem;height:14rem;border-radius:50%;
+  border:1px solid color-mix(in srgb,var(--gold-on-dark) 15%,transparent);
+  box-shadow:0 0 0 2.5rem color-mix(in srgb,var(--gold-on-dark) 4%,transparent),0 0 0 5rem color-mix(in srgb,var(--gold-on-dark) 2%,transparent)}
+.cup-honours-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp-3)}
+.cup-honours-head .sl-eyebrow{margin:0;color:var(--cup-gold)}
+.cup-honours-head h3{margin:var(--sp-1) 0 0;color:var(--ds-text-on-brand);font-size:var(--fs-h2);font-weight:800;letter-spacing:-.035em;line-height:1.05}
+.cup-honours-head>span{flex:0 0 auto;padding:var(--sp-1) var(--sp-2-5);border-radius:var(--radius-pill);background:var(--cup-glass);
+  box-shadow:inset 0 0 0 1px var(--cup-hairline);color:var(--ds-accent-pale);font-size:var(--fs-label);font-weight:800}
+.cup-honours-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(15rem,1fr));gap:var(--sp-2);margin:0;padding:0;list-style:none}
+.cup-honours-list li{display:flex;align-items:center;gap:var(--sp-2-5);min-width:0;padding:var(--sp-2-5) var(--sp-3);
+  border-radius:var(--radius-md);background:var(--cup-glass);box-shadow:inset 0 0 0 1px var(--cup-hairline)}
+.cup-honours-list li.is-leader{grid-column:1/-1;padding:var(--sp-3-5) var(--sp-4);
+  background:linear-gradient(100deg,color-mix(in srgb,var(--gold-on-dark) 20%,transparent),var(--cup-glass) 72%);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-on-dark) 32%,transparent)}
+.cup-honours-list .player-badge{flex:0 0 auto;width:2.25rem;height:2.25rem;font-size:var(--fs-label);box-shadow:0 0 0 2px var(--cup-hairline)}
+.cup-honours-list li.is-leader .player-badge{width:3.25rem;height:3.25rem;font-size:var(--fs-sm);
+  box-shadow:0 0 0 2px var(--ds-canvas-brand),0 0 0 4px var(--cup-gold)}
+.cup-honours-rank{flex:0 0 1.5rem;color:var(--ds-text-muted-teal);font-size:var(--fs-label);font-weight:800;font-variant-numeric:tabular-nums;text-align:center}
+.is-leader .cup-honours-rank{color:var(--cup-gold);font-size:var(--fs-lead)}
+.cup-honours-player{flex:1 1 auto;overflow:hidden}
+.cup-honours-player b,.cup-honours-player small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cup-honours-player b{color:var(--ds-text-on-brand);font-size:var(--fs-sm);font-weight:800}
+.is-leader .cup-honours-player b{font-size:var(--fs-lead);letter-spacing:-.02em}
+.cup-honours-player small{margin-top:var(--sp-1);color:var(--ds-text-on-brand-secondary);font-size:var(--fs-label)}
+.cup-honours-count{display:grid;justify-items:end;flex:0 0 auto;min-width:3rem}
+.cup-honours-count b{color:var(--cup-gold);font-family:var(--font-display);font-size:var(--fs-h3);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.is-leader .cup-honours-count b{font-size:var(--fs-stat)}
+.cup-honours-count small{margin-top:var(--sp-1);color:var(--ds-text-on-brand-secondary);font-size:var(--fs-label);font-weight:700}
+
+/* --- Detail: back link and banner ---------------------------------------------- */
+.cup-back{justify-self:start;display:inline-flex;align-items:center;gap:var(--sp-1);min-height:var(--control-sm);
+  padding:0 var(--sp-3) 0 var(--sp-2);border:0;border-radius:var(--radius-pill);background:var(--ds-canvas-muted);
+  color:var(--ds-text-primary);font-size:var(--fs-sm);font-weight:700;
+  transition:background var(--ds-duration-fast) var(--ds-ease-standard)}
+.cup-back:hover{background:var(--ds-canvas-functional)}
+.cup-back span{color:var(--ds-accent-action);font-size:var(--fs-lead);line-height:1}
+
+/* `header{height:74px;display:flex}` is the app-bar rule and applies to every <header> on the page,
+   so the banner has to opt out explicitly or it collapses to bar height and stacks its own content. */
+.cup-banner{position:relative;display:block;height:auto;overflow:hidden;isolation:isolate;border-radius:var(--radius-xl);
+  color:var(--ds-text-on-brand);background:var(--cup-felt);box-shadow:var(--cup-sheen),var(--ds-elevation-5)}
+.cup-banner.is-done{background:var(--cup-felt-gold)}
+.cup-banner::before{content:"";position:absolute;z-index:-1;top:-7rem;right:-7rem;width:18rem;height:18rem;border-radius:50%;
+  border:1px solid color-mix(in srgb,var(--gold-on-dark) 16%,transparent);
+  box-shadow:0 0 0 3rem color-mix(in srgb,var(--gold-on-dark) 4%,transparent),0 0 0 6rem color-mix(in srgb,var(--gold-on-dark) 2%,transparent)}
+.cup-banner-emblem{--emblem-size:3.5rem;position:absolute;z-index:1;top:var(--sp-4);right:var(--sp-4)}
+.cup-banner-body{position:relative;z-index:1;display:grid;gap:var(--sp-3);padding:var(--sp-5) var(--sp-4) var(--sp-4-5)}
+/* The chip and tools share the emblem's row on a phone; keep them clear of it. */
+.cup-banner .cup-card-top{padding-right:calc(3.5rem + var(--sp-2))}
+.cup-banner h2{margin:0;font-size:var(--fs-h2);font-weight:800;letter-spacing:-.04em;line-height:1.05;text-wrap:balance}
+.cup-banner-body>p{margin:0;color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption);line-height:1.5}
+.cup-banner .cup-chip{background:var(--cup-glass-strong);color:var(--ds-accent-pale)}
+.cup-banner .cup-admin-btn{border-color:var(--cup-hairline);background:var(--cup-glass);color:var(--ds-text-on-brand)}
+.cup-banner-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--sp-2);margin-top:var(--sp-1)}
+.cup-banner-stats div{display:flex;flex-direction:column;justify-content:space-between;gap:var(--sp-1-5);min-width:0;padding:var(--sp-3);
+  border-radius:var(--radius-md);background:var(--cup-glass);box-shadow:inset 0 0 0 1px var(--cup-hairline)}
+.cup-banner-stats b{overflow:hidden;font-family:var(--font-display);font-size:var(--fs-stat);font-weight:700;line-height:1;
+  font-variant-numeric:tabular-nums;text-overflow:ellipsis;white-space:nowrap}
+.cup-banner-stats b i{color:var(--ds-text-muted-teal);font-size:var(--fs-sm);font-style:normal}
+/* The stage is a word, not a number: set in the text face so 決賽 and Semi-finals both fit. */
+.cup-banner-stats div:last-child b{font-family:inherit;font-size:var(--fs-lead);font-weight:800;letter-spacing:-.02em}
+.cup-banner-stats small{color:var(--ds-text-on-brand-secondary);font-size:var(--fs-label);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.cup-progress{height:.375rem;overflow:hidden;border-radius:var(--radius-pill);background:var(--cup-glass-strong)}
+.cup-progress i{display:block;height:100%;border-radius:var(--radius-pill);
+  background:linear-gradient(90deg,var(--ds-accent-primary),var(--cup-gold));
+  box-shadow:0 0 12px color-mix(in srgb,var(--gold-on-dark) 60%,transparent);
+  transition:width var(--ds-duration-toggle) var(--ds-ease-standard)}
+
+/* --- Your own tie ------------------------------------------------------------------ */
+.cup-mytie{position:relative;overflow:hidden;isolation:isolate;padding:var(--sp-5) var(--sp-4);border:1px solid var(--ds-border-subtle);
+  border-radius:var(--radius-xl);background:var(--ds-surface-raised);box-shadow:var(--ds-elevation-3);text-align:center}
+.cup-mytie::before{content:"";position:absolute;z-index:-1;inset:0 0 auto;height:5rem;background:linear-gradient(180deg,var(--ds-success-wash),transparent)}
+.cup-mytie.ready{border-color:color-mix(in srgb,var(--ds-accent-action) 32%,transparent)}
+.cup-mytie .sl-eyebrow{margin:0 0 var(--sp-4);color:var(--ds-accent-action)}
+.cup-mytie-vs{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:var(--sp-3);max-width:28rem;margin:0 auto}
+.cup-mytie-player{display:grid;justify-items:center;gap:var(--sp-1-5);min-width:0}
+.cup-mytie-player .player-badge{width:4rem;height:4rem;border-radius:50%;font-size:var(--fs-lead);
+  box-shadow:0 0 0 3px var(--ds-surface-raised),0 0 0 5px var(--ds-success-wash-border),var(--ds-elevation-2)}
+.cup-mytie-player b{max-width:100%;overflow:hidden;font-size:var(--fs-body);font-weight:800;text-overflow:ellipsis;white-space:nowrap}
+.cup-mytie-player small{color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700;font-variant-numeric:tabular-nums}
+.cup-mytie-mark{display:grid;place-items:center;width:2.75rem;height:2.75rem;border-radius:50%;background:var(--cup-felt);
+  color:var(--cup-gold);font-family:var(--font-display);font-size:var(--fs-sm);font-weight:700;letter-spacing:.06em;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-on-dark) 30%,transparent),var(--ds-elevation-2)}
+.cup-mytie-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-2);max-width:28rem;margin:var(--sp-5) auto 0}
+.cup-mytie-actions .cup-btn{width:100%;min-height:var(--control-lg)}
+.cup-mytie-wait{margin:var(--sp-4) 0 0;color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+
+/* --- Champion spotlight ---------------------------------------------------------- */
+.cup-champion{position:relative;overflow:hidden;isolation:isolate;display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-4) var(--sp-4-5);
+  border-radius:var(--radius-xl);background:linear-gradient(120deg,var(--ds-highlight-wash),var(--ds-accent-pale));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-on-light) 28%,transparent),0 12px 32px var(--ds-accent-shadow)}
+.cup-champion::after{content:"";position:absolute;z-index:-1;inset:-50% auto auto -10%;width:60%;height:200%;
+  background:radial-gradient(closest-side,color-mix(in srgb,var(--ds-surface-raised) 70%,transparent),transparent);transform:rotate(12deg)}
+.cup-champion>.cup-emblem{--emblem-size:3.5rem}
+/* The share page still hands this slot an emoji; give it the same plinth. */
+.cup-champion>span:not(.cup-emblem){display:grid;place-items:center;flex:0 0 auto;width:3.5rem;height:3.5rem;border-radius:28%;
+  background:var(--cup-felt);font-size:var(--fs-h3);line-height:1}
+.cup-champion>div{flex:1;min-width:0}
+.cup-champion small{display:block;color:var(--gold-on-light);font-size:var(--fs-label);font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.cup-champion b{display:block;margin-top:var(--sp-1);overflow:hidden;color:var(--ds-text-primary);font-size:var(--fs-h2);font-weight:800;
+  letter-spacing:-.035em;line-height:1.1;text-overflow:ellipsis;white-space:nowrap}
+.cup-champion .player-badge{width:3.5rem;height:3.5rem;flex:0 0 auto;border-radius:50%;font-size:var(--fs-body);
+  box-shadow:0 0 0 3px var(--ds-surface-raised),0 0 0 5px var(--gold-on-dark)}
+
+.cup-empty{display:grid;justify-items:center;gap:var(--sp-2);padding:var(--sp-6) var(--sp-5);border-radius:var(--radius-xl);
+  background:var(--ds-surface-raised);box-shadow:inset 0 0 0 1px var(--ds-border-subtle);text-align:center}
+.cup-empty>.cup-emblem{--emblem-size:4rem;margin-bottom:var(--sp-2)}
+.cup-empty>span:not(.cup-emblem){font-size:var(--fs-display);line-height:1}
+.cup-empty b{color:var(--ds-text-primary);font-size:var(--fs-lead);font-weight:800}
+.cup-empty p{margin:0;color:var(--ds-text-secondary);font-size:var(--fs-sm);line-height:1.55}
+
+/* --- Rounds: the phone's switcher for the tie cards ------------------------------- */
+.cup-rounds.ds-toggle-control{overflow-x:auto;scrollbar-width:none}
+.cup-rounds.ds-toggle-control::-webkit-scrollbar{display:none}
+.cup-rounds.ds-toggle-control>button{flex:1 0 auto;display:grid;justify-items:center;align-content:center;min-width:4.5rem;padding:var(--sp-1) var(--sp-3);line-height:1.15}
+.cup-rounds>button b{font-size:var(--fs-sm);font-weight:800}
+.cup-rounds>button small{font-size:var(--fs-label);font-weight:700;font-variant-numeric:tabular-nums;opacity:.7}
+.cup-rounds>button.active{color:var(--ds-text-primary)}
+
+/* --- Tie cards (in the app on phones, and on the share page) ----------------------- */
+.cup-ties{display:grid;gap:var(--sp-2-5);margin:0;padding:0;list-style:none}
+.cup-tie{display:grid;gap:var(--sp-1);padding:var(--sp-3) var(--sp-3) var(--sp-2-5);border:1px solid var(--ds-border-subtle);
+  border-radius:var(--radius-lg);background:var(--ds-surface-raised);box-shadow:var(--ds-elevation-1)}
+.cup-tie.ready{box-shadow:var(--ds-elevation-2)}
+.cup-tie.mine{border-color:var(--ds-accent-action);box-shadow:0 0 0 3px color-mix(in srgb,var(--ds-accent-action) 14%,transparent),var(--ds-elevation-2)}
+.cup-tie-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);min-height:1.75rem;padding:0 var(--sp-1) var(--sp-1)}
+.cup-tie-no{margin-right:var(--sp-2);color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.cup-tie-date{margin-right:auto;font-family:inherit;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:600;font-variant-numeric:tabular-nums}
+.cup-tie-mine{padding:var(--sp-1) var(--sp-2);border-radius:var(--radius-pill);background:var(--ds-accent-action);color:var(--ds-text-on-brand);
+  font-size:var(--fs-label);font-weight:800;line-height:1}
+.cup-tie-side{display:flex;align-items:center;gap:var(--sp-2-5);min-width:0;padding:var(--sp-2) var(--sp-1)}
+.cup-tie-side+.cup-tie-side{border-top:1px solid var(--ds-border-subtle)}
+.cup-tie-side .player-badge{width:2rem;height:2rem;flex:0 0 auto;font-size:var(--fs-label)}
+.cup-tie-side b{flex:1;overflow:hidden;font-size:var(--fs-body);font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+.cup-tie-side em{flex:0 0 auto;min-width:1.5rem;color:var(--ds-text-secondary);font-family:var(--font-display);font-size:var(--fs-h3);
+  font-style:normal;font-weight:700;line-height:1;text-align:right;font-variant-numeric:tabular-nums}
+/* `PlayerBadge` renders an <i>, so an unqualified `i` rule here would paint every avatar's initials.
+   Only the ✓ advancement mark is meant to be coloured. */
+.cup-tie-side i:not(.player-badge){flex:0 0 auto;font-style:normal;font-weight:800;color:var(--gold-on-light)}
+.cup-tie-side.won b{font-weight:800;color:var(--ds-text-primary)}
+.cup-tie-side.won em{color:var(--ds-text-primary)}
+.cup-tie-side.won .player-badge{box-shadow:0 0 0 2px var(--ds-surface-raised),0 0 0 4px var(--gold-on-dark)}
+.cup-tie:is(.played,.walkover) .cup-tie-side:not(.won){opacity:.55}
+.cup-tie-side.tbd b{color:var(--ds-text-secondary);font-weight:500}
+.cup-tie-side.tbd .player-badge{opacity:.5}
+.cup-tie-note{margin:var(--sp-1) 0 0;padding:0 var(--sp-1);color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+.cup-tie-actions{display:flex;gap:var(--sp-1-5);flex-wrap:wrap;margin-top:var(--sp-1-5)}
+.cup-tie-actions:empty{display:none}
+.cup-tie-actions .cup-btn{flex:1 1 7rem}
+.card-tool.cup-tie-edit{width:var(--control-sm);height:var(--control-sm);min-height:var(--control-sm);margin-left:auto;font-size:var(--fs-label)}
+.cup-tie.focus{border-color:var(--gold-on-dark);box-shadow:0 0 0 3px var(--cup-gold-veil);animation:cup-tie-flash 1.4s ease}
+@keyframes cup-tie-flash{0%{background:var(--ds-highlight-wash)}100%{background:var(--ds-surface-raised)}}
+
+/* --- The draw ---------------------------------------------------------------------
+   Both trees share one construction. Every round is a column whose ties sit in a grid
+   of equal 1fr rows, so round two's rows are exactly twice round one's. Each cell, not
+   each box, draws its elbow: odd cells a top-right corner down to their bottom edge,
+   even cells a bottom-right corner up to their top edge — so a pair's lines meet at the
+   cell boundary, which is exactly where the next round's box is centred. No measuring,
+   no SVG, and a box can grow (record buttons, walkover controls) without breaking it.
+   A settled tie's elbow turns gold, so the route each winner took glows. */
+.cup-mini{position:relative;overflow:hidden;isolation:isolate;padding:var(--sp-4) 0 var(--sp-4) var(--sp-4);border-radius:var(--radius-xl);
+  color:var(--ds-text-on-brand);background:var(--cup-felt);box-shadow:var(--cup-sheen),var(--ds-elevation-5)}
+/* The next round peeks in from the right on a phone; a soft edge says "there is more this way". */
+.cup-mini::after{content:"";position:absolute;top:0;right:0;bottom:0;width:var(--sp-6);pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--ds-canvas-brand))}
+.cup-mini-tree{display:flex;align-items:stretch;gap:var(--cup-tree-gap);overflow-x:auto;overscroll-behavior-x:contain;
+  padding-right:var(--sp-6);scroll-snap-type:x mandatory;scrollbar-width:none}
+.cup-mini-tree::-webkit-scrollbar{display:none}
+.cup-mini-round{display:flex;flex-direction:column;flex:0 0 min(78%,17rem);scroll-snap-align:start}
+.cup-mini-round-name,.bracket-round-title{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);
+  height:var(--cup-round-head);margin:0 0 var(--sp-2);border-bottom:1px solid var(--cup-hairline);
+  color:var(--ds-text-on-brand-secondary);font-size:var(--fs-caption);font-weight:800;letter-spacing:.04em}
+.cup-mini-round-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cup-mini-round-name small{flex:0 0 auto;color:var(--ds-text-muted-teal);font-size:var(--fs-label);font-weight:700;font-variant-numeric:tabular-nums}
+.cup-mini-round.is-active .cup-mini-round-name,.bracket-round.final .bracket-round-title{border-bottom-color:color-mix(in srgb,var(--gold-on-dark) 45%,transparent);color:var(--cup-gold)}
+.cup-mini-nodes,.bracket-round-matches{display:grid;grid-auto-rows:1fr;flex:1;min-width:0}
+.cup-mini-cell,.bracket-cell{position:relative;display:flex;align-items:center;min-width:0;padding:var(--sp-1) 0}
+.bracket-cell{padding:var(--sp-2) 0}
+
+:is(.cup-mini-round,.bracket-round):not(.final) :is(.cup-mini-cell,.bracket-cell)::after{content:"";position:absolute;pointer-events:none;
+  right:calc(var(--cup-tree-gap) / -2);width:calc(var(--cup-tree-gap) / 2);border:0 solid var(--cup-elbow);border-right-width:1.5px}
+:is(.cup-mini-round,.bracket-round):not(.final) :is(.cup-mini-cell,.bracket-cell):nth-child(odd)::after{top:50%;bottom:0;
+  border-top-width:1.5px;border-top-right-radius:var(--radius-xs)}
+:is(.cup-mini-round,.bracket-round):not(.final) :is(.cup-mini-cell,.bracket-cell):nth-child(even)::after{top:0;bottom:50%;
+  border-bottom-width:1.5px;border-bottom-right-radius:var(--radius-xs)}
+:is(.cup-mini-round,.bracket-round):not(:first-child) :is(.cup-mini-cell,.bracket-cell)::before{content:"";position:absolute;top:50%;pointer-events:none;
+  left:calc(var(--cup-tree-gap) / -2);width:calc(var(--cup-tree-gap) / 2);border-top:1.5px solid var(--cup-elbow)}
+/* The final runs straight on to the trophy. */
+:is(.cup-mini-round,.bracket-round).final :is(.cup-mini-cell,.bracket-cell)::after{content:"";position:absolute;top:50%;pointer-events:none;
+  right:calc(var(--cup-tree-gap) * -1);width:var(--cup-tree-gap);border-top:1.5px solid var(--cup-elbow)}
+:is(.cup-mini-round,.bracket-round) :is(.cup-mini-cell,.bracket-cell).is-settled::after,
+:is(.cup-mini-round,.bracket-round) :is(.cup-mini-cell,.bracket-cell).has-entrant::before{border-color:var(--cup-gold-line)}
+:is(.cup-mini-round,.bracket-round) :is(.cup-mini-cell,.bracket-cell).is-dead::after,
+:is(.cup-mini-round,.bracket-round) :is(.cup-mini-cell,.bracket-cell).is-dead::before{display:none}
+
+.cup-mini-node{display:grid;gap:1px;width:100%;min-width:0;padding:var(--sp-1);border:0;border-radius:var(--radius-sm);
+  background:var(--cup-glass);box-shadow:inset 0 0 0 1px var(--cup-hairline);color:inherit;font:inherit;text-align:left;
+  transition:background var(--ds-duration-fast) var(--ds-ease-standard),transform var(--ds-duration-fast) var(--ds-ease-standard)}
+button.cup-mini-node{cursor:pointer}
+@media(hover:hover){button.cup-mini-node:hover{background:var(--cup-glass-strong)}}
+button.cup-mini-node:active{transform:scale(.98)}
+.cup-mini-node:focus-visible{outline:2px solid var(--cup-gold);outline-offset:2px}
+.cup-mini-node.in-round{background:var(--cup-glass-strong)}
+.cup-mini-node.mine{box-shadow:inset 0 0 0 1.5px var(--cup-gold),0 0 0 4px var(--cup-gold-veil)}
+.cup-mini-cell.is-dead .cup-mini-node{visibility:hidden}
+.cup-mini-seat{display:flex;align-items:center;gap:var(--sp-2);min-width:0;min-height:1.875rem;padding:var(--sp-1) var(--sp-1-5);border-radius:var(--radius-xs)}
+.cup-mini-seat .player-badge{width:1.375rem;height:1.375rem;flex:0 0 auto;font-size:var(--fs-label)}
+.cup-mini-seat.vacant i{display:block;width:1.375rem;height:1.375rem;flex:0 0 auto;border:1px dashed var(--ds-text-muted-teal);border-radius:50%;opacity:.7}
+/* `min-width:0` is what keeps the tree inside its column: the name gives way
+   with an ellipsis instead of pushing the score past the right edge. */
+.cup-mini-name{flex:1 1 auto;min-width:0;overflow:hidden;color:var(--ds-text-on-brand);font-size:var(--fs-caption);font-weight:600;
+  text-overflow:ellipsis;white-space:nowrap}
+.cup-mini-seat.vacant .cup-mini-name{color:var(--ds-text-muted-teal);font-weight:500}
+.cup-mini-seat em{flex:0 0 auto;min-width:1rem;color:var(--ds-text-on-brand-secondary);font-family:var(--font-display);font-size:var(--fs-body);
+  font-style:normal;font-weight:700;line-height:1;text-align:right;font-variant-numeric:tabular-nums}
+.cup-mini-seat.won .cup-mini-name{font-weight:800}
+.cup-mini-seat.won em{color:var(--cup-gold)}
+.cup-mini-seat.won .player-badge{box-shadow:0 0 0 1.5px var(--cup-gold)}
+.cup-mini-seat.lost{opacity:.5}
+.cup-mini-date{display:block;font-family:inherit;padding:0 var(--sp-1-5);color:var(--ds-text-muted-teal);font-size:var(--fs-label);font-weight:600;
+  text-align:right;font-variant-numeric:tabular-nums}
+
+/* The trophy column, centred on the final: the header's height is pushed down as margin so the
+   centre of this box and the centre of the final's box land on the same line. */
+.cup-mini-crown,.bracket-crown{position:relative;display:grid;justify-items:center;align-content:center;gap:var(--sp-2);align-self:center;
+  flex:0 0 7.5rem;margin-top:calc(var(--cup-round-head) + var(--sp-2));padding:var(--sp-4) var(--sp-3);border-radius:var(--radius-lg);
+  background:radial-gradient(circle at 50% 30%,var(--cup-gold-veil),transparent 70%);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-on-dark) 26%,transparent);text-align:center;scroll-snap-align:end}
+.cup-mini-crown-mark,.bracket-crown-mark{display:grid;place-items:center;width:3rem;height:3rem;border-radius:50%;color:var(--cup-gold);
+  background:radial-gradient(circle,color-mix(in srgb,var(--gold-on-dark) 24%,transparent),transparent 70%)}
+.cup-mini-crown-mark svg,.bracket-crown-mark svg{width:1.75rem;height:1.75rem;fill:currentColor;
+  filter:drop-shadow(0 0 10px color-mix(in srgb,var(--gold-on-dark) 60%,transparent))}
+.cup-mini-crown .player-badge{width:2.5rem;height:2.5rem;font-size:var(--fs-sm);box-shadow:0 0 0 2px var(--ds-canvas-brand),0 0 0 4px var(--cup-gold)}
+.cup-mini-crown b,.bracket-crown b{max-width:100%;overflow:hidden;color:var(--ds-accent-pale);font-size:var(--fs-sm);font-weight:800;
+  text-overflow:ellipsis;white-space:nowrap}
+.bracket-crown small{color:var(--cup-gold);font-size:var(--fs-label);font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+:is(.cup-mini-crown,.bracket-crown) b.is-pending{color:var(--ds-text-muted-teal);font-weight:600}
+:is(.cup-mini-crown,.bracket-crown):not(.is-crowned){background:none;box-shadow:inset 0 0 0 1px var(--cup-hairline)}
+:is(.cup-mini-crown,.bracket-crown):not(.is-crowned) svg{opacity:.45;filter:none}
+
+/* --- The full tree, for screens that can hold one --------------------------------- */
+.cup-tree{display:none}
+.bracket-chart{--cup-tree-gap:var(--sp-5);display:flex;align-items:stretch;gap:var(--cup-tree-gap);padding-bottom:var(--sp-1);overflow-x:auto;color:var(--ds-text-on-brand)}
+.bracket-round{display:flex;flex-direction:column;flex:1 0 10rem;min-width:10rem}
+.bracket-match{position:relative;display:grid;gap:1px;width:100%;padding:var(--sp-1);border-radius:var(--radius-sm);
+  background:var(--cup-glass);box-shadow:inset 0 0 0 1px var(--cup-hairline)}
+.bracket-match.mine{box-shadow:inset 0 0 0 1.5px var(--cup-gold),0 0 0 4px var(--cup-gold-veil)}
+.bracket-cell.is-dead .bracket-match{visibility:hidden}
+.bracket-slot{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);min-height:2rem;padding:var(--sp-1) var(--sp-2);
+  border-radius:var(--radius-xs);font-size:var(--fs-sm);font-weight:600}
+.bracket-slot span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bracket-slot.tbd span{color:var(--ds-text-muted-teal);font-weight:500}
+.bracket-slot b{color:var(--ds-text-on-brand-secondary);font-family:var(--font-display);font-size:var(--fs-lead);font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.bracket-slot.winner{background:var(--cup-gold-veil)}
+.bracket-slot.winner span{color:var(--ds-text-on-brand);font-weight:800}
+.bracket-slot.winner b{color:var(--cup-gold)}
+.bracket-match:is(.played,.walkover) .bracket-slot:not(.winner){opacity:.55}
+.bracket-match.bye .bracket-slot.tbd{display:none}
+.bracket-date,.bracket-bye{font-family:inherit;display:block;padding:var(--sp-1) var(--sp-2) 0;color:var(--ds-text-muted-teal);font-size:var(--fs-label);font-variant-numeric:tabular-nums}
+.card-tool.bracket-edit{position:absolute;top:calc(var(--sp-3) * -1);right:calc(var(--sp-3) * -1);z-index:1;width:var(--control-sm);height:var(--control-sm);
+  min-height:var(--control-sm);border:1px solid var(--cup-hairline);border-radius:50%;background:var(--ds-canvas-brand);color:var(--ds-text-on-brand);
+  font-size:var(--fs-label);box-shadow:var(--ds-elevation-2)}
+.card-tool.bracket-edit:hover{background:var(--ds-surface-featured)}
+.bracket-record{display:flex;width:100%;height:var(--control-sm);min-height:var(--control-sm);margin-top:var(--sp-1-5);padding:0;
+  border-radius:var(--radius-xs);font-size:var(--fs-caption)}
+.bracket-chart .ds-button.bracket-edit{display:flex;width:100%;height:var(--control-sm);min-height:var(--control-sm);margin-top:var(--sp-1-5);
+  border-radius:var(--radius-xs);background:var(--cup-glass);color:var(--ds-text-on-brand);font-size:var(--fs-label)}
+.bracket-walkover{margin-top:var(--sp-1-5);padding-top:var(--sp-1-5);border-top:1px dashed var(--cup-hairline)}
+.bracket-walkover small{display:block;color:var(--ds-text-muted-teal);font-size:var(--fs-label);text-align:center}
+.bracket-walkover span{display:flex;gap:var(--sp-1);margin-top:var(--sp-1)}
+.bracket-walkover button{flex:1;min-width:0;height:var(--control-sm);min-height:var(--control-sm);padding:0 var(--sp-1);overflow:hidden;
+  border-radius:var(--radius-xs);background:var(--cup-glass);color:var(--ds-text-on-brand);font-size:var(--fs-label);text-overflow:ellipsis;white-space:nowrap}
+.bracket-walkover button:hover{background:var(--cup-glass-strong)}
+.bracket-chart .cup-seat-edit{border-color:var(--cup-hairline);background:var(--cup-glass);color:var(--ds-text-on-brand-secondary)}
+.bracket-crown{flex-basis:6.5rem;padding-inline:var(--sp-2)}
+
+/* --- Cup entry inside the match sheet ------------------------------------------------ */
+.cup-slot-banner{padding:var(--sp-3) var(--sp-3-5);border:1px solid var(--ds-success-wash-border);border-radius:var(--radius-md);
+  background:linear-gradient(150deg,var(--ds-surface-primary),var(--ds-success-wash))}
+.cup-slot-banner small{display:block;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:800}
+.cup-slot-banner b{display:block;margin-top:var(--sp-1);font-size:var(--fs-lead)}
+.cup-slot-banner span{display:block;margin-top:var(--sp-1);color:var(--ds-text-secondary);font-size:var(--fs-caption)}
+.cup-matchup-card.locked .matchup-trigger{cursor:default}
+
+@media(max-width:599px){
+  .cup-intro h2{font-size:var(--fs-h2)}
+  .cup-card.is-featured{padding:var(--sp-4-5) var(--sp-4)}
+  .cup-card.is-featured .cup-card-emblem{--emblem-size:3rem}
+  .cup-card.is-featured h3{font-size:var(--fs-h3)}
+  .cup-honours{padding:var(--sp-4)}
+  .cup-honours-head h3{font-size:var(--fs-h3)}
+  .cup-banner h2{font-size:var(--fs-h3)}
+  .cup-banner-stats div{padding:var(--sp-2-5)}
+  .cup-banner-stats b{font-size:var(--fs-h3)}
+  .cup-banner-stats div:last-child b{font-size:var(--fs-body)}
+  .cup-mytie-player .player-badge{width:3.25rem;height:3.25rem}
+  .cup-champion b{font-size:var(--fs-h3)}
+  .cup-tie-actions .cup-btn{flex:1 1 100%}
+}
+@media(min-width:821px){
+  .cup{gap:var(--sp-5)}
+  .cup-list{grid-template-columns:repeat(auto-fill,minmax(18rem,1fr));gap:var(--sp-4)}
+  .cup-card.is-featured{grid-column:1/-1;align-items:center;padding:var(--sp-6)}
+  .cup-card.is-featured .cup-card-emblem{--emblem-size:6.5rem;margin-right:var(--sp-4)}
+  .cup-card.is-featured .cup-card-actions{max-width:34rem}
+  .cup-honours{padding:var(--sp-6)}
+  .cup-banner-emblem{--emblem-size:6rem;top:50%;right:var(--sp-6);transform:translateY(-50%)}
+  .cup-banner-body{max-width:calc(100% - 8rem);padding:var(--sp-6)}
+  .cup-banner .cup-card-top{padding-right:0}
+  .cup-banner h2{font-size:var(--fs-display)}
+  .cup-banner-stats{max-width:32rem}
+  .cup-mytie{padding:var(--sp-6)}
+  .cup-ties{grid-template-columns:repeat(2,minmax(0,1fr))}
+  /* Every column fits at once: the pager becomes the tree. */
+  .cup-mini{padding:var(--sp-5)}
+  .cup-mini::after{display:none}
+  .cup-mini-tree{overflow:visible;padding-right:0;scroll-snap-type:none}
+  .cup-mini-round{flex:1 1 0}
+  .cup-mini-crown{flex-basis:8rem}
+  .cup-tree{display:block;overflow:hidden;padding:var(--sp-5);border-radius:var(--radius-xl);background:var(--cup-felt);box-shadow:var(--cup-sheen),var(--ds-elevation-5)}
+  /* In the app the full tree carries both the shape and the controls at this width, so the overview
+     and the round cards would only repeat it. The share page has no full tree, so these are scoped
+     to the app rather than to the components. */
+  .cup>.cup-mini,.cup>.cup-rounds,.cup>.cup-ties{display:none}
+}

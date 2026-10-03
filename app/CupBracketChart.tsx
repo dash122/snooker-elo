@@ -1,5 +1,6 @@
 "use client";
-import { PlayerBadge } from "./UiBits";
+import { useEffect, useRef } from "react";
+import { CupMark, PlayerBadge } from "./UiBits";
 import type { StoryBracketRound } from "../lib/story-card";
 import { useT } from "./components/I18nProvider";
 import type { Translator } from "../lib/i18n/translate";
@@ -12,16 +13,16 @@ import type { Translator } from "../lib/i18n/translate";
  *  takes neither — it takes seats. Each caller flattens its own world into this shape once, and the
  *  drawing (and its tap targets, its winner ring, its empty seats) exists exactly once.
  *
- *  ## Why it stacks before it branches
+ *  ## Why it pages on a phone
  *
  *  A column-per-round tree cannot carry a name on a 360px phone: four rounds leaves roughly seventy
  *  pixels a column, which is an avatar and two characters. But a bracket without names is a diagram
  *  of a competition rather than a record of one — you cannot tell who is in it.
  *
- *  So the mobile layout is the honest one: rounds stack down the page, each tie a full-width row
- *  with both names, both scores and the date it was played. From 640px there is room to branch, and
- *  the same markup becomes the classic left-to-right tree with the round rail across the top. No
- *  horizontal scrolling at any width — the moment this needs a scrollbar it stops being an overview. */
+ *  So on a phone the tree becomes a pager: each round is a near-full-width column with both names,
+ *  both scores and the date, and the next round peeks in from the right edge so the reader knows to
+ *  swipe. The elbows between columns are drawn at every width, so the shape of a knockout is never
+ *  lost. From 821px every column fits at once and the same markup reads as the classic tree. */
 
 export type ChartPlayer = { name?:string; short:string; colour?:string|null; avatar?:string|null };
 export type ChartSeat = { player:ChartPlayer|null; score:number|null; won:boolean };
@@ -60,33 +61,47 @@ export function storyBracket(t: Translator, chart:BracketChartData):StoryBracket
   }));
 }
 
+/** A tie in one of these states has already sent someone through, so its elbow lights up. */
+const SETTLED_STATES=new Set(["played","walkover","bye"]);
+
 export default function CupBracketChart({chart,activeRound,onPick}:{
   chart:BracketChartData;
-  /** Highlighted in the rail and on its column — the round whose detail is showing below. */
+  /** Highlighted on its column — the round whose detail is showing below. */
   activeRound?:number;
   /** Omitted on the public page, where a node has nowhere to take a reader who cannot act. */
   onPick?:(round:number,index:number)=>void;
 }){
   const t = useT();
+  const treeRef=useRef<HTMLDivElement|null>(null);
+  /* Paged on a phone: follow the active round so the column the reader is acting on stays in view.
+     scrollTo on the tree itself, never scrollIntoView, so the page does not jump vertically. */
+  useEffect(()=>{
+    const tree=treeRef.current;
+    if(!tree||activeRound==null||tree.scrollWidth<=tree.clientWidth)return;
+    const column=tree.querySelector<HTMLElement>(`[data-round="${activeRound}"]`);
+    if(column)tree.scrollTo({left:column.offsetLeft-tree.offsetLeft,behavior:"smooth"});
+  },[activeRound]);
   if(!chart.rounds.length)return null;
   const total=chart.rounds.length;
   return <div className="cup-mini" role="group" aria-label={t("賽事對陣圖")}>
-    <div className="cup-mini-rail" aria-hidden="true">{chart.rounds.map(round=>
-      <span key={round.round} className={round.round===activeRound?"active":""}>{round.name}</span>)}</div>
-    <div className="cup-mini-tree">
-      {chart.rounds.map(round=>
-        <div className={`cup-mini-round${round.round===total?" final":""}${round.round===activeRound?" is-active":""}`} key={round.round}>
-          {/* The rail says this on the wide layout; stacked, each round has to name itself. Only one
-              of the two is ever visible, so a screen reader hears the round once. */}
-          <h4 className="cup-mini-round-name">{round.name}</h4>
+    <div className="cup-mini-tree" ref={treeRef}>
+      {chart.rounds.map(round=>{
+        const live=round.nodes.filter(node=>node.state!=="dead");
+        const settled=live.filter(node=>SETTLED_STATES.has(node.state)).length;
+        return <div className={`cup-mini-round${round.round===total?" final":""}${round.round===activeRound?" is-active":""}`} key={round.round} data-round={round.round}>
+          <h4 className="cup-mini-round-name"><span>{round.name}</span><small aria-hidden="true">{settled}/{live.length}</small></h4>
           <div className="cup-mini-nodes">
           {round.nodes.map(node=>{
             const dead=node.state==="dead";
+            const decided=node.seats.some(seat=>seat.won);
             const className=`cup-mini-node ${node.state}${node.mine?" mine":""}${round.round===activeRound?" in-round":""}`;
+            /* Each node sits in an equal-height cell, and the cell rather than the node draws the elbow
+               to the next round — so a pair's lines meet exactly between them however tall a node is. */
+            const cell=`cup-mini-cell${dead?" is-dead":""}${SETTLED_STATES.has(node.state)?" is-settled":""}${node.seats.some(seat=>seat.player)?" has-entrant":""}`;
             const seats=node.seats.map((seat,side)=>
               /* An empty seat is drawn as a hollow ring rather than a grey avatar: "nobody yet" and
                  "a player whose colour happens to be grey" must not look the same. */
-              <span className={`cup-mini-seat${seat.won?" won":""}${seat.player?"":" vacant"}`} key={side}>
+              <span className={`cup-mini-seat${seat.won?" won":""}${seat.player?"":" vacant"}${decided&&!seat.won&&seat.player?" lost":""}`} key={side}>
                 {seat.player?<PlayerBadge player={seat.player}/>:<i aria-hidden="true"/>}
                 {/* min-width:0 on the name is what keeps the tree inside its column: it ellipsizes
                     rather than pushing the score off the right edge. */}
@@ -103,18 +118,22 @@ export default function CupBracketChart({chart,activeRound,onPick}:{
             </>;
             /* Only interactive where a tap leads somewhere: a plain div on the share page keeps a
                screen reader from announcing a button that does nothing. */
-            return onPick
-              ?<button type="button" key={node.index} disabled={dead} className={className} aria-label={label}
+            return <div className={cell} key={node.index}>{onPick
+              ?<button type="button" disabled={dead} className={className} aria-label={label}
                 onClick={()=>onPick(round.round,node.index)}>{body}</button>
-              :<div key={node.index} className={className} aria-label={label} aria-hidden={dead||undefined}>{body}</div>;
+              :<div className={className} aria-label={label} aria-hidden={dead||undefined}>{body}</div>}</div>;
           })}
           </div>
-        </div>)}
-      {chart.champion&&<div className="cup-mini-crown">
-        <span aria-hidden="true">🏆</span>
-        <PlayerBadge player={chart.champion}/>
-        <b>{seatName(t, chart.champion)}</b>
-      </div>}
+        </div>;
+      })}
+      {/* The trophy waits at the end of the tree from the day of the draw: an empty plinth says what
+          the whole thing is for, and fills with a face the moment the final is settled. */}
+      <div className={`cup-mini-crown${chart.champion?" is-crowned":""}`}>
+        <span className="cup-mini-crown-mark" aria-hidden="true"><CupMark/></span>
+        {chart.champion
+          ?<><PlayerBadge player={chart.champion}/><b>{seatName(t, chart.champion)}</b></>
+          :<b className="is-pending">{t("待定")}</b>}
+      </div>
     </div>
   </div>;
 }
