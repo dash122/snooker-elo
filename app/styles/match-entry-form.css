@@ -152,3 +152,7 @@
   .match-entry-sheet .elo-preview details{margin-top:var(--sp-2);padding-top:var(--sp-2)}
   .match-entry-sheet .match-save{margin:var(--sp-2) calc(var(--sp-3) * -1) -28px;padding:var(--sp-2) var(--sp-3) max(var(--sp-2),env(safe-area-inset-bottom))}
 }
+
+/* Header → squad pills → players should read as one block. */
+.match-form-head+.match-players,.match-form-head+.sub+.match-players,.match-form-head~.match-players{margin-top:var(--sp-2)}
+@media(max-width:599px){.match-entry-sheet .match-form-head~.match-players{margin-top:var(--sp-1)}}
