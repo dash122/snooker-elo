@@ -700,7 +700,8 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const squadId=useUrlParam("squad");
   const [squadSheet,setSquadSheet]=useState<SquadSheet>(null);
   const selectSquad=useCallback((id:string|null)=>writeUrlParam("squad",id),[]);
-  const publicSquad=usePublicSquad(squadId,squads,ownPlayerId?squadsLoaded:true);
+  /* A squad that can't be opened (private to this viewer, or gone) says so and returns to the club, instead of leaving a dead ?squad= link on screen. */
+  const publicSquad=usePublicSquad(squadId,squads,ownPlayerId?squadsLoaded:true,message=>{setToast(message||t("搵唔到呢個球隊。"));selectSquad(null)});
   const activeSquad=squads.find(squad=>squad.id===squadId)??publicSquad;
   useSquadViewTracking(tab==="leaderboard"?activeSquad:null);
   const squadAction=(id:string,action:"leave"|"seen")=>{
@@ -1590,7 +1591,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     </OverlayBackdrop>}
     {leavingAvailability&&<ConfirmDialog kicker={t("未儲存的變更")} titleId="leave-availability-title" title={t("離開後變更會消失")} description={t("你在「可配對」的時段變更尚未儲存，離開這一頁後不會保留。")} onClose={()=>setLeavingAvailability(null)}><Button variant="secondary" onClick={()=>setLeavingAvailability(null)}>{t("留在此頁")}</Button><Button variant="danger" onClick={()=>{const next=leavingAvailability;setLeavingAvailability(null);setAvailabilityDirty(false);setHighlightMatch(null);showTab(next)}}>{t("捨棄變更離開")}</Button></ConfirmDialog>}
     {pendingConfirm&&<ConfirmDialog kicker={pendingConfirm.kicker} titleId="pending-confirm-title" title={pendingConfirm.title} description={pendingConfirm.description} onClose={()=>setPendingConfirm(null)}><Button variant="secondary" onClick={()=>setPendingConfirm(null)}>{t("取消")}</Button><Button variant="danger" onClick={()=>{const run=pendingConfirm.onConfirm;setPendingConfirm(null);run()}}>{pendingConfirm.confirmLabel}</Button></ConfirmDialog>}
-    <SquadCenter sheet={squadSheet} setSheet={setSquadSheet} squads={squads} loaded={squadsLoaded||!ownPlayerId} refresh={refreshSquads} selectedId={squadId} onSelect={selectSquad}
+    <SquadCenter sheet={squadSheet} setSheet={setSquadSheet} squads={squads} loaded={squadsLoaded||!ownPlayerId} refresh={refreshSquads} selectedId={squadId} onSelect={selectSquad} viewing={publicSquad}
       players={data.players} ownPlayerId={ownPlayerId} signedIn={Boolean(user)} isAdmin={Boolean(isAdmin)} notify={name=>setToast(t("已加入「{squad}」", {squad:name}))}/>
     {toast&&<div className={`toast${undoSnapshot?" toast-expiring":""}`} role="status"><span>{toast}</span>{undoSnapshot&&<Button variant="quiet" onClick={undoDelete}>{t("復原")}</Button>}</div>}
     {regularPrompt&&<div className="regular-prompt" role="status">
@@ -1692,6 +1693,7 @@ const BREAK_VIEWS=[{value:"players",label:msg("球員最高")},{value:"overall",
 type BreakView=typeof BREAK_VIEWS[number]["value"];
 const SearchIcon=()=><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>;
 const ChevronDown=()=><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>;
+const GearIcon=()=><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.4M12 19.1v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg>;
 const FilterIcon=()=><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg>;
 const ClearIcon=()=><svg aria-hidden="true" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>;
 /* A filter chip states a non-default choice in words and clears it in one tap, so state set inside the
@@ -1776,11 +1778,12 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
       <Menu className="board-scope" label={t("切換球隊")} align="start" triggerClassName="board-scope__trigger"
         trigger={()=><><span className="board-scope__title">{squad.name}</span><ChevronDown/></>}
         sections={[
-          {items:scope.squads.map(item=>({key:item.id,label:item.name,checked:squad.id===item.id,onSelect:()=>{setQuery("");scope.onSelect(item.id)}}))},
-          {items:[{key:"more",label:t("瀏覽公開球隊"),onSelect:scope.onMore},...(squad.role?[{key:"manage",label:squad.role==="host"?t("管理球隊"):t("球隊資料"),onSelect:scope.onManage}]:[])]},
+          {title:t("我的球隊"),items:scope.squads.map(item=>({key:item.id,label:item.name,checked:squad.id===item.id,detail:t("{count} 位隊員", {count:item.memberCount}),onSelect:()=>{setQuery("");scope.onSelect(item.id)}}))},
+          {items:[{key:"more",label:t("瀏覽所有球隊"),onSelect:scope.onMore}]},
         ]}/>
       <p className="board-sub">{t("{count} 位隊員", {count:squad.memberCount})}</p>
       </div>
+      {(squad.role||scope.isAdmin)&&<button type="button" className="ds-button ds-button--secondary board-manage" onClick={scope.onManage}><GearIcon/><span>{squad.role==="host"?t("管理球隊"):t("球隊資料")}</span></button>}
     </div>}
     <TabList id={homeTabsId} as="nav" className="page-tabs home-view-nav board-view-tabs" label={squad?t("球隊內容"):t("首頁內容")} value={homeView} onChange={value=>setHomeView(value as typeof homeView)} items={squad?[
       {value:"ranking",label:<span>{t("排行榜")}</span>},
@@ -1833,7 +1836,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
       <p className="chart-summary">{breakView==="players"?t("每位球員只顯示其最高單桿。"):breakView==="overall"?t("按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。"):t("{thirtyDaysAgo} 至 {today} 的最高單桿，每位球員只顯示其最高單桿。", {thirtyDaysAgo, today})}</p></>}
     </TabPanel>}
     {squad&&<>
-    <TabPanel id={homeTabsId} value="squad" active={homeView==="squad"}><TrendSection players={ranked.filter(p=>squadIds?.has(p.id))} data={data}/><SquadStatsPanel squad={squad} players={data.players} matches={data.matches} onMatrix={()=>setHomeView("matrix")} onPlayer={id=>{const player=data.players.find(p=>p.id===id);if(player)onPlayer(player)}}/></TabPanel>
+    <TabPanel id={homeTabsId} value="squad" active={homeView==="squad"}><SquadStatsPanel squad={squad} players={data.players} matches={data.matches} ownPlayerId={ownPlayerId} onPlayer={id=>{const player=data.players.find(p=>p.id===id);if(player)onPlayer(player)}} onPair={(first,second)=>{const one=data.players.find(p=>p.id===first),two=data.players.find(p=>p.id===second);if(one&&two)onRivalry(one,two)}}/><TrendSection players={ranked.filter(p=>squadIds?.has(p.id))} data={data}/></TabPanel>
     <TabPanel id={homeTabsId} value="matrix" active={homeView==="matrix"}><HeadToHeadMatrix squad={squad} data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{const one=data.players.find(p=>p.id===first),two=data.players.find(p=>p.id===second);if(one&&two)onRivalry(one,two)}}/></TabPanel></>}
     {!squad&&<TabPanel id={homeTabsId} value="recent" active={homeView==="recent"}><TrendSection players={ranked} data={data}/><ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/></TabPanel>}</>}</>;
 }
@@ -2141,6 +2144,14 @@ function HeadToHeadMatrix({squad,data,ownPlayerId,onOpenPair}:{squad:MySquad|nul
     const members=squad?new Set(squad.members.map(member=>member.playerId)):null;
     return data.players.filter(player=>met.has(player.id)&&(!members||members.has(player.id))).sort((left,right)=>right.rating-left.rating||left.name.localeCompare(right.name,"zh-HK"));
   },[data.players,index,squad]);
+  // How much of the squad's possible pairings have actually been played.
+  const pairs=useMemo(()=>{
+    if(!squad)return null;
+    const ids=new Set(squad.members.map(member=>member.playerId).filter(id=>data.players.some(player=>player.id===id)));
+    let met=0;
+    for(const key of index.keys()){const [first,second]=key.split("|");if(ids.has(first)&&ids.has(second))met++}
+    return {met,total:ids.size*(ids.size-1)/2};
+  },[squad,index,data.players]);
   const [mode,setMode]=useState<"grid"|"heatmap">(squad?"heatmap":"grid");
   const [zoom,setZoom]=useState(1);
   const sectionRef=useRef<HTMLElement>(null);
@@ -2197,6 +2208,7 @@ function HeadToHeadMatrix({squad,data,ownPlayerId,onOpenPair}:{squad:MySquad|nul
         <button type="button" className="h2h-zoom-step" onClick={()=>setZoom(clampMatrixZoom(zoom*1.15))} disabled={zoom>=MATRIX_ZOOM_MAX} aria-label={t("放大")}>+</button>
       </div>
     </div>
+    {pairs&&pairs.total>0&&<p className="h2h-pairs">{t("{met} / {total} 組已交手",{met:pairs.met,total:pairs.total})}</p>}
     {mode==="heatmap"?<WinRateHeatmap players={players} index={index} focusId={focusId} onOpenPair={onOpenPair}/>
     :<>
       <div className="h2h-matrix-scroll">

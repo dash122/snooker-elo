@@ -506,3 +506,4 @@
 .h2h-matrix-grid tbody th,.h2h-matrix-grid thead th:first-child{width:calc(6.5rem * var(--matrix-zoom,1));min-width:calc(6.5rem * var(--matrix-zoom,1))}
 .h2h-matrix-rowhead{gap:calc(var(--sp-1-5) * var(--matrix-zoom,1))}
 .h2h-matrix-rowhead>.h2h-matrix-player-trigger{gap:calc(var(--sp-1-5) * var(--matrix-zoom,1))}
+.h2h-pairs{margin:calc(var(--sp-4) * -1 - var(--sp-2-5) + var(--sp-1)) 0 0;padding-inline:var(--sp-1);color:var(--ds-text-secondary);font-size:var(--fs-caption);font-variant-numeric:tabular-nums}

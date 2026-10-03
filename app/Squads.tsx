@@ -5,7 +5,7 @@ import type { MySquad, SquadDetail, SquadSummary } from "../db/squads.pg";
 import { SQUAD_NAME_MAX, type SquadRole, type SquadVisibility } from "../lib/squads";
 import { useT } from "./components/I18nProvider";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
-import { Button, Chip, EmptyState, FormField, IconButton, InlineNotice, SegmentedControl, Skeleton } from "./components/ui/Primitives";
+import { Button, Chip, EmptyState, FormField, IconButton, InlineNotice, SectionLabel, SegmentedControl, Skeleton } from "./components/ui/Primitives";
 import { Sheet } from "./components/ui/Overlay";
 import { Menu } from "./components/ui/Menu";
 import { PlayerBadge, PlayerCombobox } from "./UiBits";
@@ -23,6 +23,10 @@ export type SquadSheet = "picker" | "manage" | "browse" | "create" | null;
 const PIN_KEY = "elo:squads:pinned", RECENT_KEY = "elo:squads:recent", PENDING_JOIN_KEY = "elo:squads:pending-join";
 const SEARCH_THRESHOLD = 8;
 type PublicSquad = SquadSummary & { playedWith: number };
+
+/* The directory is the same for every open of the sheet, so the last answer is kept and shown at once
+   while a fresh one loads — reopening it never starts from an empty skeleton. Keyed by search text. */
+const directoryCache = new Map<string, PublicSquad[]>();
 
 /* Pins and recents are a per-viewer convenience, so browser storage is right for them — and every
    access is guarded, because storage can be absent or throw (private windows, blocked site data). */
@@ -59,14 +63,17 @@ export function useSquads(enabled: boolean) {
 
 /** The squad named by `?squad=` when the viewer isn't a member of it: public squads are visible to
     everyone, signed in or not. Private ones 404 and read as no selection. */
-export function usePublicSquad(id: string | null, mine: MySquad[], mineLoaded: boolean) {
+export function usePublicSquad(id: string | null, mine: MySquad[], mineLoaded: boolean, onError?: (message: string) => void) {
   const [found, setFound] = useState<SquadDetail | null>(null);
+  const report = useRef(onError);
+  useEffect(() => { report.current = onError; });
   const isMine = Boolean(id && mine.some(squad => squad.id === id));
   useEffect(() => {
     if (!id || isMine || !mineLoaded) return;
     let live = true;
     call<{ squad: SquadDetail }>(`/api/squads/${encodeURIComponent(id)}`)
-      .then(body => live && setFound(body.squad)).catch(() => live && setFound(null));
+      .then(body => live && setFound(body.squad))
+      .catch(err => { if (!live) return; setFound(null); report.current?.(err instanceof Error ? err.message : ""); });
     return () => { live = false; };
   }, [id, isMine, mineLoaded]);
   return found && found.id === id && !isMine ? { ...found, addedBy: null } as MySquad : null;
@@ -152,7 +159,7 @@ export function SquadIntro({ signedIn, isAdmin, onBrowse, onCreate, onClub }: {
       <li>{t("公開球隊可以直接加入；私人球隊用邀請連結")}</li>
     </ul>
     <div className="squad-intro-actions">
-      <Button type="button" onClick={onBrowse}>{isAdmin ? t("瀏覽所有球隊") : t("瀏覽公開球隊")}</Button>
+      <Button type="button" onClick={onBrowse}>{t("瀏覽所有球隊")}</Button>
       {signedIn && !isAdmin && <Button variant="secondary" type="button" onClick={onCreate}>{t("建立球隊")}</Button>}
       {!signedIn && <a className="ds-button ds-button--secondary" href="/login"><span>{t("登入後加入或建立")}</span></a>}
       <Button variant="quiet" type="button" onClick={onClub}>{t("返回全會排名")}</Button>
@@ -201,9 +208,11 @@ export function SquadAddedNotices({ squads, players, onView, onLeave, onDismiss 
     </InlineNotice>)}</div>;
 }
 
-export function SquadCenter({ sheet, setSheet, squads, loaded, refresh, selectedId, onSelect, players, ownPlayerId, signedIn, isAdmin = false, notify }: {
+export function SquadCenter({ sheet, setSheet, squads, loaded, refresh, selectedId, onSelect, viewing = null, players, ownPlayerId, signedIn, isAdmin = false, notify }: {
   sheet: SquadSheet; setSheet: (sheet: SquadSheet) => void;
   squads: MySquad[]; loaded: boolean; refresh: () => Promise<void>;
+  /** A squad being looked at without belonging to it (an admin opening any squad): shown read-only. */
+  viewing?: MySquad | null;
   selectedId: string | null; onSelect: (id: string | null) => void;
   players: Person[]; ownPlayerId?: string; signedIn: boolean; isAdmin?: boolean;
   notify: (text: string) => void;
@@ -212,13 +221,13 @@ export function SquadCenter({ sheet, setSheet, squads, loaded, refresh, selected
   const joinCode = useUrlParam("join");
   useResumePendingJoin(signedIn);
   const clearJoinCode = () => writeUrlParam("join", null);
-  const selected = squads.find(squad => squad.id === selectedId) ?? null;
+  const selected = squads.find(squad => squad.id === selectedId) ?? (isAdmin && viewing?.id === selectedId ? viewing : null);
   return <>
     {sheet === "picker" && <SquadPicker squads={squads} loaded={loaded} signedIn={signedIn} selectedId={selectedId} onSelect={id => { onSelect(id); close(); }} onBrowse={() => setSheet("browse")} onCreate={() => setSheet("create")} onClose={close} />}
     {sheet === "create" && <CreateSquad onClose={close} onCreated={async id => { await refresh(); onSelect(id); setSheet("manage"); }} />}
-    {sheet === "browse" && <BrowseSquads signedIn={signedIn} isAdmin={isAdmin} onView={id => { onSelect(id); close(); }} onClose={close} onJoined={async (id, name) => { await refresh(); onSelect(id); close(); notify(name); }} />}
+    {sheet === "browse" && <BrowseSquads mine={squads} signedIn={signedIn} isAdmin={isAdmin} onView={id => { onSelect(id); close(); }} onClose={close} onJoined={async (id, name) => { await refresh(); onSelect(id); close(); notify(name); }} />}
     {joinCode && <JoinSquad code={joinCode} signedIn={signedIn} onClose={clearJoinCode} onJoined={async (id, name) => { clearJoinCode(); await refresh(); onSelect(id); notify(name); }} />}
-    {sheet === "manage" && selected && ownPlayerId && <ManageSquad squad={selected} players={players} ownPlayerId={ownPlayerId} refresh={refresh}
+    {sheet === "manage" && selected && (ownPlayerId || isAdmin) && <ManageSquad squad={selected} players={players} ownPlayerId={ownPlayerId ?? ""} refresh={refresh}
       onGone={async () => { onSelect(null); close(); await refresh(); }} onClose={close} />}
   </>;
 }
@@ -261,7 +270,7 @@ function SquadPicker({ squads, loaded, signedIn, selectedId, onSelect, onBrowse,
     </ul>
     {signedIn && loaded && !squads.length && <p className="squad-hint">{t("組個球隊，同經常打波嘅朋友睇自己嘅排名。")}</p>}
     <div className="squad-sheet-actions">
-      <Button variant="secondary" type="button" onClick={onBrowse}>{t("瀏覽公開球隊")}</Button>
+      <Button variant="secondary" type="button" onClick={onBrowse}>{t("瀏覽所有球隊")}</Button>
       {signedIn && <Button type="button" onClick={onCreate}>{t("建立球隊")}</Button>}
     </div>
   </Sheet>;
@@ -303,34 +312,62 @@ function CreateSquad({ onClose, onCreated }: { onClose: () => void; onCreated: (
   </Sheet>;
 }
 
-function BrowseSquads({ signedIn, isAdmin, onView, onClose, onJoined }: { signedIn: boolean; isAdmin: boolean; onView: (id: string) => void; onClose: () => void; onJoined: (id: string, name: string) => Promise<void> }) {
+function BrowseSquads({ mine, signedIn, isAdmin, onView, onClose, onJoined }: { mine: SquadSummary[]; signedIn: boolean; isAdmin: boolean; onView: (id: string) => void; onClose: () => void; onJoined: (id: string, name: string) => Promise<void> }) {
   const t = useT();
-  const [query, setQuery] = useState(""), [results, setResults] = useState<PublicSquad[] | null>(null);
+  const [query, setQuery] = useState(""), [fetched, setFetched] = useState<{ key: string; squads: PublicSquad[] } | null>(null);
   const [joining, setJoining] = useState<string | null>(null), [error, setError] = useState("");
+  const key = query.trim().toLowerCase();
+  /* Fresh answer for this search if we have one, otherwise whatever we last had for the empty search. */
+  const results = fetched?.key === key ? fetched.squads : directoryCache.get(key) ?? (key ? null : directoryCache.get("") ?? null);
   useEffect(() => {
     let live = true;
     const timer = setTimeout(() => {
       call<{ squads: PublicSquad[] }>(`/api/squads/browse?q=${encodeURIComponent(query.trim())}`)
-        .then(body => live && setResults(body.squads))
+        .then(body => { directoryCache.set(key, body.squads); if (live) setFetched({ key, squads: body.squads }); })
         .catch(err => live && setError(err instanceof Error ? err.message : t("未能載入球隊。")));
     }, query ? 250 : 0);
     return () => { live = false; clearTimeout(timer); };
-  }, [query, t]);
+  }, [query, key, t]);
   const join = async (squad: SquadSummary) => {
     setJoining(squad.id); setError("");
     try { await call("/api/squads/join", { method: "POST", body: JSON.stringify({ squadId: squad.id }) }); await onJoined(squad.id, squad.name); }
     catch (err) { setError(err instanceof Error ? err.message : t("未能加入球隊。")); setJoining(null); }
   };
-  return <Sheet open title={isAdmin ? t("所有球隊") : t("公開球隊")} onClose={onClose} className="squad-sheet">
-    <FormField label={t("搜尋球隊名稱")}><input type="search" value={query} onChange={event => setQuery(event.target.value)} /></FormField>
+  /* Three groups: squads the viewer is in (private ones included, so they're always findable), public
+     squads they could join, and — admins only — private squads, which are viewable but never joinable. */
+  const needle = query.trim().toLowerCase();
+  const mineIds = useMemo(() => new Set(mine.map(squad => squad.id)), [mine]);
+  const mineShown = useMemo(() => mine.filter(squad => !needle || squad.name.toLowerCase().includes(needle)).sort((a, b) => a.name.localeCompare(b.name)), [mine, needle]);
+  const others = useMemo(() => (results ?? []).filter(squad => !mineIds.has(squad.id)), [results, mineIds]);
+  const groups: { key: string; title: string; squads: SquadSummary[]; own?: boolean; joinable?: boolean }[] = [
+    { key: "mine", title: t("我的球隊"), squads: mineShown, own: true },
+    { key: "public", title: t("其他公開球隊"), squads: others.filter(squad => squad.visibility === "public"), joinable: true },
+    ...(isAdmin ? [{ key: "private", title: t("私人球隊"), squads: others.filter(squad => squad.visibility === "private") }] : []),
+  ].filter(group => group.squads.length);
+  const note = (squad: SquadSummary) => {
+    const played = (squad as PublicSquad).playedWith;
+    return played ? t("{count} 位隊員 · 你打過 {played} 位", { count: squad.memberCount, played }) : t("{count} 位隊員", { count: squad.memberCount });
+  };
+  return <Sheet open title={t("所有球隊")} onClose={onClose} className="squad-sheet">
+    <label className="squad-search">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>
+      <input type="search" value={query} placeholder={t("搜尋球隊名稱")} aria-label={t("搜尋球隊名稱")} autoComplete="off" onChange={event => setQuery(event.target.value)} />
+    </label>
     {error && <InlineNotice tone="danger" title={t("未能完成")}>{error}</InlineNotice>}
-    {results === null ? <Skeleton height="3rem" /> : results.length === 0
-      ? <EmptyState title={t("未有符合嘅公開球隊")} description={t("可以自己建立一個，再邀請朋友加入。")} />
-      : <ul className="squad-list">{results.map(squad => <li key={squad.id} className="squad-row">
-        <span className="squad-option squad-option--static"><span className="squad-option-main"><b>{squad.name}</b><small>{isAdmin ? t("{count} 位隊員 · {visibility}", { count: squad.memberCount, visibility: squad.visibility === "public" ? t("公開") : t("私人") }) : squad.playedWith ? t("{count} 位隊員 · 你打過 {played} 位", { count: squad.memberCount, played: squad.playedWith }) : t("{count} 位隊員", { count: squad.memberCount })}</small></span></span>
-        <Button variant="secondary" type="button" disabled={Boolean(joining)} onClick={() => onView(squad.id)}>{t("查看")}</Button>
-        {signedIn && !isAdmin && <Button type="button" loading={joining === squad.id} disabled={Boolean(joining)} onClick={() => void join(squad)}>{t("加入")}</Button>}
-      </li>)}</ul>}
+    {results !== null && groups.length === 0
+      ? <EmptyState title={t("未有符合嘅球隊")} description={t("可以自己建立一個，再邀請朋友加入。")} />
+      : groups.map(group => <section key={group.key} className="squad-browse-group" aria-label={group.title}>
+        <SectionLabel sticky={false} meta={group.squads.length}>{group.title}</SectionLabel>
+        <ul className="squad-list">{group.squads.map(squad => <li key={squad.id} className="squad-row">
+          <button type="button" className="squad-option" disabled={Boolean(joining)} onClick={() => onView(squad.id)}>
+            <span className="squad-option-main"><b>{squad.name}</b><small>{note(squad)}</small></span>
+            <SquadBadges squad={squad} />
+            <Chevron />
+          </button>
+          {group.joinable && signedIn && !isAdmin && <Button type="button" loading={joining === squad.id} disabled={Boolean(joining)} onClick={() => void join(squad)}>{t("加入")}</Button>}
+        </li>)}</ul>
+      </section>)}
+    {results === null && <div className="squad-browse-group" aria-hidden="true"><Skeleton height="2.75rem" /><Skeleton height="2.75rem" /></div>}
   </Sheet>;
 }
 
@@ -477,7 +514,10 @@ function ManageSquad({ squad, players, ownPlayerId, refresh, onGone, onClose }: 
     </div>;
   } else {
     body = <>
-      <p className="squad-manage-meta"><SquadBadges squad={squad} /><span>{t("{count} 位隊員", { count: squad.memberCount })}</span></p>
+      <div className="squad-hero">
+        <span className="squad-hero-faces" aria-hidden="true">{squad.members.slice(0, 5).map(member => byId.get(member.playerId)).filter((person): person is Person => Boolean(person)).map(person => <PlayerBadge key={person.id} player={person} />)}</span>
+        <p className="squad-manage-meta"><SquadBadges squad={squad} /><span>{t("{count} 位隊員", { count: squad.memberCount })}</span></p>
+      </div>
       {errorNotice}
 
       {isHost && squad.inviteCode && <section className="squad-card squad-invite" aria-labelledby="squad-invite-title">
@@ -495,17 +535,18 @@ function ManageSquad({ squad, players, ownPlayerId, refresh, onGone, onClose }: 
             onChange={id => id && void run(`add:${id}`, () => call(`${base}/members`, { method: "POST", body: JSON.stringify({ playerId: id }) }), "stay")} />}
           <small>{t("佢哋會收到通知，並可隨時退出。")}</small>
         </div>}
-        <ul className="squad-members">{squad.members.map(member => {
+        <ul className="squad-members">{[...squad.members].sort((x, y) => Number(y.role === "host") - Number(x.role === "host")).map(member => {
           const player = byId.get(member.playerId), self = member.playerId === ownPlayerId, label = nameOf(member.playerId);
           const manageable = isHost && (!self || hostCount > 1);
-          return <li key={member.playerId}>
+          const content = <>
             {player ? <PlayerBadge player={player} /> : <span className="squad-badge-placeholder" aria-hidden="true" />}
             <span className="squad-member-name"><b>{label}</b>{self && <small>{t("（你）")}</small>}</span>
             {member.role === "host" && <Chip tone="accent">{t("隊長")}</Chip>}
-            {manageable && <IconButton type="button" className="squad-more" label={t("管理 {name}", { name: label })} disabled={Boolean(busy)} onClick={() => { setError(""); setView({ kind: "member", playerId: member.playerId }); }}>
-              <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></svg>
-            </IconButton>}
-          </li>;
+            {manageable && <Chevron />}
+          </>;
+          return <li key={member.playerId}>{manageable
+            ? <button type="button" className="squad-member-row" aria-label={t("管理 {name}", { name: label })} disabled={Boolean(busy)} onClick={() => { setError(""); setView({ kind: "member", playerId: member.playerId }); }}>{content}</button>
+            : <div className="squad-member-row">{content}</div>}</li>;
         })}</ul>
       </section>
 
@@ -528,12 +569,13 @@ function ManageSquad({ squad, players, ownPlayerId, refresh, onGone, onClose }: 
             <span>{t("重設邀請連結")}</span><b /><Chevron />
           </button>
         </div>
+        <p className="squad-footnote">{squad.visibility === "public" ? t("任何會員都可以搜尋同一按加入。") : t("只有收到邀請連結或由隊長加入嘅會員先可以加入。")}</p>
       </section>}
 
-      <section className="squad-section squad-danger">
+      {squad.role && <section className="squad-section squad-danger">
         {soleHost && <p className="squad-hint">{t("你係唯一隊長，退出前請先將另一位隊員升為隊長。")}</p>}
         <div className="squad-danger-actions">
-          <button type="button" className="squad-text-action" disabled={soleHost || Boolean(busy)} onClick={() => confirm(squad.members.length === 1
+          <button type="button" className="squad-text-action squad-text-action--danger" disabled={soleHost || Boolean(busy)} onClick={() => confirm(squad.members.length === 1
             ? { title: t("退出並解散球隊？"), body: t("你係最後一位隊員，退出後球隊會被刪除。"), label: t("退出並解散"), danger: true, key: "leave", action: () => removeCall(ownPlayerId), after: "gone" }
             : { title: t("退出「{squad}」？", { squad: squad.name }), body: t("你會喺球隊排名消失。之後可以經邀請連結重新加入。"), label: t("退出球隊"), danger: true, key: "leave", action: () => removeCall(ownPlayerId), after: "gone" })}>
             {t("退出球隊")}
@@ -542,7 +584,7 @@ function ManageSquad({ squad, players, ownPlayerId, refresh, onGone, onClose }: 
             title: t("刪除「{squad}」？", { squad: squad.name }), body: t("所有隊員會即時失去呢個球隊，無法復原。比賽紀錄同 ELO 不受影響。"), label: t("刪除球隊"), danger: true, key: "delete", action: () => call(base, { method: "DELETE" }), after: "gone",
           })}>{t("刪除球隊")}</button>}
         </div>
-      </section>
+      </section>}
     </>;
   }
 

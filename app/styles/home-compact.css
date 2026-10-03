@@ -208,3 +208,14 @@
 /* An active filter chip shares the toolbar row with the filter button. */
 .ds-app-shell .board-toolbar .board-chips { flex: 0 1 auto; flex-wrap: nowrap; min-width: 0; margin: 0 0 0 auto; }
 .ds-app-shell .board-toolbar .board-chips + .board-filter { margin-inline-start: 0; }
+
+/* A squad's size sits beside its name as secondary text, not on a row of its own. */
+.ds-app-shell .board-heading { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: var(--sp-2); }
+.ds-app-shell .board-heading .board-sub { margin-top: 0; }
+
+/* Managing a squad is an action people need to find, so it sits on the squad's own heading row. */
+.ds-app-shell .board-head .board-heading { flex: 1; width: auto; }
+/* Icon and label are direct flex children, so they centre on the same line. */
+.ds-app-shell .board-manage { flex: none; align-items: center; gap: var(--sp-1-5); min-width: max-content; min-height: var(--control-sm); padding: 0 var(--sp-3); white-space: nowrap; line-height: 1; }
+.ds-app-shell .board-manage svg { display: block; flex: none; }
+.ds-app-shell .board-manage > span { line-height: 1; }

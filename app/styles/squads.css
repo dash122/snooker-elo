@@ -50,7 +50,7 @@
 .squad-manage-meta{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);margin:0}
 .squad-manage-meta>span:last-child{font-weight:var(--fw-secondary);color:var(--ds-text-secondary);font-size:var(--fs-caption)}
 .squad-section{display:grid;gap:var(--sp-2)}
-.squad-section h3{display:flex;align-items:center;gap:var(--sp-2);margin:0;color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:700;letter-spacing:.06em}
+.squad-section h3{display:flex;align-items:center;gap:var(--sp-2);margin:0;padding:0 var(--sp-3);color:var(--ds-text-secondary);font-size:var(--fs-caption);font-weight:700;letter-spacing:.04em}
 .squad-count{font-weight:var(--fw-secondary);padding:0 var(--sp-1-5);border-radius:var(--radius-pill);background:var(--ds-canvas-muted);color:var(--ds-text-secondary);font-size:var(--fs-label)}
 
 .squad-card{display:grid;gap:var(--sp-3);padding:var(--sp-4);border-radius:var(--ds-radius-card);background:var(--ds-accent-veil-soft);box-shadow:inset 0 0 0 1px var(--ds-accent-veil)}
@@ -68,16 +68,24 @@
 .squad-add .player-combobox input::placeholder{color:var(--ds-text-secondary)}
 
 .squad-sheet .squad-members{gap:0;margin:0;border-radius:var(--radius-md);background:var(--ds-surface-raised);box-shadow:inset 0 0 0 1px var(--ds-border-subtle)}
-.squad-members li{display:flex;align-items:center;gap:var(--sp-3);min-height:var(--control-lg);padding:var(--sp-1-5) var(--sp-1-5) var(--sp-1-5) var(--sp-3)}
-.squad-members li+li{border-top:1px solid var(--ds-border-subtle)}
+.squad-members li+li{box-shadow:inset 0 1px 0 var(--ds-border-subtle)}
+.squad-member-row{display:flex;align-items:center;gap:var(--sp-3);width:100%;min-height:var(--control-lg);padding:var(--sp-1-5) var(--sp-3);border:0;background:transparent;color:inherit;font:inherit;text-align:left}
+button.squad-member-row{cursor:pointer;transition:background var(--ds-duration-fast) var(--ds-ease-standard)}
+button.squad-member-row:hover:not(:disabled){background:var(--ds-accent-veil-soft)}
+button.squad-member-row:focus-visible{outline:2px solid var(--ds-focus);outline-offset:-2px}
+
+/* Hero: who is in the squad at a glance, then what kind of squad it is. */
+.squad-hero{display:grid;justify-items:center;gap:var(--sp-3);padding:var(--sp-2) 0 var(--sp-1)}
+.squad-hero-faces{display:flex}
+.squad-hero-faces .player-badge{width:3rem;height:3rem;margin-left:calc(var(--sp-2) * -1);box-shadow:0 0 0 3px var(--ds-surface-primary)}
+.squad-hero-faces .player-badge:first-child{margin-left:0}
+.squad-hero .squad-manage-meta{justify-content:center}
+.squad-footnote{margin:0;padding:0 var(--sp-3);color:var(--ds-text-tertiary);font-size:var(--fs-caption);line-height:1.45}
 .squad-members .player-badge,.squad-badge-placeholder{flex:none;width:2rem;height:2rem;font-size:var(--fs-caption)}
 .squad-member-name{display:flex;flex:1;align-items:baseline;gap:var(--sp-1);min-width:0}
 .squad-member-name b{font-weight:700;overflow:hidden;font-size:var(--fs-sm);text-overflow:ellipsis;white-space:nowrap}
 .squad-member-name small{flex:none;color:var(--ds-text-tertiary);font-size:var(--fs-caption);font-weight:400}
 .squad-members .ds-chip{flex:none}
-.squad-sheet .squad-more{flex:none;min-width:var(--control-sm);min-height:var(--control-sm);border-color:transparent;background:transparent;box-shadow:none;color:var(--ds-text-secondary)}
-.squad-sheet .squad-more:hover:not(:disabled){background:var(--ds-canvas-muted)}
-.squad-more svg{width:1.25rem;height:1.25rem;fill:currentColor}
 
 .squad-settings{display:grid;border-radius:var(--radius-md);background:var(--ds-surface-raised);box-shadow:inset 0 0 0 1px var(--ds-border-subtle);overflow:hidden}
 .squad-setting{display:flex;align-items:center;gap:var(--sp-3);min-height:var(--control-lg);padding:0 var(--sp-3);border:0;background:transparent;color:var(--ds-text-primary);font-size:var(--fs-sm);text-align:left;cursor:pointer;transition:background var(--ds-duration-fast) var(--ds-ease-standard)}
@@ -89,8 +97,10 @@
 .squad-chevron{flex:none;width:.9rem;height:.9rem;fill:none;stroke:var(--ds-text-tertiary);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 .squad-danger{padding-top:var(--sp-2)}
-.squad-danger-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-5)}
-.squad-text-action{min-height:var(--control-sm);padding:0 var(--sp-2);border:0;background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:500;cursor:pointer}
+.squad-danger-actions{display:grid;border-radius:var(--radius-md);background:var(--ds-surface-raised);box-shadow:inset 0 0 0 1px var(--ds-border-subtle);overflow:hidden}
+.squad-danger-actions>*+*{box-shadow:inset 0 1px 0 var(--ds-border-subtle)}
+.squad-text-action{min-height:var(--control-lg);padding:0 var(--sp-3);border:0;background:transparent;color:var(--ds-text-secondary);font-size:var(--fs-body);font-weight:500;text-align:center;cursor:pointer}
+.squad-text-action:hover:not(:disabled){background:var(--ds-danger-wash)}
 .squad-text-action--danger{color:var(--ds-danger)}
 .squad-text-action:disabled{opacity:.45;cursor:not-allowed}
 .squad-text-action:focus-visible,.squad-back:focus-visible,.squad-action:focus-visible{outline:2px solid var(--ds-focus);outline-offset:2px}
@@ -137,3 +147,24 @@
 @media (max-width: 599px) {
   .ds-app-shell .squad-intro-actions > * { flex: 1 1 100%; }
 }
+
+/* Directory sheet: each group is its own labelled list. */
+.squad-browse-group{display:grid;gap:var(--sp-1)}
+.squad-browse-group .squad-list{margin:0 0 var(--sp-3)}
+.squad-browse-group .squad-option{min-height:var(--control-md);padding-block:var(--sp-1)}
+.squad-browse-group .squad-row .ds-button{min-height:var(--control-md)}
+.squad-browse-group .squad-list{gap:var(--sp-2)}
+.squad-browse-group .squad-option-main{display:flex;align-items:baseline;gap:var(--sp-2)}
+.squad-browse-group .squad-option-main b{flex:0 1 auto;line-height:1.2}
+.squad-browse-group .squad-option-main small{flex:none;white-space:nowrap;line-height:1.2}
+
+/* Search: an obvious field with its icon inside, and a little air before the first group. */
+.squad-search{position:relative;display:block;margin-bottom:var(--sp-4)}
+.squad-search svg{position:absolute;top:50%;left:var(--sp-3);width:1.15rem;height:1.15rem;fill:none;stroke:var(--ds-text-secondary);stroke-width:2;stroke-linecap:round;transform:translateY(-50%);pointer-events:none}
+.squad-search input{width:100%;min-height:var(--control-md);padding:0 var(--sp-3) 0 calc(var(--sp-3) + 1.15rem + var(--sp-2));border:1px solid var(--ds-border-strong);border-radius:var(--radius-md);background:var(--ds-canvas-muted);color:var(--ds-text-primary);font-size:var(--fs-input)}
+.squad-search input::placeholder{color:var(--ds-text-secondary)}
+.squad-search input:focus{border-color:var(--ds-accent-action);background:var(--ds-surface-raised);outline:none;box-shadow:0 0 0 3px var(--ds-accent-veil)}
+.squad-browse-group .squad-option:not(:disabled):hover{background:var(--ds-accent-veil-soft)}
+.squad-browse-group .squad-option .squad-chevron{flex:none}
+.squad-browse-group .squad-option-main{flex:1}
+.squad-browse-group .squad-option .squad-badges{margin-left:auto}
