@@ -1,4 +1,5 @@
 "use client";
+import "../lib/legacy-storage";
 
 import { createPortal } from "react-dom";
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
@@ -10,7 +11,7 @@ import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBrack
 import { TonightStrip, actionableCount, useMatchmakingSummary } from "./MatchmakingBits";
 import { SQUAD_SWING_DAYS, daysSinceLastMatch, isInactive, ratingSwing, squadRecords } from "../lib/squad-rivalry";
 import { SquadStatsPanel } from "./SquadStats";
-import { SquadAddedNotices, SquadCenter, SquadScopeMenu, defaultSquadId, usePublicSquad, useSquadViewTracking, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
+import { SquadAddedNotices, SquadCenter, SquadIntro, SquadScopeMenu, defaultSquadId, usePublicSquad, useSquadViewTracking, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
 import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
@@ -21,9 +22,9 @@ import { HANDICAP_ELO_PER_POINT, proposeHandicap, suggestedHandicap as clubSugge
 import { calculateSnookerElo } from "../lib/snooker-elo";
 import { breakNudge, type BreakNudge } from "../lib/break-nudge";
 import { matchDate, matchupKey, meetingsSince } from "../lib/elo-replay";
-import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
 import { localDate } from "../lib/local-date";
 import { PlayerPicker } from "./PlayerPicker";
+import { describeMatch, honourText, matchShareMessage, matchShareTitle, matchShareUrl, playerShareUrl, recordShareMessage, recordShareTitle, type RecordShareState } from "../lib/match-share";
 import { recordStoryCard, resultStoryCard, type StoryPerson } from "../lib/story-card";
 import ShareSheet from "./ShareSheet";
 import { AppShell, PageFrame } from "./components/shell/AppShell";
@@ -214,7 +215,7 @@ const seed: AppState = {
   players: [],
   matches: [],
   tournaments: [],
-  audits: [{ id:"seed",text:"建立 SCAA 公開群組及預設 ELO 設定",at:new Date().toISOString() }]
+  audits: [{ id:"seed",text:"建立公開群組及預設 ELO 設定",at:new Date().toISOString() }]
 };
 
 function games(p: Player) { return p.wins + p.losses + p.draws; }
@@ -580,7 +581,7 @@ const today = new Date().toISOString().slice(0,10);
    What is cached is the raw server document, not the replayed state: a deploy that changes the
    rating replay must recompute from source, and restoring goes through exactly the same
    upgrade + replay path as a network response. */
-const STATE_CACHE_KEY = "scaa-state-cache";
+const STATE_CACHE_KEY = "elo-state-cache";
 type CachedDocument = { version:string; document:AppState };
 function readStateCache():CachedDocument|null{
   try{
@@ -735,7 +736,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const openTournamentCount=useMemo(()=>data.tournaments.filter(tournament=>!signupsClosed(tournament)).length,[data.tournaments]);
 
   useEffect(()=>{
-    const local = localStorage.getItem("scaa-draft");
+    const local = localStorage.getItem("elo-draft");
     if(local) try { setDraft(JSON.parse(local)); } catch {}
     /* The server already hydrated this page with the same state. Refetching it immediately adds
        database reads while the matchmaking summary and 約戰 board are trying to open. */
@@ -872,12 +873,12 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       window.removeEventListener("touchend",onTouchEnd);
     };
   },[pullDistance,refreshing]);
-  useEffect(()=>{ localStorage.setItem("scaa-draft",JSON.stringify(draft)); },[draft]);
+  useEffect(()=>{ localStorage.setItem("elo-draft",JSON.stringify(draft)); },[draft]);
   // The match tab is egocentric in practice — a member opens it to check their
   // own last result, not the club archive. Restore whatever they were last
   // looking at; failing that, start a signed-in member on their own record.
   useEffect(()=>{
-    const stored=localStorage.getItem("scaa-match-focus");
+    const stored=localStorage.getItem("elo-match-focus");
     if(stored){
       try{
         const value=JSON.parse(stored);
@@ -888,7 +889,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   },[ownPlayerId]);
   useEffect(()=>{
     if(!focusRestored.current){focusRestored.current=true;return;}
-    localStorage.setItem("scaa-match-focus",JSON.stringify(headToHead));
+    localStorage.setItem("elo-match-focus",JSON.stringify(headToHead));
   },[headToHead]);
   // A restored id can outlive the player it points at; drop it once the roster
   // arrives so the filter never names someone who is no longer in the club.
@@ -1030,7 +1031,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       if(!response.ok)throw new Error();
       const fresh=await response.json();
       setData(fresh);
-      localStorage.removeItem("scaa-draft");
+      localStorage.removeItem("elo-draft");
       setDraft({mode:"1v1",teamAName:"Team A",teamBName:"Team B",a:"",b:"",a2:"",b2:"",scoreA:0,scoreB:0,date:today,giver:"",points:0,highBreaks:[],tournamentId:"",tournamentRound:1,tournamentMatchIndex:1,cupSlotLocked:false});
       setToast(t("所有共用資料已清除並重設。"));
     }catch{setToast(t("重設失敗，資料沒有被清除。請稍後再試。"));}
@@ -1128,7 +1129,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     const action=editingMatch?t("編輯"):t("記錄");
     const matchLabel=valid2v2?`${teamLabel(match,data,"A")} ${draft.scoreA}–${draft.scoreB} ${teamLabel(match,data,"B")}`:`${a.name} ${draft.scoreA}–${draft.scoreB} ${b.name}`;
     const next={...data,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:`${action}${valid2v2?t("潮拍娛樂賽"):validCup?t("盃賽賽果"):t("賽果")}：${matchLabel}${valid2v2?t("；不影響 ELO"):validCup?t("；盃賽第 {tournamentRound} 輪第 {tournamentMatchIndex} 場", {tournamentRound: match.tournamentRound, tournamentMatchIndex: match.tournamentMatchIndex}):t("；重播歷史 ELO")}`,at:now},...data.audits]};
-    localStorage.removeItem("scaa-draft"); setEditingMatch(null); setModal(null);
+    localStorage.removeItem("elo-draft"); setEditingMatch(null); setModal(null);
     // Land on the saved card rather than a toast that vanishes: focus the list
     // on the recorder (or clear it, for an admin logging someone else's game)
     // so the new row is guaranteed to be in the filtered set, and drop the
@@ -1491,8 +1492,8 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
       {tab==="leaderboard"&&user&&ownPlayerId&&!user.needsOnboarding&&<FirstStepsChecklist hasMatch={data.matches.some(match=>match.a===ownPlayerId||match.b===ownPlayerId)} onRecord={()=>newMatch()} onTour={()=>setTourOpen(true)}/>}
       {tab==="leaderboard"&&<TonightStrip summary={matchmakingSummary?.tonight??null} signedIn={Boolean(ownPlayerId)} onOpen={()=>goTab("availability")}/>}
       {tab==="leaderboard"&&<SquadAddedNotices squads={squads} players={data.players} onView={id=>{squadAction(id,"seen");selectSquad(id)}} onLeave={id=>squadAction(id,"leave")} onDismiss={id=>squadAction(id,"seen")}/>}
-      {tab==="leaderboard"&&<Leaderboard onClubScope={()=>selectSquad(null)} ranked={ranked} data={data} ownPlayerId={ownPlayerId} squad={activeSquad} scope={{squads,onSelect:selectSquad,onMore:()=>setSquadSheet("picker"),onManage:()=>setSquadSheet("manage")}} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");showTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
-      {tab==="matches"&&<Matches squad={activeSquad} scopeMenu={<SquadScopeMenu squad={activeSquad} squads={squads} onSelect={selectSquad} onSwitch={()=>setSquadSheet("picker")} onManage={()=>setSquadSheet("manage")}/>} data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",format:"single",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,format:tournament.format??"single",handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
+      {tab==="leaderboard"&&<Leaderboard onClubScope={()=>selectSquad(null)} ranked={ranked} data={data} ownPlayerId={ownPlayerId} squad={activeSquad} scope={{squads,onSelect:selectSquad,onMore:()=>setSquadSheet("browse"),onCreate:()=>setSquadSheet("create"),isAdmin:Boolean(isAdmin),onManage:()=>setSquadSheet("manage")}} onRecord={()=>newMatch()} onPlayer={(p)=>{setDetail(p);setModal("detail")}} onMatch={(match)=>{setHeadToHead({a:"",b:""});setHighlightMatch(match.id);setMatchesView("history");showTab("matches")}} onRivalry={(first,second)=>openHeadToHead(first,second)}/>}
+      {tab==="matches"&&<Matches squad={activeSquad} scopeMenu={<SquadScopeMenu squad={activeSquad} squads={squads} onSelect={selectSquad} onSwitch={()=>setSquadSheet(squads.length?"picker":"browse")} onManage={()=>setSquadSheet("manage")}/>} data={data} canManageMatch={canManageMatch} canManageCup={canManageCup} onEdit={editMatch} onVoid={requestDeleteMatch} onShare={shareMatch} onPlayer={(player)=>{setDetail(player);setModal("detail")}} view={matchesView} setView={setMatchesView} pair={headToHead} setPair={setHeadToHead} highlight={highlightMatch} isAdmin={Boolean(isAdmin)} onCreateTournament={()=>{setEditingTournament(null);setCoHostSearch("");setTournamentForm({name:"",format:"single",handicapMode:"suggested",startAt:"",signupDeadline:`${today}T23:59`,coHosts:[]});setModal("tournament")}} onEditTournament={tournament=>{setEditingTournament(tournament);setCoHostSearch("");setTournamentForm({name:tournament.name,format:tournament.format??"single",handicapMode:tournament.handicapMode,startAt:tournament.startAt??"",signupDeadline:tournament.signupDeadline.length===10?`${tournament.signupDeadline}T23:59`:tournament.signupDeadline,coHosts:tournament.coHosts??[]});setModal("tournament")}} onDeleteTournament={deleteTournament} ownPlayerId={ownPlayerId} onSignUpTournament={signUpTournament} onSetArrivalTime={setTournamentArrivalTime} onRecordSlot={recordCupSlot} onArrange={arrangeCupMatch} onWalkover={declareWalkover} onEditRoster={editCupRoster} onShuffleRoster={shuffleTournamentRoster} onReorderRoster={reorderTournamentRoster} onRefresh={refreshData}/>}
       {/* Public availability, recommendations and arrangements share one marketplace flow. */}
       {tab==="availability"&&<MatchmakingMarketplace onRecordSession={(opponentId,sessionId,date)=>{newMatch("1v1",opponentId,date);marketplaceOrigin.current=sessionId;}} key={ownPlayerId??"guest"} onPlayer={id=>{const player=data.players.find(item=>item.id===id);if(player){setDetail(player);setModal("detail")}}} onRecord={opponentId=>newMatch("1v1",opponentId)} onActivity={refreshMatchmaking} target={findOpponentTarget} onTargetConsumed={()=>setJumpToAvailability(null)}/>}
       {tab==="players"&&<Players data={data} ownPlayerId={ownPlayerId} managementMode={Boolean(isAdmin&&managementMode)} canAdd={Boolean(isAdmin)} canManagePlayer={player=>Boolean(isAdmin||player.id===ownPlayerId)} onAdd={()=>{if(!isAdmin){setToast(t("只有管理員可以新增球員。"));return;}setEditingPlayer(null);setPlayerForm({name:"",short:"",handicap:"",rating:"",colour:DEFAULT_AVATAR});setModal("player")}} onEdit={editPlayer} onDelete={deletePlayer} onOpen={(p)=>{setDetail(p);setModal("detail")}} onCompare={(p)=>openHeadToHead(p,data.players.find(candidate=>candidate.id===ownPlayerId))} onRecordAgainst={(p)=>newMatch("1v1",p.id)} onFindOpponent={jumpToPlayerAvailability}/>}
@@ -1589,8 +1590,8 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     </div>}
     {leavingAvailability&&<ConfirmDialog kicker={t("未儲存的變更")} titleId="leave-availability-title" title={t("離開後變更會消失")} description={t("你在「可配對」的時段變更尚未儲存，離開這一頁後不會保留。")} onClose={()=>setLeavingAvailability(null)}><Button variant="secondary" onClick={()=>setLeavingAvailability(null)}>{t("留在此頁")}</Button><Button variant="danger" onClick={()=>{const next=leavingAvailability;setLeavingAvailability(null);setAvailabilityDirty(false);setHighlightMatch(null);showTab(next)}}>{t("捨棄變更離開")}</Button></ConfirmDialog>}
     {pendingConfirm&&<ConfirmDialog kicker={pendingConfirm.kicker} titleId="pending-confirm-title" title={pendingConfirm.title} description={pendingConfirm.description} onClose={()=>setPendingConfirm(null)}><Button variant="secondary" onClick={()=>setPendingConfirm(null)}>{t("取消")}</Button><Button variant="danger" onClick={()=>{const run=pendingConfirm.onConfirm;setPendingConfirm(null);run()}}>{pendingConfirm.confirmLabel}</Button></ConfirmDialog>}
-    <SquadCenter sheet={squadSheet} setSheet={setSquadSheet} squads={squads} loaded={squadsLoaded} refresh={refreshSquads} selectedId={squadId} onSelect={selectSquad}
-      players={data.players} ownPlayerId={ownPlayerId} signedIn={Boolean(user)} notify={name=>setToast(t("已加入「{squad}」", {squad:name}))}/>
+    <SquadCenter sheet={squadSheet} setSheet={setSquadSheet} squads={squads} loaded={squadsLoaded||!ownPlayerId} refresh={refreshSquads} selectedId={squadId} onSelect={selectSquad}
+      players={data.players} ownPlayerId={ownPlayerId} signedIn={Boolean(user)} isAdmin={Boolean(isAdmin)} notify={name=>setToast(t("已加入「{squad}」", {squad:name}))}/>
     {toast&&<div className={`toast${undoSnapshot?" toast-expiring":""}`} role="status"><span>{toast}</span>{undoSnapshot&&<Button variant="quiet" onClick={undoDelete}>{t("復原")}</Button>}</div>}
     {regularPrompt&&<div className="regular-prompt" role="status">
       <b>{t("你哋第一次對戰")}</b>
@@ -1686,7 +1687,7 @@ function HeroWelcome({name,nudge,onOpen}:{name:string;nudge:BreakNudge;onOpen:()
     <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg>
   </button>;
 }
-type BoardScope={squads:MySquad[];onSelect:(id:string|null)=>void;onMore:()=>void;onManage:()=>void};
+type BoardScope={squads:MySquad[];onSelect:(id:string|null)=>void;onMore:()=>void;onManage:()=>void;onCreate:()=>void;isAdmin:boolean};
 const BREAK_VIEWS=[{value:"players",label:msg("球員最高")},{value:"overall",label:msg("歷史")},{value:"recent",label:msg("近30日")},{value:"monthly",label:msg("每月")}] as const;
 type BreakView=typeof BREAK_VIEWS[number]["value"];
 const SearchIcon=()=><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>;
@@ -1701,6 +1702,7 @@ function FilterChip({label,clearLabel,onClear}:{label:ReactNode;clearLabel:strin
 function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMatch,onRivalry,onClubScope}:{ranked:Player[];data:AppState;ownPlayerId?:string;squad:MySquad|null;scope:BoardScope;onClubScope:()=>void;onRecord:()=>void;onPlayer:(p:Player)=>void;onMatch:(match:Match)=>void;onRivalry:(first:Player,second:Player)=>void}) {
   const homeTabsId=useId();
   const t = useT();
+  const [squadIntro,setSquadIntro]=useState(false);
   const [sort,setSort]=useState<SortKey>("rank"),[dir,setDir]=useState<"asc"|"desc">("asc"),[breakView,setBreakView]=useState<BreakView>("players"),[homeViewRaw,setHomeView]=useState<"ranking"|"breaks"|"recent"|"squad"|"matrix">("ranking"),[query,setQuery]=useState("");
   const homeView=(squad?["ranking","squad","matrix"]:["ranking","breaks","recent"]).includes(homeViewRaw)?homeViewRaw:"ranking";
   const confirmed=data.matches.filter(m=>m.status==="confirmed");
@@ -1764,10 +1766,11 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
       </div>
     </div><Button className="hero-action" onClick={onRecord}><span aria-hidden="true" className="hero-action-icon">＋</span><b>{t("記錄新賽果")}</b><small>{t("更新排名與近期狀態")}</small></Button></section>
     <div className="board-scope-switch">
-      <SegmentedControl label={t("檢視範圍")} value={squad?"squad":"club"}
+      <SegmentedControl label={t("檢視範圍")} value={squad||squadIntro?"squad":"club"}
         items={[{value:"club",label:t("全會")},{value:"squad",label:t("球隊")}]}
-        onChange={value=>{setQuery("");setHomeView("ranking");if(value==="club")scope.onSelect(null);else{const id=defaultSquadId(scope.squads);if(id)scope.onSelect(id);else scope.onMore()}}}/>
+        onChange={value=>{setQuery("");setHomeView("ranking");if(value==="club"){setSquadIntro(false);scope.onSelect(null)}else{const id=defaultSquadId(scope.squads);if(id)scope.onSelect(id);else setSquadIntro(true)}}}/>
     </div>
+    {squadIntro&&!squad?<SquadIntro signedIn={Boolean(ownPlayerId)} isAdmin={scope.isAdmin} onBrowse={scope.onMore} onCreate={scope.onCreate} onClub={()=>{setSquadIntro(false);scope.onSelect(null)}}/>:<>
     {squad&&<div className="board-head">
       <div className="board-heading">
       <Menu className="board-scope" label={t("切換球隊")} align="start" triggerClassName="board-scope__trigger"
@@ -1789,7 +1792,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
       {value:"recent",label:<span>{t("數據")}</span>},
     ]}/>
     <TabPanel id={homeTabsId} value="ranking" active={homeView==="ranking"}>
-    <section className="home-view-panel ranking-panel" aria-labelledby="ranking-title">
+    <section className={`home-view-panel ranking-panel${squad?" squad-scope":""}`} aria-labelledby="ranking-title">
       <h2 id="ranking-title" className="ds-sr-only">{t("目前排名")}</h2>
     <div className="board-toolbar">
     {visibleRanked.length>8&&<label className="board-search"><SearchIcon/><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={t("搜尋球員")} aria-label={t("搜尋球員")}/></label>}
@@ -1832,7 +1835,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
     {squad&&<>
     <TabPanel id={homeTabsId} value="squad" active={homeView==="squad"}><TrendSection players={ranked.filter(p=>squadIds?.has(p.id))} data={data}/><SquadStatsPanel squad={squad} players={data.players} matches={data.matches} onMatrix={()=>setHomeView("matrix")} onPlayer={id=>{const player=data.players.find(p=>p.id===id);if(player)onPlayer(player)}}/></TabPanel>
     <TabPanel id={homeTabsId} value="matrix" active={homeView==="matrix"}><HeadToHeadMatrix squad={squad} data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{const one=data.players.find(p=>p.id===first),two=data.players.find(p=>p.id===second);if(one&&two)onRivalry(one,two)}}/></TabPanel></>}
-    {!squad&&<TabPanel id={homeTabsId} value="recent" active={homeView==="recent"}><TrendSection players={ranked} data={data}/><ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/></TabPanel>}</>;
+    {!squad&&<TabPanel id={homeTabsId} value="recent" active={homeView==="recent"}><TrendSection players={ranked} data={data}/><ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/></TabPanel>}</>}</>;
 }
 
 /** The Elo trend chart, which used to hide behind a ranking toggle, now heads the Stats tab. */
@@ -2276,7 +2279,7 @@ function Matches({squad,scopeMenu,data,canManageMatch,canManageCup,onEdit,onVoid
   // focus above, including the skipped first write.
   const prefsRestored=useRef(false);
   useEffect(()=>{
-    const stored=localStorage.getItem("scaa-match-prefs");
+    const stored=localStorage.getItem("elo-match-prefs");
     if(!stored)return;
     try{
       const value=JSON.parse(stored);
@@ -2287,7 +2290,7 @@ function Matches({squad,scopeMenu,data,canManageMatch,canManageCup,onEdit,onVoid
   },[]);
   useEffect(()=>{
     if(!prefsRestored.current){prefsRestored.current=true;return;}
-    localStorage.setItem("scaa-match-prefs",JSON.stringify({sortBy,sortDirection,modeFilter}));
+    localStorage.setItem("elo-match-prefs",JSON.stringify({sortBy,sortDirection,modeFilter}));
   },[sortBy,sortDirection,modeFilter]);
   // A stale "2v2" mode filter from a previous session would otherwise hide the
   // dedicated head-to-head view whenever a fresh pair is picked to compare.

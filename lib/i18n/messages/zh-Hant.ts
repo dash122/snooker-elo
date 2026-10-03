@@ -10,7 +10,7 @@ export const zhHant = {
   "nav.settings": "設定",
   "nav.record": "記錄",
   "nav.main": "主導覽",
-  "app.title": "SCAA Snooker ELO｜讓每一局都推動進步",
+  "app.title": "Snooker ELO｜讓每一局都推動進步",
   "app.description": "為球會而設的公開 ELO 排名、賽果追蹤與公平讓分建議，讓每場對賽更接近、更有競爭力。",
   "auth.signIn": "登入",
   "auth.signInOrSignUp": "登入／註冊",

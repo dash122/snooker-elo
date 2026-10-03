@@ -1,8 +1,7 @@
 import { deleteCurrentSession } from "../../../../db/auth";
 
 export async function POST(request: Request) {
-  return new Response(null, {
-    status: 303,
-    headers: { location: new URL("/", request.url).toString(), "set-cookie": await deleteCurrentSession() },
-  });
+  const headers = new Headers({ location: new URL("/", request.url).toString() });
+  for (const cookie of await deleteCurrentSession()) headers.append("set-cookie", cookie);
+  return new Response(null, { status: 303, headers });
 }

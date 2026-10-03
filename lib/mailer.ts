@@ -63,7 +63,7 @@ export async function sendNotificationEmail(playerIds:string[],message:Notificat
   const recipients=await emailsForPlayers(playerIds);
   if(!recipients.length)return {sent:0,transport:active.name};
   const link=siteUrl()?`\n\n開啟約戰：${siteUrl()}${message.url??"/?tab=availability"}`:"";
-  const body=`${message.body}${link}\n\n—\nSCAA Snooker ELO。如不想再收到這類電郵，可在應用程式的通知設定關閉。`;
+  const body=`${message.body}${link}\n\n—\nSnooker ELO。如不想再收到這類電郵，可在應用程式的通知設定關閉。`;
   const ok=await active.send(recipients.map(row=>row.email),message.title,body);
   return {sent:ok?recipients.length:0,transport:active.name};
 }

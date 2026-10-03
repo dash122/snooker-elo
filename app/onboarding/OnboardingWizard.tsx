@@ -59,7 +59,7 @@ export default function OnboardingWizard({ member, reminder = false }: { member:
 
   if (finalRating !== null) {
     return <main className="onboarding-page"><section className="onboarding-confirm" aria-live="polite">
-      <span className="onboarding-mark">SCAA</span>
+      <span className="onboarding-mark">ELO</span>
       <p className="onboarding-kicker">{t("歡迎加入，{displayName}", {displayName: member.displayName})}</p>
       <h1>{t("你的初始評級為：{finalRating}", {finalRating})}</h1>
       <p>{t("評級已儲存。以下是開始使用的建議步驟。")}</p>
@@ -74,7 +74,7 @@ export default function OnboardingWizard({ member, reminder = false }: { member:
   }
 
   return <main className="onboarding-page"><section className="onboarding-card">
-    <span className="onboarding-mark">SCAA</span>
+    <span className="onboarding-mark">ELO</span>
     <p className="onboarding-kicker">{reminder ? t("請讓我們更了解你") : t("新會員設定")}</p>
     <ol className="onboarding-steps" aria-label={t("設定步驟")}>
       <li className={step === "profile" ? "is-current" : "is-done"}><span>1</span>{t("個人資料")}</li>

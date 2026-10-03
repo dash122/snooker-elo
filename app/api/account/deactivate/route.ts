@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const ok = await deactivateMember(member.email, currentPassword);
   if (!ok) return Response.json({ error: "password-wrong", field: "currentPassword" }, { status: 400 });
   // deactivateMember already dropped every session row; clear the stale cookie.
-  return Response.json({ ok: true }, {
-    headers: { "set-cookie": `scaa_session=; Path=/; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=0` },
-  });
+  const headers = new Headers();
+  for (const name of ["elo_session", "scaa_session"]) headers.append("set-cookie", `${name}=; Path=/; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=0`);
+  return Response.json({ ok: true }, { headers });
 }

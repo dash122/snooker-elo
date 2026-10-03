@@ -3,8 +3,8 @@ import { getCurrentMember } from "../../../../db/auth";
 import { secureCookieAttribute } from "../../../../lib/auth-cookie";
 
 const SCOPE = "openid email profile";
-const STATE_COOKIE = "scaa_oauth_state";
-const INTENT_COOKIE = "scaa_oauth_intent";
+const STATE_COOKIE = "elo_oauth_state";
+const INTENT_COOKIE = "elo_oauth_intent";
 type GoogleIntent = "login" | "signup" | "connect";
 
 export async function GET(request: Request) {

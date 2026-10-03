@@ -4,8 +4,8 @@ export const LOCALES = ["zh-Hant", "en"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "zh-Hant";
 
-export const LOCALE_COOKIE = "scaa_locale";
-export const TIMEZONE_COOKIE = "scaa_tz";
+export const LOCALE_COOKIE = "elo_locale", LEGACY_LOCALE_COOKIE = "scaa_locale";
+export const TIMEZONE_COOKIE = "elo_tz", LEGACY_TIMEZONE_COOKIE = "scaa_tz";
 /** The club plays in Hong Kong; a member whose browser has not reported a zone yet is shown club time. */
 export const DEFAULT_TIME_ZONE = "Asia/Hong_Kong";
 export const PREFERENCE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;

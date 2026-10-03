@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { LOCALE_COOKIE, TIMEZONE_COOKIE, resolveLocale, resolveTimeZone, type Locale } from "./locales.ts";
+import { LEGACY_LOCALE_COOKIE, LEGACY_TIMEZONE_COOKIE, LOCALE_COOKIE, TIMEZONE_COOKIE, resolveLocale, resolveTimeZone, type Locale } from "./locales.ts";
 import { getTranslationOverrides } from "../../db/translations";
 import { createTranslator, messagesFor, type Translator } from "./translate.ts";
 
@@ -7,7 +7,7 @@ import { createTranslator, messagesFor, type Translator } from "./translate.ts";
  *  Reading cookies makes the calling route dynamic, which the app's data pages already are. */
 export async function getPreferences(): Promise<{ locale: Locale; timeZone: string }> {
   const jar = await cookies();
-  return { locale: resolveLocale(jar.get(LOCALE_COOKIE)?.value), timeZone: resolveTimeZone(jar.get(TIMEZONE_COOKIE)?.value) };
+  return { locale: resolveLocale((jar.get(LOCALE_COOKIE) ?? jar.get(LEGACY_LOCALE_COOKIE))?.value), timeZone: resolveTimeZone((jar.get(TIMEZONE_COOKIE) ?? jar.get(LEGACY_TIMEZONE_COOKIE))?.value) };
 }
 export async function getLocale(): Promise<Locale> {
   return (await getPreferences()).locale;

@@ -11,7 +11,7 @@ export const en: Record<MessageKey, string> = {
   "nav.settings": "Settings",
   "nav.record": "Record",
   "nav.main": "Main Navigation",
-  "app.title": "SCAA Snooker ELO | Make Every Frame Count",
+  "app.title": "Snooker ELO | Make Every Frame Count",
   "app.description": "Public ELO rankings, result tracking and fair handicap suggestions for the club, so every match is closer and more competitive.",
   "auth.signIn": "Sign In",
   "auth.signInOrSignUp": "Sign In / Sign Up",

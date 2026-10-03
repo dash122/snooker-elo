@@ -6,8 +6,8 @@ import { ensureStateSchema } from "./state.pg";
 import { getState, putState } from "./state";
 import { replay, type ReplayMatch, type ReplayPlayer, type ReplaySettings } from "../lib/elo-replay";
 import { secureCookieAttribute } from "../lib/auth-cookie";
+import { LEGACY_SESSION_COOKIE, SESSION_COOKIE, parseCookie, readSessionToken } from "../lib/session-cookie";
 
-const SESSION_COOKIE = "scaa_session";
 const SESSION_DAYS = 30;
 
 export type GoogleMemberLookup =
@@ -220,10 +220,6 @@ async function passwordDigest(password: string, saltHex: string) {
   return bytesToHex(new Uint8Array(bits));
 }
 
-function parseCookie(cookie: string | null, name: string) {
-  const item = cookie?.split(";").map(part => part.trim()).find(part => part.startsWith(`${name}=`));
-  return item ? decodeURIComponent(item.slice(name.length + 1)) : null;
-}
 
 /* Deduplicated per request, not cached across them.
  *
@@ -238,7 +234,7 @@ export const getCurrentMember = cache(async function getCurrentMember(): Promise
   // Read the cookie before touching the database: a signed-out visitor (and
   // every request for a public page) has no session to look up, so it should
   // cost no connection at all rather than a schema check and a round trip.
-  const token = parseCookie((await headers()).get("cookie"), SESSION_COOKIE);
+  const token = readSessionToken((await headers()).get("cookie"));
   if (!token) return null;
   await Promise.all([ensureAuthSchema(), ensurePasswordSetSchema()]);
   const tokenHash = await sha256(token);
@@ -596,9 +592,13 @@ export async function createSession(email: string) {
 export async function deleteCurrentSession() {
   await ensureAuthSchema();
   const sql = getSql();
-  const token = parseCookie((await headers()).get("cookie"), SESSION_COOKIE);
-  if (token) await sql`DELETE FROM sessions WHERE token_hash = ${await sha256(token)}`;
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=0`;
+  const jar = (await headers()).get("cookie");
+  for (const name of [SESSION_COOKIE, LEGACY_SESSION_COOKIE]) {
+    const token = parseCookie(jar, name);
+    if (token) await sql`DELETE FROM sessions WHERE token_hash = ${await sha256(token)}`;
+  }
+  /* Both names are cleared: a leftover pre-rename cookie would otherwise keep the old session usable. */
+  return [SESSION_COOKIE, LEGACY_SESSION_COOKIE].map(name => `${name}=; Path=/; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=0`);
 }
 
 export async function listMembers(): Promise<MemberRow[]> {
