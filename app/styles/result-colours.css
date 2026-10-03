@@ -6,7 +6,15 @@
 
 /* Leaderboard record pill: one chip, a hairline edge so it separates from the row, neutral text. */
 .ds-app-shell .ranking-panel .table-card .person .player-record {
-  gap: var(--sp-2); padding: 0 var(--sp-2); background: var(--ds-surface-secondary);
+  gap: var(--sp-1); padding: 0 var(--sp-1-5); min-height: 20px; line-height: 1; background: var(--ds-surface-secondary);
   box-shadow: inset 0 0 0 1px var(--ds-border-muted); color: var(--ds-text-secondary);
 }
-.ds-app-shell .ranking-panel .table-card .person .player-record > span { padding: 0; color: inherit; background: none; }
+.ds-app-shell .ranking-panel .table-card .person .player-record > span { display: inline-flex; align-items: center; line-height: 1; padding: 0; color: inherit; background: none; }
+
+/* Phones: pips become soft tints with coloured letters instead of solid fills, so a row of them
+   doesn't out-shout the names and ratings. */
+@media (max-width: 599px) {
+  .form i.w, .players-row-form i.w { background: color-mix(in srgb, var(--ds-chart-positive) 34%, transparent); color: color-mix(in srgb, var(--ds-chart-positive) 70%, var(--ds-text-primary)); }
+  .form i.d, .players-row-form i.d { background: color-mix(in srgb, var(--ds-border-muted) 40%, transparent); color: var(--ds-text-tertiary); }
+  .form i.l, .players-row-form i.l { background: color-mix(in srgb, var(--ds-chart-negative) 34%, transparent); color: color-mix(in srgb, var(--ds-chart-negative) 70%, var(--ds-text-primary)); }
+}
