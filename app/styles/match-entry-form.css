@@ -158,3 +158,14 @@
   .score-panel .scoreboard-entry>div{padding:var(--sp-2-5) var(--sp-1)}
   .score-panel .scoreboard-entry>strong{height:3.5rem}
 }
+
+/* Frame count at its own, larger step — still big on phones. The boxes use the room the ± buttons leave. */
+.score-value{width:5rem;height:4.5rem;font-size:var(--fs-score)}
+.score-panel .scoreboard-entry>strong{height:4.5rem}
+@media(max-width:820px){
+  .score-value{width:3.4rem;height:3.75rem}
+  .score-panel .scoreboard-entry>div{padding:var(--sp-2-5) 0}
+  .score-panel .scoreboard-entry>strong{height:3.75rem}
+  .score-row{gap:var(--sp-1)}
+  .score-row button{width:2.25rem}
+}
