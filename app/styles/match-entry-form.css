@@ -23,3 +23,61 @@
 .match-squad__trigger span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .match-squad__trigger i{font-style:normal;color:var(--gold-on-light);font-size:var(--fs-sm)}
 @media(max-width:380px){.match-chips{flex:0 1 auto;flex-wrap:wrap}.match-squad__trigger{font-size:var(--fs-body)}}
+
+.match-date-section{position:relative;margin-top:var(--sp-4)}.match-date-input{position:absolute;top:0;right:0;width:34%;height:100%;margin:0;padding:0;border:0;opacity:0;pointer-events:none}
+.score-hint{margin:var(--sp-1) 0 0;color:var(--me-heading-text);font-size:var(--fs-caption);text-align:center}.score-warning{margin:var(--sp-2-5) 0 0;padding:var(--sp-2-5) var(--sp-3);border:1px solid rgba(228,180,82,.5);border-radius:var(--radius-sm);background:rgba(228,180,82,.16);color:white;font-size:var(--fs-caption);font-weight:700;line-height:1.4}
+
+.score-panel>h3{margin-bottom:var(--sp-1);color:white;font-family:var(--font-display);font-size:var(--fs-h3);font-weight:800;letter-spacing:0}
+.score-warning{margin-top:var(--sp-2-5)}
+.break-inline{max-width:none;margin-top:var(--sp-3)}
+.break-add-toggle{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-1);width:auto;min-height:var(--control-sm);padding:0 var(--sp-3);border:0;border-radius:var(--radius-pill);background:rgba(255,255,255,.1);color:var(--me-heading-text);font-size:var(--fs-caption);font-weight:700}.break-add-toggle i{font-style:normal;color:var(--gold-on-dark)}.break-add-toggle span{opacity:.7}
+.break-inline .break-chips button i{margin-right:var(--sp-1);font-style:normal;color:var(--gold-on-dark)}
+.break-add{max-width:9.5rem;margin-inline:auto}
+
+/* Keep the ":" centred on the score inputs (not on the whole column with its name and breaks): the name row and the gap above the score row are fixed, so the separator is offset by exactly that much. */
+.scoreboard-entry>div>b{height:1.25rem;line-height:1.25rem}
+.scoreboard-entry>strong{align-self:start;display:flex;align-items:center;height:3.5rem;margin-top:calc(1.25rem + var(--sp-1-5));line-height:1}
+
+/* ── Visual pass: one calm page, grouped rows, a single accent scoreboard ── */
+.match-players{margin-top:var(--sp-5)}
+.matchup-card{padding:var(--sp-5) var(--sp-3);border-radius:var(--radius-xl);background:var(--ds-surface-raised);box-shadow:var(--ds-elevation-1)}
+.matchup-avatar{width:3.5rem;height:3.5rem;font-size:var(--fs-body)}
+.matchup-vs{display:grid;place-items:center;min-width:2rem;height:2rem;padding:0 var(--sp-1-5);border-radius:var(--radius-pill);background:var(--ds-surface-secondary);color:var(--ds-text-secondary);font-size:var(--fs-label);letter-spacing:.04em}
+.match-group{margin-top:var(--sp-4);border:1px solid var(--line);border-radius:var(--radius-xl);background:var(--ds-surface-raised);overflow:hidden}
+.match-group>section{margin:0;padding:var(--sp-4)}
+.match-group>section+section{border-top:1px solid var(--ds-border-subtle)}
+.match-group h3{display:flex;align-items:center;gap:var(--sp-2);margin:0;min-height:var(--control-sm);color:var(--ds-text-primary);font-size:var(--fs-body);font-weight:800}
+.match-group .quick-handicap h3 small{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font-size:var(--fs-sm)}
+.handicap-toggle{flex:none;min-height:var(--control-sm);padding:0 var(--sp-2);border:0;border-radius:var(--radius-pill);background:transparent;color:var(--ds-accent-action);font-size:var(--fs-sm);font-weight:700;cursor:pointer}
+.handicap-toggle:focus-visible{outline:3px solid var(--ds-focus);outline-offset:2px}
+.match-group .handicap-segment{margin-top:var(--sp-2)}
+.score-panel{margin-top:var(--sp-4);border-radius:var(--radius-xl);background:radial-gradient(120% 90% at 50% 0,var(--baize) 0,var(--baize-deep) 100%);box-shadow:var(--ds-elevation-2)}
+.score-value{font-weight:600}
+.score-panel .predicted-ratio{margin-top:var(--sp-4);padding:var(--sp-3-5) 0 0;border-top:1px solid rgba(255,255,255,.14);border-bottom:0}
+.match-save{box-shadow:0 -8px 24px rgba(20,65,57,.08)}
+@media(min-width:821px){.score-panel{padding:var(--sp-5)}}
+
+/* Handicap is the main decision after choosing players, so it leads the group and reads at heading size. */
+.match-group .quick-handicap h3{font-size:var(--fs-lead)}
+.match-group .quick-handicap h3 small{font-weight:700;color:var(--ds-accent-action)}
+.match-group .handicap-segment{margin-top:var(--sp-3)}
+
+/* Squad filter: every option visible, no hidden dropdown. */
+.match-squad-row{display:flex;gap:var(--sp-2);margin:0 calc(var(--sp-1) * -1) var(--sp-3);padding:0 var(--sp-1) var(--sp-1);overflow-x:auto;scrollbar-width:none}.match-squad-row::-webkit-scrollbar{display:none}
+.match-squad-row button{flex:none;max-width:12rem;min-height:var(--control-sm);padding:0 var(--sp-3-5);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:0;border-radius:var(--radius-pill);background:var(--ds-surface-secondary);color:var(--ds-text-secondary);font-size:var(--fs-sm);font-weight:700;cursor:pointer;transition:background var(--ds-duration-toggle) var(--ds-ease-toggle),color var(--ds-duration-toggle) var(--ds-ease-toggle)}
+.match-squad-row button.active{background:var(--ds-accent-action);color:white}
+.match-squad-row button:focus-visible{outline:3px solid var(--ds-focus);outline-offset:2px}
+/* Score tick */
+@keyframes score-tick{0%{transform:scale(1)}40%{transform:scale(1.14)}100%{transform:scale(1)}}
+.score-value.tick{animation:score-tick var(--ds-duration-toggle) var(--ds-ease-toggle)}
+@media(prefers-reduced-motion:reduce){.score-value.tick{animation:none}}
+/* ELO preview: a result card, direction shown by arrow + colour */
+.elo-preview:not(.entertainment-preview){padding:var(--sp-4);border:1px solid var(--line);border-radius:var(--radius-xl);background:var(--ds-surface-raised);box-shadow:var(--ds-elevation-1)}
+.elo-preview:not(.entertainment-preview)>div{gap:var(--sp-4)}
+.elo-preview span b{display:inline-flex;align-items:center;gap:var(--sp-1);margin-top:var(--sp-1-5);padding:var(--sp-1) var(--sp-3);border-radius:var(--radius-pill);font-size:var(--fs-h3);letter-spacing:0}
+.elo-preview span b.positive{background:var(--ds-success-soft,rgba(39,112,78,.12));color:var(--me-accent-text)}
+.elo-preview span b.negative{background:var(--ds-danger-soft,rgba(157,63,55,.1));color:var(--me-danger-text)}
+.elo-preview span b.positive::before{content:"▲";font-size:var(--fs-label)}
+.elo-preview span b.negative::before{content:"▼";font-size:var(--fs-label)}
+.elo-preview>div>i{display:none}
+.elo-preview details{margin-top:var(--sp-3);padding-top:var(--sp-2-5);border-top:1px solid var(--ds-border-subtle)}
