@@ -178,3 +178,12 @@
 /* Phone: even 16px padding on every side of the score panel (the score boxes flex to fit what's left). */
 @media(max-width:820px){.score-panel{padding:var(--sp-4)}}
 @media(max-width:820px){.score-value{line-height:1}}
+
+/* iOS Safari: globals.css forces every input to --fs-input with !important (to stop focus-zoom), which
+   shrank the frame digits to 16px. These are display-size numbers, so they opt out of it. */
+@supports (-webkit-touch-callout:none){
+  .score-value{font-size:var(--fs-score)!important}
+}
+@supports (-webkit-touch-callout:none){
+  @media(max-width:820px){.score-value{font-size:var(--fs-score-lg)!important}}
+}
