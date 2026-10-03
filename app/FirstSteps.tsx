@@ -1,4 +1,5 @@
 "use client";
+import "../lib/legacy-storage";
 import {useEffect,useRef,useState,useSyncExternalStore} from "react";
 import {NavIcon} from "./UiBits";
 import {Button, ButtonLink, IconButton} from "./components/ui/Primitives";
@@ -121,7 +122,7 @@ export function IntroTour({tab,signedIn,onShow,onClose}:{tab:string;signedIn:boo
   </>;
 }
 
-const CHECKLIST_KEY="scaa-first-steps";
+const CHECKLIST_KEY="elo-first-steps";
 type Progress={match?:boolean;hidden?:boolean};
 const listeners=new Set<()=>void>();
 const subscribeProgress=(notify:()=>void)=>{listeners.add(notify);window.addEventListener("storage",notify);return ()=>{listeners.delete(notify);window.removeEventListener("storage",notify)}};

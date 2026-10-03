@@ -1,4 +1,5 @@
 "use client";
+import "../../lib/legacy-storage";
 
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import Link from "next/link";
@@ -24,8 +25,8 @@ import { useT } from "../components/I18nProvider";
 import type { Translator } from "../../lib/i18n/translate";
 import { INTL_LOCALE } from "../../lib/i18n/locales";
 
-const STORAGE_KEY = "scaa-shootout-session";
-const SETTINGS_KEY = "scaa-shootout-settings";
+const STORAGE_KEY = "elo-shootout-session";
+const SETTINGS_KEY = "elo-shootout-settings";
 
 type IconName = "arrow" | "back" | "check" | "clock" | "fullscreen" | "pause" | "play" | "reset" | "sound" | "undo" | "x";
 
@@ -140,7 +141,7 @@ function SetupScreen({
   const isReady = state.status === "ready";
   return <div className="shootout-page shootout-setup-page">
     <header className="shootout-header shootout-header--light">
-      <Link className="shootout-brand" href="/" aria-label={t("返回 SCAA Snooker ELO")}>
+      <Link className="shootout-brand" href="/" aria-label={t("返回 Snooker ELO")}>
         <span className="shootout-brand-mark">S</span>
         <span><strong>SHOOTOUT</strong><small>{t("限時賽計時器")}</small></span>
       </Link>

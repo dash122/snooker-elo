@@ -124,3 +124,16 @@
 .table-card .row.squad-inactive>:not(.person){opacity:.55}
 .table-card .row.squad-inactive .person b{color:var(--ds-text-secondary)}
 
+
+/* In-page explainer shown when someone taps 球隊 without belonging to one. */
+.ds-app-shell .squad-intro {
+  display: grid; gap: var(--sp-3); padding: var(--sp-5); margin-top: var(--sp-3);
+  background: var(--ds-surface-primary); border-radius: var(--radius-lg); box-shadow: var(--ds-elevation-1);
+}
+.ds-app-shell .squad-intro h2 { margin: 0; font-size: var(--fs-h3); }
+.ds-app-shell .squad-intro p { margin: 0; font-size: var(--fs-body); color: var(--ds-text-secondary); line-height: 1.5; }
+.ds-app-shell .squad-intro-points { margin: 0; padding-left: var(--sp-4-5); display: grid; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--ds-text-secondary); }
+.ds-app-shell .squad-intro-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+@media (max-width: 599px) {
+  .ds-app-shell .squad-intro-actions > * { flex: 1 1 100%; }
+}

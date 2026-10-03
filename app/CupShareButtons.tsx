@@ -53,7 +53,7 @@ export default function CupShareButtons({ name, state, url, entrants, champion, 
     let copied = false;
     try { await navigator.clipboard.writeText(url); copied = true; } catch { /* no clipboard */ }
     const svg = cupStorySvg(t, cupStoryCard(t, name, state, url, entrants, champion, bracket), avatarHex);
-    const outcome = await shareStory(svg, { filename: "scaa-cup.png", title: name, text: `${name}\n${url}` });
+    const outcome = await shareStory(svg, { filename: "snooker-cup.png", title: name, text: `${name}\n${url}` });
     setBusy(false);
     if (outcome === "failed") { setNote(t("圖片整唔到，請再試一次。")); return; }
     const paste = copied ? t("連結已經複製") : t("連結：{url}", {url});

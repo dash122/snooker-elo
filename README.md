@@ -1,6 +1,6 @@
-# SCAA Snooker ELO
+# Snooker ELO
 
-SCAA Snooker ELO is a shared snooker-club rating and record-keeping app. It publishes a live leaderboard from a common database, records match results, tracks player form and high breaks, and recalculates ratings as the club's history changes.
+Snooker ELO is a shared snooker-club rating and record-keeping app. It publishes a live leaderboard from a common database, records match results, tracks player form and high breaks, and recalculates ratings as the club's history changes.
 
 The interface is currently written for Traditional Chinese (Hong Kong), while the codebase and deployment configuration are TypeScript/Next.js-compatible.
 

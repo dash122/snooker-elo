@@ -261,7 +261,7 @@ export function WeekBand({signedIn,onInvite,onOpenPlayer,onChanged,refreshKey,
 
   return <section className="wb-card">
     <header className="wb-head">
-      <p className="wb-kicker">{t("SCAA · 約戰")}</p>
+      <p className="wb-kicker">{t("約戰")}</p>
       <h2>{published?t("你已公開時段"):t("本週哪一晚最多人？")}</h2>
       <p>{published
         ? t("名單已解鎖，可直接發出邀請。拖動時段軸即可修改。")

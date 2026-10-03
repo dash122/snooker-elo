@@ -3,8 +3,8 @@ import { signInOrSignUpWithGoogle } from "../../../../../db/signup";
 import { checkAttempt } from "../../../../../lib/rate-limit";
 import { secureCookieAttribute } from "../../../../../lib/auth-cookie";
 
-const STATE_COOKIE = "scaa_oauth_state";
-const INTENT_COOKIE = "scaa_oauth_intent";
+const STATE_COOKIE = "elo_oauth_state";
+const INTENT_COOKIE = "elo_oauth_intent";
 const clearStateCookie = `${STATE_COOKIE}=; Path=/api/auth/google; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=0`;
 const clearIntentCookie = `${INTENT_COOKIE}=; Path=/api/auth/google; HttpOnly${secureCookieAttribute()}; SameSite=Lax; Max-Age=0`;
 

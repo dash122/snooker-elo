@@ -35,7 +35,7 @@ export default function ShareSheet({ card, message, url, title, heading = true }
     setBusy(true);
     setNote("");
     const outcome = await shareStory(svg, {
-      filename: `scaa-snooker-${card.kind}.png`,
+      filename: `snooker-elo-${card.kind}.png`,
       title,
       text: storyCaption(url),
     });

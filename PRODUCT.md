@@ -8,12 +8,12 @@ web
 
 ## Users
 
-- Club members use the product to follow SCAA snooker activity, manage their playing availability, arrange games, and review results and ratings.
+- Club members use the product to follow snooker activity, manage their playing availability, arrange games, and review results and ratings.
 - Administrators manage members, player records, ELO settings, operational data, and product-usage reporting.
 
 ## Product Purpose
 
-SCAA Snooker ELO is the club's shared system for player ratings, match records, competitions, and member matchmaking. It should make club activity understandable and help members turn availability and intent into played matches.
+Snooker ELO is the club's shared system for player ratings, match records, competitions, and member matchmaking. It should make club activity understandable and help members turn availability and intent into played matches.
 
 ## Positioning
 
@@ -35,7 +35,7 @@ The product combines the club's own ELO record with member identity and real-wor
 
 ## Brand Commitments
 
-Preserve the established SCAA Snooker ELO identity, Traditional Chinese voice, snooker-club green and gold palette, condensed display typography, and functional admin-dashboard character.
+Preserve the established Snooker ELO identity, Traditional Chinese voice, snooker-club green and gold palette, condensed display typography, and functional admin-dashboard character.
 
 ## Evidence on Hand
 

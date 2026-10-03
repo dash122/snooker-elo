@@ -1,9 +1,10 @@
 "use client";
+import "../lib/legacy-storage";
 import {useState,useSyncExternalStore} from "react";
 import {Button, IconButton} from "./components/ui/Primitives";
 import { useT } from "./components/I18nProvider";
 
-const COLLAPSE_KEY="scaa-guest-intro-dismissed";
+const COLLAPSE_KEY="elo-guest-intro-dismissed";
 const subscribeCollapse=(notify:()=>void)=>{window.addEventListener("storage",notify);return ()=>window.removeEventListener("storage",notify)};
 const readCollapse=()=>{try{return localStorage.getItem(COLLAPSE_KEY)==="1"}catch{return false}};
 const serverCollapse=()=>true;

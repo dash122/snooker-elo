@@ -95,13 +95,14 @@ export async function listMySquads(actor: string): Promise<MySquad[]> {
 }
 
 /** A squad as `viewer` may see it: members see their own squads, anyone (signed in or not) sees public ones. */
-export async function getSquad(viewer: string | null, squadId: string): Promise<SquadDetail | null> {
+export async function getSquad(viewer: string | null, squadId: string, asAdmin = false): Promise<SquadDetail | null> {
   const sql = getSql();
   const [row] = await sql<{ id: string; name: string; visibility: SquadVisibility; invite_code: string; role: SquadRole | null }[]>`
     SELECT s.id, s.name, s.visibility, s.invite_code, m.role
     FROM squads s LEFT JOIN squad_members m ON m.squad_id=s.id AND m.player_id=${viewer}
     WHERE s.id=${squadId}`;
-  if (!row || (row.visibility === "private" && !row.role)) return null;
+  /* Admins may open any squad, read-only: `role` stays whatever their own membership is (usually null). */
+  if (!row || (row.visibility === "private" && !row.role && !asAdmin)) return null;
   const members = (await membersOf(sql, [row.id])).get(row.id) ?? [];
   return {
     id: row.id, name: row.name, visibility: row.visibility, role: row.role,
@@ -121,28 +122,28 @@ export async function previewInvite(code: string): Promise<{ id: string; name: s
 /** The public directory, most relevant first: squads holding the most people the viewer has
     actually played (confirmed singles), then the largest. A squad of strangers is a weaker reason
     to join than one of familiar opponents. */
-export async function browsePublicSquads(viewer: string | null, query: string): Promise<(SquadSummary & { playedWith: number })[]> {
+export async function browsePublicSquads(viewer: string | null, query: string, asAdmin = false): Promise<(SquadSummary & { playedWith: number })[]> {
   const sql = getSql();
   const pattern = `%${query.replace(/[\\%_]/g, char => `\\${char}`)}%`;
-  const rows = await sql<{ id: string; name: string; member_count: number; played_with: number }[]>`
+  const rows = await sql<{ id: string; name: string; visibility: SquadVisibility; member_count: number; played_with: number }[]>`
     WITH opponents AS (
       SELECT player_b AS id FROM state_matches WHERE player_a=${viewer} AND status='confirmed' AND mode IS DISTINCT FROM '2v2'
       UNION
       SELECT player_a FROM state_matches WHERE player_b=${viewer} AND status='confirmed' AND mode IS DISTINCT FROM '2v2'
     )
-    SELECT s.id, s.name, count(m.player_id)::int AS member_count,
+    SELECT s.id, s.name, s.visibility, count(m.player_id)::int AS member_count,
       count(o.id)::int AS played_with
     FROM squads s
     JOIN squad_members m ON m.squad_id=s.id
     LEFT JOIN opponents o ON o.id=m.player_id
-    WHERE s.visibility='public'
+    WHERE (${asAdmin}::boolean OR s.visibility='public')
       AND s.name ILIKE ${pattern}
-      AND NOT EXISTS (SELECT 1 FROM squad_members mine WHERE mine.squad_id=s.id AND mine.player_id=${viewer})
-    GROUP BY s.id, s.name
-    HAVING count(m.player_id) >= ${PUBLIC_LISTING_MIN_MEMBERS}
-    ORDER BY played_with DESC, member_count DESC, s.name
-    LIMIT 30`;
-  return rows.map(row => ({ id: row.id, name: row.name, visibility: "public", memberCount: row.member_count, role: null, playedWith: row.played_with }));
+      AND (${asAdmin}::boolean OR NOT EXISTS (SELECT 1 FROM squad_members mine WHERE mine.squad_id=s.id AND mine.player_id=${viewer}))
+    GROUP BY s.id, s.name, s.visibility
+    HAVING ${asAdmin}::boolean OR count(m.player_id) >= ${PUBLIC_LISTING_MIN_MEMBERS}
+    ORDER BY ${asAdmin ? sql`s.name` : sql`played_with DESC, member_count DESC, s.name`}
+    LIMIT ${asAdmin ? 100 : 30}`;
+  return rows.map(row => ({ id: row.id, name: row.name, visibility: row.visibility, memberCount: row.member_count, role: null, playedWith: row.played_with }));
 }
 
 /** Players who could be added to a squad: linked to an active member account. */

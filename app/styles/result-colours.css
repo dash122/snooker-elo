@@ -11,10 +11,15 @@
 }
 .ds-app-shell .ranking-panel .table-card .person .player-record > span { display: inline-flex; align-items: center; line-height: 1; padding: 0; color: inherit; background: none; }
 
-/* Phones: pips become soft tints with coloured letters instead of solid fills, so a row of them
-   doesn't out-shout the names and ratings. */
-@media (max-width: 599px) {
+/* Pips are soft tints with coloured letters instead of solid fills, so a row of them
+   doesn't out-shout the names and ratings. Same at every width. */
+@media all {
   .form i.w, .players-row-form i.w { background: color-mix(in srgb, var(--ds-chart-positive) 34%, transparent); color: color-mix(in srgb, var(--ds-chart-positive) 70%, var(--ds-text-primary)); }
   .form i.d, .players-row-form i.d { background: color-mix(in srgb, var(--ds-border-muted) 40%, transparent); color: var(--ds-text-tertiary); }
   .form i.l, .players-row-form i.l { background: color-mix(in srgb, var(--ds-chart-negative) 34%, transparent); color: color-mix(in srgb, var(--ds-chart-negative) 70%, var(--ds-text-primary)); }
+}
+
+/* The W/D/L record is a squad-view detail; the club board stays name + form + rating. */
+@media all {
+  .ds-app-shell .ranking-panel:not(.squad-scope) .table-card .person .player-record { display: none; }
 }
