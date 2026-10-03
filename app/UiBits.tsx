@@ -120,20 +120,31 @@ export function PlayerCombobox<P extends {id:string;name:string}>({players,value
  * The scoreline is the reason both the match list and head-to-head exist, so
  * both render it through here: same size, same winner treatment, no drift.
  */
-export function Scoreline({left,right,scoreLeft,scoreRight,eloLeft,eloRight,onLeftClick,onRightClick}:{left:string;right:string;scoreLeft:number;scoreRight:number;eloLeft?:{before:number;after:number;delta:number};eloRight?:{before:number;after:number;delta:number};onLeftClick?:()=>void;onRightClick?:()=>void}) {
+/** Counts 0 → value on mount; jumps straight to the value under reduced motion. */
+export function CountUp({value}:{value:number}){
+  const [shown,setShown]=useState(0);
+  useEffect(()=>{
+    if(value<=0||window.matchMedia("(prefers-reduced-motion: reduce)").matches){setShown(value);return}
+    const start=performance.now(),span=Math.min(1400,600+value*150);let raf=0;
+    const tick=(now:number)=>{const p=Math.min(1,(now-start)/span);setShown(Math.round(value*(1-(1-p)**3)));if(p<1)raf=requestAnimationFrame(tick)};
+    raf=requestAnimationFrame(tick);
+    return()=>cancelAnimationFrame(raf);
+  },[value]);
+  return <>{shown}</>;
+}
+
+export function Scoreline({left,right,scoreLeft,scoreRight,eloLeft,eloRight,onLeftClick,onRightClick,animate=false}:{animate?:boolean;left:string;right:string;scoreLeft:number;scoreRight:number;eloLeft?:{before:number;after:number;delta:number};eloRight?:{before:number;after:number;delta:number};onLeftClick?:()=>void;onRightClick?:()=>void}) {
   const t = useT();
   const leftWins=scoreLeft>scoreRight,rightWins=scoreRight>scoreLeft,drawn=scoreLeft===scoreRight;
   const side=(wins:boolean)=>drawn?"drawn":wins?"winner":"loser";
   return <div className={`scoreline${eloLeft||eloRight?" with-elo":""}`} role="group" aria-label={t("{left} {scoreLeft} 比 {scoreRight} {right}{v}", {left, scoreLeft, scoreRight, right, v: drawn?t("，和局"):t("，{v} 勝", {v: leftWins?left:right})})}>
     {onLeftClick?<button type="button" className={`scoreline-name ${side(leftWins)}`} onClick={onLeftClick}>{left}</button>:<span className={`scoreline-name ${side(leftWins)}`}>{left}</span>}
-    <b className={side(leftWins)}>{scoreLeft}</b>
+    <b className={side(leftWins)}>{animate?<CountUp value={scoreLeft}/>:scoreLeft}</b>
     <em aria-hidden="true">–</em>
-    <b className={side(rightWins)}>{scoreRight}</b>
+    <b className={side(rightWins)}>{animate?<CountUp value={scoreRight}/>:scoreRight}</b>
     {onRightClick?<button type="button" className={`scoreline-name right ${side(rightWins)}`} onClick={onRightClick}>{right}</button>:<span className={`scoreline-name right ${side(rightWins)}`}>{right}</span>}
-    {eloLeft&&<small className={`scoreline-delta ${eloLeft.delta>=0?"positive":"negative"}`}>ELO {eloLeft.delta>=0?"+":""}{Math.round(eloLeft.delta)}</small>}
-    {eloRight&&<small className={`scoreline-delta right ${eloRight.delta>=0?"positive":"negative"}`}>ELO {eloRight.delta>=0?"+":""}{Math.round(eloRight.delta)}</small>}
-    {eloLeft&&<small className={`scoreline-elo ${eloLeft.delta>=0?"positive":"negative"}`}>{Math.round(eloLeft.before)} <i aria-hidden="true">→</i> {Math.round(eloLeft.after)}</small>}
-    {eloRight&&<small className={`scoreline-elo right ${eloRight.delta>=0?"positive":"negative"}`}>{Math.round(eloRight.before)} <i aria-hidden="true">→</i> {Math.round(eloRight.after)}</small>}
+    {eloLeft&&<small className={`scoreline-delta ${eloLeft.delta>=0?"positive":"negative"}`}>ELO {eloLeft.delta>=0?"+":""}{Math.round(eloLeft.delta)} <i aria-hidden="true">→</i> {Math.round(eloLeft.after)}</small>}
+    {eloRight&&<small className={`scoreline-delta right ${eloRight.delta>=0?"positive":"negative"}`}>ELO {eloRight.delta>=0?"+":""}{Math.round(eloRight.delta)} <i aria-hidden="true">→</i> {Math.round(eloRight.after)}</small>}
   </div>;
 }
 
@@ -272,7 +283,7 @@ function smoothPath(pts:[number,number][]){
 /** Beyond this many points, individual dots overlap into a beaded chain — switch to a clean line with a scrub cursor. */
 const DENSE_TREND_POINTS=24;
 
-export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label:string}) {
+export function InteractiveEloChart({points,label,heading}:{points:EloTrendPoint[];label:string;heading?:ReactNode}) {
   const t = useT();
   const [range,setRange]=useState<"recent"|"all">("recent");
   const [activeId,setActiveId]=useState<string|null>(null);
@@ -286,7 +297,7 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
   const values=visible.map(point=>point.elo),rawMin=Math.min(...values),rawMax=Math.max(...values);
   const observed=Math.max(1,rawMax-rawMin),visualRange=Math.max(24,observed*1.32);
   const middle=(rawMin+rawMax)/2,min=middle-visualRange/2,max=middle+visualRange/2;
-  const x=(index:number)=>visible.length===1?50:5+index/(visible.length-1)*90;
+  const x=(index:number)=>visible.length===1?52:9+index/(visible.length-1)*86;
   const y=(value:number)=>54-(value-min)/(max-min)*46;
   const coords=visible.map((point,index):[number,number]=>[x(index),y(point.elo)]);
   const linePath=smoothPath(coords);
@@ -294,16 +305,23 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
   const dense=visible.length>DENSE_TREND_POINTS;
   const scrub=(event:PointerEvent<HTMLDivElement>)=>{
     const box=event.currentTarget.getBoundingClientRect();
-    const index=Math.round((((event.clientX-box.left)/box.width*100-5)/90)*(visible.length-1));
+    const index=Math.round((((event.clientX-box.left)/box.width*100-9)/86)*(visible.length-1));
     setActiveId(visible[Math.min(visible.length-1,Math.max(0,index))].id);
   };
   const peakIndex=values.indexOf(rawMax);
+  /* Up to four evenly spaced dates under the plot, so the line has a time scale. Years only appear
+     when the range crosses one. */
+  const firstDate=visible.find(point=>point.date)?.date??"",lastDate=visible.at(-1)!.date;
+  const spansYears=firstDate.slice(0,4)!==lastDate.slice(0,4);
+  const tickLabel=(date:string)=>date?(spansYears?date.slice(2):date.slice(5)).replaceAll("-","/"):"";
+  const last=visible.length-1;
+  const tickIndexes=[...new Set(last<=0?[0]:[0,Math.round(last/3),Math.round(last*2/3),last])];
   const active=visible.find(point=>point.id===activeId)??null;
   const activeIndex=active?visible.findIndex(point=>point.id===active.id):-1;
   const periodChange=visible.at(-1)!.elo-visible[0].elo;
   const resultLabel=(result:EloTrendPoint["result"])=>result==="W"?t("勝"):result==="L"?t("負"):result==="D"?t("和"):t("起始");
   return <div className="interactive-trend">
-    <div className="trend-overview"><div><small>{range==="recent"?t("最近十場"):t("完整記錄")}</small><b className={periodChange>=0?"positive":"negative"}>{periodChange>=0?"+":""}{Math.round(periodChange)} <em>ELO</em></b></div><SlidingToggleGroup className="ds-toggle-control" aria-label={t("ELO 走勢範圍")}><button className={range==="recent"?"active":""} onClick={()=>{setRange("recent");setActiveId(null)}}>{t("最近十場")}</button><button className={range==="all"?"active":""} onClick={()=>{setRange("all");setActiveId(null)}}>{t("全部")}</button></SlidingToggleGroup></div>
+    <div className="trend-overview">{heading&&<div className="trend-heading">{heading}</div>}<div className="trend-stat"><b className={periodChange>=0?"positive":"negative"}>{periodChange>=0?"+":""}{Math.round(periodChange)} <em>ELO</em></b><small>{t("最高 {v} · 最低 {v2}", {v: Math.round(rawMax), v2: Math.round(rawMin)})}</small></div><SlidingToggleGroup className="ds-toggle-control" aria-label={t("ELO 走勢範圍")}><button className={range==="recent"?"active":""} onClick={()=>{setRange("recent");setActiveId(null)}}>{t("最近十場")}</button><button className={range==="all"?"active":""} onClick={()=>{setRange("all");setActiveId(null)}}>{t("全部")}</button></SlidingToggleGroup></div>
     <div className={`trend-plot${dense?" dense":""}`} onPointerLeave={event=>{if(!dense||event.pointerType==="mouse")setActiveId(null)}}
       {...(dense?{
         tabIndex:0,role:"group","aria-label":t("{label}，可用左右方向鍵逐場查看", {label}),
@@ -316,12 +334,14 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
         },
         onBlur:()=>setActiveId(null)
       }:{})}>
+      <div className="trend-yaxis" aria-hidden="true">{[[max,8],[middle,31],[min,54]].map(([value,line])=><span key={line} style={{top:`${line/60*100}%`}}>{Math.round(value)}</span>)}</div>
       <svg viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label={label}>
         <defs><linearGradient id="elo-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#287e69" stopOpacity=".28"/><stop offset="100%" stopColor="#287e69" stopOpacity=".02"/></linearGradient></defs>
-        {[8,31,54].map(line=><line key={line} x1="5" y1={line} x2="95" y2={line} className="trend-grid"/>)}
+        {[8,31,54].map(line=><line key={line} x1="9" y1={line} x2="95" y2={line} className="trend-grid"/>)}
         <path d={area} className="trend-area"/><path d={linePath} className={`trend-line${dense?" dense":""}`}/>
         {active&&<line x1={x(activeIndex)} y1="6" x2={x(activeIndex)} y2="56" className="trend-guide"/>}
       </svg>
+      <span className={`trend-now ${periodChange>=0?"positive":"negative"}`} style={{left:`${x(visible.length-1)}%`,top:`${y(visible.at(-1)!.elo)/60*100}%`}} aria-hidden="true"/>
       {dense&&<>
         <span className="trend-peak" style={{left:`${x(peakIndex)}%`,top:`${y(rawMax)/60*100}%`}} aria-hidden="true"><em>{Math.round(rawMax)}</em></span>
         {active&&<span className={`trend-point trend-cursor ${active.result==="start"?"start":active.result.toLowerCase()}`} style={{left:`${x(activeIndex)}%`,top:`${y(active.elo)/60*100}%`}} aria-hidden="true"/>}
@@ -329,9 +349,7 @@ export function InteractiveEloChart({points,label}:{points:EloTrendPoint[];label
       {!dense&&visible.map((point,index)=><button key={point.id} className={`trend-point ${point.result==="start"?"start":point.result.toLowerCase()} ${activeId===point.id?"active":""}`} style={{left:`${x(index)}%`,top:`${y(point.elo)/60*100}%`}} onPointerEnter={()=>setActiveId(point.id)} onFocus={()=>setActiveId(point.id)} onBlur={()=>setActiveId(null)} onClick={()=>setActiveId(current=>current===point.id?null:point.id)} aria-label={point.result==="start"?t("起始 ELO {v}", {v: Math.round(point.elo)}):t("{date}，{v} {opponent} {score}，ELO {v2} {v3} 至 {v4}", {date: point.date, v: resultLabel(point.result), opponent: point.opponent, score: point.score, v2: point.delta>=0?t("上升"):t("下降"), v3: Math.abs(Math.round(point.delta)), v4: Math.round(point.elo)})}/>)}
       {active&&<div className={`trend-tooltip ${x(activeIndex)>70?"align-right":x(activeIndex)<30?"align-left":""}`} style={{left:`${x(activeIndex)}%`,top:`${Math.max(3,y(active.elo)/60*100-7)}%`}} role="status"><small>{active.result==="start"?t("評分起點"):active.date}</small><b>{active.result==="start"?t("起始 ELO"):`${resultLabel(active.result)} ${active.opponent} ${active.score}`}</b><span>{active.result==="start"?Math.round(active.elo):<>{Math.round(active.before)} → {Math.round(active.elo)} <strong className={active.delta>=0?"positive":"negative"}>{active.delta>=0?"+":""}{Math.round(active.delta)}</strong></>}</span></div>}
     </div>
-    <div className="trend-scale"><span>{Math.round(max)}</span><span>{Math.round(middle)}</span><span>{Math.round(min)}</span></div>
-    {dense&&<div className="trend-dates" aria-hidden="true"><span>{visible.find(point=>point.date)?.date}</span><span>{visible.at(-1)!.date}</span></div>}
-    <p className="trend-help">{dense?t("共 {v} 場；在圖上左右滑動或移動，查看該場對手、比分與 ELO 變化。", {v: visible.length-1}):t("移至或點按資料點，查看該場對手、比分與 ELO 變化。")}</p>
+    <div className="trend-xaxis" aria-hidden="true">{tickIndexes.map(index=><span key={index} style={{left:`${x(index)}%`}}>{tickLabel(visible[index].date||firstDate)}</span>)}</div>
   </div>;
 }
 
