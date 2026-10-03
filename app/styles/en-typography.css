@@ -1,10 +1,10 @@
-/* English type: Inter for text and Sora for headings. Numbers keep --font-display (Barlow Condensed) so
-   they match the Chinese version. Noto Sans TC stays in each stack so any Chinese still renders, and
-   the Chinese UI is untouched because every rule is scoped to lang="en". */
-:lang(en) body {
+/* One type system for both languages: Inter for text and Sora for headings. Neither has CJK glyphs, so
+   Chinese characters fall through to Noto Sans TC while Latin letters and digits match the English
+   version. Numbers keep --font-display (Barlow Condensed) in both. */
+body {
   font-family: "Inter", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", ui-sans-serif, system-ui, sans-serif;
 }
-:lang(en) :is(h1, h2, h3, .board-scope__title) {
+:is(h1, h2, h3, .board-scope__title) {
   font-family: "Sora", "Noto Sans TC", "PingFang TC", ui-sans-serif, sans-serif;
   letter-spacing: -.01em;
 }
