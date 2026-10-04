@@ -5,7 +5,7 @@ export const zhHant = {
   "lang.menuLabel": "選擇語言 Language",
   "nav.leaderboard": "排行榜",
   "nav.matches": "比賽",
-  "nav.availability": "約戰",
+  "nav.play": "約戰",
   "nav.players": "球員",
   "nav.settings": "設定",
   "nav.record": "記錄",

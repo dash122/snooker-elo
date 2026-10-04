@@ -12,7 +12,7 @@ import { msg } from "../lib/i18n/translate";
 const TOUR:{tab:Destination;title:string;body:string;targets:string[]}[]=[
   {tab:"leaderboard",title:msg("排行榜"),body:msg("所有球員按 ELO 評分排名。點選任何球員，即可查看其評分走勢、勝率及建議讓分。"),targets:[".table-card .row.top",".table-card"]},
   {tab:"matches",title:msg("賽事紀錄"),body:msg("每場比賽的局分、讓分及單桿紀錄均公開存檔，盃賽賽程亦可在此查看。"),targets:[".match-list .match",".match-list"]},
-  {tab:"availability",title:msg("約戰配對"),body:msg("登記你有空的時段，系統會為你配對時間吻合、實力相近的對手。"),targets:[".mp-actions",".mp-dates",".mp-hero",".mp-page"]},
+  {tab:"play",title:msg("約戰"),body:msg("話畀大家知你想打波，或者開一張檯，邀請球友一齊打。"),targets:[".play-actions--top",".play-days",".play-page"]},
   {tab:"players",title:msg("球員資料"),body:msg("瀏覽每位球員的個人主頁，並可一鍵分享至 WhatsApp 或 Instagram。"),targets:[".players-rows .players-row",".players-view"]},
 ];
 

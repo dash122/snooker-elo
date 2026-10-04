@@ -223,39 +223,6 @@ export async function getStateSummary(): Promise<StateSummary> {
   return row ?? { players: 0, matches: 0, tournaments: 0 };
 }
 
-/** The narrow slice matchmaking needs, instead of the whole club document.
- *
- *  /api/sessions ranks opponents, and every open 約戰 tab polls it on a 45-second timer. It was
- *  reading getState(): the full document, which carries all forty-odd columns of every match ever
- *  played (including the high_breaks jsonb), every tournament, and the audit log — then parsed the
- *  lot in JS to read six fields per match. The ranking genuinely needs lifetime history, so this
- *  cannot be narrowed by date, but it can be narrowed by column, which is where nearly all of the
- *  weight was. Same single round trip, a fraction of the bytes off the database and through the
- *  serverless function.
- *
- *  Deliberately its own query rather than a parameter on getStateDocument: that document is
- *  content-addressed by ETag and shared with the browser cache, and giving it a second shape would
- *  make those versions mean two different things. */
-export type MatchmakingSlice = {
-  players: { id:string; name:string; short:string; rating:number; colour:string|null; avatar:string|null; active:boolean }[];
-  matches: { a:string; b:string; scoreA:number; scoreB:number; playedOn:string; status:"confirmed"|"void" }[];
-  settings: Record<string, unknown>;
-};
-export async function getMatchmakingSlice(): Promise<MatchmakingSlice> {
-  const sql = getSql();
-  const [row] = await sql<{ data: MatchmakingSlice }[]>`
-    SELECT json_build_object(
-      'players', COALESCE((SELECT json_agg(json_build_object(
-        'id', id, 'name', name, 'short', short, 'rating', rating::float8,
-        'colour', colour, 'avatar', avatar, 'active', active) ORDER BY name) FROM state_players), '[]'::json),
-      'matches', COALESCE((SELECT json_agg(json_build_object(
-        'a', player_a, 'b', player_b, 'scoreA', score_a, 'scoreB', score_b,
-        'playedOn', to_char(played_on, 'YYYY-MM-DD'), 'status', status) ORDER BY played_on) FROM state_matches), '[]'::json),
-      'settings', COALESCE((SELECT data FROM state_settings WHERE id = true), '{}'::jsonb)
-    ) AS data`;
-  return row?.data ?? { players: [], matches: [], settings: {} };
-}
-
 /* postgres.js decodes timestamptz to a Date, which JSON.stringify renders as
    `2026-02-01T10:00:00.250Z`. Postgres' own default rendering is `+00:00`, so every timestamp
    below is formatted explicitly to match what callers have always parsed. */

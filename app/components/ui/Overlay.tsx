@@ -129,7 +129,7 @@ export function ConfirmDialog({kicker,title,titleId,description,extra,children,o
   const ref=useRef<HTMLElement>(null),id=useId(),descriptionId=useId();
   const uniqueTitleId=`${titleId}-${id}`;
   const dismiss=useOverlay(true,ref,onClose);
-  return <div data-overlay-backdrop className="availability-dialog-backdrop" onMouseDown={event=>event.target===event.currentTarget&&dismiss()}><section ref={ref} tabIndex={-1} className="availability-dialog" role="alertdialog" aria-modal="true" aria-labelledby={uniqueTitleId} aria-describedby={descriptionId}><small>{kicker}</small><h2 id={uniqueTitleId}>{title}</h2><p id={descriptionId}>{description}</p>{extra}<div>{children}</div></section></div>;
+  return <div data-overlay-backdrop className="confirm-dialog-backdrop" onMouseDown={event=>event.target===event.currentTarget&&dismiss()}><section ref={ref} tabIndex={-1} className="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby={uniqueTitleId} aria-describedby={descriptionId}><small>{kicker}</small><h2 id={uniqueTitleId}>{title}</h2><p id={descriptionId}>{description}</p>{extra}<div>{children}</div></section></div>;
 }
 
 /** Preserve legacy skins; include the sibling close button inside the focus boundary. */
