@@ -27,13 +27,17 @@ function failure(t: Translator, error: unknown, request: Request) {
 
 /** The board. Guests get per-day counts only, never names. */
 export async function GET(request: Request) {
+  const started = performance.now();
   const { t } = await getTranslator();
   try {
     const [ready, member] = await Promise.all([isPlayReady(), requireMember()]);
+    const accessMs = performance.now() - started;
     if (!ready) return Response.json({ ready: false }, { headers });
     const url = new URL(request.url);
     const dashboard = await playDashboard(playDatabase(), member?.statePlayerId ?? null, Boolean(member), { city: url.searchParams.get("city"), date: url.searchParams.get("date"), session: url.searchParams.get("session") });
-    return Response.json(dashboard, { headers });
+    const totalMs = performance.now() - started;
+    if (totalMs > 1000) console.info(JSON.stringify({ msg: "play_board_slow", accessMs: Math.round(accessMs), boardMs: Math.round(totalMs - accessMs), totalMs: Math.round(totalMs), requestId: request.headers.get("x-vercel-id") }));
+    return Response.json(dashboard, { headers: { ...headers, "server-timing": `access;dur=${accessMs.toFixed(1)}, board;dur=${(totalMs - accessMs).toFixed(1)}` } });
   } catch (error) { return failure(t, error, request); }
 }
 

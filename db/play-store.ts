@@ -58,24 +58,31 @@ type SessionRow = Omit<PlaySession, "members" | "terms"> & { terms: unknown };
 
 export async function readSnapshot(db: PlayConnection, now: number): Promise<Snapshot> {
   const nowIso = new Date(now).toISOString(), weekIso = new Date(now - 7 * DAY).toISOString();
-  // Independent reads: issue them together instead of paying one round trip each.
-  const [playerRows, venues, intentRows, sessionRows, memberRows, avoids] = await Promise.all([
-    db.query<PlayPlayer>(`SELECT p.id,p.name,p.rating::float8 AS rating FROM state_players p
+  // One statement uses one pooled connection and one remote round trip. The statement's
+  // snapshot also keeps sessions and their membership consistent during concurrent writes.
+  // Return text explicitly: the production pooler may not decode JSON result types.
+  const rows = await db.query<{ snapshot: string }>(`SELECT json_build_object(
+    'playerRows', (SELECT COALESCE(json_agg(rows), '[]'::json) FROM (SELECT p.id,p.name,p.rating::float8 AS rating FROM state_players p
     WHERE p.active AND (NOT EXISTS(SELECT 1 FROM members m WHERE m.state_player_id=p.id)
-      OR EXISTS(SELECT 1 FROM members m WHERE m.state_player_id=p.id AND m.active))`),
-    db.query<PlayVenue>(`SELECT id,name,name_en AS "nameEn",COALESCE(city,'${OTHER_CITY}') AS city,COALESCE(tz,'UTC') AS tz,lat,lng,status
-    FROM venues WHERE active AND merged_into IS NULL AND status<>'rejected' ORDER BY name,id`),
-    db.query<IntentRow>(`SELECT id,player_id AS "playerId",kind,strength,${ts("start_at")} AS "startAt",${ts("end_at")} AS "endAt",
+      OR EXISTS(SELECT 1 FROM members m WHERE m.state_player_id=p.id AND m.active))) rows),
+    'venues', (SELECT COALESCE(json_agg(rows), '[]'::json) FROM (SELECT id,name,name_en AS "nameEn",COALESCE(city,'${OTHER_CITY}') AS city,COALESCE(tz,'UTC') AS tz,lat,lng,status
+    FROM venues WHERE active AND merged_into IS NULL AND status<>'rejected' ORDER BY name,id) rows),
+    'intentRows', (SELECT COALESCE(json_agg(rows), '[]'::json) FROM (SELECT id,player_id AS "playerId",kind,strength,${ts("start_at")} AS "startAt",${ts("end_at")} AS "endAt",
     min_minutes AS "minMinutes",venue_scope AS "venueScope",venue_ids::text AS "venueIds",city,
     min_players AS "minPlayers",target_size AS "targetSize",max_players AS "maxPlayers",conditions::text AS conditions,note,quiet,status
-    FROM play_intents WHERE status='active' AND end_at>$1 ORDER BY start_at,id`, [nowIso]),
-    db.query<SessionRow>(`SELECT id,created_by AS "createdBy",venue_id AS "venueId",city,${ts("start_at")} AS "startAt",${ts("end_at")} AS "endAt",
+    FROM play_intents WHERE status='active' AND end_at>$1 ORDER BY start_at,id) rows),
+    'sessionRows', (SELECT COALESCE(json_agg(rows), '[]'::json) FROM (SELECT id,created_by AS "createdBy",venue_id AS "venueId",city,${ts("start_at")} AS "startAt",${ts("end_at")} AS "endAt",
     min_players AS "minPlayers",target_size AS "targetSize",max_players AS "maxPlayers",table_status AS "tableStatus",status,note,terms::text AS terms,revision
-    FROM play_sessions WHERE status<>'cancelled' AND end_at>$1 ORDER BY start_at,id`, [weekIso]),
-    db.query<{ sessionId: string } & PlaySession["members"][number]>(`SELECT m.session_id AS "sessionId",m.player_id AS "playerId",m.status,m.source,m.came,m.played
-    FROM play_session_members m JOIN play_sessions s ON s.id=m.session_id WHERE s.status<>'cancelled' AND s.end_at>$1`, [weekIso]),
-    db.query<{ playerId: string; otherId: string }>(`SELECT player_id AS "playerId",other_id AS "otherId" FROM play_avoids`),
-  ]);
+    FROM play_sessions WHERE status<>'cancelled' AND end_at>$2 ORDER BY start_at,id) rows),
+    'memberRows', (SELECT COALESCE(json_agg(rows), '[]'::json) FROM (SELECT m.session_id AS "sessionId",m.player_id AS "playerId",m.status,m.source,m.came,m.played
+    FROM play_session_members m JOIN play_sessions s ON s.id=m.session_id WHERE s.status<>'cancelled' AND s.end_at>$2) rows),
+    'avoids', (SELECT COALESCE(json_agg(rows), '[]'::json) FROM (SELECT player_id AS "playerId",other_id AS "otherId" FROM play_avoids) rows)
+  )::text AS snapshot`, [nowIso, weekIso]);
+  const { playerRows, venues, intentRows, sessionRows, memberRows, avoids } = JSON.parse(rows[0].snapshot) as {
+    playerRows: PlayPlayer[]; venues: PlayVenue[]; intentRows: IntentRow[]; sessionRows: SessionRow[];
+    memberRows: ({ sessionId: string } & PlaySession["members"][number])[];
+    avoids: Snapshot["avoids"];
+  };
 
   const byId = new Map(sessionRows.map((s) => [s.id, { ...s, terms: parseStoredConditions(s.terms), members: [] as PlaySession["members"] } as PlaySession]));
   for (const { sessionId, ...member } of memberRows) byId.get(sessionId)?.members.push(member);

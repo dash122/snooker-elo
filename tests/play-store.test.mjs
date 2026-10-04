@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PlayError, playDashboard, playReady, playWrite, venueAdmin } from "../db/play-store.ts";
+import { PlayError, playDashboard, playReady, playWrite, readSnapshot, venueAdmin } from "../db/play-store.ts";
 import { GROUP_PRESETS } from "../lib/play/types.ts";
 import { at, fixture } from "./play-fixture.mjs";
 
@@ -9,6 +9,18 @@ const session = (extra = {}) => ({ venueId: hk, startAt: at(3), endAt: at(5), ra
 const write = (db, actor, action, input) => playWrite(db, actor, action, input);
 const rejects = (promise, status) => assert.rejects(promise, (e) => e instanceof PlayError && (status == null || e.status === status));
 const board = (db, viewer, extra = {}) => playDashboard(db, viewer, viewer != null, { city: "hong-kong", ...extra });
+
+test("board snapshot uses one database round trip and decodes empty collections", async () => {
+  const { db } = await fixture();
+  let reads = 0;
+  const snapshot = await readSnapshot({ query: (...args) => { reads++; return db.query(...args); } }, Date.parse(at(0)));
+  assert.equal(reads, 1);
+  assert.ok(snapshot.players.size > 0);
+  assert.ok(snapshot.venues.length > 0);
+  assert.deepEqual(snapshot.intents, []);
+  assert.deepEqual(snapshot.sessions, []);
+  assert.deepEqual(snapshot.avoids, []);
+});
 
 test("readiness is false until the migration is applied", async () => {
   const before = await fixture({ play: false });

@@ -682,7 +682,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const ownPlayerId=user?.statePlayerId;
   /* The badge runs in the app shell, so a member looking at the leaderboard finds out that a result
      is waiting to be recorded or someone has invited them. Only things owed to *me* count. */
-  const {count:playBadge,refresh:refreshPlay}=usePlayBadge(Boolean(ownPlayerId));
+  const {count:playBadge,refresh:refreshPlay}=usePlayBadge(ownPlayerId);
   /* 球隊: the leaderboard filtered to one of the viewer's squads. Held in `?squad=` so a view can be
      shared and survives a reload; an id the viewer no longer belongs to falls back to the club. */
   const {squads,loaded:squadsLoaded,refresh:refreshSquads}=useSquads(Boolean(ownPlayerId));
@@ -1790,7 +1790,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
         <span className="rank">{rank<=3?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][rank-1]}</i>:rank}{(()=>{if(!movement.active)return null;const move=movement.map.get(p.id)??0;
           // Only real movement earns a mark; a dash on every unchanged row is noise at 100+ players.
           return move===0?null
-          :<em className={`move ${move>0?"up":"down"}`} aria-label={t("較 {days} 天前{v} {v2} 位", {days:swingDays, v: move>0?t("上升"):t("下跌"), v2: Math.abs(move)})}>{move>0?"▲":"▼"}{Math.abs(move)}</em>})()}</span><span className="person"><PlayerBadge player={p}/><b>{p.name}{p.id===ownPlayerId&&<em className="board-self-label">{t("你")}</em>}{provisional&&<small>{t("臨時")}</small>}<span className="player-record" title={recordLabel}><span className="pr-w">{rec.wins}W</span><span className="pr-d">{rec.draws}D</span><span className="pr-l">{rec.losses}L</span></span>{idleText&&<span className="squad-rival" aria-hidden="true"><em className="squad-idle">{idleText}</em></span>}</b></span>
+          :<em className={`move ${move>0?"up":"down"}`} aria-label={t("較 {days} 天前{v} {v2} 位", {days:swingDays, v: move>0?t("上升"):t("下跌"), v2: Math.abs(move)})}>{move>0?"▲":"▼"}{Math.abs(move)}</em>})()}</span><span className="person"><PlayerBadge player={p}/><b><span className="player-name">{p.name}</span>{p.id===ownPlayerId&&<em className="board-self-label">{t("你")}</em>}{provisional&&<small>{t("臨時")}</small>}<span className="player-record" title={recordLabel}><span className="pr-w">{rec.wins}W</span><span className="pr-d">{rec.draws}D</span><span className="pr-l">{rec.losses}L</span></span>{idleText&&<span className="squad-rival" aria-hidden="true"><em className="squad-idle">{idleText}</em></span>}</b></span>
         <span className="form">{p.form.map((x,j)=><i className={x.toLowerCase()} key={j}>{x}</i>)}</span>
         <span>{t("{played} 場", {played})}<small>{t("{rate}% 勝率", {rate})}</small></span><span className="dual-rating"><b>{suggested}</b></span>
         {trailing?<span className="elo"><b className={trailing.cls}>{trailing.big}</b><small>{trailing.sub}</small></span>

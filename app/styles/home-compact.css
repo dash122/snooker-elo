@@ -172,6 +172,8 @@
 .ds-app-shell .ranking-panel .table-card .person .pr-w { color: var(--ds-success); }
 .ds-app-shell .ranking-panel .table-card .person .pr-d { color: var(--form-draw-text); }
 .ds-app-shell .ranking-panel .table-card .person .pr-l { color: var(--ds-danger); }
+.ds-app-shell .ranking-panel.squad-scope .table-card .person .player-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-app-shell .ranking-panel.squad-scope .table-card .person .player-record { flex: none; }
 .ds-app-shell .ranking-panel .table-card .person b { row-gap: 0; }
 
 /* Two explicit scopes; squad identity stays visible above its content. */

@@ -118,7 +118,7 @@ export default function PlayBoard(props: PlayBoardProps) {
   const locale = useLocale();
   const { ownPlayerId, players } = props;
   const [focusId, setFocusId] = useState(props.focusSessionId ?? null);
-  const { data, error, loading, busy, city, pickCity, pickDate, date: chosenDate, refresh, act, results } = usePlayBoard(props.onActivity, focusId);
+  const { data, error, loading, busy, city, pickCity, pickDate, date: chosenDate, refresh, act, results } = usePlayBoard(props.onActivity, focusId, ownPlayerId);
   const [composer, setComposer] = useState<{ key: number | string; init?: ComposerInit } | null>(null);
   const [addVenue, setAddVenue] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
