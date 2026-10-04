@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlayerBadge } from "./UiBits";
-import { Button } from "./components/ui/Primitives";
+import { Button, FormField } from "./components/ui/Primitives";
 import { trackAvailabilityEvent } from "../lib/availability-analytics";
 import { addDaysHongKong, availabilityEndTimes, availabilityStartTimes, hkDate, hkDayLabel } from "../lib/availability";
 import { COMMITMENT_LABELS, overlapHeadline, overlapWithMine, visibleBuckets,
@@ -86,6 +86,9 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
   const [message,setMessage]=useState("");
   const [start,setStart]=useState(DEFAULT_START);
   const [end,setEnd]=useState(DEFAULT_END);
+  const [adding,setAdding]=useState(false);
+  const [draft,setDraft]=useState({name:"",district:""});
+  const [addError,setAddError]=useState("");
 
   const loadDirectory=useCallback(async()=>{
     try{
@@ -119,6 +122,20 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
        rather than letting the form hold a window that cannot be saved. */
     if(endOptions.length&&!endOptions.some(option=>option.value===end))setEnd(endOptions[0].value);
   },[endOptions,end]);
+
+  const addVenue=useCallback(async()=>{
+    if(busy)return;
+    setBusy(true);setAddError("");
+    try{
+      const response=await fetch("/api/venues",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(draft)});
+      const body=await response.json();
+      if(!response.ok)throw new Error(body?.error??t("暫時儲存唔到"));
+      setAdding(false);setDraft({name:"",district:""});
+      setVenueId(body.venue.id);setMessage(body.existing?t("呢個場地已經有，已經幫你揀咗。"):t("已經新增場地。"));
+      await loadDirectory();
+    }catch(error){setAddError(error instanceof Error?error.message:t("網絡連線失敗，請再試一次。"))}
+    finally{setBusy(false)}
+  },[busy,draft,loadDirectory,t]);
 
   const submit=useCallback(async(commitment:Commitment|null)=>{
     if(!venueId||busy)return;
@@ -167,7 +184,7 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
         count; this row is the only thing the product knows that nobody else does. Quiet venues stay
         listed and say so: hiding them would make the row a lie and strand a new venue in a cold
         start it could never climb out of. */}
-    {venues.length>1&&<div className="vb-venues" role="group" aria-label={t("揀場地")}>
+    <div className="vb-venues" role="group" aria-label={t("揀場地")}>
       {venues.map(item=><button key={item.id} type="button" aria-pressed={item.id===venue.id}
         className={`vb-venue-chip${item.id===venue.id?" active":""}`}
         onClick={()=>{setVenueId(item.id);setMessage("")}}>
@@ -175,7 +192,26 @@ export function VenueBoard({signedIn,onChanged}:{signedIn:boolean;onChanged?:()=
         <strong>{item.peak>0?item.peak:"—"}</strong>
         <small>{item.peak>0?`${item.peakStart}–${item.peakEnd}`:t("今晚未有人")}</small>
       </button>)}
-    </div>}
+      {signedIn&&<button type="button" className="vb-venue-chip vb-venue-add" aria-expanded={adding}
+        onClick={()=>{setAdding(open=>!open);setAddError("")}}>
+        <b>+ {t("新增場地")}</b>
+      </button>}
+    </div>
+
+    {adding&&<form className="vb-add" onSubmit={event=>{event.preventDefault();void addVenue()}}>
+      <FormField label={t("場地名稱")}>
+        <input type="text" required maxLength={60} value={draft.name} disabled={busy}
+          onChange={event=>setDraft(value=>({...value,name:event.target.value}))}/>
+      </FormField>
+      <FormField label={t("地區（可省略）")}>
+        <input type="text" maxLength={30} value={draft.district} disabled={busy}
+          onChange={event=>setDraft(value=>({...value,district:event.target.value}))}/>
+      </FormField>
+      <div className="vb-add-actions">
+        <Button type="submit" disabled={busy}>{t("儲存場地")}</Button>
+        <Button type="button" variant="secondary" disabled={busy} onClick={()=>{setAdding(false);setAddError("")}}>{t("取消")}</Button>
+      </div>
+    </form>}
 
     {/* The peak, and the window it falls in. The all-day figure follows in small type and only when
         it differs — a member acts on the first number, so it has to be the honest one. */}

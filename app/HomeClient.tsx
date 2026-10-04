@@ -700,7 +700,8 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   const squadId=useUrlParam("squad");
   const [squadSheet,setSquadSheet]=useState<SquadSheet>(null);
   const selectSquad=useCallback((id:string|null)=>writeUrlParam("squad",id),[]);
-  const publicSquad=usePublicSquad(squadId,squads,ownPlayerId?squadsLoaded:true);
+  /* A squad that can't be opened (private to this viewer, or gone) says so and returns to the club, instead of leaving a dead ?squad= link on screen. */
+  const publicSquad=usePublicSquad(squadId,squads,ownPlayerId?squadsLoaded:true,message=>{setToast(message||t("搵唔到呢個球隊。"));selectSquad(null)});
   const activeSquad=squads.find(squad=>squad.id===squadId)??publicSquad;
   useSquadViewTracking(tab==="leaderboard"?activeSquad:null);
   const squadAction=(id:string,action:"leave"|"seen")=>{
@@ -1590,7 +1591,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
     </OverlayBackdrop>}
     {leavingAvailability&&<ConfirmDialog kicker={t("未儲存的變更")} titleId="leave-availability-title" title={t("離開後變更會消失")} description={t("你在「可配對」的時段變更尚未儲存，離開這一頁後不會保留。")} onClose={()=>setLeavingAvailability(null)}><Button variant="secondary" onClick={()=>setLeavingAvailability(null)}>{t("留在此頁")}</Button><Button variant="danger" onClick={()=>{const next=leavingAvailability;setLeavingAvailability(null);setAvailabilityDirty(false);setHighlightMatch(null);showTab(next)}}>{t("捨棄變更離開")}</Button></ConfirmDialog>}
     {pendingConfirm&&<ConfirmDialog kicker={pendingConfirm.kicker} titleId="pending-confirm-title" title={pendingConfirm.title} description={pendingConfirm.description} onClose={()=>setPendingConfirm(null)}><Button variant="secondary" onClick={()=>setPendingConfirm(null)}>{t("取消")}</Button><Button variant="danger" onClick={()=>{const run=pendingConfirm.onConfirm;setPendingConfirm(null);run()}}>{pendingConfirm.confirmLabel}</Button></ConfirmDialog>}
-    <SquadCenter sheet={squadSheet} setSheet={setSquadSheet} squads={squads} loaded={squadsLoaded||!ownPlayerId} refresh={refreshSquads} selectedId={squadId} onSelect={selectSquad}
+    <SquadCenter sheet={squadSheet} setSheet={setSquadSheet} squads={squads} loaded={squadsLoaded||!ownPlayerId} refresh={refreshSquads} selectedId={squadId} onSelect={selectSquad} viewing={publicSquad}
       players={data.players} ownPlayerId={ownPlayerId} signedIn={Boolean(user)} isAdmin={Boolean(isAdmin)} notify={name=>setToast(t("已加入「{squad}」", {squad:name}))}/>
     {toast&&<div className={`toast${undoSnapshot?" toast-expiring":""}`} role="status"><span>{toast}</span>{undoSnapshot&&<Button variant="quiet" onClick={undoDelete}>{t("復原")}</Button>}</div>}
     {regularPrompt&&<div className="regular-prompt" role="status">
@@ -1692,6 +1693,7 @@ const BREAK_VIEWS=[{value:"players",label:msg("球員最高")},{value:"overall",
 type BreakView=typeof BREAK_VIEWS[number]["value"];
 const SearchIcon=()=><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>;
 const ChevronDown=()=><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>;
+const GearIcon=()=><svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v2.4M12 19.1v2.4M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.9 19.1l1.7-1.7M17.4 6.6l1.7-1.7"/></svg>;
 const FilterIcon=()=><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg>;
 const ClearIcon=()=><svg aria-hidden="true" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>;
 /* A filter chip states a non-default choice in words and clears it in one tap, so state set inside the
@@ -1776,11 +1778,12 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
       <Menu className="board-scope" label={t("切換球隊")} align="start" triggerClassName="board-scope__trigger"
         trigger={()=><><span className="board-scope__title">{squad.name}</span><ChevronDown/></>}
         sections={[
-          {items:scope.squads.map(item=>({key:item.id,label:item.name,checked:squad.id===item.id,onSelect:()=>{setQuery("");scope.onSelect(item.id)}}))},
-          {items:[{key:"more",label:t("瀏覽公開球隊"),onSelect:scope.onMore},...(squad.role?[{key:"manage",label:squad.role==="host"?t("管理球隊"):t("球隊資料"),onSelect:scope.onManage}]:[])]},
+          {title:t("我的球隊"),items:scope.squads.map(item=>({key:item.id,label:item.name,checked:squad.id===item.id,detail:t("{count} 位隊員", {count:item.memberCount}),onSelect:()=>{setQuery("");scope.onSelect(item.id)}}))},
+          {items:[{key:"more",label:t("瀏覽所有球隊"),onSelect:scope.onMore}]},
         ]}/>
       <p className="board-sub">{t("{count} 位隊員", {count:squad.memberCount})}</p>
       </div>
+      {(squad.role||scope.isAdmin)&&<button type="button" className="ds-button ds-button--secondary board-manage" onClick={scope.onManage}><GearIcon/><span>{squad.role==="host"?t("管理球隊"):t("球隊資料")}</span></button>}
     </div>}
     <TabList id={homeTabsId} as="nav" className="page-tabs home-view-nav board-view-tabs" label={squad?t("球隊內容"):t("首頁內容")} value={homeView} onChange={value=>setHomeView(value as typeof homeView)} items={squad?[
       {value:"ranking",label:<span>{t("排行榜")}</span>},
@@ -1795,7 +1798,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
     <section className={`home-view-panel ranking-panel${squad?" squad-scope":""}`} aria-labelledby="ranking-title">
       <h2 id="ranking-title" className="ds-sr-only">{t("目前排名")}</h2>
     <div className="board-toolbar">
-    {visibleRanked.length>8&&<label className="board-search"><SearchIcon/><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={t("搜尋球員")} aria-label={t("搜尋球員")}/></label>}
+    <label className="board-search"><SearchIcon/><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder={t("搜尋球員")} aria-label={t("搜尋球員")}/></label>
       {!defaultSort&&<div className="board-chips">
         <FilterChip label={<>{t("排序：{v}", {v: t(sortLabels[sort])})} {dir==="asc"?"↑":"↓"}</>} clearLabel={t("清除排序")} onClear={()=>{setSort("rank");setDir("asc")}}/>
       </div>}
@@ -1833,7 +1836,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
       <p className="chart-summary">{breakView==="players"?t("每位球員只顯示其最高單桿。"):breakView==="overall"?t("按所有已確認賽事的單桿記錄排名，同一球員可重複上榜。"):t("{thirtyDaysAgo} 至 {today} 的最高單桿，每位球員只顯示其最高單桿。", {thirtyDaysAgo, today})}</p></>}
     </TabPanel>}
     {squad&&<>
-    <TabPanel id={homeTabsId} value="squad" active={homeView==="squad"}><TrendSection players={ranked.filter(p=>squadIds?.has(p.id))} data={data}/><SquadStatsPanel squad={squad} players={data.players} matches={data.matches} onMatrix={()=>setHomeView("matrix")} onPlayer={id=>{const player=data.players.find(p=>p.id===id);if(player)onPlayer(player)}}/></TabPanel>
+    <TabPanel id={homeTabsId} value="squad" active={homeView==="squad"}><SquadStatsPanel squad={squad} players={data.players} matches={data.matches} ownPlayerId={ownPlayerId} onPlayer={id=>{const player=data.players.find(p=>p.id===id);if(player)onPlayer(player)}} onPair={(first,second)=>{const one=data.players.find(p=>p.id===first),two=data.players.find(p=>p.id===second);if(one&&two)onRivalry(one,two)}}/><TrendSection players={ranked.filter(p=>squadIds?.has(p.id))} data={data}/></TabPanel>
     <TabPanel id={homeTabsId} value="matrix" active={homeView==="matrix"}><HeadToHeadMatrix squad={squad} data={data} ownPlayerId={ownPlayerId} onOpenPair={(first,second)=>{const one=data.players.find(p=>p.id===first),two=data.players.find(p=>p.id===second);if(one&&two)onRivalry(one,two)}}/></TabPanel></>}
     {!squad&&<TabPanel id={homeTabsId} value="recent" active={homeView==="recent"}><TrendSection players={ranked} data={data}/><ThirtyDayStats data={data} onPlayer={onPlayer} onMatch={onMatch} onRivalry={onRivalry}/></TabPanel>}</>}</>;
 }
@@ -2141,6 +2144,14 @@ function HeadToHeadMatrix({squad,data,ownPlayerId,onOpenPair}:{squad:MySquad|nul
     const members=squad?new Set(squad.members.map(member=>member.playerId)):null;
     return data.players.filter(player=>met.has(player.id)&&(!members||members.has(player.id))).sort((left,right)=>right.rating-left.rating||left.name.localeCompare(right.name,"zh-HK"));
   },[data.players,index,squad]);
+  // How much of the squad's possible pairings have actually been played.
+  const pairs=useMemo(()=>{
+    if(!squad)return null;
+    const ids=new Set(squad.members.map(member=>member.playerId).filter(id=>data.players.some(player=>player.id===id)));
+    let met=0;
+    for(const key of index.keys()){const [first,second]=key.split("|");if(ids.has(first)&&ids.has(second))met++}
+    return {met,total:ids.size*(ids.size-1)/2};
+  },[squad,index,data.players]);
   const [mode,setMode]=useState<"grid"|"heatmap">(squad?"heatmap":"grid");
   const [zoom,setZoom]=useState(1);
   const sectionRef=useRef<HTMLElement>(null);
@@ -2197,6 +2208,7 @@ function HeadToHeadMatrix({squad,data,ownPlayerId,onOpenPair}:{squad:MySquad|nul
         <button type="button" className="h2h-zoom-step" onClick={()=>setZoom(clampMatrixZoom(zoom*1.15))} disabled={zoom>=MATRIX_ZOOM_MAX} aria-label={t("放大")}>+</button>
       </div>
     </div>
+    {pairs&&pairs.total>0&&<p className="h2h-pairs">{t("{met} / {total} 組已交手",{met:pairs.met,total:pairs.total})}</p>}
     {mode==="heatmap"?<WinRateHeatmap players={players} index={index} focusId={focusId} onOpenPair={onOpenPair}/>
     :<>
       <div className="h2h-matrix-scroll">
@@ -2450,13 +2462,10 @@ function cupStatus(tournament:Tournament,matches:Match[]):CupStatus{
 }
 const CUP_STATUS_LABEL:Record<CupStatus,string>={signup:msg("報名中"),live:msg("進行中"),done:msg("已完成"),short:msg("人數不足")};
 
-/* The trophy plate every cup card and banner wears. Pure decoration — an empty bracket used to look
-   identical to a live one, and a competition should not look like a spreadsheet. */
-function CupArt({tone="dark"}:{tone?:"dark"|"gold"}){
-  return <div className={`cup-art ${tone}`} aria-hidden="true">
-    <span className="cup-art-cup">🏆</span>
-    <i className="cup-art-ball red"/><i className="cup-art-ball white"/><i className="cup-art-arc"/>
-  </div>;
+/* The trophy every cup card, banner and champion wears — one drawn mark, lit by its container, so a
+   competition never looks like a settings row and an emoji never stands in for the club's own hand. */
+function CupEmblem({className=""}:{className?:string}){
+  return <span className={`cup-emblem ${className}`.trim()} aria-hidden="true"><CupMark/></span>;
 }
 
 const ARRIVAL_HOURS=Array.from({length:24},(_,i)=>String(i).padStart(2,"0"));
@@ -2619,6 +2628,14 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     const live=bracket.slots.find(slot=>slot.state==="ready"||slot.state==="waiting");
     setOpenRound(mySlot?.round??live?.round??bracket.rounds);
   },[bracket,mySlot]);
+  /* Five round names do not fit a phone's width, so the switcher scrolls inside itself — and must
+     bring the selected round along, or 決賽 opens selected but off the edge. */
+  useEffect(()=>{
+    const active=document.querySelector<HTMLElement>(".cup-rounds button.active");
+    const rail=active?.parentElement;
+    if(!active||!rail||rail.scrollWidth<=rail.clientWidth)return;
+    rail.scrollTo({left:active.offsetLeft-(rail.clientWidth-active.offsetWidth)/2,behavior:"smooth"});
+  },[openRound]);
 
   /* The draw is frozen server-side, and whichever member opens the cup first after the deadline is
      what triggers it — no cron, no admin ceremony. The ref keeps a re-render from firing a second
@@ -2689,6 +2706,39 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
         <div><h2>{t("盃賽")}</h2><p>{t("報名、抽籤、對陣同賽果，一頁睇晒。")}</p></div>
         {isAdmin&&<Button onClick={onCreateTournament}>{t("＋ 新增盃賽")}</Button>}
       </div>
+      {cups.length===0?<div className="cup-empty"><CupEmblem/><b>{t("尚未有盃賽")}</b><p>{isAdmin?t("建立第一個盃賽，球員即可報名。"):t("管理員建立盃賽後，你就可以在這裡報名。")}</p></div>
+      :<div className="cup-sections">{cupSections.map((section,sectionIndex)=><section className="cup-section" aria-labelledby={`cup-section-${section.id}`} key={section.id}>
+        <div className="cup-section-head"><h3 id={`cup-section-${section.id}`}>{section.label}</h3><span aria-hidden="true">{section.entries.length}</span></div>
+        <div className="cup-list">{section.entries.map(({item,status},entryIndex)=>{
+        /* The cup at the top of the page — the one recruiting or being played, or else the latest
+           final — gets the poster treatment; the rest are a quiet grid beneath it. */
+        const featured=sectionIndex===0&&entryIndex===0;
+        const itemBracket=buildBracket<Match>(item,data.matches);
+        const itemSlot=playerSlot(itemBracket,ownPlayerId),itemSignedUp=Boolean(ownPlayerId&&item.signups.includes(ownPlayerId));
+        const line=item.startAt?t("開始 {v} · {v2}", {v: deadlineText(item.startAt), v2: status==="signup"?t("報名截止 {v}", {v: deadlineText(item.signupDeadline)}):status==="done"?t("冠軍 {v}", {v: name(itemBracket.champion)}):status==="short"?t("報名人數不足兩人"):itemSlot?t("輪到你：{v}", {v: itemSlot.state==="ready"?t("對 {v}", {v: name(opponentIn(itemSlot,ownPlayerId))}):t("等待對手")}):t("賽事進行中")})
+          :status==="signup"?t("報名截止 {v}", {v: deadlineText(item.signupDeadline)})
+          :status==="done"?t("冠軍 {v}", {v: name(itemBracket.champion)})
+          :status==="short"?t("報名人數不足兩人")
+          :itemSlot?t("輪到你：{v}", {v: itemSlot.state==="ready"?t("對 {v}", {v: name(opponentIn(itemSlot,ownPlayerId))}):t("等待對手")})
+          :t("賽事進行中");
+        return <Surface as="article" padded={false} className={`cup-card is-${status}${featured?" is-featured":""}`} key={item.id}>
+          <CupEmblem className="cup-card-emblem"/>
+          <div className="cup-card-body">
+            <div className="cup-card-top"><span className={`cup-chip is-${status}`}>{t(CUP_STATUS_LABEL[status])}</span>{canManageCup(item)&&controls(item)}</div>
+            <h3>{item.name}</h3>
+            <p className="cup-card-line">{line}</p>
+            <div className="cup-card-people">{item.signups.length>0&&avatarStack(item.signups)}<span>{t("{signups} 人報名", {signups: item.signups.length})}</span></div>
+            <div className="cup-card-actions">
+              {status==="signup"&&(ownPlayerId
+                ?<Button variant={itemSignedUp?"secondary":"primary"} className="cup-btn" onClick={()=>setPendingSignup({id:item.id,name:item.name,joined:itemSignedUp})}>{itemSignedUp?t("取消報名"):t("立即報名")}</Button>
+                :<a className="cup-btn primary" href="/login">{t("登入後報名")}</a>)}
+              <Button variant={status==="signup"?"secondary":"primary"} className="cup-btn" onClick={()=>setSelectedTournament(item.id)}>{status==="signup"?t("睇對陣預覽"):t("賽程")}<span className="cup-btn-mark" aria-hidden="true">›</span></Button>
+              {shareButton(item,"cup-btn ghost",true)}
+            </div>
+          </div>
+        </Surface>;
+      })}</div>
+      </section>)}</div>}
       {championTable.length>0&&<section className="cup-honours" aria-labelledby="cup-honours-title">
         <div className="cup-honours-head">
           <div><p className="sl-eyebrow">Hall of champions</p><h3 id="cup-honours-title">{t("歷屆冠軍榜")}</h3></div>
@@ -2706,36 +2756,6 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
           })}
         </ol>
       </section>}
-      {cups.length===0?<div className="cup-empty"><span aria-hidden="true">🏆</span><b>{t("尚未有盃賽")}</b><p>{isAdmin?t("建立第一個盃賽，球員即可報名。"):t("管理員建立盃賽後，你就可以在這裡報名。")}</p></div>
-      :<div className="cup-sections">{cupSections.map(section=><section className="cup-section" aria-labelledby={`cup-section-${section.id}`} key={section.id}>
-        <div className="cup-section-divider"><h3 id={`cup-section-${section.id}`}>{section.label}</h3></div>
-        <div className="cup-list">{section.entries.map(({item,status})=>{
-        const itemBracket=buildBracket<Match>(item,data.matches);
-        const itemSlot=playerSlot(itemBracket,ownPlayerId),itemSignedUp=Boolean(ownPlayerId&&item.signups.includes(ownPlayerId));
-        const line=item.startAt?t("開始 {v} · {v2}", {v: deadlineText(item.startAt), v2: status==="signup"?t("報名截止 {v}", {v: deadlineText(item.signupDeadline)}):status==="done"?t("冠軍 {v}", {v: name(itemBracket.champion)}):status==="short"?t("報名人數不足兩人"):itemSlot?t("輪到你：{v}", {v: itemSlot.state==="ready"?t("對 {v}", {v: name(opponentIn(itemSlot,ownPlayerId))}):t("等待對手")}):t("賽事進行中")})
-          :status==="signup"?t("報名截止 {v}", {v: deadlineText(item.signupDeadline)})
-          :status==="done"?t("冠軍 {v}", {v: name(itemBracket.champion)})
-          :status==="short"?t("報名人數不足兩人")
-          :itemSlot?t("輪到你：{v}", {v: itemSlot.state==="ready"?t("對 {v}", {v: name(opponentIn(itemSlot,ownPlayerId))}):t("等待對手")})
-          :t("賽事進行中");
-        return <Surface as="article" padded={false} className={`cup-card is-${status}`} key={item.id}>
-          <CupArt tone={status==="done"?"gold":"dark"}/>
-          <div className="cup-card-body">
-            <div className="cup-card-top"><span className={`cup-chip is-${status}`}>{t(CUP_STATUS_LABEL[status])}</span>{canManageCup(item)&&controls(item)}</div>
-            <h3>{item.name}</h3>
-            <p className="cup-card-line">{line}</p>
-            <div className="cup-card-people">{item.signups.length>0&&avatarStack(item.signups)}<span>{t("{signups} 人報名", {signups: item.signups.length})}</span></div>
-            <div className="cup-card-actions">
-              {status==="signup"&&(ownPlayerId
-                ?<Button variant={itemSignedUp?"secondary":"primary"} className="cup-btn" onClick={()=>setPendingSignup({id:item.id,name:item.name,joined:itemSignedUp})}>{itemSignedUp?t("取消報名"):t("立即報名")}</Button>
-                :<a className="cup-btn primary" href="/login">{t("登入後報名")}</a>)}
-              <Button variant={status==="signup"?"secondary":"primary"} className="cup-btn" onClick={()=>setSelectedTournament(item.id)}>{status==="signup"?t("睇對陣預覽"):t("賽程")}<span className="cup-btn-mark" aria-hidden="true">›</span></Button>
-              {shareButton(item,"cup-btn ghost",true)}
-            </div>
-          </div>
-        </Surface>;
-      })}</div>
-      </section>)}</div>}
       {confirmSignupDialog}
     </section>;
   }
@@ -2946,7 +2966,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
   return <section className="cup">
     <button type="button" className="cup-back" onClick={()=>setSelectedTournament("")}><span aria-hidden="true">‹</span>  {t("所有盃賽")}</button>
     <header className={`cup-banner is-${status}`}>
-      <CupArt tone={status==="done"?"gold":"dark"}/>
+      <CupEmblem className="cup-banner-emblem"/>
       <div className="cup-banner-body">
         <div className="cup-card-top"><span className={`cup-chip is-${status}`}>{t(CUP_STATUS_LABEL[status])}</span>{canManage&&controls(tournament)}</div>
         <h2>{tournament.name}</h2>
@@ -2989,7 +3009,7 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
       {!drawn&&ownPlayerId&&<p className="cup-note">{t("正在抽籤…")}</p>}
       {arrivalEditor}
       {champion?<article className="cup-champion">
-        <span aria-hidden="true">🏆</span>
+        <CupEmblem/>
         <div><small>{t("{name} 冠軍", {name: tournament.name})}</small><b>{name(champion)}</b></div>
         <PlayerBadge player={player(champion)??{short:"?"}}/>
       </article>
@@ -3014,13 +3034,13 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
 
       {chart&&<CupBracketChart chart={chart} activeRound={openRound}
         onPick={(round,index)=>{setOpenRound(round);setFocusTie(`${round}-${index}`)}}/>}
-      <nav className="cup-rounds" aria-label={t("選擇輪次")}>{Array.from({length:bracket.rounds},(_,index)=>{
+      <SlidingToggleGroup as="nav" className="cup-rounds ds-toggle-control" aria-label={t("選擇輪次")}>{Array.from({length:bracket.rounds},(_,index)=>{
         const round=index+1,done=bracket.slots.filter(slot=>slot.round===round&&slot.settled&&slot.state!=="dead").length;
         const count=bracket.slots.filter(slot=>slot.round===round&&slot.state!=="dead").length;
         return <button type="button" key={round} className={round===openRound?"active":""} aria-current={round===openRound?"true":undefined} onClick={()=>setOpenRound(round)}>
           <b>{roundLabel(t, round,bracket.rounds)}</b><small>{done}/{count}</small>
         </button>;
-      })}</nav>
+      })}</SlidingToggleGroup>
       <ol className="cup-ties">{bracket.slots.filter(slot=>slot.round===openRound&&slot.state!=="dead").map(tieRow)}</ol>
       {canManage&&rosterPanel}
 
@@ -3078,7 +3098,10 @@ function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManage,canM
                box means the round and match number are carried, not typed — the class of mistake
                that used to file a quarter-final result as a first-round one. */
             const canRecord=slot.state==="ready"&&Boolean(isAdmin||mine);
-            return <div className={`bracket-match ${slot.state}${mine?" mine":""}`} key={`${round}-${slot.index}`}>
+            /* The equal-height cell draws the elbow into the next round (see .bracket-cell), so the
+               lines meet between a pair even when one box carries record or walkover controls. */
+            return <div className={`bracket-cell${slot.state==="dead"?" is-dead":""}${slot.settled&&slot.state!=="dead"?" is-settled":""}${first||second?" has-entrant":""}`} key={`${round}-${slot.index}`}>
+            <div className={`bracket-match ${slot.state}${mine?" mine":""}`}>
               {match&&canManageMatch(match)&&<IconButton className="card-tool bracket-edit" label={t("編輯 {v} 對 {v2} 的賽果", {v: name(first), v2: name(second)})} onClick={()=>onEdit(match)}>✎</IconButton>}
               {[first,second].map((id,side)=>{
                 /* Only round one, and only a player who has not played: dragging a name out of a
@@ -3100,14 +3123,21 @@ function TournamentBracketChart({bracket,name,ownPlayerId,isAdmin,canManage,canM
               {slot.state==="bye"&&<small className="bracket-bye">{t("輪空晉級")}</small>}
               {slot.state==="walkover"&&<small className="bracket-bye">{t("{v} 因對手棄權晉級", {v: name(slot.winner)})}</small>}
               {slot.state==="waiting"&&<small className="bracket-bye">{t("等待上一圈賽果")}</small>}
-              {canRecord&&<Button variant="primary" className="bracket-record" onClick={()=>onRecordSlot(slot)}>{t("記錄賽果")}</Button>}
+              {canRecord&&<Button variant="featured" className="bracket-record" onClick={()=>onRecordSlot(slot)}>{t("記錄賽果")}</Button>}
               {canManage&&slot.state==="ready"&&<div className="bracket-walkover"><small>{t("判定晉級")}</small><span>{[first,second].map(id=><Button variant="quiet" key={id} onClick={()=>onWalkover(slot,id)}>{name(id)}</Button>)}</span></div>}
               {canManage&&slot.state==="walkover"&&<Button variant="quiet" className="bracket-edit" onClick={()=>onWalkover(slot,"")}>{t("取消判定")}</Button>}
+            </div>
             </div>;
           })}
         </div>
       </div>;
     })}
+    <div className={`bracket-crown${bracket.champion?" is-crowned":""}`}>
+      <span className="bracket-crown-mark" aria-hidden="true"><CupMark/></span>
+      {bracket.champion
+        ?<><small>{t("冠軍")}</small><b>{name(bracket.champion)}</b></>
+        :<b className="is-pending">{t("待定")}</b>}
+    </div>
   </div>;
 }
 
@@ -3362,6 +3392,10 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
   const myRank=me?rankOf.get(me.id):undefined;
   const myDelta=me?recentDelta(me,data,5):0;
   const superior=myRank&&myRank>1?ranked[myRank-2]:null;
+  // Self-panel progress bar: 0 at the rating of the player just below, full at the player just above.
+  const gapToNext=me&&superior?Math.max(0,Math.ceil(superior.rating-me.rating)):0;
+  const floor=me?(myRank?ranked[myRank]?.rating:undefined)??me.rating-100:0;
+  const nextProgress=me&&superior?Math.min(1,Math.max(.04,(me.rating-floor)/Math.max(1,superior.rating-floor))):1;
   const isFreeToday=(p:Player)=>{const free=freeToday[p.id];return Boolean(free)&&hkDate(new Date(free))===hkDate()};
   const freeCount=data.players.filter(isFreeToday).length;
   const soonCount=data.players.filter(p=>Boolean(freeToday[p.id])).length;
@@ -3383,7 +3417,6 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
   const activeChip:PlayersChip=chip==="near"&&!me?"all":chip;
   const chipDefs:[PlayersChip,string][]=[["all",t("全部")],["near",t("水平相約")],["free",t("今日有空")],["soon",t("近期有空")],["hot",t("狀態 🔥")]];
 
-  const cycleSort=()=>setSort(current=>PLAYERS_SORT_CYCLE[(PLAYERS_SORT_CYCLE.indexOf(current)+1)%PLAYERS_SORT_CYCLE.length]);
   const q=query.trim().toLowerCase();
   const filtered=(activeChip==="hot"
     ? [...data.players].sort((a,b)=>recentDeltaDays(b,data,30)-recentDeltaDays(a,data,30))
@@ -3397,18 +3430,30 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
   return <div className="players-view">
     <div className={`players-self-panel${me?"":" is-guest"}`}>
       <div className="players-self-top"><span>{t("球員 · {players} 位", {players: data.players.length})}</span><span>{t("今日 {freeCount} 位有空", {freeCount})}</span></div>
-      {me&&<div className="players-self-main">
-        <b className="players-self-rank">#{myRank}</b>
-        <div className="players-self-id">
-          <div className="players-self-name">{t("我 · {v} ELO", {v: Math.round(me.rating)})}{myDelta!==0&&<span className={myDelta>0?"positive":"negative"}>{myDelta>0?"+":""}{Math.round(myDelta)}</span>}</div>
-          <div className="players-self-gap">{superior?t("距離 #{v} 只差 {v2} 分", {v: myRank!-1, v2: Math.max(0,Math.ceil(superior.rating-me.rating))}):t("暫列榜首")}  {t("· 建議讓分 {v} 分", {v: suggestedHandicap(me,data)})}</div>
+      {me&&<>
+        <div className="players-self-main">
+          <b className="players-self-rank"><small>#</small>{myRank}</b>
+          <div className="players-self-id">
+            <div className="players-self-name">{t("我 · {v} ELO", {v: Math.round(me.rating)})}{myDelta!==0&&<span className={`players-delta ${myDelta>0?"positive":"negative"}`}>{myDelta>0?"+":"−"}{Math.abs(Math.round(myDelta))}</span>}</div>
+            <div className="players-self-gap">{t("建議讓分")} {suggestedHandicap(me,data)}</div>
+          </div>
+          <span className="players-self-form">{me.form.map((x,i)=><i className={x.toLowerCase()} key={i}>{x}</i>)}</span>
         </div>
-        <span className="players-self-form">{me.form.map((x,i)=><i className={x.toLowerCase()} key={i}>{x}</i>)}</span>
-      </div>}
+        <div className="players-self-progress">
+          <span>{superior?t("距離 #{v} 只差 {v2} 分", {v: myRank!-1, v2: gapToNext}):t("暫列榜首")}</span>
+          <div className="players-self-progress-track" aria-hidden="true"><i style={{width:`${Math.round(nextProgress*100)}%`}}/></div>
+        </div>
+      </>}
     </div>
     <div className="players-toolbar">
       <div className="players-search"><input type="text" value={query} onChange={e=>setQuery(e.target.value)} placeholder={t("搜尋姓名或縮寫")} aria-label={t("搜尋球員")}/></div>
-      <button type="button" className="players-sort-btn" onClick={cycleSort}>{t("排序 · {v}", {v: t(sortLabels[sort])})}</button>
+      {/* Native select sits invisibly over a chip-styled label: compact look, 16px control (no iOS zoom). */}
+      <label className="players-sort">
+        <span aria-hidden="true">{t(sortLabels[sort])}</span>
+        <select value={sort} onChange={e=>setSort(e.target.value as SortKey)} disabled={activeChip==="hot"} aria-label={t("排序")}>
+          {PLAYERS_SORT_CYCLE.map(key=><option key={key} value={key}>{t(sortLabels[key])}</option>)}
+        </select>
+      </label>
     </div>
     <div className="players-chips" role="group" aria-label={t("球員篩選")}>
       {chipDefs.map(([id,label])=>{
@@ -3418,7 +3463,6 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
     </div>
     <div className="players-list-head">
       <span>{t("{filtered} 位球員", {filtered: filtered.length})}</span>
-      {canAdd&&<Button variant="primary" className="players-add-btn" onClick={onAdd}>{t("＋ 新增球員")}</Button>}
       <span className="players-list-hint">{activeChip==="hot"?t("ELO · 近30日ELO變化"):t("ELO · 建議評分")}</span>
     </div>
     {data.players.length===0
@@ -3434,18 +3478,19 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
             const free=freeToday[p.id];
             const high=highestBreak(p,data);
             const suggested=suggestedHandicap(p,data);
-            return <div className={`players-row${open?" open":""}${provisional?" provisional":""}`} key={p.id}>
+            return <div className={`players-row${open?" open":""}${provisional?" provisional":""}${isSelf?" is-self":""}`} key={p.id}>
               <button type="button" className="players-row-hit" aria-expanded={open} onClick={()=>setOpenId(current=>current===p.id?"":p.id)}>
-                <span className="players-row-badge"><PlayerBadge player={p}/><i className="players-row-free-dot" style={{background:free?"var(--ds-chart-positive)":"var(--ds-border-muted)"}}/></span>
+                <span className={`players-row-rank${!provisional&&rank<=3?` top-${rank}`:""}`}>{provisional?"–":rank}</span>
+                <span className="players-row-badge"><PlayerBadge player={p}/>{free&&<i className="players-row-free-dot" aria-hidden="true"/>}</span>
                 <span className="players-row-id">
-                  <span className="players-row-name-line"><b>{p.name}</b><em className={`players-tag${provisional?" provisional":""}`}>{provisional?t("臨時"):`#${rank}`}</em></span>
+                  <span className="players-row-name-line"><b>{p.name}</b>{provisional&&<em className="players-tag provisional">{t("臨時")}</em>}</span>
                   <span className="players-row-meta">
                     <span className="players-row-form">{p.form.map((x,i)=><i className={x.toLowerCase()} key={i}/>)}</span>
                     {t("{v} 場", {v: games(p)})}{free?` · ${freeLabel(free)}`:""}
                   </span>
                 </span>
                 <span className="players-row-elo"><b>{Math.round(p.rating)}</b>{activeChip==="hot"
-                  ? <em className={delta>=0?"positive":"negative"}>{delta>=0?"+":"−"}{Math.abs(Math.round(delta))}</em>
+                  ? <em className={`players-delta ${delta>=0?"positive":"negative"}`}>{delta>=0?"+":"−"}{Math.abs(Math.round(delta))}</em>
                   : <em className="neutral">{suggested}</em>}</span>
               </button>
               {managementMode&&canManagePlayer(p)&&<Button variant="quiet" className="players-row-manage" onClick={()=>onEdit(p)}>{t("管理")}</Button>}
@@ -3455,10 +3500,9 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
                   <div className="players-verdict-sub">{t("建議評分 {v} 分 · 相差 {v2} ELO", {v: suggestedHandicap(p,data), v2: Math.abs(Math.round(me.rating-p.rating))})}</div>
                 </div>}
                 <div className="players-expand-stats">
-                  <span>{t("勝率／局率")} <b>{Math.round(winRate(p)*100)}／{Math.round(frameRate(p)*100)}%</b></span>
-                  <span>{t("最高單桿")} <b>{high??"—"}</b></span>
-                  {free&&<span className="players-expand-free">{freeLabel(free)}</span>}
-                </div>
+                  <span><small>{t("勝率／局率")}</small><b>{Math.round(winRate(p)*100)}／{Math.round(frameRate(p)*100)}%</b></span>
+                  <span><small>{t("最高單桿")}</small><b>{high??"—"}</b></span>                </div>
+                {free&&<div className="players-expand-free">{freeLabel(free)}</div>}
                 <div className="players-expand-actions">
                   {isSelf
                     ? <Button variant="primary" className="players-expand-open-self" onClick={()=>onOpen(p)}>{t("查看完整球員頁 ›")}</Button>
@@ -3469,7 +3513,7 @@ function Players({data,ownPlayerId,managementMode=false,canAdd,canManagePlayer,o
                         <IconButton className="players-row-open" label={t("開啟 {name} 的球員卡", {name: p.name})} onClick={()=>onOpen(p)}>›</IconButton>
                       </>}
                 </div>
-                {(canManagePlayer(p)||canAdd)&&<div className="players-expand-manage">
+                {!managementMode&&(canManagePlayer(p)||canAdd)&&<div className="players-expand-manage">
                   {canManagePlayer(p)&&<IconButton className="card-tool" label={t("編輯 {name}", {name: p.name})} onClick={()=>onEdit(p)}>✎</IconButton>}
                   {canAdd&&<IconButton className="card-tool danger" label={t("刪除 {name}", {name: p.name})} onClick={()=>onDelete(p)}>✕</IconButton>}
                 </div>}

@@ -23,6 +23,24 @@ export function resolveLocale(value: unknown): Locale {
   return isLocale(value) ? value : DEFAULT_LOCALE;
 }
 
+/** Picks a shipped locale from an `Accept-Language` header, honouring the browser's preference order and
+ *  q-weights. Any Chinese variant maps to `zh-Hant` (the only Chinese catalogue); anything unsupported
+ *  falls through to the next entry, then to the default. Only used when no language cookie exists yet. */
+export function negotiateLocale(header: string | null | undefined): Locale {
+  if (!header) return DEFAULT_LOCALE;
+  const ranked = header.split(",").map((part, index) => {
+    const [tag, ...params] = part.trim().split(";");
+    const q = Number(params.map((p) => p.trim()).find((p) => p.startsWith("q="))?.slice(2) ?? 1);
+    return { tag: tag.toLowerCase(), q: Number.isFinite(q) ? q : 0, index };
+  }).filter((entry) => entry.q > 0).sort((a, b) => b.q - a.q || a.index - b.index);
+  for (const { tag } of ranked) {
+    const base = tag.split("-")[0];
+    if (base === "zh") return "zh-Hant";
+    if (base === "en") return "en";
+  }
+  return DEFAULT_LOCALE;
+}
+
 /** True for IANA names the runtime can actually format with. A cookie is user-controlled input, so an
  *  unknown zone must fall back rather than throw a RangeError from deep inside a formatter. */
 export function isTimeZone(value: unknown): value is string {

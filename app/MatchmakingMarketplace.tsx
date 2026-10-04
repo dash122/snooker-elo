@@ -172,6 +172,9 @@ export default function MatchmakingMarketplace(props:Props){
   </section>;
 }
 
+/** Sentinel value of the 波房 select meaning "none of these — I will type one". */
+const NEW_VENUE="__new__";
+
 function AvailabilityComposer({initialDate,slot,active,venues,busy,error,onClose,onSave}:{initialDate:string;slot?:Supply;active:boolean;venues:MarketplaceDashboard["venues"];busy:boolean;error:string;onClose:()=>void;onSave:(body:Record<string,unknown>)=>Promise<void>}){
   const t = useT();
   const soon=nextAvailabilityStart();
@@ -189,14 +192,23 @@ function AvailabilityComposer({initialDate,slot,active,venues,busy,error,onClose
   const [commitment,setCommitment]=useState(active?"going":"interested");
   const [conditions,setConditions]=useState<MatchConditions>(slot?.conditions??{levelPreference:"similar",handicap:true,feePreference:"aa",tempo:"any"});
   const [localError,setLocalError]=useState("");
+  const [newVenue,setNewVenue]=useState({name:"",district:""});
   const dayOptions=Array.from({length:7},(_,i)=>addDaysHongKong(hkDate(),i));
   const endOptions=availabilityEndTimes(start, t);
   function changeStart(value:string){setStart(value);if(!availabilityEndTimes(value, t).some(o=>o.value===end))setEnd(availabilityEndTimes(value, t).at(-1)?.value??"");}
   const selectedEnd=endOptions.find(o=>o.value===end);
   const startMinutes=(()=>{const [h,m]=start.split(":").map(Number);return h*60+m;})();
-  const venueName=venues.find(v=>v.id===venueId)?.name??t("場地待定");
+  const adding=venueId===NEW_VENUE;
+  const venueName=adding?(newVenue.name.trim()||t("新場地")):venues.find(v=>v.id===venueId)?.name??t("場地待定");
   const groupLabel=t(presets.find(p=>p.id===preset)?.label??"");
-  async function submit(event:FormEvent){event.preventDefault();setLocalError("");try{await onSave({id:slot?.id,...composeAvailabilityInterval(date,start,end),...GROUP_PRESETS[preset],venueId:venueId||null,venueScope:venueId?scope:"any_hk",commitment,conditions});}catch(e){setLocalError(e instanceof Error?e.message:t("請檢查日期和時間。"));}}
+  /* A new venue is saved to the shared list first (an existing name is reused, not duplicated), then
+      the slot is published against it. */
+  async function saveVenue():Promise<string>{
+    const response=await fetch("/api/venues",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(newVenue)});
+    const body=await response.json();if(!response.ok)throw new Error(body.error??t("暫時儲存唔到"));
+    return body.venue.id as string;
+  }
+  async function submit(event:FormEvent){event.preventDefault();setLocalError("");try{const chosen=adding?await saveVenue():venueId;await onSave({id:slot?.id,...composeAvailabilityInterval(date,start,end),...GROUP_PRESETS[preset],venueId:chosen||null,venueScope:chosen?scope:"any_hk",commitment,conditions});}catch(e){setLocalError(e instanceof Error?e.message:t("請檢查日期和時間。"));}}
   return <Sheet open title={slot?t("修改空檔"):t("公開空檔")} onClose={onClose}><form className="mp-composer" onSubmit={submit} aria-busy={busy}>
     {(localError||error)&&<InlineNotice tone="danger" title={t("未能儲存")}>{localError||error}</InlineNotice>}
     <fieldset disabled={busy}><FormField label={t("日期")}><div className="mp-day-select" role="group" aria-label={t("日期，未來七日")}>{dayOptions.map(d=><Button key={d} type="button" variant="secondary" aria-pressed={date===d} onClick={()=>setDate(d)}>
@@ -205,7 +217,9 @@ function AvailabilityComposer({initialDate,slot,active,venues,busy,error,onClose
       <div className="mp-time-fields"><FormField label={t("開始")}><select value={start} onChange={e=>changeStart(e.target.value)}>{START_TIMES.map(t=><option key={t} value={t}>{t}</option>)}</select></FormField>
         <FormField label={t("結束")}><select value={end} onChange={e=>setEnd(e.target.value)}>{endOptions.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></FormField></div>
       {selectedEnd&&<p className="mp-duration-hint">{t("共 {v} 小時", {v: formatHours(selectedEnd.minutes-startMinutes)})}{selectedEnd.minutes>=24*60?t("，去到次日"):""}  {t("· 最長 12 小時，最遲 02:00")}</p>}
-      <FormField label={t("波房")}><select value={venueId} onChange={e=>setVenueId(e.target.value)}><option value="">{t("場地待定")}</option>{venues.map(v=><option key={v.id} value={v.id}>{v.name} · {v.district}</option>)}</select></FormField>
+      <FormField label={t("波房")}><select value={venueId} onChange={e=>setVenueId(e.target.value)}><option value="">{t("場地待定")}</option>{venues.map(v=><option key={v.id} value={v.id}>{v.name} · {v.district}</option>)}<option value={NEW_VENUE}>＋ {t("新增場地")}</option></select></FormField>
+      {adding&&<><FormField label={t("場地名稱")}><input type="text" required maxLength={60} value={newVenue.name} onChange={e=>setNewVenue({...newVenue,name:e.target.value})}/></FormField>
+        <FormField label={t("地區（可省略）")}><input type="text" maxLength={30} value={newVenue.district} onChange={e=>setNewVenue({...newVenue,district:e.target.value})}/></FormField></>}
       {venueId&&<FormField label={t("場地彈性")}><select value={scope} onChange={e=>setScope(e.target.value as typeof scope)}><option value="exact">{t("只去這間波房")}</option><option value="district">{t("同區都可以")}</option><option value="any_hk">{t("全港都可以")}</option></select></FormField>}
       <fieldset><legend>{date===hkDate()?t("今晚想點打？"):t("嗰日想點打？")}</legend><div className="mp-choices">{presets.map(p=><Button key={p.id} type="button" variant="secondary" aria-pressed={preset===p.id} onClick={()=>setPreset(p.id)}>{t(p.label)}<small>{t("{minPlayers}–{maxPlayers} 人", {minPlayers: GROUP_PRESETS[p.id].minPlayers, maxPlayers: GROUP_PRESETS[p.id].maxPlayers})}</small></Button>)}</div></fieldset>
       <details><summary className="mp-advanced-toggle">{t("更多偏好（水平、讓分、費用）")}</summary><div className="mp-advanced"><FormField label={t("水平")}><select value={conditions.levelPreference??"similar"} onChange={e=>setConditions({...conditions,levelPreference:e.target.value as "similar"|"any",levelStrict:false})}><option value="similar">{t("相近優先，自動擴闊")}</option><option value="any">{t("都可以")}</option></select></FormField>

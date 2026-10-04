@@ -15,6 +15,10 @@
 .vb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
 .vb-kicker { display: block; font-size: var(--fs-label); letter-spacing: .08em; color: var(--ds-text-tertiary); }
 .vb-venue { margin: var(--sp-1) 0 0; font-size: var(--fs-h3); }
+/* Add-venue form: opens inline under the directory row. */
+.vb-venue-add { justify-content: center; border-style: dashed; }
+.vb-add { display: flex; flex-direction: column; gap: var(--sp-3); }
+.vb-add-actions { display: flex; gap: var(--sp-2); }
 /* The directory row. The number is what a venue is worth tonight; the window under it is when. */
 .vb-venues { display: flex; gap: var(--sp-2); overflow-x: auto; scrollbar-width: none; }
 .vb-venues::-webkit-scrollbar { display: none; }

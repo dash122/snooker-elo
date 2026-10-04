@@ -9,6 +9,7 @@ import "./styles/matchmaking-timeline.css";
 import "./styles/venue-board.css";
 import "./styles/week-band.css";
 import "./styles/cup.css";
+import "./styles/cup-page.css";
 import "./styles/calibration.css";
 import "./styles/home.css";
 import "./styles/break-nudge.css";
