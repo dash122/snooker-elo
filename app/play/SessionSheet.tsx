@@ -5,7 +5,7 @@ import { Sheet } from "../components/ui/Overlay";
 import { useLocale, useT } from "../components/I18nProvider";
 import type { Dashboard, SessionDto } from "../../lib/play/dashboard";
 import type { JoinBlock } from "../../lib/play/session";
-import type { PlayConditions } from "../../lib/play/types";
+import { sessionTermLabels } from "./session-terms";
 import { range, sessionDay, venueName } from "./format";
 import { sessionShareText, whatsappUrl } from "./share";
 import { ConfidenceChip, StatusChip } from "./SessionCard";
@@ -15,17 +15,6 @@ import type { ActionResult } from "./usePlay";
 const VenueMap = lazy(() => import("./VenueMap"));
 
 type Person = { id: string; name: string; rating: number };
-
-function termChips(terms: PlayConditions, t: ReturnType<typeof useT>) {
-  const out: string[] = [];
-  if (terms.level && terms.level.want !== "any") out.push({ similar: t("水平相近"), stronger: t("想挑戰較強對手"), weaker: t("想與較弱對手對戰") }[terms.level.want as "similar" | "stronger" | "weaker"]);
-  if (terms.level?.handicapOk) out.push(t("接受讓分"));
-  if (terms.vibe) out.push({ competitive: t("認真比賽"), relaxed: t("輕鬆打球"), practice: t("練習") }[terms.vibe.want]);
-  if (terms.smoking) out.push(t("無煙"));
-  if (terms.fee) out.push(t("AA 制"));
-  if (terms.teaching) out.push(t("樂意陪伴新手"));
-  return out;
-}
 
 export default function SessionSheet({ session, data, people, ownPlayerId, act, onClose, onRecord, justCreated }: {
   session: SessionDto; data: Dashboard; people: Person[]; ownPlayerId: string | null;
@@ -46,7 +35,7 @@ export default function SessionSheet({ session, data, people, ownPlayerId, act, 
   const live = session.status === "forming" || session.status === "playable" || session.status === "full";
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const shareText = sessionShareText({ session, venues: data.venues, tz: data.tz, locale, origin, t });
-  const terms = termChips(session.terms, t);
+  const terms = sessionTermLabels(session.terms, t);
   const memberIds = new Set(session.members.map((m) => m.player.id));
   const invitable = people.filter((p) => p.id !== ownPlayerId && !memberIds.has(p.id) && !session.invitees.some((i) => i.id === p.id));
 
