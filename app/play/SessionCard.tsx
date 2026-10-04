@@ -21,7 +21,7 @@ export function StatusChip({ session }: { session: SessionDto }) {
   return <Chip tone="warning">{t("尚需 {n} 人", { n: Math.max(1, session.seatsNeeded) })}</Chip>;
 }
 
-export default function SessionCard({ session, venues, tz, onOpen }: { session: SessionDto; venues: PlayVenue[]; tz: string; onOpen: (id: string) => void }) {
+export default function SessionCard({ session, venues, tz, viewerId, onOpen }: { session: SessionDto; venues: PlayVenue[]; tz: string; viewerId?: string | null; onOpen: (id: string) => void }) {
   const t = useT();
   const locale = useLocale();
   const going = session.members.filter((m) => m.confidence !== "maybe");
@@ -37,7 +37,8 @@ export default function SessionCard({ session, venues, tz, onOpen }: { session: 
             <StatusChip session={session} />
             <Chip>{t("{going}/{max} 人", { going: going.length, max: session.maxPlayers })}</Chip>
             {session.tableStatus === "booked" && <Chip tone="success">{t("已訂檯")}</Chip>}
-            {session.mine && <Chip tone="accent">{session.mine === "in" ? t("你已加入") : session.mine === "maybe" ? t("你回覆「或許」") : t("邀請你")}</Chip>}
+            {session.createdBy === viewerId && <Chip tone="accent">{t("你開的約戰")}</Chip>}
+            {session.mine && session.createdBy !== viewerId && <Chip tone="accent">{session.mine === "in" ? t("你已加入") : session.mine === "maybe" ? t("你回覆「或許」") : t("邀請你")}</Chip>}
           </span>
         </span>
       </button>

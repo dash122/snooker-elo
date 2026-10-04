@@ -4,8 +4,8 @@ import { useLocale, useT } from "../components/I18nProvider";
 import type { Dashboard } from "../../lib/play/dashboard";
 import { dayParts } from "./format";
 
-/** The next seven days as calendar tiles, shared by the board and the composer. The number is how many
-    sessions are open that day; it is always shown, including 0. The server anchors the row to today so the order never moves.
+/** The next seven days as calendar tiles, shared by the board and the composer. The number includes
+    full live sessions that day; it is always shown, including 0. The server anchors the row to today so the order never moves.
     When the row is wider than its container (a phone, or the composer sheet) it scrolls, with arrows to nudge it. */
 export default function DayStrip({ dates, value, today, onChange }: { dates: Dashboard["dates"]; value: string; today: string; onChange: (date: string) => void }) {
   const t = useT();
@@ -44,7 +44,7 @@ export default function DayStrip({ dates, value, today, onChange }: { dates: Das
               <small>{d.date === today ? t("今天") : p.weekday}</small>
               <b>{p.day}</b>
               <small>{p.month}</small>
-              <i className={d.sessions > 0 ? "has" : undefined} title={t("{n} 個開放約戰", { n: d.sessions })}><span aria-hidden="true" />{t("{n} 場開放", { n: d.sessions })}</i>
+              <i className={d.sessions > 0 ? "has" : undefined} title={t("{n} 場約戰", { n: d.sessions })}><span aria-hidden="true" />{t("{n} 場約戰", { n: d.sessions })}</i>
             </button>
           );
         })}

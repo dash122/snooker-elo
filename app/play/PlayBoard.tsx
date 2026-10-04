@@ -6,6 +6,7 @@ import { msg } from "../../lib/i18n/translate";
 import type { Dashboard, LookingDto, PoolDto, QueueDto, SessionDto } from "../../lib/play/dashboard";
 import type { WhyKey } from "../../lib/play/fit";
 import type { HandicapSettings, PastMatch } from "../../lib/handicap";
+import { marketplace } from "../../lib/play/marketplace";
 import { isUrgent } from "../../lib/play/window";
 import Composer, { type ComposerInit, type Created } from "./Composer";
 import ResultSheet from "./ResultSheet";
@@ -73,7 +74,7 @@ function QueueItem({ item, board, onOpen, onWant, run }: {
   );
 }
 
-function LookingCard({ item, board, onPropose }: { item: LookingDto; board: Dashboard; onPropose: (item: LookingDto) => void }) {
+function LookingCard({ item, board, onPropose, onCancel, busy }: { item: LookingDto & { own?: boolean; quiet?: boolean }; board: Dashboard; onPropose: (item: LookingDto) => void; onCancel: (id: string) => void; busy: boolean }) {
   const t = useT();
   const where = item.venueScope === "city" ? t("整個城市") : item.venueIds.map((id) => venueName(board.venues, id, t)).join("、");
   return (
@@ -82,9 +83,9 @@ function LookingCard({ item, board, onPropose }: { item: LookingDto; board: Dash
       <span className="play-card-body">
         <span className="play-card-title">{item.player.name} <small>{Math.round(item.player.rating)}</small></span>
         <span className="play-card-people">{where}{item.note ? ` · 「${item.note}」` : ""}</span>
-        <span className="play-card-meta">{item.why.map((k) => <Chip key={k} tone="accent">{t(WHY[k])}</Chip>)}</span>
+        <span className="play-card-meta">{item.own && <Chip tone="accent">{item.quiet ? t("只限自己查看") : t("你發佈的時間")}</Chip>}{item.why.map((k) => <Chip key={k} tone="accent">{t(WHY[k])}</Chip>)}</span>
       </span>
-      <Button type="button" variant="secondary" onClick={() => onPropose(item)}>{t("邀請對方")}</Button>
+      {item.own ? <Button type="button" variant="quiet" loading={busy} onClick={() => onCancel(item.id)}>{t("取消發佈")}</Button> : <Button type="button" variant="secondary" onClick={() => onPropose(item)}>{t("邀請對方")}</Button>}
     </Surface>
   );
 }
@@ -152,14 +153,15 @@ export default function PlayBoard(props: PlayBoardProps) {
   }
 
   function created(c: Created) {
+    pickDate(c.date);
     if (c.kind === "session") { setOpenId(c.id); setFreshId(c.id); return; }
     const urgent = isUrgent(c.window);
-    const when = `${dayLabel(data?.date ?? "", data?.tz ?? "UTC", locale, today)} ${clock(c.window.startAt, data?.tz ?? "UTC")}–${clock(c.window.endAt, data?.tz ?? "UTC")}`;
+    const when = `${dayLabel(c.date, data?.tz ?? "UTC", locale, today)} ${clock(c.window.startAt, data?.tz ?? "UTC")}–${clock(c.window.endAt, data?.tz ?? "UTC")}`;
     const venue = c.venueId ? venueName(data?.venues ?? [], c.venueId, t) : t("整個城市");
     setNotice(
-      <InlineNotice tone="success" title={t("已發佈")}>
-        {urgent ? t("即將開始，建議立即分享到 WhatsApp 群組。") : t("其他球友下次開啟應用程式時會看到。")}
-        <a className="ds-button ds-button--featured" href={whatsappUrl(boardShareText({ when, venue, origin: window.location.origin, t }))} target="_blank" rel="noreferrer"><span>{t("分享到 WhatsApp")}</span></a>
+      <InlineNotice tone="success" title={c.quiet ? t("已儲存") : t("已發佈")}>
+        {c.quiet ? t("只限自己查看") : urgent ? t("即將開始，建議立即分享到 WhatsApp 群組。") : t("其他球友下次開啟應用程式時會看到。")}
+        {!c.quiet && <a className="ds-button ds-button--featured" href={whatsappUrl(boardShareText({ when, venue, origin: window.location.origin, t }))} target="_blank" rel="noreferrer"><span>{t("分享到 WhatsApp")}</span></a>}
       </InlineNotice>,
     );
   }
@@ -179,7 +181,7 @@ export default function PlayBoard(props: PlayBoardProps) {
           ? <InlineNotice tone="danger" title={t("未能載入約戰")}>{error}<Button type="button" onClick={() => void refresh()}>{t("重試")}</Button></InlineNotice>
           : <>
               <Surface className="play-toolbar"><Skeleton height="2.25rem" width="60%" /><Skeleton height="2.25rem" /></Surface>
-              <div className="play-tiles"><Skeleton height="4.5rem" /><Skeleton height="4.5rem" /><Skeleton height="4.5rem" /></div>
+              <Skeleton height="2.75rem" width="40%" />
               <ul className="play-list"><li><Skeleton height="6rem" /></li><li><Skeleton height="6rem" /></li></ul>
             </>}
       </section>
@@ -189,7 +191,9 @@ export default function PlayBoard(props: PlayBoardProps) {
   const signedIn = data.signedIn && !!ownPlayerId;
   const dayRow = data.dates.find((d) => d.date === data.date);
   const wantingToday = dayRow ? dayRow.wants + dayRow.open : 0;
-  const empty = data.sessions.length === 0 && data.looking.length === 0 && data.pools.length === 0;
+  const market = marketplace(data, players.find((p) => p.id === ownPlayerId)?.name ?? t("你"));
+  const nextSteps = data.queue.filter((q) => q.kind === "record" || q.kind === "invite" || (q.kind === "upcoming" && !market.sessions.some((s) => s.id === q.session.id)));
+  const empty = market.sessions.length === 0 && market.looking.length === 0 && data.pools.length === 0;
 
   return (
     <section className="play-page">
@@ -213,34 +217,29 @@ export default function PlayBoard(props: PlayBoardProps) {
         </InlineNotice>
       ) : (
         <>
-          <SectionLabel sticky={false}>{t("你想怎樣約球？")}</SectionLabel>
-          <div className="play-tiles">
-            <button type="button" className="play-tile play-tile--primary" onClick={() => setComposer({ key: Date.now(), init: { mode: "want", date: data.date } })}><b>{t("我想打球")}</b><small>{t("立即尋找球友")}</small></button>
-            <button type="button" className="play-tile" onClick={() => setComposer({ key: Date.now(), init: { mode: "around", date: data.date } })}><b>{t("我有空")}</b><small>{t("有空，等球友邀請你")}</small></button>
-            <button type="button" className="play-tile" onClick={() => setComposer({ key: Date.now(), init: { mode: "table", date: data.date } })}><b>{t("我有檯")}</b><small>{t("已訂檯，邀請球友加入")}</small></button>
-          </div>
+          <div className="play-publish-row"><SectionLabel sticky={false}>{t("約戰市集")}</SectionLabel><Button type="button" onClick={() => setComposer({ key: Date.now(), init: { date: data.date } })}>{t("發佈約戰或有空時間")}</Button></div>
 
-          {data.queue.length > 0 && (
+          {nextSteps.length > 0 && (
             <>
               <SectionLabel sticky={false}>{t("下一步")}</SectionLabel>
-              <ul className="play-list">{data.queue.map((q, i) => (
+              <ul className="play-list">{nextSteps.map((q, i) => (
                 <QueueItem key={`${q.kind}-${q.kind === "want" ? i : q.session.id}`} item={q} board={data} onOpen={setOpenId}
                   onWant={() => setComposer({ key: Date.now(), init: { mode: "want", date: data.date } })} run={(action, id, values) => void run(action, id, values)} />
               ))}</ul>
             </>
           )}
 
-          {data.sessions.length > 0 && (
+          {market.sessions.length > 0 && (
             <>
-              <SectionLabel sticky={false} meta={data.sessions.length}>{t("尚有空位的約戰")}</SectionLabel>
-              <ul className="play-list">{data.sessions.map((card) => <SessionCard key={card.id} session={card} venues={data.venues} tz={data.tz} onOpen={setOpenId} />)}</ul>
+              <SectionLabel sticky={false} meta={market.sessions.length}>{t("約戰")}</SectionLabel>
+              <ul className="play-list">{market.sessions.map((card) => <SessionCard key={card.id} session={card} venues={data.venues} tz={data.tz} viewerId={ownPlayerId} onOpen={setOpenId} />)}</ul>
             </>
           )}
 
-          {data.looking.length > 0 && (
+          {market.looking.length > 0 && (
             <>
-              <SectionLabel sticky={false} meta={data.looking.length}>{t("想打球／有空")}</SectionLabel>
-              <ul className="play-list">{data.looking.map((item) => <LookingCard key={item.id} item={item} board={data} onPropose={propose} />)}</ul>
+              <SectionLabel sticky={false} meta={market.looking.length}>{t("想打球／有空")}</SectionLabel>
+              <ul className="play-list">{market.looking.map((item) => <LookingCard key={item.id} item={item} board={data} onPropose={propose} busy={busy} onCancel={(id) => void run("intent.cancel", id)} />)}</ul>
             </>
           )}
 
@@ -251,19 +250,7 @@ export default function PlayBoard(props: PlayBoardProps) {
             </>
           )}
 
-          {empty && <EmptyState title={t("這天暫時沒有人約球")} description={t("點選上方任一選項開始：尋找球友、公開有空時間，或開檯。")} />}
-
-          {data.mine.length > 0 && (
-            <>
-              <SectionLabel sticky={false}>{t("你的請求")}</SectionLabel>
-              <ul className="play-list">{data.mine.map((i) => (
-                <Surface as="li" key={i.id} className="play-queue">
-                  <span>{i.kind === "wants" ? t("想打球") : t("有空")} · {range(i, data.tz, t)}</span>
-                  <Button type="button" variant="quiet" loading={busy} onClick={() => void run("intent.cancel", i.id)}>{t("取消")}</Button>
-                </Surface>
-              ))}</ul>
-            </>
-          )}
+          {empty && <EmptyState title={t("這天暫時沒有人約球")} description={t("發佈一場約戰，或公開你的有空時間。")} />}
         </>
       )}
 
