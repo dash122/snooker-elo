@@ -49,7 +49,7 @@ export type Dashboard = {
   cityLabel: string;
   tz: string;
   date: string;
-  cities: { id: string; label: string }[];
+  cities: { id: string; label: string; labelEn: string }[];
   venues: PlayVenue[];
   dates: DayCount[];
   queue: QueueDto[];
@@ -111,7 +111,7 @@ export function toDashboard(input: BoardInput, signedIn: boolean): Dashboard {
     ready: true as const, signedIn, viewerId: signedIn ? input.viewerId : null,
     viewerRating: signedIn ? input.players.get(input.viewerId)?.rating ?? null : null,
     city: input.city, cityLabel: city?.label ?? input.city, tz: input.tz, date: input.date,
-    cities: CITIES.map((c) => ({ id: c.id, label: c.label })),
+    cities: CITIES.map((c) => ({ id: c.id, label: c.label, labelEn: c.labelEn })),
     venues: input.venues.filter((v) => v.city === input.city && v.status !== "rejected"),
     dates: dayCounts(input),
   };

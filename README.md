@@ -16,8 +16,7 @@ The interface is currently written for Traditional Chinese (Hong Kong), while th
 - Recruits for a cup from WhatsApp: the share button names WhatsApp and names the ask, the message leads with the cup's own name and how long is left to enter, and the link preview is a poster drawn for that cup — its name at poster size, the deadline, and how many members are already in — so a link pasted into the club group reads as an invitation rather than a URL.
 - Shares a cup to Instagram as a 1080×1920 story: the cup's name, the clock, the faces already entered, and the link drawn large enough to read — Instagram allows a web app no tappable link sticker, so the URL is copied to the clipboard as the card is shared, ready to paste into one.
 - Shows a shared cup's roster with each entrant's ELO and the club's suggested handicap, and each tie with the handicap the cup will actually apply, so a reader deciding whether to enter can see whether the field is beatable rather than only who is in it.
-- Runs the club's matchmaking: a one-tap "I'm free now" that publishes availability, opens a table to the club and asks the best-matched opponents at once; mutual match offers where neither side learns the other declined; directed invites with counter-proposals; open calls; recurring weekly availability; and a post-match result prompt.
-- Notifies members of invites, offers, open calls and results by web push, with an optional email fallback, so matchmaking reaches people who do not have the app open.
+- Runs matchmaking as sessions (the 約戰 tab): say you want a game or are around for an exact window, or open a table with seats; 1v1 and groups of up to 6 are the same thing, and a group is the default because a bigger table is likelier to happen. Players pick venues on a map pin, requirements are mutual and private, and a result recorded afterwards updates both ratings immediately. Design and rules: `docs/matchmaking-phase1-spec.md`; release steps: `docs/play-release.md`.
 - Supports member registration, login, sessions, linked member/player profiles, account settings, password changes, and account deactivation.
 - Provides an admin area for member management, player-account linking, player creation, ELO settings, data reset, and audit history.
 
@@ -48,7 +47,7 @@ The server creates or upgrades the required auth and rating tables on first use.
 
 ### Notifications (optional)
 
-Matchmaking sends every notification by email — no browser push, no per-member preferences. Set either a Resend key or your own relay endpoint; with neither set, notification calls are an inert no-op:
+Only the cup draw messages are emailed — matchmaking sends nothing; members find out by opening the app or from a link a friend shares. Set either a Resend key or your own relay endpoint; with neither set, notification calls are an inert no-op:
 
 ```text
 RESEND_API_KEY=...            # plus NOTIFY_EMAIL_FROM

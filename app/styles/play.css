@@ -81,3 +81,11 @@
     .play-actions > * { flex: 1 1 auto; }
   }
 }
+
+/* Admin: venue moderation queue (app/admin/VenueQueue.tsx) */
+@layer components {
+  .admin-venue-row { display: grid; gap: var(--sp-2); }
+  .admin-venue-main { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
+  .admin-venue-main small { color: var(--ds-text-secondary); font-size: var(--fs-caption); }
+  .admin-venue-actions, .admin-venue-edit { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: end; }
+}

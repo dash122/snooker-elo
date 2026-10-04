@@ -177,7 +177,7 @@ export default function PlayBoard(props: PlayBoardProps) {
     <section className="play-page">
       <header className="play-head">
         <h2>{t("約戰")}</h2>
-        <ChipGroup label={t("城市")} value={data.city} onChange={(v) => { setCity(v); setDate(null); }} items={data.cities.map((c) => ({ value: c.id, label: c.label }))} />
+        <ChipGroup label={t("城市")} value={data.city} onChange={(v) => { setCity(v); setDate(null); }} items={data.cities.map((c) => ({ value: c.id, label: locale === "en" ? c.labelEn : c.label }))} />
       </header>
       <ChipGroup label={t("日子")} value={data.date} onChange={setDate} items={dayItems} className="play-days" />
 

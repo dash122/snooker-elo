@@ -81,7 +81,7 @@ export default function SessionSheet({ session, data, people, ownPlayerId, act, 
           ))}
           {session.members.length === 0 && <li className="play-muted">{t("暫時未有人。")}</li>}
         </ul>
-        <p className="play-meta">{t("{open} 個位，最少 {min} 人開波。", { open: session.seatsOpen, min: session.minPlayers })} {session.tableStatus === "booked" ? t("已訂檯。") : t("現場排檯。")}</p>
+        <p className="play-meta">{session.seatsOpen === 0 ? t("已滿員。") : t("仲有 {open} 個位。", { open: session.seatsOpen })}{session.seatsNeeded > 0 ? ` ${t("最少要 {min} 人先開波。", { min: session.minPlayers })}` : ""} {session.tableStatus === "booked" ? t("已訂檯。") : t("現場排檯。")}</p>
         {session.invitees.length > 0 && <p className="play-meta">{t("等緊回覆：{names}", { names: session.invitees.map((p) => p.name).join("、") })}</p>}
         {session.note && <p className="play-note">「{session.note}」</p>}
         {terms.length > 0 && <div className="play-chips">{terms.map((x) => <Chip key={x}>{x}</Chip>)}</div>}
@@ -114,14 +114,14 @@ export default function SessionSheet({ session, data, people, ownPlayerId, act, 
           <div className="play-actions"><Button type="button" variant="quiet" onClick={() => void run("session.leave")}>{t("我去唔到")}</Button></div>
         )}
 
-        {ownPlayerId && live && session.mine === "in" && (
+        {ownPlayerId && live && session.mine === "in" && session.seatsOpen > 0 && (
           <>
             {invitable.length > 0 && <InviteePicker people={invitable} value={invitees} onChange={setInvitees} />}
             {invitees.length > 0 && <Button type="button" variant="secondary" onClick={async () => { if (await run("session.invite", { playerIds: invitees })) setInvitees([]); }}>{t("寄出邀請")}</Button>}
           </>
         )}
 
-        {live && (
+        {live && session.seatsOpen > 0 && (
           <div className="play-actions">
             <a className="ds-button ds-button--featured" href={whatsappUrl(shareText)} target="_blank" rel="noreferrer"><span>{t("分享去 WhatsApp")}</span></a>
             <Button type="button" variant="secondary" onClick={() => void copy()}>{copied ? t("已複製") : t("複製連結")}</Button>

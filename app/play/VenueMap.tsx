@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { Map as MapLibreMap, Marker, type MapMouseEvent } from "maplibre-gl";
+import { Map as MapLibreMap, Marker, setWorkerUrl, type MapMouseEvent } from "maplibre-gl";
+// MapLibre 6 ships its worker as a separate module. Bundlers have to be told where it ended up, with its
+// imports bundled in, or the map draws a pin on a blank canvas.
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useT } from "../components/I18nProvider";
 
@@ -9,6 +12,7 @@ import { useT } from "../components/I18nProvider";
    Tiles come from OpenFreeMap, which needs no key; its attribution control stays visible. */
 
 const STYLE = "https://tiles.openfreemap.org/styles/liberty";
+setWorkerUrl(workerUrl);
 
 export default function VenueMap({ lat, lng, editable = false, onChange, label, zoom = 15 }: {
   lat: number; lng: number; editable?: boolean; onChange?: (lat: number, lng: number) => void; label: string; zoom?: number;
