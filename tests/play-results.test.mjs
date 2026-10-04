@@ -87,7 +87,7 @@ test("only people in the session can record, between people in the session, once
   await reject("p1", { a: "p1", b: "p2", scoreA: -1, scoreB: 2 }, 400);
   const future = (await playWrite(db, "p1", "session.create", { venueId: "venue-scaa", startAt: at(4), endAt: at(6) })).id;
   await playWrite(db, "p2", "session.respond", { id: future, response: "in" });
-  await assert.rejects(recordResult(db, g, "p1", { sessionId: future, a: "p1", b: "p2", scoreA: 1, scoreB: 0 }), /仲未開始/);
+  await assert.rejects(recordResult(db, g, "p1", { sessionId: future, a: "p1", b: "p2", scoreA: 1, scoreB: 0 }), /尚未開始/);
   assert.equal(g.store.writes, 0, "nothing was written by any rejected attempt");
 });
 

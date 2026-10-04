@@ -43,8 +43,8 @@ export default function VenueSheet({ data, act, onClose, onAdded }: {
       const params = new URLSearchParams({ format: "jsonv2", limit: "5", q: query.trim() });
       const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, { headers: { accept: "application/json" } });
       setFound(response.ok ? ((await response.json()) as Found[]) : []);
-      if (!response.ok) setError(t("搜尋暫時用唔到，請直接喺地圖上撳位置。"));
-    } catch { setError(t("搜尋暫時用唔到，請直接喺地圖上撳位置。")); }
+      if (!response.ok) setError(t("暫時無法搜尋，請直接在地圖上點選位置。"));
+    } catch { setError(t("暫時無法搜尋，請直接在地圖上點選位置。")); }
     setSearching(false);
   }
 
@@ -75,7 +75,7 @@ export default function VenueSheet({ data, act, onClose, onAdded }: {
         </form>
         {found.length > 0 && <ul className="play-picker-list">{found.map((f, i) => <li key={`${f.lat},${f.lon},${i}`}><button type="button" onClick={() => choose(f)}><span>{f.display_name}</span></button></li>)}</ul>}
 
-        <p className="play-hint">{t("喺地圖撳一下，或者拖動標記，指出場地位置。")}</p>
+        <p className="play-hint">{t("在地圖上點選，或拖動標記，標示場地位置。")}</p>
         <Suspense fallback={<Skeleton height="14rem" />}>
           <VenueMap lat={pin.lat} lng={pin.lng} editable label={name || t("新場地")} zoom={pinned ? 16 : 11} onChange={(lat, lng) => { setPin({ lat, lng }); setPinned(true); }} />
         </Suspense>
@@ -84,9 +84,9 @@ export default function VenueSheet({ data, act, onClose, onAdded }: {
         <FormField label={t("英文名稱（選填）")}><input value={nameEn} maxLength={60} onChange={(e) => setNameEn(e.target.value)} /></FormField>
 
         {duplicates.length > 0 && (
-          <InlineNotice tone="warning" title={t("會唔會係其中一間？")}>
+          <InlineNotice tone="warning" title={t("會否是其中一間？")}>
             <ul className="play-picker-list">{duplicates.map((v) => <li key={v.id}><button type="button" onClick={() => { onAdded(v.id); onClose(); }}><span>{v.name}</span></button></li>)}</ul>
-            <Button type="button" variant="secondary" onClick={() => void save(true)}>{t("唔係，新增一間")}</Button>
+            <Button type="button" variant="secondary" onClick={() => void save(true)}>{t("不是，新增一間")}</Button>
           </InlineNotice>
         )}
         {error && <InlineNotice tone="danger" title={t("未能新增")}>{error}</InlineNotice>}
@@ -94,7 +94,7 @@ export default function VenueSheet({ data, act, onClose, onAdded }: {
           <Button type="button" variant="secondary" onClick={onClose}>{t("取消")}</Button>
           <Button type="button" loading={pending} disabled={!name.trim() || !pinned} onClick={() => void save()}>{t("新增")}</Button>
         </div>
-        <p className="play-meta">{t("新場地會即時可用，管理員核實後會移除「未核實」標記。")}</p>
+        <p className="play-meta">{t("新場地可即時使用，管理員核實後會移除「未核實」標記。")}</p>
       </div>
     </Sheet>
   );

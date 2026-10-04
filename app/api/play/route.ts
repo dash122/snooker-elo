@@ -21,7 +21,7 @@ function failure(t: Translator, error: unknown, request: Request) {
     error: detail.name ?? "unknown", detail: detail.message?.slice(0, 240) ?? null, code: detail.code ?? null, constraint: detail.constraint ?? null,
   }));
   // A constraint the application checks first can still fire under a race; say so plainly.
-  if (detail.code === "23514") return Response.json({ error: t("呢個約戰剛剛有變動，請重新載入後再試。") }, { status: 409, headers });
+  if (detail.code === "23514") return Response.json({ error: t("此約戰剛剛有變動，請重新載入後再試。") }, { status: 409, headers });
   return Response.json({ error: t("約戰暫時未能更新，請重新載入後再試。") }, { status: 500, headers });
 }
 
@@ -29,8 +29,8 @@ function failure(t: Translator, error: unknown, request: Request) {
 export async function GET(request: Request) {
   const { t } = await getTranslator();
   try {
-    if (!(await isPlayReady())) return Response.json({ ready: false }, { headers });
-    const member = await requireMember();
+    const [ready, member] = await Promise.all([isPlayReady(), requireMember()]);
+    if (!ready) return Response.json({ ready: false }, { headers });
     const url = new URL(request.url);
     const dashboard = await playDashboard(playDatabase(), member?.statePlayerId ?? null, Boolean(member), { city: url.searchParams.get("city"), date: url.searchParams.get("date"), session: url.searchParams.get("session") });
     return Response.json(dashboard, { headers });

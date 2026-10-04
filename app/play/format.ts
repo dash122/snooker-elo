@@ -14,13 +14,19 @@ export function range(x: { startAt: string; endAt: string }, tz: string, t: Tran
 }
 
 export function dayLabel(date: string, tz: string, locale: Locale, today: string) {
-  if (date === today) return locale === "en" ? "Today" : "今日";
-  if (date === addDays(today, 1)) return locale === "en" ? "Tomorrow" : "明日";
+  if (date === today) return locale === "en" ? "Today" : "今天";
+  if (date === addDays(today, 1)) return locale === "en" ? "Tomorrow" : "明天";
   return new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: "UTC", month: locale === "en" ? "short" : "numeric", day: "numeric", weekday: "short" }).format(new Date(`${date}T12:00:00Z`));
 }
 
 export function shortDay(date: string, locale: Locale) {
   return new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: "UTC", weekday: "short" }).format(new Date(`${date}T12:00:00Z`));
+}
+
+/** Calendar-tile parts for a YYYY-MM-DD date: weekday, day of month, month. */
+export function dayParts(date: string, locale: Locale) {
+  const at = new Date(`${date}T12:00:00Z`), f = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: "UTC", ...o }).format(at);
+  return { weekday: f({ weekday: "short" }), day: f({ day: "numeric" }), month: f({ month: locale === "en" ? "short" : "numeric" }) };
 }
 
 export const venueName = (venues: PlayVenue[], id: string | null, t: Translator) =>

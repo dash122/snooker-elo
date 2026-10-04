@@ -34,12 +34,12 @@ const GRACE = 7 * 86_400_000;
 const MAX_ATTEMPTS = 3;
 
 function requireParticipants(session: PlaySession, actorId: string, ids: string[], now: number) {
-  if (session.status === "cancelled") throw new PlayError(msg("呢個約戰已經關閉。"));
-  if (Date.parse(session.startAt) > now) throw new PlayError(msg("呢個約戰仲未開始。"));
-  if (Date.parse(session.endAt) + GRACE < now) throw new PlayError(msg("呢個約戰已經完結太耐，請用一般賽果表格記錄。"));
+  if (session.status === "cancelled") throw new PlayError(msg("此約戰已關閉。"));
+  if (Date.parse(session.startAt) > now) throw new PlayError(msg("此約戰尚未開始。"));
+  if (Date.parse(session.endAt) + GRACE < now) throw new PlayError(msg("此約戰已結束太久，請使用一般賽果表格記錄。"));
   const going = new Set(accepted(session.members).map((m) => m.playerId));
-  if (!going.has(actorId)) throw new PlayError(msg("只有已加入嘅人先可以記錄賽果。"), 403);
-  if (ids.some((id) => !going.has(id))) throw new PlayError(msg("兩位球員都必須喺呢個約戰入面。"));
+  if (!going.has(actorId)) throw new PlayError(msg("只有已加入的球友才可以記錄賽果。"), 403);
+  if (ids.some((id) => !going.has(id))) throw new PlayError(msg("兩位球員都必須在此約戰中。"));
 }
 
 async function sessionZone(db: PlayDatabase, session: PlaySession) {
@@ -48,7 +48,7 @@ async function sessionZone(db: PlayDatabase, session: PlaySession) {
 }
 
 export async function recordResult(db: PlayDatabase, state: StateGateway, actorId: string, input: RecordInput, now = Date.now()): Promise<RecordOutcome> {
-  if (!input.a || !input.b || input.a === input.b) throw new PlayError(msg("請揀兩位唔同嘅球員。"));
+  if (!input.a || !input.b || input.a === input.b) throw new PlayError(msg("請選擇兩位不同的球員。"));
   const { scoreA, scoreB } = (() => { try { return validateScores(input.scoreA, input.scoreB); } catch (e) { throw new PlayError((e as Error).message); } })();
   const session = await loadSession(db, input.sessionId, false);
   requireParticipants(session, actorId, [input.a, input.b], now);
@@ -91,7 +91,7 @@ async function link(db: PlayDatabase, sessionId: string, matchId: string, record
     await db.transaction(async (tx) => {
       await tx.query(`SELECT pg_advisory_xact_lock($1,$2)`, [...LOCK_KEY]);
       await tx.query(`INSERT INTO play_session_results(match_id,session_id,recorded_by) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, [matchId, sessionId, recordedBy]);
-      await tx.query(`UPDATE play_session_members SET played=true,updated_at=now() WHERE session_id=$1 AND player_id IN (SELECT jsonb_array_elements_text($2::jsonb)) AND played IS NULL`,
+      await tx.query(`UPDATE play_session_members SET played=true,updated_at=now() WHERE session_id=$1 AND player_id IN (SELECT jsonb_array_elements_text($2::text::jsonb)) AND played IS NULL`,
         [sessionId, JSON.stringify(players)]);
       await tx.query(`UPDATE play_sessions SET status='played',played_at=COALESCE(played_at,now()),revision=revision+1,updated_at=now() WHERE id=$1 AND status<>'cancelled'`, [sessionId]);
     });
@@ -109,7 +109,7 @@ export async function linkMatch(db: PlayDatabase, state: StateGateway, actorId: 
   const read = await state.read();
   const doc = read ? (JSON.parse(read.json) as StateDocument) : null;
   const match = doc?.matches.find((m) => m.id === input.matchId && m.status === "confirmed" && (!m.mode || m.mode === "1v1"));
-  if (!match) throw new PlayError(msg("搵唔到呢場賽果。"), 404);
+  if (!match) throw new PlayError(msg("找不到這場賽果。"), 404);
   requireParticipants(session, actorId, [match.a, match.b], now);
   const ok = await link(db, session.id, match.id, actorId, [match.a, match.b]);
   if (!ok) throw new PlayError(msg("未能連結賽果，請稍後再試。"), 500);
