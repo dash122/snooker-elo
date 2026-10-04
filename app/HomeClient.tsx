@@ -13,7 +13,8 @@ import { SQUAD_SWING_DAYS, daysSinceLastMatch, isInactive, ratingSwing, squadRec
 import { SquadStatsPanel } from "./SquadStats";
 import { SquadAddedNotices, SquadCenter, SquadIntro, SquadScopeMenu, defaultSquadId, usePublicSquad, useSquadViewTracking, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
-import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel, type AvailabilitySlot } from "../lib/availability";
+import { addDaysHongKong, dayRangeHongKong, hkClock, hkDate, hkDayLabel } from "../lib/hk-time";
+import type { AvailabilitySlot } from "../lib/availability";
 import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, whatsappLink } from "../lib/cup-share";
 import { applyCupHandicap } from "../lib/cup-handicap-draft";
 import { ShareGlyph, shareSheetTitle } from "./ShareSheet";

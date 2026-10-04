@@ -1,4 +1,4 @@
-import { hkClock, hkDate, hkDayLabel, type Interval } from "./availability";
+import { hkClock, hkDate, hkDayLabel, type Interval } from "./hk-time.ts";
 
 /** Every message the club can send a member, composed in one place.
  *
