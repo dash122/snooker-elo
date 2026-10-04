@@ -33,6 +33,7 @@ const LOCK = [726342, 1] as const;
 const ts = (column: string) => `to_char(${column} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 const DAY = 86_400_000;
 
+export const LOCK_KEY = LOCK;
 export const PLAY_TABLES = ["play_intents", "play_avoids", "play_sessions", "play_session_members", "play_session_results"] as const;
 
 export async function playReady(db: PlayConnection) {
@@ -166,11 +167,11 @@ async function loadVenue(db: PlayConnection, id: string) {
 }
 
 /** One live session with its members, row-locked for the rest of the transaction. */
-async function loadSession(db: PlayConnection, id: unknown): Promise<PlaySession> {
+export async function loadSession(db: PlayConnection, id: unknown, lock = true): Promise<PlaySession> {
   if (typeof id !== "string") return fail(msg("搵唔到呢個約戰。"), 404);
   const rows = await db.query<SessionRow>(`SELECT id,created_by AS "createdBy",venue_id AS "venueId",city,${ts("start_at")} AS "startAt",${ts("end_at")} AS "endAt",
     min_players AS "minPlayers",target_size AS "targetSize",max_players AS "maxPlayers",table_status AS "tableStatus",status,note,terms::text AS terms,revision
-    FROM play_sessions WHERE id=$1 FOR UPDATE`, [id]);
+    FROM play_sessions WHERE id=$1${lock ? " FOR UPDATE" : ""}`, [id]);
   const row = rows[0] ?? fail(msg("搵唔到呢個約戰。"), 404);
   const members = await db.query<PlaySession["members"][number]>(`SELECT player_id AS "playerId",status,source,came,played FROM play_session_members WHERE session_id=$1`, [id]);
   return { ...row, terms: parseStoredConditions(row.terms), members } as PlaySession;
