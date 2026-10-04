@@ -54,7 +54,7 @@ export function usePlayBoard(onActivity?: () => void, focusSessionId?: string | 
     return () => { mounted.current = false; counter.current++; clearTimeout(first); clearInterval(timer); window.removeEventListener("focus", onFocus); };
   }, [refresh]);
 
-  async function post(url: string, body: Record<string, unknown>): Promise<ActionResult & Record<string, unknown>> {
+  const post = useCallback(async (url: string, body: Record<string, unknown>): Promise<ActionResult & Record<string, unknown>> => {
     if (pending.current) return { ok: false, error: t("處理緊上一個操作，請稍等。") };
     pending.current = true;
     setBusy(true);
@@ -72,10 +72,10 @@ export function usePlayBoard(onActivity?: () => void, focusSessionId?: string | 
       pending.current = false;
       setBusy(false);
     }
-  }
+  }, [t, refresh, onActivity]);
 
-  const act = useCallback((action: string, values: Record<string, unknown> = {}) => post(BOARD, { action, ...values }), [post]); // eslint-disable-line react-hooks/exhaustive-deps
-  const results = useCallback((values: Record<string, unknown>) => post(RESULTS, values), [post]); // eslint-disable-line react-hooks/exhaustive-deps
+  const act = useCallback((action: string, values: Record<string, unknown> = {}) => post(BOARD, { action, ...values }), [post]);
+  const results = useCallback((values: Record<string, unknown>) => post(RESULTS, values), [post]);
 
   return { data, error, loading, busy, city, setCity, date, setDate, refresh, act, results };
 }

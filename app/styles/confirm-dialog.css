@@ -1,0 +1,27 @@
+/* ConfirmDialog: the small alert dialog used for destructive or irreversible confirmations.
+   Moved here from the old matchmaking stylesheets (where it was called .availability-dialog) when
+   that feature was replaced; the values are the ones that were effective in the cascade. */
+@layer components {
+  @keyframes confirm-dialog-fade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes confirm-dialog-rise { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+
+  .confirm-dialog-backdrop {
+    position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+    padding: var(--sp-4); background: var(--ds-overlay); backdrop-filter: blur(8px);
+    animation: confirm-dialog-fade .16s ease-out;
+  }
+  .confirm-dialog {
+    width: 100%; max-width: 392px; margin: auto; padding: var(--sp-5);
+    background: var(--ds-surface-primary); border: 1px solid var(--ds-border-subtle);
+    border-radius: var(--radius-lg); box-shadow: var(--ds-elevation-6);
+    animation: confirm-dialog-rise .18s ease-out;
+  }
+  .confirm-dialog small { font-size: var(--fs-label); color: var(--ds-text-secondary); letter-spacing: .08em; text-transform: uppercase; font-weight: 800; }
+  .confirm-dialog h2 { font-size: var(--fs-lead); margin: var(--sp-2) 0 var(--sp-2-5); font-variant-numeric: tabular-nums; }
+  .confirm-dialog p { font-size: var(--fs-caption); color: var(--ds-text-secondary); margin: 0 0 var(--sp-4-5); line-height: 1.55; }
+  /* The button row wraps, so a three-action dialog stays usable once the labels stop fitting on one line. */
+  .confirm-dialog > div { display: flex; gap: var(--sp-2-5); flex-wrap: wrap; }
+  .confirm-dialog > div > button { flex: 1 1 116px; }
+  /* Cup arrival-time toggle sits between the text and the button row. */
+  .confirm-dialog > .cup-arrival-toggle-block { display: block; margin: var(--sp-1) 0 var(--sp-4); }
+}

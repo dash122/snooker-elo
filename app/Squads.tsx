@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { MySquad, SquadDetail, SquadSummary } from "../db/squads.pg";
 import { SQUAD_NAME_MAX, type SquadRole, type SquadVisibility } from "../lib/squads";
 import { useT } from "./components/I18nProvider";
-import { trackAvailabilityEvent } from "../lib/availability-analytics";
+import { trackEvent } from "../lib/analytics-events";
 import { Button, Chip, EmptyState, FormField, IconButton, InlineNotice, SectionLabel, SegmentedControl, Skeleton } from "./components/ui/Primitives";
 import { Sheet } from "./components/ui/Overlay";
 import { Menu } from "./components/ui/Menu";
@@ -113,7 +113,7 @@ export function useSquadViewTracking(squad: MySquad | null) {
   useEffect(() => {
     if (!id) return;
     writeList(RECENT_KEY, [id, ...readList(RECENT_KEY).filter(item => item !== id)].slice(0, 20));
-    trackAvailabilityEvent("squad_view", { squadId: id, memberCount: size });
+    trackEvent("squad_view", { squadId: id, memberCount: size });
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 

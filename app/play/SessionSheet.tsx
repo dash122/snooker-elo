@@ -41,7 +41,8 @@ export default function SessionSheet({ session, data, people, ownPlayerId, act, 
   const [copied, setCopied] = useState(false);
   const venue = data.venues.find((v) => v.id === session.venueId) ?? null;
   const isCreator = session.createdBy === ownPlayerId;
-  const started = Date.parse(session.startAt) <= Date.now();
+  const [now] = useState(() => Date.now());
+  const started = Date.parse(session.startAt) <= now;
   const live = session.status === "forming" || session.status === "playable" || session.status === "full";
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const shareText = sessionShareText({ session, venues: data.venues, tz: data.tz, locale, origin, t });

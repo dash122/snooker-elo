@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Button, Chip, ChipGroup, FormField, InlineNotice, SegmentedControl } from "../components/ui/Primitives";
 import { Sheet } from "../components/ui/Overlay";
 import { useLocale, useT } from "../components/I18nProvider";
+import { msg } from "../../lib/i18n/translate";
 import type { Dashboard } from "../../lib/play/dashboard";
 import { gameOdds } from "../../lib/play/session";
 import { GROUP_PRESETS, type Interval, type PlayConditions } from "../../lib/play/types";
@@ -21,7 +22,7 @@ export type Created = { kind: "intent"; window: Interval; venueId: string | null
 type Person = { id: string; name: string; rating: number };
 
 const PRESETS: { id: WindowPreset | "custom"; label: string }[] = [
-  { id: "now", label: "即刻" }, { id: "afternoon", label: "下晝" }, { id: "afterwork", label: "放工後" }, { id: "evening", label: "夜晚" }, { id: "custom", label: "自訂" },
+  { id: "now", label: msg("即刻") }, { id: "afternoon", label: msg("下晝") }, { id: "afterwork", label: msg("放工後") }, { id: "evening", label: msg("夜晚") }, { id: "custom", label: msg("自訂") },
 ];
 
 export function InviteePicker({ people, value, onChange }: { people: Person[]; value: string[]; onChange: (ids: string[]) => void }) {

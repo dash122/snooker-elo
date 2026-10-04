@@ -14,12 +14,6 @@ export async function getStateVersion() {
   return backend.getStateVersion();
 }
 
-export type { MatchmakingSlice } from "./state.pg";
-
-/* Just the players/matches/settings columns matchmaking ranks on — see state.pg.ts. */
-export async function getMatchmakingSlice() {
-  return backend.getMatchmakingSlice();
-}
 
 export async function getSettings() {
   return backend.getSettings();

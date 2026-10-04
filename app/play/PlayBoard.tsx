@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Button, Chip, ChipGroup, EmptyState, InlineNotice, SectionLabel, Skeleton, Surface } from "../components/ui/Primitives";
 import { useLocale, useT } from "../components/I18nProvider";
+import { msg } from "../../lib/i18n/translate";
 import type { Dashboard, LookingDto, PoolDto, QueueDto, SessionDto } from "../../lib/play/dashboard";
 import type { WhyKey } from "../../lib/play/fit";
 import type { HandicapSettings, PastMatch } from "../../lib/handicap";
@@ -33,7 +34,7 @@ export type PlayBoardProps = {
 };
 
 const WHY: Record<WhyKey, string> = {
-  similarLevel: "水平差唔多", handicapBridge: "可以用讓分打", sharedVenue: "有共同場地", timeOverlap: "時間重疊多", bothNonSmoking: "都要無煙", sameVibe: "氣氛相近",
+  similarLevel: msg("水平差唔多"), handicapBridge: msg("可以用讓分打"), sharedVenue: msg("有共同場地"), timeOverlap: msg("時間重疊多"), bothNonSmoking: msg("都要無煙"), sameVibe: msg("氣氛相近"),
 };
 
 function QueueItem({ item, board, onOpen, onWant, run }: {
@@ -105,8 +106,8 @@ export default function PlayBoard(props: PlayBoardProps) {
   const locale = useLocale();
   const { ownPlayerId, players } = props;
   const [focusId, setFocusId] = useState(props.focusSessionId ?? null);
-  const { data, error, loading, busy, city, setCity, date, setDate, refresh, act, results } = usePlayBoard(props.onActivity, focusId);
-  const [composer, setComposer] = useState<{ key: number; init?: ComposerInit } | null>(null);
+  const { data, error, loading, busy, setCity, setDate, refresh, act, results } = usePlayBoard(props.onActivity, focusId);
+  const [composer, setComposer] = useState<{ key: number | string; init?: ComposerInit } | null>(null);
   const [addVenue, setAddVenue] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [freshId, setFreshId] = useState<string | null>(null);
@@ -114,32 +115,22 @@ export default function PlayBoard(props: PlayBoardProps) {
   const [notice, setNotice] = useState<ReactNode>(null);
   const [actionError, setActionError] = useState("");
 
-  // Open a session named by a shared link once the board has it, then forget the link.
-  useEffect(() => {
-    if (!focusId || !data) return;
-    if (data.sessions.some((s) => s.id === focusId) || data.queue.some((q) => q.kind !== "want" && q.session.id === focusId)) {
-      setOpenId(focusId);
-      setFocusId(null);
-      props.onFocusConsumed?.();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusId, data]);
-
-  // A player picked elsewhere ("約戰" on their profile) opens the composer with them invited.
-  useEffect(() => {
-    if (!props.target || !data?.signedIn) return;
-    setComposer({ key: Date.now(), init: { mode: "table", inviteIds: [props.target.playerId] } });
-    props.onTargetConsumed?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.target, data?.signedIn]);
-
   const all = useMemo(() => {
     const map = new Map<string, SessionDto>();
     for (const s of data?.sessions ?? []) map.set(s.id, s);
     for (const q of data?.queue ?? []) if (q.kind !== "want") map.set(q.session.id, q.session);
     return map;
   }, [data]);
-  const open = openId ? all.get(openId) ?? null : null;
+  // A session named by a shared link opens as soon as the board has it. Derived, not set in an
+  // effect, so there is no frame where the board shows without it.
+  const focused = focusId && all.has(focusId) ? focusId : null;
+  const open = (openId ?? focused) ? all.get((openId ?? focused) as string) ?? null : null;
+  // A player picked elsewhere ("約戰" on their profile) opens the composer with them invited.
+  const targeted: { key: number | string; init: ComposerInit } | null = props.target && data?.signedIn
+    ? { key: `target-${props.target.playerId}`, init: { mode: "table", inviteIds: [props.target.playerId] } } : null;
+  const activeComposer = composer ?? targeted;
+  const closeComposer = () => { setComposer(null); props.onTargetConsumed?.(); };
+  const closeSession = () => { setOpenId(null); setFreshId(null); if (focusId) { setFocusId(null); props.onFocusConsumed?.(); } };
   const today = data?.dates[0]?.date ?? "";
 
   async function run(action: string, id: string, values: Record<string, unknown> = {}) {
@@ -254,14 +245,14 @@ export default function PlayBoard(props: PlayBoardProps) {
         </>
       )}
 
-      {composer && (
-        <Composer key={composer.key} data={data} people={players.filter((p) => p.id !== ownPlayerId)} init={composer.init} act={act}
-          onClose={() => setComposer(null)} onCreated={created} onAddVenue={() => setAddVenue(true)} />
+      {activeComposer && (
+        <Composer key={activeComposer.key} data={data} people={players.filter((p) => p.id !== ownPlayerId)} init={activeComposer.init} act={act}
+          onClose={closeComposer} onCreated={created} onAddVenue={() => setAddVenue(true)} />
       )}
       {addVenue && <VenueSheet data={data} act={act} onClose={() => setAddVenue(false)} onAdded={() => void refresh()} />}
       {open && !recording && (
         <SessionSheet session={open} data={data} people={players} ownPlayerId={ownPlayerId ?? null} act={act} justCreated={freshId === open.id}
-          onClose={() => { setOpenId(null); setFreshId(null); }} onRecord={(s) => { setRecording(s); setOpenId(null); }} />
+          onClose={closeSession} onRecord={(s) => { setRecording(s); closeSession(); }} />
       )}
       {recording && ownPlayerId && (
         <ResultSheet session={recording} players={players} ownPlayerId={ownPlayerId} settings={props.settings} matches={props.matches} results={results}

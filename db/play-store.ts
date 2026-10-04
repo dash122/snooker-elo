@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { msg } from "../lib/i18n/translate.ts";
 import { parseConditions, parseStoredConditions, parseStringArray } from "../lib/play/conditions.ts";
 import { toDashboard, type Dashboard } from "../lib/play/dashboard.ts";
-import { avoidSet, compatible, groupCompatible, type FitSide } from "../lib/play/fit.ts";
+import { avoidSet, groupCompatible, type FitSide } from "../lib/play/fit.ts";
 import { CITIES, OTHER_CITY, cityById, cityForPin, likelyDuplicates } from "../lib/play/geo.ts";
 import { accepted, deriveStatus, isLive, joinBlock, type JoinBlock } from "../lib/play/session.ts";
 import { isValidZone, zonedDate } from "../lib/play/time.ts";
