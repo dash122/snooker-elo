@@ -12,8 +12,11 @@
 export type AnalyticsEventName =
   /* 球隊 — viewing a squad's table. Joins, leaves and settings are recorded server-side. */
   | "squad_view"
-  /* 約戰 — arriving on the board. Everything after that is recorded server-side by /api/play. */
-  | "play_board_view";
+  /* 約戰 — arriving on the board. Successful writes are recorded server-side by /api/play; browsing signals stay here. */
+  | "play_board_view"
+  | "play_board_ready"
+  | "play_composer_started"
+  | "play_session_view";
 
 type QueuedEvent = { event: AnalyticsEventName; props?: Record<string, unknown>; at: string };
 
