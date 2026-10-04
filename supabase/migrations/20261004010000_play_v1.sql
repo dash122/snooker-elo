@@ -46,7 +46,9 @@ CREATE TABLE IF NOT EXISTS public.play_intents (
   end_at timestamptz NOT NULL,
   min_minutes integer NOT NULL DEFAULT 60 CHECK (min_minutes BETWEEN 30 AND 240),
   venue_scope text NOT NULL DEFAULT 'city' CHECK (venue_scope IN ('listed','city')),
-  venue_ids text[] NOT NULL DEFAULT '{}',
+  -- A JSON array of venue ids (not text[]): the production pooler decodes jsonb/arrays inconsistently,
+  -- so every jsonb column is read back as text and parsed in the repository.
+  venue_ids jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(venue_ids) = 'array'),
   city text NOT NULL,
   min_players integer NOT NULL DEFAULT 2,
   target_size integer NOT NULL DEFAULT 4,
