@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     if (!(await isPlayReady())) return Response.json({ ready: false }, { headers });
     const member = await requireMember();
     const url = new URL(request.url);
-    const dashboard = await playDashboard(playDatabase(), member?.statePlayerId ?? null, Boolean(member), { city: url.searchParams.get("city"), date: url.searchParams.get("date") });
+    const dashboard = await playDashboard(playDatabase(), member?.statePlayerId ?? null, Boolean(member), { city: url.searchParams.get("city"), date: url.searchParams.get("date"), session: url.searchParams.get("session") });
     return Response.json(dashboard, { headers });
   } catch (error) { return failure(t, error, request); }
 }
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     const playerId = member.statePlayerId;
     // Analytics are best effort and never delay or fail the member's request.
     after(async () => {
-      try { await recordEvents(playerId, result.events.map((event) => ({ ...event, at: new Date().toISOString() }))); } catch { /* best effort */ }
+      try { await recordEvents(playerId, result.events.map((event) => ({ event: event.event, props: event.props ?? null, at: new Date().toISOString() }))); } catch { /* best effort */ }
     });
     return Response.json({ ok: true, id: result.id, duplicates: result.duplicates }, { headers });
   } catch (error) { return failure(t, error, request); }

@@ -20,7 +20,7 @@ const questionOne = [
     looking at a table with no idea what to do first; these are the two actions that make the app theirs. */
 const NEXT_STEPS = [
   { href: "/?start=record", title: msg("記錄第一場比賽"), body: msg("登記局分後，雙方評分即會更新。") },
-  { href: "/?tab=availability", title: msg("登記有空時段"), body: msg("讓系統為你配對合適的對手。") },
+  { href: "/?tab=play", title: msg("搵人打波"), body: msg("話畀大家知你想打波，或者開一張檯。") },
 ] as const;
 
 const AVATAR_SIZE = 160;

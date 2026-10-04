@@ -21,7 +21,8 @@ export type BoardInput = {
   intents: PlayIntent[];
   sessions: PlaySession[];
   avoids: AvoidSet;
-  /** Intents posted by the viewer's own ratings are looked up by player id. */
+  /** A session opened from a shared link: shown whatever day it is on, if the viewer may see it. */
+  focusSessionId?: string | null;
 };
 
 export type SessionCard = {
@@ -95,7 +96,7 @@ export function buildBoard(input: BoardInput): Board {
     const mineStatus = statusOf(session, viewerId);
     const involved = mineStatus === "in" || mineStatus === "maybe" || mineStatus === "invited";
     if (!involved && (!isLive(session.status) || Date.parse(session.endAt) <= now)) continue;
-    if (!overlaps(session, day) && !involved) continue;
+    if (!overlaps(session, day) && !involved && session.id !== input.focusSessionId) continue;
     const inPlayers = accepted(session.members).map((m) => players.get(m.playerId)).filter((p): p is PlayPlayer => !!p);
     // Silently hide a session that contains someone the viewer avoids (or who avoids the viewer).
     if (!involved && inPlayers.some((p) => avoided(avoids, viewerId, p.id))) continue;

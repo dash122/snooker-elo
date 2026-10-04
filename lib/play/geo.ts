@@ -3,11 +3,11 @@
    becomes "other" and keeps whatever zone the person adding it was in, so a new city can appear
    before we have a name for it. */
 
-export type City = { id: string; label: string; labelEn: string; tz: string; box: { south: number; north: number; west: number; east: number } };
+export type City = { id: string; label: string; labelEn: string; tz: string; center: { lat: number; lng: number }; box: { south: number; north: number; west: number; east: number } };
 
 export const CITIES: City[] = [
-  { id: "hong-kong", label: "香港", labelEn: "Hong Kong", tz: "Asia/Hong_Kong", box: { south: 22.13, north: 22.57, west: 113.82, east: 114.45 } },
-  { id: "london", label: "倫敦", labelEn: "London", tz: "Europe/London", box: { south: 51.28, north: 51.70, west: -0.52, east: 0.34 } },
+  { id: "hong-kong", label: "香港", labelEn: "Hong Kong", tz: "Asia/Hong_Kong", center: { lat: 22.3193, lng: 114.1694 }, box: { south: 22.13, north: 22.57, west: 113.82, east: 114.45 } },
+  { id: "london", label: "倫敦", labelEn: "London", tz: "Europe/London", center: { lat: 51.5074, lng: -0.1278 }, box: { south: 51.28, north: 51.70, west: -0.52, east: 0.34 } },
 ];
 
 export const OTHER_CITY = "other";

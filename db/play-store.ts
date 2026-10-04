@@ -99,13 +99,16 @@ export function cityZone(snapshot: Snapshot, city: string) {
   return cityById(city)?.tz ?? snapshot.venues.find((v) => v.city === city)?.tz ?? "UTC";
 }
 
-export async function playDashboard(db: PlayConnection, viewerId: string | null, signedIn: boolean, query: { city?: string | null; date?: string | null }, now = Date.now()): Promise<Dashboard> {
+export async function playDashboard(db: PlayConnection, viewerId: string | null, signedIn: boolean, query: { city?: string | null; date?: string | null; session?: string | null }, now = Date.now()): Promise<Dashboard> {
   const snapshot = await readSnapshot(db, now);
-  const city = query.city && (cityById(query.city) || snapshot.venues.some((v) => v.city === query.city)) ? query.city : defaultCity(snapshot, viewerId);
+  // A shared link names a session: open the board on its city and day unless the viewer chose otherwise.
+  const focus = query.session ? snapshot.sessions.find((s) => s.id === query.session) ?? null : null;
+  const known = (id: string) => !!cityById(id) || snapshot.venues.some((v) => v.city === id);
+  const city = query.city && known(query.city) ? query.city : focus?.city ?? defaultCity(snapshot, viewerId);
   const tz = cityZone(snapshot, city);
-  const date = query.date && /^\d{4}-\d{2}-\d{2}$/.test(query.date) ? query.date : zonedDate(now, tz);
+  const date = query.date && /^\d{4}-\d{2}-\d{2}$/.test(query.date) ? query.date : focus && focus.city === city ? zonedDate(focus.startAt, tz) : zonedDate(now, tz);
   return toDashboard({
-    viewerId: viewerId ?? "", city, tz, date, now,
+    viewerId: viewerId ?? "", city, tz, date, now, focusSessionId: focus?.id ?? null,
     players: snapshot.players, venues: snapshot.venues, intents: snapshot.intents, sessions: snapshot.sessions,
     avoids: avoidSet(snapshot.avoids),
   }, signedIn && !!viewerId);

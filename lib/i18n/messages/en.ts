@@ -6,7 +6,7 @@ export const en: Record<MessageKey, string> = {
   "lang.menuLabel": "Choose language 語言",
   "nav.leaderboard": "Rankings",
   "nav.matches": "Matches",
-  "nav.availability": "Play",
+  "nav.play": "Play",
   "nav.players": "Players",
   "nav.settings": "Settings",
   "nav.record": "Record",

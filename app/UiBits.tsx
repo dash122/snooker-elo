@@ -11,7 +11,7 @@ export type EloTrendPoint = {
 export const sortLabels:Record<SortKey,string>={rank:msg("排名"),name:msg("球員"),rating:"ELO",change:msg("近10天ELO變化"),form:msg("近況"),official:msg("正式評分"),suggested:msg("建議評分"),games:msg("場數"),winRate:msg("勝率"),frameRate:msg("局數勝率")};
 /** Tab-bar glyphs: one simple rounded silhouette each. Selection is carried by the tab's own colour and
     highlight plus a soft tint inside the same fine outline (never a solid fill, which fought the pill). */
-export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"availability"|"players"|"settings";active:boolean}) {
+export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"play"|"players"|"settings";active:boolean}) {
   const svgProps={width:24,height:24,viewBox:"0 0 24 24","aria-hidden":true,focusable:"false" as const};
   const line={fill:"none",stroke:"currentColor",strokeWidth:1.5,strokeLinecap:"round" as const,strokeLinejoin:"round" as const};
   const body={...line,fill:active?"currentColor":"none",fillOpacity:.16};
@@ -25,7 +25,7 @@ export function NavIcon({id,active}:{id:"leaderboard"|"matches"|"availability"|"
       <circle cx="12" cy="12" r="8.5" {...body}/>
       <circle cx="12" cy="12" r="3.1" {...line}/>
     </svg>;
-    case "availability":return <svg {...svgProps}>
+    case "play":return <svg {...svgProps}>
       <rect x="4" y="5.5" width="16" height="14.5" rx="3.5" {...body}/>
       <path d="M4 10.8h16M8.5 3.3v3.4M15.5 3.3v3.4" {...line}/>
     </svg>;

@@ -59,7 +59,7 @@ export default function RecordShareView({ share, card, message, url, signedIn }:
     </section>}
 
     <div className="cup-share-actions">
-      <Link className="cup-btn primary" href={signedIn ? "/?tab=availability" : "/login?mode=signup"}>
+      <Link className="cup-btn primary" href={signedIn ? "/?tab=play" : "/login?mode=signup"}>
         {signedIn ? t("約佢開波") : t("註冊約 {name} 開波", {name: share.name})}
       </Link>
     </div>
