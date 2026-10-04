@@ -1,7 +1,7 @@
 import { buildBoard, type BoardInput, type Pool, type QueueItem } from "./board.ts";
 import { CITIES, cityById } from "./geo.ts";
 import { seats } from "./session.ts";
-import { addDays, dayRange } from "./time.ts";
+import { addDays, dayRange, zonedDate } from "./time.ts";
 import type { Confidence, Interval, IntentKind, PlayConditions, PlayIntent, PlayPlayer, PlaySession, PlayVenue, SessionStatus, Strength, TableStatus, VenueScope } from "./types.ts";
 import { overlaps } from "./window.ts";
 import type { JoinBlock } from "./session.ts";
@@ -92,8 +92,11 @@ export function dayCounts(input: BoardInput, days = 7): DayCount[] {
   const live = input.intents.filter((i) => i.city === input.city && i.status === "active" && Date.parse(i.endAt) > input.now);
   const sessions = input.sessions.filter((s) => s.city === input.city && (s.status === "forming" || s.status === "playable" || s.status === "full") && Date.parse(s.endAt) > input.now);
   const out: DayCount[] = [];
+  // Anchored to today, not the selected day, so picking a day never reshuffles the strip.
+  const first = zonedDate(input.now, input.tz);
+  const start = input.date < first ? input.date : first;
   for (let n = 0; n < days; n += 1) {
-    const date = addDays(input.date, n);
+    const date = addDays(start, n);
     const range = dayRange(date, input.tz);
     out.push({
       date,

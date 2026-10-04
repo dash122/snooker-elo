@@ -1,7 +1,8 @@
 "use client";
 
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { Button, Chip, InlineNotice, Skeleton } from "../components/ui/Primitives";
+import { Button, Chip, FormField, InlineNotice, Skeleton } from "../components/ui/Primitives";
+import { Dialog } from "../components/ui/Overlay";
 import { cityById } from "../../lib/play/geo";
 
 const VenueMap = lazy(() => import("../play/VenueMap"));
@@ -22,7 +23,7 @@ export default function VenueQueue() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [open, setOpen] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ id: string; name: string; nameEn: string } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; name: string; nameEn: string; lat: number | null; lng: number | null; moved: boolean } | null>(null);
   const [merging, setMerging] = useState<{ id: string; into: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -56,7 +57,7 @@ export default function VenueQueue() {
   return (
     <div className="admin-venues">
       {error && <InlineNotice tone="danger" title="未能完成">{error}</InlineNotice>}
-      <ul className="admin-player-list admin-scroll">
+      <ul className="admin-venue-list">
         {venues.map((v) => (
           <li key={v.id} className="admin-venue-row">
             <div className="admin-venue-main">
@@ -67,19 +68,11 @@ export default function VenueQueue() {
             <div className="admin-venue-actions">
               {v.lat != null && v.lng != null && <Button type="button" variant="quiet" onClick={() => setOpen(open === v.id ? null : v.id)}>{open === v.id ? "收埋地圖" : "地圖"}</Button>}
               {v.status !== "verified" && v.active && <Button type="button" loading={busy === v.id} onClick={() => void act("approve", { id: v.id })}>核實</Button>}
-              {v.active && <Button type="button" variant="secondary" onClick={() => setEditing({ id: v.id, name: v.name, nameEn: v.nameEn ?? "" })}>修改</Button>}
+              {v.active && <Button type="button" variant="secondary" onClick={() => { setEditing({ id: v.id, name: v.name, nameEn: v.nameEn ?? "", lat: v.lat, lng: v.lng, moved: false }); setMerging(null); }}>修改</Button>}
               {v.active && live.length > 1 && <Button type="button" variant="secondary" onClick={() => setMerging({ id: v.id, into: live.find((o) => o.id !== v.id)!.id })}>合併</Button>}
               {v.active && v.status !== "rejected" && <Button type="button" variant="danger" onClick={() => void act("reject", { id: v.id })}>拒絕</Button>}
             </div>
             {open === v.id && v.lat != null && v.lng != null && <Suspense fallback={<Skeleton height="12rem" />}><VenueMap lat={v.lat} lng={v.lng} label={v.name} /></Suspense>}
-            {editing?.id === v.id && (
-              <form className="admin-venue-edit" onSubmit={(e) => { e.preventDefault(); void act("edit", { id: v.id, name: editing.name, nameEn: editing.nameEn }); }}>
-                <label>名稱<input value={editing.name} maxLength={60} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></label>
-                <label>英文名稱<input value={editing.nameEn} maxLength={60} onChange={(e) => setEditing({ ...editing, nameEn: e.target.value })} /></label>
-                <Button type="submit" loading={busy === v.id}>儲存</Button>
-                <Button type="button" variant="quiet" onClick={() => setEditing(null)}>取消</Button>
-              </form>
-            )}
             {merging?.id === v.id && (
               <form className="admin-venue-edit" onSubmit={(e) => { e.preventDefault(); void act("merge", { id: v.id, into: merging.into }); }}>
                 <label>合併入<select value={merging.into} onChange={(e) => setMerging({ ...merging, into: e.target.value })}>
@@ -92,6 +85,28 @@ export default function VenueQueue() {
         ))}
         {venues.length === 0 && <li>暫時未有場地。</li>}
       </ul>
+      <Dialog open={!!editing} title="修改場地" onClose={() => setEditing(null)}>
+        {editing && (() => {
+          const v = venues.find((x) => x.id === editing.id);
+          const centre = cityById(v?.city ?? "")?.center ?? { lat: 22.3193, lng: 114.1694 };
+          return (
+            <form className="admin-venue-dialog" onSubmit={(e) => { e.preventDefault(); void act("edit", { id: editing.id, name: editing.name, nameEn: editing.nameEn, ...(editing.moved ? { lat: editing.lat, lng: editing.lng } : {}) }); }}>
+              <FormField label="名稱"><input value={editing.name} maxLength={60} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></FormField>
+              <FormField label="英文名稱"><input value={editing.nameEn} maxLength={60} onChange={(e) => setEditing({ ...editing, nameEn: e.target.value })} /></FormField>
+              <FormField label="場地位置" hint={editing.lat == null ? "未設定位置。拖動標記或點擊地圖。" : "拖動標記或點擊地圖。"}>
+                <Suspense fallback={<Skeleton height="14rem" />}>
+                  <VenueMap lat={editing.lat ?? centre.lat} lng={editing.lng ?? centre.lng} editable label={editing.name || (v?.name ?? "")}
+                    zoom={editing.lat == null ? 11 : 16} onChange={(lat, lng) => setEditing((cur) => (cur ? { ...cur, lat, lng, moved: true } : cur))} />
+                </Suspense>
+              </FormField>
+              <div className="admin-venue-dialog-actions">
+                <Button type="button" variant="quiet" onClick={() => setEditing(null)}>放棄</Button>
+                <Button type="submit" loading={busy === editing.id}>儲存</Button>
+              </div>
+            </form>
+          );
+        })()}
+      </Dialog>
     </div>
   );
 }

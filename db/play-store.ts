@@ -57,21 +57,25 @@ type IntentRow = Omit<PlayIntent, "conditions" | "venueIds"> & { conditions: unk
 type SessionRow = Omit<PlaySession, "members" | "terms"> & { terms: unknown };
 
 export async function readSnapshot(db: PlayConnection, now: number): Promise<Snapshot> {
-  const playerRows = await db.query<PlayPlayer>(`SELECT p.id,p.name,p.rating::float8 AS rating FROM state_players p
+  const nowIso = new Date(now).toISOString(), weekIso = new Date(now - 7 * DAY).toISOString();
+  // Independent reads: issue them together instead of paying one round trip each.
+  const [playerRows, venues, intentRows, sessionRows, memberRows, avoids] = await Promise.all([
+    db.query<PlayPlayer>(`SELECT p.id,p.name,p.rating::float8 AS rating FROM state_players p
     WHERE p.active AND (NOT EXISTS(SELECT 1 FROM members m WHERE m.state_player_id=p.id)
-      OR EXISTS(SELECT 1 FROM members m WHERE m.state_player_id=p.id AND m.active))`);
-  const venues = await db.query<PlayVenue>(`SELECT id,name,name_en AS "nameEn",COALESCE(city,'${OTHER_CITY}') AS city,COALESCE(tz,'UTC') AS tz,lat,lng,status
-    FROM venues WHERE active AND merged_into IS NULL AND status<>'rejected' ORDER BY name,id`);
-  const intentRows = await db.query<IntentRow>(`SELECT id,player_id AS "playerId",kind,strength,${ts("start_at")} AS "startAt",${ts("end_at")} AS "endAt",
+      OR EXISTS(SELECT 1 FROM members m WHERE m.state_player_id=p.id AND m.active))`),
+    db.query<PlayVenue>(`SELECT id,name,name_en AS "nameEn",COALESCE(city,'${OTHER_CITY}') AS city,COALESCE(tz,'UTC') AS tz,lat,lng,status
+    FROM venues WHERE active AND merged_into IS NULL AND status<>'rejected' ORDER BY name,id`),
+    db.query<IntentRow>(`SELECT id,player_id AS "playerId",kind,strength,${ts("start_at")} AS "startAt",${ts("end_at")} AS "endAt",
     min_minutes AS "minMinutes",venue_scope AS "venueScope",venue_ids::text AS "venueIds",city,
     min_players AS "minPlayers",target_size AS "targetSize",max_players AS "maxPlayers",conditions::text AS conditions,note,quiet,status
-    FROM play_intents WHERE status='active' AND end_at>$1 ORDER BY start_at,id`, [new Date(now).toISOString()]);
-  const sessionRows = await db.query<SessionRow>(`SELECT id,created_by AS "createdBy",venue_id AS "venueId",city,${ts("start_at")} AS "startAt",${ts("end_at")} AS "endAt",
+    FROM play_intents WHERE status='active' AND end_at>$1 ORDER BY start_at,id`, [nowIso]),
+    db.query<SessionRow>(`SELECT id,created_by AS "createdBy",venue_id AS "venueId",city,${ts("start_at")} AS "startAt",${ts("end_at")} AS "endAt",
     min_players AS "minPlayers",target_size AS "targetSize",max_players AS "maxPlayers",table_status AS "tableStatus",status,note,terms::text AS terms,revision
-    FROM play_sessions WHERE status<>'cancelled' AND end_at>$1 ORDER BY start_at,id`, [new Date(now - 7 * DAY).toISOString()]);
-  const memberRows = await db.query<{ sessionId: string } & PlaySession["members"][number]>(`SELECT m.session_id AS "sessionId",m.player_id AS "playerId",m.status,m.source,m.came,m.played
-    FROM play_session_members m JOIN play_sessions s ON s.id=m.session_id WHERE s.status<>'cancelled' AND s.end_at>$1`, [new Date(now - 7 * DAY).toISOString()]);
-  const avoids = await db.query<{ playerId: string; otherId: string }>(`SELECT player_id AS "playerId",other_id AS "otherId" FROM play_avoids`);
+    FROM play_sessions WHERE status<>'cancelled' AND end_at>$1 ORDER BY start_at,id`, [weekIso]),
+    db.query<{ sessionId: string } & PlaySession["members"][number]>(`SELECT m.session_id AS "sessionId",m.player_id AS "playerId",m.status,m.source,m.came,m.played
+    FROM play_session_members m JOIN play_sessions s ON s.id=m.session_id WHERE s.status<>'cancelled' AND s.end_at>$1`, [weekIso]),
+    db.query<{ playerId: string; otherId: string }>(`SELECT player_id AS "playerId",other_id AS "otherId" FROM play_avoids`),
+  ]);
 
   const byId = new Map(sessionRows.map((s) => [s.id, { ...s, terms: parseStoredConditions(s.terms), members: [] as PlaySession["members"] } as PlaySession]));
   for (const { sessionId, ...member } of memberRows) byId.get(sessionId)?.members.push(member);
@@ -139,7 +143,7 @@ function parseWindow(input: Record<string, unknown>, now: number) {
   if (end <= start) fail(msg("結束時間必須遲過開始時間。"));
   if (end - start > DAY) fail(msg("時段最長 24 小時。"));
   if (end <= now) fail(msg("這個時段已經過去。"));
-  if (start > now + 30 * DAY) fail(msg("只可預約 30 日內嘅時段。"));
+  if (start > now + 30 * DAY) fail(msg("只可預約 30 日內的時段。"));
   return { startAt, endAt };
 }
 
@@ -166,23 +170,23 @@ async function requireActor(db: PlayConnection, actorId: string): Promise<PlayPl
 async function loadVenue(db: PlayConnection, id: string) {
   const rows = await db.query<PlayVenue>(`SELECT id,name,name_en AS "nameEn",COALESCE(city,'${OTHER_CITY}') AS city,COALESCE(tz,'UTC') AS tz,lat,lng,status
     FROM venues WHERE id=$1 AND active AND merged_into IS NULL AND status<>'rejected'`, [id]);
-  return rows[0] ?? fail(msg("搵唔到呢間場地。"), 404);
+  return rows[0] ?? fail(msg("找不到這間場地。"), 404);
 }
 
 /** One live session with its members, row-locked for the rest of the transaction. */
 export async function loadSession(db: PlayConnection, id: unknown, lock = true): Promise<PlaySession> {
-  if (typeof id !== "string") return fail(msg("搵唔到呢個約戰。"), 404);
+  if (typeof id !== "string") return fail(msg("找不到此約戰。"), 404);
   const rows = await db.query<SessionRow>(`SELECT id,created_by AS "createdBy",venue_id AS "venueId",city,${ts("start_at")} AS "startAt",${ts("end_at")} AS "endAt",
     min_players AS "minPlayers",target_size AS "targetSize",max_players AS "maxPlayers",table_status AS "tableStatus",status,note,terms::text AS terms,revision
     FROM play_sessions WHERE id=$1${lock ? " FOR UPDATE" : ""}`, [id]);
-  const row = rows[0] ?? fail(msg("搵唔到呢個約戰。"), 404);
+  const row = rows[0] ?? fail(msg("找不到此約戰。"), 404);
   const members = await db.query<PlaySession["members"][number]>(`SELECT player_id AS "playerId",status,source,came,played FROM play_session_members WHERE session_id=$1`, [id]);
   return { ...row, terms: parseStoredConditions(row.terms), members } as PlaySession;
 }
 
 async function playersById(db: PlayConnection, ids: string[]) {
   if (!ids.length) return new Map<string, PlayPlayer>();
-  const rows = await db.query<PlayPlayer>(`SELECT p.id,p.name,p.rating::float8 AS rating FROM state_players p WHERE p.id IN (SELECT jsonb_array_elements_text($1::jsonb)) AND p.active`, [JSON.stringify(ids)]);
+  const rows = await db.query<PlayPlayer>(`SELECT p.id,p.name,p.rating::float8 AS rating FROM state_players p WHERE p.id IN (SELECT jsonb_array_elements_text($1::text::jsonb)) AND p.active`, [JSON.stringify(ids)]);
   return new Map(rows.map((p) => [p.id, p]));
 }
 
@@ -199,12 +203,12 @@ async function conflictsFor(db: PlayConnection, playerId: string, excludeId: str
 }
 
 const BLOCK_MESSAGES: Record<JoinBlock, string> = {
-  closed: msg("呢個約戰已經關閉。"),
-  ended: msg("呢個約戰已經完結。"),
-  full: msg("呢個約戰已經滿額。"),
-  "already-in": msg("你已經喺呢個約戰入面。"),
-  conflict: msg("呢段時間你已有其他安排。"),
-  incompatible: msg("呢個約戰暫時唔適合你。"),
+  closed: msg("此約戰已關閉。"),
+  ended: msg("此約戰已結束。"),
+  full: msg("此約戰已滿額。"),
+  "already-in": msg("你已在此約戰中。"),
+  conflict: msg("這段時間你已有其他安排。"),
+  incompatible: msg("此約戰暫時不適合你。"),
 };
 
 /** Recomputes the status from the members and bumps the revision. An empty session closes itself. */
@@ -254,12 +258,12 @@ async function postIntent(db: PlayConnection, actor: PlayPlayer, input: Record<s
     const venue = await loadVenue(db, id);
     city = venue.city;
   }
-  if (!city || (!cityById(city) && city !== OTHER_CITY && !(await db.query(`SELECT 1 FROM venues WHERE city=$1 AND active LIMIT 1`, [city])).length)) fail(msg("請揀城市。"));
+  if (!city || (!cityById(city) && city !== OTHER_CITY && !(await db.query(`SELECT 1 FROM venues WHERE city=$1 AND active LIMIT 1`, [city])).length)) fail(msg("請選擇城市。"));
   const live = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM play_intents WHERE player_id=$1 AND status='active' AND end_at>$2`, [actor.id, new Date(now).toISOString()]);
-  if ((live[0]?.n ?? 0) >= 5) fail(msg("你已有太多進行中嘅約戰請求，請先取消一個。"));
+  if ((live[0]?.n ?? 0) >= 5) fail(msg("你已有太多進行中的約戰請求，請先取消一個。"));
   const id = randomUUID();
   await db.query(`INSERT INTO play_intents(id,player_id,kind,strength,start_at,end_at,min_minutes,venue_scope,venue_ids,city,min_players,target_size,max_players,conditions,note,quiet)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14::jsonb,$15,$16)`,
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::text::jsonb,$10,$11,$12,$13,$14::text::jsonb,$15,$16)`,
   [id, actor.id, kind, strength, window.startAt, window.endAt, minMinutes, venueScope, JSON.stringify(venueIds), city, range.minPlayers, range.targetSize, range.maxPlayers,
     JSON.stringify(parseConditionsInput(input.conditions)), str(input.note, 140) || null, input.quiet === true]);
   return { id, events: [{ event: kind === "wants" ? "play_wants_posted" : "play_open_posted", props: { id, group: range.maxPlayers > 2 } }] };
@@ -267,7 +271,7 @@ async function postIntent(db: PlayConnection, actor: PlayPlayer, input: Record<s
 
 async function cancelIntent(db: PlayConnection, actor: PlayPlayer, input: Record<string, unknown>): Promise<PlayResult> {
   const rows = await db.query(`UPDATE play_intents SET status='cancelled',updated_at=now() WHERE id=$1 AND player_id=$2 AND status='active' RETURNING id`, [input.id, actor.id]);
-  if (!rows.length) fail(msg("搵唔到呢個請求。"), 404);
+  if (!rows.length) fail(msg("找不到此請求。"), 404);
   return { id: String(input.id), events: [{ event: "play_intent_cancelled" }] };
 }
 
@@ -282,12 +286,12 @@ async function createSession(db: PlayConnection, actor: PlayPlayer, input: Recor
     const venue = await loadVenue(db, input.venueId);
     venueId = venue.id; city = venue.city;
   }
-  if (!city) fail(msg("請揀城市。"));
+  if (!city) fail(msg("請選擇城市。"));
   const clash = await conflictsFor(db, actor.id, null, now);
   if (clash.some((c) => Date.parse(c.startAt) < Date.parse(window.endAt) && Date.parse(window.startAt) < Date.parse(c.endAt))) fail(BLOCK_MESSAGES.conflict, 409);
   const id = randomUUID();
   await db.query(`INSERT INTO play_sessions(id,created_by,venue_id,city,start_at,end_at,min_players,target_size,max_players,table_status,status,note,terms)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'forming',$11,$12::jsonb)`,
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'forming',$11,$12::text::jsonb)`,
   [id, actor.id, venueId, city, window.startAt, window.endAt, range.minPlayers, range.targetSize, range.maxPlayers, tableStatus, str(input.note, 140) || null, JSON.stringify(terms)]);
   await db.query(`INSERT INTO play_session_members(session_id,player_id,status,source) VALUES($1,$2,'in','creator')`, [id, actor.id]);
   const invited = await addInvites(db, actor, await loadSession(db, id), parseStringArray(input.invitees), now);
@@ -322,7 +326,7 @@ async function addInvites(db: PlayConnection, actor: PlayPlayer, session: PlaySe
 async function invite(db: PlayConnection, actor: PlayPlayer, input: Record<string, unknown>, now: number): Promise<PlayResult> {
   const session = await loadSession(db, input.id);
   if (!isLive(session.status) || Date.parse(session.endAt) <= now) fail(BLOCK_MESSAGES.closed);
-  if (!accepted(session.members).some((m) => m.playerId === actor.id)) fail(msg("只有已加入嘅人先可以邀請其他人。"), 403);
+  if (!accepted(session.members).some((m) => m.playerId === actor.id)) fail(msg("只有已加入的球友才可以邀請其他人。"), 403);
   const sent = await addInvites(db, actor, session, parseStringArray(input.playerIds), now);
   await settle(db, session.id);
   return { id: session.id, events: [{ event: "play_invited", props: { id: session.id, sent } }] };
@@ -358,7 +362,7 @@ async function respond(db: PlayConnection, actor: PlayPlayer, input: Record<stri
 async function leave(db: PlayConnection, actor: PlayPlayer, input: Record<string, unknown>): Promise<PlayResult> {
   const session = await loadSession(db, input.id);
   const own = session.members.find((m) => m.playerId === actor.id);
-  if (!own || (own.status !== "in" && own.status !== "maybe")) fail(msg("你唔喺呢個約戰入面。"), 400);
+  if (!own || (own.status !== "in" && own.status !== "maybe")) fail(msg("你不在此約戰中。"), 400);
   await db.query(`UPDATE play_session_members SET status='left',updated_at=now() WHERE session_id=$1 AND player_id=$2`, [session.id, actor.id]);
   const after = await settle(db, session.id);
   return { id: session.id, events: [{ event: "play_left", props: { id: session.id, reopened: after.status === "forming" && session.status !== "forming" } }] };
@@ -366,7 +370,7 @@ async function leave(db: PlayConnection, actor: PlayPlayer, input: Record<string
 
 async function cancelSession(db: PlayConnection, actor: PlayPlayer, input: Record<string, unknown>): Promise<PlayResult> {
   const session = await loadSession(db, input.id);
-  if (session.createdBy !== actor.id) fail(msg("只有開局嘅人可以取消。"), 403);
+  if (session.createdBy !== actor.id) fail(msg("只有開局者可以取消。"), 403);
   if (!isLive(session.status)) fail(BLOCK_MESSAGES.closed);
   await db.query(`UPDATE play_sessions SET status='cancelled',revision=revision+1,updated_at=now() WHERE id=$1`, [session.id]);
   return { id: session.id, events: [{ event: "play_session_cancelled", props: { id: session.id } }] };
@@ -375,17 +379,17 @@ async function cancelSession(db: PlayConnection, actor: PlayPlayer, input: Recor
 async function played(db: PlayConnection, actor: PlayPlayer, input: Record<string, unknown>, now: number): Promise<PlayResult> {
   const session = await loadSession(db, input.id);
   const own = session.members.find((m) => m.playerId === actor.id);
-  if (!own || own.status !== "in") fail(msg("只有已加入嘅人先可以回覆。"), 403);
+  if (!own || own.status !== "in") fail(msg("只有已加入的球友才可以回覆。"), 403);
   if (session.status === "cancelled") fail(BLOCK_MESSAGES.closed);
-  if (Date.parse(session.startAt) > now) fail(msg("呢個約戰仲未開始。"));
+  if (Date.parse(session.startAt) > now) fail(msg("此約戰尚未開始。"));
   const didPlay = input.played === true;
-  if (didPlay && accepted(session.members).length < 2) fail(msg("至少要有兩位球友先可以記錄打過波。"));
+  if (didPlay && accepted(session.members).length < 2) fail(msg("至少需要兩位球友才可以記錄已打。"));
   await db.query(`UPDATE play_session_members SET played=$3,updated_at=now() WHERE session_id=$1 AND player_id=$2`, [session.id, actor.id, didPlay]);
   if (Array.isArray(input.came)) {
     const came = new Set(parseStringArray(input.came));
     if (didPlay) came.add(actor.id);
     // "Who came" is private bookkeeping: it never becomes a public record of anyone's reliability.
-    await db.query(`UPDATE play_session_members SET came=(player_id IN (SELECT jsonb_array_elements_text($2::jsonb))),updated_at=now() WHERE session_id=$1 AND status='in'`, [session.id, JSON.stringify([...came])]);
+    await db.query(`UPDATE play_session_members SET came=(player_id IN (SELECT jsonb_array_elements_text($2::text::jsonb))),updated_at=now() WHERE session_id=$1 AND status='in'`, [session.id, JSON.stringify([...came])]);
   }
   if (didPlay && session.status !== "played") {
     await db.query(`UPDATE play_sessions SET status='played',played_at=COALESCE(played_at,now()),revision=revision+1,updated_at=now() WHERE id=$1`, [session.id]);
@@ -397,7 +401,7 @@ async function avoid(db: PlayConnection, actor: PlayPlayer, input: Record<string
   const otherId = typeof input.playerId === "string" ? input.playerId : "";
   if (!otherId || otherId === actor.id) fail(msg("無效操作。"));
   if (add) {
-    if (!(await playersById(db, [otherId])).size) fail(msg("搵唔到呢位球員。"), 404);
+    if (!(await playersById(db, [otherId])).size) fail(msg("找不到這位球員。"), 404);
     await db.query(`INSERT INTO play_avoids(player_id,other_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, [actor.id, otherId]);
   } else {
     await db.query(`DELETE FROM play_avoids WHERE player_id=$1 AND other_id=$2`, [actor.id, otherId]);
@@ -410,7 +414,7 @@ async function createVenue(db: PlayConnection, actor: PlayPlayer, input: Record<
   const name = str(input.name, 60);
   if (!name) fail(msg("請輸入場地名稱。"));
   const lat = Number(input.lat), lng = Number(input.lng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) fail(msg("請喺地圖上標示場地位置。"));
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) fail(msg("請在地圖上標示場地位置。"));
   const fallbackTz = typeof input.tz === "string" && isValidZone(input.tz) ? input.tz : "UTC";
   const { city, tz } = cityForPin(lat, lng, fallbackTz);
   const existing = await db.query<PlayVenue>(`SELECT id,name,name_en AS "nameEn",COALESCE(city,'${OTHER_CITY}') AS city,COALESCE(tz,'UTC') AS tz,lat,lng,status
@@ -431,28 +435,28 @@ export type VenueAdminAction = "approve" | "reject" | "edit" | "merge";
 export async function venueAdmin(database: PlayDatabase, action: VenueAdminAction, input: Record<string, unknown>): Promise<{ id: string }> {
   return database.transaction(async (db) => {
     await db.query(`SELECT pg_advisory_xact_lock($1,$2)`, [...LOCK]);
-    const id = typeof input.id === "string" ? input.id : fail(msg("搵唔到呢間場地。"), 404);
+    const id = typeof input.id === "string" ? input.id : fail(msg("找不到這間場地。"), 404);
     const found = await db.query<{ id: string }>(`SELECT id FROM venues WHERE id=$1 FOR UPDATE`, [id]);
-    if (!found.length) fail(msg("搵唔到呢間場地。"), 404);
+    if (!found.length) fail(msg("找不到這間場地。"), 404);
     if (action === "approve") await db.query(`UPDATE venues SET status='verified',active=true WHERE id=$1`, [id]);
     else if (action === "reject") await db.query(`UPDATE venues SET status='rejected',active=false WHERE id=$1`, [id]);
     else if (action === "edit") {
       const name = str(input.name, 60);
       const lat = input.lat == null ? null : Number(input.lat), lng = input.lng == null ? null : Number(input.lng);
-      if (lat != null && (!Number.isFinite(lat) || Math.abs(lat) > 90)) fail(msg("請喺地圖上標示場地位置。"));
-      if (lng != null && (!Number.isFinite(lng) || Math.abs(lng) > 180)) fail(msg("請喺地圖上標示場地位置。"));
+      if (lat != null && (!Number.isFinite(lat) || Math.abs(lat) > 90)) fail(msg("請在地圖上標示場地位置。"));
+      if (lng != null && (!Number.isFinite(lng) || Math.abs(lng) > 180)) fail(msg("請在地圖上標示場地位置。"));
       const pin = lat != null && lng != null ? cityForPin(lat, lng, "UTC") : null;
       await db.query(`UPDATE venues SET name=COALESCE(NULLIF($2,''),name),name_en=COALESCE($3,name_en),lat=COALESCE($4,lat),lng=COALESCE($5,lng),
         city=COALESCE($6,city),tz=COALESCE($7,tz) WHERE id=$1`, [id, name, str(input.nameEn, 60) || null, lat, lng, pin?.city ?? null, pin?.tz ?? null]);
     } else if (action === "merge") {
       const into = typeof input.into === "string" ? input.into : "";
-      if (!into || into === id) fail(msg("請揀要合併嘅場地。"));
-      if (!(await db.query(`SELECT 1 FROM venues WHERE id=$1 AND active AND merged_into IS NULL`, [into])).length) fail(msg("搵唔到呢間場地。"), 404);
+      if (!into || into === id) fail(msg("請選擇要合併的場地。"));
+      if (!(await db.query(`SELECT 1 FROM venues WHERE id=$1 AND active AND merged_into IS NULL`, [into])).length) fail(msg("找不到這間場地。"), 404);
       await db.query(`UPDATE play_sessions SET venue_id=$2 WHERE venue_id=$1`, [id, into]);
       const intents = await db.query<{ id: string; venueIds: unknown }>(`SELECT id,venue_ids::text AS "venueIds" FROM play_intents WHERE venue_ids @> jsonb_build_array($1::text)`, [id]);
       for (const intent of intents) {
         const ids = [...new Set(parseStringArray(intent.venueIds).map((v) => (v === id ? into : v)))];
-        await db.query(`UPDATE play_intents SET venue_ids=$2::jsonb WHERE id=$1`, [intent.id, JSON.stringify(ids)]);
+        await db.query(`UPDATE play_intents SET venue_ids=$2::text::jsonb WHERE id=$1`, [intent.id, JSON.stringify(ids)]);
       }
       await db.query(`UPDATE venues SET merged_into=$2,status='rejected',active=false WHERE id=$1`, [id, into]);
     } else fail(msg("無效操作。"));

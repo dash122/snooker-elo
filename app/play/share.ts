@@ -15,13 +15,13 @@ export function sessionShareText(input: { session: SessionDto; venues: PlayVenue
   const venue = venues.find((v) => v.id === session.venueId)?.name ?? t("場地待定");
   const open = Math.max(0, session.maxPlayers - session.members.filter((m) => m.confidence !== "maybe").length);
   const when = `${sessionDay(session.startAt, tz, locale)} ${clock(session.startAt, tz)}–${clock(session.endAt, tz)}`;
-  const line = open > 0 ? t("{when} @ {venue}，仲有 {open} 個位。", { when, venue, open }) : t("{when} @ {venue}。", { when, venue });
-  return `${t("有冇人打波？")} ${line}\n${sessionLink(origin, session.id)}`;
+  const line = open > 0 ? t("{when} @ {venue}，尚有 {open} 個空位。", { when, venue, open }) : t("{when} @ {venue}。", { when, venue });
+  return `${t("有沒有人想打球？")} ${line}\n${sessionLink(origin, session.id)}`;
 }
 
 export const whatsappUrl = (text: string) => `https://wa.me/?text=${encodeURIComponent(text)}`;
 
 export function boardShareText(input: { when: string; venue: string; origin: string; t: Translator }) {
   const { when, venue, origin, t } = input;
-  return `${t("我想打波。")} ${when} @ ${venue}\n${origin}/?tab=play`;
+  return `${t("我想打球。")} ${when} @ ${venue}\n${origin}/?tab=play`;
 }

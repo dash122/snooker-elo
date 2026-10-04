@@ -44,7 +44,7 @@ export function validateScores(scoreA: unknown, scoreB: unknown) {
 export function buildFriendlyMatch(state: StateDocument, input: ResultInput): ReplayMatch {
   const a = state.players.find((p) => p.id === input.a);
   const b = state.players.find((p) => p.id === input.b);
-  if (!a || !b || a.id === b.id) throw new ResultError(msg("搵唔到呢位球員。"), 404);
+  if (!a || !b || a.id === b.id) throw new ResultError(msg("找不到這位球員。"), 404);
   const points = Math.max(0, Math.round(Number(input.points) || 0));
   const giver = points > 0 && (input.giver === a.id || input.giver === b.id) ? input.giver : null;
   const actual = giver === a.id ? points : giver === b.id ? -points : 0;

@@ -108,20 +108,20 @@ export default function ResultSheet({ session, players, ownPlayerId, settings, m
           <Stepper label={`${pa?.name ?? "A"} ${t("局數")}`} value={scoreA} onChange={setScoreA} />
           <Stepper label={`${pb?.name ?? "B"} ${t("局數")}`} value={scoreB} onChange={setScoreB} />
         </div>
-        {a === b && <InlineNotice tone="warning" title={t("請揀兩位唔同嘅球員")}>{t("A 同 B 唔可以係同一個人。")}</InlineNotice>}
+        {a === b && <InlineNotice tone="warning" title={t("請選擇兩位不同的球員")}>{t("A 與 B 不可以是同一個人。")}</InlineNotice>}
 
         {proposal && (
           <div className="play-handicap">
-            <p className="play-meta">{giver ? t("{name} 讓 {points} 分", { name: player(giver)?.name ?? "", points }) : t("未設定讓分（平手打）")}</p>
+            <p className="play-meta">{giver ? t("{name} 讓 {points} 分", { name: player(giver)?.name ?? "", points }) : t("未設定讓分（平手對戰）")}</p>
             <Button type="button" variant="quiet" onClick={applySuggested}>{proposal.label}</Button>
             {giver && <Button type="button" variant="quiet" onClick={() => { setGiver(""); setPoints(0); }}>{t("清除讓分")}</Button>}
           </div>
         )}
 
         {similar && (
-          <InlineNotice tone="warning" title={t("似乎已經有人記錄咗")}>
-            {t("已經有一場 {a}–{b} 嘅賽果。同一場，定另一場？", { a: similar.scoreA, b: similar.scoreB })}
-            <Button type="button" variant="secondary" onClick={onClose}>{t("同一場（唔再記）")}</Button>
+          <InlineNotice tone="warning" title={t("似乎已有人記錄")}>
+            {t("已有一場 {a}–{b} 的賽果。是同一場，還是另一場？", { a: similar.scoreA, b: similar.scoreB })}
+            <Button type="button" variant="secondary" onClick={onClose}>{t("同一場（不再記錄）")}</Button>
             <Button type="button" onClick={() => void submit(true)}>{t("另一場")}</Button>
           </InlineNotice>
         )}
