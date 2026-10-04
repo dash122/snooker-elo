@@ -35,3 +35,9 @@ test("overnight listings appear on both overlapping local dates", () => {
   assert.equal(marketplace(data, "Me", now).looking.length, 1);
   assert.equal(marketplace({ ...data, date: "2026-10-05" }, "Me", now).looking.length, 1);
 });
+
+test("open sessions precede full listings while retaining the order within each group", () => {
+  const data = board({ sessions: [session("full-a", { status: "full" }), session("open-a"), session("full-b", { status: "full" }), session("open-b", { status: "playable" })] });
+  assert.deepEqual(marketplace(data, "Me", now).sessions.map((s) => s.id), ["open-a", "open-b", "full-a", "full-b"]);
+  assert.equal(data.sessions[0].id, "full-a");
+});

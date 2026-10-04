@@ -4,11 +4,14 @@
   .play-page h2, .play-page h3, .play-page p, .play-page ul { margin: 0; }
   .play-page h2 { font-size: var(--fs-h2); }
   .play-page h1 { margin: 0; }
-  .play-hero { align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-4); }
-  .play-hero-copy { min-width: 0; flex: 1 1 16rem; }
-  .play-hero-count { display: grid; justify-items: end; line-height: 1.1; }
-  .play-hero-count b { font-size: var(--fs-stat); font-weight: 800; font-variant-numeric: tabular-nums; }
-  .play-hero-count span { font-size: var(--fs-caption); color: var(--ds-text-secondary); }
+  .play-hero { display: grid; gap: var(--sp-1); padding-block: var(--sp-2); }
+  .play-hero h1 { font-family: var(--font-display); font-size: var(--fs-h2); color: var(--ds-text-primary); }
+  .play-hero p { font-size: var(--fs-sm); color: var(--ds-text-secondary); }
+  .play-action-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+  .play-action-fields[disabled] { opacity: .7; }
+  .play-dayscroll--compact .play-day { min-height: var(--control-lg); gap: var(--sp-1); }
+  .play-dayscroll--compact .play-day b { font-size: var(--fs-sm); }
+  .play-dayscroll--compact .play-day i { margin-top: 0; }
 
   .play-toolbar { display: grid; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); }
   .play-toolbar-row { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr); align-items: center; gap: var(--sp-3); }
@@ -67,18 +70,15 @@
   .play-session-card { border-radius: var(--radius-md); overflow: hidden; transition: box-shadow var(--ds-duration-standard) var(--ds-ease-standard); }
   .play-session-card:hover { box-shadow: var(--ds-elevation-4); }
   .play-session-card:focus-within { outline: 2px solid var(--ds-accent-action); outline-offset: 2px; }
-  .play-session-main { all: unset; box-sizing: border-box; display: grid; gap: var(--sp-3); width: 100%; padding: var(--sp-4); cursor: pointer; }
+  .play-session-main { all: unset; box-sizing: border-box; display: grid; gap: var(--sp-2); width: 100%; padding: var(--sp-4); cursor: pointer; }
   .play-session-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2); }
   .play-session-time { display: grid; gap: var(--sp-1); font-variant-numeric: tabular-nums; }
   .play-session-time small { font-size: var(--fs-caption); color: var(--ds-text-secondary); }
   .play-session-time b { font-family: var(--font-display); font-size: var(--fs-h3); line-height: 1.2; color: var(--ds-accent-action); }
   .play-session-venue { font-size: var(--fs-lead); font-weight: 800; overflow-wrap: anywhere; }
   .play-session-facts { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); font-size: var(--fs-caption); color: var(--ds-text-secondary); }
-  .play-session-roster { display: grid; gap: var(--sp-2); padding-block: var(--sp-3); border-block: 1px solid var(--ds-border-subtle); }
-  .play-session-player { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1-5) var(--sp-2); min-width: 0; }
-  .play-session-player-name { flex: 1 1 8rem; font-size: var(--fs-sm); font-weight: 700; overflow-wrap: anywhere; }
+  .play-session-roster { display: grid; gap: var(--sp-2); padding-block: var(--sp-2); border-block: 1px solid var(--ds-border-subtle); }
   .play-session-rating { font-size: var(--fs-caption); color: var(--ds-text-secondary); font-variant-numeric: tabular-nums; }
-  .play-session-note { font-size: var(--fs-sm); color: var(--ds-text-secondary); overflow-wrap: anywhere; white-space: pre-line; }
   .play-session-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--ds-text-secondary); }
   .play-session-open { display: inline-flex; align-items: center; gap: var(--sp-1); font-weight: 750; color: var(--ds-accent-action); }
   .play-session-open svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

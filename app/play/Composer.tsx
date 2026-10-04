@@ -1,18 +1,20 @@
 "use client";
-import { lazy, Suspense, useMemo, useState } from "react";
-import { Button, Chip, ChipGroup, FormField, InlineNotice, SegmentedControl, Skeleton } from "../components/ui/Primitives";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { Button, Chip, ChipGroup, FormField, InlineNotice, Skeleton } from "../components/ui/Primitives";
 import { Sheet } from "../components/ui/Overlay";
 import { useLocale, useT } from "../components/I18nProvider";
-import { msg } from "../../lib/i18n/translate";
 import type { Dashboard } from "../../lib/play/dashboard";
-import { zonedDate } from "../../lib/play/time";
+import { zonedInstant, zonedDate } from "../../lib/play/time";
 import { GROUP_PRESETS, type Interval, type PlayConditions } from "../../lib/play/types";
-import { composeWindow, isNarrow, minutesBetween, presetWindow, type WindowPreset } from "../../lib/play/window";
+import { composeWindow, isNarrow, minutesBetween } from "../../lib/play/window";
 import { cityById } from "../../lib/play/geo";
 import { clock, range as timeRange, sessionDay, venueName } from "./format";
 import DayStrip from "./DayStrip";
 import type { ActionResult } from "./usePlay";
+import { HALF_HOUR_TIMES, initialTimes, timeLabel } from "../../lib/play/time-options";
 import Requirements from "./Requirements";
+
+import { trackEvent } from "../../lib/analytics-events";
 
 const VenuePickerMap = lazy(() => import("./VenuePickerMap"));
 
@@ -22,10 +24,6 @@ export type ComposerMode = "want" | "around" | "table";
 export type ComposerInit = { mode?: ComposerMode; inviteIds?: string[]; venueId?: string | null; date?: string; window?: Interval };
 export type Created = { kind: "intent"; window: Interval; venueId: string | null; date: string; quiet: boolean } | { kind: "session"; id: string; date: string };
 type Person = { id: string; name: string; rating: number };
-
-const PRESETS: { id: WindowPreset | "custom"; label: string }[] = [
-  { id: "now", label: msg("現在") }, { id: "afternoon", label: msg("下午") }, { id: "afterwork", label: msg("下班後") }, { id: "evening", label: msg("晚上") }, { id: "custom", label: msg("自訂") },
-];
 
 export function InviteePicker({ people, value, onChange }: { people: Person[]; value: string[]; onChange: (ids: string[]) => void }) {
   const t = useT();
@@ -38,7 +36,7 @@ export function InviteePicker({ people, value, onChange }: { people: Person[]; v
         <button key={p.id} type="button" className="ds-chip ds-chip--accent play-chip-button" onClick={() => onChange(value.filter((id) => id !== p.id))} aria-label={t("移除 {name}", { name: p.name })}>{p.name} ×</button>
       ))}</div>}
       {value.length < 5 && (
-        <FormField label={t("邀請球友（最多 5 位）")} hint={t("對方下次開啟應用程式時會看到邀請，可選擇「有興趣」或「今次不便」。")}>
+        <FormField label={t("邀請球友（最多 5 位）")} hint={t("對方下次開啟應用程式時會看到邀請，可選擇「確定加入」、「或許」或「今次不便」。")}>
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("搜尋球員姓名")} autoComplete="off" />
         </FormField>
       )}
@@ -56,12 +54,16 @@ export default function Composer({ data, people, init, act, onClose, onCreated, 
 }) {
   const t = useT();
   const locale = useLocale();
+  const [entry] = useState(() => ({ mode: init?.mode ?? "table", source: init?.inviteIds?.length ? "invitation" : "board" }));
+  useEffect(() => { trackEvent("play_composer_started", entry); }, [entry]);
   const today = data.dates[0]?.date ?? data.date;
   const [mode, setMode] = useState<ComposerMode>(init?.mode ?? "table");
   const [date, setDate] = useState(init?.window ? zonedDate(init.window.startAt, data.tz) : init?.date ?? data.date);
-  const [preset, setPreset] = useState<WindowPreset | "custom">(init?.window ? "custom" : (init?.date ?? data.date) === today ? "afterwork" : "evening");
-  const [start, setStart] = useState(init?.window ? clock(init.window.startAt, data.tz) : "19:00");
-  const [end, setEnd] = useState(init?.window ? clock(init.window.endAt, data.tz) : "22:00");
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(timer); }, []);
+  const [initial] = useState(() => initialTimes(init?.date ?? data.date, data.tz, Date.now()));
+  const [start, setStart] = useState(init?.window ? clock(init.window.startAt, data.tz) : initial.start);
+  const [end, setEnd] = useState(init?.window ? clock(init.window.endAt, data.tz) : initial.end);
   const [venueIds, setVenueIds] = useState<string[]>(init?.venueId ? [init.venueId] : []);
   const [group, setGroup] = useState<"open" | "singles">("open");
   const [strength, setStrength] = useState<"could" | "likely">("likely");
@@ -77,12 +79,17 @@ export default function Composer({ data, people, init, act, onClose, onCreated, 
 
   const window = useMemo<Interval | null>(() => {
     try {
-      if (preset === "custom") return start && end ? composeWindow(date, start, end, data.tz) : null;
-      return presetWindow(preset, date, data.tz);
+      return start && end ? composeWindow(date, start, end, data.tz) : null;
     } catch { return null; }
-  }, [preset, date, start, end, data.tz]);
+  }, [date, start, end, data.tz]);
 
   const minutes = window ? minutesBetween(window) : 0;
+  const inPast = !!window && Date.parse(window.startAt) < now;
+  const startTimes = start && !HALF_HOUR_TIMES.includes(start) ? [...HALF_HOUR_TIMES, start].sort() : HALF_HOUR_TIMES;
+  const endTimes = (end && !HALF_HOUR_TIMES.includes(end) ? [...HALF_HOUR_TIMES, end] : [...HALF_HOUR_TIMES]).sort((a, b) => {
+    const elapsed = (time: string) => { const [h, m] = time.split(":").map(Number); const [sh, sm] = (start || "00:00").split(":").map(Number); return (h * 60 + m - sh * 60 - sm + 1440) % 1440 || 1440; };
+    return elapsed(a) - elapsed(b);
+  });
   const tooShort = !!window && minutes < 60;
   const venueScoped = mode === "table" ? venueIds.slice(0, 1) : venueIds;
   const pins = data.venues.filter((v): v is typeof v & { lat: number; lng: number } => v.lat != null && v.lng != null).map((v) => ({ id: v.id, name: v.name, lat: v.lat, lng: v.lng }));
@@ -91,7 +98,7 @@ export default function Composer({ data, people, init, act, onClose, onCreated, 
   const toggleVenue = (id: string) => setVenueIds((current) => (mode === "table" ? (current[0] === id ? [] : [id]) : current.includes(id) ? current.filter((v) => v !== id) : [...current, id].slice(0, 6)));
 
   async function submit() {
-    if (!window || tooShort || pending) return;
+    if (!window || tooShort || Date.parse(window.startAt) < Date.now() || pending) return;
     setPending(true);
     setError("");
     const range = group === "singles" ? GROUP_PRESETS.singles : GROUP_PRESETS.open;
@@ -105,7 +112,7 @@ export default function Composer({ data, people, init, act, onClose, onCreated, 
     onClose();
   }
 
-  const title = mode === "table" ? (init?.inviteIds?.length ? t("邀請對方打球") : t("開一場約戰")) : t("公開有空時間");
+  const title = mode === "table" ? (init?.inviteIds?.length ? t("邀請對方打球") : t("開一場約戰")) : mode === "want" ? t("我想打球") : t("我可能有空");
   const submitLabel = mode === "around" && quiet ? t("儲存私人時間") : mode === "table" ? t("發佈約戰") : t("發佈有空時間");
 
   return (
@@ -113,26 +120,36 @@ export default function Composer({ data, people, init, act, onClose, onCreated, 
       <div className="play-form">
         <fieldset className="play-composer-fields" disabled={pending}>
           {!init?.inviteIds?.length && (
-            <SegmentedControl label={t("類型")} value={mode === "table" ? "table" : "availability"} onChange={(v) => setMode(v === "table" ? "table" : "want")}
-              items={[{ value: "table", label: t("開一場約戰") }, { value: "availability", label: t("公開有空時間") }]} />
+            <ChipGroup label={t("你想怎樣約球？")} value={mode} onChange={(v) => setMode(v as ComposerMode)}
+              items={[{ value: "table", label: t("開一場約戰") }, { value: "want", label: t("我想打球") }, { value: "around", label: t("我可能有空") }]} />
           )}
-          {mode !== "table" && <ChipGroup label={t("打球意願")} value={mode} onChange={(v) => setMode(v as ComposerMode)} items={[{ value: "want", label: t("主動搵球友") }, { value: "around", label: t("等球友邀請") }]} />}
+          <p className="play-hint">{mode === "table" ? t("提出時間和地點，球友查看條件後可加入。發佈後，你會成為已加入的球友。") : mode === "want" ? t("公開你想打球的時間，讓球友邀請你；收到邀請後再決定是否加入。") : t("表示你可能有空，並不代表承諾出席；收到邀請後再決定。")}</p>
 
           <div><span className="play-label">{t("哪一天")}</span><DayStrip dates={data.dates} value={date} today={today} onChange={setDate} /></div>
-          <ChipGroup label={t("什麼時候")} value={preset} onChange={(v) => setPreset(v as WindowPreset | "custom")}
-            items={PRESETS.filter((p) => p.id === "custom" || presetWindow(p.id as WindowPreset, date, data.tz)).map((p) => ({ value: p.id, label: t(p.label) }))} />
-          {preset === "custom" && (
-            <div className="play-times">
-              <FormField label={t("開始")}><input type="time" step={1800} value={start} onChange={(e) => setStart(e.target.value)} /></FormField>
-              <FormField label={t("結束")}><input type="time" step={1800} value={end} onChange={(e) => setEnd(e.target.value)} /></FormField>
-            </div>
-          )}
+          <div className="play-times">
+            <FormField label={t("開始")} hint={t("每 30 分鐘一格，按場地時區顯示。")}><select aria-label={t("開始")} value={start} onChange={(e) => {
+              const next = e.target.value;
+              setStart(next);
+              if (!end || minutesBetween(composeWindow(date, next, end, data.tz)) < 60) {
+                const [h, m] = next.split(":").map(Number);
+                const total = (h * 60 + m + 60) % 1440;
+                setEnd(`${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`);
+              }
+            }}>
+              {!start && <option value="">{t("請選擇時間")}</option>}
+              {startTimes.map((time) => <option key={time} value={time} disabled={Date.parse(zonedInstant(date, time, data.tz)) < now}>{timeLabel(time)}</option>)}
+            </select></FormField>
+            <FormField label={t("結束")}><select aria-label={t("結束")} value={end} disabled={!start} onChange={(e) => setEnd(e.target.value)}>
+              {!end && <option value="">{t("請選擇時間")}</option>}
+              {endTimes.map((time) => <option key={time} value={time} disabled={!start || minutesBetween(composeWindow(date, start, time, data.tz)) < 60}>{timeLabel(time)}{start && time <= start ? t(" · 次日") : ""}</option>)}
+            </select></FormField>
+          </div>
           {window && <p className="play-meta">{timeRange(window, data.tz, t)} · {t("共 {minutes} 分鐘", { minutes })}</p>}
-          {!window && <InlineNotice tone="warning" title={t("時段未有效")}>{t("請選擇一個尚未過去的時段。")}</InlineNotice>}
+          {(!window || inPast) && <InlineNotice tone="warning" title={t("時段未有效")}>{t("請選擇一個尚未過去的時段。")}</InlineNotice>}
           {tooShort && <InlineNotice tone="warning" title={t("時段太短")}>{t("時段至少需要 60 分鐘才能配對。")}</InlineNotice>}
-          {window && !tooShort && isNarrow(window) && (
+          {window && !inPast && !tooShort && isNarrow(window) && (
             <InlineNotice tone="info" title={t("時段偏短，較難配對")}>{t("可延長 30 分鐘以增加機會。")}
-              {preset === "custom" && <Button type="button" variant="secondary" onClick={() => { const [h, m] = end.split(":").map(Number); const total = (h * 60 + m + 30) % (24 * 60); setEnd(`${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`); }}>{t("延長 30 分鐘")}</Button>}
+              <Button type="button" variant="secondary" onClick={() => { const [h, m] = end.split(":").map(Number); const total = (h * 60 + m + 30) % (24 * 60); setEnd(`${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`); }}>{t("延長 30 分鐘")}</Button>
             </InlineNotice>
           )}
 
@@ -193,7 +210,7 @@ export default function Composer({ data, people, init, act, onClose, onCreated, 
         {error && <InlineNotice tone="danger" title={t("未能儲存")}>{error}</InlineNotice>}
         <div className="play-actions play-composer-footer">
           <Button type="button" variant="secondary" disabled={pending} onClick={onClose}>{t("取消")}</Button>
-          <Button type="button" loading={pending} disabled={!window || tooShort} onClick={() => void submit()}>{submitLabel}</Button>
+          <Button type="button" loading={pending} disabled={!window || tooShort || inPast} onClick={() => void submit()}>{submitLabel}</Button>
         </div>
       </div>
     </Sheet>

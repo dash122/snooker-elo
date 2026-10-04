@@ -28,6 +28,11 @@ export default function SessionCard({ session, venues, tz, viewerId, onOpen }: {
   const going = session.members.filter((m) => m.confidence !== "maybe");
   const terms = sessionTermLabels(session.terms, t);
   const ownLabel = viewerId && session.createdBy === viewerId ? t("你開的約戰") : session.mine === "in" ? t("你已加入") : session.mine === "maybe" ? t("你回覆「或許」") : session.mine === "invited" ? t("邀請你") : null;
+  const ratings = going.map((m) => Math.round(m.player.rating));
+  const ratingRange = ratings.length ? `${Math.min(...ratings)}–${Math.max(...ratings)}` : null;
+  const names = session.members.slice(0, 2).map((m) => m.player.name).join("、");
+  const remaining = session.members.length - 2;
+  const canJoin = !session.block && session.seatsOpen > 0 && session.mine !== "in";
   return (
     <Surface as="li" tone="raised" padded={false} className="play-session-card">
       <button type="button" className="play-session-main" onClick={() => onOpen(session.id)}>
@@ -37,23 +42,17 @@ export default function SessionCard({ session, venues, tz, viewerId, onOpen }: {
         </span>
         <span className="play-session-venue">{venueName(venues, session.venueId, t)}</span>
         <span className="play-session-facts">
-          <span>{t("{going}/{max} 人", { going: going.length, max: session.maxPlayers })}</span>
           <span>{session.tableStatus === "booked" ? t("已訂檯") : t("現場排檯")}</span>
           {ownLabel && <Chip tone="accent">{ownLabel}</Chip>}
         </span>
         <span className="play-session-roster">
-          {session.members.map((m) => <span className="play-session-player" key={m.player.id}>
-            <span className="play-session-player-name">{m.player.name}</span>
-            <small className="play-session-rating">ELO {Math.round(m.player.rating)}</small>
-            <ConfidenceChip value={m.confidence} />
-          </span>)}
-          {session.members.length === 0 && <span className="play-muted">{t("暫無球友")}</span>}
+          <span className="play-card-people">{names || t("暫無球友")}{remaining > 0 && t("，另有 {n} 位球友", { n: remaining })}</span>
+          <span className="play-session-rating">{ratingRange && `ELO ${ratingRange} · `}{t("{n} 位確定加入", { n: going.length })}{session.members.length > going.length && t(" · {n} 位或許參加", { n: session.members.length - going.length })}</span>
         </span>
-        {terms.length > 0 && <span className="play-card-meta">{terms.map((term) => <Chip key={term}>{term}</Chip>)}</span>}
-        {session.note && <span className="play-session-note">「{session.note}」</span>}
+        {terms.length > 0 && <span className="play-card-meta">{terms.slice(0, 3).map((term) => <Chip key={term}>{term}</Chip>)}{terms.length > 3 && <span className="play-muted">{t("另有 {n} 項條件", { n: terms.length - 3 })}</span>}</span>}
         <span className="play-session-footer">
           <span>{session.seatsOpen === 0 ? t("已滿員。") : t("尚有 {open} 個空位。", { open: session.seatsOpen })}</span>
-          <span className="play-session-open">{t("查看詳情")}<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></svg></span>
+          <span className="play-session-open">{canJoin ? t("查看及加入") : session.mine === "in" ? t("查看你的約戰") : t("查看詳情")}<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" /></svg></span>
         </span>
         {session.block === "conflict" && <span className="play-session-block">{t("這段時間你已有其他安排。")}</span>}
         {session.block === "incompatible" && <span className="play-session-block">{t("此約戰暫時不適合你。")}</span>}

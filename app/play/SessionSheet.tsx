@@ -1,5 +1,5 @@
 "use client";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Button, Chip, InlineNotice, Skeleton } from "../components/ui/Primitives";
 import { Sheet } from "../components/ui/Overlay";
 import { useLocale, useT } from "../components/I18nProvider";
@@ -12,6 +12,8 @@ import { ConfidenceChip, StatusChip } from "./SessionCard";
 import { InviteePicker } from "./Composer";
 import type { ActionResult } from "./usePlay";
 
+import { trackEvent } from "../../lib/analytics-events";
+
 const VenueMap = lazy(() => import("./VenueMap"));
 
 type Person = { id: string; name: string; rating: number };
@@ -23,6 +25,10 @@ export default function SessionSheet({ session, data, people, ownPlayerId, act, 
 }) {
   const t = useT();
   const locale = useLocale();
+  const [entry] = useState(() => ({ id: session.id, joinable: !session.block && session.seatsOpen > 0 && session.mine !== "in" }));
+  useEffect(() => { trackEvent("play_session_view", entry); }, [entry]);
+  const pendingRef = useRef(false);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [showMap, setShowMap] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -45,10 +51,21 @@ export default function SessionSheet({ session, data, people, ownPlayerId, act, 
   };
 
   async function run(action: string, values: Record<string, unknown> = {}) {
+    if (pendingRef.current) return false;
+    pendingRef.current = true;
+    setPending(true);
     setError("");
-    const result = await act(action, { id: session.id, ...values });
-    if (!result.ok) setError(result.error ?? t("約戰暫時未能更新，請重新載入後再試。"));
-    return result.ok;
+    try {
+      const result = await act(action, { id: session.id, ...values });
+      if (!result.ok) setError(result.error ?? t("約戰暫時未能更新，請重新載入後再試。"));
+      return result.ok;
+    } catch {
+      setError(t("網絡有問題，請稍後再試。"));
+      return false;
+    } finally {
+      pendingRef.current = false;
+      setPending(false);
+    }
   }
 
   async function copy() {
@@ -56,8 +73,9 @@ export default function SessionSheet({ session, data, people, ownPlayerId, act, 
   }
 
   return (
-    <Sheet open title={venueName(data.venues, session.venueId, t)} onClose={onClose} className="play-sheet">
+    <Sheet open title={venueName(data.venues, session.venueId, t)} onClose={() => { if (!pendingRef.current) onClose(); }} className="play-sheet">
       <div className="play-form">
+        <fieldset className="play-action-fields play-form" disabled={pending} aria-busy={pending}>
         <div className="play-sheet-head">
           <b>{sessionDay(session.startAt, data.tz, locale)} · {range(session, data.tz, t)}</b>
           <StatusChip session={session} />
@@ -84,13 +102,13 @@ export default function SessionSheet({ session, data, people, ownPlayerId, act, 
         {ownPlayerId && live && !session.mine && (
           session.block
             ? <InlineNotice tone="info" title={t("暫時未能加入")}>{BLOCKS[session.block]}</InlineNotice>
-            : <div className="play-actions"><Button type="button" variant="secondary" onClick={() => void run("session.respond", { response: "maybe" })}>{t("或許")}</Button><Button type="button" onClick={() => void run("session.respond", { response: "in" })}>{t("加入")}</Button></div>
+            : <div className="play-actions"><Button type="button" variant="secondary" onClick={() => void run("session.respond", { response: "maybe" })}>{t("或許")}</Button><Button type="button" onClick={() => void run("session.respond", { response: "in" })}>{t("確定加入")}</Button></div>
         )}
         {ownPlayerId && live && session.mine === "invited" && (
           <div className="play-actions">
             <Button type="button" variant="quiet" onClick={() => void run("session.respond", { response: "declined" })}>{t("今次不便")}</Button>
             <Button type="button" variant="secondary" onClick={() => void run("session.respond", { response: "maybe" })}>{t("或許")}</Button>
-            <Button type="button" onClick={() => void run("session.respond", { response: "in" })}>{t("有興趣")}</Button>
+            <Button type="button" onClick={() => void run("session.respond", { response: "in" })}>{t("確定加入")}</Button>
           </div>
         )}
         {ownPlayerId && live && session.mine === "maybe" && (
@@ -138,6 +156,8 @@ export default function SessionSheet({ session, data, people, ownPlayerId, act, 
                 <Button type="button" variant="quiet" onClick={() => setConfirmCancel(false)}>{t("返回")}</Button></InlineNotice>
             : <Button type="button" variant="quiet" onClick={() => setConfirmCancel(true)}>{t("取消此約戰")}</Button>
         )}
+        </fieldset>
+        {pending && <p className="play-meta" role="status">{t("處理中…")}</p>}
         {error && <InlineNotice tone="danger" title={t("未能更新")}>{error}</InlineNotice>}
       </div>
     </Sheet>

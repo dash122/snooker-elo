@@ -7,7 +7,7 @@ import { dayParts } from "./format";
 /** The next seven days as calendar tiles, shared by the board and the composer. The number includes
     full live sessions that day; it is always shown, including 0. The server anchors the row to today so the order never moves.
     When the row is wider than its container (a phone, or the composer sheet) it scrolls, with arrows to nudge it. */
-export default function DayStrip({ dates, value, today, onChange }: { dates: Dashboard["dates"]; value: string; today: string; onChange: (date: string) => void }) {
+export default function DayStrip({ dates, value, today, onChange, compact = false }: { compact?: boolean; dates: Dashboard["dates"]; value: string; today: string; onChange: (date: string) => void }) {
   const t = useT();
   const locale = useLocale();
   const strip = useRef<HTMLDivElement>(null);
@@ -27,10 +27,10 @@ export default function DayStrip({ dates, value, today, onChange }: { dates: Das
     return () => observer.disconnect();
   }, [measure, dates.length]);
 
-  const nudge = (direction: -1 | 1) => strip.current?.scrollBy({ left: direction * strip.current.clientWidth * 0.7, behavior: "smooth" });
+  const nudge = (direction: -1 | 1) => strip.current?.scrollBy({ left: direction * strip.current.clientWidth * 0.7, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 
   return (
-    <div className="play-dayscroll">
+    <div className={`play-dayscroll${compact ? " play-dayscroll--compact" : ""}`}>
       {edge.left && (
         <button type="button" className="play-dayarrow play-dayarrow--left" aria-label={t("向左捲動")} onClick={() => nudge(-1)}>
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6" /></svg>
@@ -42,8 +42,8 @@ export default function DayStrip({ dates, value, today, onChange }: { dates: Das
           return (
             <button key={d.date} type="button" className="play-day" aria-pressed={d.date === value} onClick={() => onChange(d.date)}>
               <small>{d.date === today ? t("今天") : p.weekday}</small>
-              <b>{p.day}</b>
-              <small>{p.month}</small>
+              <b>{compact ? locale === "en" ? `${p.day} ${p.month}` : `${p.month}${p.day}` : p.day}</b>
+              {!compact && <small>{p.month}</small>}
               <i className={d.sessions > 0 ? "has" : undefined} title={t("{n} 場約戰", { n: d.sessions })}><span aria-hidden="true" />{t("{n} 場約戰", { n: d.sessions })}</i>
             </button>
           );
