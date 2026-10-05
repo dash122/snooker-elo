@@ -22,9 +22,90 @@ export type HandicapSettings = {
   handicapSensitivityRange:number;
   handicapSensitivityWidth:number;
   start?:number;
+  /** First day (YYYY-MM-DD) on which the taper curve below replaces the flat 25 ELO per point.
+      Unset means never. Matches played before it keep their original arithmetic, so switching the
+      curve on never rewrites history. */
+  handicapCurveFrom?:string|null;
 };
 
 export const HANDICAP_ELO_PER_POINT = 25;
+
+/* --- The taper curve ---------------------------------------------------------
+ *
+ * A flat 25 ELO per point makes a 1000-ELO gap a 40-point start, which weaker players find both
+ * unreasonable to give and, for the receiver, so large that it stops being worth concentrating for.
+ * Lower-rated players' points are worth more ELO, so the rate starts wide at the bottom and narrows
+ * step by step as rating rises: 50 ELO per point at 800 and below, 25 from 2100 up, linear between.
+ *
+ * Every player still has one fixed handicap index (the points spanned from the club's starting
+ * rating), so a start is always the difference of two indexes and A→B plus B→C always equals A→C. */
+export const HANDICAP_TAPER_ANCHORS:ReadonlyArray<readonly [number,number]> = [[800,50],[2100,25]];
+
+/** ELO represented by one handicap point at `rating` on the taper curve. */
+export function taperEloPerPoint(rating:number){
+  const anchors=HANDICAP_TAPER_ANCHORS;
+  if(rating<=anchors[0][0])return anchors[0][1];
+  for(let i=1;i<anchors.length;i+=1){
+    const [x0,y0]=anchors[i-1];
+    const [x1,y1]=anchors[i];
+    if(rating<=x1)return y0+(y1-y0)*(rating-x0)/(x1-x0);
+  }
+  return anchors[anchors.length-1][1];
+}
+
+/** Handicap points spanned by the rating interval [low, high] (low <= high): the integral of
+    1 / (ELO per point). Exact on each linear segment of the curve. */
+function taperPointsBetween(low:number,high:number){
+  if(high<=low)return 0;
+  const cuts=HANDICAP_TAPER_ANCHORS.map(([x])=>x).filter(x=>x>low&&x<high);
+  const edges=[low,...cuts,high];
+  let points=0;
+  for(let i=1;i<edges.length;i+=1){
+    const p=edges[i-1],q=edges[i];
+    const r0=taperEloPerPoint(p),r1=taperEloPerPoint(q);
+    points+=Math.abs(r1-r0)<1e-9?(q-p)/r0:(q-p)/(r1-r0)*Math.log(r1/r0);
+  }
+  return points;
+}
+
+/** The ELO distance above `base` that `points` handicap points span on the curve. */
+export function taperEloForPoints(base:number,points:number){
+  if(points<=0)return 0;
+  let low=0,high=points*HANDICAP_TAPER_ANCHORS[0][1]+1;
+  for(let i=0;i<60;i+=1){
+    const mid=(low+high)/2;
+    if(taperPointsBetween(base,base+mid)<points)low=mid; else high=mid;
+  }
+  return (low+high)/2;
+}
+
+/** Signed handicap points from `from` up to `to`: positive when `to` is the higher rating. */
+export function taperPoints(from:number,to:number){
+  return to>=from?taperPointsBetween(from,to):-taperPointsBetween(to,from);
+}
+
+/** Today in Hong Kong as YYYY-MM-DD, the club's calendar. */
+export function todayInClubTime(){
+  return new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Hong_Kong"});
+}
+
+/** Is the taper curve in force on `on` (YYYY-MM-DD, default today)? */
+export function handicapCurveActive(settings:{handicapCurveFrom?:string|null},on?:string){
+  const from=settings.handicapCurveFrom;
+  if(!from)return false;
+  return (on||todayInClubTime()).slice(0,10)>=from;
+}
+
+/** ELO per handicap point to give `calculateSnookerElo` for one match, so the rating engine and the
+    suggested start always agree. `given` is signed from side A: positive when A gives points.
+    Before the curve starts this is the flat 25. */
+export function matchHandicapRate(ratingA:number,ratingB:number,given:number,settings:{handicapCurveFrom?:string|null},playedOn?:string){
+  if(!handicapCurveActive(settings,playedOn))return HANDICAP_ELO_PER_POINT;
+  const points=Math.abs(given);
+  if(points===0)return taperEloPerPoint((ratingA+ratingB)/2);
+  // The giver's edge is cut by the ELO those points span, measured up from the receiver's rating.
+  return taperEloForPoints(given>0?ratingB:ratingA,points)/points;
+}
 
 /** ELO points represented by one handicap point at a given rating. The sigmoid makes handicap
     sensitivity rise through the lower/middle ratings, then flatten toward a safe lower bound. */
@@ -58,10 +139,9 @@ export type HandicapProposal = {
 
 /** What the two of us should play off, said to me about them. The displayed integer indexes are
     authoritative: a 37 player facing a 56 player gives 19 points. */
-export function proposeHandicap(t: Translator, myRating:number,theirRating:number,settings:HandicapSettings):HandicapProposal {
-  const start=settings.start??1500;
-  const myHandicap=roundToNearestInteger(DEFAULT_SUGGESTED_HANDICAP-(myRating-start)/HANDICAP_ELO_PER_POINT);
-  const theirHandicap=roundToNearestInteger(DEFAULT_SUGGESTED_HANDICAP-(theirRating-start)/HANDICAP_ELO_PER_POINT);
+export function proposeHandicap(t: Translator, myRating:number,theirRating:number,settings:HandicapSettings,on?:string):HandicapProposal {
+  const myHandicap=displayedHandicap(myRating,settings,on);
+  const theirHandicap=displayedHandicap(theirRating,settings,on);
   const points=theirHandicap-myHandicap;
   if(points===0)return {points:0,direction:"level",label:t("平手打就啱")};
   return points>0
@@ -133,7 +213,16 @@ export function clubMeanRating(players:RatedPlayer[],start:number):number {
 export const DEFAULT_SUGGESTED_HANDICAP = 60;
 
 export function suggestedHandicap(player:RatedPlayer,_players:RatedPlayer[],
-  settings:HandicapSettings&{start:number}):number {
-  return roundToNearestInteger(DEFAULT_SUGGESTED_HANDICAP
-    -(player.rating-settings.start)/HANDICAP_ELO_PER_POINT);
+  settings:HandicapSettings&{start:number},on?:string):number {
+  return displayedHandicap(player.rating,settings,on);
+}
+
+/** One rating's displayed handicap index: the preset at the starting rating, minus the points the
+    rating sits above it. Flat 25 ELO per point, or the taper curve once it is in force. */
+function displayedHandicap(rating:number,settings:HandicapSettings,on?:string){
+  const start=settings.start??1500;
+  const above=handicapCurveActive(settings,on)
+    ?taperPoints(start,rating)
+    :(rating-start)/HANDICAP_ELO_PER_POINT;
+  return roundToNearestInteger(DEFAULT_SUGGESTED_HANDICAP-above);
 }

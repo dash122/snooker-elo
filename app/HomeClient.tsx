@@ -18,7 +18,7 @@ import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, w
 import { applyCupHandicap } from "../lib/cup-handicap-draft";
 import { ShareGlyph, shareSheetTitle } from "./ShareSheet";
 import CupShareButtons from "./CupShareButtons";
-import { HANDICAP_ELO_PER_POINT, proposeHandicap, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
+import { HANDICAP_ELO_PER_POINT, matchHandicapRate, proposeHandicap, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
 import { calculateSnookerElo } from "../lib/snooker-elo";
 import { breakNudge, type BreakNudge } from "../lib/break-nudge";
 import { matchDate, matchupKey, meetingsSince } from "../lib/elo-replay";
@@ -130,6 +130,8 @@ type Settings = {
   handicapSensitivityRange: number;
   /** Rating width controlling how quickly sensitivity transitions. */
   handicapSensitivityWidth: number;
+  /** First day (YYYY-MM-DD) the tapering handicap curve replaces the flat 25 ELO per point. */
+  handicapCurveFrom?: string | null;
   /** The "3" multiplying the adaptive compression width. */
   compressionWidthBase: number;
   /** The "0.1" in 10^(-0.1/n). */
@@ -224,11 +226,11 @@ function provisionalMultiplier(matchCount: number) {
 }
 /* A thin wrapper over `lib/handicap`, which owns the arithmetic so the leaderboard, the cup roster
    and the shared cup page can never quote three different 建議讓分 for the same player. */
-function suggestedHandicap(p: Player,data: AppState) {
-  return clubSuggestedHandicap(p,data.players,data.settings);
+function suggestedHandicap(p: Player,data: AppState,on?:string) {
+  return clubSuggestedHandicap(p,data.players,data.settings,on);
 }
-function suggestedHandicapAtRating(rating:number,data:AppState) {
-  return clubSuggestedHandicap({rating},data.players,data.settings);
+function suggestedHandicapAtRating(rating:number,data:AppState,on?:string) {
+  return clubSuggestedHandicap({rating},data.players,data.settings,on);
 }
 function winRate(p:Player){return games(p)?p.wins/games(p):0}
 function frameRate(p:Player){const total=p.framesWon+p.framesLost;return total?p.framesWon/total:0}
@@ -409,14 +411,14 @@ function handicapVerdict(t: Translator, me:Player,p:Player,s:Settings){
   const base=points===0?t("平手"):points>0?t("建議我讓 {points} 分", {points}):t("建議他讓 {v} 分", {v: Math.abs(points)});
   return points!==0&&Math.abs(eloDifference)<30?t("{base} · 勢均力敵", {base}):base;
 }
-function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings,giverSide?:"A"|"B"|null,repetitionCount=0) {
+function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings,giverSide?:"A"|"B"|null,repetitionCount=0,playedOn?:string) {
   const actual = giverSide === "A" ? points : giverSide === "B" ? -points
     : giver === a.id ? points : giver === b.id ? -points : 0;
   const official = a.handicap == null || b.handicap == null ? null : b.handicap - a.handicap;
   const formula = calculateSnookerElo({
     ratingA:a.rating, ratingB:b.rating, handicapA:-actual, framesA:scoreA, framesB:scoreB,
     handicapEloScale:s.handicapEloScale,
-    handicapEloPerPoint:HANDICAP_ELO_PER_POINT,
+    handicapEloPerPoint:matchHandicapRate(a.rating,b.rating,actual,s,playedOn),
     handicapEffectiveness:1, frameScaleCoefficient:s.frameScaleCoefficient,
     frameScaleNumeratorOffset:s.frameScaleNumeratorOffset, frameScaleDenominator:s.frameScaleDenominator,
     compressionWidthBase:s.compressionWidthBase, compressionWidthExponent:s.compressionWidthExponent,
@@ -482,7 +484,7 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
     const teamAEntity = a2 ? {id:"teamA",name:teamLabel(m,state,"A"),short:teamLabel(m,state,"A"),handicap:teamHandicap(m,state,"A"),rating:teamRating(m,state,"A"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]} as Player : a;
     const teamBEntity = b2 ? {id:"teamB",name:teamLabel(m,state,"B"),short:teamLabel(m,state,"B"),handicap:teamHandicap(m,state,"B"),rating:teamRating(m,state,"B"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]} as Player : b;
     const giverSide = m.giver && teamA.some(p=>p.id===m.giver) ? "A" : m.giver && teamB.some(p=>p.id===m.giver) ? "B" : undefined;
-    const result=calc(teamAEntity,teamBEntity,m.scoreA,m.scoreB,m.giver,Math.abs(m.actual),settings,giverSide,repetitionCount);
+    const result=calc(teamAEntity,teamBEntity,m.scoreA,m.scoreB,m.giver,Math.abs(m.actual),settings,giverSide,repetitionCount,m.playedOn);
     const resultA=m.scoreA===m.scoreB?"D":m.scoreA>m.scoreB?"W":"L";
     const resultB=resultA==="D"?"D":resultA==="W"?"L":"W";
     const beforeA=teamAEntity.rating,beforeB=teamBEntity.rating;
@@ -1051,7 +1053,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   } as Player : b;
   const preview=a&&b&&(!draft.mode||draft.mode==="1v1"||valid2v2||draft.mode==="cup")
     ? calc(aEntity,bEntity,+draft.scoreA,+draft.scoreB,draft.giver,Math.max(0,Math.trunc(+draft.points||0)),data.settings,
-        draft.mode==="2v2"?([a.id,a2?.id].includes(draft.giver) ? "A" : [b.id,b2?.id].includes(draft.giver) ? "B" : undefined):undefined)
+        draft.mode==="2v2"?([a.id,a2?.id].includes(draft.giver) ? "A" : [b.id,b2?.id].includes(draft.giver) ? "B" : undefined):undefined,0,draft.date)
     : null;
   const openHeadToHead=(player:Player,selectedOpponent?:Player)=>{
     const opponent=selectedOpponent??data.players.find(candidate=>candidate.id!==player.id&&candidate.active)??data.players.find(candidate=>candidate.id!==player.id);
@@ -3156,7 +3158,7 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
   const rightLabel = isEntertainmentMode(m.mode) ? teamLabel(m,data,"B") : name(m.b);
   const preMatchLeftElo=m.beforeA2==null?m.beforeA:(m.beforeA+m.beforeA2)/2;
   const preMatchRightElo=m.beforeB2==null?m.beforeB:(m.beforeB+m.beforeB2)/2;
-  const recommendedActual=suggestedHandicapAtRating(preMatchRightElo,data)-suggestedHandicapAtRating(preMatchLeftElo,data);
+  const recommendedActual=suggestedHandicapAtRating(preMatchRightElo,data,m.playedOn)-suggestedHandicapAtRating(preMatchLeftElo,data,m.playedOn);
   const handicapText=(actual:number)=>
     actual>0?t("{leftLabel} 每局讓 {rightLabel} {actual} 分", {leftLabel, rightLabel, actual})
     :actual<0?t("{rightLabel} 每局讓 {leftLabel} {v} 分", {rightLabel, leftLabel, v: Math.abs(actual)})
@@ -3554,7 +3556,7 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
     const previewA=isTeamMode?{...a,id:"teamA",name:teamLabel(match,data,"A"),short:teamLabel(match,data,"A"),handicap:teamHandicap(match,data,"A"),rating:teamRating(match,data,"A")} as Player:a;
     const previewB=isTeamMode?{...b,id:"teamB",name:teamLabel(match,data,"B"),short:teamLabel(match,data,"B"),handicap:teamHandicap(match,data,"B"),rating:teamRating(match,data,"B")} as Player:b;
     const giverSide=isTeamMode?([a.id,a2?.id].includes(draft.giver)?"A":[b.id,b2?.id].includes(draft.giver)?"B":undefined):undefined;
-    return calc(previewA,previewB,+draft.scoreA,+draft.scoreB,draft.giver,+draft.points,data.settings,giverSide);
+    return calc(previewA,previewB,+draft.scoreA,+draft.scoreB,draft.giver,+draft.points,data.settings,giverSide,0,draft.date);
   })();
   const forecast=livePreview??preview;
   const tournament=data.tournaments.find(t=>t.id===draft.tournamentId);
@@ -3604,9 +3606,9 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
   };
   const removeBreak=(index:number)=>setDraft((d:any)=>({...d,highBreaks:(d.highBreaks??[]).filter((_:unknown,itemIndex:number)=>itemIndex!==index)}));
   const teamEloDifference=draft.mode==="2v2"&&a2&&b2?roundedTeamEloDifference([a,a2],[b,b2]):a.rating-b.rating;
-  const teamAHandicap=isTeamMode&&a2?Math.round((suggestedHandicap(a,data)+suggestedHandicap(a2,data))/2):null;
-  const teamBHandicap=isTeamMode&&b2?Math.round((suggestedHandicap(b,data)+suggestedHandicap(b2,data))/2):null;
-  const fairActual=forecast?(isTeamMode&&teamAHandicap!=null&&teamBHandicap!=null?teamBHandicap-teamAHandicap:suggestedHandicap(b,data)-suggestedHandicap(a,data)):null;
+  const teamAHandicap=isTeamMode&&a2?Math.round((suggestedHandicap(a,data,draft.date)+suggestedHandicap(a2,data,draft.date))/2):null;
+  const teamBHandicap=isTeamMode&&b2?Math.round((suggestedHandicap(b,data,draft.date)+suggestedHandicap(b2,data,draft.date))/2):null;
+  const fairActual=forecast?(isTeamMode&&teamAHandicap!=null&&teamBHandicap!=null?teamBHandicap-teamAHandicap:suggestedHandicap(b,data,draft.date)-suggestedHandicap(a,data,draft.date)):null;
   const probabilities=forecast?matchProbabilities(forecast.expectedA,+draft.scoreA+ +draft.scoreB):null;
   const previewDeltaA=forecast&&!isTeamMode?forecast.deltaA*provisionalMultiplier(games(a)):null;
   const previewDeltaB=forecast&&!isTeamMode?-forecast.deltaA*provisionalMultiplier(games(b)):null;

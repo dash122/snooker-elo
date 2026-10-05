@@ -1,5 +1,5 @@
 import { isEntertainmentMode, neutralRatingSnapshot } from "./entertainment-match.ts";
-import { HANDICAP_ELO_PER_POINT, suggestedHandicap } from "./handicap.ts";
+import { matchHandicapRate, suggestedHandicap } from "./handicap.ts";
 import { calculateSnookerElo } from "./snooker-elo.ts";
 
 export type ReplayPlayer = {
@@ -81,6 +81,8 @@ export type ReplaySettings = {
   repetitionDecayBase?: number;
   repetitionDecayPeriod?: number;
   handicapEffectiveness?: number;
+  /** First day the tapering handicap curve applies; unset keeps the flat 25 ELO per point. */
+  handicapCurveFrom?: string | null;
 };
 
 function games(player: ReplayPlayer) {
@@ -98,6 +100,7 @@ function handicapSettings(settings: ReplaySettings) {
     handicapSensitivityRange: settings.handicapSensitivityRange ?? 16,
     handicapSensitivityWidth: settings.handicapSensitivityWidth ?? 250,
     start: settings.start ?? 1500,
+    handicapCurveFrom: settings.handicapCurveFrom,
   };
 }
 
@@ -168,7 +171,7 @@ function calculateMatch(a: ReplayPlayer, b: ReplayPlayer, match: ReplayMatch, se
     framesA: match.scoreA,
     framesB: match.scoreB,
     handicapEloScale: settings.handicapEloScale,
-    handicapEloPerPoint: HANDICAP_ELO_PER_POINT,
+    handicapEloPerPoint: matchHandicapRate(a.rating, b.rating, actual, settings, match.playedOn),
     handicapEffectiveness: 1,
     frameScaleCoefficient: settings.frameScaleCoefficient,
     frameScaleNumeratorOffset: settings.frameScaleNumeratorOffset,
