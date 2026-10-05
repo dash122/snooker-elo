@@ -194,7 +194,14 @@ of those overrides quietly pointed `.auth-main-form input` at `var(--fs-body)`, 
 to `var(--fs-input)` (the token that's exempt from responsive stepping for exactly this
 iOS-Safari-zoom reason) so correctness no longer depends on an unrelated rule elsewhere.
 
-The one sub-11px value left is intentional: `.fraction` in `elo-guide/guide.css` uses
+**Update 2026-10-05:** `app/elo-guide` was rewritten as a bilingual, plain-language rating and handicap
+guide (it uses the app's i18n catalogue and `LanguageMenu`, `Surface`, `Button`, `StatTile` and
+`FormField`, and takes its numbers from `lib/handicap` and `lib/snooker-elo`). Its stylesheet now uses the
+shared `--fs-*`, `--sp-*` and `--ds-*` tokens, including the new `--ds-series-strong` and
+`--ds-series-weak` pair for "stronger player" and "weaker player", so the dedicated override block in
+`.stylelintrc.json` was removed. The paragraph above describes the previous page and is kept for history.
+
+The one sub-11px value left was intentional (the `.fraction` rule no longer exists): `.fraction` in `elo-guide/guide.css` uses
 `font-size:.47em`, relative to its parent element for a math numerator/denominator, not an absolute
 text size — the same category of exception as `font-size:0` for visually-hidden text.
 
