@@ -18,7 +18,7 @@ import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, w
 import { applyCupHandicap } from "../lib/cup-handicap-draft";
 import { ShareGlyph, shareSheetTitle } from "./ShareSheet";
 import CupShareButtons from "./CupShareButtons";
-import { HANDICAP_ELO_PER_POINT, matchHandicapRate, proposeHandicap, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
+import { HANDICAP_CURVE_MODEL_VERSION, HANDICAP_ELO_PER_POINT, matchHandicapRate, proposeHandicap, restateMatchesInCurve, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
 import { calculateSnookerElo } from "../lib/snooker-elo";
 import { breakNudge, type BreakNudge } from "../lib/break-nudge";
 import { matchDate, matchupKey, meetingsSince } from "../lib/elo-replay";
@@ -130,8 +130,6 @@ type Settings = {
   handicapSensitivityRange: number;
   /** Rating width controlling how quickly sensitivity transitions. */
   handicapSensitivityWidth: number;
-  /** First day (YYYY-MM-DD) the tapering handicap curve replaces the flat 25 ELO per point. */
-  handicapCurveFrom?: string | null;
   /** The "3" multiplying the adaptive compression width. */
   compressionWidthBase: number;
   /** The "0.1" in 10^(-0.1/n). */
@@ -212,7 +210,7 @@ const seed: AppState = {
     handicapEloScale:1250, handicapPointsToElo:25, handicapMinimumElo:7,
     handicapSensitivityRange:16, handicapSensitivityWidth:250, compressionWidthBase:3,
     compressionWidthExponent:.1, repetitionDecayBase:2, repetitionDecayPeriod:7,
-    handicapEffectiveness:1, modelVersion:15,
+    handicapEffectiveness:1, modelVersion:HANDICAP_CURVE_MODEL_VERSION,
   },
   players: [],
   matches: [],
@@ -226,11 +224,11 @@ function provisionalMultiplier(matchCount: number) {
 }
 /* A thin wrapper over `lib/handicap`, which owns the arithmetic so the leaderboard, the cup roster
    and the shared cup page can never quote three different 建議讓分 for the same player. */
-function suggestedHandicap(p: Player,data: AppState,on?:string) {
-  return clubSuggestedHandicap(p,data.players,data.settings,on);
+function suggestedHandicap(p: Player,data: AppState) {
+  return clubSuggestedHandicap(p,data.players,data.settings);
 }
-function suggestedHandicapAtRating(rating:number,data:AppState,on?:string) {
-  return clubSuggestedHandicap({rating},data.players,data.settings,on);
+function suggestedHandicapAtRating(rating:number,data:AppState) {
+  return clubSuggestedHandicap({rating},data.players,data.settings);
 }
 function winRate(p:Player){return games(p)?p.wins/games(p):0}
 function frameRate(p:Player){const total=p.framesWon+p.framesLost;return total?p.framesWon/total:0}
@@ -411,14 +409,14 @@ function handicapVerdict(t: Translator, me:Player,p:Player,s:Settings){
   const base=points===0?t("平手"):points>0?t("建議我讓 {points} 分", {points}):t("建議他讓 {v} 分", {v: Math.abs(points)});
   return points!==0&&Math.abs(eloDifference)<30?t("{base} · 勢均力敵", {base}):base;
 }
-function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings,giverSide?:"A"|"B"|null,repetitionCount=0,playedOn?:string) {
+function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,points:number,s:Settings,giverSide?:"A"|"B"|null,repetitionCount=0) {
   const actual = giverSide === "A" ? points : giverSide === "B" ? -points
     : giver === a.id ? points : giver === b.id ? -points : 0;
   const official = a.handicap == null || b.handicap == null ? null : b.handicap - a.handicap;
   const formula = calculateSnookerElo({
     ratingA:a.rating, ratingB:b.rating, handicapA:-actual, framesA:scoreA, framesB:scoreB,
     handicapEloScale:s.handicapEloScale,
-    handicapEloPerPoint:matchHandicapRate(a.rating,b.rating,actual,s,playedOn),
+    handicapEloPerPoint:matchHandicapRate(a.rating,b.rating,actual,s),
     handicapEffectiveness:1, frameScaleCoefficient:s.frameScaleCoefficient,
     frameScaleNumeratorOffset:s.frameScaleNumeratorOffset, frameScaleDenominator:s.frameScaleDenominator,
     compressionWidthBase:s.compressionWidthBase, compressionWidthExponent:s.compressionWidthExponent,
@@ -484,7 +482,7 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
     const teamAEntity = a2 ? {id:"teamA",name:teamLabel(m,state,"A"),short:teamLabel(m,state,"A"),handicap:teamHandicap(m,state,"A"),rating:teamRating(m,state,"A"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]} as Player : a;
     const teamBEntity = b2 ? {id:"teamB",name:teamLabel(m,state,"B"),short:teamLabel(m,state,"B"),handicap:teamHandicap(m,state,"B"),rating:teamRating(m,state,"B"),initialRating:0,active:false,wins:0,losses:0,draws:0,framesWon:0,framesLost:0,lastChange:0,form:[]} as Player : b;
     const giverSide = m.giver && teamA.some(p=>p.id===m.giver) ? "A" : m.giver && teamB.some(p=>p.id===m.giver) ? "B" : undefined;
-    const result=calc(teamAEntity,teamBEntity,m.scoreA,m.scoreB,m.giver,Math.abs(m.actual),settings,giverSide,repetitionCount,m.playedOn);
+    const result=calc(teamAEntity,teamBEntity,m.scoreA,m.scoreB,m.giver,Math.abs(m.actual),settings,giverSide,repetitionCount);
     const resultA=m.scoreA===m.scoreB?"D":m.scoreA>m.scoreB?"W":"L";
     const resultB=resultA==="D"?"D":resultA==="W"?"L":"W";
     const beforeA=teamAEntity.rating,beforeB=teamBEntity.rating;
@@ -519,10 +517,30 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
   }
   return {players:rebuilt,matches:matches.filter(m=>m.status==="confirmed").map(m=>updated.get(m.id)??m)};
 }
+/* Each step lifts the document one rating model; run them until it is current so a club several
+   models behind is never left half-way (a half-upgraded document still replays correctly, but is
+   rewritten again on every visit). */
 function upgradeState(raw:AppState){
+  let state={ ...raw, tournaments: raw.tournaments ?? [] } as AppState;
+  let changed=false;
+  for(let step=0;step<10;step+=1){
+    const next=upgradeOneModel(state);
+    if(!next.changed)break;
+    state=next.state;
+    changed=true;
+  }
+  return {state,changed};
+}
+function upgradeOneModel(raw:AppState){
   const nextRaw = { ...raw, tournaments: raw.tournaments ?? [] };
   const modelVersion=nextRaw.settings.modelVersion??1;
-  if(modelVersion>=15)return {state:nextRaw,changed:false};
+  if(modelVersion>=HANDICAP_CURVE_MODEL_VERSION)return {state:nextRaw,changed:false};
+  if(modelVersion>=15){
+    const matches=restateMatchesInCurve(nextRaw.matches,nextRaw.settings.start??1500);
+    const settings={...nextRaw.settings,modelVersion:HANDICAP_CURVE_MODEL_VERSION};
+    const rebuilt=replay(nextRaw.players,matches,settings);
+    return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"改用遞減讓分曲線（弱手每分 75 ELO，逐步收窄至 25 ELO），歷史讓分按 ELO 價值換算並重播評分",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
+  }
   if(modelVersion>=14){
     const settings={...nextRaw.settings,frameScaleCoefficient:250,modelVersion:15};
     const rebuilt=replay(nextRaw.players,nextRaw.matches,settings);
@@ -1053,7 +1071,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
   } as Player : b;
   const preview=a&&b&&(!draft.mode||draft.mode==="1v1"||valid2v2||draft.mode==="cup")
     ? calc(aEntity,bEntity,+draft.scoreA,+draft.scoreB,draft.giver,Math.max(0,Math.trunc(+draft.points||0)),data.settings,
-        draft.mode==="2v2"?([a.id,a2?.id].includes(draft.giver) ? "A" : [b.id,b2?.id].includes(draft.giver) ? "B" : undefined):undefined,0,draft.date)
+        draft.mode==="2v2"?([a.id,a2?.id].includes(draft.giver) ? "A" : [b.id,b2?.id].includes(draft.giver) ? "B" : undefined):undefined)
     : null;
   const openHeadToHead=(player:Player,selectedOpponent?:Player)=>{
     const opponent=selectedOpponent??data.players.find(candidate=>candidate.id!==player.id&&candidate.active)??data.players.find(candidate=>candidate.id!==player.id);
@@ -1559,7 +1577,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
             </form>
           </div>}
           {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} canEditRating={isAdmin} onSave={savePlayer}/>}
-          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const start=Number(settings.start ?? data.settings.start ?? 1500); const applied={...settings,start,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:15}; const rebuilt=replay(data.players.map(player=>({...player,initialRating:start,rating:start})),data.matches,applied); setModal(null); persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:`調整 Snooker Elo 公式參數；以 ${start} 起始並重播歷史評分`,at:new Date().toISOString()},...data.audits]},t("設定已套用，歷史評分已從 {start} 重播。", {start}))}}/>}
+          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const start=Number(settings.start ?? data.settings.start ?? 1500); const applied={...settings,start,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:HANDICAP_CURVE_MODEL_VERSION}; const rebuilt=replay(data.players.map(player=>({...player,initialRating:start,rating:start})),data.matches,applied); setModal(null); persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:`調整 Snooker Elo 公式參數；以 ${start} 起始並重播歷史評分`,at:new Date().toISOString()},...data.audits]},t("設定已套用，歷史評分已從 {start} 重播。", {start}))}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">{t("會員功能")}</p><h2>{t("先登入或建立帳戶")}</h2><p className="sub">{t("記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。")}</p><div className="auth-buttons"><a className="primary" href="/login">{t("登入")}</a><a className="more" href="/login?mode=signup">{t("建立帳戶")}</a></div></>}
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");showTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
@@ -3158,7 +3176,7 @@ function MatchCard({data,match:m,canManage,name,onPlayer,onEdit,onVoid,onShare,h
   const rightLabel = isEntertainmentMode(m.mode) ? teamLabel(m,data,"B") : name(m.b);
   const preMatchLeftElo=m.beforeA2==null?m.beforeA:(m.beforeA+m.beforeA2)/2;
   const preMatchRightElo=m.beforeB2==null?m.beforeB:(m.beforeB+m.beforeB2)/2;
-  const recommendedActual=suggestedHandicapAtRating(preMatchRightElo,data,m.playedOn)-suggestedHandicapAtRating(preMatchLeftElo,data,m.playedOn);
+  const recommendedActual=suggestedHandicapAtRating(preMatchRightElo,data)-suggestedHandicapAtRating(preMatchLeftElo,data);
   const handicapText=(actual:number)=>
     actual>0?t("{leftLabel} 每局讓 {rightLabel} {actual} 分", {leftLabel, rightLabel, actual})
     :actual<0?t("{rightLabel} 每局讓 {leftLabel} {v} 分", {rightLabel, leftLabel, v: Math.abs(actual)})
@@ -3556,7 +3574,7 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
     const previewA=isTeamMode?{...a,id:"teamA",name:teamLabel(match,data,"A"),short:teamLabel(match,data,"A"),handicap:teamHandicap(match,data,"A"),rating:teamRating(match,data,"A")} as Player:a;
     const previewB=isTeamMode?{...b,id:"teamB",name:teamLabel(match,data,"B"),short:teamLabel(match,data,"B"),handicap:teamHandicap(match,data,"B"),rating:teamRating(match,data,"B")} as Player:b;
     const giverSide=isTeamMode?([a.id,a2?.id].includes(draft.giver)?"A":[b.id,b2?.id].includes(draft.giver)?"B":undefined):undefined;
-    return calc(previewA,previewB,+draft.scoreA,+draft.scoreB,draft.giver,+draft.points,data.settings,giverSide,0,draft.date);
+    return calc(previewA,previewB,+draft.scoreA,+draft.scoreB,draft.giver,+draft.points,data.settings,giverSide);
   })();
   const forecast=livePreview??preview;
   const tournament=data.tournaments.find(t=>t.id===draft.tournamentId);
@@ -3606,9 +3624,9 @@ function MatchForm({squads,data,draft,setDraft,preview,a,b,editing,saving,onSave
   };
   const removeBreak=(index:number)=>setDraft((d:any)=>({...d,highBreaks:(d.highBreaks??[]).filter((_:unknown,itemIndex:number)=>itemIndex!==index)}));
   const teamEloDifference=draft.mode==="2v2"&&a2&&b2?roundedTeamEloDifference([a,a2],[b,b2]):a.rating-b.rating;
-  const teamAHandicap=isTeamMode&&a2?Math.round((suggestedHandicap(a,data,draft.date)+suggestedHandicap(a2,data,draft.date))/2):null;
-  const teamBHandicap=isTeamMode&&b2?Math.round((suggestedHandicap(b,data,draft.date)+suggestedHandicap(b2,data,draft.date))/2):null;
-  const fairActual=forecast?(isTeamMode&&teamAHandicap!=null&&teamBHandicap!=null?teamBHandicap-teamAHandicap:suggestedHandicap(b,data,draft.date)-suggestedHandicap(a,data,draft.date)):null;
+  const teamAHandicap=isTeamMode&&a2?Math.round((suggestedHandicap(a,data)+suggestedHandicap(a2,data))/2):null;
+  const teamBHandicap=isTeamMode&&b2?Math.round((suggestedHandicap(b,data)+suggestedHandicap(b2,data))/2):null;
+  const fairActual=forecast?(isTeamMode&&teamAHandicap!=null&&teamBHandicap!=null?teamBHandicap-teamAHandicap:suggestedHandicap(b,data)-suggestedHandicap(a,data)):null;
   const probabilities=forecast?matchProbabilities(forecast.expectedA,+draft.scoreA+ +draft.scoreB):null;
   const previewDeltaA=forecast&&!isTeamMode?forecast.deltaA*provisionalMultiplier(games(a)):null;
   const previewDeltaB=forecast&&!isTeamMode?-forecast.deltaA*provisionalMultiplier(games(b)):null;
@@ -3766,7 +3784,7 @@ function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
       {field("repetitionDecayBase",t("重複衰減底數"),t("M(t) = 底數^(-t/週期)，PDF 原值 2。"),.1,1)}
       {field("repetitionDecayPeriod",t("重複衰減週期"),t("M(t) 的週期，PDF 原值 7。"),.5,.1)}
     </div>
-    <Button className="full" onClick={()=>onSave({...s,provisionalGames:data.settings.provisionalGames,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:15})}>{t("套用並重播歷史 ELO")}</Button>
+    <Button className="full" onClick={()=>onSave({...s,provisionalGames:data.settings.provisionalGames,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:HANDICAP_CURVE_MODEL_VERSION})}>{t("套用並重播歷史 ELO")}</Button>
   </>;
 }
 type RivalSnapshot = {

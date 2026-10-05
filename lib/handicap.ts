@@ -22,10 +22,9 @@ export type HandicapSettings = {
   handicapSensitivityRange:number;
   handicapSensitivityWidth:number;
   start?:number;
-  /** First day (YYYY-MM-DD) on which the taper curve below replaces the flat 25 ELO per point.
-      Unset means never. Matches played before it keep their original arithmetic, so switching the
-      curve on never rewrites history. */
-  handicapCurveFrom?:string|null;
+  /** The rating model the club's matches are recorded in. From `HANDICAP_CURVE_MODEL_VERSION` on,
+      starts are in taper-curve points; before it they are flat 25-ELO points. */
+  modelVersion?:number;
 };
 
 export const HANDICAP_ELO_PER_POINT = 25;
@@ -35,11 +34,16 @@ export const HANDICAP_ELO_PER_POINT = 25;
  * A flat 25 ELO per point makes a 1000-ELO gap a 40-point start, which weaker players find both
  * unreasonable to give and, for the receiver, so large that it stops being worth concentrating for.
  * Lower-rated players' points are worth more ELO, so the rate starts wide at the bottom and narrows
- * step by step as rating rises: 50 ELO per point at 800 and below, 25 from 2100 up, linear between.
+ * step by step as rating rises: 75 ELO per point at 800 and below, 25 from 2200 up, linear between.
  *
  * Every player still has one fixed handicap index (the points spanned from the club's starting
- * rating), so a start is always the difference of two indexes and A→B plus B→C always equals A→C. */
-export const HANDICAP_TAPER_ANCHORS:ReadonlyArray<readonly [number,number]> = [[800,50],[2100,25]];
+ * rating), so a start is always the difference of two indexes and A→B plus B→C always equals A→C.
+ *
+ * The curve belongs to rating model 16. Matches recorded before it were handed out in flat 25-ELO
+ * points, so the version-16 upgrade restates each of them in curve points holding its ELO value
+ * constant (`legacyStartToCurve`), after which the whole history replays in one unit. */
+export const HANDICAP_CURVE_MODEL_VERSION = 16;
+export const HANDICAP_TAPER_ANCHORS:ReadonlyArray<readonly [number,number]> = [[800,75],[2200,25]];
 
 /** ELO represented by one handicap point at `rating` on the taper curve. */
 export function taperEloPerPoint(rating:number){
@@ -84,23 +88,44 @@ export function taperPoints(from:number,to:number){
   return to>=from?taperPointsBetween(from,to):-taperPointsBetween(to,from);
 }
 
-/** Today in Hong Kong as YYYY-MM-DD, the club's calendar. */
-export function todayInClubTime(){
-  return new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Hong_Kong"});
+/** Is the club on the curve (rating model 16 or later)? */
+export function handicapCurveActive(settings:{modelVersion?:number}){
+  return (settings.modelVersion??0)>=HANDICAP_CURVE_MODEL_VERSION;
 }
 
-/** Is the taper curve in force on `on` (YYYY-MM-DD, default today)? */
-export function handicapCurveActive(settings:{handicapCurveFrom?:string|null},on?:string){
-  const from=settings.handicapCurveFrom;
-  if(!from)return false;
-  return (on||todayInClubTime()).slice(0,10)>=from;
+/** A start handed out in flat points, restated in curve points. A flat start of `points` spanned
+    `points * 25` ELO above the receiver; the same ELO is worth fewer curve points. Rounded to whole
+    points, as recorded starts always are. */
+export function legacyStartToCurve(points:number,receiverRating:number){
+  if(!points)return 0;
+  return Math.round(taperPoints(receiverRating,receiverRating+Math.abs(points)*HANDICAP_ELO_PER_POINT));
+}
+
+export type StartedMatch = {
+  a:string; b:string; giver:string|null; actual:number; official:number|null; extra:number;
+  beforeA:number; beforeB:number; mode?:string;
+};
+
+/** The version-16 upgrade: every recorded start restated in curve points, holding its ELO value
+    constant. The receiver's rating before the match fixes how many curve points the same ELO buys.
+    `official` is the club's separately maintained per-player handicap gap, not a start handed out,
+    so it is left alone and `extra` (what was played beyond it) is recomputed. Team matches carry
+    no start. */
+export function restateMatchesInCurve<T extends StartedMatch>(matches:T[],start:number):T[] {
+  const rated=(value:number)=>Number.isFinite(value)?value:start;
+  return matches.map(match=>{
+    if(match.mode==="2v2"||!match.giver||!match.actual)return match;
+    const receiverRating=rated(match.giver===match.a?match.beforeB:match.beforeA);
+    const actual=Math.sign(match.actual)*legacyStartToCurve(Math.abs(match.actual),receiverRating);
+    return {...match,actual,extra:actual-(match.official??0)};
+  });
 }
 
 /** ELO per handicap point to give `calculateSnookerElo` for one match, so the rating engine and the
     suggested start always agree. `given` is signed from side A: positive when A gives points.
-    Before the curve starts this is the flat 25. */
-export function matchHandicapRate(ratingA:number,ratingB:number,given:number,settings:{handicapCurveFrom?:string|null},playedOn?:string){
-  if(!handicapCurveActive(settings,playedOn))return HANDICAP_ELO_PER_POINT;
+    Flat 25 before rating model 16. */
+export function matchHandicapRate(ratingA:number,ratingB:number,given:number,settings:{modelVersion?:number}){
+  if(!handicapCurveActive(settings))return HANDICAP_ELO_PER_POINT;
   const points=Math.abs(given);
   if(points===0)return taperEloPerPoint((ratingA+ratingB)/2);
   // The giver's edge is cut by the ELO those points span, measured up from the receiver's rating.
@@ -139,9 +164,9 @@ export type HandicapProposal = {
 
 /** What the two of us should play off, said to me about them. The displayed integer indexes are
     authoritative: a 37 player facing a 56 player gives 19 points. */
-export function proposeHandicap(t: Translator, myRating:number,theirRating:number,settings:HandicapSettings,on?:string):HandicapProposal {
-  const myHandicap=displayedHandicap(myRating,settings,on);
-  const theirHandicap=displayedHandicap(theirRating,settings,on);
+export function proposeHandicap(t: Translator, myRating:number,theirRating:number,settings:HandicapSettings):HandicapProposal {
+  const myHandicap=displayedHandicap(myRating,settings);
+  const theirHandicap=displayedHandicap(theirRating,settings);
   const points=theirHandicap-myHandicap;
   if(points===0)return {points:0,direction:"level",label:t("平手打就啱")};
   return points>0
@@ -213,15 +238,15 @@ export function clubMeanRating(players:RatedPlayer[],start:number):number {
 export const DEFAULT_SUGGESTED_HANDICAP = 60;
 
 export function suggestedHandicap(player:RatedPlayer,_players:RatedPlayer[],
-  settings:HandicapSettings&{start:number},on?:string):number {
-  return displayedHandicap(player.rating,settings,on);
+  settings:HandicapSettings&{start:number}):number {
+  return displayedHandicap(player.rating,settings);
 }
 
 /** One rating's displayed handicap index: the preset at the starting rating, minus the points the
     rating sits above it. Flat 25 ELO per point, or the taper curve once it is in force. */
-function displayedHandicap(rating:number,settings:HandicapSettings,on?:string){
+function displayedHandicap(rating:number,settings:HandicapSettings){
   const start=settings.start??1500;
-  const above=handicapCurveActive(settings,on)
+  const above=handicapCurveActive(settings)
     ?taperPoints(start,rating)
     :(rating-start)/HANDICAP_ELO_PER_POINT;
   return roundToNearestInteger(DEFAULT_SUGGESTED_HANDICAP-above);

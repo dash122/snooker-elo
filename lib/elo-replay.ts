@@ -81,8 +81,8 @@ export type ReplaySettings = {
   repetitionDecayBase?: number;
   repetitionDecayPeriod?: number;
   handicapEffectiveness?: number;
-  /** First day the tapering handicap curve applies; unset keeps the flat 25 ELO per point. */
-  handicapCurveFrom?: string | null;
+  /** Rating model version; 16 and later records starts in tapering-curve points. */
+  modelVersion?: number;
 };
 
 function games(player: ReplayPlayer) {
@@ -100,7 +100,7 @@ function handicapSettings(settings: ReplaySettings) {
     handicapSensitivityRange: settings.handicapSensitivityRange ?? 16,
     handicapSensitivityWidth: settings.handicapSensitivityWidth ?? 250,
     start: settings.start ?? 1500,
-    handicapCurveFrom: settings.handicapCurveFrom,
+    modelVersion: settings.modelVersion,
   };
 }
 
@@ -171,7 +171,7 @@ function calculateMatch(a: ReplayPlayer, b: ReplayPlayer, match: ReplayMatch, se
     framesA: match.scoreA,
     framesB: match.scoreB,
     handicapEloScale: settings.handicapEloScale,
-    handicapEloPerPoint: matchHandicapRate(a.rating, b.rating, actual, settings, match.playedOn),
+    handicapEloPerPoint: matchHandicapRate(a.rating, b.rating, actual, settings),
     handicapEffectiveness: 1,
     frameScaleCoefficient: settings.frameScaleCoefficient,
     frameScaleNumeratorOffset: settings.frameScaleNumeratorOffset,
