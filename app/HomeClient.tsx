@@ -18,7 +18,7 @@ import { cupShareCta, cupShareMessage, cupShareState, cupShareUrl, cupUrgency, w
 import { applyCupHandicap } from "../lib/cup-handicap-draft";
 import { ShareGlyph, shareSheetTitle } from "./ShareSheet";
 import CupShareButtons from "./CupShareButtons";
-import { HANDICAP_ELO_PER_POINT, proposeHandicap, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
+import { HANDICAP_CURVE_MODEL_VERSION, HANDICAP_ELO_PER_POINT, matchHandicapRate, proposeHandicap, restateMatchesInCurve, suggestedHandicap as clubSuggestedHandicap } from "../lib/handicap";
 import { calculateSnookerElo } from "../lib/snooker-elo";
 import { breakNudge, type BreakNudge } from "../lib/break-nudge";
 import { matchDate, matchupKey, meetingsSince } from "../lib/elo-replay";
@@ -210,7 +210,7 @@ const seed: AppState = {
     handicapEloScale:1250, handicapPointsToElo:25, handicapMinimumElo:7,
     handicapSensitivityRange:16, handicapSensitivityWidth:250, compressionWidthBase:3,
     compressionWidthExponent:.1, repetitionDecayBase:2, repetitionDecayPeriod:7,
-    handicapEffectiveness:1, modelVersion:15,
+    handicapEffectiveness:1, modelVersion:HANDICAP_CURVE_MODEL_VERSION,
   },
   players: [],
   matches: [],
@@ -416,7 +416,7 @@ function calc(a: Player,b: Player,scoreA:number,scoreB:number,giver:string|null,
   const formula = calculateSnookerElo({
     ratingA:a.rating, ratingB:b.rating, handicapA:-actual, framesA:scoreA, framesB:scoreB,
     handicapEloScale:s.handicapEloScale,
-    handicapEloPerPoint:HANDICAP_ELO_PER_POINT,
+    handicapEloPerPoint:matchHandicapRate(a.rating,b.rating,actual,s),
     handicapEffectiveness:1, frameScaleCoefficient:s.frameScaleCoefficient,
     frameScaleNumeratorOffset:s.frameScaleNumeratorOffset, frameScaleDenominator:s.frameScaleDenominator,
     compressionWidthBase:s.compressionWidthBase, compressionWidthExponent:s.compressionWidthExponent,
@@ -517,10 +517,30 @@ function replay(players:Player[],matches:Match[],settings:Settings) {
   }
   return {players:rebuilt,matches:matches.filter(m=>m.status==="confirmed").map(m=>updated.get(m.id)??m)};
 }
+/* Each step lifts the document one rating model; run them until it is current so a club several
+   models behind is never left half-way (a half-upgraded document still replays correctly, but is
+   rewritten again on every visit). */
 function upgradeState(raw:AppState){
+  let state={ ...raw, tournaments: raw.tournaments ?? [] } as AppState;
+  let changed=false;
+  for(let step=0;step<10;step+=1){
+    const next=upgradeOneModel(state);
+    if(!next.changed)break;
+    state=next.state;
+    changed=true;
+  }
+  return {state,changed};
+}
+function upgradeOneModel(raw:AppState){
   const nextRaw = { ...raw, tournaments: raw.tournaments ?? [] };
   const modelVersion=nextRaw.settings.modelVersion??1;
-  if(modelVersion>=15)return {state:nextRaw,changed:false};
+  if(modelVersion>=HANDICAP_CURVE_MODEL_VERSION)return {state:nextRaw,changed:false};
+  if(modelVersion>=15){
+    const matches=restateMatchesInCurve(nextRaw.matches,nextRaw.settings.start??1500);
+    const settings={...nextRaw.settings,modelVersion:HANDICAP_CURVE_MODEL_VERSION};
+    const rebuilt=replay(nextRaw.players,matches,settings);
+    return {state:{...nextRaw,settings,...rebuilt,audits:[{id:crypto.randomUUID(),text:"改用遞減讓分曲線（弱手每分 75 ELO，逐步收窄至 25 ELO），歷史讓分按 ELO 價值換算並重播評分",at:new Date().toISOString()},...nextRaw.audits]},changed:true};
+  }
   if(modelVersion>=14){
     const settings={...nextRaw.settings,frameScaleCoefficient:250,modelVersion:15};
     const rebuilt=replay(nextRaw.players,nextRaw.matches,settings);
@@ -1557,7 +1577,7 @@ export default function Home({user,initialData}:{user:{displayName:string;email:
             </form>
           </div>}
           {modal==="player"&&<PlayerForm form={playerForm} setForm={setPlayerForm} editing={!!editingPlayer} canEditRating={isAdmin} onSave={savePlayer}/>}
-          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const start=Number(settings.start ?? data.settings.start ?? 1500); const applied={...settings,start,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:15}; const rebuilt=replay(data.players.map(player=>({...player,initialRating:start,rating:start})),data.matches,applied); setModal(null); persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:`調整 Snooker Elo 公式參數；以 ${start} 起始並重播歷史評分`,at:new Date().toISOString()},...data.audits]},t("設定已套用，歷史評分已從 {start} 重播。", {start}))}}/>}
+          {modal==="settings"&&<SettingsForm data={data} onSave={(settings)=>{const start=Number(settings.start ?? data.settings.start ?? 1500); const applied={...settings,start,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:HANDICAP_CURVE_MODEL_VERSION}; const rebuilt=replay(data.players.map(player=>({...player,initialRating:start,rating:start})),data.matches,applied); setModal(null); persist({...data,settings:applied,...rebuilt,audits:[{id:crypto.randomUUID(),text:`調整 Snooker Elo 公式參數；以 ${start} 起始並重播歷史評分`,at:new Date().toISOString()},...data.audits]},t("設定已套用，歷史評分已從 {start} 重播。", {start}))}}/>}
           {modal==="deleteMatch"&&deletingMatch&&<ConfirmDeleteMatch match={deletingMatch} data={data} onCancel={closeModal} onConfirm={confirmDeleteMatch}/>}
           {modal==="signIn"&&<><p className="kicker">{t("會員功能")}</p><h2>{t("先登入或建立帳戶")}</h2><p className="sub">{t("記錄賽果前，請登入會員帳戶；新會員註冊時會同時建立球員檔案。")}</p><div className="auth-buttons"><a className="primary" href="/login">{t("登入")}</a><a className="more" href="/login?mode=signup">{t("建立帳戶")}</a></div></>}
           {modal==="detail"&&detail&&<PlayerDetail player={detail} rank={ranked.findIndex(p=>p.id===detail.id)+1} data={data} onCompare={opponent=>{setModal(null);openHeadToHead(detail,opponent)}} onViewAllMatches={()=>{setModal(null);openPlayerMatches(detail)}} onMatch={matchId=>{setModal(null);setHeadToHead({a:detail.id,b:""});setHighlightMatch(matchId);setMatchesView("history");showTab("matches")}} onFindOpponent={jumpToPlayerAvailability} onShare={()=>sharePlayer(detail)}/>}
@@ -3764,7 +3784,7 @@ function SettingsForm({data,onSave}:{data:AppState;onSave:(s:Settings)=>void}) {
       {field("repetitionDecayBase",t("重複衰減底數"),t("M(t) = 底數^(-t/週期)，PDF 原值 2。"),.1,1)}
       {field("repetitionDecayPeriod",t("重複衰減週期"),t("M(t) 的週期，PDF 原值 7。"),.5,.1)}
     </div>
-    <Button className="full" onClick={()=>onSave({...s,provisionalGames:data.settings.provisionalGames,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:15})}>{t("套用並重播歷史 ELO")}</Button>
+    <Button className="full" onClick={()=>onSave({...s,provisionalGames:data.settings.provisionalGames,handicapPointsToElo:HANDICAP_ELO_PER_POINT,handicapEffectiveness:1,modelVersion:HANDICAP_CURVE_MODEL_VERSION})}>{t("套用並重播歷史 ELO")}</Button>
   </>;
 }
 type RivalSnapshot = {
