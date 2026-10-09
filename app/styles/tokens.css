@@ -44,6 +44,9 @@
     --ds-chart-fill:#d6e7df;--ds-positive-soft:#bfe6a6;--ds-danger-wash:#fbecea;
     --ds-signup-wash:#eaf1ff;--ds-signup-text:#2b5fa8;--ds-accent-pale:#f7e3b5;
     --ds-chart-positive:#3b9b72;--ds-chart-negative:#cc6c62;
+    /* The two sides of a match in explanatory charts: stronger player and weaker player. Blue and orange
+       stay apart under every common colour-vision deficiency and keep 3:1 against --ds-surface-primary. */
+    --ds-series-strong:#2a78d6;--ds-series-weak:#eb6834;--ds-series-strong-wash:#dce9f9;--ds-series-weak-wash:#fbe3d8;
     --ds-radius-control:.75rem;--ds-radius-card:1.25rem;--ds-radius-sheet:1.5rem;
     /* --- Elevation — six steps, one hue -----------------------------------
        Replaces ~60 hand-typed green drop shadows that had each been invented

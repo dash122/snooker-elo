@@ -34,7 +34,7 @@ Before creating a local component, inspect these sources and existing callers:
 - Use `--fs-*` typography roles, fixed `--fs-input` for text inputs/selects/textareas, `--sp-*` spacing, and existing colour/radius/shadow/motion tokens. Read definitions instead of duplicating numeric scales in guidance.
 - Allowed width queries: `max-width: 380px`, `599px`, `820px`, `1180px`; `min-width: 821px`. Use narrow-phone rules only when content needs them.
 - Static presentation belongs in CSS. Runtime geometry, chart data and computed custom properties can use inline values.
-- `.stylelintrc.json` defines enforcement: typography and breakpoints are errors where enabled; colour and matching spacing/radius literals warn. The legacy type exemption list must not grow. The ELO guide has an intentional separate exception; preserve it during routine consolidation.
+- `.stylelintrc.json` defines enforcement: typography and breakpoints are errors where enabled; colour and matching spacing/radius literals warn. The legacy type exemption list must not grow. The ELO guide (`app/elo-guide/guide.css`) was rebuilt on the shared tokens and no longer has a stylelint exception.
 - `docs/design-system.md` contains rationale/history. When it disagrees with measured code/configuration, use current implementation evidence and correct relevant stale guidance.
 
 ## Interaction
