@@ -138,8 +138,9 @@
 /* Compact stats strip: two short tiles side by side instead of a tall ring card. */
 .profile-bento{gap:var(--sp-2-5)}
 .bento-tile{padding:var(--sp-3);gap:var(--sp-1)}
-.bento-ring{display:flex;align-items:center;justify-content:flex-start;gap:var(--sp-3);text-align:left}
-.bento-ring-text{display:grid;gap:var(--sp-1);min-width:0}
+.bento-ring{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:var(--sp-3);text-align:left}
+/* Keep the record beside the ring only when both fit inside the stats tile. */
+.bento-ring-text{display:grid;flex:1 1 7rem;gap:var(--sp-1);min-width:0;max-width:100%;overflow-wrap:anywhere}
 .bento-ring-text>small{color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:800;letter-spacing:.06em}
 .bento-ring .ring-wrap{flex:none;width:4.25rem;margin:0}
 .bento-ring .ring-wrap circle{stroke-width:13}
