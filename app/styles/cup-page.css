@@ -239,6 +239,9 @@
 .cup-tie-actions .cup-btn{flex:1 1 7rem}
 .card-tool.cup-tie-edit{width:var(--control-sm);height:var(--control-sm);min-height:var(--control-sm);margin-left:auto;font-size:var(--fs-label)}
 .cup-tie.focus{border-color:var(--gold-on-dark);box-shadow:0 0 0 3px var(--cup-gold-veil);animation:cup-tie-flash 1.4s ease}
+/* A played tie is the Matches tab's card. Its gold board would be washed out by the background flash,
+   so the focus marks it with an outline instead. */
+.cup-tie-result.focus .match{outline:2px solid var(--cup-gold);outline-offset:3px}
 @keyframes cup-tie-flash{0%{background:var(--ds-highlight-wash)}100%{background:var(--ds-surface-raised)}}
 
 /* --- The draw ---------------------------------------------------------------------
