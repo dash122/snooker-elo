@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { CupMark, PlayerBadge } from "./UiBits";
 import type { StoryBracketRound } from "../lib/story-card";
 import { useT } from "./components/I18nProvider";
@@ -64,6 +64,12 @@ export function storyBracket(t: Translator, chart:BracketChartData):StoryBracket
 /** A tie in one of these states has already sent someone through, so its elbow lights up. */
 const SETTLED_STATES=new Set(["played","walkover","bye"]);
 
+/** First-round ties visible before a phone folds the tree. Four is a full quarter-final set, so a
+    draw with four first-round ties never folds; a draw with eight (a 16-slot bracket) does, and the
+    fold shows about four and a half of them, with the cut through the last one saying there is more
+    below. */
+const PEEK_TIES=4;
+
 export default function CupBracketChart({chart,activeRound,onPick}:{
   chart:BracketChartData;
   /** Highlighted on its column — the round whose detail is showing below. */
@@ -73,6 +79,11 @@ export default function CupBracketChart({chart,activeRound,onPick}:{
 }){
   const t = useT();
   const treeRef=useRef<HTMLDivElement|null>(null);
+  const treeId=useId();
+  /* Folded by default, and only where the tree is taller than the phone wants. The fold is CSS
+     (`cup-page.css`), so on a wide screen this state changes nothing. */
+  const [expanded,setExpanded]=useState(false);
+  const foldable=(chart.rounds[0]?.nodes.length??0)>PEEK_TIES;
   /* Paged on a phone: follow the active round so the column the reader is acting on stays in view.
      scrollTo on the tree itself, never scrollIntoView, so the page does not jump vertically. */
   useEffect(()=>{
@@ -83,8 +94,9 @@ export default function CupBracketChart({chart,activeRound,onPick}:{
   },[activeRound]);
   if(!chart.rounds.length)return null;
   const total=chart.rounds.length;
-  return <div className="cup-mini" role="group" aria-label={t("賽事對陣圖")}>
-    <div className="cup-mini-tree" ref={treeRef}>
+  const folded=foldable&&!expanded;
+  return <div className={`cup-mini${folded?" is-folded":""}`} role="group" aria-label={t("賽事對陣圖")}>
+    <div className="cup-mini-tree" id={treeId} ref={treeRef}>
       {chart.rounds.map(round=>{
         const live=round.nodes.filter(node=>node.state!=="dead");
         const settled=live.filter(node=>SETTLED_STATES.has(node.state)).length;
@@ -135,5 +147,9 @@ export default function CupBracketChart({chart,activeRound,onPick}:{
           :<b className="is-pending">{t("待定")}</b>}
       </div>
     </div>
+    {/* Only a phone folds, so the control is hidden at wider widths by the stylesheet. It sits in the
+        fade when folded and below the tree when open. */}
+    {foldable&&<button type="button" className="cup-mini-toggle" aria-controls={treeId} aria-expanded={expanded}
+      onClick={()=>setExpanded(open=>!open)}>{expanded?t("收起"):t("展開對陣圖")}</button>}
   </div>;
 }

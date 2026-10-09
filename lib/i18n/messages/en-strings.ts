@@ -34,6 +34,7 @@ export const enStrings: Record<string, string> = {
   "輪空": "Bye",
   "待定": "TBD",
   "賽事對陣圖": "Tournament Bracket",
+  "展開對陣圖": "Show bracket",
   " 對 ": " vs ",
   "{name} 第 {index} 場，{names}{v}": "{name} match {index}, {names}{v}",
   // app/CupShareButtons.tsx
