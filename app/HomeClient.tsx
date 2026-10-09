@@ -2875,9 +2875,12 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
     }
     const mine=Boolean(ownPlayerId&&(slot.a===ownPlayerId||slot.b===ownPlayerId));
     const canRecord=slot.state==="ready"&&Boolean(isAdmin||mine);
-    const note=slot.state==="bye"?t("{v} 輪空晉級", {v: name(slot.winner)})
-      :slot.state==="walkover"?t("{v} 因對手棄權晉級", {v: name(slot.winner)})
-      :slot.state==="waiting"?t("等待上一圈賽果")
+    /* One status chip in the head for every tie still open or decided without a match, so a bye, a
+       walkover and a tie to be played all read from the same place. The ✓ already says who went
+       through, so the chip does not need to repeat the name. */
+    const status=slot.state==="bye"?t("輪空")
+      :slot.state==="walkover"?t("棄權晉級")
+      :slot.state==="waiting"?t("等待上一圈")
       :slot.state==="tbd"?t("對陣待定")
       :slot.state==="ready"?t("未開賽"):"";
     return <li id={`cup-tie-${key}`} className={`cup-tie ${slot.state}${mine?" mine":""}${focusTie===key?" focus":""}`} key={key}>
@@ -2885,18 +2888,19 @@ function CupBracketView({data,selectedTournament,setSelectedTournament,canManage
           question a member asks of a finished tie after the fact. */}
       <div className="cup-tie-head"><span className="cup-tie-no">{t("第 {index} 場", {index: slot.index})}</span>
         {slot.match&&<time className="cup-tie-date" dateTime={slot.match.playedOn}>{slot.match.playedOn}</time>}
+        {status&&<span className={`cup-tie-status ${slot.state}`}>{status}</span>}
         {mine&&<span className="cup-tie-mine">{t("你的賽事")}</span>}
         {slot.match&&canManageMatch(slot.match)&&<IconButton className="card-tool cup-tie-edit" label={t("編輯 {v} 對 {v2} 的賽果", {v: name(slot.a), v2: name(slot.b)})} onClick={()=>onEdit(slot.match!)}>✎</IconButton>}</div>
       {([slot.a,slot.b] as const).map((id,side)=>{
         const won=Boolean(slot.winner&&slot.winner===id);
         return <div className={`cup-tie-side${won?" won":""}${id?"":" tbd"}`} key={side}>
-          <PlayerBadge player={player(id)??{short:"?"}}/>
-          <b>{id?name(id):t("待定")}</b>
+          {/* An empty seat is a dashed ring, as on the bracket overview, so "nobody yet" never looks like a player. */}
+          {id?<PlayerBadge player={player(id)??{short:"?"}}/>:<i className="cup-tie-vacant" aria-hidden="true"/>}
+          <b>{id?name(id):slot.state==="bye"?t("輪空"):t("待定")}</b>
           {slot.match&&id?<em>{scoreFor(slot.match,id)}</em>:won?<i aria-hidden="true">✓</i>:null}
           {seatTool(id,slot.round)}
         </div>;
       })}
-      {note&&<p className="cup-tie-note">{note}</p>}
       <div className="cup-tie-actions">
         {canRecord&&<Button variant="primary" className="cup-btn sm" onClick={()=>onRecordSlot(tournament,slot)}>{t("記錄賽果")}</Button>}
         {canRecord&&mine&&<Button variant="secondary" className="cup-btn sm" onClick={()=>onArrange(opponentIn(slot,ownPlayerId))}>{t("約時間")}</Button>}

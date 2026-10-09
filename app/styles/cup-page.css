@@ -212,6 +212,15 @@
 .cup-tie{display:grid;gap:var(--sp-1);padding:var(--sp-3) var(--sp-3) var(--sp-2-5);border:1px solid var(--ds-border-subtle);
   border-radius:var(--radius-lg);background:var(--ds-surface-raised);box-shadow:var(--ds-elevation-1)}
 .cup-tie.ready{box-shadow:var(--ds-elevation-2)}
+/* A tie decided without a match (a bye or a walkover) already has its outcome, so it sits back on the
+   secondary surface and lets the ✓ carry the news. A tie still to be played keeps the raised card. */
+.cup-tie.bye,.cup-tie.walkover{background:var(--ds-surface-secondary);box-shadow:none}
+.cup-tie-status{margin-left:auto;padding:var(--sp-1) var(--sp-2);border:1px solid var(--ds-border-subtle);border-radius:var(--radius-pill);
+  background:var(--ds-canvas-muted);color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:800;line-height:1;white-space:nowrap}
+.cup-tie-status.ready{border-color:transparent;background:var(--ds-success-wash);color:var(--ds-accent-action)}
+.cup-tie-status.bye,.cup-tie-status.walkover{border-color:var(--gold-on-light);background:transparent;color:var(--gold-on-light)}
+/* The empty seat of a bye or a tie not yet drawn: the same dashed ring the bracket overview draws. */
+.cup-tie-vacant{display:block;width:2rem;height:2rem;flex:0 0 auto;border:1px dashed var(--ds-border-strong);border-radius:50%}
 .cup-tie.mine{border-color:var(--ds-accent-action);box-shadow:0 0 0 3px color-mix(in srgb,var(--ds-accent-action) 14%,transparent),var(--ds-elevation-2)}
 .cup-tie-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);min-height:1.75rem;padding:0 var(--sp-1) var(--sp-1)}
 .cup-tie-no{margin-right:var(--sp-2);color:var(--ds-text-secondary);font-size:var(--fs-label);font-weight:800;letter-spacing:.08em;text-transform:uppercase}
@@ -230,7 +239,7 @@
 .cup-tie-side.won b{font-weight:800;color:var(--ds-text-primary)}
 .cup-tie-side.won em{color:var(--ds-text-primary)}
 .cup-tie-side.won .player-badge{box-shadow:0 0 0 2px var(--ds-surface-raised),0 0 0 4px var(--gold-on-dark)}
-.cup-tie:is(.played,.walkover) .cup-tie-side:not(.won){opacity:.55}
+.cup-tie.walkover .cup-tie-side:not(.won){opacity:.55}
 .cup-tie-side.tbd b{color:var(--ds-text-secondary);font-weight:500}
 .cup-tie-side.tbd .player-badge{opacity:.5}
 .cup-tie-note{margin:var(--sp-1) 0 0;padding:0 var(--sp-1);color:var(--ds-text-secondary);font-size:var(--fs-caption)}
