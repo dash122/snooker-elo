@@ -81,7 +81,7 @@ export type ReplaySettings = {
   repetitionDecayBase?: number;
   repetitionDecayPeriod?: number;
   handicapEffectiveness?: number;
-  /** Rating model version; 16 and later records starts in tapering-curve points. */
+  /** Rating model version; 16 and later records starts in tapering-curve points; 17 re-tapers the mid-range. */
   modelVersion?: number;
 };
 
