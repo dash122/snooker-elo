@@ -9,7 +9,7 @@ import GuestIntro from "./GuestIntro";
 import { FirstStepsChecklist, IntroTour } from "./FirstSteps";
 import CupBracketChart, { storyBracket, type BracketChartData } from "./CupBracketChart";
 import { usePlayBadge } from "./play/usePlay";
-import { SQUAD_SWING_DAYS, daysSinceLastMatch, isInactive, ratingSwing, squadRecords } from "../lib/squad-rivalry";
+import { SQUAD_SWING_DAYS, daysSinceLastMatch, isInactive, ratingSwing, squadForms, squadRecords } from "../lib/squad-rivalry";
 import { SquadStatsPanel } from "./SquadStats";
 import { SquadAddedNotices, SquadCenter, SquadIntro, SquadScopeMenu, defaultSquadId, usePublicSquad, useSquadViewTracking, useSquads, useUrlParam, writeUrlParam, type MySquad, type SquadSheet } from "./Squads";
 import { isEntertainmentMode, neutralRatingSnapshot, roundedTeamEloDifference } from "../lib/entertainment-match";
@@ -1707,9 +1707,13 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
   const squadIds=useMemo(()=>squad?new Set(squad.members.map(member=>member.playerId)):null,[squad]);
   const squadRecordById=useMemo(()=>squadIds?squadRecords(data.matches,squadIds):null,[squadIds,data.matches]);
   const visibleRanked=useMemo(()=>ranked.filter(p=>!squadIds||squadIds.has(p.id)),[ranked,squadIds]);
+  // A squad's 近況 reads only its members' games against each other, so the form column and its sort follow that.
+  const squadForm=useMemo(()=>squadIds?squadForms(data.matches,squadIds):null,[squadIds,data.matches]);
+  const boardRanked=useMemo(()=>squadForm?visibleRanked.map(p=>({...p,form:squadForm.get(p.id)??[]})):visibleRanked,[squadForm,visibleRanked]);
+  const clubPlayerById=useMemo(()=>new Map(visibleRanked.map(p=>[p.id,p])),[visibleRanked]);
   // Search narrows the list without re-ranking it: a match keeps its real position on the board.
   const needle=query.trim().toLocaleLowerCase();
-  const shown=sortPlayers(needle?visibleRanked.filter(p=>p.name.toLocaleLowerCase().includes(needle)||(p.short??"").toLocaleLowerCase().includes(needle)):visibleRanked,data,sort,dir),rankOf=new Map(visibleRanked.map((p,i)=>[p.id,i+1]));
+  const shown=sortPlayers(needle?boardRanked.filter(p=>p.name.toLocaleLowerCase().includes(needle)||(p.short??"").toLocaleLowerCase().includes(needle)):boardRanked,data,sort,dir),rankOf=new Map(visibleRanked.map((p,i)=>[p.id,i+1]));
   const defaultSort=sort==="rank"&&dir==="asc";
   const trailingSort=["change","official","suggested","games","winRate","frameRate"].includes(sort);
   const trailingHeader=trailingSort?t(sortLabels[sort]):"ELO";
@@ -1809,7 +1813,7 @@ function Leaderboard({ranked,data,ownPlayerId,squad,scope,onRecord,onPlayer,onMa
       {shown.map(p=>{const rank=rankOf.get(p.id)??0,suggested=Math.round(suggestedHandicap(p,data)),swing=squad?ratingSwing(data.matches,p.id,SQUAD_SWING_DAYS):recentDeltaDays(p,data,10),played=games(p),rival=rivalry?.get(p.id),idle=rival&&isInactive(rival.idleDays),rate=played?Math.round(p.wins/played*100):0,provisional=played<data.settings.provisionalGames,trailing=trailingStat(t, sort,p,data,suggested);
         const rec=squadRecordById?(squadRecordById.get(p.id)??{wins:0,draws:0,losses:0}):p,recordLabel=t("勝-和-負 {w}-{d}-{l}",{w:rec.wins,d:rec.draws,l:rec.losses});
         const idleText=idle?(rival.idleDays===null?t("未有賽事"):t("{days} 日未打", {days:rival.idleDays})):null;
-        return <button className={`row ${rank===1?"top":""} ${rank<=3?`podium-${rank}`:""} ${provisional?"provisional":""} ${idle?"squad-inactive":""} ${p.id===ownPlayerId?"is-self":""}`} type="button" id={p.id===ownPlayerId?homeTabsId+"-self":undefined} data-self={p.id===ownPlayerId||undefined} key={p.id} onClick={()=>onPlayer(p)} aria-label={[p.id===ownPlayerId?t("你"):null,t("{name}，排名 {rank}，ELO {v}，近{days}天ELO變化 {v2}{v3}，建議讓分 {suggested}{v4}", {name: p.name, rank, v: Math.round(p.rating), days: swingDays, v2: swing>=0?"+":"", v3: Math.round(swing), suggested, v4: provisional?t("，臨時評分"):""}),recordLabel,idleText].filter(Boolean).join("，")}>
+        return <button className={`row ${rank===1?"top":""} ${rank<=3?`podium-${rank}`:""} ${provisional?"provisional":""} ${idle?"squad-inactive":""} ${p.id===ownPlayerId?"is-self":""}`} type="button" id={p.id===ownPlayerId?homeTabsId+"-self":undefined} data-self={p.id===ownPlayerId||undefined} key={p.id} onClick={()=>onPlayer(clubPlayerById.get(p.id)??p)} aria-label={[p.id===ownPlayerId?t("你"):null,t("{name}，排名 {rank}，ELO {v}，近{days}天ELO變化 {v2}{v3}，建議讓分 {suggested}{v4}", {name: p.name, rank, v: Math.round(p.rating), days: swingDays, v2: swing>=0?"+":"", v3: Math.round(swing), suggested, v4: provisional?t("，臨時評分"):""}),recordLabel,idleText].filter(Boolean).join("，")}>
         <span className="rank">{rank<=3?<i className="medal-icon" aria-hidden="true">{["🥇","🥈","🥉"][rank-1]}</i>:rank}{(()=>{if(!movement.active)return null;const move=movement.map.get(p.id)??0;
           // Only real movement earns a mark; a dash on every unchanged row is noise at 100+ players.
           return move===0?null

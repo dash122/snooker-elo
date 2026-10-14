@@ -44,6 +44,24 @@ export function squadRecords(matches: RivalryMatch[], memberIds: Iterable<string
   return records;
 }
 
+/** Each member's last five results (newest first, W/D/L) from confirmed singles where every player is a squad member. Same ordering as the club's form, so a member's 近況 in a squad reads only its own games. */
+export function squadForms(matches: RivalryMatch[], memberIds: Iterable<string>): Map<string, string[]> {
+  const members = new Set(memberIds), forms = new Map<string, string[]>();
+  const ordered = matches.filter(counts).sort((x, y) => (x.playedOn || x.createdAt).localeCompare(y.playedOn || y.createdAt) || x.createdAt.localeCompare(y.createdAt));
+  const push = (ids: (string | undefined)[], result: string) => {
+    for (const id of ids) if (id) forms.set(id, [result, ...(forms.get(id) ?? [])].slice(0, 5));
+  };
+  for (const match of ordered) {
+    const ids = [match.a, match.a2, match.b, match.b2];
+    if (!ids.every(id => !id || members.has(id))) continue;
+    const resultA = match.scoreA === match.scoreB ? "D" : match.scoreA > match.scoreB ? "W" : "L";
+    const resultB = resultA === "D" ? "D" : resultA === "W" ? "L" : "W";
+    push([match.a, match.a2], resultA);
+    push([match.b, match.b2], resultB);
+  }
+  return forms;
+}
+
 /** Rating change over the last `days` days, today included. */
 export function ratingSwing(matches: RivalryMatch[], playerId: string, days: number, now = Date.now()): number {
   const from = new Date(now - days * DAY).toISOString().slice(0, 10), to = new Date(now).toISOString().slice(0, 10);
