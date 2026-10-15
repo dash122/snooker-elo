@@ -1,0 +1,16 @@
+/* Release notes page (app/version-history). Shared tokens only: --fs-* type, --sp-* spacing, --ds-* colour. */
+.version-history { min-height: 100dvh; background: var(--ds-canvas-functional); color: var(--ds-text-primary); font-size: var(--fs-body); line-height: 1.75; }
+.version-wrap { max-width: 46rem; margin-inline: auto; padding-inline: var(--sp-4); }
+.version-top { background: var(--ds-canvas-brand); }
+.version-top .version-wrap { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding-block: var(--sp-3); }
+.version-body { padding-block: var(--sp-5) var(--sp-6); }
+.version-intro h1 { margin: 0; font-size: var(--fs-h2); line-height: 1.25; }
+.version-intro p { margin: var(--sp-2) 0 var(--sp-4); color: var(--ds-text-secondary); font-size: var(--fs-sm); }
+.version-list { list-style: none; margin: var(--sp-5) 0 0; padding: 0; display: grid; gap: var(--sp-4); }
+.version-release { padding: var(--sp-5); border-radius: var(--radius-lg); box-shadow: var(--shadow); }
+.version-release-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.version-release-head h2 { margin: 0; font-size: var(--fs-h3); line-height: 1.25; }
+.version-release-head time { margin-inline-start: auto; color: var(--ds-text-secondary); font-size: var(--fs-label); }
+.version-current { padding: var(--sp-1) var(--sp-2-5); border-radius: var(--radius-pill); background: var(--ds-accent-soft); color: var(--ds-text-primary); font-size: var(--fs-label); font-weight: 700; }
+.version-release ul { margin: var(--sp-3) 0 0; padding-inline-start: var(--sp-4); }
+.version-release li + li { margin-top: var(--sp-1-5); }

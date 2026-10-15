@@ -38,6 +38,7 @@ import "./styles/menu.css";
 import "./styles/app-header.css";
 import "./styles/en-typography.css";
 import "./styles/zh-hans-typography.css";
+import "./styles/version-history.css";
 import "./styles/matches.css";
 import "./styles/segmented.css";
 import "./styles/profile-progress.css";
