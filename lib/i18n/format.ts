@@ -40,6 +40,6 @@ export const monthShortLabel = (month: number | string, locale: Locale) =>
 
 /** A calendar date with no time zone conversion: `8月1日` / `1 Aug`, plus the year when asked. */
 export function calendarDateLabel(year: number | string, month: number | string, day: number | string, locale: Locale, withYear = false) {
-  if (locale === "zh-Hant") return `${withYear ? `${Number(year)}年` : ""}${Number(month)}月${Number(day)}日`;
+  if (locale !== "en") return `${withYear ? `${Number(year)}年` : ""}${Number(month)}月${Number(day)}日`;
   return new Intl.DateTimeFormat(INTL_LOCALE[locale], { timeZone: "UTC", ...(withYear ? { year: "numeric" as const } : {}), month: "short", day: "numeric" }).format(new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))));
 }

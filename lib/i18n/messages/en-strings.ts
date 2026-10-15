@@ -35,6 +35,8 @@ export const enStrings: Record<string, string> = {
   "待定": "TBD",
   "賽事對陣圖": "Tournament Bracket",
   "展開對陣圖": "Show bracket",
+  "棄權晉級": "Walkover",
+  "等待上一圈": "Waiting for previous round",
   " 對 ": " vs ",
   "{name} 第 {index} 場，{names}{v}": "{name} match {index}, {names}{v}",
   // app/CupShareButtons.tsx
@@ -2139,4 +2141,11 @@ export const enStrings: Record<string, string> = {
   "本頁數字依據球會評分模型第 {version} 版。這是一份說明，並非比賽規則；實際讓分以球會系統顯示的為準。": "Numbers on this page follow club rating model {version}. This is an explanation, not a rulebook; the head start shown by the club system is the one to use.",
   "評分與讓分指南": "Rating & handicap guide",
   "用簡單的例子和互動小遊戲，說明球會的 ELO 評分如何變動，以及讓分如何計算。": "Simple examples and hands-on mini-games explaining how the club's ELO ratings move and how handicaps are worked out.",
+  "版本記錄": "Version history",
+  "記錄本應用每次更新的內容。": "A record of every update to this app.",
+  "每次更新都會記錄在這裡，由最新開始排列。": "Every update is recorded here, newest first.",
+  "目前版本": "Current",
+  "新增簡體中文介面，可在語言選單中切換。": "Added Simplified Chinese. Switch in the language menu.",
+  "瀏覽器設為簡體中文的訪客，首次開啟時會自動顯示簡體中文。": "Visitors whose browser is set to Simplified Chinese see it automatically on their first visit.",
+  "新增版本記錄頁，可從帳戶選單查看每次更新。": "Added this version history page, reachable from the account menu.",
 };

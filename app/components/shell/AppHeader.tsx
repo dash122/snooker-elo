@@ -33,7 +33,7 @@ export function AppHeader({user,loadStatus,saving,onSettings}:{
         sections={[
           {items:[{key:"account",label:t("會員帳戶"),href:"/account"},
             ...(isAdmin?[{key:"settings",label:t("評分設定"),onSelect:onSettings},{key:"admin",label:t("管理會員"),href:"/admin"}]:[])]},
-          {items:[{key:"guide",label:t("評分與讓分指南"),href:"/elo-guide"}]},
+          {items:[{key:"guide",label:t("評分與讓分指南"),href:"/elo-guide"},{key:"versions",label:t("版本記錄"),href:"/version-history"}]},
           {items:[{key:"logout",label:t("登出"),onSelect:()=>setSignOutOpen(true)}]},
         ]}/>}
     </div>

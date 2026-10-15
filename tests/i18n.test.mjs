@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_LOCALE, DEFAULT_TIME_ZONE, LOCALES, LOCALE_NAMES, isLocale, negotiateLocale, resolveLocale, resolveTimeZone } from "../lib/i18n/locales.ts";
 import { zhHant } from "../lib/i18n/messages/zh-Hant.ts";
+import { zhHans } from "../lib/i18n/messages/zh-Hans.ts";
+import { zhHansStrings } from "../lib/i18n/messages/zh-Hans-strings.ts";
 import { en } from "../lib/i18n/messages/en.ts";
 import { createTranslator, translate, messagesFor } from "../lib/i18n/translate.ts";
 import { formatClock, formatDayLabel, localDate } from "../lib/i18n/format.ts";
@@ -9,25 +11,30 @@ import { formatClock, formatDayLabel, localDate } from "../lib/i18n/format.ts";
 test("every locale has exactly the source language's keys and none are blank", () => {
   const source = Object.keys(zhHant).sort();
   assert.deepEqual(Object.keys(en).sort(), source);
+  assert.deepEqual(Object.keys(zhHans).sort(), source);
   for (const locale of LOCALES) for (const [key, value] of Object.entries(messagesFor(locale))) assert.ok(value.trim(), `${locale}:${key} is blank`);
 });
 test("placeholders match across languages", () => {
   const holes = (text) => [...text.matchAll(/\{(\w+)\}/g)].map(match => match[1]).sort().join();
   for (const key of Object.keys(zhHant)) assert.equal(holes(en[key]), holes(zhHant[key]), key);
+  for (const key of Object.keys(zhHant)) assert.equal(holes(zhHans[key]), holes(zhHant[key]), key);
 });
 test("an unknown or missing locale falls back to Traditional Chinese", () => {
   assert.equal(DEFAULT_LOCALE, "zh-Hant");
   assert.equal(resolveLocale(undefined), "zh-Hant");
   assert.equal(resolveLocale("fr"), "zh-Hant");
   assert.equal(resolveLocale("en"), "en");
+  assert.equal(resolveLocale("zh-Hans"), "zh-Hans");
   assert.equal(isLocale("en-GB"), false);
 });
 test("each language is named in itself", () => {
-  assert.deepEqual(LOCALE_NAMES, { "zh-Hant": "繁體中文", en: "English" });
+  assert.deepEqual(LOCALE_NAMES, { "zh-Hant": "繁體中文", "zh-Hans": "简体中文", en: "English" });
 });
 test("translates, interpolates and falls back key by key", () => {
   assert.equal(createTranslator("en")("nav.leaderboard"), "Rankings");
   assert.equal(createTranslator("zh-Hant")("nav.leaderboard"), "排行榜");
+  assert.equal(createTranslator("zh-Hans")("nav.leaderboard"), "排行榜");
+  assert.equal(createTranslator("zh-Hans")("nav.settings"), "设定");
   const messages = { "x.greet": "Hi {name}, {name}!" };
   assert.equal(translate("en", messages, "x.greet", { name: "Ann" }), "Hi Ann, Ann!");
   assert.equal(translate("en", messages, "x.greet", {}), "Hi {name}, {name}!");
@@ -103,6 +110,19 @@ test("negotiateLocale follows Accept-Language order and weights", () => {
   assert.equal(negotiateLocale("en-US,en;q=0.9"), "en");
   assert.equal(negotiateLocale("zh-HK,zh;q=0.9,en;q=0.8"), "zh-Hant");
   assert.equal(negotiateLocale("fr-FR,fr;q=0.9,en;q=0.5"), "en");
-  assert.equal(negotiateLocale("en;q=0.4,zh-CN;q=0.9"), "zh-Hant");
+  assert.equal(negotiateLocale("en;q=0.4,zh-CN;q=0.9"), "zh-Hans");
+  assert.equal(negotiateLocale("zh-Hans-CN,en;q=0.5"), "zh-Hans");
+  assert.equal(negotiateLocale("zh-SG"), "zh-Hans");
+  assert.equal(negotiateLocale("zh-TW,zh;q=0.9"), "zh-Hant");
   assert.equal(negotiateLocale("fr-FR"), "zh-Hant");
+});
+
+test("every Chinese source literal has a Simplified translation with matching placeholders", () => {
+  const holes = text => new Set([...text.matchAll(/\{(\w+)/g)].map(match => match[1]));
+  for (const key of Object.keys(enStrings)) {
+    assert.ok(key in zhHansStrings, `Simplified translation missing for ${key}`);
+    assert.ok(zhHansStrings[key].trim(), `blank Simplified translation for ${key}`);
+    assert.deepEqual([...holes(zhHansStrings[key])].sort(), [...holes(key)].sort(), key);
+  }
+  assert.deepEqual(Object.keys(zhHansStrings).filter(key => !(key in enStrings)), [], "extra Simplified keys");
 });

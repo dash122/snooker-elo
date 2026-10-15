@@ -2,12 +2,14 @@ import { INTL_LOCALE, type Locale } from "./locales.ts";
 import { en } from "./messages/en.ts";
 import { enStrings } from "./messages/en-strings.ts";
 import { zhHant, type MessageKey } from "./messages/zh-Hant.ts";
+import { zhHansStrings } from "./messages/zh-Hans-strings.ts";
+import { zhHans } from "./messages/zh-Hans.ts";
 
 export type { MessageKey };
 export type Params = Record<string, string | number | null | undefined>;
 export type Translator = ((key: string, params?: Params) => string) & { readonly locale: Locale };
 
-const catalogues: Record<Locale, Record<string, string>> = { "zh-Hant": zhHant, en: { ...enStrings, ...en } };
+const catalogues: Record<Locale, Record<string, string>> = { "zh-Hant": zhHant, "zh-Hans": { ...zhHansStrings, ...zhHans }, en: { ...enStrings, ...en } };
 
 /** The catalogue a client needs. Only the active language is sent, so adding a language does not grow
  *  every visitor's payload. */
