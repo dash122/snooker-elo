@@ -1,6 +1,7 @@
 /** Locales the app ships. `zh-Hant` is the source language: every key is authored there first and
- *  every other catalogue is checked against it (see tests/i18n.test.mjs). */
-export const LOCALES = ["zh-Hant", "en"] as const;
+ *  every other catalogue is checked against it (see tests/i18n.test.mjs). `zh-Hans` is the Simplified
+ *  Chinese catalogue, converted from the source and reviewed for Mainland usage. */
+export const LOCALES = ["zh-Hant", "zh-Hans", "en"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "zh-Hant";
 
@@ -12,9 +13,9 @@ export const PREFERENCE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 /** Each language is named in itself, never translated: someone who cannot read the current UI language
  *  must still be able to find theirs in the list. */
-export const LOCALE_NAMES: Record<Locale, string> = { "zh-Hant": "繁體中文", en: "English" };
+export const LOCALE_NAMES: Record<Locale, string> = { "zh-Hant": "繁體中文", "zh-Hans": "简体中文", en: "English" };
 /** BCP 47 tag handed to `Intl`. Traditional Chinese keeps the Hong Kong conventions the app already uses. */
-export const INTL_LOCALE: Record<Locale, string> = { "zh-Hant": "zh-HK", en: "en-GB" };
+export const INTL_LOCALE: Record<Locale, string> = { "zh-Hant": "zh-HK", "zh-Hans": "zh-CN", en: "en-GB" };
 
 export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
@@ -24,7 +25,8 @@ export function resolveLocale(value: unknown): Locale {
 }
 
 /** Picks a shipped locale from an `Accept-Language` header, honouring the browser's preference order and
- *  q-weights. Any Chinese variant maps to `zh-Hant` (the only Chinese catalogue); anything unsupported
+ *  q-weights. Simplified-script tags (`zh-Hans`, `zh-CN`, `zh-SG`) map to `zh-Hans`; every other Chinese tag
+ *  (`zh-HK`, `zh-TW`, `zh-MO`, bare `zh`) maps to `zh-Hant`, the club's own language. Anything unsupported
  *  falls through to the next entry, then to the default. Only used when no language cookie exists yet. */
 export function negotiateLocale(header: string | null | undefined): Locale {
   if (!header) return DEFAULT_LOCALE;
@@ -35,7 +37,7 @@ export function negotiateLocale(header: string | null | undefined): Locale {
   }).filter((entry) => entry.q > 0).sort((a, b) => b.q - a.q || a.index - b.index);
   for (const { tag } of ranked) {
     const base = tag.split("-")[0];
-    if (base === "zh") return "zh-Hant";
+    if (base === "zh") return /-(hans|cn|sg)(-|$)/.test(tag) ? "zh-Hans" : "zh-Hant";
     if (base === "en") return "en";
   }
   return DEFAULT_LOCALE;

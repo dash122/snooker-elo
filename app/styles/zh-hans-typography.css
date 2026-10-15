@@ -1,0 +1,5 @@
+/* Simplified Chinese reads best in the system's Simplified faces. Only the body stack changes: the display
+   stacks and Latin faces are shared with the other languages, and their Chinese fallback still resolves. */
+html:lang(zh-Hans) body {
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Noto Sans TC", ui-sans-serif, system-ui, sans-serif;
+}
