@@ -31,6 +31,7 @@ import "./styles/elo-trend.css";
 import "./styles/elo-trend-dense.css";
 import "./styles/guest-intro.css";
 import "./styles/shootout.css";
+import "./styles/snooker900.css";
 import "./styles/clubhouse-refinement.css";
 import "./styles/home-compact.css";
 import "./styles/language-menu.css";
