@@ -1,0 +1,83 @@
+@layer components {
+  .snooker-game { max-width: 1280px; margin: auto; padding: var(--sp-5); }
+  .snooker-heading { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-4); margin-bottom: var(--sp-5); }
+  .snooker-heading h1 { margin: 0; font-size: var(--fs-display); }
+  .snooker-heading p { margin: var(--sp-1) 0 0; color: var(--ds-text-secondary); }
+  .snooker-arena { background: var(--ds-canvas-brand); color: var(--ds-text-on-brand); overflow: hidden; border-radius: var(--ds-radius-card); position: relative; }
+  .snooker-broadcast { position: absolute; z-index: 1; top: 0; left: 0; right: 180px; pointer-events: none; display: flex; justify-content: space-between; padding: var(--sp-3) var(--sp-5); font-size: var(--fs-caption); letter-spacing: .08em; }
+  .snooker-table { height: min(82dvh, 850px); min-height: 560px; position: relative; cursor: crosshair; }
+  .snooker-table canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  .snooker-table:focus-visible { outline: 3px solid var(--ds-focus); outline-offset: -3px; }
+  .snooker-webgl-error { position: absolute; inset: 0; display: grid; place-content: center; padding: var(--sp-6); }
+  .snooker-model-status { position: absolute; top: var(--sp-3); left: var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--ds-canvas-brand); color: var(--ds-text-on-brand); font-size: var(--fs-caption); }
+  .snooker-score { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100% - 32px)); display: grid; grid-template-columns: 1fr 48px 92px 48px 1fr; grid-template-rows: 28px 22px; text-align: center; font-variant-numeric: tabular-nums; color: var(--ds-broadcast-black); border-top: 2px solid var(--ds-broadcast-white); font-size: var(--fs-sm); line-height: 1; }
+  .snooker-score-name { display: flex; align-items: center; justify-content: center; position: relative; background: var(--ds-broadcast-yellow); font-weight: 700; border-bottom: 2px solid var(--ds-broadcast-white); }
+  .snooker-score-name i { position: absolute; right: var(--sp-1); width: 0; height: 0; border-block: 7px solid transparent; border-right: 9px solid currentColor; visibility: hidden; }
+  .snooker-score-name--right i { left: var(--sp-1); right: auto; border-right: 0; border-left: 9px solid currentColor; }
+  .snooker-score-name.is-playing i { visibility: visible; }
+  .snooker-score-points { display: grid; place-items: center; background: var(--ds-broadcast-white); color: var(--ds-broadcast-black); font-size: var(--fs-body); font-weight: 500; }
+  .snooker-score-frames { display: flex; align-items: center; justify-content: space-evenly; background: var(--ds-broadcast-frames); color: var(--ds-broadcast-white); }
+  .snooker-score-frames b { font-size: var(--fs-body); font-weight: 500; }
+  .snooker-score-frames small { font-size: var(--fs-caption); }
+  .snooker-score-caption { grid-column: 1 / -1; display: grid; place-items: center; background: var(--ds-broadcast-black); color: var(--ds-broadcast-white); font-size: var(--fs-label); letter-spacing: .02em; }
+  .snooker-score-break { grid-column: 1 / 3; grid-row: 2; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--sp-2); min-width: 0; padding: var(--sp-2); background: var(--ds-broadcast-black); color: var(--ds-broadcast-white); font-size: var(--fs-label); }
+  .snooker-score-break--right { grid-column: 4 / 6; }
+  .snooker-score-break strong { color: var(--ds-broadcast-yellow); font-size: var(--fs-body); }
+  .snooker-break-total, .snooker-break-count { white-space: nowrap; }
+  .snooker-break-balls { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; gap: var(--sp-1); }
+  .snooker-break-ball { display: inline-flex; align-items: center; gap: var(--sp-1); }
+  .snooker-break-ball svg { width: 14px; height: 14px; flex: none; overflow: visible; }
+  .snooker-break-ball circle { stroke: var(--ds-broadcast-white); stroke-width: .5; }
+  .snooker-score:has(.snooker-score-break) { grid-template-rows: 28px auto; }
+  .snooker-arena:has(.snooker-score-break) .snooker-status { top: 204px; }
+  .snooker-status { position: absolute; top: 142px; left: var(--sp-4); right: var(--sp-4); display: flex; justify-content: center; gap: var(--sp-3); flex-wrap: wrap; pointer-events: none; font-size: var(--fs-caption); text-align: center; }
+  .snooker-status span { color: var(--ds-text-on-brand-secondary); }
+  .snooker-desk { position: absolute; inset: 0; pointer-events: none; }
+  .snooker-shot { display: contents; }
+  .snooker-contact, .snooker-strike, .snooker-tools, .snooker-reset { pointer-events: auto; background: var(--ds-canvas-brand-deep); color: var(--ds-text-on-brand); border-radius: var(--ds-radius-control); padding: var(--sp-3); }
+  .snooker-contact { position: absolute; bottom: var(--sp-4); left: var(--sp-4); display: grid; grid-template-columns: 100px 1fr; gap: var(--sp-1) var(--sp-2); align-items: center; max-width: 250px; }
+  .snooker-contact > strong { grid-column: 1 / -1; font-size: var(--fs-caption); }
+  .snooker-contact output { font-size: var(--fs-caption); color: var(--ds-text-on-brand-secondary); }
+  .snooker-contact .ds-button { color: var(--ds-text-on-brand); padding-inline: var(--sp-2); }
+  .snooker-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .snooker-tip { position: relative; grid-row: span 2; width: 100px; height: 100px; padding: 0; border-radius: 50%; border: 1px solid var(--ds-border-strong); background: radial-gradient(circle at 35% 28%, var(--ds-surface-raised) 20%, var(--ds-surface-secondary) 65%, var(--ds-border-muted)); box-shadow: var(--ds-elevation-2); cursor: crosshair; touch-action: none; }
+  .snooker-tip:focus-visible { outline: 3px solid var(--ds-focus); outline-offset: 4px; }
+  .snooker-tip:disabled { opacity: .5; cursor: default; }
+  .snooker-tip-cross { position: absolute; inset: 12%; border: 1px dashed var(--ds-border-strong); border-radius: 50%; }
+  .snooker-tip-cross::before, .snooker-tip-cross::after { content: ''; position: absolute; background: var(--ds-border-strong); }
+  .snooker-tip-cross::before { top: 50%; left: 0; width: 100%; height: 1px; }
+  .snooker-tip-cross::after { left: 50%; top: 0; height: 100%; width: 1px; }
+  .snooker-tip i { position: absolute; width: 14px; height: 14px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--ds-accent-action); border: 2px solid var(--ds-surface-raised); }
+  .snooker-tools summary { cursor: pointer; min-height: var(--control-md); align-content: center; }
+  .snooker-strike { position: absolute; bottom: var(--sp-4); right: var(--sp-4); width: 210px; display: grid; gap: var(--sp-2); }
+  .snooker-desk .ds-field { color: var(--ds-text-on-brand); }
+  .snooker-strike .ds-field small { color: var(--ds-text-on-brand-secondary); }
+  .snooker-strike input { width: 100%; min-height: var(--control-md); accent-color: var(--ds-accent-primary); }
+  .snooker-tools { position: absolute; top: var(--sp-2); right: var(--sp-3); max-width: calc(100% - 24px); font-size: var(--fs-caption); z-index: 3; }
+  .snooker-tools .ds-button--quiet { color: var(--ds-text-on-brand); }
+  .snooker-tools .ds-segmented { background: var(--ds-surface-secondary); color: var(--ds-text-primary); }
+  .snooker-tools p { font-size: var(--fs-caption); }
+  .snooker-reset { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100% - 32px)); display: flex; flex-wrap: wrap; gap: var(--sp-3); z-index: 4; box-shadow: var(--ds-elevation-5); }
+  .snooker-help { margin-top: var(--sp-6); font-size: var(--fs-sm); color: var(--ds-text-secondary); max-width: 75ch; }
+  .snooker-help summary { cursor: pointer; padding-block: var(--sp-3); }
+  .snooker-help p { line-height: 1.8; }
+  @media(max-width: 599px) {
+    .snooker-game { padding: var(--sp-3); }
+    .snooker-heading h1 { font-size: var(--fs-h2); }
+    .snooker-heading p { font-size: var(--fs-sm); }
+    .snooker-table { height: 82dvh; min-height: 640px; }
+    .snooker-score { grid-template-columns: 1fr 34px 72px 34px 1fr; }
+    .snooker-break-balls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .snooker-arena:has(.snooker-score-break) .snooker-status { top: 228px; }
+    .snooker-contact { left: var(--sp-2); bottom: var(--sp-2); grid-template-columns: 84px; max-width: 140px; }
+    .snooker-contact output { max-width: 120px; }
+    .snooker-tip { width: 84px; height: 84px; grid-row: auto; }
+    .snooker-strike { right: var(--sp-2); bottom: var(--sp-2); width: 160px; }
+    .snooker-broadcast span:last-child { display: none; }
+    .snooker-broadcast { padding-inline: var(--sp-3); font-size: var(--fs-label); letter-spacing: 0; }
+  }
+  @media(max-width: 380px) {
+    .snooker-break-balls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .snooker-arena:has(.snooker-score-break) .snooker-status { top: 252px; }
+  }
+}

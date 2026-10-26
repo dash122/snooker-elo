@@ -3,6 +3,8 @@
     color-scheme: light;
     /* Supporting descriptions and metadata stay regular, even inside bold controls. */
     --fw-secondary:400;
+    /* Snooker broadcast score strip: sampled yellow panels, white points and teal frame count. */
+    --ds-broadcast-yellow:#ffe23e;--ds-broadcast-black:#111;--ds-broadcast-white:#fff;--ds-broadcast-frames:#00666c;
     --ds-canvas-brand:#082c27;--ds-canvas-brand-deep:#041f1b;
     --ds-canvas-functional:#f4f3ed;--ds-canvas-muted:#e9ece6;
     --ds-surface-primary:#fffefa;--ds-surface-secondary:#f7f6ef;

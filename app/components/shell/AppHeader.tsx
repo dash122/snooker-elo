@@ -22,6 +22,7 @@ export function AppHeader({user,loadStatus,saving,onSettings}:{
       {user?.needsOnboarding&&<a className="onboarding-alert-link" href="/onboarding?reminder=1" aria-label={t("完成會員問卷")} title={t("完成會員問卷")}>⚠️</a>}
     </div>
     <div className="app-header-actions">
+      <ButtonLink variant="secondary" href="/game">3D 桌球</ButtonLink>
       <span className={`app-header-status${loadStatus==="failed"?" is-error":""}`} role="status" aria-live="polite">
         {loadStatus==="failed"?t("載入失敗"):loadStatus==="loading"?t("載入中…"):saving?t("儲存中…"):null}
       </span>

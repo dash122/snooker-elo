@@ -1,0 +1,99 @@
+
+> scaa-snooker-elo@1.1.0 build
+> vinext build
+
+
+  vinext build  (Vite 8.0.13)
+
+[1/5] analyze client references...
+[2K
+transforming...✓ 323 modules transformed.
+rendering chunks...
+✓ built in 1.64s
+[2/5] analyze server references...
+[2K
+transforming...✓ 217 modules transformed.
+rendering chunks...
+✓ built in 460ms
+[3/5] build rsc environment...
+[2K
+transforming...✓ 329 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 1.83s
+[4/5] build client environment...
+[2K
+transforming...✓ 229 modules transformed.
+rendering chunks...
+computing gzip size...
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.18s
+[5/5] build ssr environment...
+[2K
+transforming...✓ 218 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 957ms
+[0m
+  Route (app)
+  ┌ ƒ /                          
+  ├ ƒ /account                   
+  ├ ƒ /admin                     
+  ├ ƒ /admin/reports             
+  ├ ƒ /admin/translations        
+  ├ λ /api/account/deactivate    
+  ├ λ /api/account/google        
+  ├ λ /api/account/password      
+  ├ λ /api/account/profile       
+  ├ λ /api/admin/members         
+  ├ λ /api/admin/snapshots       
+  ├ λ /api/admin/translations    
+  ├ λ /api/admin/venues          
+  ├ λ /api/analytics             
+  ├ λ /api/auth/check            
+  ├ λ /api/auth/google           
+  ├ λ /api/auth/google/callback  
+  ├ λ /api/auth/login            
+  ├ λ /api/auth/logout           
+  ├ λ /api/auth/register         
+  ├ λ /api/cup-og/:id            
+  ├ λ /api/onboarding            
+  ├ λ /api/play                  
+  ├ λ /api/play/results          
+  ├ λ /api/regulars              
+  ├ λ /api/regulars/:id          
+  ├ λ /api/squads                
+  ├ λ /api/squads/:id            
+  ├ λ /api/squads/:id/members    
+  ├ λ /api/squads/:id/seen       
+  ├ λ /api/squads/browse         
+  ├ λ /api/squads/eligible       
+  ├ λ /api/squads/join           
+  ├ λ /api/state                 
+  ├ λ /api/tournaments/:id/draw  
+  ├ λ /api/tournaments/:id/redraw
+  ├ ƒ /c/:id                     
+  ├ ? /elo-guide                 
+  ├ ? /game                      
+  ├ ƒ /login                     
+  ├ ƒ /logout                    
+  ├ ƒ /m/:id                     
+  ├ ƒ /onboarding                
+  ├ ƒ /p/:id                     
+  ├ ? /register                  
+  ├ ? /shootout                  
+  ├ ƒ /ui-gallery                
+  └ ? /version-history           
+
+  λ API  ƒ Dynamic  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+
+  Build complete. Run `vinext start` to start the production server.
+
