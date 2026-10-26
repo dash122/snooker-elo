@@ -6,7 +6,7 @@ import { useT } from "../components/I18nProvider";
 import { LanguageMenu } from "../components/shell/LanguageMenu";
 import { Button, ButtonLink, FormField, StatTile, Surface } from "../components/ui/Primitives";
 import {
-  HANDICAP_CURVE_MODEL_VERSION, HANDICAP_TAPER_ANCHORS, matchHandicapRate, proposeHandicap, suggestedHandicap,
+  HANDICAP_CURVE_MODEL_VERSION, HANDICAP_MODEL_VERSION, HANDICAP_TAPER_ANCHORS, matchHandicapRate, proposeHandicap, suggestedHandicap,
   taperEloForPoints, taperEloPerPoint, taperPoints, type HandicapSettings,
 } from "../../lib/handicap";
 import { calculateSnookerElo } from "../../lib/snooker-elo";
@@ -16,7 +16,7 @@ import { msg } from "../../lib/i18n/translate";
    guide cannot drift from what the leaderboard and the match form actually do. */
 const CURVE: HandicapSettings & { start: number } = {
   handicapPointsToElo: 25, handicapMinimumElo: 7, handicapSensitivityRange: 16, handicapSensitivityWidth: 250,
-  start: 1500, modelVersion: HANDICAP_CURVE_MODEL_VERSION,
+  start: 1500, modelVersion: HANDICAP_MODEL_VERSION,
 };
 const FLAT: HandicapSettings & { start: number } = { ...CURVE, modelVersion: HANDICAP_CURVE_MODEL_VERSION - 1 };
 const LOW_RATE = HANDICAP_TAPER_ANCHORS[0][1];
@@ -402,7 +402,7 @@ export default function EloGuideClient() {
 
     <footer className="guide-footer">
       <div className="guide-wrap">
-        <p>{t("本頁數字依據球會評分模型第 {version} 版。這是一份說明，並非比賽規則；實際讓分以球會系統顯示的為準。", { version: HANDICAP_CURVE_MODEL_VERSION })}</p>
+        <p>{t("本頁數字依據球會評分模型第 {version} 版。這是一份說明，並非比賽規則；實際讓分以球會系統顯示的為準。", { version: HANDICAP_MODEL_VERSION })}</p>
         <ButtonLink variant="secondary" href="/">{t("返回排行榜")}</ButtonLink>
       </div>
     </footer>

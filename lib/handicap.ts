@@ -43,11 +43,25 @@ export const HANDICAP_ELO_PER_POINT = 25;
  * points, so the version-16 upgrade restates each of them in curve points holding its ELO value
  * constant (`legacyStartToCurve`), after which the whole history replays in one unit. */
 export const HANDICAP_CURVE_MODEL_VERSION = 16;
-export const HANDICAP_TAPER_ANCHORS:ReadonlyArray<readonly [number,number]> = [[800,75],[2200,25]];
+
+/* Rating model 17 re-tapers the mid-range. Under model 16 the rate fell straight from 75 at 800 to
+ * 25 at 2200, so 1500 → 2200 spanned 19.4 points, which members found too wide. From 17 the rate
+ * still reaches 50 at 1500 (nothing below 1500 moves), then narrows more slowly to 25 at 2600:
+ * 1500 → 2200 is 16.9 points and 1500 → 1800 barely moves (6.8 → 6.5). The rate never jumps, so
+ * there is no cliff where the taper ends. Model-16 starts are restated holding their ELO value
+ * (`restateMatchesBetweenCurves`), exactly as the flat starts were at 16. */
+export const HANDICAP_MODEL_VERSION = 17;
+export type TaperAnchors = ReadonlyArray<readonly [number,number]>;
+export const HANDICAP_TAPER_ANCHORS_V16:TaperAnchors = [[800,75],[2200,25]];
+export const HANDICAP_TAPER_ANCHORS:TaperAnchors = [[800,75],[1500,50],[2600,25]];
+
+/** The taper curve a rating model records its starts in. */
+export function taperAnchorsFor(settings:{modelVersion?:number}):TaperAnchors {
+  return (settings.modelVersion??0)>=HANDICAP_MODEL_VERSION?HANDICAP_TAPER_ANCHORS:HANDICAP_TAPER_ANCHORS_V16;
+}
 
 /** ELO represented by one handicap point at `rating` on the taper curve. */
-export function taperEloPerPoint(rating:number){
-  const anchors=HANDICAP_TAPER_ANCHORS;
+export function taperEloPerPoint(rating:number,anchors:TaperAnchors=HANDICAP_TAPER_ANCHORS){
   if(rating<=anchors[0][0])return anchors[0][1];
   for(let i=1;i<anchors.length;i+=1){
     const [x0,y0]=anchors[i-1];
@@ -59,33 +73,33 @@ export function taperEloPerPoint(rating:number){
 
 /** Handicap points spanned by the rating interval [low, high] (low <= high): the integral of
     1 / (ELO per point). Exact on each linear segment of the curve. */
-function taperPointsBetween(low:number,high:number){
+function taperPointsBetween(low:number,high:number,anchors:TaperAnchors){
   if(high<=low)return 0;
-  const cuts=HANDICAP_TAPER_ANCHORS.map(([x])=>x).filter(x=>x>low&&x<high);
+  const cuts=anchors.map(([x])=>x).filter(x=>x>low&&x<high);
   const edges=[low,...cuts,high];
   let points=0;
   for(let i=1;i<edges.length;i+=1){
     const p=edges[i-1],q=edges[i];
-    const r0=taperEloPerPoint(p),r1=taperEloPerPoint(q);
+    const r0=taperEloPerPoint(p,anchors),r1=taperEloPerPoint(q,anchors);
     points+=Math.abs(r1-r0)<1e-9?(q-p)/r0:(q-p)/(r1-r0)*Math.log(r1/r0);
   }
   return points;
 }
 
 /** The ELO distance above `base` that `points` handicap points span on the curve. */
-export function taperEloForPoints(base:number,points:number){
+export function taperEloForPoints(base:number,points:number,anchors:TaperAnchors=HANDICAP_TAPER_ANCHORS){
   if(points<=0)return 0;
-  let low=0,high=points*HANDICAP_TAPER_ANCHORS[0][1]+1;
+  let low=0,high=points*anchors[0][1]+1;
   for(let i=0;i<60;i+=1){
     const mid=(low+high)/2;
-    if(taperPointsBetween(base,base+mid)<points)low=mid; else high=mid;
+    if(taperPointsBetween(base,base+mid,anchors)<points)low=mid; else high=mid;
   }
   return (low+high)/2;
 }
 
 /** Signed handicap points from `from` up to `to`: positive when `to` is the higher rating. */
-export function taperPoints(from:number,to:number){
-  return to>=from?taperPointsBetween(from,to):-taperPointsBetween(to,from);
+export function taperPoints(from:number,to:number,anchors:TaperAnchors=HANDICAP_TAPER_ANCHORS){
+  return to>=from?taperPointsBetween(from,to,anchors):-taperPointsBetween(to,from,anchors);
 }
 
 /** Is the club on the curve (rating model 16 or later)? */
@@ -96,9 +110,16 @@ export function handicapCurveActive(settings:{modelVersion?:number}){
 /** A start handed out in flat points, restated in curve points. A flat start of `points` spanned
     `points * 25` ELO above the receiver; the same ELO is worth fewer curve points. Rounded to whole
     points, as recorded starts always are. */
-export function legacyStartToCurve(points:number,receiverRating:number){
+export function legacyStartToCurve(points:number,receiverRating:number,anchors:TaperAnchors=HANDICAP_TAPER_ANCHORS){
   if(!points)return 0;
-  return Math.round(taperPoints(receiverRating,receiverRating+Math.abs(points)*HANDICAP_ELO_PER_POINT));
+  return Math.round(taperPoints(receiverRating,receiverRating+Math.abs(points)*HANDICAP_ELO_PER_POINT,anchors));
+}
+
+/** A start recorded on one taper curve, restated on another holding its ELO value. */
+export function restateStartBetweenCurves(points:number,receiverRating:number,from:TaperAnchors,to:TaperAnchors){
+  if(!points)return 0;
+  const elo=taperEloForPoints(receiverRating,Math.abs(points),from);
+  return Math.round(taperPoints(receiverRating,receiverRating+elo,to));
 }
 
 export type StartedMatch = {
@@ -112,11 +133,22 @@ export type StartedMatch = {
     so it is left alone and `extra` (what was played beyond it) is recomputed. Team matches carry
     no start. */
 export function restateMatchesInCurve<T extends StartedMatch>(matches:T[],start:number):T[] {
+  return restateStarts(matches,start,(points,receiver)=>legacyStartToCurve(points,receiver,HANDICAP_TAPER_ANCHORS_V16));
+}
+
+/** The version-17 upgrade: model-16 curve starts restated on the re-tapered curve, holding their
+    ELO value, the same way the version-16 upgrade restated flat starts. */
+export function restateMatchesBetweenCurves<T extends StartedMatch>(matches:T[],start:number):T[] {
+  return restateStarts(matches,start,(points,receiver)=>
+    restateStartBetweenCurves(points,receiver,HANDICAP_TAPER_ANCHORS_V16,HANDICAP_TAPER_ANCHORS));
+}
+
+function restateStarts<T extends StartedMatch>(matches:T[],start:number,restate:(points:number,receiver:number)=>number):T[] {
   const rated=(value:number)=>Number.isFinite(value)?value:start;
   return matches.map(match=>{
     if(match.mode==="2v2"||!match.giver||!match.actual)return match;
     const receiverRating=rated(match.giver===match.a?match.beforeB:match.beforeA);
-    const actual=Math.sign(match.actual)*legacyStartToCurve(Math.abs(match.actual),receiverRating);
+    const actual=Math.sign(match.actual)*restate(Math.abs(match.actual),receiverRating);
     return {...match,actual,extra:actual-(match.official??0)};
   });
 }
@@ -126,10 +158,11 @@ export function restateMatchesInCurve<T extends StartedMatch>(matches:T[],start:
     Flat 25 before rating model 16. */
 export function matchHandicapRate(ratingA:number,ratingB:number,given:number,settings:{modelVersion?:number}){
   if(!handicapCurveActive(settings))return HANDICAP_ELO_PER_POINT;
+  const anchors=taperAnchorsFor(settings);
   const points=Math.abs(given);
-  if(points===0)return taperEloPerPoint((ratingA+ratingB)/2);
+  if(points===0)return taperEloPerPoint((ratingA+ratingB)/2,anchors);
   // The giver's edge is cut by the ELO those points span, measured up from the receiver's rating.
-  return taperEloForPoints(given>0?ratingB:ratingA,points)/points;
+  return taperEloForPoints(given>0?ratingB:ratingA,points,anchors)/points;
 }
 
 /** ELO points represented by one handicap point at a given rating. The sigmoid makes handicap
@@ -247,7 +280,7 @@ export function suggestedHandicap(player:RatedPlayer,_players:RatedPlayer[],
 function displayedHandicap(rating:number,settings:HandicapSettings){
   const start=settings.start??1500;
   const above=handicapCurveActive(settings)
-    ?taperPoints(start,rating)
+    ?taperPoints(start,rating,taperAnchorsFor(settings))
     :(rating-start)/HANDICAP_ELO_PER_POINT;
   return roundToNearestInteger(DEFAULT_SUGGESTED_HANDICAP-above);
 }
