@@ -101,7 +101,8 @@ function potOptions(balls:Ball[],target:number){
 export function computerShot(balls:Ball[],target:number):ComputerShot {
  let best:ComputerShot|undefined,bestScore=-Infinity;
  // Bounded search uses the same fixed-step physics as live play. No aim noise.
- for(const option of potOptions(balls,target).slice(0,6))for(const power of [18,26,36,48])for(const top of [0,-.8,.8]){
+ // Wide power and screw/follow range so it plays for position, not just the pot.
+ for(const option of potOptions(balls,target).slice(0,5))for(const power of [22,34,48,64,82])for(const top of [-1,-.5,0,.5,1]){
   const shot={angle:option.angle,power,spin:{top,side:0}},trial=balls.map(b=>({...b}));
   let first:number|null=null;const pots:Ball[]=[];
   strike(trial[0],shot.angle,power,shot.spin);
@@ -112,9 +113,11 @@ export function computerShot(balls:Ball[],target:number):ComputerShot {
   const reds=trial.some(b=>b.value===1&&!b.potted);
   for(const ball of pots)if(ball.value>1&&(reds||target===-1))respot(ball,trial);
   const nextTarget=target===1?-1:reds?1:Math.min(...trial.filter(b=>b.value>1&&!b.potted).map(b=>b.value));
-  const next=potOptions(trial,nextTarget)[0];
-  // Position for a next pot outweighs taking a single high-value colour.
-  const score=points+(next?10+next.quality*2:0)-power*.012;
+  const nextOptions=potOptions(trial,nextTarget),next=nextOptions[0];
+  // Break-building: reward an easy next pot, spare options and a cue ball off
+  // the cushions; power itself is barely penalised.
+  const cueBall=trial[0],cushion=Math.min(WIDTH/2-Math.abs(cueBall.x),LENGTH/2-Math.abs(cueBall.z));
+  const score=points+(next?10+next.quality*3+Math.min(nextOptions.length,4)*.6:0)-(cushion<RADIUS*3?1.5:0)-power*.004;
   if(score>bestScore){bestScore=score;best=shot;}
  }
  if(best)return best;

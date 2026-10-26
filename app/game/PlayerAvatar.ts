@@ -6,6 +6,8 @@ import { RADIUS, WIDTH, LENGTH } from '../../lib/snooker-game.ts';
 const ASSET_ROOT='/models/snooker-player/';
 const v=(x:number,y:number,z:number)=>new THREE.Vector3(x,y,z);
 const rotation=new THREE.Quaternion();
+// Radians the hips open with the chest at address (the chest turns .68).
+const HIP_TURN=-.5;
 
 /** Microsoft Rocketbox's textured, skinned human. Bone posing is authored for cue sports. */
 export async function loadPlayerAvatar(){
@@ -120,12 +122,15 @@ export function rigSnookerPlayer(model:THREE.Group){
     for(const [joint,q] of bind){joint.quaternion.copy(q);joint.position.copy(bindPositions.get(joint)!);}
     model.position.y=-.07*amount;
     root.updateMatrixWorld(true);
-    const hips=['L','R'].map(side=>bone(`${side}_Thigh`).getWorldPosition(new THREE.Vector3()));
+    // Open the hips with the chest (most of its turn) so the torso does not
+    // corkscrew above square hips; feet then stagger along the stance line.
+    const pelvis=bone('Pelvis').getWorldPosition(new THREE.Vector3()),hipTurn=new THREE.Quaternion().setFromAxisAngle(v(0,1,0),HIP_TURN*amount);
+    const hips=['L','R'].map(side=>bone(`${side}_Thigh`).getWorldPosition(new THREE.Vector3()).sub(pelvis).applyQuaternion(hipTurn).add(pelvis));
     const mix=(upright:THREE.Vector3,address:THREE.Vector3)=>local(upright.lerp(address,amount));
     // Bend from the pelvis with a continuous spine, rather than solving the
     // torso as a two-bone limb (which folds the chest and collapses the shirt).
     // Right-handed stance: left shoulder forward, right shoulder back.
-    const torso=new THREE.Quaternion().setFromAxisAngle(v(0,1,0),-.84*amount)
+    const torso=new THREE.Quaternion().setFromAxisAngle(v(0,1,0),-.68*amount)
       .multiply(new THREE.Quaternion().setFromAxisAngle(v(1,0,0),1.36*amount));
     turnWorld(bone('Pelvis'),root.quaternion.clone().multiply(torso).multiply(root.quaternion.clone().invert()));
     const desiredNeck=root.quaternion.clone().multiply(new THREE.Quaternion().setFromAxisAngle(v(1,0,0),.95*amount)).multiply(neckRotation);
