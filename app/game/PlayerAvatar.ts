@@ -81,6 +81,8 @@ export function rigSnookerPlayer(model:THREE.Group){
   // The cue passes through the thumb/index cradle, not the wrist joint.
   const gripAnchor=bone('R_Hand').worldToLocal(bone('R_Finger0').getWorldPosition(new THREE.Vector3())
     .lerp(bone('R_Finger1').getWorldPosition(new THREE.Vector3()),.5));
+  // How far the wrist sits above the cue when the hand hangs from it.
+  const gripDrop=bone('R_Hand').localToWorld(gripAnchor.clone()).distanceTo(bone('R_Hand').getWorldPosition(new THREE.Vector3()));
   const footRotations=new Map(['L','R'].map(side=>[side,bone(`${side}_Foot`).getWorldQuaternion(new THREE.Quaternion())]));
   const headRotation=bone('Head').getWorldQuaternion(new THREE.Quaternion());
   const neckRotation=bone('Neck').getWorldQuaternion(new THREE.Quaternion());
@@ -160,7 +162,7 @@ export function rigSnookerPlayer(model:THREE.Group){
     const shoulder=root.worldToLocal(bone('R_UpperArm').getWorldPosition(new THREE.Vector3()));
     const elbowLength=bone('R_UpperArm').getWorldPosition(new THREE.Vector3()).distanceTo(bone('R_Forearm').getWorldPosition(new THREE.Vector3()));
     const forearmLength=bone('R_Forearm').getWorldPosition(new THREE.Vector3()).distanceTo(bone('R_Hand').getWorldPosition(new THREE.Vector3()));
-    const elbowY=.885+forearmLength;
+    const elbowY=.885+gripDrop+forearmLength;
     const gripBaseZ=shoulder.z-Math.sqrt(Math.max(.005,elbowLength**2-(elbowY-shoulder.y)**2-(cueX-shoulder.x)**2));
     const gripZ=gripBaseZ-withdrawal;
     // With a mechanical rest the left hand holds the handle beside the cue;
@@ -178,7 +180,8 @@ export function rigSnookerPlayer(model:THREE.Group){
     const across=v(1,0,0).applyQuaternion(root.quaternion);across.addScaledVector(bridgeForward,-across.dot(bridgeForward)).normalize();
     const roll=Math.atan2(bridgeForward.dot(fan.clone().cross(across)),fan.dot(across));
     turnWorld(bone('L_Hand'),new THREE.Quaternion().setFromAxisAngle(bridgeForward,roll));
-    pointBone(bone('R_Hand'),bone('R_Finger1'),right.clone().add(v(.015,-.07,.02).applyQuaternion(root.quaternion)));
+    // Hang the cueing hand straight down from a vertical forearm: no cocked wrist.
+    pointBone(bone('R_Hand'),bone('R_Finger2'),bone('R_Hand').getWorldPosition(new THREE.Vector3()).add(v(0,-1,.12)));
     const hand=bone('R_Hand'),handRotation=hand.getWorldQuaternion(new THREE.Quaternion());
     const wrist=right.clone().sub(hand.localToWorld(gripAnchor.clone()).sub(hand.getWorldPosition(new THREE.Vector3())).multiplyScalar(amount));
     limb(bone('R_UpperArm'),bone('R_Forearm'),hand,wrist,local(v(cueX,elbowY,gripBaseZ)));

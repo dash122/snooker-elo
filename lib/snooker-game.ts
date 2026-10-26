@@ -131,6 +131,17 @@ export function computerShot(balls:Ball[],target:number):ComputerShot {
  return {angle:ball?Math.atan2(ball.x-cue.x,cue.z-ball.z)*180/Math.PI:0,power:26,spin:{top:0,side:0}};
 }
 
+// The table's pocket window is too narrow for continuous aim noise, so the
+// computer instead misses outright now and then, more often on long shots.
+export const COMPUTER_MISS_BASE = .07, COMPUTER_MISS_PER_METRE = .09;
+export function humaniseShot(balls:Ball[],shot:ComputerShot,random:()=>number=Math.random):ComputerShot {
+ const a=shot.angle*Math.PI/180,dx=Math.sin(a),dz=-Math.cos(a),c=balls[0];let reach=Infinity;
+ for(const b of balls){if(b===c||b.potted)continue;const x=b.x-c.x,z=b.z-c.z,t=x*dx+z*dz;if(t>0&&x*x+z*z-t*t<4*RADIUS*RADIUS)reach=Math.min(reach,t);}
+ if(random()>=COMPUTER_MISS_BASE+COMPUTER_MISS_PER_METRE*Math.min(Number.isFinite(reach)?reach:1,3))return shot;
+ // A believable miss: a fraction of a degree, rattling the jaws rather than wild.
+ return {...shot,angle:shot.angle+(random()<.5?-1:1)*(.3+random()*.6)};
+}
+
 export function predictShot(balls:Ball[],angle:number,power:number,spin:Spin){
  const a=angle*Math.PI/180,dx=Math.sin(a),dz=-Math.cos(a),c=balls[0];
  let distance=Math.min(dx?(Math.sign(dx)*(WIDTH/2-RADIUS)-c.x)/dx:Infinity,dz?(Math.sign(dz)*(LENGTH/2-RADIUS)-c.z)/dz:Infinity),object:Ball|undefined;
