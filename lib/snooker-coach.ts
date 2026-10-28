@@ -13,7 +13,7 @@ export function difficulty(quality:number){return quality>1.8?'容易':quality>.
 
 export function describePlan(plan:ShotPlan):string {
   const {shot}=plan;
-  if(plan.kind==='safety')return `做防守：${powerWord(shot.power)}輕碰目標球，白球留遠，令對手無球可打。職業球員冇高把握入球時就會咁做。`;
+  if(plan.kind==='safety')return `做防守：${powerWord(shot.power)}（約 ${shot.power}%）薄碰目標球，白球留遠，令對手無球可打。職業球員冇高把握入球時就會咁做。`;
   const option=plan.option!,next=plan.next;
   const pot=`打${NAMES[option.value]}入${POCKET_NAMES[option.pocket]}，${powerWord(shot.power)}（約 ${shot.power}%）${spinWord(shot.spin)}。`;
   const chance=plan.chance<.99?`入球把握約 ${Math.round(plan.chance*100)}%。`:'';

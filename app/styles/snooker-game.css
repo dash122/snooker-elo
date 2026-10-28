@@ -60,7 +60,7 @@
   .snooker-tools .ds-segmented { background: var(--ds-surface-secondary); color: var(--ds-text-primary); }
   .snooker-tools p { font-size: var(--fs-caption); }
   .snooker-reset { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100% - 32px)); display: flex; flex-wrap: wrap; gap: var(--sp-3); z-index: 4; box-shadow: var(--ds-elevation-5); }
-  .snooker-coach { position: absolute; bottom: var(--sp-4); left: 290px; right: 250px; max-width: 520px; margin-inline: auto; pointer-events: auto; background: var(--ds-canvas-brand-deep); color: var(--ds-text-on-brand); border-radius: var(--ds-radius-control); padding: var(--sp-2) var(--sp-3) var(--sp-3); font-size: var(--fs-sm); }
+  .snooker-coach { position: absolute; top: 176px; left: var(--sp-4); width: min(340px, 30%); max-height: calc(100% - 400px); overflow: auto; pointer-events: auto; background: var(--ds-canvas-brand-deep); color: var(--ds-text-on-brand); border-radius: var(--ds-radius-control); padding: var(--sp-2) var(--sp-3) var(--sp-3); font-size: var(--fs-sm); }
   .snooker-coach p { margin: var(--sp-1) 0 var(--sp-2); line-height: 1.5; }
   .snooker-coach b { color: var(--ds-broadcast-yellow); }
   .snooker-coach-head, .snooker-coach-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
@@ -100,6 +100,7 @@
     .snooker-strike .ds-field { grid-column: 1 / -1; }
     .snooker-strike .ds-button { width: 100%; padding-inline: var(--sp-2); white-space: nowrap; }
     .snooker-help { padding-inline: var(--sp-3); }
+    .snooker-coach { position: static; width: auto; max-width: none; margin: 0; border-radius: 0; border-bottom: 1px solid var(--ds-border-muted); max-height: 30dvh; overflow: auto; }
   }
   /* Phones held sideways: no page chrome at all, the table is the screen. */
   @media(pointer: coarse) and (orientation: landscape) and (max-width: 1180px) {
@@ -117,6 +118,7 @@
     .snooker-contact > strong, .snooker-contact output, .snooker-contact .ds-button, .snooker-strike .ds-field small { display: none; }
     .snooker-tip { width: 72px; height: 72px; grid-row: auto; }
     .snooker-tools-back { display: inline-flex; }
+    .snooker-coach { top: auto; left: 25%; right: 25%; width: auto; bottom: calc(var(--sp-2) + env(safe-area-inset-bottom)); max-height: 45dvh; overflow: auto; padding-block: var(--sp-1) var(--sp-2); }
     .snooker-strike { right: max(var(--sp-2), env(safe-area-inset-right)); bottom: calc(var(--sp-2) + env(safe-area-inset-bottom)); width: 220px; grid-template-columns: 1fr 1fr; padding: var(--sp-2); }
     .snooker-strike .ds-field { grid-column: 1 / -1; }
     .snooker-strike .ds-button { width: 100%; padding-inline: var(--sp-2); white-space: nowrap; }
