@@ -133,10 +133,13 @@ export type ShotPlan={shot:ComputerShot;kind:'pot'|'safety';option?:PotOption;ch
 /** Plans like a player of the given cue error: weighs every pot by how it
  * survives that error, plays for the next ball, and turns to safety when the
  * percentage is poor. `errorScale` 1 is a club player; lower is stronger. */
-export function planShot(balls:Ball[],target:number,errorScale=1):ShotPlan|null {
- let best:ShotPlan|null=null,bestScore=-Infinity;
- // Wide power and screw/follow range so it plays for position, not just the pot.
- for(const option of potOptions(balls,target).slice(0,4))for(const power of [24,40,60,82])for(const top of [-1,-.5,0,.5,1]){
+type Candidate={plan:ShotPlan;score:number;trial:Ball[];nextTarget:number;points:number};
+// One level of the search: every pot × pace × screw/follow, each weighed by
+// its chance under the player's cue error and by the position it leaves.
+function candidates(balls:Ball[],target:number,errorScale:number,wide:boolean):Candidate[] {
+ const found:Candidate[]=[];
+ const powers=wide?[24,40,60,82]:[30,52,76],tops=wide?[-1,-.5,0,.5,1]:[-1,0,1];
+ for(const option of potOptions(balls,target).slice(0,wide?4:3))for(const power of powers)for(const top of tops){
   const shot={angle:option.angle,power,spin:{top,side:0}},{ok,trial,pots}=simulate(balls,target,shot.angle,power,shot.spin);
   if(!ok)continue;
   // Long pots and thin cuts are percentage shots, as for a real player.
@@ -144,12 +147,31 @@ export function planShot(balls:Ball[],target:number,errorScale=1):ShotPlan|null 
   const points=pots.reduce((sum,b)=>sum+b.value,0),cueEnd={x:trial[0].x,z:trial[0].z};
   const reds=trial.some(b=>b.value===1&&!b.potted);
   for(const ball of pots)if(ball.value>1&&(reds||target===-1))respot(ball,trial);
-  const nextOptions=potOptions(trial,nextTargetAfter(trial,target)),next=nextOptions[0];
+  const nextTarget=nextTargetAfter(trial,target),nextOptions=potOptions(trial,nextTarget),next=nextOptions[0];
   // Break-building: an easy next pot, spare options, the cue ball off the
-  // cushions; power itself is barely penalised.
+  // cushions, and on a colour the black or pink rather than a low colour.
   const cushion=Math.min(WIDTH/2-Math.abs(cueEnd.x),LENGTH/2-Math.abs(cueEnd.z));
-  const score=chance*(points+(next?10+next.quality*3+Math.min(nextOptions.length,4)*.6:0)-(cushion<RADIUS*3?1.5:0))-(1-chance)*8-power*.004;
-  if(score>bestScore){bestScore=score;best={shot,kind:'pot',option,chance,next,cueEnd};}
+  const position=next?10+next.quality*3+Math.min(nextOptions.length,4)*.6+(nextTarget===-1?Math.max(...nextOptions.slice(0,3).map(o=>o.value))*.5:0):0;
+  const score=chance*(points+position-(cushion<RADIUS*3?1.5:0))-(1-chance)*8-power*.004;
+  found.push({plan:{shot,kind:'pot',option,chance,next,cueEnd},score,trial,nextTarget,points});
+ }
+ return found.sort((a,b)=>b.score-a.score);
+}
+/** Plans like a player of the given cue error: weighs every pot by how it
+ * survives that error, looks one shot further ahead for the strongest
+ * candidates (as a professional plans the next ball, not just this one), and
+ * turns to safety when the percentage is poor. `errorScale` 1 is a club
+ * player; lower is stronger. `lookAhead` costs roughly twice the time. */
+export function planShot(balls:Ball[],target:number,errorScale=1,lookAhead=false):ShotPlan|null {
+ const first=candidates(balls,target,errorScale,true);
+ let best=first[0]?.plan??null;
+ if(lookAhead&&first.length){
+  let bestScore=-Infinity;
+  for(const c of first.slice(0,3)){
+   const follow=Number.isFinite(c.nextTarget)?candidates(c.trial,c.nextTarget,errorScale,false)[0]:undefined;
+   const score=c.plan.chance*(c.points+(follow?Math.max(0,follow.score)+4:0))-(1-c.plan.chance)*8;
+   if(score>bestScore){bestScore=score;best=c.plan;}
+  }
  }
  if(best&&best.chance>.5)return best;
  const safety=planSafety(balls,target);
@@ -175,8 +197,8 @@ function planSafety(balls:Ball[],target:number):ShotPlan|null {
 }
 /** The professional's cue error relative to a club player. */
 export const PRO_ERROR_SCALE = .25;
-export function computerShot(balls:Ball[],target:number,errorScale=PRO_ERROR_SCALE):ComputerShot {
- const plan=planShot(balls,target,errorScale);
+export function computerShot(balls:Ball[],target:number,errorScale=PRO_ERROR_SCALE,lookAhead=true):ComputerShot {
+ const plan=planShot(balls,target,errorScale,lookAhead);
  if(plan)return plan.shot;
  const cue=balls[0],legal=balls.filter(b=>!b.potted&&(target===-1?b.value>1:b.value===target));
  const ball=legal.sort((a,b)=>Math.hypot(a.x-cue.x,a.z-cue.z)-Math.hypot(b.x-cue.x,b.z-cue.z))[0];
@@ -186,7 +208,7 @@ export function computerShot(balls:Ball[],target:number,errorScale=PRO_ERROR_SCA
 // Cue delivery is never perfect, so long pots and thin cuts (where the error
 // is magnified) go in only sometimes. Hitting harder and using side spin widen
 // it, as on a real table. `errorScale` sets the player's standard.
-export const CUE_ERROR_BASE = .09, CUE_ERROR_POWER = .16, CUE_ERROR_SIDE = .1;
+export const CUE_ERROR_BASE = .06, CUE_ERROR_POWER = .1, CUE_ERROR_SIDE = .08;
 export function cueError(power:number,spin:Spin){
  return CUE_ERROR_BASE+CUE_ERROR_POWER*(power/100)**2+CUE_ERROR_SIDE*Math.abs(spin.side);
 }
