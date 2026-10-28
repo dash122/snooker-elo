@@ -95,10 +95,11 @@ export function respot(ball:Ball,balls:Ball[]) {
   const spot=candidates.find(p=>balls.every(b=>b===ball||b.potted||Math.hypot(b.x-p.x,b.z-p.z)>RADIUS*2.01));
   if(spot) Object.assign(ball,spot,{potted:false,vx:0,vz:0,wx:0,wz:0,wy:0});
 }
-type ComputerShot={angle:number;power:number;spin:Spin};
-function potOptions(balls:Ball[],target:number){
- const cue=balls[0],options:{angle:number;quality:number}[]=[];
- for(const ball of balls.filter(b=>!b.potted&&(target===-1?b.value>1:b.value===target)))for(const [px,pz] of POCKETS){
+export type ComputerShot={angle:number;power:number;spin:Spin};
+export type PotOption={angle:number;quality:number;value:number;pocket:number;cut:number};
+export function potOptions(balls:Ball[],target:number):PotOption[]{
+ const cue=balls[0],options:PotOption[]=[];
+ for(const ball of balls.filter(b=>!b.potted&&(target===-1?b.value>1:b.value===target)))for(const [pocket,[px,pz]] of POCKETS.entries()){
   const distance=Math.hypot(px-ball.x,pz-ball.z);if(distance<1e-6)continue;
   const nx=(px-ball.x)/distance,nz=(pz-ball.z)/distance;
   const gx=ball.x-nx*RADIUS*2,gz=ball.z-nz*RADIUS*2,dx=gx-cue.x,dz=gz-cue.z,length=Math.hypot(dx,dz),cut=(dx*nx+dz*nz)/length;
@@ -111,60 +112,87 @@ function potOptions(balls:Ball[],target:number){
    });
   };
   if(blocked(cue.x,cue.z,gx,gz)||blocked(ball.x,ball.z,px,pz))continue;
-  options.push({angle:Math.atan2(dx,-dz)*180/Math.PI,quality:cut*3-(length+distance)*.35+ball.value*.12});
+  options.push({angle:Math.atan2(dx,-dz)*180/Math.PI,quality:cut*3-(length+distance)*.35+ball.value*.12,value:ball.value,pocket,cut});
  }
  return options.sort((a,b)=>b.quality-a.quality);
 }
-export function computerShot(balls:Ball[],target:number):ComputerShot {
- let best:ComputerShot|undefined,bestScore=-Infinity;
- const valid=(value:number,first:number|null)=>target===-1?value>1&&value===first:value===target;
- // Bounded search uses the same fixed-step physics as live play.
- function play(angle:number,power:number,spin:Spin){
-  const trial=balls.map(b=>({...b}));let first:number|null=null;const pots:Ball[]=[];
-  strike(trial[0],angle,power,spin);
-  for(let frame=0;frame<240*30&&moving(trial);frame++)step(trial,1/240,v=>{if(first===null)first=v;},b=>pots.push(b));
-  const ok=!moving(trial)&&first!==null&&valid(first,first)&&pots.length>0&&pots.every(b=>valid(b.value,first));
-  return {ok,trial,pots};
- }
+function legalValue(target:number,value:number,first:number|null){return target===-1?value>1&&value===first:value===target;}
+function nextTargetAfter(trial:Ball[],target:number){
+ const reds=trial.some(b=>b.value===1&&!b.potted);
+ return target===1?-1:reds?1:Math.min(...trial.filter(b=>b.value>1&&!b.potted).map(b=>b.value));
+}
+// Bounded search uses the same fixed-step physics as live play.
+function simulate(balls:Ball[],target:number,angle:number,power:number,spin:Spin){
+ const trial=balls.map(b=>({...b}));let first:number|null=null;const pots:Ball[]=[];
+ strike(trial[0],angle,power,spin);
+ for(let frame=0;frame<240*30&&moving(trial);frame++)step(trial,1/240,v=>{if(first===null)first=v;},b=>pots.push(b));
+ const fair=!moving(trial)&&first!==null&&legalValue(target,first,first)&&pots.every(b=>legalValue(target,b.value,first));
+ return {ok:fair&&pots.length>0,fair,trial,pots};
+}
+export type ShotPlan={shot:ComputerShot;kind:'pot'|'safety';option?:PotOption;chance:number;next?:PotOption;cueEnd:{x:number;z:number}};
+/** Plans like a player of the given cue error: weighs every pot by how it
+ * survives that error, plays for the next ball, and turns to safety when the
+ * percentage is poor. `errorScale` 1 is a club player; lower is stronger. */
+export function planShot(balls:Ball[],target:number,errorScale=1):ShotPlan|null {
+ let best:ShotPlan|null=null,bestScore=-Infinity;
  // Wide power and screw/follow range so it plays for position, not just the pot.
  for(const option of potOptions(balls,target).slice(0,4))for(const power of [24,40,60,82])for(const top of [-1,-.5,0,.5,1]){
-  const shot={angle:option.angle,power,spin:{top,side:0}},{ok,trial,pots}=play(shot.angle,power,shot.spin);
+  const shot={angle:option.angle,power,spin:{top,side:0}},{ok,trial,pots}=simulate(balls,target,shot.angle,power,shot.spin);
   if(!ok)continue;
-  // Weigh the pot by how it survives the same cue error the shot will carry:
-  // long pots and thin cuts are percentage shots, as for a real player.
-  const error=cueError(power,shot.spin),chance=(1+[-1,1].filter(k=>play(shot.angle+k*error,power,shot.spin).ok).length)/3;
-  const points=pots.reduce((sum,b)=>sum+b.value,0);
+  // Long pots and thin cuts are percentage shots, as for a real player.
+  const error=cueError(power,shot.spin)*errorScale,chance=(1+[-1,1].filter(k=>simulate(balls,target,shot.angle+k*error,power,shot.spin).ok).length)/3;
+  const points=pots.reduce((sum,b)=>sum+b.value,0),cueEnd={x:trial[0].x,z:trial[0].z};
   const reds=trial.some(b=>b.value===1&&!b.potted);
   for(const ball of pots)if(ball.value>1&&(reds||target===-1))respot(ball,trial);
-  const nextTarget=target===1?-1:reds?1:Math.min(...trial.filter(b=>b.value>1&&!b.potted).map(b=>b.value));
-  const nextOptions=potOptions(trial,nextTarget),next=nextOptions[0];
-  // Break-building: reward an easy next pot, spare options and a cue ball off
-  // the cushions; power itself is barely penalised.
-  const cueBall=trial[0],cushion=Math.min(WIDTH/2-Math.abs(cueBall.x),LENGTH/2-Math.abs(cueBall.z));
+  const nextOptions=potOptions(trial,nextTargetAfter(trial,target)),next=nextOptions[0];
+  // Break-building: an easy next pot, spare options, the cue ball off the
+  // cushions; power itself is barely penalised.
+  const cushion=Math.min(WIDTH/2-Math.abs(cueEnd.x),LENGTH/2-Math.abs(cueEnd.z));
   const score=chance*(points+(next?10+next.quality*3+Math.min(nextOptions.length,4)*.6:0)-(cushion<RADIUS*3?1.5:0))-(1-chance)*8-power*.004;
-  if(score>bestScore){bestScore=score;best=shot;}
+  if(score>bestScore){bestScore=score;best={shot,kind:'pot',option,chance,next,cueEnd};}
  }
- if(best)return best;
+ if(best&&best.chance>.5)return best;
+ const safety=planSafety(balls,target);
+ return safety??best;
+}
+// Safety: touch a legal ball and leave the opponent nothing to pot, with the
+// cue ball as far from their target as the table allows.
+function planSafety(balls:Ball[],target:number):ShotPlan|null {
+ const cue=balls[0];let best:ShotPlan|null=null,bestScore=-Infinity;
+ const legal=balls.filter(b=>!b.potted&&(target===-1?b.value>1:b.value===target)).sort((a,b)=>Math.hypot(a.x-cue.x,a.z-cue.z)-Math.hypot(b.x-cue.x,b.z-cue.z)).slice(0,4);
+ for(const ball of legal){
+  const centre=Math.atan2(ball.x-cue.x,cue.z-ball.z)*180/Math.PI,half=Math.asin(Math.min(1,RADIUS*2/Math.hypot(ball.x-cue.x,ball.z-cue.z)))*180/Math.PI;
+  for(const offset of [-.8,-.4,0,.4,.8])for(const power of [14,22,32]){
+   const shot={angle:centre+offset*half,power,spin:{top:0,side:0}},{fair,trial,pots}=simulate(balls,target,shot.angle,power,shot.spin);
+   if(!fair||pots.length)continue;
+   const reply=target===-1&&trial.some(b=>b.value===1&&!b.potted)?1:target,threat=potOptions(trial,reply)[0];
+   const far=Math.min(...trial.filter(b=>!b.potted&&(reply===-1?b.value>1:b.value===reply)).map(b=>Math.hypot(b.x-trial[0].x,b.z-trial[0].z)));
+   const score=(threat?-threat.quality*3:6)+Math.min(far,2.5);
+   if(score>bestScore){bestScore=score;best={shot,kind:'safety',chance:1,cueEnd:{x:trial[0].x,z:trial[0].z}};}
+  }
+ }
+ return best;
+}
+/** The professional's cue error relative to a club player. */
+export const PRO_ERROR_SCALE = .25;
+export function computerShot(balls:Ball[],target:number,errorScale=PRO_ERROR_SCALE):ComputerShot {
+ const plan=planShot(balls,target,errorScale);
+ if(plan)return plan.shot;
  const cue=balls[0],legal=balls.filter(b=>!b.potted&&(target===-1?b.value>1:b.value===target));
- const visible=legal.filter(ball=>!balls.some(b=>{
-  if(b===cue||b===ball||b.potted)return false;
-  const dx=ball.x-cue.x,dz=ball.z-cue.z,d2=dx*dx+dz*dz,t=((b.x-cue.x)*dx+(b.z-cue.z)*dz)/d2;
-  return t>0&&t<1&&Math.hypot(b.x-cue.x-t*dx,b.z-cue.z-t*dz)<RADIUS*2;
- }));
- const ball=(visible.length?visible:legal).sort((a,b)=>Math.hypot(a.x-cue.x,a.z-cue.z)-Math.hypot(b.x-cue.x,b.z-cue.z))[0];
+ const ball=legal.sort((a,b)=>Math.hypot(a.x-cue.x,a.z-cue.z)-Math.hypot(b.x-cue.x,b.z-cue.z))[0];
  return {angle:ball?Math.atan2(ball.x-cue.x,cue.z-ball.z)*180/Math.PI:0,power:26,spin:{top:0,side:0}};
 }
 
-// Cue delivery is never perfect. The same error applies to both players, so
-// long pots and thin cuts (where the error is magnified) go in only sometimes.
-// Hitting harder and using side spin widen it, as on a real table.
+// Cue delivery is never perfect, so long pots and thin cuts (where the error
+// is magnified) go in only sometimes. Hitting harder and using side spin widen
+// it, as on a real table. `errorScale` sets the player's standard.
 export const CUE_ERROR_BASE = .09, CUE_ERROR_POWER = .16, CUE_ERROR_SIDE = .1;
 export function cueError(power:number,spin:Spin){
  return CUE_ERROR_BASE+CUE_ERROR_POWER*(power/100)**2+CUE_ERROR_SIDE*Math.abs(spin.side);
 }
-export function deliverShot(shot:ComputerShot,random:()=>number=Math.random):ComputerShot {
+export function deliverShot(shot:ComputerShot,random:()=>number=Math.random,errorScale=1):ComputerShot {
  const gauss=Math.sqrt(-2*Math.log(1-random()))*Math.cos(2*Math.PI*random());
- return {...shot,angle:shot.angle+gauss*cueError(shot.power,shot.spin)};
+ return {...shot,angle:shot.angle+gauss*cueError(shot.power,shot.spin)*errorScale};
 }
 
 export function predictShot(balls:Ball[],angle:number,power:number,spin:Spin){
