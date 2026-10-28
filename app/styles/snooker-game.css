@@ -58,6 +58,15 @@
   .snooker-tools .ds-segmented { background: var(--ds-surface-secondary); color: var(--ds-text-primary); }
   .snooker-tools p { font-size: var(--fs-caption); }
   .snooker-reset { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100% - 32px)); display: flex; flex-wrap: wrap; gap: var(--sp-3); z-index: 4; box-shadow: var(--ds-elevation-5); }
+  .snooker-coach { position: absolute; bottom: var(--sp-4); left: 290px; right: 250px; max-width: 520px; margin-inline: auto; pointer-events: auto; background: var(--ds-canvas-brand-deep); color: var(--ds-text-on-brand); border-radius: var(--ds-radius-control); padding: var(--sp-2) var(--sp-3) var(--sp-3); font-size: var(--fs-sm); }
+  .snooker-coach p { margin: var(--sp-1) 0 var(--sp-2); line-height: 1.5; }
+  .snooker-coach b { color: var(--ds-broadcast-yellow); }
+  .snooker-coach-head, .snooker-coach-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+  .snooker-coach-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .snooker-coach .ds-button--quiet { color: var(--ds-text-on-brand); }
+  .snooker-coach-focus { margin-top: var(--sp-2); font-size: var(--fs-caption); color: var(--ds-text-on-brand-secondary); }
+  .snooker-coach-focus summary { cursor: pointer; min-height: var(--control-sm); align-content: center; }
+  .snooker-coach-focus p { margin: var(--sp-1) 0; }
   .snooker-help { margin-top: var(--sp-6); font-size: var(--fs-sm); color: var(--ds-text-secondary); max-width: 75ch; }
   .snooker-help summary { cursor: pointer; padding-block: var(--sp-3); }
   .snooker-help p { line-height: 1.8; }

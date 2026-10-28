@@ -6,7 +6,8 @@
    Scope: simplified single-frame rules; original graphics, no broadcast branding. */
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Button, ButtonLink, FormField, SegmentedControl } from '../components/ui/Primitives';
-import { COLOURS, computerShot, deliverShot, moving, NAMES, step } from '../../lib/snooker-game';
+import { COLOURS, computerShot, deliverShot, moving, NAMES, planShot, PRO_ERROR_SCALE, step, type ShotPlan, type Spin } from '../../lib/snooker-game';
+import { describePlan, EMPTY_STATS, focus, record, reviewShot, type CoachStats } from '../../lib/snooker-coach';
 import { beginShot, finishShot, newMatch } from '../../lib/snooker-match';
 import Table from './Table';
 import { nearestAim } from '../../lib/snooker-aim';
@@ -20,6 +21,12 @@ export default function Game(){
   const pending=useRef<Stroke|null>(null),sequence=useRef(0);
   const [stroke,setStroke]=useState<Stroke|null>(null);
   const [preparing,setPreparing]=useState(false);
+  // Coach: an on-demand professional's plan, a review of each of your shots,
+  // and running stats (kept on this device) that choose what to practise next.
+  const [advice,setAdvice]=useState<{text:string;plan?:ShotPlan}|null>(null),[review,setReview]=useState<{headline:string;tip:string}|null>(null);
+  const [stats,setStats]=useState<CoachStats>(EMPTY_STATS),[coachOpen,setCoachOpen]=useState(true);
+  const yourShot=useRef<{power:number;spin:Spin;advised?:ShotPlan}|null>(null);
+  useEffect(()=>{const frame=requestAnimationFrame(()=>{try{const saved=localStorage.getItem('snooker-coach-stats');if(saved)setStats({...EMPTY_STATS,...JSON.parse(saved)});}catch{}});return()=>cancelAnimationFrame(frame);},[]);
   useEffect(()=>{
     let frame=0,last=0,accumulator=0,aiAt=0,releaseAt=0;
     function tick(time:number){
@@ -33,9 +40,18 @@ export default function Game(){
         if(active.current)step(m.balls,1/240,v=>{if(m.first===null)m.first=v;},b=>m.potted.push(b));
         accumulator-=1/240;
       }
-      if(active.current&&!moving(m.balls)&&time>=releaseAt) {active.current=false;finishShot(m);setTop(0);setSide(0);setPrecise(false);if(m.turn===0&&!m.finished)setAngle(nearestAim(m.balls,m.target));setBusy(false);setSnapshot({...m,scores:[...m.scores]});aiAt=time+1200;}
+      if(active.current&&!moving(m.balls)&&time>=releaseAt) {active.current=false;
+        const shooter=m.turn,shotTarget=m.shotTarget,first=m.first,pottedValues=m.potted.map(b=>b.value);
+        const valid=(v:number)=>shotTarget===-1?v>1&&v===first:v===shotTarget,foul=first===null||!valid(first)||pottedValues.some(v=>!valid(v));
+        finishShot(m);
+        if(shooter===0&&yourShot.current){
+          const shot=yourShot.current,r={potted:!foul&&pottedValues.length>0,foul,power:shot.power,spin:shot.spin,target:shotTarget,pottedValues,ballsAfter:m.balls,targetAfter:m.target,stillTurn:m.turn===0&&!m.finished,advised:shot.advised};
+          const verdict=reviewShot(r),breakNow=m.break;yourShot.current=null;setReview(verdict);setAdvice(null);
+          setStats(current=>{const next=record(current,r,verdict,breakNow);try{localStorage.setItem('snooker-coach-stats',JSON.stringify(next));}catch{}return next;});
+        }
+setTop(0);setSide(0);setPrecise(false);if(m.turn===0&&!m.finished)setAngle(nearestAim(m.balls,m.target));setBusy(false);setSnapshot({...m,scores:[...m.scores]});aiAt=time+1200;}
       if(!active.current&&!pending.current&&m.turn===1&&!m.finished&&time>=aiAt){
-        const shot=deliverShot(computerShot(m.balls,m.target));
+        const shot=deliverShot(computerShot(m.balls,m.target),Math.random,PRO_ERROR_SCALE);
         const next={id:++sequence.current,angle:shot.angle,power:shot.power,spin:shot.spin,origin:{x:m.balls[0].x,z:m.balls[0].z},startedAt:time,player:1};
         pending.current=next;setStroke(next);setBusy(true);setPreparing(true);
       }
@@ -44,7 +60,14 @@ export default function Game(){
     frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame);
   },[]);
   const m=snapshot,canShoot=!busy&&m.turn===0&&!m.finished;
-  function shoot(){if(!canShoot||pending.current||active.current)return;const ball=match.current.balls[0];const delivered=deliverShot({angle,power,spin:{top,side}});const next={id:++sequence.current,angle:delivered.angle,power,spin:{top,side},origin:{x:ball.x,z:ball.z},startedAt:performance.now(),player:0};pending.current=next;setStroke(next);setBusy(true);setPreparing(true);}
+  function shoot(){if(!canShoot||pending.current||active.current)return;const ball=match.current.balls[0];const delivered=deliverShot({angle,power,spin:{top,side}});yourShot.current={power,spin:{top,side},advised:advice?.plan};const next={id:++sequence.current,angle:delivered.angle,power,spin:{top,side},origin:{x:ball.x,z:ball.z},startedAt:performance.now(),player:0};pending.current=next;setStroke(next);setBusy(true);setPreparing(true);}
+  function askCoach(){
+    if(!canShoot)return;setAdvice({text:'教練分析緊…'});
+    // Let the message paint before the (blocking) search runs.
+    setTimeout(()=>{const plan=planShot(match.current.balls,match.current.target,PRO_ERROR_SCALE);setAdvice(plan?{text:describePlan(plan),plan}:{text:'冇明顯入球或防守線路，輕力碰最近嘅目標球。'});},50);
+  }
+  function applyAdvice(){const plan=advice?.plan;if(!plan||!canShoot)return;setAngle(plan.shot.angle);setPower(plan.shot.power);setTop(plan.shot.spin.top);setSide(plan.shot.spin.side);}
+  const practice=focus(stats),potRate=stats.shots?Math.round(stats.pots/stats.shots*100):0,positionRate=stats.positions?Math.round(stats.positionsOk/stats.positions*100):0;
   function placeTip(event:PointerEvent<HTMLButtonElement>){
     if(!canShoot)return;
     const rect=event.currentTarget.getBoundingClientRect();
@@ -75,6 +98,17 @@ export default function Game(){
       </div>
     <div className="snooker-status" role="status" aria-live="polite"><strong>{m.finished?'本局完結':preparing?'準備出桿':busy?'球運行中':m.turn===1?'電腦思考中…':'輪到你出桿'}</strong><span>{m.message}</span></div>
     <section className="snooker-desk" aria-label="出桿控制">
+      <aside className="snooker-coach" aria-label="教練" aria-live="polite">
+        <div className="snooker-coach-head"><strong>教練</strong><Button type="button" variant="quiet" aria-expanded={coachOpen} onClick={()=>setCoachOpen(open=>!open)}>{coachOpen?'收起':'展開'}</Button></div>
+        {coachOpen&&<>
+          {advice?<p>{advice.text}</p>:review?<p><b>{review.headline}</b>{review.tip?'　'+review.tip:''}</p>:<p>出桿前講出：打邊粒、入邊個袋、白球停邊。唔肯定就問教練。</p>}
+          <div className="snooker-coach-actions">
+            <Button type="button" variant="secondary" disabled={!canShoot} onClick={askCoach}>教練建議</Button>
+            {advice?.plan&&<Button type="button" variant="quiet" disabled={!canShoot} onClick={applyAdvice}>套用建議</Button>}
+          </div>
+          <details className="snooker-coach-focus"><summary>{practice.title} · 入球 {potRate}% · 走位 {positionRate}% · 最高 {stats.best}</summary><p><b>遊戲：</b>{practice.game}</p><p><b>真球枱：</b>{practice.table}</p></details>
+        </>}
+      </aside>
       <div className="snooker-shot">
         <div className="snooker-contact" role="group" aria-label="白球擊點">
           <strong>白球擊點</strong><small id="tip-help" className="snooker-sr-only">點選或拖動白球，決定落桿位置</small>
