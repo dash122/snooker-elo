@@ -8,6 +8,7 @@ import { predictShot, rack, type Spin, COLOURS, LENGTH, RADIUS, WIDTH, type Ball
 import { CUE_ADDRESS_GAP, CUE_HEIGHT, STROKE_END_MS, cueContactOffset, cueFeather, restSupport, cueStroke, type Stroke } from '../../lib/snooker-presentation';
 import { createCue } from './Cue';
 import { buildTournamentTable } from './TournamentTable';
+import { buildCrucibleArena } from './CrucibleArena';
 import { loadPlayerAvatar, type PlayerAvatar } from './PlayerAvatar';
 
 export default function Table({balls,angle,power,spin,camera,precise,aiming,stroke,onAim}:{balls:Ball[];angle:number;power:number;spin:Spin;camera:string;precise:boolean;aiming:boolean;stroke:Stroke|null;onAim:(angle:number)=>void}) {
@@ -23,7 +24,7 @@ export default function Table({balls,angle,power,spin,camera,precise,aiming,stro
     renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;renderer.setClearColor('#100f16');element.appendChild(renderer.domElement);
     const scene=new THREE.Scene(),view=new THREE.PerspectiveCamera(39,1,.01,30);
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    scene.fog=new THREE.Fog('#100f16',7,18);
+    scene.fog=new THREE.Fog('#100f16',9,20);
     scene.add(new THREE.HemisphereLight('#e5e8ee','#101018',.22));
     // A prefiltered room supplies real material reflections, especially on balls/rails.
     const pmrem=new THREE.PMREMGenerator(renderer),room=new RoomEnvironment();
@@ -43,34 +44,7 @@ export default function Table({balls,angle,power,spin,camera,precise,aiming,stro
       textures.forEach(texture=>texture.dispose());
     }
     loadPlayerAvatar().then(player=>{if(cancelled){dispose(player.root);return;}avatar=player;scene.add(player.root);setModelStatus('ready');}).catch(()=>{if(!cancelled)setModelStatus('error');});
-    function box(w:number,h:number,d:number,x:number,y:number,z:number,colour:string,roughness=.6) {
-      const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color:colour,roughness}));mesh.position.set(x,y,z);mesh.receiveShadow=true;mesh.castShadow=true;scene.add(mesh);return mesh;
-    }
-    box(18,.1,18,0,-.90,0,'#252b34');
-    box(6.4,.035,7.5,0,-.78,0,'#293641');
-    box(18,7,.2,0,2,-8,'#17131d');
-    for(let panel=-8;panel<=8;panel+=.45)box(.18,6,.15,panel,2,-7.85,'#322333');
-    // Instancing keeps the surrounding audience inexpensive on mobile GPUs.
-    const seats=new THREE.InstancedMesh(new THREE.BoxGeometry(.36,.48,.16),new THREE.MeshStandardMaterial({color:'#351524',roughness:.95,envMapIntensity:.12}),240);
-    const bodies=new THREE.InstancedMesh(new THREE.CapsuleGeometry(.105,.25,3,6),new THREE.MeshStandardMaterial({color:'#101116',roughness:1,envMapIntensity:.12}),240);
-    const heads=new THREE.InstancedMesh(new THREE.SphereGeometry(.075,8,6),new THREE.MeshStandardMaterial({color:'#6a5046',roughness:1,envMapIntensity:.12}),240);
-    const dummy=new THREE.Object3D();let count=0;
-    for(let row=0;row<5;row++)for(let i=0;i<48;i++){
-      const theta=Math.PI*.07+i/47*Math.PI*1.86,r=4.4+row*.56,x=Math.sin(theta)*r,z=-Math.cos(theta)*r,y=-.35+row*.40;
-      dummy.position.set(x,y,z);dummy.rotation.set(0,theta,0);dummy.updateMatrix();seats.setMatrixAt(count,dummy.matrix);
-      dummy.position.set(x,y+.07,z+.10);dummy.updateMatrix();bodies.setMatrixAt(count,dummy.matrix);
-      dummy.position.y=y+.36;dummy.updateMatrix();heads.setMatrixAt(count++,dummy.matrix);
-    }
-    scene.add(seats,bodies,heads);
-    for(let row=0;row<5;row++){
-      const tier=new THREE.Mesh(new THREE.RingGeometry(4.1+row*.56,4.67+row*.56,96),new THREE.MeshStandardMaterial({color:'#24232b',side:THREE.DoubleSide,roughness:1}));
-      tier.rotation.x=-Math.PI/2;tier.position.y=-.65+row*.4;scene.add(tier);
-    }
-    for(const x of [-3.3,3.3])box(.12,.55,6.6,x,-.48,0,'#113e40');
-    box(6.6,.55,.12,0,-.48,-3.5,'#113e40');
-    const signCanvas=document.createElement('canvas');signCanvas.width=1024;signCanvas.height=128;
-    const ctx=signCanvas.getContext('2d')!;ctx.fillStyle='#113e40';ctx.fillRect(0,0,1024,128);ctx.fillStyle='#e5c681';ctx.font='500 48px Georgia';ctx.textAlign='center';ctx.fillText('S N O O K E R   E L O',512,82);
-    const sign=new THREE.Mesh(new THREE.PlaneGeometry(4.8,.6),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(signCanvas)}));sign.position.set(0,.1,-3.42);scene.add(sign);
+    buildCrucibleArena(scene);
     buildTournamentTable(scene,renderer.capabilities.getMaxAnisotropy());
     const marking=new THREE.LineBasicMaterial({color:'#d9e6cb',transparent:true,opacity:.65});
     function line(points:THREE.Vector3[]){const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),marking);scene.add(l);}
