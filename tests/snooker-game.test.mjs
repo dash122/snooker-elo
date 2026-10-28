@@ -201,3 +201,13 @@ test('computer builds a red-colour break with the live match rules',()=>{
  }
  assert.equal(m.break,8);assert.deepEqual(m.breakBalls,[1,7]);
 });
+
+test('corner pockets forgive a small aim error on a medium pot but not on a long one',async()=>{
+ const g=await import('../lib/snooker-game.ts'),[px,pz]=g.POCKETS[0],u=Math.SQRT1_2;
+ const pots=(object,cue,error)=>{
+  const ox=px+u*object,oz=pz+u*object,b=[{id:0,value:0,x:ox+u*cue,z:oz+u*cue,vx:0,vz:0,potted:false},{id:1,value:1,x:ox,z:oz,vx:0,vz:0,potted:false}];
+  g.strike(b[0],-45+error,40);for(let f=0;f<240*20&&g.moving(b);f++)g.step(b,1/240,()=>{},()=>{});return b[1].potted;
+ };
+ for(const error of [-.3,0,.3])assert.ok(pots(.3,.5,error),'medium straight pot drops within 0.3°');
+ assert.ok(pots(.6,1,0));assert.ok(!pots(.6,1,.3)&&!pots(.6,1,-.3),'long pot punishes 0.3°');
+});
