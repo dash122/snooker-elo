@@ -1,4 +1,4 @@
-import { pocketCut } from './snooker-table.ts';
+import { TABLE_POCKETS, pocketCut } from './snooker-table.ts';
 // Metres and seconds. Fixed 240 Hz stepping keeps fast balls from tunnelling.
 export const WIDTH = 1.778, LENGTH = 3.569, RADIUS = .02625;
 export const POCKETS = [[-WIDTH/2,-LENGTH/2],[WIDTH/2,-LENGTH/2],[-WIDTH/2,0],[WIDTH/2,0],[-WIDTH/2,LENGTH/2],[WIDTH/2,LENGTH/2]];
@@ -41,6 +41,22 @@ function cushion(b:Ball,nx:number,nz:number){
  b.wy=(b.wy??0)+arm*torque;b.wx=(b.wx??0)+h*nx*torque;b.wz=(b.wz??0)+h*nz*torque;
 }
 export function moving(balls:Ball[]) { return balls.some(b=>!b.potted && (Math.hypot(b.vx,b.vz)>.001||RADIUS*Math.hypot(b.wx??0,b.wz??0)>.001)); }
+// Real mouths: ~86 mm corners and ~90 mm middles for a 52.5 mm ball. A ball
+// drops once its centre crosses the mouth while it still fits between the jaws.
+// The cushions stop at the jaws, so a ball lined up with a mouth may run into
+// it instead of being held off by the rail.
+const CORNER_LANE=(TABLE_POCKETS.cornerCut*Math.SQRT2-RADIUS*2)/Math.SQRT2;
+function inPocket(b:Ball,px:number,pz:number) {
+  const along=Math.abs(b.x-px),across=Math.abs(b.z-pz);
+  if(pz===0)return along<RADIUS*1.05&&across<TABLE_POCKETS.middleCut-RADIUS*.85;
+  return along+across<pocketCut(pz)+RADIUS&&Math.abs(along-across)<CORNER_LANE;
+}
+function inMouth(b:Ball) {
+  return POCKETS.some(([px,pz])=>{
+    const along=Math.abs(b.x-px),across=Math.abs(b.z-pz);
+    return pz===0?across<TABLE_POCKETS.middleCut-RADIUS*.85&&along<RADIUS*2:along+across<pocketCut(pz)+RADIUS*4&&Math.abs(along-across)<CORNER_LANE;
+  });
+}
 export function step(balls:Ball[],dt:number,onContact:(value:number)=>void,onPot:(ball:Ball)=>void) {
   for(const b of balls) {
     if(b.potted) continue;
@@ -51,7 +67,8 @@ export function step(balls:Ball[],dt:number,onContact:(value:number)=>void,onPot
     else{const v=Math.hypot(b.vx,b.vz),k=v?Math.max(0,v-CLOTH_ROLLING_DECELERATION*dt)/v:0;b.vx*=k;b.vz*=k;b.wx=b.vz/RADIUS;b.wz=-b.vx/RADIUS;}
     b.wy=Math.sign(b.wy)*Math.max(0,Math.abs(b.wy)-2*dt);
     b.x+=b.vx*dt; b.z+=b.vz*dt;
-    if(POCKETS.some(([x,z])=>Math.hypot(b.x-x,b.z-z)<pocketCut(z)-RADIUS*.5)) { b.potted=true;b.vx=b.vz=b.wx=b.wz=b.wy=0;onPot(b);continue; }
+    if(POCKETS.some(([x,z])=>inPocket(b,x,z))) { b.potted=true;b.vx=b.vz=b.wx=b.wz=b.wy=0;onPot(b);continue; }
+    if(inMouth(b))continue;
     const bx=WIDTH/2-RADIUS,bz=LENGTH/2-RADIUS;
     if(Math.abs(b.x)>bx){const sign=Math.sign(b.x);b.x=sign*bx;cushion(b,-sign,0);}
     if(Math.abs(b.z)>bz){const sign=Math.sign(b.z);b.z=sign*bz;cushion(b,0,-sign);}
@@ -100,16 +117,23 @@ function potOptions(balls:Ball[],target:number){
 }
 export function computerShot(balls:Ball[],target:number):ComputerShot {
  let best:ComputerShot|undefined,bestScore=-Infinity;
- // Bounded search uses the same fixed-step physics as live play. No aim noise.
- // Wide power and screw/follow range so it plays for position, not just the pot.
- for(const option of potOptions(balls,target).slice(0,5))for(const power of [22,34,48,64,82])for(const top of [-1,-.5,0,.5,1]){
-  const shot={angle:option.angle,power,spin:{top,side:0}},trial=balls.map(b=>({...b}));
-  let first:number|null=null;const pots:Ball[]=[];
-  strike(trial[0],shot.angle,power,shot.spin);
+ const valid=(value:number,first:number|null)=>target===-1?value>1&&value===first:value===target;
+ // Bounded search uses the same fixed-step physics as live play.
+ function play(angle:number,power:number,spin:Spin){
+  const trial=balls.map(b=>({...b}));let first:number|null=null;const pots:Ball[]=[];
+  strike(trial[0],angle,power,spin);
   for(let frame=0;frame<240*30&&moving(trial);frame++)step(trial,1/240,v=>{if(first===null)first=v;},b=>pots.push(b));
-  const valid=(value:number)=>target===-1?value>1&&value===first:value===target;
-  if(moving(trial)||first===null||!valid(first)||pots.some(b=>!valid(b.value)))continue;
-  const points=pots.reduce((sum,b)=>sum+b.value,0);if(!points)continue;
+  const ok=!moving(trial)&&first!==null&&valid(first,first)&&pots.length>0&&pots.every(b=>valid(b.value,first));
+  return {ok,trial,pots};
+ }
+ // Wide power and screw/follow range so it plays for position, not just the pot.
+ for(const option of potOptions(balls,target).slice(0,4))for(const power of [24,40,60,82])for(const top of [-1,-.5,0,.5,1]){
+  const shot={angle:option.angle,power,spin:{top,side:0}},{ok,trial,pots}=play(shot.angle,power,shot.spin);
+  if(!ok)continue;
+  // Weigh the pot by how it survives the same cue error the shot will carry:
+  // long pots and thin cuts are percentage shots, as for a real player.
+  const error=cueError(power,shot.spin),chance=(1+[-1,1].filter(k=>play(shot.angle+k*error,power,shot.spin).ok).length)/3;
+  const points=pots.reduce((sum,b)=>sum+b.value,0);
   const reds=trial.some(b=>b.value===1&&!b.potted);
   for(const ball of pots)if(ball.value>1&&(reds||target===-1))respot(ball,trial);
   const nextTarget=target===1?-1:reds?1:Math.min(...trial.filter(b=>b.value>1&&!b.potted).map(b=>b.value));
@@ -117,7 +141,7 @@ export function computerShot(balls:Ball[],target:number):ComputerShot {
   // Break-building: reward an easy next pot, spare options and a cue ball off
   // the cushions; power itself is barely penalised.
   const cueBall=trial[0],cushion=Math.min(WIDTH/2-Math.abs(cueBall.x),LENGTH/2-Math.abs(cueBall.z));
-  const score=points+(next?10+next.quality*3+Math.min(nextOptions.length,4)*.6:0)-(cushion<RADIUS*3?1.5:0)-power*.004;
+  const score=chance*(points+(next?10+next.quality*3+Math.min(nextOptions.length,4)*.6:0)-(cushion<RADIUS*3?1.5:0))-(1-chance)*8-power*.004;
   if(score>bestScore){bestScore=score;best=shot;}
  }
  if(best)return best;
@@ -131,15 +155,16 @@ export function computerShot(balls:Ball[],target:number):ComputerShot {
  return {angle:ball?Math.atan2(ball.x-cue.x,cue.z-ball.z)*180/Math.PI:0,power:26,spin:{top:0,side:0}};
 }
 
-// The table's pocket window is too narrow for continuous aim noise, so the
-// computer instead misses outright now and then, more often on long shots.
-export const COMPUTER_MISS_BASE = .07, COMPUTER_MISS_PER_METRE = .09;
-export function humaniseShot(balls:Ball[],shot:ComputerShot,random:()=>number=Math.random):ComputerShot {
- const a=shot.angle*Math.PI/180,dx=Math.sin(a),dz=-Math.cos(a),c=balls[0];let reach=Infinity;
- for(const b of balls){if(b===c||b.potted)continue;const x=b.x-c.x,z=b.z-c.z,t=x*dx+z*dz;if(t>0&&x*x+z*z-t*t<4*RADIUS*RADIUS)reach=Math.min(reach,t);}
- if(random()>=COMPUTER_MISS_BASE+COMPUTER_MISS_PER_METRE*Math.min(Number.isFinite(reach)?reach:1,3))return shot;
- // A believable miss: a fraction of a degree, rattling the jaws rather than wild.
- return {...shot,angle:shot.angle+(random()<.5?-1:1)*(.3+random()*.6)};
+// Cue delivery is never perfect. The same error applies to both players, so
+// long pots and thin cuts (where the error is magnified) go in only sometimes.
+// Hitting harder and using side spin widen it, as on a real table.
+export const CUE_ERROR_BASE = .09, CUE_ERROR_POWER = .16, CUE_ERROR_SIDE = .1;
+export function cueError(power:number,spin:Spin){
+ return CUE_ERROR_BASE+CUE_ERROR_POWER*(power/100)**2+CUE_ERROR_SIDE*Math.abs(spin.side);
+}
+export function deliverShot(shot:ComputerShot,random:()=>number=Math.random):ComputerShot {
+ const gauss=Math.sqrt(-2*Math.log(1-random()))*Math.cos(2*Math.PI*random());
+ return {...shot,angle:shot.angle+gauss*cueError(shot.power,shot.spin)};
 }
 
 export function predictShot(balls:Ball[],angle:number,power:number,spin:Spin){

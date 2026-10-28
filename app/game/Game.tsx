@@ -6,7 +6,7 @@
    Scope: simplified single-frame rules; original graphics, no broadcast branding. */
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Button, ButtonLink, FormField, SegmentedControl } from '../components/ui/Primitives';
-import { COLOURS, computerShot, humaniseShot, moving, NAMES, step } from '../../lib/snooker-game';
+import { COLOURS, computerShot, deliverShot, moving, NAMES, step } from '../../lib/snooker-game';
 import { beginShot, finishShot, newMatch } from '../../lib/snooker-match';
 import Table from './Table';
 import { nearestAim } from '../../lib/snooker-aim';
@@ -35,7 +35,7 @@ export default function Game(){
       }
       if(active.current&&!moving(m.balls)&&time>=releaseAt) {active.current=false;finishShot(m);setTop(0);setSide(0);setPrecise(false);if(m.turn===0&&!m.finished)setAngle(nearestAim(m.balls,m.target));setBusy(false);setSnapshot({...m,scores:[...m.scores]});aiAt=time+1200;}
       if(!active.current&&!pending.current&&m.turn===1&&!m.finished&&time>=aiAt){
-        const shot=humaniseShot(m.balls,computerShot(m.balls,m.target));
+        const shot=deliverShot(computerShot(m.balls,m.target));
         const next={id:++sequence.current,angle:shot.angle,power:shot.power,spin:shot.spin,origin:{x:m.balls[0].x,z:m.balls[0].z},startedAt:time,player:1};
         pending.current=next;setStroke(next);setBusy(true);setPreparing(true);
       }
@@ -44,7 +44,7 @@ export default function Game(){
     frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame);
   },[]);
   const m=snapshot,canShoot=!busy&&m.turn===0&&!m.finished;
-  function shoot(){if(!canShoot||pending.current||active.current)return;const ball=match.current.balls[0];const next={id:++sequence.current,angle,power,spin:{top,side},origin:{x:ball.x,z:ball.z},startedAt:performance.now(),player:0};pending.current=next;setStroke(next);setBusy(true);setPreparing(true);}
+  function shoot(){if(!canShoot||pending.current||active.current)return;const ball=match.current.balls[0];const delivered=deliverShot({angle,power,spin:{top,side}});const next={id:++sequence.current,angle:delivered.angle,power,spin:{top,side},origin:{x:ball.x,z:ball.z},startedAt:performance.now(),player:0};pending.current=next;setStroke(next);setBusy(true);setPreparing(true);}
   function placeTip(event:PointerEvent<HTMLButtonElement>){
     if(!canShoot)return;
     const rect=event.currentTarget.getBoundingClientRect();
@@ -105,6 +105,6 @@ export default function Game(){
       {confirmReset&&<div className="snooker-reset" role="group" aria-label="確認重新開局"><span>放棄目前比分並重新開局？</span><Button type="button" onClick={reset}>確認重新開局</Button><Button type="button" variant="secondary" onClick={()=>setConfirmReset(false)}>繼續本局</Button></div>}
     </section>
     </section>
-    <details className="snooker-help"><summary>玩法、瞄準線與模擬範圍</summary><p id="table-aim-help">每次出桿前會先瞄準最近的合法目標球。第一身鏡頭左右滑動可快速轉向；開啟「精細調整」後，同樣的滑動幅度只會輕微調整角度。放開手指保持方向。其他鏡頭可點選球檯瞄準；方向鍵及 Shift 亦可微調。</p><p>金色虛線：瞄準 · 金色空心圈：碰撞位置 · 實線：目標球 · 白色虛線：白球完整預測路線 · 白色空心圈：白球預計停留位置（落袋時不顯示）。路線為估算，隨力度及旋轉改變。側旋主要改變碰庫後的角度。</p><p>先打紅球，再打彩色球。未有入球或犯規便交換出桿；紅球清空後，依黃、綠、啡、藍、粉紅、黑的次序清枱。白球落袋後自動放回空位。電腦會計算入袋角度與路線，使用同一套物理模擬。</p><p>此版本採用簡化規則：自動判定彩球目標，沒有指定球、讓打、自由球或犯規重打。物理包含滑動轉滾動、跟進與拉桿、側旋碰庫、等質量球碰撞及落袋；係數為近似值，未模擬跳球、弧線、袋角及球與球之間的旋轉摩擦。遊戲成績不計入球會 ELO。</p><p>視覺向經典世界桌球賽遊戲及英國電視轉播致意；並非 BBC 或 WSC 官方產品。</p></details>
+    <details className="snooker-help"><summary>玩法、瞄準線與模擬範圍</summary><p id="table-aim-help">每次出桿前會先瞄準最近的合法目標球。第一身鏡頭左右滑動可快速轉向；開啟「精細調整」後，同樣的滑動幅度只會輕微調整角度。放開手指保持方向。其他鏡頭可點選球檯瞄準；方向鍵及 Shift 亦可微調。</p><p>金色虛線：瞄準 · 金色空心圈：碰撞位置 · 實線：目標球 · 白色虛線：白球完整預測路線 · 白色空心圈：白球預計停留位置（落袋時不顯示）。路線為估算，隨力度及旋轉改變。側旋主要改變碰庫後的角度。</p><p>出桿一定有少許誤差，大力及加側旋時誤差較大，你與電腦同樣適用：長台及薄切球會被放大，所以要靠走位留下易打的下一球，而唔係靠運氣。</p><p>先打紅球，再打彩色球。未有入球或犯規便交換出桿；紅球清空後，依黃、綠、啡、藍、粉紅、黑的次序清枱。白球落袋後自動放回空位。電腦會計算入袋角度與路線，使用同一套物理模擬。</p><p>此版本採用簡化規則：自動判定彩球目標，沒有指定球、讓打、自由球或犯規重打。物理包含滑動轉滾動、跟進與拉桿、側旋碰庫、等質量球碰撞及落袋；係數為近似值，未模擬跳球、弧線、袋角及球與球之間的旋轉摩擦。遊戲成績不計入球會 ELO。</p><p>視覺向經典世界桌球賽遊戲及英國電視轉播致意；並非 BBC 或 WSC 官方產品。</p></details>
   </div>;
 }
