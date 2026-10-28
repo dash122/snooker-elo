@@ -52,9 +52,11 @@
   .snooker-strike { position: absolute; bottom: var(--sp-4); right: var(--sp-4); width: 210px; display: grid; gap: var(--sp-2); }
   .snooker-desk .ds-field { color: var(--ds-text-on-brand); }
   .snooker-strike .ds-field small { color: var(--ds-text-on-brand-secondary); }
+  .snooker-strike .ds-field { order: -1; }
   .snooker-strike input { width: 100%; min-height: var(--control-md); accent-color: var(--ds-accent-primary); }
   .snooker-tools { position: absolute; top: var(--sp-2); right: var(--sp-3); max-width: calc(100% - 24px); font-size: var(--fs-caption); z-index: 3; }
   .snooker-tools .ds-button--quiet { color: var(--ds-text-on-brand); }
+  .snooker-tools-back { display: none; }
   .snooker-tools .ds-segmented { background: var(--ds-surface-secondary); color: var(--ds-text-primary); }
   .snooker-tools p { font-size: var(--fs-caption); }
   .snooker-reset { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100% - 32px)); display: flex; flex-wrap: wrap; gap: var(--sp-3); z-index: 4; box-shadow: var(--ds-elevation-5); }
@@ -70,23 +72,57 @@
   .snooker-help { margin-top: var(--sp-6); font-size: var(--fs-sm); color: var(--ds-text-secondary); max-width: 75ch; }
   .snooker-help summary { cursor: pointer; padding-block: var(--sp-3); }
   .snooker-help p { line-height: 1.8; }
+  /* Phones are the primary target: the arena fills the screen below a slim
+     bar (safe areas included for home-screen / standalone use) and the shot
+     controls sit in one thumb-reach dock instead of floating over the cloth. */
   @media(max-width: 599px) {
-    .snooker-game { padding: var(--sp-3); }
-    .snooker-heading h1 { font-size: var(--fs-h2); }
-    .snooker-heading p { font-size: var(--fs-sm); }
-    .snooker-table { height: 82dvh; min-height: 640px; }
-    .snooker-score { grid-template-columns: 1fr 34px 72px 34px 1fr; }
+    .snooker-game { --game-bar: calc(var(--control-md) + var(--sp-4) + env(safe-area-inset-top)); padding: 0; }
+    .snooker-heading { height: var(--game-bar); margin: 0; padding: calc(var(--sp-2) + env(safe-area-inset-top)) max(var(--sp-3), env(safe-area-inset-right)) var(--sp-2) max(var(--sp-3), env(safe-area-inset-left)); }
+    .snooker-heading h1 { font-size: var(--fs-h3); }
+    .snooker-heading p { display: none; }
+    .snooker-arena { display: flex; flex-direction: column; height: calc(100dvh - var(--game-bar)); border-radius: 0; overscroll-behavior: none; }
+    .snooker-table { flex: 1; height: auto; min-height: 0; }
+    .snooker-broadcast { display: none; }
+    /* The dock sits below the cloth, so the cue ball is never hidden behind it. */
+    .snooker-desk { position: static; }
+    .snooker-tools { top: var(--sp-2); right: var(--sp-2); padding: 0 var(--sp-3); }
+    .snooker-tools[open] { padding-bottom: var(--sp-3); }
+    .snooker-score { top: calc(var(--control-md) + var(--sp-4)); grid-template-columns: 1fr 34px 72px 34px 1fr; }
     .snooker-break-balls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .snooker-arena:has(.snooker-score-break) .snooker-status { top: 228px; }
-    .snooker-contact { left: var(--sp-2); bottom: var(--sp-2); grid-template-columns: 84px; max-width: 140px; }
-    .snooker-contact output { max-width: 120px; }
-    .snooker-tip { width: 84px; height: 84px; grid-row: auto; }
-    .snooker-strike { right: var(--sp-2); bottom: var(--sp-2); width: 160px; }
-    .snooker-broadcast span:last-child { display: none; }
-    .snooker-broadcast { padding-inline: var(--sp-3); font-size: var(--fs-label); letter-spacing: 0; }
+    .snooker-status { top: calc(var(--control-md) + var(--sp-4) + 60px); }
+    .snooker-arena:has(.snooker-score-break) .snooker-status { top: calc(var(--control-md) + var(--sp-4) + 128px); }
+    .snooker-shot { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--sp-3); padding: var(--sp-3) max(var(--sp-3), env(safe-area-inset-right)) calc(var(--sp-3) + env(safe-area-inset-bottom)) max(var(--sp-3), env(safe-area-inset-left)); background: var(--ds-canvas-brand-deep); pointer-events: auto; }
+    .snooker-contact, .snooker-strike { position: static; background: none; padding: 0; width: auto; max-width: none; }
+    .snooker-contact { grid-template-columns: auto; }
+    .snooker-contact > strong, .snooker-contact output, .snooker-contact .ds-button, .snooker-strike .ds-field small { display: none; }
+    .snooker-tip { width: 76px; height: 76px; grid-row: auto; }
+    .snooker-strike { grid-template-columns: 1fr 1fr; }
+    .snooker-strike .ds-field { grid-column: 1 / -1; }
+    .snooker-strike .ds-button { width: 100%; padding-inline: var(--sp-2); white-space: nowrap; }
+    .snooker-help { padding-inline: var(--sp-3); }
+  }
+  /* Phones held sideways: no page chrome at all, the table is the screen. */
+  @media(pointer: coarse) and (orientation: landscape) and (max-width: 1180px) {
+    .snooker-game { padding: 0; }
+    .snooker-heading { display: none; }
+    .snooker-arena { border-radius: 0; overscroll-behavior: none; }
+    .snooker-table { height: 100dvh; min-height: 0; }
+    .snooker-broadcast { display: none; }
+    .snooker-score { top: var(--sp-2); width: min(420px, 50%); grid-template-columns: 1fr 34px 72px 34px 1fr; }
+    .snooker-status { top: 64px; left: 25%; right: 25%; }
+    .snooker-arena:has(.snooker-score-break) .snooker-status { top: 120px; }
+    .snooker-tools { top: var(--sp-2); right: max(var(--sp-2), env(safe-area-inset-right)); padding: 0 var(--sp-3); }
+    .snooker-tools[open] { padding-bottom: var(--sp-3); max-height: calc(100dvh - var(--sp-4)); overflow: auto; }
+    .snooker-contact { left: max(var(--sp-2), env(safe-area-inset-left)); bottom: calc(var(--sp-2) + env(safe-area-inset-bottom)); grid-template-columns: auto; padding: var(--sp-2); }
+    .snooker-contact > strong, .snooker-contact output, .snooker-contact .ds-button, .snooker-strike .ds-field small { display: none; }
+    .snooker-tip { width: 72px; height: 72px; grid-row: auto; }
+    .snooker-tools-back { display: inline-flex; }
+    .snooker-strike { right: max(var(--sp-2), env(safe-area-inset-right)); bottom: calc(var(--sp-2) + env(safe-area-inset-bottom)); width: 220px; grid-template-columns: 1fr 1fr; padding: var(--sp-2); }
+    .snooker-strike .ds-field { grid-column: 1 / -1; }
+    .snooker-strike .ds-button { width: 100%; padding-inline: var(--sp-2); white-space: nowrap; }
   }
   @media(max-width: 380px) {
     .snooker-break-balls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .snooker-arena:has(.snooker-score-break) .snooker-status { top: 252px; }
+    .snooker-arena:has(.snooker-score-break) .snooker-status { top: calc(var(--control-md) + var(--sp-4) + 152px); }
   }
 }
