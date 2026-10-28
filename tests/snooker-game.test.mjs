@@ -134,7 +134,8 @@ test('draw drag increases the side-spin rebound angle without flipping the spin'
   assert.ok(b.vx<0);assert.ok(b.vz>0);assert.ok(b.wy>0);
   exits.push(Math.atan2(b.vz,-b.vx));
  }
- assert.ok(exits[0]>exits[1]+.1);assert.ok(exits[1]>exits[2]+.05);
+ // Margins reflect realistic side-spin decay (~10 rad/s²) before the cushion.
+ assert.ok(exits[0]>exits[1]+.06);assert.ok(exits[1]>exits[2]+.03);
 });
 
 test('raised cushion contact couples horizontal-axis spin into side response',()=>{

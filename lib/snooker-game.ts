@@ -7,23 +7,33 @@ export const COLOURS = ['#f8f6e9','#c51e32','#edcd25','#318750','#714127','#2864
 export const NAMES = ['白球','紅球','黃球','綠球','啡球','藍球','粉紅球','黑球'];
 // Snooker tracking found sliding friction 0.178–0.245 and rolling deceleration
 // 0.124–0.126 m/s² (Mathavan et al., 2009). Use the measured midpoints.
-export const CLOTH_SLIDING_FRICTION = .21, CLOTH_ROLLING_DECELERATION = .125;
+export const CLOTH_SLIDING_FRICTION = .21, CLOTH_ROLLING_DECELERATION = .125, SIDE_SPIN_DECAY = 10;
+// Phenolic balls: restitution .94 and ball-ball friction ≈.06 (Alciatore).
+export const BALL_RESTITUTION = .94, BALL_FRICTION = .06;
 // Maximum cue speed matches the measured long backspin shot of an elite player.
 // Lower controls must allow very soft touch shots, so use a nonlinear response.
 // Model the impact as a 0.5 kg effective cue mass against a 0.141 kg ball,
 // with leather-tip restitution .73; these are calibration assumptions.
 export const CUE_SPEED_MIN = .4, CUE_SPEED_MAX = 4.02, POWER_RESPONSE_EXPONENT = 1.3;
 const CUE_EFFECTIVE_MASS = .5, BALL_MASS = .141, TIP_RESTITUTION = .73;
-const CUE_TO_BALL_SPEED = (1 + TIP_RESTITUTION) * CUE_EFFECTIVE_MASS / (CUE_EFFECTIVE_MASS + BALL_MASS);
 export function rack():Ball[] {
   const specs = [[0,-.12,1.22],[2,.29,1.047],[3,-.29,1.047],[4,0,1.047],[5,0,0],[6,0,-.89],[7,0,-1.46]];
   for(let row=0;row<5;row++) for(let col=0;col<=row;col++) specs.push([1,(col-row/2)*RADIUS*2.04,-.98-row*RADIUS*1.77]);
   return specs.map(([value,x,z],id)=>({id,value,x,z,vx:0,vz:0,potted:false}));
 }
 export type Spin={top:number;side:number};
+// Tip offset at full spin is half the ball radius (the miscue limit). An
+// off-centre impulse puts more of the energy into rotation, so the ball leaves
+// slower: the ball's effective mass at offset b is m/(1+5b²/2R²). Side also
+// "squirts" the cue ball slightly away from the side used.
+export const TIP_OFFSET_MAX = .5, SQUIRT_MAX_DEGREES = 1.6;
 export function strike(b:Ball,angle:number,power:number,spin:Spin={top:0,side:0}) {
- const a=angle*Math.PI/180,p=Math.max(0,Math.min(100,power))/100,v=(CUE_SPEED_MIN+(CUE_SPEED_MAX-CUE_SPEED_MIN)*Math.pow(p,POWER_RESPONSE_EXPONENT))*CUE_TO_BALL_SPEED,k=Math.max(1,Math.hypot(spin.top,spin.side));
- b.vx=Math.sin(a)*v;b.vz=-Math.cos(a)*v;b.wx=b.vz/RADIUS*1.25*spin.top/k;b.wz=-b.vx/RADIUS*1.25*spin.top/k;b.wy=v/RADIUS*1.25*spin.side/k;
+ const k=Math.max(1,Math.hypot(spin.top,spin.side)),top=spin.top/k,side=spin.side/k,offset2=TIP_OFFSET_MAX**2*(top*top+side*side);
+ const a=(angle-SQUIRT_MAX_DEGREES*side)*Math.PI/180,p=Math.max(0,Math.min(100,power))/100,cue=CUE_SPEED_MIN+(CUE_SPEED_MAX-CUE_SPEED_MIN)*Math.pow(p,POWER_RESPONSE_EXPONENT);
+ const v=cue*(1+TIP_RESTITUTION)*CUE_EFFECTIVE_MASS/(CUE_EFFECTIVE_MASS+BALL_MASS*(1+2.5*offset2));
+ // Solid sphere: ω = 5vb/(2R²) for tip offset b along each axis.
+ const w=2.5*v*TIP_OFFSET_MAX/RADIUS;
+ b.vx=Math.sin(a)*v;b.vz=-Math.cos(a)*v;b.wx=b.vz/v*w*top;b.wz=-b.vx/v*w*top;b.wy=w*side;
 }
 function cushion(b:Ball,nx:number,nz:number){
  const n=b.vx*nx+b.vz*nz;if(n>=0)return;
@@ -65,7 +75,9 @@ export function step(balls:Ball[],dt:number,onContact:(value:number)=>void,onPot
     // Solid sphere I=2/5 mr². Clamp friction at the slide-to-roll transition.
     if(slip>.00001){const j=Math.min(CLOTH_SLIDING_FRICTION*9.81*dt,slip/3.5),fx=-sx/slip*j,fz=-sz/slip*j;b.vx+=fx;b.vz+=fz;b.wx-=2.5*fz/RADIUS;b.wz+=2.5*fx/RADIUS;}
     else{const v=Math.hypot(b.vx,b.vz),k=v?Math.max(0,v-CLOTH_ROLLING_DECELERATION*dt)/v:0;b.vx*=k;b.vz*=k;b.wx=b.vz/RADIUS;b.wz=-b.vx/RADIUS;}
-    b.wy=Math.sign(b.wy)*Math.max(0,Math.abs(b.wy)-2*dt);
+    // Spin about the vertical axis is bled off by the contact patch: about
+    // 5μR g/2R with μR≈.011 for a napped cloth, roughly 10 rad/s².
+    b.wy=Math.sign(b.wy)*Math.max(0,Math.abs(b.wy)-SIDE_SPIN_DECAY*dt);
     b.x+=b.vx*dt; b.z+=b.vz*dt;
     if(POCKETS.some(([x,z])=>inPocket(b,x,z))) { b.potted=true;b.vx=b.vz=b.wx=b.wz=b.wy=0;onPot(b);continue; }
     if(inMouth(b))continue;
@@ -82,8 +94,18 @@ export function step(balls:Ball[],dt:number,onContact:(value:number)=>void,onPot
     a.x-=nx*overlap;a.z-=nz*overlap;b.x+=nx*overlap;b.z+=nz*overlap;
     const relative=(a.vx-b.vx)*nx+(a.vz-b.vz)*nz;
     if(relative<=0) continue;
-    const impulse=relative*.97;
+    const impulse=relative*(1+BALL_RESTITUTION)/2;
     a.vx-=impulse*nx;a.vz-=impulse*nz;b.vx+=impulse*nx;b.vz+=impulse*nz;
+    // Contact friction "throws" the object ball off the line of centres on cut
+    // shots and with side, and passes a little of the side spin across. Slip
+    // is the tangential surface velocity of a relative to b at the contact.
+    const tx=-nz,tz=nx,slip=(a.vx-b.vx)*tx+(a.vz-b.vz)*tz-RADIUS*((a.wy??0)+(b.wy??0));
+    if(Math.abs(slip)>1e-9){
+      // Both balls: 1/m + R²/I = 3.5/m each, so the pair stops slipping at slip/7.
+      const f=-Math.sign(slip)*Math.min(BALL_FRICTION*impulse,Math.abs(slip)/7);
+      a.vx+=f*tx;a.vz+=f*tz;b.vx-=f*tx;b.vz-=f*tz;
+      a.wy=(a.wy??0)-2.5*f/RADIUS;b.wy=(b.wy??0)-2.5*f/RADIUS;
+    }
     if(a.value===0) onContact(b.value); if(b.value===0) onContact(a.value);
   }
 }
