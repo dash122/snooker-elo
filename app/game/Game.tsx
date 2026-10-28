@@ -101,7 +101,7 @@ export default function Game(){
           <Button type="button" variant="featured" disabled={!canShoot} onClick={shoot}>{preparing?'準備出桿…':busy?'球運行中…':m.finished?'本局完結':m.turn===1?'電腦回合':'出桿'}</Button>
         </div>
       </div>
-      <details className="snooker-tools"><summary>鏡頭與選項</summary><SegmentedControl label="鏡頭" value={camera} onChange={setCamera} items={[{value:'auto',label:'自動鏡頭'},{value:'firstPerson',label:'第一身'},{value:'broadcast',label:'轉播鏡頭'},{value:'overhead',label:'俯瞰球檯'},{value:'player',label:'球員鏡頭'}]}/><p>目標：<b>{m.target===-1?'任何彩色球':NAMES[m.target]??'—'}</b>　單桿：<b>{m.break}</b>　最高單桿：<b>{m.best}</b></p><Button type="button" variant="quiet" onClick={()=>setConfirmReset(true)}>重新開局</Button></details>
+      <details className="snooker-tools"><summary>鏡頭與選項</summary><SegmentedControl label="鏡頭" value={camera} onChange={setCamera} items={[{value:'auto',label:'自動鏡頭'},{value:'firstPerson',label:'第一身'},{value:'broadcast',label:'轉播鏡頭'},{value:'overhead',label:'俯瞰球檯'},{value:'player',label:'球員鏡頭'}]}/><p>目標：<b>{m.target===-1?'任何彩色球':NAMES[m.target]??'—'}</b>　單桿：<b>{m.break}</b>　最高單桿：<b>{m.best}</b></p><Button type="button" variant="quiet" onClick={()=>setConfirmReset(true)}>重新開局</Button><ButtonLink href="/" variant="quiet" className="snooker-tools-back">返回球會</ButtonLink></details>
       {confirmReset&&<div className="snooker-reset" role="group" aria-label="確認重新開局"><span>放棄目前比分並重新開局？</span><Button type="button" onClick={reset}>確認重新開局</Button><Button type="button" variant="secondary" onClick={()=>setConfirmReset(false)}>繼續本局</Button></div>}
     </section>
     </section>
