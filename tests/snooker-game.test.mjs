@@ -212,3 +212,15 @@ test('corner pockets forgive a small aim error on a medium pot but not on a long
  for(const error of [-.3,0,.3])assert.ok(pots(.3,.5,error),'medium straight pot drops within 0.3°');
  assert.ok(pots(.6,1,0));assert.ok(!pots(.6,1,.3)&&!pots(.6,1,-.3),'long pot punishes 0.3°');
 });
+
+test('the professional misses long pots a realistic share of the time',async()=>{
+ const g=await import('../lib/snooker-game.ts'),[px,pz]=g.POCKETS[0];let seed=11;const random=()=>((seed=seed*16807%2147483647)/2147483647);
+ // A full-length pot up the table into a corner, aimed at the middle of its window.
+ const ux=Math.sin(Math.PI/6),uz=Math.cos(Math.PI/6),ox=px+ux*1.6,oz=pz+uz*1.6,gx=ox+ux*2*g.RADIUS,gz=oz+uz*2*g.RADIUS,cx=gx+ux*1.2,cz=gz+uz*1.2;
+ const balls=()=>[{id:0,value:0,x:cx,z:cz,vx:0,vz:0,potted:false},{id:1,value:1,x:ox,z:oz,vx:0,vz:0,potted:false}];
+ const pots=angle=>{const b=balls();g.strike(b[0],angle,45);let p=false;for(let f=0;f<240*20&&g.moving(b);f++)g.step(b,1/240,()=>{},x=>{if(x.value===1)p=true;});return p;};
+ const base=Math.atan2(gx-cx,-(gz-cz))*180/Math.PI,window=[];for(let d=-1;d<=1;d+=.01)if(pots(base+d))window.push(d);
+ const aim=base+(window[0]+window.at(-1))/2;let made=0;
+ for(let i=0;i<80;i++)if(pots(g.deliverShot({angle:aim,power:45,spin:{top:0,side:0}},random,g.PRO_ERROR_SCALE,balls()).angle))made++;
+ assert.ok(made>=32&&made<=64,`pro made ${made}/80 full-length pots`);
+});
