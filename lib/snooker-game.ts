@@ -109,13 +109,42 @@ export function step(balls:Ball[],dt:number,onContact:(value:number)=>void,onPot
     if(a.value===0) onContact(b.value); if(b.value===0) onContact(a.value);
   }
 }
+// Colours by value, highest first: the order of preference for a free spot.
+const SPOT_ORDER=[7,6,5,4,3,2];
+// Respot colours highest value first, so each has priority for its own spot,
+// and the cue ball last.
+export function respotAll(potted:Ball[],balls:Ball[]) {
+  for(const ball of [...potted].sort((a,b)=>b.value-a.value))respot(ball,balls);
+}
 export function respot(ball:Ball,balls:Ball[]) {
   const home=rack().find(b=>b.value===ball.value)!;
-  // Search along the centre line, then the full cloth if the spot is occupied.
+  const others=balls.filter(b=>b!==ball&&!b.potted),gap=.0002;
+  const free=(p:{x:number;z:number})=>others.every(b=>Math.hypot(b.x-p.x,b.z-p.z)>=RADIUS*2+gap/2);
+  const place=(p:{x:number;z:number})=>Object.assign(ball,{x:p.x,z:p.z,potted:false,vx:0,vz:0,wx:0,wz:0,wy:0});
+  if(ball.value>1) {
+    // Rules 3.(b)–(d): own spot; else the highest-value free spot; else as near
+    // as possible to its own spot towards the top cushion; for pink and black
+    // with no room there, as near as possible on the centre line below its spot.
+    const spots=rack();
+    for(const value of [ball.value,...SPOT_ORDER]){const s=spots.find(b=>b.value===value)!;if(free(s))return place(s);}
+    for(const [dir,limit] of [[-1,-LENGTH/2+RADIUS],[1,LENGTH/2-RADIUS]]){
+      const z=nearestFreeOnLine(home.x,home.z,dir,limit,others,gap);
+      if(z!==null)return place({x:home.x,z});
+    }
+  }
+  // Cue ball in hand (and a last resort): its spot, then the first free point.
   const candidates=[{x:home.x,z:home.z}];
   for(let z=-LENGTH/2+.1;z<LENGTH/2-.1;z+=RADIUS*2.1) for(let x=-WIDTH/2+.1;x<WIDTH/2-.1;x+=RADIUS*2.1) candidates.push({x,z});
-  const spot=candidates.find(p=>balls.every(b=>b===ball||b.potted||Math.hypot(b.x-p.x,b.z-p.z)>RADIUS*2.01));
-  if(spot) Object.assign(ball,spot,{potted:false,vx:0,vz:0,wx:0,wz:0,wy:0});
+  const spot=candidates.find(free);
+  if(spot) place(spot);
+}
+// Nearest z to z0 on the line x, moving in direction dir up to limit, where a
+// ball fits without touching any other ball.
+function nearestFreeOnLine(x:number,z0:number,dir:number,limit:number,others:Ball[],gap:number):number|null {
+  const reach=RADIUS*2+gap;
+  const blocks=others.filter(b=>Math.abs(b.x-x)<reach).map(b=>{const h=Math.sqrt(reach*reach-(b.x-x)**2);return [b.z-h,b.z+h];});
+  const candidates=[z0,...blocks.flat()].filter(z=>(z-z0)*dir>=0&&(limit-z)*dir>=0).sort((a,b)=>Math.abs(a-z0)-Math.abs(b-z0));
+  return candidates.find(z=>blocks.every(([lo,hi])=>z<=lo+1e-9||z>=hi-1e-9))??null;
 }
 export type ComputerShot={angle:number;power:number;spin:Spin};
 export type PotOption={angle:number;quality:number;value:number;pocket:number;cut:number};
@@ -168,7 +197,7 @@ function candidates(balls:Ball[],target:number,errorScale:number,wide:boolean):C
   const error=cueError(power,shot.spin)*errorScale,chance=(1+[-1,1].filter(k=>simulate(balls,target,shot.angle+k*error,power,shot.spin).ok).length)/3;
   const points=pots.reduce((sum,b)=>sum+b.value,0),cueEnd={x:trial[0].x,z:trial[0].z};
   const reds=trial.some(b=>b.value===1&&!b.potted);
-  for(const ball of pots)if(ball.value>1&&(reds||target===-1))respot(ball,trial);
+  respotAll(pots.filter(ball=>ball.value>1&&(reds||target===-1)),trial);
   const nextTarget=nextTargetAfter(trial,target),nextOptions=potOptions(trial,nextTarget),next=nextOptions[0];
   // Break-building: an easy next pot, spare options, the cue ball off the
   // cushions, and on a colour the black or pink rather than a low colour.
