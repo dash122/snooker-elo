@@ -6,7 +6,7 @@
    Scope: simplified single-frame rules; original graphics, no broadcast branding. */
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Button, ButtonLink, FormField, SegmentedControl } from '../components/ui/Primitives';
-import { COLOURS, computerShot, deliverShot, moving, NAMES, planShot, PRO_ERROR_SCALE, step, type ShotPlan, type Spin } from '../../lib/snooker-game';
+import { COLOURS, computerShot, deliverShot, moving, NAMES, planShot, PRO_ERROR_SCALE, step, type ComputerShot, type ShotPlan, type Spin } from '../../lib/snooker-game';
 import { describePlan, EMPTY_STATS, focus, record, reviewShot, type CoachStats } from '../../lib/snooker-coach';
 import { beginShot, finishShot, newMatch } from '../../lib/snooker-match';
 import Table from './Table';
@@ -25,10 +25,27 @@ export default function Game(){
   // and running stats (kept on this device) that choose what to practise next.
   const [advice,setAdvice]=useState<{text:string;plan?:ShotPlan}|null>(null),[review,setReview]=useState<{headline:string;tip:string}|null>(null);
   const [stats,setStats]=useState<CoachStats>(EMPTY_STATS),[coachOpen,setCoachOpen]=useState(true);
+  const planner=useRef<Worker|null>(null),requests=useRef(0),thinking=useRef(0),coachRequest=useRef(0);
+  function computerPlayed(id:number,planned:ComputerShot){
+    const m=match.current;if(id!==thinking.current)return;thinking.current=0;
+    if(m.turn!==1||m.finished||active.current||pending.current)return;
+    const shot=deliverShot(planned,Math.random,PRO_ERROR_SCALE);
+    const next={id:++sequence.current,angle:shot.angle,power:shot.power,spin:shot.spin,origin:{x:m.balls[0].x,z:m.balls[0].z},startedAt:performance.now(),player:1};
+    pending.current=next;setStroke(next);setBusy(true);setPreparing(true);
+  }
+  function showAdvice(plan:ShotPlan|null){setAdvice(plan?{text:describePlan(plan),plan}:{text:'冇明顯入球或防守線路，輕力碰最近嘅目標球。'});}
   const yourShot=useRef<{power:number;spin:Spin;advised?:ShotPlan}|null>(null);
   useEffect(()=>{const frame=requestAnimationFrame(()=>{try{const saved=localStorage.getItem('snooker-coach-stats');if(saved)setStats({...EMPTY_STATS,...JSON.parse(saved)});}catch{}});return()=>cancelAnimationFrame(frame);},[]);
   useEffect(()=>{
     let frame=0,last=0,accumulator=0,aiAt=0,releaseAt=0;
+    // The look-ahead search takes a second or two; a worker keeps the table
+    // animating. Without one (old browsers) it runs inline.
+    try{planner.current=new Worker(new URL('./planner.worker.ts',import.meta.url));}catch{planner.current=null;}
+    const worker=planner.current;
+    if(worker)worker.onmessage=(event:MessageEvent<{id:number;shot?:ComputerShot;plan?:ShotPlan|null}>)=>{
+      const {id,shot,plan}=event.data;
+      if(shot)computerPlayed(id,shot);else if(id===coachRequest.current)showAdvice(plan??null);
+    };
     function tick(time:number){
       const m=match.current;
       if(pending.current&&time-pending.current.startedAt>=STROKE_CONTACT_MS){
@@ -50,21 +67,22 @@ export default function Game(){
           setStats(current=>{const next=record(current,r,verdict,breakNow);try{localStorage.setItem('snooker-coach-stats',JSON.stringify(next));}catch{}return next;});
         }
 setTop(0);setSide(0);setPrecise(false);if(m.turn===0&&!m.finished)setAngle(nearestAim(m.balls,m.target));setBusy(false);setSnapshot({...m,scores:[...m.scores]});aiAt=time+1200;}
-      if(!active.current&&!pending.current&&m.turn===1&&!m.finished&&time>=aiAt){
-        const shot=deliverShot(computerShot(m.balls,m.target),Math.random,PRO_ERROR_SCALE);
-        const next={id:++sequence.current,angle:shot.angle,power:shot.power,spin:shot.spin,origin:{x:m.balls[0].x,z:m.balls[0].z},startedAt:time,player:1};
-        pending.current=next;setStroke(next);setBusy(true);setPreparing(true);
+      if(!active.current&&!pending.current&&!thinking.current&&m.turn===1&&!m.finished&&time>=aiAt){
+        const id=++requests.current;thinking.current=id;
+        if(planner.current)planner.current.postMessage({id,kind:'computer',balls:m.balls,target:m.target});
+        else computerPlayed(id,computerShot(m.balls,m.target));
       }
       frame=requestAnimationFrame(tick);
     }
-    frame=requestAnimationFrame(tick);return()=>cancelAnimationFrame(frame);
+    frame=requestAnimationFrame(tick);return()=>{cancelAnimationFrame(frame);worker?.terminate();planner.current=null;};
   },[]);
   const m=snapshot,canShoot=!busy&&m.turn===0&&!m.finished;
-  function shoot(){if(!canShoot||pending.current||active.current)return;const ball=match.current.balls[0];const delivered=deliverShot({angle,power,spin:{top,side}});yourShot.current={power,spin:{top,side},advised:advice?.plan};const next={id:++sequence.current,angle:delivered.angle,power,spin:{top,side},origin:{x:ball.x,z:ball.z},startedAt:performance.now(),player:0};pending.current=next;setStroke(next);setBusy(true);setPreparing(true);}
+  function shoot(){if(!canShoot||pending.current||active.current)return;const ball=match.current.balls[0];const delivered=deliverShot({angle,power,spin:{top,side}});yourShot.current={power,spin:{top,side},advised:advice?.plan};coachRequest.current=0;const next={id:++sequence.current,angle:delivered.angle,power,spin:{top,side},origin:{x:ball.x,z:ball.z},startedAt:performance.now(),player:0};pending.current=next;setStroke(next);setBusy(true);setPreparing(true);}
   function askCoach(){
     if(!canShoot)return;setAdvice({text:'教練分析緊…'});
-    // Let the message paint before the (blocking) search runs.
-    setTimeout(()=>{const plan=planShot(match.current.balls,match.current.target,PRO_ERROR_SCALE);setAdvice(plan?{text:describePlan(plan),plan}:{text:'冇明顯入球或防守線路，輕力碰最近嘅目標球。'});},50);
+    const id=++requests.current;coachRequest.current=id;
+    if(planner.current)planner.current.postMessage({id,kind:'coach',balls:match.current.balls,target:match.current.target});
+    else setTimeout(()=>showAdvice(planShot(match.current.balls,match.current.target,PRO_ERROR_SCALE,true)),50);
   }
   function applyAdvice(){const plan=advice?.plan;if(!plan||!canShoot)return;setAngle(plan.shot.angle);setPower(plan.shot.power);setTop(plan.shot.spin.top);setSide(plan.shot.spin.side);}
   const practice=focus(stats),potRate=stats.shots?Math.round(stats.pots/stats.shots*100):0,positionRate=stats.positions?Math.round(stats.positionsOk/stats.positions*100):0;
@@ -75,7 +93,7 @@ setTop(0);setSide(0);setPrecise(false);if(m.turn===0&&!m.finished)setAngle(neare
     setSide(Math.round(x/length*100)/100);setTop(Math.round(y/length*100)/100);
   }
   const tipDescription=[top>.05?'高桿 / 跟進':top<-.05?'低桿 / 拉桿':'中桿',side>.05?'右旋':side<-.05?'左旋':'無側旋'].join(' · ');
-  function reset(){active.current=false;pending.current=null;setStroke(null);setPreparing(false);const next=newMatch();match.current=next;setSnapshot(next);setBusy(false);setAngle(nearestAim(next.balls,next.target));setPrecise(false);setTop(0);setSide(0);setConfirmReset(false);}
+  function reset(){thinking.current=0;coachRequest.current=0;active.current=false;pending.current=null;setStroke(null);setPreparing(false);const next=newMatch();match.current=next;setSnapshot(next);setBusy(false);setAngle(nearestAim(next.balls,next.target));setPrecise(false);setTop(0);setSide(0);setConfirmReset(false);}
   return <div role="main" className="snooker-game">
     <div className="snooker-heading"><div><h1>3D 桌球</h1><p>一張球檯，一場較量。</p></div><ButtonLink href="/" variant="secondary">返回球會</ButtonLink></div>
     <section className="snooker-arena" aria-label="桌球對戰">
