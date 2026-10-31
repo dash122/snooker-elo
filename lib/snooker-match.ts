@@ -1,4 +1,4 @@
-import { rack, respot, strike, type Spin, type Ball } from './snooker-game.ts';
+import { rack, respot, respotAll, strike, type Spin, type Ball } from './snooker-game.ts';
 export type Match={balls:Ball[];scores:number[];turn:number;target:number;break:number;breakBalls:number[];best:number;first:number|null;potted:Ball[];shotTarget:number;finished:boolean;message:string};
 export function newMatch():Match{return {balls:rack(),scores:[0,0],turn:0,target:1,break:0,breakBalls:[],best:0,first:null,potted:[],shotTarget:1,finished:false,message:'你先開波。左右滑動轉向，開啟精細調整可慢慢修正角度。'};}
 export function beginShot(m:Match,angle:number,power:number,spin:Spin={top:0,side:0}){
@@ -11,7 +11,7 @@ export function finishShot(m:Match){
   const penalty=Math.max(4,m.first??0,...m.potted.map(b=>b.value),m.shotTarget);
   const points=m.potted.reduce((sum,b)=>sum+b.value,0);
   // Colours return during the red/colour phase, including fouled colours.
-  for(const b of m.potted) if(b.value===0||(b.value>1&&(reds||m.shotTarget===-1||foul)))respot(b,m.balls);
+  respotAll(m.potted.filter(b=>b.value===0||(b.value>1&&(reds||m.shotTarget===-1||foul))),m.balls);
   if(foul){m.scores[1-m.turn]+=penalty;m.turn=1-m.turn;m.break=0;m.breakBalls=[];m.message=`犯規，對手加 ${penalty} 分。`;}
   else if(points){m.scores[m.turn]+=points;m.break+=points;m.breakBalls=[...m.breakBalls,...m.potted.map(b=>b.value)];m.best=Math.max(m.best,m.break);m.message=`入球得 ${points} 分，繼續出桿。`;}
   else {m.turn=1-m.turn;m.break=0;m.breakBalls=[];m.message='未有入球，交換出桿。';}
