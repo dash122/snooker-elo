@@ -6,7 +6,7 @@
    Scope: simplified single-frame rules; original graphics, no broadcast branding. */
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Button, ButtonLink, FormField, SegmentedControl } from '../components/ui/Primitives';
-import { COLOURS, computerShot, deliverShot, moving, NAMES, planShot, PRO_ERROR_SCALE, step, type ComputerShot, type ShotPlan, type Spin } from '../../lib/snooker-game';
+import { COLOURS, computerShot, deliverShot, moving, NAMES, planShot, PLAYER_ERROR_SCALE, PRO_ERROR_SCALE, step, type ComputerShot, type ShotPlan, type Spin } from '../../lib/snooker-game';
 import { describePlan, EMPTY_STATS, focus, record, reviewShot, type CoachStats } from '../../lib/snooker-coach';
 import { beginShot, finishShot, newMatch } from '../../lib/snooker-match';
 import Table from './Table';
@@ -29,7 +29,7 @@ export default function Game(){
   function computerPlayed(id:number,planned:ComputerShot){
     const m=match.current;if(id!==thinking.current)return;thinking.current=0;
     if(m.turn!==1||m.finished||active.current||pending.current)return;
-    const shot=deliverShot(planned,Math.random,PRO_ERROR_SCALE);
+    const shot=deliverShot(planned,Math.random,PRO_ERROR_SCALE,m.balls);
     const next={id:++sequence.current,angle:shot.angle,power:shot.power,spin:shot.spin,origin:{x:m.balls[0].x,z:m.balls[0].z},startedAt:performance.now(),player:1};
     pending.current=next;setStroke(next);setBusy(true);setPreparing(true);
   }
@@ -77,7 +77,7 @@ setTop(0);setSide(0);setPrecise(false);if(m.turn===0&&!m.finished)setAngle(neare
     frame=requestAnimationFrame(tick);return()=>{cancelAnimationFrame(frame);worker?.terminate();planner.current=null;};
   },[]);
   const m=snapshot,canShoot=!busy&&m.turn===0&&!m.finished;
-  function shoot(){if(!canShoot||pending.current||active.current)return;const ball=match.current.balls[0];const delivered=deliverShot({angle,power,spin:{top,side}});yourShot.current={power,spin:{top,side},advised:advice?.plan};coachRequest.current=0;const next={id:++sequence.current,angle:delivered.angle,power,spin:{top,side},origin:{x:ball.x,z:ball.z},startedAt:performance.now(),player:0};pending.current=next;setStroke(next);setBusy(true);setPreparing(true);}
+  function shoot(){if(!canShoot||pending.current||active.current)return;const ball=match.current.balls[0];const delivered=deliverShot({angle,power,spin:{top,side}},Math.random,PLAYER_ERROR_SCALE,match.current.balls);yourShot.current={power,spin:{top,side},advised:advice?.plan};coachRequest.current=0;const next={id:++sequence.current,angle:delivered.angle,power,spin:{top,side},origin:{x:ball.x,z:ball.z},startedAt:performance.now(),player:0};pending.current=next;setStroke(next);setBusy(true);setPreparing(true);}
   function askCoach(){
     if(!canShoot)return;setAdvice({text:'教練分析緊…'});
     const id=++requests.current;coachRequest.current=id;
@@ -157,6 +157,6 @@ setTop(0);setSide(0);setPrecise(false);if(m.turn===0&&!m.finished)setAngle(neare
       {confirmReset&&<div className="snooker-reset" role="group" aria-label="確認重新開局"><span>放棄目前比分並重新開局？</span><Button type="button" onClick={reset}>確認重新開局</Button><Button type="button" variant="secondary" onClick={()=>setConfirmReset(false)}>繼續本局</Button></div>}
     </section>
     </section>
-    <details className="snooker-help"><summary>玩法、瞄準線與模擬範圍</summary><p id="table-aim-help">每次出桿前會先瞄準最近的合法目標球。第一身鏡頭左右滑動可快速轉向；開啟「精細調整」後，同樣的滑動幅度只會輕微調整角度。放開手指保持方向。其他鏡頭可點選球檯瞄準；方向鍵及 Shift 亦可微調。</p><p>金色虛線：瞄準 · 金色空心圈：碰撞位置 · 實線：目標球 · 白色虛線：白球完整預測路線 · 白色空心圈：白球預計停留位置（落袋時不顯示）。路線為估算，隨力度及旋轉改變。側旋主要改變碰庫後的角度。</p><p>出桿一定有少許誤差，大力及加側旋時誤差較大，你與電腦同樣適用：長台及薄切球會被放大，所以要靠走位留下易打的下一球，而唔係靠運氣。</p><p>先打紅球，再打彩色球。未有入球或犯規便交換出桿；紅球清空後，依黃、綠、啡、藍、粉紅、黑的次序清枱。白球落袋後自動放回空位。電腦以職業球員水準出桿（誤差約為一般球員四分之一），會計算入球把握、走位及防守，使用同一套物理模擬。「教練建議」用同一套思考為你分析，入球率、走位成功率同最高分只儲存在此裝置，用嚟揀你下一步練習重點。</p><p>此版本採用簡化規則：自動判定彩球目標，沒有指定球、讓打、自由球或犯規重打。物理包含滑動轉滾動、跟進與拉桿、側旋碰庫、等質量球碰撞及落袋；係數為近似值，未模擬跳球、弧線、袋角及球與球之間的旋轉摩擦。遊戲成績不計入球會 ELO。</p><p>視覺向經典世界桌球賽遊戲及英國電視轉播致意；並非 BBC 或 WSC 官方產品。</p></details>
+    <details className="snooker-help"><summary>玩法、瞄準線與模擬範圍</summary><p id="table-aim-help">每次出桿前會先瞄準最近的合法目標球。第一身鏡頭左右滑動可快速轉向；開啟「精細調整」後，同樣的滑動幅度只會輕微調整角度。放開手指保持方向。其他鏡頭可點選球檯瞄準；方向鍵及 Shift 亦可微調。</p><p>金色虛線：瞄準 · 金色空心圈：碰撞位置 · 實線：目標球 · 白色虛線：白球完整預測路線 · 白色空心圈：白球預計停留位置（落袋時不顯示）。路線為估算，隨力度及旋轉改變。側旋主要改變碰庫後的角度。</p><p>出桿一定有少許誤差，大力及加側旋時誤差較大，判斷撞點亦有誤差（薄切時最明顯），你與電腦同樣適用：長台及薄切球會被放大，所以要靠走位留下易打的下一球，而唔係靠運氣。</p><p>先打紅球，再打彩色球。未有入球或犯規便交換出桿；紅球清空後，依黃、綠、啡、藍、粉紅、黑的次序清枱。白球落袋後自動放回空位。電腦以頂級職業球員水準出桿（全枱長台約六成入，薄切同長台一樣會失手），會計算入球把握、走位及防守，使用同一套物理模擬。「教練建議」用同一套思考為你分析，入球率、走位成功率同最高分只儲存在此裝置，用嚟揀你下一步練習重點。</p><p>此版本採用簡化規則：自動判定彩球目標，沒有指定球、讓打、自由球或犯規重打。物理包含滑動轉滾動、跟進與拉桿、側旋碰庫、等質量球碰撞及落袋；係數為近似值，未模擬跳球、弧線、袋角及球與球之間的旋轉摩擦。遊戲成績不計入球會 ELO。</p><p>視覺向經典世界桌球賽遊戲及英國電視轉播致意；並非 BBC 或 WSC 官方產品。</p></details>
   </div>;
 }
