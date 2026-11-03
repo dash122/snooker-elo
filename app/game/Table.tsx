@@ -64,13 +64,24 @@ export default function Table({balls,angle,power,spin,camera,precise,aiming,stro
     const contactMaterial=new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(shadowCanvas),transparent:true,depthWrite:false});
     const contacts=live.current.balls.map(()=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(RADIUS*3.6,RADIUS*3.6),contactMaterial);m.rotation.x=-Math.PI/2;scene.add(m);return m;});
     const meshes=live.current.balls.map(b=>{const mesh=new THREE.Mesh(new THREE.SphereGeometry(RADIUS,40,28),new THREE.MeshPhysicalMaterial({color:COLOURS[b.value],roughness:.12,metalness:0,clearcoat:.8,clearcoatRoughness:.08}));mesh.castShadow=true;scene.add(mesh);return mesh;});
-    const aim=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineDashedMaterial({color:'#f7df9a',dashSize:.045,gapSize:.03,transparent:true,opacity:.7}));scene.add(aim);
-    const objectAim=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:'#f7df9a'}));scene.add(objectAim);
-    const cueAim=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineDashedMaterial({color:'#ffffff',dashSize:.035,gapSize:.025}));scene.add(cueAim);
-    const ghost=new THREE.Mesh(new THREE.TorusGeometry(RADIUS,.002,6,32),new THREE.MeshBasicMaterial({color:'#f7df9a'}));ghost.rotation.x=-Math.PI/2;scene.add(ghost);
+    function corridor(color:string){
+      const mesh=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.24,side:THREE.DoubleSide,depthWrite:false}));scene.add(mesh);return mesh;
+    }
+    const objectAim=corridor('#f7df9a'),cueAim=corridor('#ffffff');
     let predictionKey='';
-    const landing=new THREE.Mesh(new THREE.TorusGeometry(RADIUS,.003,8,40),new THREE.MeshBasicMaterial({color:'#ffffff'}));landing.rotation.x=-Math.PI/2;scene.add(landing);
-    let landingPotted=false;
+    function updateCorridor(mesh:THREE.Mesh,points:{x:number;z:number}[],spread:number){
+      const vertices:number[]=[],indices:number[]=[];let distance=0;
+      points.forEach((p,i)=>{
+        const previous=points[Math.max(0,i-1)],next=points[Math.min(points.length-1,i+1)];
+        if(i)distance+=Math.hypot(p.x-previous.x,p.z-previous.z);
+        const dx=next.x-previous.x,dz=next.z-previous.z,length=Math.hypot(dx,dz)||1;
+        const width=Math.min(.09,.008+distance*spread);
+        for(const side of [-1,1])vertices.push(Math.max(-WIDTH/2,Math.min(WIDTH/2,p.x+side*dz/length*width)),.006,Math.max(-LENGTH/2,Math.min(LENGTH/2,p.z-side*dx/length*width)));
+        if(i){const n=i*2;indices.push(n-2,n-1,n,n-1,n+1,n);}
+      });
+      mesh.geometry.dispose();mesh.geometry=new THREE.BufferGeometry();
+      mesh.geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));mesh.geometry.setIndex(indices);mesh.geometry.computeBoundingSphere();
+    }
     const cueModel=createCue(),cue=cueModel.root;scene.add(cue);
     const rest=new THREE.Group();
     const restPole=new THREE.Mesh(new THREE.CylinderGeometry(.005,.008,1,10),new THREE.MeshStandardMaterial({color:'#8a6540'}));rest.add(restPole);
@@ -132,18 +143,12 @@ export default function Table({balls,angle,power,spin,camera,precise,aiming,stro
     canvas.addEventListener('lostpointercapture',cancel);
     let resizeFrame=0;
     const observer=new ResizeObserver(()=>{cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(()=>{const w=element.clientWidth,h=element.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);view.aspect=w/h;view.updateProjectionMatrix();});});observer.observe(element);
-    let frame=0,previousRender=performance.now(),displayAngle=live.current.angle;
+    let frame=0,previousRender=performance.now();
     let featherStarted=performance.now(),wasAiming=false,lastStroke=-1,initialWithdrawal=CUE_ADDRESS_GAP,lastWithdrawal=CUE_ADDRESS_GAP;
     function render(){
       const now=performance.now(),renderDt=Math.min((now-previousRender)/1000,.05);previousRender=now;
-      const input=live.current;
-      // Ease cue, camera and prediction together along the shortest arc.
-      const targetAngle=input.aiming?input.angle:input.stroke?.angle??input.angle;
-      const delta=((targetAngle-displayAngle+180)%360+360)%360-180;
-      displayAngle=input.camera==='firstPerson'&&input.aiming&&!reducedMotion
-        ?displayAngle+delta*(1-Math.exp(-renderDt/.055)):targetAngle;
-      if(Math.abs(delta)<.0001)displayAngle=targetAngle;
-      const state={...input,angle:displayAngle};
+      // The visible preview uses the exact angle captured when shooting.
+      const state=live.current;
       const cameraOrigin=state.aiming?state.balls[0]:state.stroke?.origin??state.balls[0];
       const cameraAngle=(state.aiming?state.angle:state.stroke?.angle??state.angle)*Math.PI/180;
       const firstPerson=state.camera==='firstPerson';
@@ -188,18 +193,13 @@ export default function Table({balls,angle,power,spin,camera,precise,aiming,stro
         view.position.set(player.x+dx*.3-dz*2.5,1.35,player.z+dz*.3+dx*2.5);
         view.lookAt(player.x+dx*.45,-.03,player.z+dz*.45);
       }
-      aim.visible=state.aiming;cue.visible=state.aiming||performing;
-      objectAim.visible=cueAim.visible=ghost.visible=state.aiming;
-      landing.visible=state.aiming&&!landingPotted;
-      const key=`${state.angle}:${state.power}:${state.spin.top}:${state.spin.side}:${state.balls.map(b=>`${b.x},${b.z},${b.potted}`).join(';')}`;
+      cue.visible=state.aiming||performing;
+      objectAim.visible=cueAim.visible=state.aiming;
+      const key=JSON.stringify([state.angle,state.power,state.spin,state.balls]);
       if(state.aiming&&key!==predictionKey){
         predictionKey=key;const prediction=predictShot(state.balls,state.angle,state.power,state.spin);
-        landingPotted=prediction.cueEnd.potted;landing.visible=!landingPotted;
-        landing.position.set(prediction.cueEnd.x,.038,prediction.cueEnd.z);
-        ghost.position.set(prediction.contact.x,.035,prediction.contact.z);
-        const update=(line:THREE.Line,points:{x:number;z:number}[])=>{line.geometry.dispose();line.geometry=new THREE.BufferGeometry().setFromPoints(points.map(p=>new THREE.Vector3(p.x,.036,p.z)));line.computeLineDistances();};
-        update(objectAim,prediction.object?[prediction.object,...prediction.objectPath]:[]);update(cueAim,prediction.cuePath);
-        const positions=aim.geometry.attributes.position as THREE.BufferAttribute;positions.setXYZ(0,b.x,.035,b.z);positions.setXYZ(1,prediction.contact.x,.035,prediction.contact.z);positions.needsUpdate=true;aim.computeLineDistances();
+        updateCorridor(objectAim,prediction.objectPath,prediction.spread);
+        updateCorridor(cueAim,prediction.cuePath,prediction.spread);
       }
       cueModel.setExtension(pose?.extension??0);
       // Contact lies on the spherical surface, closer to the centre plane for off-centre hits.

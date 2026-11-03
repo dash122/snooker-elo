@@ -241,8 +241,8 @@ function planSafety(balls:Ball[],target:number):ShotPlan|null {
 }
 /** Cue error relative to a club player. Calibrated so the professional pots
  * a full-length ball about 60% of the time and a long 30° cut about 75%, like
- * a top player; the human player is a little more forgiving than a club player. */
-export const PRO_ERROR_SCALE = .32, PLAYER_ERROR_SCALE = .7;
+ * a top player; human delivery uses a much smaller error to keep shots close to the preview. */
+export const PRO_ERROR_SCALE = .32, PLAYER_ERROR_SCALE = .12;
 export const COMPUTER_ERROR_SCALE = 1;
 export function computerShot(balls:Ball[],target:number,errorScale=COMPUTER_ERROR_SCALE,lookAhead=false):ComputerShot {
  const plan=planShot(balls,target,errorScale,lookAhead);
@@ -293,13 +293,18 @@ export function predictShot(balls:Ball[],angle:number,power:number,spin:Spin){
  for(let i=0;i<240*120;i++){
    step(copies,1/240,()=>{},()=>{});
    const settled=!moving(copies);
-   if(i%12===0||settled){
+   if(i%2===0||settled){
      cuePath.push({x:copies[0].x,z:copies[0].z});
      const b=copies.find(b=>b.id===object?.id);
-     if(b&&!b.potted)objectPath.push({x:b.x,z:b.z});
+     if(b&&!b.potted&&(objectPath.length||Math.hypot(b.x-object!.x,b.z-object!.z)>1e-8))objectPath.push({x:b.x,z:b.z});
    }
    if(settled)break;
  }
  const cueEnd={x:copies[0].x,z:copies[0].z,potted:copies[0].potted};
- return {contact,object,cuePath,objectPath,cueEnd};
+ // A visual sensitivity allowance, independent of random cue delivery.
+ const approach=Math.hypot(contact.x-c.x,contact.z-c.z);
+ const alignment=object?((object.x-contact.x)*dx+(object.z-contact.z)*dz)/(2*RADIUS):1;
+ const cut=Math.sqrt(Math.max(0,1-alignment*alignment));
+ const spread=.004+Math.min(1,approach/LENGTH)*.009+cut*.014+(power/100)**2*.006+Math.hypot(spin.top,spin.side)*.004;
+ return {contact,object,cuePath,objectPath,cueEnd,spread};
 }
