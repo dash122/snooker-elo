@@ -235,3 +235,22 @@ test('the professional misses long pots a realistic share of the time',async()=>
  assert.ok(clubMade>0&&clubMade<made*.75,`club made ${clubMade}/80 versus pro ${made}/80`);
  assert.deepEqual(table,before);
 });
+
+
+test('preview sensitivity widens for longer, thinner and more forceful shots',()=>{
+ const spin={top:0,side:0};
+ const easy=predictShot([ball(0,0,.3),ball(1,0,0)],0,20,spin);
+ const long=predictShot([ball(0,0,1.4),ball(1,0,0)],0,20,spin);
+ const thin=predictShot([ball(0,0,.3),ball(1,.045,0)],0,20,spin);
+ const hard=predictShot([ball(0,0,.3),ball(1,0,0)],0,90,{top:.8,side:.5});
+ assert.ok(long.spread>easy.spread);assert.ok(thin.spread>easy.spread);assert.ok(hard.spread>easy.spread);
+});
+
+test('human delivery stays much closer to the preview than club delivery',async()=>{
+ const {deliverShot,PLAYER_ERROR_SCALE}=await import('../lib/snooker-game.ts');
+ const shot={angle:15,power:100,spin:{top:0,side:1}};
+ const human=deliverShot(shot,()=>.6,PLAYER_ERROR_SCALE);
+ const club=deliverShot(shot,()=>.6,1);
+ assert.ok(Math.abs(human.angle-shot.angle)<Math.abs(club.angle-shot.angle)*.2);
+ assert.equal(human.power,shot.power);assert.deepEqual(human.spin,shot.spin);
+});
