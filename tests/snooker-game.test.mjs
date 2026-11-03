@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {rack,step,moving,RADIUS,computerShot,strike,CUE_SPEED_MIN,CUE_SPEED_MAX,POWER_RESPONSE_EXPONENT,CLOTH_ROLLING_DECELERATION} from '../lib/snooker-game.ts';
+import {rack,step,moving,respot,respotAll,RADIUS,computerShot,strike,CUE_SPEED_MIN,CUE_SPEED_MAX,POWER_RESPONSE_EXPONENT,CLOTH_ROLLING_DECELERATION} from '../lib/snooker-game.ts';
 import {newMatch,beginShot,finishShot} from '../lib/snooker-match.ts';
 
 test('rack contains 15 reds, six colours and a cue ball without overlaps',()=>{
@@ -211,4 +211,36 @@ test('corner pockets forgive a small aim error on a medium pot but not on a long
  };
  for(const error of [-.3,0,.3])assert.ok(pots(.3,.5,error),'medium straight pot drops within 0.3°');
  assert.ok(pots(.6,1,0));assert.ok(!pots(.6,1,.3)&&!pots(.6,1,-.3),'long pot punishes 0.3°');
+});
+test('occupied own spot respots a colour on the highest free spot',()=>{
+  const balls=rack(),pink=balls.find(b=>b.value===6),black=balls.find(b=>b.value===7),green=balls.find(b=>b.value===3);
+  const blackSpot={x:black.x,z:black.z},pinkSpot={x:pink.x,z:pink.z};
+  // Black is potted; the pink has been moved and a red sits on the black spot.
+  const red=balls.find(b=>b.value===1);Object.assign(red,{x:blackSpot.x,z:blackSpot.z});black.potted=true;Object.assign(pink,{x:.5,z:.5});
+  respot(black,balls);assert.deepEqual({x:black.x,z:black.z},pinkSpot);assert.equal(black.potted,false);
+  green.potted=true;respot(green,balls);
+  const blue=balls.find(b=>b.value===5);assert.notDeepEqual({x:green.x,z:green.z},{x:blue.x,z:blue.z});
+});
+test('with every spot occupied a colour goes towards the top cushion, then below for pink and black',()=>{
+  const balls=rack(),spots=balls.filter(b=>b.value>1).map(b=>({value:b.value,x:b.x,z:b.z}));
+  const reds=balls.filter(b=>b.value===1);
+  spots.forEach((s,i)=>Object.assign(reds[i],{x:s.x,z:s.z}));
+  const green=balls.find(b=>b.value===3),greenSpot=spots.find(s=>s.value===3);
+  for(const b of balls)if(b.value>1){b.potted=true;Object.assign(b,{x:9,z:9});}
+  respot(green,balls);
+  assert.equal(green.x,greenSpot.x);assert.ok(green.z<greenSpot.z);assert.ok(Math.abs(green.z-(greenSpot.z-RADIUS*2))<.001);
+  // Fill the space between the black spot and the top cushion.
+  const black=balls.find(b=>b.value===7),blackSpot=spots.find(s=>s.value===7),extra=reds.slice(6);
+  for(let i=0;i<extra.length&&i<6;i++)Object.assign(extra[i],{x:0,z:blackSpot.z-RADIUS*2.02*(i+1)});
+  assert.ok(extra[5].z<-LENGTH/2+RADIUS);
+  respot(black,balls);
+  assert.equal(black.x,0);assert.ok(black.z>blackSpot.z);
+  for(const b of balls)if(b!==black&&!b.potted)assert.ok(Math.hypot(b.x-black.x,b.z-black.z)>=RADIUS*2);
+});
+test('colours potted together respot in value order',()=>{
+  const balls=rack(),pink=balls.find(b=>b.value===6),black=balls.find(b=>b.value===7),blackSpot={x:black.x,z:black.z},pinkSpot={x:pink.x,z:pink.z};
+  const red=balls.find(b=>b.value===1);Object.assign(red,{x:pinkSpot.x,z:pinkSpot.z});
+  pink.potted=black.potted=true;respotAll([pink,black],balls);
+  assert.deepEqual({x:black.x,z:black.z},blackSpot);
+  assert.ok(Math.hypot(pink.x-blackSpot.x,pink.z-blackSpot.z)>=RADIUS*2);
 });
