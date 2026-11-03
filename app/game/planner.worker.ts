@@ -5,6 +5,6 @@ import { computerShot, planShot, PRO_ERROR_SCALE, type Ball } from '../../lib/sn
 type Request={id:number;kind:'computer'|'coach';balls:Ball[];target:number};
 self.onmessage=(event:MessageEvent<Request>)=>{
   const {id,kind,balls,target}=event.data;
-  if(kind==='computer')self.postMessage({id,shot:computerShot(balls,target,PRO_ERROR_SCALE,true)});
+  if(kind==='computer')self.postMessage({id,shot:computerShot(balls,target)});
   else self.postMessage({id,plan:planShot(balls,target,PRO_ERROR_SCALE,true)});
 };

@@ -6,7 +6,7 @@
    Scope: simplified single-frame rules; original graphics, no broadcast branding. */
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { Button, ButtonLink, FormField, SegmentedControl } from '../components/ui/Primitives';
-import { COLOURS, computerShot, deliverShot, moving, NAMES, planShot, PLAYER_ERROR_SCALE, PRO_ERROR_SCALE, step, type ComputerShot, type ShotPlan, type Spin } from '../../lib/snooker-game';
+import { COLOURS, computerShot, deliverComputerShot, deliverShot, moving, NAMES, planShot, PLAYER_ERROR_SCALE, PRO_ERROR_SCALE, step, type ComputerShot, type ShotPlan, type Spin } from '../../lib/snooker-game';
 import { describePlan, EMPTY_STATS, focus, record, reviewShot, type CoachStats } from '../../lib/snooker-coach';
 import { beginShot, finishShot, newMatch } from '../../lib/snooker-match';
 import Table from './Table';
@@ -29,7 +29,7 @@ export default function Game(){
   function computerPlayed(id:number,planned:ComputerShot){
     const m=match.current;if(id!==thinking.current)return;thinking.current=0;
     if(m.turn!==1||m.finished||active.current||pending.current)return;
-    const shot=deliverShot(planned,Math.random,PRO_ERROR_SCALE,m.balls);
+    const shot=deliverComputerShot(planned,m.balls);
     const next={id:++sequence.current,angle:shot.angle,power:shot.power,spin:shot.spin,origin:{x:m.balls[0].x,z:m.balls[0].z},startedAt:performance.now(),player:1};
     pending.current=next;setStroke(next);setBusy(true);setPreparing(true);
   }
