@@ -165,7 +165,13 @@ function candidates(balls:Ball[],target:number,errorScale:number,wide:boolean):C
   const shot={angle:option.angle,power,spin:{top,side:0}},{ok,trial,pots}=simulate(balls,target,shot.angle,power,shot.spin);
   if(!ok)continue;
   // Long pots and thin cuts are percentage shots, as for a real player.
-  const error=cueError(power,shot.spin)*errorScale,chance=(1+[-1,1].filter(k=>simulate(balls,target,shot.angle+k*error,power,shot.spin).ok).length)/3;
+  const error=cueError(power,shot.spin,aimReach(balls,shot.angle))*errorScale;
+  // Judge the pot from the best aim nearby (throw moves it off the ghost ball).
+  const hits=[-2,-1,0,1,2].map(k=>k===0||simulate(balls,target,shot.angle+k*error,power,shot.spin).ok?1:0);
+  // Normal mass of each one-sigma bin, so a narrow window reads as the
+  // percentage shot it is rather than a certainty.
+  const mass=(shift:number)=>[.061,.242,.383,.242,.061].reduce((sum,w,i)=>sum+w*(hits[i+shift]??0),0);
+  const chance=Math.max(mass(-1),mass(0),mass(1));
   const points=pots.reduce((sum,b)=>sum+b.value,0),cueEnd={x:trial[0].x,z:trial[0].z};
   const reds=trial.some(b=>b.value===1&&!b.potted);
   for(const ball of pots)if(ball.value>1&&(reds||target===-1))respot(ball,trial);
@@ -195,9 +201,25 @@ export function planShot(balls:Ball[],target:number,errorScale=1,lookAhead=false
    if(score>bestScore){bestScore=score;best=c.plan;}
   }
  }
+ if(best?.kind==='pot')best={...best,shot:{...best.shot,angle:allowForThrow(balls,target,best.shot)}};
  if(best&&best.chance>.5)return best;
  const safety=planSafety(balls,target);
  return safety??best;
+}
+// Contact friction throws a cut ball off the line of centres, so the
+// ghost-ball aim sits near one edge of the window that pots it. Like a
+// professional allowing for throw, aim at the middle of that window instead.
+function allowForThrow(balls:Ball[],target:number,shot:ComputerShot){
+ const pots:number[]=[];
+ for(let d=-1;d<=1.0001;d+=.08)if(simulate(balls,target,shot.angle+d,shot.power,shot.spin).ok)pots.push(d);
+ if(!pots.length)return shot.angle;
+ // The contiguous run nearest the ghost-ball aim.
+ let start=0,bestRun:[number,number]=[pots[0],pots[0]],bestDistance=Infinity;
+ for(let i=1;i<=pots.length;i++)if(i===pots.length||pots[i]-pots[i-1]>.09){
+  const run:[number,number]=[pots[start],pots[i-1]],distance=run[0]<=0&&run[1]>=0?0:Math.min(Math.abs(run[0]),Math.abs(run[1]));
+  if(distance<bestDistance){bestDistance=distance;bestRun=run;}start=i;
+ }
+ return shot.angle+(bestRun[0]+bestRun[1])/2;
 }
 // Safety: touch a legal ball and leave the opponent nothing to pot, with the
 // cue ball as far from their target as the table allows.
@@ -217,8 +239,10 @@ function planSafety(balls:Ball[],target:number):ShotPlan|null {
  }
  return best;
 }
-/** The professional's cue error relative to a club player. */
-export const PRO_ERROR_SCALE = .25;
+/** Cue error relative to a club player. Calibrated so the professional pots
+ * a full-length ball about 60% of the time and a long 30° cut about 75%, like
+ * a top player; the human player is a little more forgiving than a club player. */
+export const PRO_ERROR_SCALE = .32, PLAYER_ERROR_SCALE = .7;
 export function computerShot(balls:Ball[],target:number,errorScale=PRO_ERROR_SCALE,lookAhead=true):ComputerShot {
  const plan=planShot(balls,target,errorScale,lookAhead);
  if(plan)return plan.shot;
@@ -231,12 +255,21 @@ export function computerShot(balls:Ball[],target:number,errorScale=PRO_ERROR_SCA
 // is magnified) go in only sometimes. Hitting harder and using side spin widen
 // it, as on a real table. `errorScale` sets the player's standard.
 export const CUE_ERROR_BASE = .06, CUE_ERROR_POWER = .1, CUE_ERROR_SIDE = .08;
-export function cueError(power:number,spin:Spin){
- return CUE_ERROR_BASE+CUE_ERROR_POWER*(power/100)**2+CUE_ERROR_SIDE*Math.abs(spin.side);
+// Judging the contact point is its own error (metres at the object ball). The
+// physics turns it into a much larger miss on thin cuts, as on a real table.
+export const CONTACT_ERROR = .0025;
+export function cueError(power:number,spin:Spin,reach=Infinity){
+ return CUE_ERROR_BASE+CUE_ERROR_POWER*(power/100)**2+CUE_ERROR_SIDE*Math.abs(spin.side)+(Number.isFinite(reach)?Math.atan(CONTACT_ERROR/Math.max(reach,RADIUS*2))*180/Math.PI:0);
 }
-export function deliverShot(shot:ComputerShot,random:()=>number=Math.random,errorScale=1):ComputerShot {
+/** How far the cue ball travels along `angle` before it meets a ball. */
+export function aimReach(balls:Ball[],angle:number){
+ const a=angle*Math.PI/180,dx=Math.sin(a),dz=-Math.cos(a),c=balls[0];let reach=Infinity;
+ for(const b of balls){if(b===c||b.potted)continue;const x=b.x-c.x,z=b.z-c.z,t=x*dx+z*dz,h=x*x+z*z-t*t;if(t>0&&h<4*RADIUS*RADIUS)reach=Math.min(reach,t-Math.sqrt(4*RADIUS*RADIUS-h));}
+ return reach;
+}
+export function deliverShot(shot:ComputerShot,random:()=>number=Math.random,errorScale=1,balls?:Ball[]):ComputerShot {
  const gauss=Math.sqrt(-2*Math.log(1-random()))*Math.cos(2*Math.PI*random());
- return {...shot,angle:shot.angle+gauss*cueError(shot.power,shot.spin)*errorScale};
+ return {...shot,angle:shot.angle+gauss*cueError(shot.power,shot.spin,balls?aimReach(balls,shot.angle):Infinity)*errorScale};
 }
 
 export function predictShot(balls:Ball[],angle:number,power:number,spin:Spin){
