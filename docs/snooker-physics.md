@@ -1,5 +1,14 @@
 # Game spin model
 
+The computer uses this physics model to plan a legal pot, but executes it with
+random aim, power and top-spin errors. It uses club-level cue error (scale 1),
+rather than the professional coach's .32, and disables the extra shot of
+look-ahead in both worker and fallback planning. Execution errors are applied after planning and
+are never re-simulated or rejected, so missed pots and poor position reach live
+play. These are gameplay tuning choices for a fallible club-level opponent,
+not measurements or a calibrated model of a professional player. Tests inject
+a seeded random source to check both successful pots and misses reproducibly.
+
 `lib/snooker-game.ts` uses metres, seconds and right-handed world angular
 velocity (`wx`, `wy`, `wz`), with `y` pointing up. Positive side input is right
 side from the shooter's viewpoint and produces positive `wy` regardless of aim.

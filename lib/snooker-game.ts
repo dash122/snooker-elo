@@ -243,7 +243,8 @@ function planSafety(balls:Ball[],target:number):ShotPlan|null {
  * a full-length ball about 60% of the time and a long 30° cut about 75%, like
  * a top player; the human player is a little more forgiving than a club player. */
 export const PRO_ERROR_SCALE = .32, PLAYER_ERROR_SCALE = .7;
-export function computerShot(balls:Ball[],target:number,errorScale=PRO_ERROR_SCALE,lookAhead=true):ComputerShot {
+export const COMPUTER_ERROR_SCALE = 1;
+export function computerShot(balls:Ball[],target:number,errorScale=COMPUTER_ERROR_SCALE,lookAhead=false):ComputerShot {
  const plan=planShot(balls,target,errorScale,lookAhead);
  if(plan)return plan.shot;
  const cue=balls[0],legal=balls.filter(b=>!b.potted&&(target===-1?b.value>1:b.value===target));
@@ -270,6 +271,14 @@ export function aimReach(balls:Ball[],angle:number){
 export function deliverShot(shot:ComputerShot,random:()=>number=Math.random,errorScale=1,balls?:Ball[]):ComputerShot {
  const gauss=Math.sqrt(-2*Math.log(1-random()))*Math.cos(2*Math.PI*random());
  return {...shot,angle:shot.angle+gauss*cueError(shot.power,shot.spin,balls?aimReach(balls,shot.angle):Infinity)*errorScale};
+}
+
+// Apply club-level delivery once, after planning; never retry a missed shot.
+export function deliverComputerShot(shot:ComputerShot,balls:Ball[],random:()=>number=Math.random):ComputerShot {
+ const delivered=deliverShot(shot,random,COMPUTER_ERROR_SCALE,balls);
+ const error=()=>random()+random()-1;
+ return {...delivered,power:Math.max(5,Math.min(100,shot.power*(1+error()*.12))),
+  spin:{top:Math.max(-1,Math.min(1,shot.spin.top+error()*.12)),side:shot.spin.side}};
 }
 
 export function predictShot(balls:Ball[],angle:number,power:number,spin:Spin){

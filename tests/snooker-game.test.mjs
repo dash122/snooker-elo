@@ -193,10 +193,10 @@ test('computer pots an available black without scratching or changing the live t
  assert.equal(first,7);assert.deepEqual(pots,[7]);assert.equal(moving(balls),false);
 });
 
-test('computer builds a red-colour break with the live match rules',()=>{
+test('professional planner builds a red-colour break with the live match rules',()=>{
  const m=newMatch();m.balls=[ball(0,.25,-.9),ball(1,.5,-1.25),ball(7,-.3,-1.3)];m.turn=1;
  for(let shotNumber=0;shotNumber<2;shotNumber++){
-  const shot=computerShot(m.balls,m.target);beginShot(m,shot.angle,shot.power,shot.spin);
+  const shot=computerShot(m.balls,m.target,.32,true);beginShot(m,shot.angle,shot.power,shot.spin);
   for(let i=0;i<240*30&&moving(m.balls);i++)step(m.balls,1/240,v=>{m.first??=v;},b=>m.potted.push(b));
   finishShot(m);assert.equal(m.turn,1);
  }
@@ -221,6 +221,17 @@ test('the professional misses long pots a realistic share of the time',async()=>
  const pots=angle=>{const b=balls();g.strike(b[0],angle,45);let p=false;for(let f=0;f<240*20&&g.moving(b);f++)g.step(b,1/240,()=>{},x=>{if(x.value===1)p=true;});return p;};
  const base=Math.atan2(gx-cx,-(gz-cz))*180/Math.PI,window=[];for(let d=-1;d<=1;d+=.01)if(pots(base+d))window.push(d);
  const aim=base+(window[0]+window.at(-1))/2;let made=0;
- for(let i=0;i<80;i++)if(pots(g.deliverShot({angle:aim,power:45,spin:{top:0,side:0}},random,g.PRO_ERROR_SCALE,balls()).angle))made++;
+ const shot={angle:aim,power:45,spin:{top:0,side:0}};
+ for(let i=0;i<80;i++)if(pots(g.deliverShot(shot,random,g.PRO_ERROR_SCALE,balls()).angle))made++;
  assert.ok(made>=32&&made<=64,`pro made ${made}/80 full-length pots`);
+ seed=11;let clubMade=0;
+ const table=balls(),before=structuredClone(table);
+ for(let i=0;i<80;i++){
+  const delivered=g.deliverComputerShot(shot,table,random),trial=balls();
+  g.strike(trial[0],delivered.angle,delivered.power,delivered.spin);
+  for(let f=0;f<240*20&&g.moving(trial);f++)g.step(trial,1/240,()=>{},()=>{});
+  if(trial[1].potted&&!trial[0].potted)clubMade++;
+ }
+ assert.ok(clubMade>0&&clubMade<made*.75,`club made ${clubMade}/80 versus pro ${made}/80`);
+ assert.deepEqual(table,before);
 });
