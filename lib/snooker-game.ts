@@ -168,13 +168,28 @@ export function step(balls:Ball[],dt:number,onContact:(value:number)=>void,onPot
     if(a.value===0) onContact(b.value); if(b.value===0) onContact(a.value);
   }
 }
+/** Respot a colour as the rules require (Rules of Snooker, section 3.7):
+ * its own spot; if that is taken, the highest-value spot that is free; if
+ * every spot is taken, as near its own spot as possible on a straight line
+ * towards the top cushion; failing that, on the same line below its spot.
+ * "Free" means no ball touching or covering the spot. Balls being respotted
+ * together go highest value first, so call this in that order. */
 export function respot(ball:Ball,balls:Ball[]) {
-  const home=rack().find(b=>b.value===ball.value)!;
-  // Search along the centre line, then the full cloth if the spot is occupied.
-  const candidates=[{x:home.x,z:home.z}];
-  for(let z=-LENGTH/2+.1;z<LENGTH/2-.1;z+=RADIUS*2.1) for(let x=-WIDTH/2+.1;x<WIDTH/2-.1;x+=RADIUS*2.1) candidates.push({x,z});
-  const spot=candidates.find(p=>balls.every(b=>b===ball||b.potted||Math.hypot(b.x-p.x,b.z-p.z)>RADIUS*2.01));
-  if(spot) Object.assign(ball,spot,{potted:false,vx:0,vz:0,wx:0,wz:0,wy:0});
+  const spots=rack().filter(b=>b.value!==1);
+  const home=spots.find(b=>b.value===ball.value)!;
+  const free=(x:number,z:number)=>balls.every(b=>b===ball||b.potted||Math.hypot(b.x-x,b.z-z)>=RADIUS*2-1e-9);
+  const place=(x:number,z:number)=>{Object.assign(ball,{x,z,potted:false,vx:0,vz:0,wx:0,wz:0,wy:0});};
+  if(free(home.x,home.z))return place(home.x,home.z);
+  if(ball.value>1)for(const value of [7,6,5,4,3,2]){
+    const spot=spots.find(b=>b.value===value)!;
+    if(free(spot.x,spot.z))return place(spot.x,spot.z);
+  }
+  // Up the table towards the top cushion (−z), then down from the spot.
+  const top=-LENGTH/2+RADIUS,bottom=LENGTH/2-RADIUS,stepZ=RADIUS/50;
+  for(let z=home.z;z>=top;z-=stepZ)if(free(home.x,z))return place(home.x,z);
+  for(let z=home.z;z<=bottom;z+=stepZ)if(free(home.x,z))return place(home.x,z);
+  // A table this crowded cannot happen in play; never leave the ball off the table.
+  for(let z=top;z<=bottom;z+=RADIUS*2.1)for(let x=-WIDTH/2+RADIUS;x<=WIDTH/2-RADIUS;x+=RADIUS*2.1)if(free(x,z))return place(x,z);
 }
 export type ComputerShot={angle:number;power:number;spin:Spin};
 export type PotOption={angle:number;quality:number;value:number;pocket:number;cut:number;ball:number};
@@ -304,7 +319,7 @@ function candidates(balls:Ball[],target:number,errorScale:number,wide:boolean):C
   if(!ok)continue;
   const points=pots.reduce((sum,b)=>sum+b.value,0),cueEnd={x:trial[0].x,z:trial[0].z};
   const reds=trial.some(b=>b.value===1&&!b.potted);
-  for(const ball of pots)if(ball.value>1&&(reds||target===-1))respot(ball,trial);
+  for(const ball of [...pots].sort((a,b)=>b.value-a.value))if(ball.value>1&&(reds||target===-1))respot(ball,trial);
   const nextTarget=nextTargetAfter(trial,target),nextOptions=potOptions(trial,nextTarget),next=nextOptions[0];
   // Break-building: an easy next pot, spare options, the cue ball off the
   // cushions, and on a colour the black or pink rather than a low colour.
@@ -390,11 +405,13 @@ function planSafety(balls:Ball[],target:number,errorScale=1):ShotPlan|null {
 export const PRO_ERROR_SCALE = .32, PLAYER_ERROR_SCALE = .12;
 export const COMPUTER_ERROR_SCALE = .45;
 /** Opponent standards. `error` scales cue delivery, `attack` is the pot
- * percentage needed before taking a shot on, `touch` the pace/spin error. */
+ * percentage needed before taking a shot on, `touch` the pace/spin error,
+ * `concede` how many snookers it must need before shaking hands on the frame
+ * (in general, and once the reds have gone). */
 export const LEVELS={
- casual:{label:'初哥',error:.9,lookAhead:false,attack:.25,touch:.2},
- club:{label:'球會',error:COMPUTER_ERROR_SCALE,lookAhead:false,attack:.4,touch:.12},
- pro:{label:'職業',error:.25,lookAhead:true,attack:.6,touch:.05},
+ casual:{label:'初哥',error:.9,lookAhead:false,attack:.25,touch:.2,concede:{snookers:3,onColours:2}},
+ club:{label:'球會',error:COMPUTER_ERROR_SCALE,lookAhead:false,attack:.4,touch:.12,concede:{snookers:2,onColours:1}},
+ pro:{label:'職業',error:.25,lookAhead:true,attack:.6,touch:.05,concede:{snookers:2,onColours:1}},
 };
 export type Level=keyof typeof LEVELS;
 function touchShot(balls:Ball[],target:number):ShotPlan {
