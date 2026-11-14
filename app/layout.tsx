@@ -75,6 +75,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const viewport: Viewport = {
   viewportFit: "cover",
+  // Android Chrome: shrink the layout viewport (and so `dvh`) when the keyboard opens,
+  // so sheets and their sticky actions stay above it. iOS ignores this.
+  interactiveWidget: "resizes-content",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f1f0e9" },
     { media: "(prefers-color-scheme: dark)", color: "#0b2d29" },
