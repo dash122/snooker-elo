@@ -1,130 +1,163 @@
+/* 3D snooker. Phone-first: the table is the screen. Chrome is a slim score
+   strip above and three thumb controls below, on dark glass so the cloth
+   stays the brightest thing in view. Desktop only scales the same layout. */
 @layer components {
-  .snooker-game { max-width: 1280px; margin: auto; padding: var(--sp-5); }
-  .snooker-heading { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-4); margin-bottom: var(--sp-5); }
-  .snooker-heading h1 { margin: 0; font-size: var(--fs-display); }
-  .snooker-heading p { margin: var(--sp-1) 0 0; color: var(--ds-text-secondary); }
-  .snooker-arena { background: var(--ds-canvas-brand); color: var(--ds-text-on-brand); overflow: hidden; border-radius: var(--ds-radius-card); position: relative; }
-  .snooker-broadcast { position: absolute; z-index: 1; top: 0; left: 0; right: 180px; pointer-events: none; display: flex; justify-content: space-between; padding: var(--sp-3) var(--sp-5); font-size: var(--fs-caption); letter-spacing: .08em; }
-  .snooker-table { height: min(82dvh, 850px); min-height: 560px; position: relative; cursor: crosshair; }
+  .sg {
+    --sg-glass: color-mix(in srgb, var(--ds-canvas-brand-deep) 78%, transparent);
+    --sg-glass-strong: color-mix(in srgb, var(--ds-canvas-brand-deep) 92%, transparent);
+    --sg-line: color-mix(in srgb, var(--ds-text-on-brand) 16%, transparent);
+    --sg-dim: color-mix(in srgb, var(--ds-text-on-brand) 68%, transparent);
+    --sg-edge: max(var(--sp-3), env(safe-area-inset-left));
+    --sg-edge-right: max(var(--sp-3), env(safe-area-inset-right));
+    --sg-top: max(var(--sp-2), env(safe-area-inset-top));
+    --sg-bottom: max(var(--sp-3), env(safe-area-inset-bottom));
+    position: fixed; inset: 0; z-index: 40; overflow: hidden; background: var(--ds-broadcast-black); color: var(--ds-text-on-brand);
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; font-variant-numeric: tabular-nums;
+  }
+  .sg-sr, .snooker-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .snooker-table { position: absolute; inset: 0; cursor: grab; }
   .snooker-table canvas { display: block; width: 100%; height: 100%; touch-action: none; }
   .snooker-table:focus-visible { outline: 3px solid var(--ds-focus); outline-offset: -3px; }
-  .snooker-webgl-error { position: absolute; inset: 0; display: grid; place-content: center; padding: var(--sp-6); }
-  .snooker-model-status { position: absolute; top: var(--sp-3); left: var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--ds-canvas-brand); color: var(--ds-text-on-brand); font-size: var(--fs-caption); }
-  .snooker-score { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100% - 32px)); display: grid; grid-template-columns: 1fr 48px 92px 48px 1fr; grid-template-rows: 28px 22px; text-align: center; font-variant-numeric: tabular-nums; color: var(--ds-broadcast-black); border-top: 2px solid var(--ds-broadcast-white); font-size: var(--fs-sm); line-height: 1; }
-  .snooker-score-name { display: flex; align-items: center; justify-content: center; position: relative; background: var(--ds-broadcast-yellow); font-weight: 700; border-bottom: 2px solid var(--ds-broadcast-white); }
-  .snooker-score-name i { position: absolute; right: var(--sp-1); width: 0; height: 0; border-block: 7px solid transparent; border-right: 9px solid currentColor; visibility: hidden; }
-  .snooker-score-name--right i { left: var(--sp-1); right: auto; border-right: 0; border-left: 9px solid currentColor; }
-  .snooker-score-name.is-playing i { visibility: visible; }
-  .snooker-score-points { display: grid; place-items: center; background: var(--ds-broadcast-white); color: var(--ds-broadcast-black); font-size: var(--fs-body); font-weight: 500; }
-  .snooker-score-frames { display: flex; align-items: center; justify-content: space-evenly; background: var(--ds-broadcast-frames); color: var(--ds-broadcast-white); }
-  .snooker-score-frames b { font-size: var(--fs-body); font-weight: 500; }
-  .snooker-score-frames small { font-size: var(--fs-caption); }
-  .snooker-score-caption { grid-column: 1 / -1; display: grid; place-items: center; background: var(--ds-broadcast-black); color: var(--ds-broadcast-white); font-size: var(--fs-label); letter-spacing: .02em; }
-  .snooker-score-break { grid-column: 1 / 3; grid-row: 2; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--sp-2); min-width: 0; padding: var(--sp-2); background: var(--ds-broadcast-black); color: var(--ds-broadcast-white); font-size: var(--fs-label); }
-  .snooker-score-break--right { grid-column: 4 / 6; }
-  .snooker-score-break strong { color: var(--ds-broadcast-yellow); font-size: var(--fs-body); }
-  .snooker-break-total, .snooker-break-count { white-space: nowrap; }
-  .snooker-break-balls { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; gap: var(--sp-1); }
-  .snooker-break-ball { display: inline-flex; align-items: center; gap: var(--sp-1); }
-  .snooker-break-ball svg { width: 14px; height: 14px; flex: none; overflow: visible; }
-  .snooker-break-ball circle { stroke: var(--ds-broadcast-white); stroke-width: .5; }
-  .snooker-score:has(.snooker-score-break) { grid-template-rows: 28px auto; }
-  .snooker-arena:has(.snooker-score-break) .snooker-status { top: 204px; }
-  .snooker-status { position: absolute; top: 142px; left: var(--sp-4); right: var(--sp-4); display: flex; justify-content: center; gap: var(--sp-3); flex-wrap: wrap; pointer-events: none; font-size: var(--fs-caption); text-align: center; }
-  .snooker-status span { color: var(--ds-text-on-brand-secondary); }
-  .snooker-desk { position: absolute; inset: 0; pointer-events: none; }
-  .snooker-shot { display: contents; }
-  .snooker-contact, .snooker-strike, .snooker-tools, .snooker-reset { pointer-events: auto; background: var(--ds-canvas-brand-deep); color: var(--ds-text-on-brand); border-radius: var(--ds-radius-control); padding: var(--sp-3); }
-  .snooker-contact { position: absolute; bottom: var(--sp-4); left: var(--sp-4); display: grid; grid-template-columns: 100px 1fr; gap: var(--sp-1) var(--sp-2); align-items: center; max-width: 250px; }
-  .snooker-contact > strong { grid-column: 1 / -1; font-size: var(--fs-caption); }
-  .snooker-contact output { font-size: var(--fs-caption); color: var(--ds-text-on-brand-secondary); }
-  .snooker-contact .ds-button { color: var(--ds-text-on-brand); padding-inline: var(--sp-2); }
-  .snooker-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .snooker-tip { position: relative; grid-row: span 2; width: 100px; height: 100px; padding: 0; border-radius: 50%; border: 1px solid var(--ds-border-strong); background: radial-gradient(circle at 35% 28%, var(--ds-surface-raised) 20%, var(--ds-surface-secondary) 65%, var(--ds-border-muted)); box-shadow: var(--ds-elevation-2); cursor: crosshair; touch-action: none; }
-  .snooker-tip:focus-visible { outline: 3px solid var(--ds-focus); outline-offset: 4px; }
-  .snooker-tip:disabled { opacity: .5; cursor: default; }
+  .snooker-webgl-error { position: absolute; inset: 0; display: grid; place-content: center; padding: var(--sp-6); text-align: center; }
+  .snooker-model-status { position: absolute; left: 50%; bottom: calc(var(--sg-bottom) + 150px); transform: translateX(-50%); padding: var(--sp-1) var(--sp-3); border-radius: var(--radius-pill); background: var(--sg-glass); color: var(--sg-dim); font-size: var(--fs-label); pointer-events: none; }
+  /* Soft vignettes keep the HUD legible over a bright cloth without boxing it in. */
+  .sg::before, .sg::after { content: ''; position: absolute; left: 0; right: 0; z-index: 1; pointer-events: none; }
+  .sg::before { top: 0; height: 150px; background: linear-gradient(color-mix(in srgb, var(--ds-broadcast-black) 62%, transparent), transparent); }
+  .sg::after { bottom: 0; height: 190px; background: linear-gradient(transparent, color-mix(in srgb, var(--ds-broadcast-black) 58%, transparent)); }
+
+  /* Score strip */
+  .sg-top { position: absolute; z-index: 2; top: var(--sg-top); left: var(--sg-edge); right: var(--sg-edge-right); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: var(--sp-2); pointer-events: none; }
+  .sg-top > * { pointer-events: auto; }
+  .sg-round { display: grid; place-items: center; width: var(--control-md); height: var(--control-md); padding: 0; border: 1px solid var(--sg-line); border-radius: 50%; background: var(--sg-glass); color: var(--ds-text-on-brand); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); cursor: pointer; transition: transform var(--ds-duration-fast) var(--ds-ease-standard); }
+  .sg-round svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .sg-round:active { transform: scale(.94); }
+  .sg-round[aria-pressed="true"] { background: var(--ds-accent-primary); color: var(--ds-text-on-accent); border-color: transparent; }
+  .sg-round:disabled { opacity: .35; cursor: default; }
+  .sg-round:focus-visible, .sg-spin:focus-visible, .sg-fine:focus-visible, .sg-power:focus-visible, .snooker-tip:focus-visible, .sg .sg-pill:focus-visible { outline: 3px solid var(--ds-focus); outline-offset: 2px; }
+  .sg-board { justify-self: center; width: min(100%, 440px); display: grid; gap: var(--sp-1); }
+  .sg-score { display: grid; grid-template-columns: minmax(0, 1fr) 46px 64px 46px minmax(0, 1fr); height: var(--control-md); overflow: hidden; border-radius: var(--radius-sm); box-shadow: var(--ds-elevation-4); text-align: center; line-height: 1; color: var(--ds-broadcast-black); }
+  .sg-name { position: relative; display: flex; align-items: center; justify-content: center; gap: var(--sp-1); min-width: 0; background: var(--ds-broadcast-yellow); font-size: var(--fs-sm); font-weight: 700; }
+  .sg-name small { font-size: var(--fs-label); font-weight: 500; opacity: .7; }
+  .sg-name.is-playing::after { content: ''; position: absolute; right: var(--sp-1); width: 0; height: 0; border-block: 6px solid transparent; border-right: 8px solid currentColor; }
+  .sg-name--right.is-playing::after { right: auto; left: var(--sp-1); border-right: 0; border-left: 8px solid currentColor; }
+  .sg-score strong { display: grid; place-items: center; background: var(--ds-broadcast-white); font-size: var(--fs-lead); font-weight: 700; }
+  .sg-frames { display: flex; align-items: center; justify-content: space-evenly; background: var(--ds-broadcast-frames); color: var(--ds-broadcast-white); }
+  .sg-frames b { font-size: var(--fs-body); font-weight: 600; }
+  .sg-score--solo .sg-frames { gap: var(--sp-1); justify-content: center; }
+  .sg-score--solo .sg-frames b { font-size: var(--fs-lead); color: var(--ds-broadcast-yellow); }
+  .sg-frames small { font-size: var(--fs-label); opacity: .8; }
+  .sg-info { justify-self: center; display: flex; align-items: center; gap: var(--sp-3); max-width: 100%; padding: var(--sp-1) var(--sp-3); border: 1px solid var(--sg-line); border-radius: var(--radius-pill); background: var(--sg-glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); font-size: var(--fs-label); color: var(--sg-dim); white-space: nowrap; }
+  .sg-info > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+  .sg-info b { color: var(--ds-broadcast-yellow); font-size: var(--fs-caption); }
+  .sg-target { color: var(--ds-text-on-brand); font-weight: 600; }
+  .sg-target i, .sg-run i { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset -2px -2px 3px color-mix(in srgb, var(--ds-broadcast-black) 40%, transparent), 0 0 0 1px var(--sg-line); }
+  .sg-target i[data-any] { background: conic-gradient(var(--ds-broadcast-yellow), var(--ds-success), var(--ds-signup-text), var(--ds-danger), var(--ds-broadcast-yellow)); }
+  .sg-run { display: inline-flex; gap: 2px; }
+  .sg-run i { width: 8px; height: 8px; }
+  .sg-status { position: absolute; z-index: 2; top: calc(var(--sg-top) + 86px); left: var(--sg-edge); right: var(--sg-edge-right); margin: 0; text-align: center; font-size: var(--fs-caption); line-height: 1.45; color: var(--ds-text-on-brand); text-shadow: 0 1px 6px var(--ds-broadcast-black); pointer-events: none; text-wrap: balance; }
+  .sg-status:empty { display: none; }
+  .sg-status[data-tone="review"] { color: var(--ds-accent-soft); }
+
+  /* Bottom controls */
+  .sg-left { position: absolute; z-index: 2; left: var(--sg-edge); bottom: var(--sg-bottom); display: grid; justify-items: start; gap: var(--sp-3); }
+  .sg .sg-pill { min-height: var(--control-sm); padding: 0 var(--sp-3); gap: var(--sp-1); border: 1px solid var(--sg-line); border-radius: var(--radius-pill); background: var(--sg-glass); color: var(--ds-text-on-brand); font-size: var(--fs-caption); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .sg .sg-pill > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+  .sg-pill svg { width: 16px; height: 16px; fill: none; stroke: var(--ds-accent-soft); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .sg-spin { position: relative; width: 64px; height: 64px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; background: radial-gradient(circle at 34% 28%, var(--ds-broadcast-white) 8%, var(--ds-surface-secondary) 58%, var(--ds-border-strong)); box-shadow: var(--ds-elevation-5); transition: transform var(--ds-duration-fast) var(--ds-ease-standard); }
+  .sg-spin:active { transform: scale(.95); }
+  .sg-spin i, .snooker-tip i { position: absolute; width: 14px; height: 14px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--ds-danger); box-shadow: 0 0 0 2px var(--ds-broadcast-white); }
+  .sg-spin:disabled, .sg-aim[data-disabled], .sg-power[aria-disabled="true"] { opacity: .32; pointer-events: none; }
+  .sg-aim { position: absolute; z-index: 2; left: calc(var(--sg-edge) + 64px + var(--sp-3)); right: calc(var(--sg-edge-right) + 56px + var(--sp-3)); bottom: var(--sg-bottom); display: grid; justify-items: center; gap: var(--sp-2); transition: opacity var(--ds-duration-standard) var(--ds-ease-standard); pointer-events: none; }
+  .sg-read { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2); border: 1px solid var(--sg-line); border-radius: var(--radius-pill); background: var(--sg-glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); font-size: var(--fs-caption); white-space: nowrap; }
+  .sg-read svg { width: 48px; height: 26px; overflow: visible; }
+  .sg-read-cue { fill: color-mix(in srgb, var(--ds-broadcast-white) 34%, transparent); stroke: var(--ds-broadcast-white); stroke-width: 1.4; }
+  .sg-read b { padding-left: var(--sp-2); border-left: 1px solid var(--sg-line); color: var(--sg-dim); font-weight: 600; }
+  .sg-read[data-outcome="pot"] { border-color: var(--ds-accent-primary); }
+  .sg-read[data-outcome="pot"] b { color: var(--ds-broadcast-yellow); }
+  .sg-read[data-outcome="inoff"] b, .sg-read[data-outcome="foul"] b { color: var(--ds-accent-soft); }
+  .sg-fine { position: relative; width: 100%; max-width: 360px; height: var(--control-md); display: grid; place-items: center; border: 1px solid var(--sg-line); border-radius: var(--radius-pill); cursor: ew-resize; touch-action: none; pointer-events: auto; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    background: repeating-linear-gradient(90deg, var(--sg-line) 0 1px, transparent 1px 12px) 0 50% / auto 40% no-repeat, var(--sg-glass); background-repeat: repeat-x, no-repeat; }
+  .sg-fine span { padding: 0 var(--sp-3); border-radius: var(--radius-pill); background: var(--sg-glass-strong); font-size: var(--fs-label); letter-spacing: .12em; color: var(--sg-dim); }
+  /* Power: a tall track on the right edge. Pull down, let go. */
+  .sg-power { position: absolute; z-index: 2; right: var(--sg-edge-right); bottom: var(--sg-bottom); width: 56px; height: min(46dvh, 360px); display: grid; grid-template-rows: 1fr auto; justify-items: center; gap: var(--sp-1); cursor: ns-resize; touch-action: none; transition: opacity var(--ds-duration-standard) var(--ds-ease-standard); }
+  .sg-power-track { position: relative; width: 44px; height: 100%; border: 1px solid var(--sg-line); border-radius: var(--radius-pill); background: var(--sg-glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: var(--ds-elevation-4); overflow: hidden; }
+  .sg-power-track::before { content: ''; position: absolute; inset: 8% 0; background: repeating-linear-gradient(transparent 0 calc(10% - 1px), var(--sg-line) calc(10% - 1px) 10%); opacity: .8; }
+  .sg-power-fill { position: absolute; left: 0; right: 0; top: 0; height: calc(8% + 84% * var(--sg-power)); background: linear-gradient(var(--ds-accent-soft), var(--ds-accent-primary) 55%, var(--ds-danger)); background-size: 100% 46dvh; opacity: .28; }
+  .sg-power[data-pulling] .sg-power-fill { opacity: .95; }
+  .sg-power-knob { position: absolute; left: 50%; top: calc(8% + 84% * var(--sg-power)); width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--ds-broadcast-white), var(--ds-accent-soft) 70%); box-shadow: var(--ds-elevation-3); opacity: .55; }
+  .sg-power[data-pulling] .sg-power-knob { opacity: 1; }
+  .sg-power-advice { position: absolute; left: 3px; right: 3px; top: calc(8% + 84% * var(--sg-advice)); height: 3px; margin-top: -1.5px; border-radius: var(--radius-2xs); background: var(--ds-positive-soft); }
+  .sg-power-label { font-size: var(--fs-label); letter-spacing: .1em; color: var(--sg-dim); }
+  .sg-pull { position: absolute; z-index: 2; right: calc(var(--sg-edge-right) + 56px + var(--sp-3)); bottom: calc(var(--sg-bottom) + 20dvh); display: grid; justify-items: end; padding: var(--sp-2) var(--sp-3); border-radius: var(--radius-md); background: var(--sg-glass-strong); pointer-events: none; }
+  .sg-pull strong { font-size: var(--fs-stat); line-height: 1; color: var(--ds-broadcast-yellow); }
+  .sg-pull small { font-size: var(--fs-caption); }
+  .sg-pull span { font-size: var(--fs-caption); color: var(--sg-dim); }
+
+  /* Cue-ball contact picker */
+  .sg-scrim { position: absolute; inset: 0; z-index: 3; border: 0; padding: 0; background: color-mix(in srgb, var(--ds-broadcast-black) 35%, transparent); cursor: default; }
+  .sg-spin-panel { position: absolute; z-index: 4; left: var(--sg-edge); bottom: var(--sg-bottom); width: min(280px, calc(100% - var(--sg-edge) * 2)); display: grid; justify-items: center; gap: var(--sp-2); padding: var(--sp-4); border: 1px solid var(--sg-line); border-radius: var(--radius-xl); background: var(--sg-glass-strong); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: var(--ds-elevation-6); animation: sg-rise var(--ds-duration-standard) var(--ds-ease-standard) both; }
+  .sg-spin-panel > strong { font-size: var(--fs-sm); }
+  .sg-spin-panel output { font-size: var(--fs-sm); color: var(--ds-broadcast-yellow); }
+  .sg-spin-panel small { font-size: var(--fs-label); color: var(--sg-dim); text-align: center; }
+  .snooker-tip { position: relative; width: 176px; height: 176px; padding: 0; border: 0; border-radius: 50%; background: radial-gradient(circle at 34% 28%, var(--ds-broadcast-white) 8%, var(--ds-surface-secondary) 60%, var(--ds-border-strong)); box-shadow: var(--ds-elevation-4); cursor: crosshair; touch-action: none; }
   .snooker-tip-cross { position: absolute; inset: 12%; border: 1px dashed var(--ds-border-strong); border-radius: 50%; }
   .snooker-tip-cross::before, .snooker-tip-cross::after { content: ''; position: absolute; background: var(--ds-border-strong); }
   .snooker-tip-cross::before { top: 50%; left: 0; width: 100%; height: 1px; }
   .snooker-tip-cross::after { left: 50%; top: 0; height: 100%; width: 1px; }
-  .snooker-tip i { position: absolute; width: 14px; height: 14px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--ds-accent-action); border: 2px solid var(--ds-surface-raised); }
-  .snooker-tools summary { cursor: pointer; min-height: var(--control-md); align-content: center; }
-  .snooker-strike { position: absolute; bottom: var(--sp-4); right: var(--sp-4); width: 210px; display: grid; gap: var(--sp-2); }
-  .snooker-desk .ds-field { color: var(--ds-text-on-brand); }
-  .snooker-strike .ds-field small { color: var(--ds-text-on-brand-secondary); }
-  .snooker-strike .ds-field { order: -1; }
-  .snooker-strike input { width: 100%; min-height: var(--control-md); accent-color: var(--ds-accent-primary); }
-  .snooker-tools { position: absolute; top: var(--sp-2); right: var(--sp-3); max-width: calc(100% - 24px); font-size: var(--fs-caption); z-index: 3; }
-  .snooker-tools .ds-button--quiet { color: var(--ds-text-on-brand); }
-  .snooker-tools-back { display: none; }
-  .snooker-tools .ds-segmented { background: var(--ds-surface-secondary); color: var(--ds-text-primary); }
-  .snooker-tools p { font-size: var(--fs-caption); }
-  .snooker-reset { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100% - 32px)); display: flex; flex-wrap: wrap; gap: var(--sp-3); z-index: 4; box-shadow: var(--ds-elevation-5); }
-  .snooker-coach { position: absolute; top: 176px; left: var(--sp-4); width: min(340px, 30%); max-height: calc(100% - 400px); overflow: auto; pointer-events: auto; background: var(--ds-canvas-brand-deep); color: var(--ds-text-on-brand); border-radius: var(--ds-radius-control); padding: var(--sp-2) var(--sp-3) var(--sp-3); font-size: var(--fs-sm); }
-  .snooker-coach p { margin: var(--sp-1) 0 var(--sp-2); line-height: 1.5; }
-  .snooker-coach b { color: var(--ds-broadcast-yellow); }
-  .snooker-coach-head, .snooker-coach-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
-  .snooker-coach-actions { justify-content: flex-start; flex-wrap: wrap; }
-  .snooker-coach .ds-button--quiet { color: var(--ds-text-on-brand); }
-  .snooker-coach-focus { margin-top: var(--sp-2); font-size: var(--fs-caption); color: var(--ds-text-on-brand-secondary); }
-  .snooker-coach-focus summary { cursor: pointer; min-height: var(--control-sm); align-content: center; }
-  .snooker-coach-focus p { margin: var(--sp-1) 0; }
-  .snooker-help { margin-top: var(--sp-6); font-size: var(--fs-sm); color: var(--ds-text-secondary); max-width: 75ch; }
-  .snooker-help summary { cursor: pointer; padding-block: var(--sp-3); }
-  .snooker-help p { line-height: 1.8; }
-  /* Phones are the primary target: the arena fills the screen below a slim
-     bar (safe areas included for home-screen / standalone use) and the shot
-     controls sit in one thumb-reach dock instead of floating over the cloth. */
-  @media(max-width: 599px) {
-    .snooker-game { --game-bar: calc(var(--control-md) + var(--sp-4) + env(safe-area-inset-top)); padding: 0; }
-    .snooker-heading { height: var(--game-bar); margin: 0; padding: calc(var(--sp-2) + env(safe-area-inset-top)) max(var(--sp-3), env(safe-area-inset-right)) var(--sp-2) max(var(--sp-3), env(safe-area-inset-left)); }
-    .snooker-heading h1 { font-size: var(--fs-h3); }
-    .snooker-heading p { display: none; }
-    .snooker-arena { display: flex; flex-direction: column; height: calc(100dvh - var(--game-bar)); border-radius: 0; overscroll-behavior: none; }
-    .snooker-table { flex: 1; height: auto; min-height: 0; }
-    .snooker-broadcast { display: none; }
-    /* The dock sits below the cloth, so the cue ball is never hidden behind it. */
-    .snooker-desk { position: static; }
-    .snooker-tools { top: var(--sp-2); right: var(--sp-2); padding: 0 var(--sp-3); }
-    .snooker-tools[open] { padding-bottom: var(--sp-3); }
-    .snooker-score { top: calc(var(--control-md) + var(--sp-4)); grid-template-columns: 1fr 34px 72px 34px 1fr; }
-    .snooker-break-balls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .snooker-status { top: calc(var(--control-md) + var(--sp-4) + 60px); }
-    .snooker-arena:has(.snooker-score-break) .snooker-status { top: calc(var(--control-md) + var(--sp-4) + 128px); }
-    .snooker-shot { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--sp-3); padding: var(--sp-3) max(var(--sp-3), env(safe-area-inset-right)) calc(var(--sp-3) + env(safe-area-inset-bottom)) max(var(--sp-3), env(safe-area-inset-left)); background: var(--ds-canvas-brand-deep); pointer-events: auto; }
-    .snooker-contact, .snooker-strike { position: static; background: none; padding: 0; width: auto; max-width: none; }
-    .snooker-contact { grid-template-columns: auto; }
-    .snooker-contact > strong, .snooker-contact output, .snooker-contact .ds-button, .snooker-strike .ds-field small { display: none; }
-    .snooker-tip { width: 76px; height: 76px; grid-row: auto; }
-    .snooker-strike { grid-template-columns: 1fr 1fr; }
-    .snooker-strike .ds-field { grid-column: 1 / -1; }
-    .snooker-strike .ds-button { width: 100%; padding-inline: var(--sp-2); white-space: nowrap; }
-    .snooker-help { padding-inline: var(--sp-3); }
-    .snooker-coach { position: static; width: auto; max-width: none; margin: 0; border-radius: 0; border-bottom: 1px solid var(--ds-border-muted); max-height: 30dvh; overflow: auto; }
+  .snooker-tip i { width: 18px; height: 18px; }
+  .sg-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+  .sg-spin-panel .ds-button--quiet { color: var(--ds-text-on-brand); }
+
+  /* End of frame */
+  .sg-result { position: absolute; z-index: 5; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(380px, calc(100% - var(--sp-6))); display: grid; justify-items: center; gap: var(--sp-2); padding: var(--sp-5); border: 1px solid var(--sg-line); border-radius: var(--radius-xl); background: var(--sg-glass-strong); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: var(--ds-elevation-6); text-align: center; animation: sg-rise var(--ds-duration-toggle) var(--ds-ease-toggle) both; }
+  .sg-result > small { font-size: var(--fs-label); letter-spacing: .14em; color: var(--ds-accent-soft); }
+  .sg-result h2 { margin: 0; font-size: var(--fs-h2); color: var(--ds-text-on-brand); }
+  .sg-result p { margin: 0; font-size: var(--fs-caption); color: var(--sg-dim); line-height: 1.5; }
+  .sg-result .sg-result-score { display: flex; align-items: baseline; gap: var(--sp-3); font-size: var(--fs-display); color: var(--ds-broadcast-yellow); line-height: 1.1; }
+  .sg-result-score span { font-size: var(--fs-h3); color: var(--sg-dim); }
+  .sg-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); width: 100%; margin-block: var(--sp-2); }
+  .sg-result .ds-stat-tile { background: color-mix(in srgb, var(--ds-text-on-brand) 8%, transparent); color: var(--ds-text-on-brand); border-color: var(--sg-line); }
+  .sg-result .ds-stat-tile small { color: var(--sg-dim); }
+  .sg-result .sg-row { justify-content: center; margin-top: var(--sp-2); }
+
+  /* Sheets use the app's own surface; restore its text colour and selection. */
+  .sg .ds-sheet { color: var(--ds-text-primary); user-select: text; -webkit-user-select: text; }
+  .sg-sheet { display: grid; gap: var(--sp-3); }
+  .sg-sheet h3 { margin: var(--sp-2) 0 0; font-size: var(--fs-lead); }
+  .sg-sheet p { margin: 0; font-size: var(--fs-sm); line-height: 1.6; }
+  .sg-coach-text { padding: var(--sp-3); border-radius: var(--radius-md); background: var(--ds-highlight-wash); }
+  .sg-fine-print, .sg-setting small { color: var(--ds-text-secondary); font-size: var(--fs-caption); line-height: 1.5; }
+  .sg-setting { display: grid; gap: var(--sp-1-5); }
+  .sg-setting > span { font-size: var(--fs-caption); font-weight: 700; color: var(--ds-text-secondary); }
+  .sg-help summary { min-height: var(--control-md); align-content: center; cursor: pointer; font-size: var(--fs-sm); font-weight: 600; }
+  .sg-help p { margin-bottom: var(--sp-2); color: var(--ds-text-secondary); }
+  @keyframes sg-rise { from { opacity: 0; translate: 0 12px; } to { opacity: 1; translate: 0 0; } }
+  @media (prefers-reduced-motion: reduce) { .sg-spin-panel, .sg-result { animation: none; } .sg-round, .sg-spin { transition: none; } }
+
+  @media (max-width: 380px) {
+    .sg-score { grid-template-columns: minmax(0, 1fr) 38px 54px 38px minmax(0, 1fr); }
+    .sg-info { gap: var(--sp-2); padding-inline: var(--sp-2); }
+    .sg-name small { display: none; }
   }
-  /* Phones held sideways: no page chrome at all, the table is the screen. */
-  @media(pointer: coarse) and (orientation: landscape) and (max-width: 1180px) {
-    .snooker-game { padding: 0; }
-    .snooker-heading { display: none; }
-    .snooker-arena { border-radius: 0; overscroll-behavior: none; }
-    .snooker-table { height: 100dvh; min-height: 0; }
-    .snooker-broadcast { display: none; }
-    .snooker-score { top: var(--sp-2); width: min(420px, 50%); grid-template-columns: 1fr 34px 72px 34px 1fr; }
-    .snooker-status { top: 64px; left: 25%; right: 25%; }
-    .snooker-arena:has(.snooker-score-break) .snooker-status { top: 120px; }
-    .snooker-tools { top: var(--sp-2); right: max(var(--sp-2), env(safe-area-inset-right)); padding: 0 var(--sp-3); }
-    .snooker-tools[open] { padding-bottom: var(--sp-3); max-height: calc(100dvh - var(--sp-4)); overflow: auto; }
-    .snooker-contact { left: max(var(--sp-2), env(safe-area-inset-left)); bottom: calc(var(--sp-2) + env(safe-area-inset-bottom)); grid-template-columns: auto; padding: var(--sp-2); }
-    .snooker-contact > strong, .snooker-contact output, .snooker-contact .ds-button, .snooker-strike .ds-field small { display: none; }
-    .snooker-tip { width: 72px; height: 72px; grid-row: auto; }
-    .snooker-tools-back { display: inline-flex; }
-    .snooker-coach { top: auto; left: 25%; right: 25%; width: auto; bottom: calc(var(--sp-2) + env(safe-area-inset-bottom)); max-height: 45dvh; overflow: auto; padding-block: var(--sp-1) var(--sp-2); }
-    .snooker-strike { right: max(var(--sp-2), env(safe-area-inset-right)); bottom: calc(var(--sp-2) + env(safe-area-inset-bottom)); width: 220px; grid-template-columns: 1fr 1fr; padding: var(--sp-2); }
-    .snooker-strike .ds-field { grid-column: 1 / -1; }
-    .snooker-strike .ds-button { width: 100%; padding-inline: var(--sp-2); white-space: nowrap; }
+  @media (min-width: 821px) {
+    .sg { --sg-edge: var(--sp-5); --sg-edge-right: var(--sp-5); --sg-top: var(--sp-4); --sg-bottom: var(--sp-5); }
+    .sg-board { width: 520px; }
+    .sg-score { height: var(--control-lg); }
+    .sg-info { font-size: var(--fs-caption); }
+    .sg-status { top: calc(var(--sg-top) + 100px); font-size: var(--fs-sm); }
+    .sg-spin { width: 76px; height: 76px; }
+    .sg-aim { left: 50%; right: auto; width: 380px; margin-left: -190px; }
+    .sg-power { width: 64px; height: min(52dvh, 420px); }
+    .sg-power-track { width: 50px; }
   }
-  @media(max-width: 380px) {
-    .snooker-break-balls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .snooker-arena:has(.snooker-score-break) .snooker-status { top: calc(var(--control-md) + var(--sp-4) + 152px); }
+  /* Phones held sideways: keep the strip slim and shorten the power track. */
+  @media (orientation: landscape) and (max-width: 1180px) and (pointer: coarse) {
+    .sg-board { width: min(100%, 400px); }
+    .sg-score { height: var(--control-md); }
+    .sg-spin { width: 64px; height: 64px; }
+    .sg-status { top: calc(var(--sg-top) + 82px); }
+    .sg-power { height: min(62dvh, 300px); }
+    .sg-left { grid-auto-flow: column; align-items: end; }
+    .sg-aim { left: calc(var(--sg-edge) + 190px); right: calc(var(--sg-edge-right) + 56px + var(--sp-5)); width: auto; margin-left: 0; }
   }
 }

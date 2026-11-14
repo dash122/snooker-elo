@@ -97,3 +97,41 @@ Cue equipment shares height/support constants from `lib/snooker-presentation.ts`
 `app/game/Cue.ts` owns a fixed 58-inch cue (9.5 mm tip, 29.5 mm butt, ash shaft, dark butt, ferrule and tip). A separately visible extension attaches to its butt for longer rest shots; base cue geometry is never rescaled. The avatar's minimum stance distance now leaves a natural grip/butt relationship. Bridge-channel surface gap is power-dependent at 230–290 mm and the wrist remains planted 60 mm behind that channel.
 
 The shared presentation clock uses three varied idle feathers, a quiet front settle, two committed feathers, a front pause, smooth final draw, brief back pause, accelerated delivery at 1720 ms, a continuous follow-through and a held finish. A queued stroke begins at the actual idle tip position to avoid a jump. Reduced motion disables idle feathers. These are authored O'Sullivan-inspired motions, not exact biomechanical measurements. Parris sizing and WPBSA's 2021 WDBS coaching manual are the numerical references; O'Sullivan's public trailer did not play in the browser. Tests verify model dimensions, extension attachment, planted bridge, grip station, continuous joins and contact velocity, tip clearance and timing.
+
+
+## Mobile-first redesign: table as the screen
+
+This section supersedes the earlier layout, control and aiming notes above (integrated HUD, direct shot controls, first-person swipe, precision toggle, shaded corridors). The scene, table, avatar and cue work described earlier is unchanged.
+
+**Layout.** `.sg` is a fixed full-viewport surface on every device; the table canvas fills it and all chrome floats on dark glass. Top: menu button, the yellow/white/teal score strip, an overhead-view toggle, and one info pill (ball on, break or lead, points left on the table). Bottom: coach pill and cue-ball contact button (left), contact readout and fine-tune ruler (centre), power bar (right edge). Menu and coach open the shared `Sheet`. Nothing else is on screen during play. Styles live in `app/styles/snooker-game.css` on `--sg-*` locals derived from tokens.
+
+**Controls.** Three gestures, no modes:
+- Tap a ball: aim assist lines the cue up to pot it in its best pocket; tap again to cycle pockets. Tap the cloth to point there.
+- Drag on the table: turn the cue. Gearing follows drag speed. A slow drag moves the ghost ball 0.25 mm per pixel at whatever distance it is; a flick swings up to 16× faster. The ruler is five times finer again. Arrow keys still work on the table and the ruler.
+- Pull the power bar down and let go to strike. The cue draws back with the thumb and the stroke lands 180 ms after release. A tap never fires; dragging back to the top cancels. Keyboard: arrows set power, Enter strikes.
+
+Cue-ball contact opens from the white ball button as a small panel; it resets to centre after every shot.
+
+**Cameras.** `aim` sits over the cue, rising and backing off with the distance to the object ball so cue ball, contact and pocket are all in frame in portrait. `tv` (ball travel and the opponent's turn) and `top` (toggle) fit the whole table to the viewport; `player` keeps the side-on stance view. Poses ease into each other over 850 ms; reduced motion cuts.
+
+**Aiming aids** (`輔助線`: 完整 / 簡化 / 關閉). One `predictShot` result per aim feeds both the cloth and the HUD: white line to a translucent ghost ball, gold object-ball line, faint cue-ball line and a ring where the cue ball stops. The pocket glows when the shot as aimed and paced pots a legal ball. The readout shows the thickness of contact as a player describes it (全球, 3/4, 半球, 1/4, 薄邊, left or right) so the picture transfers to a real table. Simplified shows short direction stubs only; off shows the aim line and ghost ball.
+
+**Why potting was too hard, and what changed.**
+1. Ball contacts were resolved after the cue ball had already sunk into the object ball (up to 8 mm at pace at 240 Hz), which turned the cut angle by a degree or more, differently for each power. The same aim potted at 44 % and missed at 45 %. Contacts now rewind to the instant of touching, so the cut angle is independent of pace.
+2. Pockets only accepted a ball whose centre crossed a narrow lane; anything else met a flat cushion. Cushions now end in rounded jaws (`JAW_RADIUS` 20 mm circles, matching the drawn cushion ends) and the ball drops when its centre passes the fall. A slow ball clipping a jaw goes in; a hard one rattles out. Dead-weight margin is about ±21 mm into a corner and straight into a middle. The middle fall is set back 20 mm behind the nose line (`TABLE_POCKETS.middleSetback`), and the drawn pocket moved with it.
+3. Aiming was a 120°-per-screen swipe from a camera too low to see the angle. See controls and cameras above.
+4. The textbook ghost-ball aim misses cut shots because of throw. Aim assist, the coach and the opponent all aim at the middle of the window of angles that actually pot.
+
+**Opponent.** Three standards in `LEVELS` (初哥, 球會, 職業): cue error, pace error, look-ahead and the pot percentage needed before attacking. Safety play searches thin-to-full contacts at four paces on the three nearest legal balls and scores the leave: no pot on, snookered, distance, cue ball tight on a cushion or back in baulk, then checks the best few against the player's own cue error. The status line says what the opponent is playing (`電腦：打紅球入右頂袋`, `電腦：打防守`).
+
+**Rules added.** Ball in hand in the D at the break and after an in-off (drag the cue ball; the D is highlighted). The opponent chooses its spot with `cueSpotInD`.
+
+**Line-up practice.** `newPractice()` sets colours on spots and fifteen reds down the centre line. No opponent; a miss or foul resets the break and concedes nothing; the cue ball can be placed anywhere before a shot. The score strip shows total, current break and best break.
+
+**Coach.** Opens as a sheet and analyses on open. "幫我擺好呢一桿" sets angle and spin, marks the suggested pace on the power bar and rings the intended cue-ball position on the cloth. After each of your shots the status line carries the verdict.
+
+**Sound.** `app/game/sound.ts` synthesises ball clicks, cushion thuds, the cue tap and the pocket drop from impact speed; no audio assets. Off switch in the menu.
+
+**Still out of scope.** Free ball, foul and a miss, play-again, nominated colours, jump and swerve shots, cloth nap. Jaws are circles, not templated pocket profiles.
+
+**Verification.** Node tests cover pace-independent cut angle, jaw acceptance and rejection, aim assist through throw, prediction readout, snookers and safety legality, opponent levels, ball in hand, points remaining and practice rules. Phone portrait (390×844), phone landscape and desktop were inspected in headless Chromium with software WebGL, including a scripted coach → apply → pull → pot sequence. That renderer runs at a few frames per second, so frame rate, touch feel and audio were not assessed and need a real device.

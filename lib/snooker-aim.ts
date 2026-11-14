@@ -1,20 +1,15 @@
-import type { Ball } from './snooker-game.ts';
+import { aimReach, RADIUS, type Ball } from './snooker-game.ts';
 
-/** Start a shot facing the nearest legal object ball, without mutating the rack. */
+/** Start a shot facing the nearest legal object ball the cue ball can reach
+ * (falling back to the nearest one when snookered), without mutating the rack. */
 export function nearestAim(balls:Ball[],target:number,fallback=0):number {
   const cue=balls.find(ball=>ball.value===0&&!ball.potted);
   if(!cue)return fallback;
-  let nearest:Ball|undefined,distance=Infinity;
-  for(const ball of balls){
-    if(ball.potted||!(target===-1?ball.value>1:ball.value===target))continue;
-    const next=Math.hypot(ball.x-cue.x,ball.z-cue.z);
-    if(next>0&&next<distance){nearest=ball;distance=next;}
-  }
-  return nearest?Math.atan2(nearest.x-cue.x,cue.z-nearest.z)*180/Math.PI:fallback;
-}
-
-/** One screen-width swipe turns 120° normally, or 3° in precision mode. */
-export function swipeAim(angle:number,deltaX:number,width:number,precise:boolean):number {
-  const next=angle+deltaX/Math.max(1,width)*(precise?3:120);
-  return ((next+180)%360+360)%360-180;
+  const facing=(ball:Ball)=>Math.atan2(ball.x-cue.x,cue.z-ball.z)*180/Math.PI;
+  const legal=balls.filter(ball=>!ball.potted&&ball!==cue&&(target===-1?ball.value>1:ball.value===target))
+    .sort((a,b)=>Math.hypot(a.x-cue.x,a.z-cue.z)-Math.hypot(b.x-cue.x,b.z-cue.z));
+  if(!legal.length)return fallback;
+  // Reachable: nothing else is met first along the line to its centre.
+  const open=legal.find(ball=>Math.abs(aimReach(balls,facing(ball))-(Math.hypot(ball.x-cue.x,ball.z-cue.z)-RADIUS*2))<1e-6);
+  return facing(open??legal[0]);
 }

@@ -5,6 +5,8 @@
 export const TABLE_POCKETS = {
   cornerCut: .061,
   middleCut: .045,
+  /** The middle fall is centred this far behind the cushion nose line. */
+  middleSetback: .02,
   leatherWidth: .013,
   leatherHeight: .009,
 };
