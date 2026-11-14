@@ -27,14 +27,23 @@ export function SectionLabel({children,meta,sticky=true,className=""}:{children:
   return <h3 className={`ds-section-label${sticky?" is-sticky":""} ${className}`.trim()}><span>{children}</span>{meta!=null&&<small>{meta}</small>}</h3>;
 }
 export function SlidingToggleGroup({as:Tag="div",className="",children,style,...props}:HTMLAttributes<HTMLElement>&{as?:"div"|"nav"}){const ref=useRef<HTMLElement|null>(null);const [thumb,setThumb]=useState({x:0,y:0,width:0,height:0});useLayoutEffect(()=>{const group=ref.current;if(!group)return;const measure=()=>{const active=group.querySelector<HTMLElement>('button.active,button[aria-selected="true"],button[aria-pressed="true"],a[aria-current="page"]');if(active)setThumb({x:active.offsetLeft,y:active.offsetTop,width:active.offsetWidth,height:active.offsetHeight})};measure();const observer=new ResizeObserver(measure);observer.observe(group);return()=>observer.disconnect()},[children]);const motionStyle={...style,"--toggle-x":`${thumb.x}px`,"--toggle-y":`${thumb.y}px`,"--toggle-width":`${thumb.width}px`,"--toggle-height":`${thumb.height}px`} as CSSProperties;return <Tag {...props} ref={node=>{ref.current=node}} className={`sliding-toggle-group ${className}`.trim()} style={motionStyle}><i className="sliding-toggle-thumb" aria-hidden="true"/>{children}</Tag>}
-export function FormField({label,hint,error,children}:{label:string;hint?:string;error?:string;children:ReactNode}){
-  const messageId=useId();
+export type FieldControlProps={id:string;"aria-describedby"?:string;"aria-invalid"?:true};
+/* Label + control + hint + error with the accessible wiring done once. A native
+   <input>/<select>/<textarea> child is linked automatically; any other control
+   (a combobox, a date picker, a custom widget) takes a render function and spreads
+   the props it is given onto its focusable element. The hint stays visible while an
+   error shows, and both are announced through aria-describedby. */
+export function FormField({label,hint,error,className="",children}:{label:ReactNode;hint?:ReactNode;error?:ReactNode;className?:string;children:ReactNode|((control:FieldControlProps)=>ReactNode)}){
+  const controlId=useId(),hintId=useId(),errorId=useId();
+  const own=isValidElement(children)?(children.props as {"aria-describedby"?:string}):{};
+  const describedBy=[own["aria-describedby"],hint?hintId:null,error?errorId:null].filter(Boolean).join(" ")||undefined;
+  const a11y={"aria-describedby":describedBy,"aria-invalid":error?true as const:undefined};
+  const classes=`ds-field${error?" ds-field--error":""} ${className}`.trim();
+  const messages=<>{hint&&<small id={hintId} className="ds-field__hint">{hint}</small>}{error&&<small id={errorId} className="ds-field__error">{error}</small>}</>;
+  if(typeof children==="function")return <div className={classes}><label htmlFor={controlId}>{label}</label>{children({id:controlId,...a11y})}{messages}</div>;
   const control=isValidElement(children)&&typeof children.type==="string"&&["input","select","textarea"].includes(children.type)
-    ?cloneElement(children as ReactElement<{"aria-describedby"?:string;"aria-invalid"?:boolean}>,{
-      "aria-describedby":[(children.props as {"aria-describedby"?:string})["aria-describedby"],error||hint?messageId:null].filter(Boolean).join(" ")||undefined,
-      "aria-invalid":error?true:(children.props as {"aria-invalid"?:boolean})["aria-invalid"],
-    }):children;
-  return <label className={`ds-field${error?" ds-field--error":""}`}><span>{label}</span>{control}{(error||hint)&&<small id={messageId}>{error||hint}</small>}</label>;
+    ?cloneElement(children as ReactElement<Record<string,unknown>>,{...a11y,"aria-invalid":a11y["aria-invalid"]??(children.props as {"aria-invalid"?:boolean})["aria-invalid"]}):children;
+  return <label className={classes}><span>{label}</span>{control}{messages}</label>;
 }
 export function EmptyState({title,description,action}:{title:string;description:string;action?:ReactNode}){return <div className="ds-empty"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9 12h6M12 9v6"/></svg><h3>{title}</h3><p>{description}</p>{action}</div>}
 export function InlineNotice({tone="info",title,children}:{tone?:"info"|"success"|"warning"|"danger";title:string;children:ReactNode}){return <div className={`ds-notice ds-notice--${tone}`} role={tone==="danger"?"alert":"status"}><i aria-hidden="true"/><div><b>{title}</b><span>{children}</span></div></div>}
