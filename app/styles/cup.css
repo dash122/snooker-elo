@@ -78,7 +78,7 @@
 .cup-urgency{display:inline-flex;align-items:center;padding:.125rem var(--sp-2);border-radius:var(--radius-pill);
   font-size:var(--fs-caption);font-weight:700;background:rgba(232,194,106,.22);color:#f2dfae}.cup-urgency.hot{background:#ff6b5a;color:#2a0906}/* The guest landing page behind a shared link: same components as the app, without the chrome a
    reader who has never signed in has no use for. */
-/* `main` carries a global `min-height:100vh`, so a grid here stretches its rows to fill the viewport
+/* `main` carries a global `min-height:100dvh`, so a grid here stretches its rows to fill the viewport
    — which turned a four-line hero into a 500px slab. Rows size to their content. */
 .cup-share-page{width:min(var(--ds-page-compact-mobile),100%);margin:0 auto;padding:var(--sp-4-5) var(--sp-4) calc(2.5rem + env(safe-area-inset-bottom));
   display:grid;align-content:start;gap:var(--sp-3-5)}.cup-share-hero{position:relative;display:block;height:auto;overflow:hidden;border-radius:var(--radius-lg);

@@ -1,0 +1,18 @@
+/* Shared frame for standalone pages without the bottom navigation: sign-in/out
+   and the admin family (`<main className="auth-page …">`). Uses the dynamic
+   viewport so iOS toolbars and the installed PWA don't clip or jump, and keeps
+   content clear of the notch, rounded corners and home indicator. */
+.auth-page{
+  --frame-pad:var(--sp-6);
+  box-sizing:border-box;
+  min-height:100vh;min-height:100dvh;
+  margin:0;
+  padding:
+    max(var(--frame-pad),calc(var(--ds-safe-top) + var(--sp-4)))
+    max(var(--frame-pad),calc(env(safe-area-inset-right,0px) + var(--sp-4)))
+    max(var(--frame-pad),calc(var(--ds-safe-bottom) + var(--sp-4)))
+    max(var(--frame-pad),calc(env(safe-area-inset-left,0px) + var(--sp-4)));
+  display:grid;place-items:center;
+  background:radial-gradient(circle at 70% 0,rgba(213,169,77,.18),transparent 32%),var(--ds-canvas-functional);
+}
+@media(max-width:599px){.auth-page{--frame-pad:var(--sp-4)}}

@@ -15,6 +15,7 @@ import "./styles/match-entry-form.css";
 import "./styles/player-picker.css";
 import "./styles/calendar.css";
 import "./styles/member-auth.css";
+import "./styles/page-frame.css";
 import "./styles/admin-roster.css";
 import "./styles/admin-reports.css";
 import "./styles/admin-translations.css";
