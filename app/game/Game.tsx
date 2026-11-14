@@ -13,7 +13,7 @@ import { describePlan, EMPTY_STATS, focus, POCKET_NAMES, powerWord, record, revi
 import { beginShot, concedeFrame, finishShot, framesToWin, newMatch, newPractice, nextFrame, placeCueBall, pointsRemaining, snookersRequired, wouldConcede } from '../../lib/snooker-match';
 import Table, { type Assist, type TableView } from './Table';
 import { nearestAim } from '../../lib/snooker-aim';
-import { type Stroke, STROKE_CONTACT_MS, STROKE_END_MS } from '../../lib/snooker-presentation';
+import { nextSimStep, type Stroke, STROKE_CONTACT_MS, STROKE_END_MS } from '../../lib/snooker-presentation';
 import { createSound } from './sound';
 import '../styles/snooker-game.css';
 
@@ -70,7 +70,7 @@ export default function Game(){
     return()=>cancelAnimationFrame(frame);
   },[lineUp]);
   useEffect(()=>{
-    let frame=0,last=0,accumulator=0,aiAt=0,releaseAt=0;
+    let frame=0,last=0,accumulator=0,aiAt=0,releaseAt=0,simStep=1/60;
     sound.current=createSound();
     // The look-ahead search takes a second or two; a worker keeps the table
     // animating. Without one (old browsers) it runs inline.
@@ -88,9 +88,12 @@ export default function Game(){
         sound.current?.impact('cue',.4+pending.current.power/100*2.6);
         pending.current=null;active.current=true;
       }
-      // Catch up after slow frames so the balls always move in real time; only
-      // a long stall (a background tab) is dropped rather than replayed.
-      accumulator+=Math.min((time-last)/1000,.25);last=time;
+      // Advance by the real frame time, but let the step grow by at most 30% a
+      // frame. A one-off stall (a sound starting, a shader compiling) becomes a
+      // brief, invisible slow-down instead of the balls lurching forward, while
+      // a phone that is steadily slow still reaches real time within a few frames.
+      const elapsed=last?(time-last)/1000:1/60;last=time;
+      simStep=nextSimStep(elapsed,simStep);accumulator+=simStep;
       while(accumulator>=1/240){
         if(active.current)step(m.balls,1/240,v=>{if(m.first===null)m.first=v;},b=>m.potted.push(b),(kind,speed)=>sound.current?.impact(kind,speed));
         accumulator-=1/240;

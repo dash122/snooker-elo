@@ -279,3 +279,35 @@ test('snookers required and when a player concedes the frame',()=>{
  // Conceding while ahead still gives the frame to the opponent.
  const ahead=newMatch(3);ahead.scores=[50,0];concedeFrame(ahead,0);assert.equal(ahead.frameWinner,1);assert.deepEqual(ahead.frames,[0,1]);
 });
+
+test('animation pacing absorbs a stall without the balls lurching, and keeps real time on a slow device',async()=>{
+ const {nextSimStep}=await import('../lib/snooker-presentation.ts');
+ const run=frames=>{let step=1/60,simulated=0,real=0,biggest=0;for(const dt of frames){step=nextSimStep(dt,step);simulated+=step;real+=dt;biggest=Math.max(biggest,step);}return {simulated,real,biggest};};
+ // 60 fps with one quarter-second hitch: no single frame advances more than ~23 ms.
+ const hitch=run([...Array(30).fill(1/60),.25,...Array(30).fill(1/60)]);
+ assert.ok(hitch.biggest<.024,`largest step ${hitch.biggest.toFixed(3)} s`);
+ // A steadily slow phone (15 fps) is back in real time within a handful of frames.
+ const slow=run(Array(60).fill(1/15));
+ assert.ok(slow.real-slow.simulated<.15,`fell ${(slow.real-slow.simulated).toFixed(3)} s behind`);
+ assert.equal(nextSimStep(1/15,1/15),1/15);
+ // Never negative, never more than 100 ms.
+ assert.equal(nextSimStep(-1,1/60),0);assert.equal(nextSimStep(5,1),.1);
+});
+
+test('a ball never gains speed after a cushion',()=>{
+ let reached=0,cases=0;
+ for(const speed of [.3,1.5,4])for(const degrees of [0,30,60])for(const roll of [-2,0,1])for(const side of [-1,0,1]){
+  const a=degrees*Math.PI/180,b=ball(0,0,W-RADIUS-.02,.6);
+  Object.assign(b,{vx:Math.cos(a)*speed,vz:-Math.sin(a)*speed});b.wx=roll*b.vz/RADIUS;b.wz=-roll*b.vx/RADIUS;b.wy=side*speed/RADIUS;
+  let rebound=0;
+  for(let i=0;i<240*3&&moving([b]);i++){
+   const before=b.vx;step([b],1/240,()=>{},()=>{});
+   const now=Math.hypot(b.vx,b.vz);
+   if(!rebound&&before>0&&b.vx<=0)rebound=now;
+   else if(rebound&&b.x<W-RADIUS-.002)assert.ok(now<=rebound+1e-9,`sped up from ${rebound.toFixed(3)} to ${now.toFixed(3)} (v ${speed}, ${degrees}°, roll ${roll}, side ${side})`);
+  }
+  // A slow ball with heavy screw can stop and come back before it gets there.
+  cases++;if(rebound)reached++;
+ }
+ assert.ok(reached>cases*.9,`${reached}/${cases} reached the cushion`);
+});

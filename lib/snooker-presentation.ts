@@ -58,3 +58,12 @@ export function cueStroke(elapsed:number,power:number,initial=CUE_ADDRESS_GAP){
   const t=clamp((elapsed-STROKE_CONTACT_MS)/180),follow=.075+.065*p;
   return -2*back*(t*t*t-2*t*t+t)-follow*(-2*t*t*t+3*t*t);
 }
+
+/** How much simulated time to run this animation frame. It follows the real
+ * frame time, but may grow by at most 30% (plus 2 ms) a frame and never past
+ * 100 ms. A one-off stall therefore becomes a brief slow-down rather than the
+ * balls jumping forward, yet a steadily slow device still reaches real time
+ * within a few frames. */
+export function nextSimStep(elapsed:number,previous:number){
+  return Math.max(0,Math.min(elapsed,previous*1.3+.002,.1));
+}
