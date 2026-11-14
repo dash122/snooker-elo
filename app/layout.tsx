@@ -15,6 +15,7 @@ import "./styles/match-entry-form.css";
 import "./styles/player-picker.css";
 import "./styles/calendar.css";
 import "./styles/member-auth.css";
+import "./styles/page-frame.css";
 import "./styles/admin-roster.css";
 import "./styles/admin-reports.css";
 import "./styles/admin-translations.css";
@@ -74,6 +75,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export const viewport: Viewport = {
   viewportFit: "cover",
+  // Android Chrome: shrink the layout viewport (and so `dvh`) when the keyboard opens,
+  // so sheets and their sticky actions stay above it. iOS ignores this.
+  interactiveWidget: "resizes-content",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f1f0e9" },
     { media: "(prefers-color-scheme: dark)", color: "#0b2d29" },

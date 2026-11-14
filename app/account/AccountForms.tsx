@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { AVATAR_COLOURS, DEFAULT_AVATAR, avatarHex } from "../avatar-colours";
 import { checkAvatar, checkDisplayName, checkEmail, checkInitials, checkPassword, checkUsername, deriveInitials, MAX_AVATAR_CHARS } from "../api/account/validate";
-import { Button } from "../components/ui/Primitives";
+import { Button, FormField } from "../components/ui/Primitives";
 import { useT, useTranslated } from "../components/I18nProvider";
 import type { Translator } from "../../lib/i18n/translate";
 import { msg } from "../../lib/i18n/translate";
@@ -87,12 +87,9 @@ function readAvatar(file: File) {
 
 type Member = { username: string; email: string; displayName: string; avatar?: string | null; initials?: string | null; iconColour?: string | null; playerName?: string; googleLinked?: boolean; hasPassword?: boolean };
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+function Field({ label, error, hint, children }: { label: string; error?: string; hint?: string; children: React.ReactNode }) {
   const t = useT();
-  return <label className={error ? "field-invalid" : undefined}>
-    {label}{children}
-    {error && <small className="field-error">{message(t, error)}</small>}
-  </label>;
+  return <FormField label={label} hint={hint} error={error ? message(t, error) : undefined}>{children}</FormField>;
 }
 
 export default function AccountForms({ member, googleStatus }: { member: Member; googleStatus?: string }) {
@@ -248,9 +245,8 @@ function ProfileForm({ member, hasPassword, onDone }: { member: Member; hasPassw
       {fieldErrors.avatar && <small className="field-error">{message(t, fieldErrors.avatar)}</small>}
     </div>
 
-    <Field label={zh.initials} error={fieldErrors.initials}>
+    <Field label={zh.initials} hint={zh.initialsHint} error={fieldErrors.initials}>
       <input value={initials} maxLength={3} placeholder={autoInitials} onChange={event => setInitials(event.target.value.toUpperCase())} />
-      <small className="field-hint">{zh.initialsHint}</small>
     </Field>
 
     <div className="colour-field" role="group" aria-labelledby="icon-colour-label">
