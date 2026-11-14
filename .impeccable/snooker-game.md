@@ -159,3 +159,13 @@ Like the published model, it scales with speed, so there is no added speed depen
 - **Cushions.** Shaded slightly darker, with a soft occlusion strip along every nose so they read as raised.
 - **Rails.** Deep mahogany with reduced base specular, because a top-down camera under a top-down light otherwise turns the rails grey.
 - **Shadows.** PCF soft shadows with retuned bias.
+
+## Table frame rebuilt
+
+The frame was a patchwork: separate rail boxes with gaps, a lighter deck showing at the edges, tan half-ring "buckets" for pockets, a segmented apron and gold legs. It is now built like a match table:
+- **Rail capping:** one polished piece with rounded corners and bevelled edges, extending about 120 mm beyond the cushions. Its inner edge follows the cushion backs and is notched round each pocket: 110 mm circles at the corners, 85 mm at the set-back middle falls.
+- **Pocket shields:** matte black leather fills each notch, wraps the back of the pocket and leaves the throat between the cushion jaws open, with a thin iron lip around the drop.
+- **Body:** one continuous apron below the rail, with fine brass beads under the rail and along its foot.
+- **Legs:** eight turned mahogany legs on brass collars and dark levelling feet.
+
+Playing dimensions, cushion and pocket physics are unchanged.
