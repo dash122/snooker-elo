@@ -17,9 +17,10 @@ export function buildTournamentTable(scene:THREE.Scene,anisotropy:number) {
     const i=(y*512+x)*4;grainPixels.data[i]=71+grain;grainPixels.data[i+1]=36+grain*.6;grainPixels.data[i+2]=27+grain*.4;grainPixels.data[i+3]=255;
   }
   grainCtx.putImageData(grainPixels,0,0);const woodTexture=new THREE.CanvasTexture(grainCanvas);woodTexture.colorSpace=THREE.SRGBColorSpace;woodTexture.anisotropy=anisotropy;
-  const wood=new THREE.MeshPhysicalMaterial({map:woodTexture,roughness:.3,clearcoat:.48,clearcoatRoughness:.22});
-  const gold=new THREE.MeshStandardMaterial({color:'#b39860',metalness:.78,roughness:.36});
-  const leather=new THREE.MeshStandardMaterial({color:'#ad9068',roughness:.88});
+  // Deep French-polished mahogany: the clearcoat picks up a crisp reflection of the canopy.
+  const wood=new THREE.MeshPhysicalMaterial({map:woodTexture,color:'#a5604a',roughness:.6,specularIntensity:.35,clearcoat:.45,clearcoatRoughness:.18,envMapIntensity:.35});
+  const gold=new THREE.MeshStandardMaterial({color:'#b39860',metalness:.78,roughness:.36,envMapIntensity:.6});
+  const leather=new THREE.MeshStandardMaterial({color:'#ad9068',roughness:.88,envMapIntensity:.25});
   const dark=new THREE.MeshStandardMaterial({color:'#14110e',roughness:1,side:THREE.DoubleSide});
   function mesh(geometry:THREE.BufferGeometry,material:THREE.Material,x=0,y=0,z=0) {
     const m=new THREE.Mesh(geometry,material);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;scene.add(m);return m;
@@ -44,21 +45,56 @@ export function buildTournamentTable(scene:THREE.Scene,anisotropy:number) {
   bed.lineTo(-w+r,l);bed.absarc(-w,l,r,0,-Math.PI/2,true);
   bed.lineTo(-w,mouth);bed.absarc(-w-back,0,middle,sweep,-sweep,true);
   bed.lineTo(-w,-l+r);bed.absarc(-w,-l,r,Math.PI/2,0,true);bed.closePath();
-  const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
-  const ctx=canvas.getContext('2d')!,pixels=ctx.createImageData(256,256);let seed=19;
-  for(let i=0;i<pixels.data.length;i+=4){seed=(seed*1664525+1013904223)>>>0;const n=(seed>>>24)/255;pixels.data[i]=8+n*3;pixels.data[i+1]=88+n*5;pixels.data[i+2]=31+n*3;pixels.data[i+3]=255;}
-  ctx.putImageData(pixels,0,0);
-  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(6,6);texture.anisotropy=anisotropy;
-  const cloth=new THREE.MeshStandardMaterial({color:'#ffffff',map:texture,bumpMap:texture,bumpScale:.00012,roughness:.94});
+  // Tournament cloth: a tight worsted weave with a directional nap. Paint fine
+  // fibres (mostly lying along the table, from baulk to the top cushion) over
+  // a faint mottle, then let sheen give it the soft, velvety edge highlight
+  // that baize shows under a canopy, rather than a plastic gloss.
+  const size=512,canvas=document.createElement('canvas');canvas.width=canvas.height=size;
+  const ctx=canvas.getContext('2d')!;let seed=19;
+  const random=()=>((seed=(seed*1664525+1013904223)>>>0)/4294967296);
+  ctx.fillStyle='rgb(14,108,48)';ctx.fillRect(0,0,size,size);
+  for(let i=0;i<70;i++){
+    const x=random()*size,y=random()*size,radius=30+random()*90,light=random()<.5;
+    const g=ctx.createRadialGradient(x,y,0,x,y,radius);
+    g.addColorStop(0,light?'rgba(40,130,70,.022)':'rgba(0,30,12,.025)');g.addColorStop(1,'rgba(0,0,0,0)');
+    for(const [dx,dy] of [[0,0],[size,0],[-size,0],[0,size],[0,-size]]){ctx.fillStyle=g;ctx.save();ctx.translate(dx,dy);ctx.fillRect(x-radius,y-radius,radius*2,radius*2);ctx.restore();}
+  }
+  ctx.lineCap='round';
+  for(let i=0;i<26000;i++){
+    const x=random()*size,y=random()*size,len=1.5+random()*4.5,angle=Math.PI/2+(random()-.5)*.9,light=random();
+    ctx.strokeStyle=light<.45?`rgba(40,130,66,${.08+random()*.12})`:`rgba(0,34,12,${.10+random()*.18})`;
+    ctx.lineWidth=.6+random()*.5;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(angle)*len,y+Math.sin(angle)*len);ctx.stroke();
+  }
+  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(3,6);texture.anisotropy=anisotropy;
+  const nap=texture.clone();nap.colorSpace=THREE.NoColorSpace;nap.needsUpdate=true;
+  const cloth=new THREE.MeshPhysicalMaterial({color:'#ffffff',map:texture,bumpMap:nap,bumpScale:.00025,roughness:.92,sheen:.3,sheenRoughness:.75,sheenColor:new THREE.Color('#1f6b38'),envMapIntensity:.15});
+  // Cushion cloth is the same baize, a shade darker where it wraps the rubber.
+  const cushionCloth=cloth.clone();cushionCloth.color=new THREE.Color('#d9e6dc');
   extrude(perforated(w+.195,l+.195),.055,-.035,wood,.004);
   extrude(bed,.04,0,cloth);
+  // Soft occlusion where the cushion rubber overhangs the bed: real cushions
+  // always sit on a thin dark line, which is what makes them read as raised.
+  const shade=document.createElement('canvas');shade.width=4;shade.height=64;
+  const shadeCtx=shade.getContext('2d')!,shadeGradient=shadeCtx.createLinearGradient(0,64,0,0);
+  shadeGradient.addColorStop(0,'rgba(0,0,0,.55)');shadeGradient.addColorStop(.35,'rgba(0,0,0,.18)');shadeGradient.addColorStop(1,'rgba(0,0,0,0)');
+  shadeCtx.fillStyle=shadeGradient;shadeCtx.fillRect(0,0,4,64);
+  const shadeMaterial=new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(shade),transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  function cushionShade(length:number,x:number,z:number,rotation:number){
+    // The plane's local +y points into the table; the dark edge sits on the nose line.
+    const plane=new THREE.Mesh(new THREE.PlaneGeometry(length,.045),shadeMaterial);
+    plane.geometry.translate(0,.0225,0);plane.rotation.order='YXZ';plane.rotation.set(-Math.PI/2,rotation,0);plane.position.set(x,.0025,z);plane.renderOrder=1;scene.add(plane);
+  }
+  for(const sign of [-1,1]){
+    for(const half of [-1,1])cushionShade(l-r-middle,sign*w,half*(l-r+middle)/2,sign*Math.PI/2);
+    cushionShade(WIDTH-2*r,0,sign*l,sign===1?0:Math.PI);
+  }
   // Six individually shaped steel-block cushions, with rounded cloth-covered noses.
   function cushion(length:number,x:number,z:number,rotation:number) {
     const s=new THREE.Shape();
     s.moveTo(-length/2-.019,.071);s.lineTo(length/2+.019,.071);s.lineTo(length/2+.019,.036);
     s.bezierCurveTo(length/2+.019,.012,length/2+.012,0,length/2,0);s.lineTo(-length/2,0);
     s.bezierCurveTo(-length/2-.012,0,-length/2-.019,.012,-length/2-.019,.036);s.closePath();
-    const m=new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:.028,bevelEnabled:true,bevelSize:.002,bevelThickness:.002,bevelSegments:3,curveSegments:16}),cloth);
+    const m=new THREE.Mesh(new THREE.ExtrudeGeometry(s,{depth:.028,bevelEnabled:true,bevelSize:.002,bevelThickness:.002,bevelSegments:3,curveSegments:16}),cushionCloth);
     m.rotation.x=Math.PI/2;const group=new THREE.Group();group.add(m);group.rotation.y=rotation;group.position.set(x,.034,z);scene.add(group);m.castShadow=m.receiveShadow=true;
   }
   for(const sign of [-1,1]){

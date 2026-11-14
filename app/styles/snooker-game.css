@@ -50,6 +50,7 @@
   .sg-info > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
   .sg-info b { color: var(--ds-broadcast-yellow); font-size: var(--fs-caption); }
   .sg-target { color: var(--ds-text-on-brand); font-weight: 600; }
+  .sg-snookers { color: var(--ds-accent-soft); }
   .sg-target i, .sg-run i { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset -2px -2px 3px color-mix(in srgb, var(--ds-broadcast-black) 40%, transparent), 0 0 0 1px var(--sg-line); }
   .sg-target i[data-any] { background: conic-gradient(var(--ds-broadcast-yellow), var(--ds-success), var(--ds-signup-text), var(--ds-danger), var(--ds-broadcast-yellow)); }
   .sg-run { display: inline-flex; gap: 2px; }

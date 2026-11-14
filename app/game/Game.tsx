@@ -10,7 +10,7 @@ import { Button, ButtonLink, IconButton, SegmentedControl, StatTile } from '../c
 import { Sheet } from '../components/ui/Overlay';
 import { aimAtBall, bestAim, COLOURS, computerPlan, cueSpotInD, deliverComputerShot, deliverShot, LEVELS, moving, NAMES, paceLengths, planShot, PLAYER_ERROR_SCALE, predictShot, PRO_ERROR_SCALE, step, type Level, type ShotPlan, type Spin } from '../../lib/snooker-game';
 import { describePlan, EMPTY_STATS, focus, POCKET_NAMES, powerWord, record, reviewShot, spinWord, type CoachStats } from '../../lib/snooker-coach';
-import { beginShot, finishShot, framesToWin, newMatch, newPractice, nextFrame, placeCueBall, pointsRemaining } from '../../lib/snooker-match';
+import { beginShot, concedeFrame, finishShot, framesToWin, newMatch, newPractice, nextFrame, placeCueBall, pointsRemaining, snookersRequired, wouldConcede } from '../../lib/snooker-match';
 import Table, { type Assist, type TableView } from './Table';
 import { nearestAim } from '../../lib/snooker-aim';
 import { type Stroke, STROKE_CONTACT_MS, STROKE_END_MS } from '../../lib/snooker-presentation';
@@ -29,7 +29,7 @@ function thickness(fraction:number){return fraction>.93?'全球':fraction>.66?'3
 export default function Game(){
   const [initial]=useState(()=>startMatch(DEFAULT_SETTINGS)),match=useRef(initial),[snapshot,setSnapshot]=useState(initial);
   const [angle,setAngle]=useState(()=>nearestAim(initial.balls,initial.target)),[power,setPower]=useState(45),[top,setTop]=useState(0),[side,setSide]=useState(0);
-  const [busy,setBusy]=useState(false),[pulling,setPulling]=useState(false),[layout,setLayout]=useState(0);
+  const [confirmConcede,setConfirmConcede]=useState(false),[busy,setBusy]=useState(false),[pulling,setPulling]=useState(false),[layout,setLayout]=useState(0);
   const [settings,setSettings]=useState(DEFAULT_SETTINGS),[topView,setTopView]=useState(false);
   const [sheet,setSheet]=useState<null|'menu'|'coach'>(null),[spinOpen,setSpinOpen]=useState(false),[confirmReset,setConfirmReset]=useState(false);
   const [stroke,setStroke]=useState<Stroke|null>(null);
@@ -108,6 +108,10 @@ export default function Game(){
         if(m.turn===0&&!m.finished)lineUp(live.current.assist);
         setBusy(false);setSnapshot({...m,scores:[...m.scores]});aiAt=time+900;
       }
+      // Needing more snookers than it would play on for, the computer shakes hands.
+      if(!active.current&&!pending.current&&!thinking.current&&m.turn===1&&!m.finished&&time>=aiAt&&wouldConcede(m,1,LEVELS[live.current.level].concede)){
+        concedeFrame(m,1);setReview(null);setNote('');setSnapshot({...m,scores:[...m.scores],frames:[...m.frames]});
+      }
       if(!active.current&&!pending.current&&!thinking.current&&m.turn===1&&!m.finished&&time>=aiAt){
         const id=++requests.current;thinking.current=id;
         if(planner.current)planner.current.postMessage({id,kind:'computer',balls:m.balls,target:m.target,level:live.current.level,inHand:m.inHand});
@@ -184,6 +188,10 @@ export default function Game(){
   }
   function pullMove(event:ReactPointerEvent<HTMLDivElement>){if(pull.current===event.pointerId)setPower(pullTo(event));}
   function pullEnd(event:ReactPointerEvent<HTMLDivElement>){if(pull.current===event.pointerId){pull.current=null;setPulling(false);}}
+  function concede(){
+    const m=match.current;if(!canShoot)return;
+    concedeFrame(m,0);setConfirmConcede(false);setSheet(null);setReview(null);setNote('');setSnapshot({...m,scores:[...m.scores],frames:[...m.frames]});
+  }
   function playNextFrame(){
     const m=match.current;if(!m.finished||m.matchOver)return;
     nextFrame(m);setSnapshot({...m,scores:[...m.scores],frames:[...m.frames]});setStroke(null);setTop(0);setSide(0);setPower(45);
@@ -206,7 +214,7 @@ export default function Game(){
   }
   const tipDescription=[top>.05?'高桿 · 跟進':top<-.05?'低桿 · 拉桿':'中桿',side>.05?'右塞':side<-.05?'左塞':'無側旋'].join(' · ');
   const practice=focus(stats),potRate=stats.shots?Math.round(stats.pots/stats.shots*100):0,positionRate=stats.positions?Math.round(stats.positionsOk/stats.positions*100):0;
-  const remaining=pointsRemaining(m),lead=m.scores[0]-m.scores[1],targetName=m.target===-1?'彩色球':NAMES[m.target]??'—';
+  const remaining=pointsRemaining(m),lead=m.scores[0]-m.scores[1],snookers=m.practice||m.finished?0:snookersRequired(m,m.turn),targetName=m.target===-1?'彩色球':NAMES[m.target]??'—';
   const status=m.finished||pulling?'':note||(busy?''
     :m.turn===1?'電腦思考中…'
     :review?review.headline+(review.tip?'　'+review.tip:'')
@@ -214,7 +222,7 @@ export default function Game(){
     :m.inHand?'白球在手：拖動白球擺位，或者直接瞄準'
     :m.shots===0?'點一粒球自動瞄準 · 拖動微調 · 右邊設定力度再按出桿':m.message);
   const readout=outcome==='pot'?'入袋':outcome==='inoff'?'白球落袋':outcome==='foul'?'犯規':outcome==='miss'?'碰唔到球':'';
-  const won=m.scores[0]>m.scores[1];
+  const won=(m.frameWinner??(m.scores[0]>m.scores[1]?0:1))===0;
   return <div role="main" className="sg" data-turn={m.turn} onPointerDownCapture={()=>sound.current?.unlock()}>
     <h1 className="sg-sr">3D 桌球</h1>
     <Table balls={m.balls} angle={angle} power={power} spin={spin} view={view} aiming={canShoot} pulling={pulling} inHand={m.inHand} showD={m.inHand&&!m.practice} turnKey={m.shots} stroke={stroke}
@@ -236,7 +244,7 @@ export default function Game(){
         <div className="sg-info">
           <span className="sg-target"><i style={{background:m.target===-1?undefined:COLOURS[m.target]}} data-any={m.target===-1||undefined} aria-hidden="true"/>{m.turn===0?'你打':'電腦打'}{targetName}</span>
           {m.break>0?<span role="status" aria-label={`${m.turn===0?'你':'電腦'}，目前單桿 ${m.break} 分，共 ${m.breakBalls.length} 球`}>{m.practice?'':<>單桿 <b>{m.break}</b></>}<span className="sg-run" aria-hidden="true">{m.breakBalls.slice(-6).map((value,index)=><i key={index} style={{background:COLOURS[value]}}/>)}</span></span>
-            :m.practice?<span>Line-up</span>:<span>{lead===0?'平手':lead>0?<>領先 <b>{lead}</b></>:<>落後 <b>{-lead}</b></>}</span>}
+            :m.practice?<span>Line-up</span>:snookers?<span className="sg-snookers">{m.turn===0?'你':'電腦'}需要 <b>{snookers}</b> 個 snooker</span>:<span>{lead===0?'平手':lead>0?<>領先 <b>{lead}</b></>:<>落後 <b>{-lead}</b></>}</span>}
           <span>枱面 <b>{remaining}</b></span>
         </div>
       </div>
@@ -313,6 +321,7 @@ export default function Game(){
       {m.practice?<p className="sg-result-score"><b>{m.best}</b><span>最高單桿</span></p>
         :<p className="sg-result-score" aria-label={`局數 ${m.frames[0]} 比 ${m.frames[1]}`}><b>{m.frames[0]}</b><span>–</span><b>{m.frames[1]}</b></p>}
       {!m.practice&&<ol className="sg-frame-list" aria-label="每局比分">{m.frameScores.map((score,index)=><li key={index} data-won={score[0]>score[1]||undefined}><span>第 {index+1} 局</span><b>{score[0]} – {score[1]}</b></li>)}</ol>}
+      {!m.practice&&m.message.includes('認輸')&&<p>{m.message}</p>}
       {!m.practice&&!m.matchOver?<>
         <p>{m.bestOf} 局 {framesToWin(m)} 勝 · 下一局{(m.frame+1)%2?'電腦':'你'}開波</p>
         <div className="sg-row"><Button type="button" variant="secondary" onClick={()=>setSheet('menu')}>選單</Button><Button type="button" variant="featured" onClick={playNextFrame}>下一局</Button></div>
@@ -334,7 +343,7 @@ export default function Game(){
       <p><b>真球枱：</b>{practice.table}</p>
       <p className="sg-fine-print">枱面嘅白圈係白球預計停低嘅位置，藍綠圈係教練想你停嘅位置。厚薄顯示（全球／半球／薄邊）同真枱瞄準一樣，可以直接帶去練波。</p>
     </Sheet>
-    <Sheet open={sheet==='menu'} title="3D 桌球" onClose={()=>{setSheet(null);setConfirmReset(false);}} className="sg-sheet">
+    <Sheet open={sheet==='menu'} title="3D 桌球" onClose={()=>{setSheet(null);setConfirmReset(false);setConfirmConcede(false);}} className="sg-sheet">
       <div className="sg-setting"><span>模式</span><SegmentedControl label="模式" value={settings.mode} onChange={value=>update({mode:value as Settings['mode']})} items={[{value:'match',label:'對電腦'},{value:'practice',label:'Line-up 練習'}]}/><small>Line-up：15 粒紅排喺中線，自己一個練紅、彩、紅走位；失手唔使交換，單桿由零再計。轉模式會即時重新開始。</small></div>
       {settings.mode==='match'&&<div className="sg-setting"><span>賽制</span><SegmentedControl label="賽制" value={settings.frames} onChange={value=>update({frames:value as Settings['frames']})} items={[{value:'1',label:'1 局'},{value:'3',label:'3 局 2 勝'},{value:'5',label:'5 局 3 勝'},{value:'7',label:'7 局 4 勝'}]}/><small>雙方輪流開波。改賽制會即時重新開始。</small></div>}
       <div className="sg-setting"><span>視角</span><SegmentedControl label="視角" value={settings.camera} onChange={value=>update({camera:value as Settings['camera']})} items={[{value:'auto',label:'自動'},{value:'top',label:'俯瞰'},{value:'player',label:'球員'}]}/></div>
@@ -350,7 +359,8 @@ export default function Game(){
         <p>視覺向電視轉播同經典桌球遊戲致意，並非任何官方產品。</p>
       </details>
       {confirmReset?<div className="sg-row" role="group" aria-label="確認重新開局"><span>放棄目前比分？</span><Button type="button" onClick={()=>reset()}>確認重新開局</Button><Button type="button" variant="secondary" onClick={()=>setConfirmReset(false)}>繼續本局</Button></div>
-        :<div className="sg-row"><Button type="button" variant="secondary" onClick={()=>setConfirmReset(true)}>重新開局</Button><ButtonLink href="/" variant="quiet">返回球會</ButtonLink></div>}
+        :confirmConcede?<div className="sg-row" role="group" aria-label="確認認輸"><span>認輸呢一局？</span><Button type="button" onClick={concede}>確認認輸</Button><Button type="button" variant="secondary" onClick={()=>setConfirmConcede(false)}>繼續打</Button></div>
+        :<div className="sg-row"><Button type="button" variant="secondary" onClick={()=>setConfirmReset(true)}>重新開局</Button>{!m.practice&&canShoot&&<Button type="button" variant="secondary" onClick={()=>setConfirmConcede(true)}>認輸呢局</Button>}<ButtonLink href="/" variant="quiet">返回球會</ButtonLink></div>}
     </Sheet>
   </div>;
 }

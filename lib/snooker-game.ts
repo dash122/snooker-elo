@@ -43,20 +43,40 @@ export function strike(b:Ball,angle:number,power:number,spin:Spin={top:0,side:0}
  const w=2.5*v*TIP_OFFSET_MAX/RADIUS;
  b.vx=Math.sin(a)*v;b.vz=-Math.cos(a)*v;b.wx=b.vz/v*w*top;b.wz=-b.vx/v*w*top;b.wy=w*side;
 }
+// Cushion impact after Mathavan, Jackson & Parkin (2010), "A theoretical
+// analysis of billiard ball dynamics under cushion impacts", fitted to their
+// snooker measurements. The cushion nose touches the ball 7R/5 above the cloth
+// (θ = asin .4 above the centre), so it also presses the ball into the slate.
+// Two contacts act at once: the cushion (restitution .98, friction .14) and the
+// cloth under the ball (sliding friction .21). The impulse is integrated in
+// small steps through compression and then restitution, ending when the
+// restitution work reaches e² of the compression work. That is why a rolling
+// ball leaves with its topspin largely killed and a fast ball "checks" off
+// the cushion, and why side spin, screw and follow each change the angle.
+export const CUSHION_RESTITUTION=.98, CUSHION_FRICTION=.14;
+const CUSHION_SIN=.4,CUSHION_COS=Math.sqrt(1-CUSHION_SIN*CUSHION_SIN);
 function cushion(b:Ball,nx:number,nz:number){
- const n=b.vx*nx+b.vz*nz;if(n>=0)return;
- // Reduced planar cushion model: the nose contacts at 7R/5 above the cloth
- // (Mathavan et al., 2010), hence .4R above the centre. Evaluate v + w × r
- // at that point using the SAME right-handed axes as strike and cloth drag.
- // This couples horizontal-axis spin to side at oblique cushions. Backspin
- // never arbitrarily flips wy when the ball draws back or changes direction.
- const j=-1.9*n,tx=-nz,tz=nx,h=.4*RADIUS,arm=Math.sqrt(.84)*RADIUS;
- const slip=b.vx*tx+b.vz*tz+arm*(b.wy??0)+h*((b.wx??0)*nx+(b.wz??0)*nz);
- // Solid-sphere tangential effective inverse mass is 1 + R²/(.4R²).
- // Stop slip without an artificial tangential bounce; cap grazing impacts.
- const f=Math.max(-.28*j,Math.min(.28*j,-slip/3.5)),torque=2.5*f/(RADIUS*RADIUS);
- b.vx+=j*nx+f*tx;b.vz+=j*nz+f*tz;
- b.wy=(b.wy??0)+arm*torque;b.wx=(b.wx??0)+h*nx*torque;b.wz=(b.wz??0)+h*nz*torque;
+ // Local frame: x into the cushion, y along it, z up (right-handed).
+ const ax=-nx,az=-nz,tx=az,tz=-ax,R=RADIUS,s=CUSHION_SIN,c=CUSHION_COS,mw=CUSHION_FRICTION,ms=CLOTH_SLIDING_FRICTION;
+ let vx=b.vx*ax+b.vz*az;if(vx<=0)return;
+ let vy=b.vx*tx+b.vz*tz,wx=(b.wx??0)*ax+(b.wz??0)*az,wy=(b.wx??0)*tx+(b.wz??0)*tz,wz=b.wy??0;
+ const dP=vx/100,k=1/(.4*R*R); // impulse per unit mass per step
+ const push=()=>{
+  // Slip at the cushion contact, in its tangent plane (along y, and up the nose).
+  const u1=vy+R*(c*wz-s*wx),u2=-s*vx-R*wy,u=Math.hypot(u1,u2);
+  const f1=u>1e-9?-mw*dP*u1/u:0,f2=u>1e-9?-mw*dP*u2/u:0;
+  const fIx=-s*f2,fIy=f1,fIz=c*f2;
+  // The cloth carries the downward push; its friction opposes slip at the base.
+  const dPC=Math.max(0,s*dP-fIz),ux=vx-R*wy,uy=vy+R*wx,uc=Math.hypot(ux,uy);
+  const fCx=uc>1e-9?-ms*dPC*ux/uc:0,fCy=uc>1e-9?-ms*dPC*uy/uc:0;
+  vx+=-c*dP+fIx+fCx;vy+=fIy+fCy;
+  wx+=k*(-R*s*fIy+R*fCy);wy+=k*(R*(s*fIx-c*fIz)-R*fCx);wz+=k*R*c*fIy;
+ };
+ let work=0;
+ for(let i=0;i<4000&&vx>0;i++){push();work+=dP*c*Math.max(0,vx);}
+ const target=CUSHION_RESTITUTION**2*work;let back=0;
+ for(let i=0;i<4000&&back<target;i++){push();back+=dP*c*Math.max(0,-vx);}
+ b.vx=vx*ax+vy*tx;b.vz=vx*az+vy*tz;b.wx=wx*ax+wy*tx;b.wz=wx*az+wy*tz;b.wy=wz;
 }
 export function moving(balls:Ball[]) { return balls.some(b=>!b.potted && (Math.hypot(b.vx,b.vz)>.001||RADIUS*Math.hypot(b.wx??0,b.wz??0)>.001)); }
 // Pockets. Each cushion ends in a rounded jaw: a circle of JAW radius tangent
@@ -148,13 +168,28 @@ export function step(balls:Ball[],dt:number,onContact:(value:number)=>void,onPot
     if(a.value===0) onContact(b.value); if(b.value===0) onContact(a.value);
   }
 }
+/** Respot a colour as the rules require (Rules of Snooker, section 3.7):
+ * its own spot; if that is taken, the highest-value spot that is free; if
+ * every spot is taken, as near its own spot as possible on a straight line
+ * towards the top cushion; failing that, on the same line below its spot.
+ * "Free" means no ball touching or covering the spot. Balls being respotted
+ * together go highest value first, so call this in that order. */
 export function respot(ball:Ball,balls:Ball[]) {
-  const home=rack().find(b=>b.value===ball.value)!;
-  // Search along the centre line, then the full cloth if the spot is occupied.
-  const candidates=[{x:home.x,z:home.z}];
-  for(let z=-LENGTH/2+.1;z<LENGTH/2-.1;z+=RADIUS*2.1) for(let x=-WIDTH/2+.1;x<WIDTH/2-.1;x+=RADIUS*2.1) candidates.push({x,z});
-  const spot=candidates.find(p=>balls.every(b=>b===ball||b.potted||Math.hypot(b.x-p.x,b.z-p.z)>RADIUS*2.01));
-  if(spot) Object.assign(ball,spot,{potted:false,vx:0,vz:0,wx:0,wz:0,wy:0});
+  const spots=rack().filter(b=>b.value!==1);
+  const home=spots.find(b=>b.value===ball.value)!;
+  const free=(x:number,z:number)=>balls.every(b=>b===ball||b.potted||Math.hypot(b.x-x,b.z-z)>=RADIUS*2-1e-9);
+  const place=(x:number,z:number)=>{Object.assign(ball,{x,z,potted:false,vx:0,vz:0,wx:0,wz:0,wy:0});};
+  if(free(home.x,home.z))return place(home.x,home.z);
+  if(ball.value>1)for(const value of [7,6,5,4,3,2]){
+    const spot=spots.find(b=>b.value===value)!;
+    if(free(spot.x,spot.z))return place(spot.x,spot.z);
+  }
+  // Up the table towards the top cushion (−z), then down from the spot.
+  const top=-LENGTH/2+RADIUS,bottom=LENGTH/2-RADIUS,stepZ=RADIUS/50;
+  for(let z=home.z;z>=top;z-=stepZ)if(free(home.x,z))return place(home.x,z);
+  for(let z=home.z;z<=bottom;z+=stepZ)if(free(home.x,z))return place(home.x,z);
+  // A table this crowded cannot happen in play; never leave the ball off the table.
+  for(let z=top;z<=bottom;z+=RADIUS*2.1)for(let x=-WIDTH/2+RADIUS;x<=WIDTH/2-RADIUS;x+=RADIUS*2.1)if(free(x,z))return place(x,z);
 }
 export type ComputerShot={angle:number;power:number;spin:Spin};
 export type PotOption={angle:number;quality:number;value:number;pocket:number;cut:number;ball:number};
@@ -284,7 +319,7 @@ function candidates(balls:Ball[],target:number,errorScale:number,wide:boolean):C
   if(!ok)continue;
   const points=pots.reduce((sum,b)=>sum+b.value,0),cueEnd={x:trial[0].x,z:trial[0].z};
   const reds=trial.some(b=>b.value===1&&!b.potted);
-  for(const ball of pots)if(ball.value>1&&(reds||target===-1))respot(ball,trial);
+  for(const ball of [...pots].sort((a,b)=>b.value-a.value))if(ball.value>1&&(reds||target===-1))respot(ball,trial);
   const nextTarget=nextTargetAfter(trial,target),nextOptions=potOptions(trial,nextTarget),next=nextOptions[0];
   // Break-building: an easy next pot, spare options, the cue ball off the
   // cushions, and on a colour the black or pink rather than a low colour.
@@ -370,11 +405,13 @@ function planSafety(balls:Ball[],target:number,errorScale=1):ShotPlan|null {
 export const PRO_ERROR_SCALE = .32, PLAYER_ERROR_SCALE = .12;
 export const COMPUTER_ERROR_SCALE = .45;
 /** Opponent standards. `error` scales cue delivery, `attack` is the pot
- * percentage needed before taking a shot on, `touch` the pace/spin error. */
+ * percentage needed before taking a shot on, `touch` the pace/spin error,
+ * `concede` how many snookers it must need before shaking hands on the frame
+ * (in general, and once the reds have gone). */
 export const LEVELS={
- casual:{label:'初哥',error:.9,lookAhead:false,attack:.25,touch:.2},
- club:{label:'球會',error:COMPUTER_ERROR_SCALE,lookAhead:false,attack:.4,touch:.12},
- pro:{label:'職業',error:.25,lookAhead:true,attack:.6,touch:.05},
+ casual:{label:'初哥',error:.9,lookAhead:false,attack:.25,touch:.2,concede:{snookers:3,onColours:2}},
+ club:{label:'球會',error:COMPUTER_ERROR_SCALE,lookAhead:false,attack:.4,touch:.12,concede:{snookers:2,onColours:1}},
+ pro:{label:'職業',error:.25,lookAhead:true,attack:.6,touch:.05,concede:{snookers:2,onColours:1}},
 };
 export type Level=keyof typeof LEVELS;
 function touchShot(balls:Ball[],target:number):ShotPlan {

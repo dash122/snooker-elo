@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
 import { rack, type Prediction, type Spin, BAULK_Z, COLOURS, D_RADIUS, LENGTH, POCKETS, RADIUS, WIDTH, type Ball } from '../../lib/snooker-game';
 import { TABLE_POCKETS } from '../../lib/snooker-table';
@@ -42,22 +41,45 @@ export default function Table(props:Props) {
     const element=host.current!;
     let renderer:THREE.WebGLRenderer;
     try {renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});}catch{queueMicrotask(()=>setFailed(true));return;}
-    renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
+    renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
     renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;renderer.setClearColor('#100f16');element.appendChild(renderer.domElement);
     const scene=new THREE.Scene(),view=new THREE.PerspectiveCamera(39,1,.01,30);
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     scene.fog=new THREE.Fog('#100f16',9,20);
     scene.add(new THREE.HemisphereLight('#e5e8ee','#101018',.22));
     // A prefiltered room supplies real material reflections, especially on balls/rails.
-    const pmrem=new THREE.PMREMGenerator(renderer),room=new RoomEnvironment();
-    const environment=pmrem.fromScene(room,.04);scene.environment=environment.texture;scene.environmentIntensity=.32;
-    room.dispose();pmrem.dispose();
+    // Reflections come from what a match table actually sees: a dark arena and a
+    // bright rectangular canopy of lights directly overhead. That canopy is the
+    // crisp highlight on every ball and on the polished rails.
+    const pmrem=new THREE.PMREMGenerator(renderer),room=new THREE.Scene();
+    room.add(new THREE.Mesh(new THREE.BoxGeometry(14,7,14),new THREE.MeshBasicMaterial({color:'#17141a',side:THREE.BackSide})));
+    const canopy=new THREE.MeshBasicMaterial({color:new THREE.Color(14,13.4,12.4)});
+    for(const z of [-.95,.95]){const panel=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.6),canopy);panel.rotation.x=Math.PI/2;panel.position.set(0,2.6,z);room.add(panel);}
+    const rim=new THREE.Mesh(new THREE.BoxGeometry(2.1,.08,4.3),new THREE.MeshBasicMaterial({color:'#060606'}));rim.position.y=2.7;room.add(rim);
+    const glow=new THREE.MeshBasicMaterial({color:new THREE.Color(.5,.42,.36)});
+    for(const x of [-6.9,6.9]){const wall=new THREE.Mesh(new THREE.PlaneGeometry(12,1.2),glow);wall.rotation.y=x<0?Math.PI/2:-Math.PI/2;wall.position.set(x,1,0);room.add(wall);}
+    const environment=pmrem.fromScene(room,.02);
+    // Assigned per material, because three.js replaces each material's own
+    // envMapIntensity with one scene-wide value when scene.environment is used.
+    // Each material's value is read relative to this base: polished balls
+    // reflect the canopy strongly, rails and baize barely.
+    const ENVIRONMENT=.42,reflective=new WeakSet<THREE.Material>();
+    function applyEnvironment(object:THREE.Object3D){
+      object.traverse(o=>{
+        if(!(o instanceof THREE.Mesh))return;
+        for(const m of Array.isArray(o.material)?o.material:[o.material]){
+          if(!(m instanceof THREE.MeshStandardMaterial)||m.envMap||reflective.has(m))continue;
+          reflective.add(m);m.envMap=environment.texture;m.envMapIntensity*=ENVIRONMENT;m.needsUpdate=true;
+        }
+      });
+    }
+    room.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();(o.material as THREE.Material).dispose();}});pmrem.dispose();
     RectAreaLightUniformsLib.init();
     for(const z of [-.95,.95]){
       const panel=new THREE.RectAreaLight('#fff5e4',2.6,1.6,1.5);panel.position.set(0,2.7,z);panel.lookAt(0,0,z);scene.add(panel);
     }
     const light=new THREE.SpotLight('#fff7e8',42,12,.60,.7,2);light.position.set(-.2,4.7,.4);light.target.position.set(0,0,0);
-    light.castShadow=true;light.shadow.mapSize.set(2048,2048);light.shadow.bias=-.00004;light.shadow.normalBias=.003;light.shadow.camera.near=.3;light.shadow.camera.far=9;scene.add(light,light.target);
+    light.castShadow=true;light.shadow.mapSize.set(2048,2048);light.shadow.bias=-.00015;light.shadow.normalBias=.008;light.shadow.radius=3;light.shadow.camera.near=.3;light.shadow.camera.far=9;scene.add(light,light.target);
     const fill=new THREE.DirectionalLight('#d5e2ff',.28);fill.position.set(3,2,4);scene.add(fill);
     let avatar:PlayerAvatar|undefined,cancelled=false;
     function dispose(object:THREE.Object3D){
@@ -65,7 +87,7 @@ export default function Table(props:Props) {
       object.traverse(o=>{if(o instanceof THREE.Mesh||o instanceof THREE.Line){o.geometry.dispose();const materials=Array.isArray(o.material)?o.material:[o.material];materials.forEach(m=>{Object.values(m).forEach(value=>{if(value instanceof THREE.Texture)textures.add(value);});m.dispose();});}});
       textures.forEach(texture=>texture.dispose());
     }
-    loadPlayerAvatar().then(player=>{if(cancelled){dispose(player.root);return;}avatar=player;scene.add(player.root);setModelStatus('ready');}).catch(()=>{if(!cancelled)setModelStatus('error');});
+    loadPlayerAvatar().then(player=>{if(cancelled){dispose(player.root);return;}avatar=player;applyEnvironment(player.root);scene.add(player.root);setModelStatus('ready');}).catch(()=>{if(!cancelled)setModelStatus('error');});
     buildCrucibleArena(scene);
     buildTournamentTable(scene,renderer.capabilities.getMaxAnisotropy());
     const marking=new THREE.LineBasicMaterial({color:'#d9e6cb',transparent:true,opacity:.65});
@@ -85,7 +107,8 @@ export default function Table(props:Props) {
     shadowGradient.addColorStop(0,'rgba(0,0,0,.44)');shadowGradient.addColorStop(.4,'rgba(0,0,0,.20)');shadowGradient.addColorStop(1,'rgba(0,0,0,0)');shadowCtx.fillStyle=shadowGradient;shadowCtx.fillRect(0,0,64,64);
     const contactMaterial=new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(shadowCanvas),transparent:true,depthWrite:false});
     const contacts=live.current.balls.map(()=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(RADIUS*3.6,RADIUS*3.6),contactMaterial);m.rotation.x=-Math.PI/2;scene.add(m);return m;});
-    const meshes=live.current.balls.map(b=>{const mesh=new THREE.Mesh(new THREE.SphereGeometry(RADIUS,40,28),new THREE.MeshPhysicalMaterial({color:COLOURS[b.value],roughness:.12,metalness:0,clearcoat:.8,clearcoatRoughness:.08}));mesh.castShadow=true;scene.add(mesh);return mesh;});
+    // Phenolic resin balls: hard, mirror-polished, a crisp reflection of the canopy.
+    const meshes=live.current.balls.map(b=>{const mesh=new THREE.Mesh(new THREE.SphereGeometry(RADIUS,48,32),new THREE.MeshPhysicalMaterial({color:COLOURS[b.value],roughness:.1,metalness:0,clearcoat:1,clearcoatRoughness:.03,envMapIntensity:2.2,ior:1.55}));mesh.castShadow=true;scene.add(mesh);return mesh;});
     // Aiming aids, drawn flat on the cloth: the line to the ghost ball, where the
     // object ball goes, and where the cue ball travels and comes to rest.
     function overlay(color:string,opacity:number,geometry:THREE.BufferGeometry=new THREE.BufferGeometry()){
@@ -329,6 +352,7 @@ export default function Table(props:Props) {
       }
       renderer.render(scene,view);frame=requestAnimationFrame(render);
     }
+    applyEnvironment(scene);
     render();
     const lost=(event:Event)=>{event.preventDefault();setFailed(true);cancelAnimationFrame(frame);};renderer.domElement.addEventListener('webglcontextlost',lost);
     return()=>{cancelled=true;cancelAnimationFrame(frame);cancelAnimationFrame(resizeFrame);observer.disconnect();canvas.removeEventListener('pointerdown',down);canvas.removeEventListener('pointermove',move);canvas.removeEventListener('pointerup',up);canvas.removeEventListener('pointercancel',cancel);canvas.removeEventListener('lostpointercapture',cancel);renderer.domElement.removeEventListener('webglcontextlost',lost);dispose(scene);environment.dispose();renderer.dispose();renderer.domElement.remove();};

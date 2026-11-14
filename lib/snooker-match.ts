@@ -9,7 +9,9 @@ export type Match={balls:Ball[];scores:number[];turn:number;target:number;break:
   /** What the last shot did, for the commentary line and the coach. */
   last:null|{player:number;points:number;foul:boolean;penalty:number};
   /** Match length and progress. A frame ends with `finished`; the match with `matchOver`. */
-  bestOf:number;frames:number[];frame:number;frameScores:number[][];matchOver:boolean};
+  bestOf:number;frames:number[];frame:number;frameScores:number[][];matchOver:boolean;
+  /** Who won the last finished frame (0 you, 1 computer), however it ended. */
+  frameWinner?:number};
 export function newMatch(bestOf=1):Match{return {balls:rack(),scores:[0,0],turn:0,target:1,break:0,breakBalls:[],best:0,first:null,potted:[],shotTarget:1,finished:false,inHand:true,shots:0,last:null,message:'你先開波。',
   bestOf,frames:[0,0],frame:0,frameScores:[],matchOver:false};}
 /** Frames needed to win the match. */
@@ -62,7 +64,8 @@ export function finishShot(m:Match){
   const penalty=Math.max(4,m.first??0,...m.potted.map(b=>b.value),m.shotTarget);
   const points=m.potted.reduce((sum,b)=>sum+b.value,0),inOff=m.potted.some(b=>b.value===0);
   // Colours return during the red/colour phase, including fouled colours.
-  for(const b of m.potted) if(b.value>1&&(reds||m.shotTarget===-1||foul))respot(b,m.balls);
+  // Highest value first when several colours come back together.
+  for(const b of [...m.potted].sort((a,b)=>b.value-a.value)) if(b.value>1&&(reds||m.shotTarget===-1||foul))respot(b,m.balls);
   if(inOff){cueToD(m);m.inHand=true;}
   m.shots=(m.shots??0)+1;m.last={player:m.turn,points:foul?0:points,foul,penalty:foul?penalty:0};
   if(m.practice&&(foul||!points)){
@@ -77,14 +80,34 @@ export function finishShot(m:Match){
   else m.target=Math.min(...m.balls.filter(b=>b.value>1&&!b.potted).map(b=>b.value));
   if(!Number.isFinite(m.target)){
     if(m.scores[0]===m.scores[1]&&!m.practice){respot(m.balls.find(b=>b.value===7)!,m.balls);m.target=7;m.message='平手，重置黑球決勝。';}
-    else {
-      m.finished=true;
-      if(m.practice)m.message='清枱！';
-      else{
-        const winner=m.scores[0]>m.scores[1]?0:1;
-        m.frames[winner]++;m.frameScores.push([...m.scores]);m.matchOver=m.frames[winner]>=framesToWin(m);
-        m.message=winner===0?'你贏了這一局！':'電腦勝出這一局。';
-      }
-    }
+    else if(m.practice){m.finished=true;m.message='清枱！';}
+    else endFrame(m,m.scores[0]>m.scores[1]?0:1);
   }
+
+}
+
+function endFrame(m:Match,winner:number,message=winner===0?'你贏了這一局！':'電腦勝出這一局。'){
+  m.finished=true;m.frameWinner=winner;m.frames[winner]++;m.frameScores.push([...m.scores]);m.matchOver=m.frames[winner]>=framesToWin(m);m.message=message;
+}
+/** Snookers the player needs to still win the frame: the deficit beyond the
+ * points left on the table, at what one snooker usually earns (4 while reds
+ * remain, otherwise the value of the ball on). A tie is enough, because it
+ * forces a re-spotted black, so a deficit equal to the points left needs none. */
+export function snookersRequired(m:Match,player:number){
+  const behind=m.scores[1-player]-m.scores[player],remaining=pointsRemaining(m);
+  if(behind<=remaining)return 0;
+  const reds=m.balls.some(b=>b.value===1&&!b.potted),perSnooker=reds||m.target<=1?4:Math.max(4,m.target);
+  return Math.ceil((behind-remaining)/perSnooker);
+}
+/** The player at the table shakes hands: the frame goes to the opponent. */
+export function concedeFrame(m:Match,player:number){
+  if(m.finished||m.practice)return;
+  m.break=0;m.breakBalls=[];
+  endFrame(m,1-player,player===1?`電腦需要 ${snookersRequired(m,1)} 個 snooker，認輸呢局。`:'你認輸呢局。');
+}
+/** Would a player of this standard concede rather than play on for snookers? */
+export function wouldConcede(m:Match,player:number,rule:{snookers:number;onColours:number}){
+  if(m.finished||m.practice)return false;
+  const needed=snookersRequired(m,player),reds=m.balls.some(b=>b.value===1&&!b.potted);
+  return needed>0&&needed>=(reds?rule.snookers:rule.onColours);
 }

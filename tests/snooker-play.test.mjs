@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {aimAtBall,bestAim,paceLengths,canSee,clampToD,computerPlan,cueSpotInD,deliverComputerShot,moving,planShot,pocketAt,predictShot,rack,step,strike,BAULK_Z,D_RADIUS,LENGTH,LEVELS,POCKETS,RADIUS,WIDTH} from '../lib/snooker-game.ts';
-import {beginShot,finishShot,framesToWin,lineUpRack,newMatch,newPractice,nextFrame,placeCueBall,pointsRemaining} from '../lib/snooker-match.ts';
+import {aimAtBall,bestAim,paceLengths,respot,canSee,clampToD,computerPlan,cueSpotInD,deliverComputerShot,moving,planShot,pocketAt,predictShot,rack,step,strike,BAULK_Z,D_RADIUS,LENGTH,LEVELS,POCKETS,RADIUS,WIDTH} from '../lib/snooker-game.ts';
+import {beginShot,concedeFrame,finishShot,framesToWin,lineUpRack,newMatch,newPractice,nextFrame,placeCueBall,pointsRemaining,snookersRequired,wouldConcede} from '../lib/snooker-match.ts';
 
 const ball=(id,value,x,z)=>({id,value,x,z,vx:0,vz:0,potted:false});
 const settle=balls=>{for(let i=0;i<240*30&&moving(balls);i++)step(balls,1/240,()=>{},()=>{});return balls;};
@@ -189,4 +189,93 @@ test('a single-frame match ends with the frame, and practice never counts frames
  assert.equal(one.matchOver,true);
  const drill=newPractice();drill.balls.forEach(b=>{if(b.value)b.potted=true;});Object.assign(drill,{target:7,shotTarget:7,first:7});drill.potted=[drill.balls.find(b=>b.value===7)];finishShot(drill);
  assert.equal(drill.finished,true);assert.deepEqual(drill.frames,[0,0]);assert.equal(drill.matchOver,false);
+});
+
+test('cushion rebounds follow the measured two-contact model',async()=>{
+ const {CUSHION_RESTITUTION,CUSHION_FRICTION}=await import('../lib/snooker-game.ts');
+ assert.equal(CUSHION_RESTITUTION,.98);assert.equal(CUSHION_FRICTION,.14);
+ const rebound=(speed,degrees)=>{
+  const a=degrees*Math.PI/180,b=ball(0,0,W-RADIUS-.002,.6);
+  Object.assign(b,{vx:Math.cos(a)*speed,vz:-Math.sin(a)*speed});b.wx=b.vz/RADIUS;b.wz=-b.vx/RADIUS;b.wy=0;
+  for(let i=0;i<40&&b.vx>0;i++)step([b],1/240,()=>{},()=>{});
+  return {normal:-b.vx/(Math.cos(a)*speed),angle:Math.atan2(-b.vz,-b.vx)*180/Math.PI,kept:Math.hypot(b.vx,b.vz)/speed,spin:b};
+ };
+ for(const speed of [.5,2,4]){
+  const straight=rebound(speed,0);
+  // Rolling straight in: most of the normal speed comes back, never more.
+  assert.ok(straight.normal>.85&&straight.normal<.95,`straight-in rebound ${straight.normal.toFixed(2)} at ${speed} m/s`);
+  // At an angle the friction shortens the angle off the cushion, and a rolling
+  // ball's forward spin then bends the path wider again as it grips the cloth.
+  const angled=rebound(speed,45);
+  assert.ok(angled.angle<45&&angled.angle>30,`45° in leaves at ${angled.angle.toFixed(1)}°`);
+  assert.ok(angled.kept>.75&&angled.kept<.92);
+ }
+ // The impact is scale-free: double the speed, same angles.
+ assert.ok(Math.abs(rebound(1,45).angle-rebound(2,45).angle)<.2);
+});
+
+test('a colour whose spot is taken goes to the highest free spot, else above its own spot',()=>{
+ const spots=Object.fromEntries(rack().filter(b=>b.value>1).map(b=>[b.value,{x:b.x,z:b.z}]));
+ // Pink spot covered by a red: the pink goes on the black spot.
+ const pink=ball(1,6,0,0);pink.potted=true;
+ let balls=[ball(0,0,0,1.2),pink,ball(2,1,spots[6].x,spots[6].z+.01),ball(3,7,.4,.4)];
+ respot(pink,balls);assert.deepEqual([pink.x,pink.z],[spots[7].x,spots[7].z]);
+ // Black spot taken too: the pink takes the blue spot, the next highest.
+ const blocker=ball(4,1,spots[7].x+.02,spots[7].z);pink.potted=true;balls=[...balls,blocker];
+ respot(pink,balls);assert.deepEqual([pink.x,pink.z],[spots[5].x,spots[5].z]);
+ // A yellow never takes a lower spot than its own rules allow: with only the green spot free, it goes there.
+ const yellow=ball(5,2,0,0);yellow.potted=true;
+ const others=[7,6,5,4,2].map((v,i)=>ball(10+i,1,spots[v].x,spots[v].z));
+ respot(yellow,[ball(0,0,0,1.6),yellow,...others]);assert.deepEqual([yellow.x,yellow.z],[spots[3].x,spots[3].z]);
+ // Every spot occupied: the black goes as near its spot as possible towards the top cushion.
+ const black=ball(6,7,0,0);black.potted=true;
+ const all=[7,6,5,4,3,2].map((v,i)=>ball(20+i,1,spots[v].x,spots[v].z));
+ respot(black,[ball(0,0,0,1.6),black,...all]);
+ assert.equal(black.x,spots[7].x);assert.ok(black.z<spots[7].z&&spots[7].z-black.z<RADIUS*2+.002,`black at z ${black.z.toFixed(4)}`);
+ // ...and below its spot if the line to the top cushion is blocked as well.
+ const black2=ball(7,7,0,0);black2.potted=true;
+ const wall=[];for(let z=spots[7].z;z>-L+RADIUS;z-=RADIUS*1.8)wall.push(ball(40+wall.length,1,0,z));
+ respot(black2,[ball(0,0,0,1.6),black2,...all,...wall]);
+ assert.equal(black2.x,0);assert.ok(black2.z>spots[7].z);
+});
+
+test('colours potted together are respotted highest value first',()=>{
+ const m=newMatch(),spots=Object.fromEntries(rack().filter(b=>b.value>1).map(b=>[b.value,{x:b.x,z:b.z}]));
+ // A foul pots the pink and the black while a red sits on the black spot.
+ const pink=m.balls.find(b=>b.value===6),black=m.balls.find(b=>b.value===7),red=m.balls.find(b=>b.value===1);
+ Object.assign(red,{x:spots[7].x,z:spots[7].z+.005});pink.potted=black.potted=true;
+ beginShot(m,0,10);m.first=6;m.potted=[pink,black];m.shotTarget=1;finishShot(m);
+ // Black (higher) is placed first and takes the free pink spot; pink then
+ // finds its own spot taken and goes to the next highest free one, the blue's... unless free.
+ assert.deepEqual([black.x,black.z],[spots[6].x,spots[6].z]);
+ assert.ok(!pink.potted&&!(pink.x===spots[6].x&&pink.z===spots[6].z));
+});
+
+test('snookers required and when a player concedes the frame',()=>{
+ const m=newMatch(3);
+ // Colours only, yellow on: 27 left. Behind by 40: 13 beyond the table, 4 a snooker on yellow.
+ m.balls.forEach(b=>{if(b.value===1)b.potted=true;});m.target=2;m.scores=[60,20];m.turn=1;
+ assert.equal(pointsRemaining(m),27);assert.equal(snookersRequired(m,1),Math.ceil(13/4));assert.equal(snookersRequired(m,0),0);
+ // Level with the points left is not "needing snookers": a tie respots the black.
+ m.scores=[47,20];assert.equal(snookersRequired(m,1),0);
+ m.scores=[48,20];assert.equal(snookersRequired(m,1),1);
+ // On the pink, a snooker is worth 6.
+ m.balls.forEach(b=>{if(b.value>1&&b.value<6)b.potted=true;});m.target=6;m.scores=[40,10];
+ assert.equal(pointsRemaining(m),13);assert.equal(snookersRequired(m,1),Math.ceil(17/6));
+ // Club standard: one snooker on the colours is enough to shake hands; a beginner plays on.
+ m.scores=[25,10];assert.equal(snookersRequired(m,1),1);
+ assert.equal(wouldConcede(m,1,{snookers:2,onColours:1}),true);
+ assert.equal(wouldConcede(m,1,{snookers:3,onColours:2}),false);
+ concedeFrame(m,1);
+ assert.equal(m.finished,true);assert.deepEqual(m.frames,[1,0]);assert.equal(m.frameWinner,0);assert.deepEqual(m.frameScores,[[25,10]]);
+ assert.match(m.message,/認輸/);
+ // With reds still on, it takes two snookers before the club player concedes.
+ const r=newMatch(3);r.turn=1;r.scores=[150,0];
+ assert.equal(pointsRemaining(r),147);assert.equal(snookersRequired(r,1),1);assert.equal(wouldConcede(r,1,{snookers:2,onColours:1}),false);
+ r.scores=[160,0];assert.equal(snookersRequired(r,1),4);assert.equal(wouldConcede(r,1,{snookers:2,onColours:1}),true);
+ // Practice frames are never conceded; a finished frame cannot be conceded twice.
+ const drill=newPractice();drill.scores=[0,200];assert.equal(wouldConcede(drill,0,{snookers:1,onColours:1}),false);
+ concedeFrame(m,0);assert.deepEqual(m.frames,[1,0]);
+ // Conceding while ahead still gives the frame to the opponent.
+ const ahead=newMatch(3);ahead.scores=[50,0];concedeFrame(ahead,0);assert.equal(ahead.frameWinner,1);assert.deepEqual(ahead.frames,[0,1]);
 });
