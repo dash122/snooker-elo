@@ -169,3 +169,20 @@ The frame was a patchwork: separate rail boxes with gaps, a lighter deck showing
 - **Legs:** eight turned mahogany legs on brass collars and dark levelling feet.
 
 Playing dimensions, cushion and pocket physics are unchanged.
+
+## Professional safety play
+
+The old safety search looked at the three nearest legal balls, centre-ball only, and judged a leave by a rough pot-quality score. It treated a red screened by another red as a snooker, so its break-off buried the cue ball in the pack, 6 cm from the nearest red. With no direct shot it fell back to a soft poke at the nearest ball, fouling if snookered.
+
+Now:
+- **Snookers:** only a ball you may not hit can snooker you (`canSee`).
+- **Pot chance:** `potChance` estimates a good opponent's chance of potting an option. Cue aim error at the contact is magnified by the cut and the object ball's run, against about ±20 mm of pocket, less into a middle at an angle. A cue ball tight on a cushion has 1.6× the error.
+- **Leave value:** `leaveValue` weighs the opponent's best pot by its chance and what it leads to. It rewards a snooker, distance from anything they can hit (with a penalty under 25 cm), a cue ball tight on a cushion, and baulk when the balls are up the table.
+- **Search:** `planSafety` tries the nearest balls and the edges of the cluster, at contacts from full to the finest feather and paces from a nudge to break-off weight. It refines the best five with screw, follow, side and pace, then picks the one that holds up under cue error.
+- **Escapes:** when snookered it escapes off one or two cushions, searching ±6° around the mirror line because real cushions shorten the angle.
+
+Results:
+- **Break-off:** thin off the pack, back to baulk, often snookered behind a baulk colour.
+- **Pro v pro over two frames:** cue ball 2.04 m from the opponent's balls after a safety (was 0.96), safeties punished 8% (was 14%), fouls 6 (was 10).
+- **Club:** 1.75 m (was 1.02), punished about as often as before (12% v 11%).
+- **Thinking time:** average planning roughly doubles at club level (≈0.8 s); the worst case is ≈4.3 s for the professional and ≈3.6 s at club level, in the worker.
