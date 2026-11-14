@@ -219,8 +219,30 @@ function optionsFor(balls:Ball[],wanted:(b:Ball)=>boolean):PotOption[]{
 export function potOptions(balls:Ball[],target:number):PotOption[]{return optionsFor(balls,b=>isLegal(target,b));}
 /** Can the cue ball reach any legal ball in a straight line (i.e. not snookered)? */
 export function canSee(balls:Ball[],target:number){
- const cue=balls[0];
- return balls.some(b=>b!==cue&&isLegal(target,b)&&!blocked(balls,cue,b,cue.x,cue.z,b.x,b.z));
+ // Only a ball you may not hit can snooker you: a red behind another red is
+ // still a legal red to hit, so it never counts as an obstruction.
+ const cue=balls[0],screens=balls.filter(b=>b!==cue&&!isLegal(target,b));
+ return balls.some(b=>b!==cue&&isLegal(target,b)&&!blocked([cue,b,...screens],cue,b,cue.x,cue.z,b.x,b.z));
+}
+/** A good opponent's chance of potting this option from where the cue ball
+ * lies. Cue aim error at the contact is magnified by the cut, then by the
+ * object ball's run to the pocket, against the pocket's working width (about
+ * ±20 mm at a sensible pace, less into a middle pocket at an angle). A cue
+ * ball tight on a cushion cannot be cued down properly, so its error grows. */
+export function potChance(balls:Ball[],option:PotOption,errorScale:number){
+ const cue=balls[0],ball=balls.find(b=>b.id===option.ball);if(!ball)return 0;
+ const [px,pz]=POCKETS[option.pocket],toPocket=Math.hypot(px-ball.x,pz-ball.z);
+ const nx=(px-ball.x)/toPocket,nz=(pz-ball.z)/toPocket,toGhost=Math.hypot(ball.x-nx*RADIUS*2-cue.x,ball.z-nz*RADIUS*2-cue.z);
+ const tight=Math.min(W2-Math.abs(cue.x),L2-Math.abs(cue.z))<RADIUS*1.3;
+ const aim=cueError(45,{top:0,side:0},toGhost)*errorScale*(tight?1.6:1)*Math.PI/180;
+ const miss=toPocket*toGhost*aim/(RADIUS*2*Math.max(.12,option.cut));
+ const width=pz===0?.02*Math.min(1,Math.abs(nx)/.75):.02;
+ return erf(width/(Math.max(1e-6,miss)*Math.SQRT2));
+}
+function erf(x:number){
+ // Abramowitz & Stegun 7.1.26, |error| < 1.5e-7.
+ const t=1/(1+.3275911*Math.abs(x)),y=1-((((1.061405429*t-1.453152027)*t+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x);
+ return x<0?-y:y;
 }
 // Does this stroke pot the given ball in the given pocket?
 function potsBall(balls:Ball[],id:number,pocket:number,angle:number,power:number,spin:Spin){
@@ -361,37 +383,67 @@ export function planShot(balls:Ball[],target:number,errorScale=1,lookAhead=false
 function allowForThrow(balls:Ball[],target:number,shot:ComputerShot){
  return windowCentre(shot.angle,a=>simulate(balls,target,a,shot.power,shot.spin).ok)??shot.angle;
 }
-// How awkward a position is for the player coming to the table (higher is
-// better for whoever left it): no pot on, snookered behind another ball, a
-// long way from the target, tight on a cushion, back in baulk.
-function leave(trial:Ball[],reply:number){
- const cue=trial[0],threat=potOptions(trial,reply)[0];
- const far=Math.min(...trial.filter(b=>b!==cue&&isLegal(reply,b)).map(b=>Math.hypot(b.x-cue.x,b.z-cue.z)));
- const onRail=Math.min(W2-Math.abs(cue.x),L2-Math.abs(cue.z))<RADIUS*2.2;
- return (threat?-(threat.quality+1.5)*2.5:6)+(canSee(trial,reply)?0:5)+Math.min(far,2.6)*1.2+(onRail?1:0)+(cue.z>BAULK_Z?1:0);
+// What a leave is worth to whoever played it (higher is better), judged as a
+// professional judges a safety: what can the incoming player actually make
+// of it? Their best pot is weighed by its real chance and by what a pot leads
+// to (a break while reds remain); a snooker forces a risky escape; the cue
+// ball should be a long way from anything they can hit, ideally tight on a
+// cushion, and back in baulk when the balls are up the table.
+const SAFETY_OPPONENT=.5;
+export function leaveValue(trial:Ball[],reply:number){
+ const cue=trial[0],legal=trial.filter(b=>b!==cue&&isLegal(reply,b));
+ if(!legal.length)return 0;
+ const reds=trial.some(b=>b.value===1&&!b.potted);
+ let threat=0;
+ for(const option of potOptions(trial,reply).slice(0,4))threat=Math.max(threat,potChance(trial,option,SAFETY_OPPONENT)*(option.value+(reds?7:3)));
+ const far=Math.min(...legal.map(b=>Math.hypot(b.x-cue.x,b.z-cue.z)));
+ const tight=Math.min(W2-Math.abs(cue.x),L2-Math.abs(cue.z))<RADIUS*1.3;
+ const up=legal.reduce((sum,b)=>sum+b.z,0)/legal.length<0;
+ return -threat*1.3+(canSee(trial,reply)?0:4)+Math.min(far,2.8)*1.4-(far<.25?2:0)+(tight?.8:0)+(up&&cue.z>BAULK_Z?1:0);
 }
-// Safety: touch a legal ball at a range of thicknesses and paces (thin clips
-// back to baulk, fuller contact to tuck in behind a colour) and keep the one
-// that leaves the opponent least, checking it survives the player's cue error.
+// Safety. Try a professional's range of shots on the legal balls a player
+// would consider (the nearest ones and the edges of the cluster): contact from
+// full to the finest feather, at paces from a nudge to a break-off. Keep the
+// best leaves, try them again with screw, follow and side, and settle on the
+// one that still leaves little when the cue error is allowed for.
 function planSafety(balls:Ball[],target:number,errorScale=1):ShotPlan|null {
  const cue=balls[0],found:{shot:ComputerShot;score:number;cueEnd:{x:number;z:number}}[]=[];
  const reply=(trial:Ball[])=>target===-1&&trial.some(b=>b.value===1&&!b.potted)?1:target;
- const legal=balls.filter(b=>b!==cue&&isLegal(target,b)).sort((a,b)=>Math.hypot(a.x-cue.x,a.z-cue.z)-Math.hypot(b.x-cue.x,b.z-cue.z)).slice(0,3);
+ const all=balls.filter(b=>b!==cue&&isLegal(target,b));
+ const byDistance=[...all].sort((a,b)=>Math.hypot(a.x-cue.x,a.z-cue.z)-Math.hypot(b.x-cue.x,b.z-cue.z));
+ const edges=[...all].sort((a,b)=>a.x-b.x);
+ const legal=[...new Set([...byDistance.slice(0,3),edges[0],edges[edges.length-1]])].filter(Boolean);
+ const tryShot=(angle:number,power:number,spin:Spin)=>{
+  const shot={angle,power,spin},{fair,trial,pots}=simulate(balls,target,angle,power,spin);
+  if(fair&&!pots.length&&!trial[0].potted)found.push({shot,score:leaveValue(trial,reply(trial)),cueEnd:{x:trial[0].x,z:trial[0].z}});
+ };
  for(const ball of legal){
   const centre=Math.atan2(ball.x-cue.x,cue.z-ball.z)*180/Math.PI,half=Math.asin(Math.min(1,RADIUS*2/Math.hypot(ball.x-cue.x,ball.z-cue.z)))*180/Math.PI;
-  for(const offset of [-.9,-.7,-.4,0,.4,.7,.9])for(const power of [20,32,46,62]){
-   const shot={angle:centre+offset*half,power,spin:{top:0,side:0}},{fair,trial,pots}=simulate(balls,target,shot.angle,power,shot.spin);
-   if(!fair||pots.length)continue;
-   found.push({shot,score:leave(trial,reply(trial)),cueEnd:{x:trial[0].x,z:trial[0].z}});
+  for(const offset of [-.97,-.9,-.75,-.45,0,.45,.75,.9,.97])for(const power of [16,28,42,58,72])tryShot(centre+offset*half,power,{top:0,side:0});
+ }
+ // Snookered (or nothing direct is fair): escape off the cushions as a
+ // player does, aiming at the ball's mirror image in one cushion, or in a
+ // side and an end cushion for a two-cushion escape.
+ if(!found.length||!canSee(balls,target)){
+  const sx=W2-RADIUS,sz=L2-RADIUS;
+  for(const ball of byDistance.slice(0,4))for(const [mx,mz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){
+   const x=mx?2*mx*sx-ball.x:ball.x,z=mz?2*mz*sz-ball.z:ball.z,aim=Math.atan2(x-cue.x,cue.z-z)*180/Math.PI;
+   // Real cushions shorten the angle (about 37° out for 45° in), so search
+   // well either side of the pure mirror line; refinement adds pace and spin.
+   for(const jitter of [-6,-4,-2.5,-1.2,0,1.2,2.5,4,6])tryShot(aim+jitter,46,{top:0,side:0});
   }
  }
+ // Refine the most promising with spin and a touch more or less pace.
+ const seeds=[...found].sort((a,b)=>b.score-a.score).slice(0,5);
+ for(const seed of seeds)for(const [top,side,pace] of [[-.6,0,0],[.5,0,0],[0,-.6,0],[0,.6,0],[0,0,-6],[0,0,6]])
+  tryShot(seed.shot.angle,Math.max(8,Math.min(95,seed.shot.power+pace)),{top,side});
  let best:ShotPlan|null=null,bestScore=-Infinity;
- for(const c of found.sort((a,b)=>b.score-a.score).slice(0,4)){
+ for(const c of found.sort((a,b)=>b.score-a.score).slice(0,5)){
   const error=cueError(c.shot.power,c.shot.spin,aimReach(balls,c.shot.angle))*errorScale;
-  let score=c.score*.5;
+  let score=c.score*.4;
   for(const side of [-1,1]){
    const {fair,trial,pots}=simulate(balls,target,c.shot.angle+side*error,c.shot.power,c.shot.spin);
-   score+=.25*(fair&&!pots.length?leave(trial,reply(trial)):-10);
+   score+=.3*(fair&&!pots.length&&!trial[0].potted?leaveValue(trial,reply(trial)):-12);
   }
   if(score>bestScore){bestScore=score;best={shot:c.shot,kind:'safety',chance:1,cueEnd:c.cueEnd};}
  }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {aimAtBall,bestAim,paceLengths,respot,canSee,clampToD,computerPlan,cueSpotInD,deliverComputerShot,moving,planShot,pocketAt,predictShot,rack,step,strike,BAULK_Z,D_RADIUS,LENGTH,LEVELS,POCKETS,RADIUS,WIDTH} from '../lib/snooker-game.ts';
+import {aimAtBall,bestAim,paceLengths,respot,canSee,potChance,potOptions,PRO_ERROR_SCALE,clampToD,computerPlan,cueSpotInD,deliverComputerShot,moving,planShot,pocketAt,predictShot,rack,step,strike,BAULK_Z,D_RADIUS,LENGTH,LEVELS,POCKETS,RADIUS,WIDTH} from '../lib/snooker-game.ts';
 import {beginShot,concedeFrame,finishShot,framesToWin,lineUpRack,newMatch,newPractice,nextFrame,placeCueBall,pointsRemaining,snookersRequired,wouldConcede} from '../lib/snooker-match.ts';
 
 const ball=(id,value,x,z)=>({id,value,x,z,vx:0,vz:0,potted:false});
@@ -278,4 +278,86 @@ test('snookers required and when a player concedes the frame',()=>{
  concedeFrame(m,0);assert.deepEqual(m.frames,[1,0]);
  // Conceding while ahead still gives the frame to the opponent.
  const ahead=newMatch(3);ahead.scores=[50,0];concedeFrame(ahead,0);assert.equal(ahead.frameWinner,1);assert.deepEqual(ahead.frames,[0,1]);
+});
+
+test('animation pacing absorbs a stall without the balls lurching, and keeps real time on a slow device',async()=>{
+ const {nextSimStep}=await import('../lib/snooker-presentation.ts');
+ const run=frames=>{let step=1/60,simulated=0,real=0,biggest=0;for(const dt of frames){step=nextSimStep(dt,step);simulated+=step;real+=dt;biggest=Math.max(biggest,step);}return {simulated,real,biggest};};
+ // 60 fps with one quarter-second hitch: no single frame advances more than ~23 ms.
+ const hitch=run([...Array(30).fill(1/60),.25,...Array(30).fill(1/60)]);
+ assert.ok(hitch.biggest<.024,`largest step ${hitch.biggest.toFixed(3)} s`);
+ // A steadily slow phone (15 fps) is back in real time within a handful of frames.
+ const slow=run(Array(60).fill(1/15));
+ assert.ok(slow.real-slow.simulated<.15,`fell ${(slow.real-slow.simulated).toFixed(3)} s behind`);
+ assert.equal(nextSimStep(1/15,1/15),1/15);
+ // Never negative, never more than 100 ms.
+ assert.equal(nextSimStep(-1,1/60),0);assert.equal(nextSimStep(5,1),.1);
+});
+
+test('a ball never gains speed after a cushion',()=>{
+ let reached=0,cases=0;
+ for(const speed of [.3,1.5,4])for(const degrees of [0,30,60])for(const roll of [-2,0,1])for(const side of [-1,0,1]){
+  const a=degrees*Math.PI/180,b=ball(0,0,W-RADIUS-.02,.6);
+  Object.assign(b,{vx:Math.cos(a)*speed,vz:-Math.sin(a)*speed});b.wx=roll*b.vz/RADIUS;b.wz=-roll*b.vx/RADIUS;b.wy=side*speed/RADIUS;
+  let rebound=0;
+  for(let i=0;i<240*3&&moving([b]);i++){
+   const before=b.vx;step([b],1/240,()=>{},()=>{});
+   const now=Math.hypot(b.vx,b.vz);
+   if(!rebound&&before>0&&b.vx<=0)rebound=now;
+   else if(rebound&&b.x<W-RADIUS-.002)assert.ok(now<=rebound+1e-9,`sped up from ${rebound.toFixed(3)} to ${now.toFixed(3)} (v ${speed}, ${degrees}°, roll ${roll}, side ${side})`);
+  }
+  // A slow ball with heavy screw can stop and come back before it gets there.
+  cases++;if(rebound)reached++;
+ }
+ assert.ok(reached>cases*.9,`${reached}/${cases} reached the cushion`);
+});
+
+test('a red screened by another red is not a snooker; a colour in the way is',()=>{
+ // Cue ball, a red, and another red directly behind it: you can hit the first red.
+ assert.equal(canSee([ball(0,0,0,.5),ball(1,1,0,0),ball(2,1,0,-.3)],1),true);
+ // Only a colour between the cue ball and every red snookers you.
+ assert.equal(canSee([ball(0,0,0,.5),ball(1,1,0,-.3),ball(2,5,0,0)],1),false);
+});
+
+test('pot chance falls with distance, cut and a cue ball tight on the cushion',()=>{
+ const chance=(cue,red,pocket)=>{const balls=[ball(0,0,...cue),ball(1,1,...red)];const o=potOptions(balls,1).find(o=>o.pocket===pocket);return potChance(balls,o,.5);};
+ const corner=POCKETS[0],u=Math.SQRT1_2;
+ const along=(d)=>[corner[0]+u*d,corner[1]+u*d];
+ // Straight into the corner: short, long approach, and a long object-ball run.
+ const short=chance(along(.6),along(.3),0),long=chance(along(2),along(.3),0),far=chance(along(1.7),along(1.4),0);
+ assert.ok(short>.9,`short straight pot ${short.toFixed(2)}`);
+ assert.ok(long<short&&far<short);
+ // The same cut from the cushion is harder than from open table.
+ const open=chance([-.3,.5],[-.6,-1.4],0),cushion=chance([-W+RADIUS+.001,.5],[-.6,-1.4],0);
+ assert.ok(cushion<open,`cushion ${cushion.toFixed(2)} v open ${open.toFixed(2)}`);
+});
+
+test('the professional breaks off by sending the cue ball back to baulk, not into the pack',()=>{
+ const balls=rack();Object.assign(balls[0],{x:.15,z:1.2});
+ const plan=planShot(balls,1,PRO_ERROR_SCALE,false,1.01);assert.equal(plan.kind,'safety');
+ const after=structuredClone(balls);let first=null;const pots=[];strike(after[0],plan.shot.angle,plan.shot.power,plan.shot.spin);
+ for(let i=0;i<240*40&&moving(after);i++)step(after,1/240,v=>{first??=v;},b=>pots.push(b.value));
+ assert.equal(first,1);assert.deepEqual(pots,[]);
+ const cue=after[0],nearest=Math.min(...after.filter(b=>b.value===1).map(r=>Math.hypot(r.x-cue.x,r.z-cue.z)));
+ assert.ok(cue.z>BAULK_Z-.2,`cue ball finished at z ${cue.z.toFixed(2)}`);assert.ok(nearest>1.5,`${nearest.toFixed(2)} m from the reds`);
+});
+
+test('with the reds up the table, safety leaves the cue ball at the baulk end with nothing on',()=>{
+ const balls=rack();Object.assign(balls[0],{x:-.3,z:-.1});
+ balls.filter(b=>b.value===1).forEach((r,i)=>{r.x=(i%5-2)*.07+(i>9?.03:0);r.z=-1.05-Math.floor(i/5)*.08;});
+ const plan=planShot(balls,1,PRO_ERROR_SCALE,false,1.01),after=structuredClone(balls);
+ strike(after[0],plan.shot.angle,plan.shot.power,plan.shot.spin);for(let i=0;i<240*40&&moving(after);i++)step(after,1/240,()=>{},()=>{});
+ const cue=after[0],nearest=Math.min(...after.filter(b=>b.value===1&&!b.potted).map(r=>Math.hypot(r.x-cue.x,r.z-cue.z)));
+ assert.ok(nearest>1.8,`${nearest.toFixed(2)} m from the nearest red`);
+ const best=Math.max(0,...potOptions(after,1).map(o=>potChance(after,o,.5)));
+ assert.ok(best<.35,`opponent's best pot ${best.toFixed(2)}`);
+});
+
+test('snookered, the professional escapes off the cushions and hits the ball on',()=>{
+ const L2=LENGTH/2,balls=[ball(0,0,.2,1.25),ball(1,1,-.3,-L2+RADIUS+.002),ball(2,2,-.292,1.047),ball(3,3,.292,1.047),ball(4,4,0,1.047),ball(5,5,0,0),ball(6,6,0,-.89),ball(7,7,0,-1.46)];
+ assert.equal(canSee(balls,1),false);
+ const plan=planShot(balls,1,PRO_ERROR_SCALE,false,1.01);assert.ok(plan);
+ const after=structuredClone(balls);let first=null;strike(after[0],plan.shot.angle,plan.shot.power,plan.shot.spin);
+ for(let i=0;i<240*40&&moving(after);i++)step(after,1/240,v=>{first??=v;},()=>{});
+ assert.equal(first,1);
 });

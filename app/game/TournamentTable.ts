@@ -20,7 +20,8 @@ export function buildTournamentTable(scene:THREE.Scene,anisotropy:number) {
   // Deep French-polished mahogany: the clearcoat picks up a crisp reflection of the canopy.
   const wood=new THREE.MeshPhysicalMaterial({map:woodTexture,color:'#a5604a',roughness:.6,specularIntensity:.35,clearcoat:.45,clearcoatRoughness:.18,envMapIntensity:.35});
   const gold=new THREE.MeshStandardMaterial({color:'#b39860',metalness:.78,roughness:.36,envMapIntensity:.6});
-  const leather=new THREE.MeshStandardMaterial({color:'#ad9068',roughness:.88,envMapIntensity:.25});
+  // Pocket shields: black hide stretched over cast irons, with a soft sheen.
+  const leather=new THREE.MeshPhysicalMaterial({color:'#0e0a08',roughness:.72,specularIntensity:.3,clearcoat:.12,clearcoatRoughness:.4,envMapIntensity:.3});
   const dark=new THREE.MeshStandardMaterial({color:'#14110e',roughness:1,side:THREE.DoubleSide});
   function mesh(geometry:THREE.BufferGeometry,material:THREE.Material,x=0,y=0,z=0) {
     const m=new THREE.Mesh(geometry,material);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;scene.add(m);return m;
@@ -29,10 +30,13 @@ export function buildTournamentTable(scene:THREE.Scene,anisotropy:number) {
   function extrude(shape:THREE.Shape,depth:number,y:number,material:THREE.Material,bevel=0) {
     const m=mesh(new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:bevel>0,bevelSize:bevel,bevelThickness:bevel,bevelSegments:3,steps:1,curveSegments:32}),material,0,y,0);m.rotation.x=Math.PI/2;return m;
   }
-  function rectangle(x:number,z:number) {const shape=new THREE.Shape();shape.moveTo(-x,-z);shape.lineTo(x,-z);shape.lineTo(x,z);shape.lineTo(-x,z);shape.closePath();return shape;}
-  function perforated(x:number,z:number) {
-    const shape=rectangle(x,z);
-    for(const [px,pz] of POCKETS){const hole=new THREE.Path();hole.absarc(pz===0?px+Math.sign(px)*TABLE_POCKETS.middleSetback:px,pz,pocketCut(pz),0,Math.PI*2,true);shape.holes.push(hole);}
+  // A rounded rectangle, for the one-piece rail capping and apron.
+  function rounded(x:number,z:number,radius:number) {
+    const shape=new THREE.Shape();
+    shape.moveTo(-x+radius,-z);shape.lineTo(x-radius,-z);shape.absarc(x-radius,-z+radius,radius,-Math.PI/2,0,false);
+    shape.lineTo(x,z-radius);shape.absarc(x-radius,z-radius,radius,0,Math.PI/2,false);
+    shape.lineTo(-x+radius,z);shape.absarc(-x+radius,z-radius,radius,Math.PI/2,Math.PI,false);
+    shape.lineTo(-x,-z+radius);shape.absarc(-x+radius,-z+radius,radius,Math.PI,Math.PI*1.5,false);
     return shape;
   }
   // A continuous scalloped perimeter gives the bed six physical cut-outs.
@@ -70,7 +74,6 @@ export function buildTournamentTable(scene:THREE.Scene,anisotropy:number) {
   const cloth=new THREE.MeshPhysicalMaterial({color:'#ffffff',map:texture,bumpMap:nap,bumpScale:.00025,roughness:.92,sheen:.3,sheenRoughness:.75,sheenColor:new THREE.Color('#1f6b38'),envMapIntensity:.15});
   // Cushion cloth is the same baize, a shade darker where it wraps the rubber.
   const cushionCloth=cloth.clone();cushionCloth.color=new THREE.Color('#d9e6dc');
-  extrude(perforated(w+.195,l+.195),.055,-.035,wood,.004);
   extrude(bed,.04,0,cloth);
   // Soft occlusion where the cushion rubber overhangs the bed: real cushions
   // always sit on a thin dark line, which is what makes them read as raised.
@@ -100,48 +103,60 @@ export function buildTournamentTable(scene:THREE.Scene,anisotropy:number) {
   for(const sign of [-1,1]){
     for(const half of [-1,1])cushion(l-r-middle,sign*w,half*(l-r+middle)/2,sign*Math.PI/2);
     cushion(WIDTH-2*r,0,sign*l,sign===1?0:Math.PI);
-    // Polished rail cappings stop short of the leather pocket irons.
-    for(const half of [-1,1])box(.115,.054,l-r-middle,sign*(w+.12),.015,half*(l-r+middle)/2,wood);
-    box(WIDTH-.13,.054,.115,0,.015,sign*(l+.12),wood);
-    // Deep apron, broad gold fascia and fine mouldings.
-    for(const half of [-1,1]){
-      box(.10,.235,l-.17,sign*(w+.12),-.19,half*(l-r+middle)/2,wood);
-      box(.105,.063,l-.17,sign*(w+.125),-.105,half*l/2,gold);
-      box(.112,.012,l-.17,sign*(w+.127),-.285,half*l/2,gold);
-    }
-    box(WIDTH-.10,.235,.10,0,-.19,sign*(l+.12),wood);
-    box(WIDTH-.10,.063,.105,0,-.105,sign*(l+.125),gold);
-    box(WIDTH-.08,.012,.112,0,-.285,sign*(l+.127),gold);
+  }
+  // One-piece polished rail capping with rounded corners and bevelled edges,
+  // as on a match table: the cushions butt against its inner edge, and each
+  // pocket is cut from it in a round notch that the leather shield fills.
+  const RAIL_IN=.068,CORNER_NOTCH=.11,MIDDLE_NOTCH=.085,RAIL_OUT=.19;
+  const inner:THREE.Vector2[]=[];
+  // Arcs run counter-clockwise (in x→z) from where the rail's inner edge meets
+  // the notch circle, round the outside of the pocket, to where it meets again.
+  const arc=(cx:number,cz:number,radius:number,from:number,to:number)=>{
+    while(to<from)to+=360;
+    for(let i=0;i<=24;i++){const a=(from+(to-from)*i/24)*Math.PI/180;inner.push(new THREE.Vector2(cx+Math.cos(a)*radius,cz+Math.sin(a)*radius));}
+  };
+  const deg=(z:number,x:number)=>Math.atan2(z,x)*180/Math.PI;
+  const mz=Math.sqrt(MIDDLE_NOTCH**2-(RAIL_IN-back)**2),cz=Math.sqrt(CORNER_NOTCH**2-RAIL_IN**2),mid=deg(mz,RAIL_IN-back);
+  arc(w+back,0,MIDDLE_NOTCH,-mid,mid);
+  arc(w,l,CORNER_NOTCH,deg(-cz,RAIL_IN),deg(RAIL_IN,-cz));
+  arc(-w,l,CORNER_NOTCH,deg(RAIL_IN,cz),deg(-cz,-RAIL_IN));
+  arc(-w-back,0,MIDDLE_NOTCH,180-mid,180+mid);
+  arc(-w,-l,CORNER_NOTCH,deg(cz,-RAIL_IN),deg(-RAIL_IN,cz));
+  arc(w,-l,CORNER_NOTCH,deg(-RAIL_IN,-cz),deg(cz,RAIL_IN));
+  const capping=rounded(w+RAIL_OUT,l+RAIL_OUT,.075);capping.holes.push(new THREE.Path(inner));
+  extrude(capping,.064,.034,wood,.006);
+  // Deep apron below the rail: one continuous frame, never split at the pockets.
+  const apron=rounded(w+RAIL_OUT-.02,l+RAIL_OUT-.02,.06);
+  const apronHole=new THREE.Path();apronHole.moveTo(-w-.075,-l-.075);apronHole.lineTo(w+.075,-l-.075);apronHole.lineTo(w+.075,l+.075);apronHole.lineTo(-w-.075,l+.075);apronHole.closePath();
+  apron.holes.push(apronHole);extrude(apron,.25,-.036,wood,.004);
+  // Fine brass beads under the rail and along the foot of the apron.
+  for(const y of [-.036,-.282]){
+    const bead=rounded(w+RAIL_OUT-.016,l+RAIL_OUT-.016,.064);
+    const hole=new THREE.Path();hole.moveTo(-w-.1,-l-.1);hole.lineTo(w+.1,-l-.1);hole.lineTo(w+.1,l+.1);hole.lineTo(-w-.1,l+.1);hole.closePath();
+    bead.holes.push(hole);extrude(bead,.006,y,gold,.0015);
   }
   // Eight substantial turned/fluted legs on tournament-style levelling feet.
   const profile=[new THREE.Vector2(.105,0),new THREE.Vector2(.11,.035),new THREE.Vector2(.075,.07),new THREE.Vector2(.075,.12),new THREE.Vector2(.10,.18),new THREE.Vector2(.11,.20),new THREE.Vector2(.09,.23),new THREE.Vector2(.075,.27),new THREE.Vector2(.08,.36),new THREE.Vector2(.12,.41)];
-  for(const x of [-w-.04,w+.04])for(const z of [-l+.13,-.57,.57,l-.13]){
-    mesh(new THREE.LatheGeometry(profile,40),gold,x,-.77,z);
-    box(.20,.12,.20,x,-.30,z,wood);
-    for(let i=0;i<12;i++){const a=i/12*Math.PI*2;mesh(new THREE.CylinderGeometry(.006,.006,.13,5),gold,x+Math.cos(a)*.079,-.47,z+Math.sin(a)*.079);}
+  for(const x of [-w-.08,w+.08])for(const z of [-l+.13,-.57,.57,l-.13]){
+    // Turned mahogany legs on a brass collar and dark levelling foot.
+    mesh(new THREE.LatheGeometry(profile,40),wood,x,-.77,z);
+    box(.20,.12,.20,x,-.33,z,wood);
+    mesh(new THREE.CylinderGeometry(.084,.084,.012,40),gold,x,-.41,z);
+    mesh(new THREE.CylinderGeometry(.1,.11,.02,40),dark,x,-.78,z);
   }
   const netMaterial=new THREE.LineBasicMaterial({color:'#8b8571',transparent:true,opacity:.38});
-  const threadMaterial=new THREE.LineBasicMaterial({color:'#f0e1bc'});
   function tube(points:THREE.Vector3[],radius:number,material:THREE.Material){return mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),32,radius,6,false),material);}
   for(const [px,z] of POCKETS){
     const corner=z!==0,sx=Math.sign(px),sz=Math.sign(z),x=corner?px:px+sx*back,out=new THREE.Vector2(sx,corner?sz:0).normalize();
-    const centre=new THREE.Vector3(x,-.005,z),angle=Math.atan2(out.y,out.x),cut=pocketCut(z),outer=cut+TABLE_POCKETS.leatherWidth;
-    // Leather follows only the OUTER arc; the incoming throat stays unobstructed.
-    const iron=new THREE.Shape();const start=angle-Math.PI*.50,end=angle+Math.PI*.50;
-    iron.absarc(x,z,outer,start,end,false);iron.absarc(x,z,cut,end,start,true);iron.closePath();
-    extrude(iron,TABLE_POCKETS.leatherHeight,.035,leather,.0015);
-    // Cowhide apron hangs from the iron; its tapered lower edge exposes the net.
-    const skirtVertices:number[]=[],skirtIndices:number[]=[];
-    for(let i=0;i<=40;i++){
-      const a=start+(end-start)*i/40;
-      for(const [radius,y] of [[outer,.030],[outer-.006,-.084]])skirtVertices.push(x+Math.cos(a)*radius,y,z+Math.sin(a)*radius);
-      if(i<40){const n=i*2;skirtIndices.push(n,n+2,n+1,n+1,n+2,n+3);}
-    }
-    const skirt=new THREE.BufferGeometry();skirt.setAttribute('position',new THREE.Float32BufferAttribute(skirtVertices,3));skirt.setIndex(skirtIndices);skirt.computeVertexNormals();
-    mesh(skirt,leather);
-    const stitch:THREE.Vector3[]=[];
-    for(let i=0;i<36;i+=2){for(const j of [i,i+.8]){const a=start+(end-start)*j/36;stitch.push(new THREE.Vector3(x+Math.cos(a)*(outer-.004),.037,z+Math.sin(a)*(outer-.004)));}}
-    scene.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(stitch),threadMaterial));
+    const centre=new THREE.Vector3(x,-.005,z),angle=Math.atan2(out.y,out.x),cut=pocketCut(z);
+    // Leather shield over the iron: it fills the rail's round notch, wraps the
+    // back of the pocket and leaves the throat between the cushion jaws open.
+    const reach=corner?CORNER_NOTCH+.03:MIDDLE_NOTCH+.014,spread=corner?.56:.62;
+    const shield=new THREE.Shape(),from=angle-Math.PI*spread,to=angle+Math.PI*spread;
+    shield.absarc(x,z,reach,from,to,false);shield.absarc(x,z,cut,to,from,true);shield.closePath();
+    extrude(shield,.05,.044,leather,.005);
+    // The cast iron rim shows as a thin dark lip around the drop.
+    mesh(new THREE.TorusGeometry(cut+.002,.0035,10,48,Math.PI*2*spread),dark,x,.046,z).rotation.set(Math.PI/2,0,from);
     // A dark, open-ended liner descends below the actual slate opening.
     mesh(new THREE.CylinderGeometry(cut-.001,cut-.006,.11,40,1,true),dark,x,-.075,z);
     const net:THREE.Vector3[]=[];
