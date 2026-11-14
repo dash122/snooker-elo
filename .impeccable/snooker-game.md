@@ -143,3 +143,19 @@ Cue-ball contact opens from the white ball button as a small panel; it resets to
 **Pace.** Contact physics already matched theory: a full ball passes on 97 % of the speed, a half ball cos 30° of that, and it leaves at about 27° once throw is allowed for. The power curve, though, put most real shots in the bottom third of the bar: 40 % ran 2.5 lengths and 50 % nearly 4. `POWER_RESPONSE_EXPONENT` is now 2: 25 % ≈ 0.4, 50 % ≈ 1.9, 75 % ≈ 6.5 and 100 % ≈ 18 lengths, the last being the unchanged elite maximum cue speed. Opponent pace options shifted to match. The live loop now catches up after frames as slow as 4 fps rather than 20, so a slow phone no longer runs the balls in slow motion.
 
 **Matches.** 賽制 offers 1, 3, 5 or 7 frames (default 3 局 2 勝). Players alternate the break-off. The strip's centre cell shows frames won and match length. Between frames a card shows the result, every frame's score and who breaks next. Changing match length restarts. Practice never counts frames.
+
+## Table realism and the measured cushion model
+
+**Cushions.** `cushion()` now implements Mathavan, Jackson & Parkin (2010), "A theoretical analysis of billiard ball dynamics under cushion impacts" (Proc. IMechE C 224), with their snooker values: cushion restitution .98, cushion friction .14, cloth sliding friction .21, contact 7R/5 above the cloth. Two contacts act at once. The cushion nose presses the ball into the slate, so the cloth under it also grips during the impact. The impulse is integrated in 100 steps per half through compression and restitution; restitution ends when its work reaches e² of the compression work. Effects:
+- A rolling ball straight in returns with about 91 % of its speed.
+- At 45° it leaves at about 37° with 85 % of its speed, and its remaining forward spin then bends the path wider on the cloth (about 50° at a slow pace, 42° when hit hard).
+- Side spin turns a straight-in rebound about 15°, down from 17°+ under the old doubled friction of .28.
+
+Like the published model, it scales with speed, so there is no added speed dependence. The professional's planning takes about 15 % longer (≈2.3 s v 2.0 s worst case, in the worker).
+
+**Rendering.**
+- **Reflections.** A purpose-built reflection environment (dark arena, bright rectangular canopy overhead) replaces the generic room. It is applied per material: three.js otherwise replaces every material's `envMapIntensity` with one scene-wide value, which had been silently flattening the balls and hazing the rails. Balls are polished phenolic (clearcoat, low roughness, strong canopy highlight).
+- **Cloth.** Procedural baize with a directional nap, faint mottle and fabric sheen, in tournament green.
+- **Cushions.** Shaded slightly darker, with a soft occlusion strip along every nose so they read as raised.
+- **Rails.** Deep mahogany with reduced base specular, because a top-down camera under a top-down light otherwise turns the rails grey.
+- **Shadows.** PCF soft shadows with retuned bias.

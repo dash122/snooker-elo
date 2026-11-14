@@ -190,3 +190,26 @@ test('a single-frame match ends with the frame, and practice never counts frames
  const drill=newPractice();drill.balls.forEach(b=>{if(b.value)b.potted=true;});Object.assign(drill,{target:7,shotTarget:7,first:7});drill.potted=[drill.balls.find(b=>b.value===7)];finishShot(drill);
  assert.equal(drill.finished,true);assert.deepEqual(drill.frames,[0,0]);assert.equal(drill.matchOver,false);
 });
+
+test('cushion rebounds follow the measured two-contact model',async()=>{
+ const {CUSHION_RESTITUTION,CUSHION_FRICTION}=await import('../lib/snooker-game.ts');
+ assert.equal(CUSHION_RESTITUTION,.98);assert.equal(CUSHION_FRICTION,.14);
+ const rebound=(speed,degrees)=>{
+  const a=degrees*Math.PI/180,b=ball(0,0,W-RADIUS-.002,.6);
+  Object.assign(b,{vx:Math.cos(a)*speed,vz:-Math.sin(a)*speed});b.wx=b.vz/RADIUS;b.wz=-b.vx/RADIUS;b.wy=0;
+  for(let i=0;i<40&&b.vx>0;i++)step([b],1/240,()=>{},()=>{});
+  return {normal:-b.vx/(Math.cos(a)*speed),angle:Math.atan2(-b.vz,-b.vx)*180/Math.PI,kept:Math.hypot(b.vx,b.vz)/speed,spin:b};
+ };
+ for(const speed of [.5,2,4]){
+  const straight=rebound(speed,0);
+  // Rolling straight in: most of the normal speed comes back, never more.
+  assert.ok(straight.normal>.85&&straight.normal<.95,`straight-in rebound ${straight.normal.toFixed(2)} at ${speed} m/s`);
+  // At an angle the friction shortens the angle off the cushion, and a rolling
+  // ball's forward spin then bends the path wider again as it grips the cloth.
+  const angled=rebound(speed,45);
+  assert.ok(angled.angle<45&&angled.angle>30,`45° in leaves at ${angled.angle.toFixed(1)}°`);
+  assert.ok(angled.kept>.75&&angled.kept<.92);
+ }
+ // The impact is scale-free: double the speed, same angles.
+ assert.ok(Math.abs(rebound(1,45).angle-rebound(2,45).angle)<.2);
+});
