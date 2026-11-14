@@ -232,7 +232,7 @@ export default function Table(props:Props) {
     let mode:TableView='tv',current:Pose|null=null as Pose|null,from:Pose|null=null,changed=0,modeKey='',reachSmooth=1;
     const restart=()=>{if(current){from=clonePose(current);changed=performance.now();}};
     let frame=0,previousRender=performance.now();
-    let featherStarted=performance.now(),wasAiming=false,lastStroke=-1,initialWithdrawal=CUE_ADDRESS_GAP,lastWithdrawal=CUE_ADDRESS_GAP;
+    let featherStarted=performance.now(),wasAiming=false,lastStroke=-1,strokeSeen=0,initialWithdrawal=CUE_ADDRESS_GAP,lastWithdrawal=CUE_ADDRESS_GAP;
     const sinking=new Map<number,{at:number;x:number;z:number}>(),wasPotted=live.current.balls.map(b=>b.potted);
     function render(){
       const now=performance.now(),renderDt=Math.min((now-previousRender)/1000,.05);previousRender=now;
@@ -287,11 +287,13 @@ export default function Table(props:Props) {
       });
       if(state.aiming&&!wasAiming)featherStarted=now;
       wasAiming=state.aiming;
-      if(state.stroke&&state.stroke.id!==lastStroke){lastStroke=state.stroke.id;initialWithdrawal=lastWithdrawal;}
+      if(state.stroke&&state.stroke.id!==lastStroke){lastStroke=state.stroke.id;initialWithdrawal=lastWithdrawal;strokeSeen=now;}
       const shotPower=performing?state.stroke!.power:state.power;
       // Pulling the power bar draws the cue back exactly as far as the stroke will.
       const pulled=CUE_ADDRESS_GAP+.065+.135*Math.max(0,Math.min(1,state.power/100));
-      const withdrawal=performing?cueStroke(elapsed,shotPower,initialWithdrawal):state.aiming&&state.pulling?lastWithdrawal+(pulled-lastWithdrawal)*Math.min(1,renderDt*18)
+      // A stroke may start part-way through the routine; ease in from wherever the cue was.
+      const blend=THREE.MathUtils.smoothstep(now-strokeSeen,0,160);
+      const withdrawal=performing?initialWithdrawal+(cueStroke(elapsed,shotPower,initialWithdrawal)-initialWithdrawal)*blend:state.aiming&&state.pulling?lastWithdrawal+(pulled-lastWithdrawal)*Math.min(1,renderDt*18)
         :state.aiming&&!reducedMotion&&!drag?cueFeather(now-featherStarted,Math.min(shotPower,40)):CUE_ADDRESS_GAP;
       lastWithdrawal=withdrawal;
       const address=state.aiming?1:state.stroke?1-THREE.MathUtils.smoothstep(elapsed,STROKE_END_MS,STROKE_END_MS+400):0;

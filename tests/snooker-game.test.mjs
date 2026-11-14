@@ -96,7 +96,7 @@ test('cushion stays passive for running, check and grazing spin impacts',()=>{
 test('a side-spin kick remains visible after cloth friction acts on the rebound',()=>{
  const positions=[];
  for(const side of [-1,0,1]){
-  const b=ball(0,0,.5);strike(b,90,30,{top:0,side});
+  const b=ball(0,0,.5);strike(b,90,46,{top:0,side});
   let rebounded=false;
   for(let i=0;i<480;i++){
    advance([b],1);if(b.vx<0)rebounded=true;
@@ -129,7 +129,7 @@ test('draw with side retains world spin while reversing travel and its next-cush
 test('draw drag increases the side-spin rebound angle without flipping the spin',()=>{
  const exits=[];
  for(const top of [-.7,0,.7]){
-  const b=ball(0,0,.5);strike(b,90,30,{top,side:.5});
+  const b=ball(0,0,.5);strike(b,90,46,{top,side:.5});
   for(let i=0;i<1000&&b.vx>0;i++)advance([b],1);
   assert.ok(b.vx<0);assert.ok(b.vz>0);assert.ok(b.wy>0);
   exits.push(Math.atan2(b.vz,-b.vx));

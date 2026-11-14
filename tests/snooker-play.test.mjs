@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {aimAtBall,bestAim,canSee,clampToD,computerPlan,cueSpotInD,deliverComputerShot,moving,planShot,pocketAt,predictShot,rack,step,strike,BAULK_Z,D_RADIUS,LENGTH,LEVELS,POCKETS,RADIUS,WIDTH} from '../lib/snooker-game.ts';
-import {beginShot,finishShot,lineUpRack,newMatch,newPractice,placeCueBall,pointsRemaining} from '../lib/snooker-match.ts';
+import {aimAtBall,bestAim,paceLengths,canSee,clampToD,computerPlan,cueSpotInD,deliverComputerShot,moving,planShot,pocketAt,predictShot,rack,step,strike,BAULK_Z,D_RADIUS,LENGTH,LEVELS,POCKETS,RADIUS,WIDTH} from '../lib/snooker-game.ts';
+import {beginShot,finishShot,framesToWin,lineUpRack,newMatch,newPractice,nextFrame,placeCueBall,pointsRemaining} from '../lib/snooker-match.ts';
 
 const ball=(id,value,x,z)=>({id,value,x,z,vx:0,vz:0,potted:false});
 const settle=balls=>{for(let i=0;i<240*30&&moving(balls);i++)step(balls,1/240,()=>{},()=>{});return balls;};
@@ -46,10 +46,12 @@ test('aim assist lines up a cut that pots at every pace, where the ghost-ball ai
  // Black off its spot from a half-ball angle: throw takes the textbook aim wide.
  const balls=[ball(0,0,-.314,-1.478),ball(1,7,0,-1.46)],aim=aimAtBall(balls,1);
  assert.equal(aim.pocket,1);
- for(const power of [30,45,60,75]){
+ for(const power of [40,50,60,75]){
   const after=play(balls,aim.angle,power);
   assert.ok(after[1].potted&&after[1].pocket===1,`black potted at ${power}%`);
  }
+ // Pace is real: a soft roll on the right line dies short of the pocket.
+ const soft=play(balls,aim.angle,25);assert.ok(!soft[1].potted&&soft[1].x>.3,'25% runs most of the way and stops short');
  const [px,pz]=POCKETS[1],d=Math.hypot(px,pz+1.46),gx=-(px/d)*RADIUS*2,gz=-1.46-((pz+1.46)/d)*RADIUS*2;
  const ghost=Math.atan2(gx+.314,-1.478-gz)*180/Math.PI;
  assert.ok(Math.abs(aim.angle-ghost)>.2&&Math.abs(aim.angle-ghost)<1.2,'the assist allows for throw');
@@ -140,7 +142,51 @@ test('line-up practice: no opponent, a miss resets the break, and the cue ball g
  assert.equal(m.turn,0);assert.deepEqual(m.scores,[1,0]);
 });
 
+test('pace follows real table lengths and contact speeds match ball physics',()=>{
+ // Most positional shots are under two lengths, so that is where the bar's middle sits.
+ assert.ok(paceLengths(25)>.3&&paceLengths(25)<.7);
+ assert.ok(paceLengths(50)>1.5&&paceLengths(50)<2.5);
+ assert.ok(paceLengths(75)>5&&paceLengths(75)<8);
+ assert.ok(paceLengths(100)>15);
+ // Equal masses, restitution .94: a full ball passes on (1+e)/2 of the speed, a
+ // half ball cos 30° of that; the cue ball keeps almost nothing along the line.
+ for(const [offset,expected] of [[0,.97],[RADIUS,.97*Math.cos(Math.PI/6)]]){
+  const c=ball(0,0,offset,Math.sqrt(4*RADIUS*RADIUS-offset*offset)+.0005),o=ball(1,1,0,0);
+  Object.assign(c,{vz:-1.5,wx:-1.5/RADIUS,wz:0,wy:0});
+  for(let i=0;i<4&&!o.vz;i++)step([c,o],1/240,()=>{},()=>{});
+  assert.ok(Math.abs(Math.hypot(o.vx,o.vz)/1.5-expected)<.02,`object ball at ${(Math.hypot(o.vx,o.vz)/1.5).toFixed(3)} of incoming`);
+ }
+});
+
 test('rack balls carry their pocket when potted, for the drop animation',()=>{
  const balls=rack();Object.assign(balls[0],{x:-W+.02,z:L-.02});step(balls,1/240,()=>{},()=>{});
  assert.equal(balls[0].potted,true);assert.equal(balls[0].pocket,4);
+});
+
+test('a best-of-three match counts frames, alternates the break and ends at two',()=>{
+ const m=newMatch(3);assert.equal(framesToWin(m),2);assert.deepEqual(m.frames,[0,0]);
+ // Finish a frame by potting the last black with the score in someone's favour.
+ const endFrame=(scores)=>{
+  m.balls.forEach(b=>{if(b.value)b.potted=true;});m.target=7;m.shotTarget=7;m.first=7;
+  m.potted=[m.balls.find(b=>b.value===7)];m.scores=scores;finishShot(m);
+ };
+ endFrame([60,20]);assert.equal(m.finished,true);assert.equal(m.matchOver,false);assert.deepEqual(m.frames,[1,0]);
+ nextFrame(m);
+ assert.equal(m.finished,false);assert.equal(m.frame,1);assert.equal(m.turn,1,'the computer breaks the second frame');
+ assert.equal(m.inHand,true);assert.deepEqual(m.scores,[0,0]);assert.equal(m.balls.filter(b=>!b.potted).length,22);
+ endFrame([10,70]);assert.deepEqual(m.frames,[1,1]);assert.equal(m.matchOver,false);
+ nextFrame(m);assert.equal(m.turn,0,'and you break the third');
+ endFrame([55,40]);assert.deepEqual(m.frames,[2,1]);assert.equal(m.matchOver,true);
+ // The final black's 7 goes to whoever was at the table.
+ assert.deepEqual(m.frameScores,[[67,20],[10,77],[62,40]]);
+ // No more frames once the match is over.
+ const before=m.frame;nextFrame(m);assert.equal(m.frame,before);
+});
+
+test('a single-frame match ends with the frame, and practice never counts frames',()=>{
+ const one=newMatch();assert.equal(one.bestOf,1);
+ one.balls.forEach(b=>{if(b.value)b.potted=true;});Object.assign(one,{target:7,shotTarget:7,first:7,scores:[30,10]});one.potted=[one.balls.find(b=>b.value===7)];finishShot(one);
+ assert.equal(one.matchOver,true);
+ const drill=newPractice();drill.balls.forEach(b=>{if(b.value)b.potted=true;});Object.assign(drill,{target:7,shotTarget:7,first:7});drill.potted=[drill.balls.find(b=>b.value===7)];finishShot(drill);
+ assert.equal(drill.finished,true);assert.deepEqual(drill.frames,[0,0]);assert.equal(drill.matchOver,false);
 });

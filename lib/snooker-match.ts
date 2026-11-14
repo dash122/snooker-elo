@@ -7,8 +7,21 @@ export type Match={balls:Ball[];scores:number[];turn:number;target:number;break:
   /** Bumped after every completed shot, for anything that caches the layout. */
   shots:number;
   /** What the last shot did, for the commentary line and the coach. */
-  last:null|{player:number;points:number;foul:boolean;penalty:number}};
-export function newMatch():Match{return {balls:rack(),scores:[0,0],turn:0,target:1,break:0,breakBalls:[],best:0,first:null,potted:[],shotTarget:1,finished:false,inHand:true,shots:0,last:null,message:'你先開波。'};}
+  last:null|{player:number;points:number;foul:boolean;penalty:number};
+  /** Match length and progress. A frame ends with `finished`; the match with `matchOver`. */
+  bestOf:number;frames:number[];frame:number;frameScores:number[][];matchOver:boolean};
+export function newMatch(bestOf=1):Match{return {balls:rack(),scores:[0,0],turn:0,target:1,break:0,breakBalls:[],best:0,first:null,potted:[],shotTarget:1,finished:false,inHand:true,shots:0,last:null,message:'你先開波。',
+  bestOf,frames:[0,0],frame:0,frameScores:[],matchOver:false};}
+/** Frames needed to win the match. */
+export function framesToWin(m:Pick<Match,'bestOf'>){return Math.floor(m.bestOf/2)+1;}
+/** Rack the next frame. Players alternate the break-off, as in a real match. */
+export function nextFrame(m:Match){
+  if(!m.finished||m.matchOver)return;
+  m.frame++;
+  Object.assign(m,{balls:rack(),scores:[0,0],turn:m.frame%2,target:1,break:0,breakBalls:[],first:null,potted:[],shotTarget:1,finished:false,inHand:true,last:null,
+    message:m.frame%2?'第 '+(m.frame+1)+' 局，電腦開波。':'第 '+(m.frame+1)+' 局，你開波。'});
+  m.shots++;
+}
 /** The line-up: colours on their spots and fifteen reds down the middle of the
  * table. The standard routine for learning to keep the cue ball near the
  * black and pink, red–colour–red, without running out of position. */
@@ -64,6 +77,14 @@ export function finishShot(m:Match){
   else m.target=Math.min(...m.balls.filter(b=>b.value>1&&!b.potted).map(b=>b.value));
   if(!Number.isFinite(m.target)){
     if(m.scores[0]===m.scores[1]&&!m.practice){respot(m.balls.find(b=>b.value===7)!,m.balls);m.target=7;m.message='平手，重置黑球決勝。';}
-    else {m.finished=true;m.message=m.practice?'清枱！':m.scores[0]>m.scores[1]?'你贏了這一局！':'電腦勝出這一局。';}
+    else {
+      m.finished=true;
+      if(m.practice)m.message='清枱！';
+      else{
+        const winner=m.scores[0]>m.scores[1]?0:1;
+        m.frames[winner]++;m.frameScores.push([...m.scores]);m.matchOver=m.frames[winner]>=framesToWin(m);
+        m.message=winner===0?'你贏了這一局！':'電腦勝出這一局。';
+      }
+    }
   }
 }

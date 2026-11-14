@@ -14,8 +14,16 @@ export const BALL_RESTITUTION = .94, BALL_FRICTION = .06;
 // Lower controls must allow very soft touch shots, so use a nonlinear response.
 // Model the impact as a 0.5 kg effective cue mass against a 0.141 kg ball,
 // with leather-tip restitution .73; these are calibration assumptions.
-export const CUE_SPEED_MIN = .4, CUE_SPEED_MAX = 4.02, POWER_RESPONSE_EXPONENT = 1.3;
+// A squared response puts most of the bar where most real shots are played:
+// 25% ≈ half a table, 50% ≈ two lengths, 75% ≈ six (cue ball, no cushions).
+export const CUE_SPEED_MIN = .4, CUE_SPEED_MAX = 4.02, POWER_RESPONSE_EXPONENT = 2;
 const CUE_EFFECTIVE_MASS = .5, BALL_MASS = .141, TIP_RESTITUTION = .73;
+/** How many table lengths a centre-ball strike at this power runs on open cloth. */
+export function paceLengths(power:number){
+ const b={id:0,value:0,x:0,z:0,vx:0,vz:0,potted:false};strike(b,0,power);
+ const v=Math.hypot(b.vx,b.vz),rolling=5/7*v;
+ return ((v*v-rolling*rolling)/(2*CLOTH_SLIDING_FRICTION*9.81)+rolling*rolling/(2*CLOTH_ROLLING_DECELERATION))/LENGTH;
+}
 export function rack():Ball[] {
   const specs = [[0,-.12,1.22],[2,.29,1.047],[3,-.29,1.047],[4,0,1.047],[5,0,0],[6,0,-.89],[7,0,-1.46]];
   for(let row=0;row<5;row++) for(let col=0;col<=row;col++) specs.push([1,(col-row/2)*RADIUS*2.04,-.98-row*RADIUS*1.77]);
@@ -212,7 +220,7 @@ export function aimAtBall(balls:Ball[],id:number,cycle=0,power=50,spin:Spin={top
  if(!ball)return {angle:0,pocket:-1};
  const options=optionsFor(balls,b=>b.id===id);
  if(!options.length)return {angle:Math.atan2(ball.x-cue.x,cue.z-ball.z)*180/Math.PI,pocket:-1};
- const option=options[((cycle%options.length)+options.length)%options.length],pace=Math.max(power,45);
+ const option=options[((cycle%options.length)+options.length)%options.length],pace=Math.max(power,40);
  return {angle:windowCentre(option.angle,a=>potsBall(balls,id,option.pocket,a,pace,spin))??option.angle,pocket:option.pocket};
 }
 /** The easiest pot on, lined up; null when nothing is pottable. */
@@ -259,7 +267,7 @@ type Candidate={plan:ShotPlan;score:number;trial:Ball[];nextTarget:number;points
 // its chance under the player's cue error and by the position it leaves.
 function candidates(balls:Ball[],target:number,errorScale:number,wide:boolean):Candidate[] {
  const found:Candidate[]=[];
- const powers=wide?[24,40,60,82]:[30,52,76],tops=wide?[-1,-.5,0,.5,1]:[-1,0,1];
+ const powers=wide?[28,44,62,82]:[34,54,74],tops=wide?[-1,-.5,0,.5,1]:[-1,0,1];
  for(const option of potOptions(balls,target).slice(0,wide?4:3)){
   // Contact friction throws a cut ball off the line of centres, so the textbook
   // ghost-ball aim often misses. Aim at the middle of the angles that pot it,
@@ -336,7 +344,7 @@ function planSafety(balls:Ball[],target:number,errorScale=1):ShotPlan|null {
  const legal=balls.filter(b=>b!==cue&&isLegal(target,b)).sort((a,b)=>Math.hypot(a.x-cue.x,a.z-cue.z)-Math.hypot(b.x-cue.x,b.z-cue.z)).slice(0,3);
  for(const ball of legal){
   const centre=Math.atan2(ball.x-cue.x,cue.z-ball.z)*180/Math.PI,half=Math.asin(Math.min(1,RADIUS*2/Math.hypot(ball.x-cue.x,ball.z-cue.z)))*180/Math.PI;
-  for(const offset of [-.9,-.7,-.4,0,.4,.7,.9])for(const power of [14,24,38,56]){
+  for(const offset of [-.9,-.7,-.4,0,.4,.7,.9])for(const power of [20,32,46,62]){
    const shot={angle:centre+offset*half,power,spin:{top:0,side:0}},{fair,trial,pots}=simulate(balls,target,shot.angle,power,shot.spin);
    if(!fair||pots.length)continue;
    found.push({shot,score:leave(trial,reply(trial)),cueEnd:{x:trial[0].x,z:trial[0].z}});
