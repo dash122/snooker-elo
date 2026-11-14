@@ -135,3 +135,11 @@ Cue-ball contact opens from the white ball button as a small panel; it resets to
 **Still out of scope.** Free ball, foul and a miss, play-again, nominated colours, jump and swerve shots, cloth nap. Jaws are circles, not templated pocket profiles.
 
 **Verification.** Node tests cover pace-independent cut angle, jaw acceptance and rejection, aim assist through throw, prediction readout, snookers and safety legality, opponent levels, ball in hand, points remaining and practice rules. Phone portrait (390×844), phone landscape and desktop were inspected in headless Chromium with software WebGL, including a scripted coach → apply → pull → pot sequence. That renderer runs at a few frames per second, so frame rate, touch feel and audio were not assessed and need a real device.
+
+## Set power, then strike; realistic pace; multi-frame matches
+
+**Power is a setting, not a trigger.** Dragging the bar sets power and draws the cue back as feedback; releasing does nothing else. Aim, spin and power stay adjustable until the round 出桿 button under the bar is pressed. The stroke then skips the waggles and lands about 0.8 s after the press. The cue eases in from wherever it was, so there is no jump. The drag readout gives pace as table lengths (約 2.3 枱長).
+
+**Pace.** Contact physics already matched theory: a full ball passes on 97 % of the speed, a half ball cos 30° of that, and it leaves at about 27° once throw is allowed for. The power curve, though, put most real shots in the bottom third of the bar: 40 % ran 2.5 lengths and 50 % nearly 4. `POWER_RESPONSE_EXPONENT` is now 2: 25 % ≈ 0.4, 50 % ≈ 1.9, 75 % ≈ 6.5 and 100 % ≈ 18 lengths, the last being the unchanged elite maximum cue speed. Opponent pace options shifted to match. The live loop now catches up after frames as slow as 4 fps rather than 20, so a slow phone no longer runs the balls in slow motion.
+
+**Matches.** 賽制 offers 1, 3, 5 or 7 frames (default 3 局 2 勝). Players alternate the break-off. The strip's centre cell shows frames won and match length. Between frames a card shows the result, every frame's score and who breaks next. Changing match length restarts. Practice never counts frames.

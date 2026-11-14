@@ -67,7 +67,7 @@
   .sg-spin:active { transform: scale(.95); }
   .sg-spin i, .snooker-tip i { position: absolute; width: 14px; height: 14px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--ds-danger); box-shadow: 0 0 0 2px var(--ds-broadcast-white); }
   .sg-spin:disabled, .sg-aim[data-disabled], .sg-power[aria-disabled="true"] { opacity: .32; pointer-events: none; }
-  .sg-aim { position: absolute; z-index: 2; left: calc(var(--sg-edge) + 64px + var(--sp-3)); right: calc(var(--sg-edge-right) + 56px + var(--sp-3)); bottom: var(--sg-bottom); display: grid; justify-items: center; gap: var(--sp-2); transition: opacity var(--ds-duration-standard) var(--ds-ease-standard); pointer-events: none; }
+  .sg-aim { position: absolute; z-index: 2; left: calc(var(--sg-edge) + 64px + var(--sp-3)); right: calc(var(--sg-edge-right) + 72px + var(--sp-3)); bottom: var(--sg-bottom); display: grid; justify-items: center; gap: var(--sp-2); transition: opacity var(--ds-duration-standard) var(--ds-ease-standard); pointer-events: none; }
   .sg-read { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2); border: 1px solid var(--sg-line); border-radius: var(--radius-pill); background: var(--sg-glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); font-size: var(--fs-caption); white-space: nowrap; }
   .sg-read svg { width: 48px; height: 26px; overflow: visible; }
   .sg-read-cue { fill: color-mix(in srgb, var(--ds-broadcast-white) 34%, transparent); stroke: var(--ds-broadcast-white); stroke-width: 1.4; }
@@ -79,7 +79,14 @@
     background: repeating-linear-gradient(90deg, var(--sg-line) 0 1px, transparent 1px 12px) 0 50% / auto 40% no-repeat, var(--sg-glass); background-repeat: repeat-x, no-repeat; }
   .sg-fine span { padding: 0 var(--sp-3); border-radius: var(--radius-pill); background: var(--sg-glass-strong); font-size: var(--fs-label); letter-spacing: .12em; color: var(--sg-dim); }
   /* Power: a tall track on the right edge. Pull down, let go. */
-  .sg-power { position: absolute; z-index: 2; right: var(--sg-edge-right); bottom: var(--sg-bottom); width: 56px; height: min(46dvh, 360px); display: grid; grid-template-rows: 1fr auto; justify-items: center; gap: var(--sp-1); cursor: ns-resize; touch-action: none; transition: opacity var(--ds-duration-standard) var(--ds-ease-standard); }
+  /* Power: a tall track on the right edge sets the pace; the button below strikes. */
+  .sg-strike { position: absolute; z-index: 2; right: var(--sg-edge-right); bottom: var(--sg-bottom); width: 72px; display: grid; justify-items: center; gap: var(--sp-2); }
+  .sg-power { width: 56px; height: min(36dvh, 280px); display: grid; justify-items: center; cursor: ns-resize; touch-action: none; transition: opacity var(--ds-duration-standard) var(--ds-ease-standard); }
+  .sg .sg-shoot { width: 72px; height: 72px; min-height: 0; padding: 0; border-radius: 50%; box-shadow: var(--ds-elevation-4); }
+  .sg .sg-shoot > span { display: grid; justify-items: center; gap: 0; line-height: 1.1; }
+  .sg-shoot-label { font-size: var(--fs-body); font-weight: 700; }
+  .sg-shoot small { font-size: var(--fs-label); font-variant-numeric: tabular-nums; opacity: .8; }
+  .sg .sg-shoot:disabled { opacity: .32; }
   .sg-power-track { position: relative; width: 44px; height: 100%; border: 1px solid var(--sg-line); border-radius: var(--radius-pill); background: var(--sg-glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: var(--ds-elevation-4); overflow: hidden; }
   .sg-power-track::before { content: ''; position: absolute; inset: 8% 0; background: repeating-linear-gradient(transparent 0 calc(10% - 1px), var(--sg-line) calc(10% - 1px) 10%); opacity: .8; }
   .sg-power-fill { position: absolute; left: 0; right: 0; top: 0; height: calc(8% + 84% * var(--sg-power)); background: linear-gradient(var(--ds-accent-soft), var(--ds-accent-primary) 55%, var(--ds-danger)); background-size: 100% 46dvh; opacity: .28; }
@@ -87,8 +94,7 @@
   .sg-power-knob { position: absolute; left: 50%; top: calc(8% + 84% * var(--sg-power)); width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--ds-broadcast-white), var(--ds-accent-soft) 70%); box-shadow: var(--ds-elevation-3); opacity: .55; }
   .sg-power[data-pulling] .sg-power-knob { opacity: 1; }
   .sg-power-advice { position: absolute; left: 3px; right: 3px; top: calc(8% + 84% * var(--sg-advice)); height: 3px; margin-top: -1.5px; border-radius: var(--radius-2xs); background: var(--ds-positive-soft); }
-  .sg-power-label { font-size: var(--fs-label); letter-spacing: .1em; color: var(--sg-dim); }
-  .sg-pull { position: absolute; z-index: 2; right: calc(var(--sg-edge-right) + 56px + var(--sp-3)); bottom: calc(var(--sg-bottom) + 20dvh); display: grid; justify-items: end; padding: var(--sp-2) var(--sp-3); border-radius: var(--radius-md); background: var(--sg-glass-strong); pointer-events: none; }
+  .sg-pull { position: absolute; z-index: 2; right: calc(var(--sg-edge-right) + 72px + var(--sp-3)); bottom: calc(var(--sg-bottom) + 18dvh); display: grid; justify-items: end; padding: var(--sp-2) var(--sp-3); border-radius: var(--radius-md); background: var(--sg-glass-strong); pointer-events: none; }
   .sg-pull strong { font-size: var(--fs-stat); line-height: 1; color: var(--ds-broadcast-yellow); }
   .sg-pull small { font-size: var(--fs-caption); }
   .sg-pull span { font-size: var(--fs-caption); color: var(--sg-dim); }
@@ -119,6 +125,10 @@
   .sg-result .ds-stat-tile { background: color-mix(in srgb, var(--ds-text-on-brand) 8%, transparent); color: var(--ds-text-on-brand); border-color: var(--sg-line); }
   .sg-result .ds-stat-tile small { color: var(--sg-dim); }
   .sg-result .sg-row { justify-content: center; margin-top: var(--sp-2); }
+  .sg-frame-list { display: grid; gap: var(--sp-1); width: 100%; margin: 0; padding: 0; list-style: none; }
+  .sg-frame-list:empty { display: none; }
+  .sg-frame-list li { display: flex; justify-content: space-between; padding: var(--sp-1) var(--sp-3); border-radius: var(--radius-xs); background: color-mix(in srgb, var(--ds-text-on-brand) 6%, transparent); font-size: var(--fs-caption); color: var(--sg-dim); }
+  .sg-frame-list li[data-won] b { color: var(--ds-broadcast-yellow); }
 
   /* Sheets use the app's own surface; restore its text colour and selection. */
   .sg .ds-sheet { color: var(--ds-text-primary); user-select: text; -webkit-user-select: text; }
@@ -147,7 +157,9 @@
     .sg-status { top: calc(var(--sg-top) + 100px); font-size: var(--fs-sm); }
     .sg-spin { width: 76px; height: 76px; }
     .sg-aim { left: 50%; right: auto; width: 380px; margin-left: -190px; }
-    .sg-power { width: 64px; height: min(52dvh, 420px); }
+    .sg-power { width: 64px; height: min(42dvh, 340px); }
+    .sg .sg-shoot { width: 80px; height: 80px; }
+    .sg-strike { width: 80px; }
     .sg-power-track { width: 50px; }
   }
   /* Phones held sideways: keep the strip slim and shorten the power track. */
@@ -156,8 +168,9 @@
     .sg-score { height: var(--control-md); }
     .sg-spin { width: 64px; height: 64px; }
     .sg-status { top: calc(var(--sg-top) + 82px); }
-    .sg-power { height: min(62dvh, 300px); }
+    .sg-power { height: min(46dvh, 220px); }
+    .sg .sg-shoot { width: 64px; height: 64px; }
     .sg-left { grid-auto-flow: column; align-items: end; }
-    .sg-aim { left: calc(var(--sg-edge) + 190px); right: calc(var(--sg-edge-right) + 56px + var(--sp-5)); width: auto; margin-left: 0; }
+    .sg-aim { left: calc(var(--sg-edge) + 190px); right: calc(var(--sg-edge-right) + 72px + var(--sp-5)); width: auto; margin-left: 0; }
   }
 }

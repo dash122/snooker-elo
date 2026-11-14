@@ -8,25 +8,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Button, ButtonLink, IconButton, SegmentedControl, StatTile } from '../components/ui/Primitives';
 import { Sheet } from '../components/ui/Overlay';
-import { aimAtBall, bestAim, COLOURS, computerPlan, cueSpotInD, deliverComputerShot, deliverShot, LEVELS, moving, NAMES, planShot, PLAYER_ERROR_SCALE, predictShot, PRO_ERROR_SCALE, step, type Level, type ShotPlan, type Spin } from '../../lib/snooker-game';
+import { aimAtBall, bestAim, COLOURS, computerPlan, cueSpotInD, deliverComputerShot, deliverShot, LEVELS, moving, NAMES, paceLengths, planShot, PLAYER_ERROR_SCALE, predictShot, PRO_ERROR_SCALE, step, type Level, type ShotPlan, type Spin } from '../../lib/snooker-game';
 import { describePlan, EMPTY_STATS, focus, POCKET_NAMES, powerWord, record, reviewShot, spinWord, type CoachStats } from '../../lib/snooker-coach';
-import { beginShot, finishShot, newMatch, newPractice, placeCueBall, pointsRemaining } from '../../lib/snooker-match';
+import { beginShot, finishShot, framesToWin, newMatch, newPractice, nextFrame, placeCueBall, pointsRemaining } from '../../lib/snooker-match';
 import Table, { type Assist, type TableView } from './Table';
 import { nearestAim } from '../../lib/snooker-aim';
 import { type Stroke, STROKE_CONTACT_MS, STROKE_END_MS } from '../../lib/snooker-presentation';
 import { createSound } from './sound';
 import '../styles/snooker-game.css';
 
-type Settings={assist:Assist;level:Level;sound:'on'|'off';camera:'auto'|'top'|'player';mode:'match'|'practice'};
-const DEFAULT_SETTINGS:Settings={assist:'full',level:'club',sound:'on',camera:'auto',mode:'match'};
-// Your stroke starts already drawn back, so it lands 180 ms after you let go.
-const QUICK_STROKE_MS=STROKE_CONTACT_MS-180;
+type Settings={assist:Assist;level:Level;sound:'on'|'off';camera:'auto'|'top'|'player';mode:'match'|'practice';frames:'1'|'3'|'5'|'7'};
+const DEFAULT_SETTINGS:Settings={assist:'full',level:'club',sound:'on',camera:'auto',mode:'match',frames:'3'};
+const startMatch=(settings:Settings)=>settings.mode==='practice'?newPractice():newMatch(Number(settings.frames)||1);
+// Your stroke skips the waggles: settle, backswing and deliver, about 0.8 s after you press.
+const QUICK_STROKE_MS=910;
 const wrap=(angle:number)=>((angle+180)%360+360)%360-180;
 const clamp=(value:number,low:number,high:number)=>Math.max(low,Math.min(high,value));
 function thickness(fraction:number){return fraction>.93?'全球':fraction>.66?'3/4 球':fraction>.4?'半球':fraction>.18?'1/4 球':'薄邊';}
 
 export default function Game(){
-  const [initial]=useState(newMatch),match=useRef(initial),[snapshot,setSnapshot]=useState(initial);
+  const [initial]=useState(()=>startMatch(DEFAULT_SETTINGS)),match=useRef(initial),[snapshot,setSnapshot]=useState(initial);
   const [angle,setAngle]=useState(()=>nearestAim(initial.balls,initial.target)),[power,setPower]=useState(45),[top,setTop]=useState(0),[side,setSide]=useState(0);
   const [busy,setBusy]=useState(false),[pulling,setPulling]=useState(false),[layout,setLayout]=useState(0);
   const [settings,setSettings]=useState(DEFAULT_SETTINGS),[topView,setTopView]=useState(false);
@@ -62,7 +63,7 @@ export default function Game(){
       try{
         const saved=localStorage.getItem('snooker-coach-stats');if(saved)setStats({...EMPTY_STATS,...JSON.parse(saved)});
         const options=localStorage.getItem('snooker-settings');
-        if(options){const next={...DEFAULT_SETTINGS,...JSON.parse(options)} as Settings;assist=next.assist;setSettings(next);if(next.mode==='practice'){const drill=newPractice();match.current=drill;setSnapshot(drill);}}
+        if(options){const next={...DEFAULT_SETTINGS,...JSON.parse(options)} as Settings;assist=next.assist;setSettings(next);if(next.mode!==DEFAULT_SETTINGS.mode||next.frames!==DEFAULT_SETTINGS.frames){const start=startMatch(next);match.current=start;setSnapshot(start);}}
       }catch{}
       lineUp(assist);
     });
@@ -87,7 +88,9 @@ export default function Game(){
         sound.current?.impact('cue',.4+pending.current.power/100*2.6);
         pending.current=null;active.current=true;
       }
-      accumulator+=Math.min((time-last)/1000,.05);last=time;
+      // Catch up after slow frames so the balls always move in real time; only
+      // a long stall (a background tab) is dropped rather than replayed.
+      accumulator+=Math.min((time-last)/1000,.25);last=time;
       while(accumulator>=1/240){
         if(active.current)step(m.balls,1/240,v=>{if(m.first===null)m.first=v;},b=>m.potted.push(b),(kind,speed)=>sound.current?.impact(kind,speed));
         accumulator-=1/240;
@@ -130,7 +133,7 @@ export default function Game(){
   function update(change:Partial<Settings>){
     const next={...settings,...change};setSettings(next);
     try{localStorage.setItem('snooker-settings',JSON.stringify(next));}catch{}
-    if(change.mode&&change.mode!==settings.mode)reset(change.mode);
+    if((change.mode&&change.mode!==settings.mode)||(change.frames&&change.frames!==settings.frames))reset(next);
     else if(change.assist&&canShoot)lineUp(change.assist);
   }
   function shoot(strength:number){
@@ -152,7 +155,7 @@ export default function Game(){
   function applyAdvice(){
     const plan=advice?.plan;if(!plan||!canShoot)return;
     setAngle(plan.shot.angle);setPower(Math.round(plan.shot.power));setTop(plan.shot.spin.top);setSide(plan.shot.spin.side);setApplied(plan);setSheet(null);
-    setNote(`教練：${powerWord(plan.shot.power)} ${Math.round(plan.shot.power)}% · ${spinWord(plan.shot.spin)}，拉到綠色刻度放手`);
+    setNote(`教練：${powerWord(plan.shot.power)} ${Math.round(plan.shot.power)}% · ${spinWord(plan.shot.spin)}，準備好就按出桿`);
   }
   function pickBall(id:number){
     if(!canShoot)return;
@@ -162,34 +165,30 @@ export default function Game(){
     setNote(aim.pocket>=0?`瞄準${NAMES[ball.value]} → ${POCKET_NAMES[aim.pocket]}（再點一下轉袋）`:`${NAMES[ball.value]}冇直接入袋線路`);
   }
   function place(x:number,z:number){if(canShoot&&placeCueBall(match.current,x,z)){setLayout(value=>value+1);setApplied(null);}}
-  function reset(mode=settings.mode){
+  function reset(choice=settings){
     thinking.current=0;coachRequest.current=0;active.current=false;pending.current=null;yourShot.current=null;
-    const next=mode==='practice'?newPractice():newMatch();match.current=next;setSnapshot(next);setStroke(null);setBusy(false);setTop(0);setSide(0);setPower(45);
+    const next=startMatch(choice);match.current=next;setSnapshot(next);setStroke(null);setBusy(false);setTop(0);setSide(0);setPower(45);
     setAdvice(null);setApplied(null);setReview(null);setNote('');setConfirmReset(false);setSheet(null);setTopView(false);lineUp(settings.assist);
   }
-  // Power: pull the bar down and let go. The cue draws back with your thumb.
-  const pull=useRef<{id:number;y:number;armed:boolean}|null>(null);
+  // Power: drag the bar to set it. Nothing happens until you press 出桿, so
+  // you can still fine-tune the aim, spin or power afterwards.
+  const pull=useRef<number|null>(null);
   function pullTo(event:ReactPointerEvent<HTMLDivElement>){
     const rect=event.currentTarget.getBoundingClientRect();
-    return Math.round(clamp((event.clientY-rect.top-rect.height*.08)/(rect.height*.84),0,1)*100);
+    return Math.max(1,Math.round(clamp((event.clientY-rect.top-rect.height*.08)/(rect.height*.84),0,1)*100));
   }
   function pullStart(event:ReactPointerEvent<HTMLDivElement>){
     if(!canShoot||!event.isPrimary)return;
     sound.current?.unlock();event.currentTarget.setPointerCapture(event.pointerId);
-    pull.current={id:event.pointerId,y:event.clientY,armed:false};
+    pull.current=event.pointerId;setPulling(true);setPower(pullTo(event));
   }
-  function pullMove(event:ReactPointerEvent<HTMLDivElement>){
-    const state=pull.current;if(!state||state.id!==event.pointerId)return;
-    // A stray tap never fires a shot: the bar arms only once it is dragged.
-    if(!state.armed&&Math.abs(event.clientY-state.y)<8)return;
-    state.armed=true;setPulling(true);setPower(Math.max(1,pullTo(event)));
-  }
-  function pullEnd(event:ReactPointerEvent<HTMLDivElement>,fire:boolean){
-    const state=pull.current;if(!state||state.id!==event.pointerId)return;
-    pull.current=null;setPulling(false);
-    if(!state.armed){setNote('向下拉力度條，放手出桿');return;}
-    const strength=pullTo(event);
-    if(fire&&strength>=4)shoot(strength);else{setPower(45);setNote('已取消出桿');}
+  function pullMove(event:ReactPointerEvent<HTMLDivElement>){if(pull.current===event.pointerId)setPower(pullTo(event));}
+  function pullEnd(event:ReactPointerEvent<HTMLDivElement>){if(pull.current===event.pointerId){pull.current=null;setPulling(false);}}
+  function playNextFrame(){
+    const m=match.current;if(!m.finished||m.matchOver)return;
+    nextFrame(m);setSnapshot({...m,scores:[...m.scores],frames:[...m.frames]});setStroke(null);setTop(0);setSide(0);setPower(45);
+    setAdvice(null);setApplied(null);setReview(null);setNote('');setTopView(false);
+    if(m.turn===0)lineUp(settings.assist);
   }
   // Fine tuning: a ruler that turns the cue a fraction of a millimetre per pixel.
   const fine=useRef<{id:number;x:number}|null>(null),[fineShift,setFineShift]=useState(0);
@@ -213,7 +212,7 @@ export default function Game(){
     :review?review.headline+(review.tip?'　'+review.tip:'')
     :m.practice&&m.shots===0?m.message
     :m.inHand?'白球在手：拖動白球擺位，或者直接瞄準'
-    :m.shots===0?'點一粒球自動瞄準 · 拖動微調 · 右邊拉桿出手':m.message);
+    :m.shots===0?'點一粒球自動瞄準 · 拖動微調 · 右邊設定力度再按出桿':m.message);
   const readout=outcome==='pot'?'入袋':outcome==='inoff'?'白球落袋':outcome==='foul'?'犯規':outcome==='miss'?'碰唔到球':'';
   const won=m.scores[0]>m.scores[1];
   return <div role="main" className="sg" data-turn={m.turn} onPointerDownCapture={()=>sound.current?.unlock()}>
@@ -227,10 +226,10 @@ export default function Game(){
           <span className="sg-name is-solo">總分</span><strong>{m.scores[0]}</strong>
           <span className="sg-frames"><small>單桿</small><b>{m.break}</b></span>
           <strong>{m.best}</strong><span className="sg-name is-solo">最高</span>
-        </div>:<div className="sg-score" role="group" aria-label={`比分：你 ${m.scores[0]}，電腦 ${m.scores[1]}；一局決勝`}>
+        </div>:<div className="sg-score" role="group" aria-label={`第 ${m.frame+1} 局比分：你 ${m.scores[0]}，電腦 ${m.scores[1]}；局數 ${m.frames[0]} 比 ${m.frames[1]}，${m.bestOf} 局 ${framesToWin(m)} 勝`}>
           <span className={`sg-name${m.turn===0&&!m.finished?' is-playing':''}`}>你</span>
           <strong>{m.scores[0]}</strong>
-          <span className="sg-frames" aria-label="局數"><b>{m.finished&&won?1:0}</b><small>(1)</small><b>{m.finished&&!won?1:0}</b></span>
+          <span className="sg-frames" aria-hidden="true"><b>{m.frames[0]}</b><small>({m.bestOf})</small><b>{m.frames[1]}</b></span>
           <strong>{m.scores[1]}</strong>
           <span className={`sg-name sg-name--right${m.turn===1&&!m.finished?' is-playing':''}`}>電腦<small>{LEVELS[settings.level].label}</small></span>
         </div>}
@@ -267,20 +266,23 @@ export default function Game(){
           <span aria-hidden="true">‹ 微調 ›</span>
         </div>
       </div>
-      <div className="sg-power" role="slider" tabIndex={canShoot?0:-1} aria-label="出桿力度" aria-orientation="vertical" aria-valuemin={0} aria-valuemax={100} aria-valuenow={power} aria-valuetext={`${power}% ${powerWord(power)}`} aria-disabled={!canShoot} aria-describedby="sg-power-help"
-        data-pulling={pulling||undefined} style={{'--sg-power':power/100,'--sg-advice':applied?applied.shot.power/100:-1} as React.CSSProperties}
-        onPointerDown={pullStart} onPointerMove={pullMove} onPointerUp={event=>pullEnd(event,true)} onPointerCancel={event=>pullEnd(event,false)}
-        onKeyDown={event=>{
-          if(!canShoot)return;
-          if(event.key==='Enter'||event.key===' '){event.preventDefault();sound.current?.unlock();shoot(power);return;}
-          const change=event.key==='ArrowDown'||event.key==='ArrowRight'?2:event.key==='ArrowUp'||event.key==='ArrowLeft'?-2:0;
-          if(change){event.preventDefault();setPower(value=>clamp(value+change,1,100));}
-        }}>
-        <span className="sg-power-track" aria-hidden="true"><i className="sg-power-fill"/><i className="sg-power-advice"/><i className="sg-power-knob"/></span>
-        <span className="sg-power-label" aria-hidden="true">{pulling?'放手出桿':'下拉出桿'}</span>
-        <small id="sg-power-help" className="sg-sr">向下拉設定力度，放手出桿；拉返上頂取消。鍵盤：上下鍵調整，Enter 出桿。</small>
+      <div className="sg-strike">
+        <div className="sg-power" role="slider" tabIndex={canShoot?0:-1} aria-label="出桿力度" aria-orientation="vertical" aria-valuemin={1} aria-valuemax={100} aria-valuenow={power} aria-valuetext={`${power}% ${powerWord(power)}，約 ${paceLengths(power).toFixed(1)} 個枱長`} aria-disabled={!canShoot} aria-describedby="sg-power-help"
+          data-pulling={pulling||undefined} style={{'--sg-power':power/100,'--sg-advice':applied?applied.shot.power/100:-1} as React.CSSProperties}
+          onPointerDown={pullStart} onPointerMove={pullMove} onPointerUp={pullEnd} onPointerCancel={pullEnd}
+          onKeyDown={event=>{
+            if(!canShoot)return;
+            const change=event.key==='ArrowDown'||event.key==='ArrowRight'?1:event.key==='ArrowUp'||event.key==='ArrowLeft'?-1:0;
+            if(change){event.preventDefault();setPower(value=>clamp(value+change*(event.shiftKey?5:1),1,100));}
+          }}>
+          <span className="sg-power-track" aria-hidden="true"><i className="sg-power-fill"/><i className="sg-power-advice"/><i className="sg-power-knob"/></span>
+          <small id="sg-power-help" className="sg-sr">拖動設定力度，放手後仍可再調整瞄準；按出桿先會擊球。鍵盤：上下鍵調整，Shift 每次五格。</small>
+        </div>
+        <Button type="button" variant="featured" className="sg-shoot" disabled={!canShoot} onClick={()=>{sound.current?.unlock();shoot(power);}}>
+          <span className="sg-shoot-label">出桿</span><small>{power}%</small>
+        </Button>
       </div>
-      {pulling&&<div className="sg-pull" aria-hidden="true"><strong>{power}<small>%</small></strong><span>{power<4?'放手取消':powerWord(power)}</span></div>}
+      {pulling&&<div className="sg-pull" aria-hidden="true"><strong>{power}<small>%</small></strong><span>{powerWord(power)} · 約 {paceLengths(power).toFixed(1)} 枱長</span></div>}
       {spinOpen&&canShoot&&<>
         <button type="button" className="sg-scrim" aria-label="關閉擊點" onClick={()=>setSpinOpen(false)}/>
         <div className="sg-spin-panel" role="dialog" aria-label="白球擊點">
@@ -305,13 +307,20 @@ export default function Game(){
         </div>
       </>}
     </>}
-    {m.finished&&<section className="sg-result" aria-label="本局結果">
-      <small>{m.practice?'練習完成':'本局完結'}</small>
-      <h2>{m.practice?'清枱！':won?'你贏咗呢一局':'電腦勝出'}</h2>
-      {m.practice?<p className="sg-result-score"><b>{m.best}</b><span>最高單桿</span></p>:<p className="sg-result-score"><b>{m.scores[0]}</b><span>–</span><b>{m.scores[1]}</b></p>}
-      <div className="sg-tiles"><StatTile label="最高單桿" value={stats.best}/><StatTile label="入球率" value={potRate+'%'}/><StatTile label="走位" value={positionRate+'%'}/></div>
-      <p>{practice.title}　{practice.game}</p>
-      <div className="sg-row"><ButtonLink href="/" variant="secondary">返回球會</ButtonLink><Button type="button" variant="featured" onClick={()=>reset()}>{m.practice?'再練一次':'再打一局'}</Button></div>
+    {m.finished&&<section className="sg-result" aria-label={m.practice?'練習結果':m.matchOver?'比賽結果':'本局結果'}>
+      <small>{m.practice?'練習完成':m.matchOver?'比賽完結':`第 ${m.frame+1} 局完結`}</small>
+      <h2>{m.practice?'清枱！':m.matchOver?(m.frames[0]>m.frames[1]?'你贏咗場比賽':'電腦贏咗場比賽'):won?'你贏咗呢一局':'電腦贏咗呢一局'}</h2>
+      {m.practice?<p className="sg-result-score"><b>{m.best}</b><span>最高單桿</span></p>
+        :<p className="sg-result-score" aria-label={`局數 ${m.frames[0]} 比 ${m.frames[1]}`}><b>{m.frames[0]}</b><span>–</span><b>{m.frames[1]}</b></p>}
+      {!m.practice&&<ol className="sg-frame-list" aria-label="每局比分">{m.frameScores.map((score,index)=><li key={index} data-won={score[0]>score[1]||undefined}><span>第 {index+1} 局</span><b>{score[0]} – {score[1]}</b></li>)}</ol>}
+      {!m.practice&&!m.matchOver?<>
+        <p>{m.bestOf} 局 {framesToWin(m)} 勝 · 下一局{(m.frame+1)%2?'電腦':'你'}開波</p>
+        <div className="sg-row"><Button type="button" variant="secondary" onClick={()=>setSheet('menu')}>選單</Button><Button type="button" variant="featured" onClick={playNextFrame}>下一局</Button></div>
+      </>:<>
+        <div className="sg-tiles"><StatTile label="最高單桿" value={stats.best}/><StatTile label="入球率" value={potRate+'%'}/><StatTile label="走位" value={positionRate+'%'}/></div>
+        <p>{practice.title}　{practice.game}</p>
+        <div className="sg-row"><ButtonLink href="/" variant="secondary">返回球會</ButtonLink><Button type="button" variant="featured" onClick={()=>reset()}>{m.practice?'再練一次':'再打一場'}</Button></div>
+      </>}
     </section>}
     <Sheet open={sheet==='coach'} title="教練" onClose={()=>setSheet(null)} className="sg-sheet">
       <p className="sg-coach-text" aria-live="polite">{advice?advice.text:review?<><b>{review.headline}</b>{review.tip?'　'+review.tip:''}</>:canShoot?'出桿前講出：打邊粒、入邊個袋、白球停邊。':'等到你出桿先可以分析。'}</p>
@@ -326,14 +335,15 @@ export default function Game(){
       <p className="sg-fine-print">枱面嘅白圈係白球預計停低嘅位置，藍綠圈係教練想你停嘅位置。厚薄顯示（全球／半球／薄邊）同真枱瞄準一樣，可以直接帶去練波。</p>
     </Sheet>
     <Sheet open={sheet==='menu'} title="3D 桌球" onClose={()=>{setSheet(null);setConfirmReset(false);}} className="sg-sheet">
-      <div className="sg-setting"><span>模式</span><SegmentedControl label="模式" value={settings.mode} onChange={value=>update({mode:value as Settings['mode']})} items={[{value:'match',label:'對電腦一局'},{value:'practice',label:'Line-up 練習'}]}/><small>Line-up：15 粒紅排喺中線，自己一個練紅、彩、紅走位；失手唔使交換，單桿由零再計。轉模式會即時重新開始。</small></div>
+      <div className="sg-setting"><span>模式</span><SegmentedControl label="模式" value={settings.mode} onChange={value=>update({mode:value as Settings['mode']})} items={[{value:'match',label:'對電腦'},{value:'practice',label:'Line-up 練習'}]}/><small>Line-up：15 粒紅排喺中線，自己一個練紅、彩、紅走位；失手唔使交換，單桿由零再計。轉模式會即時重新開始。</small></div>
+      {settings.mode==='match'&&<div className="sg-setting"><span>賽制</span><SegmentedControl label="賽制" value={settings.frames} onChange={value=>update({frames:value as Settings['frames']})} items={[{value:'1',label:'1 局'},{value:'3',label:'3 局 2 勝'},{value:'5',label:'5 局 3 勝'},{value:'7',label:'7 局 4 勝'}]}/><small>雙方輪流開波。改賽制會即時重新開始。</small></div>}
       <div className="sg-setting"><span>視角</span><SegmentedControl label="視角" value={settings.camera} onChange={value=>update({camera:value as Settings['camera']})} items={[{value:'auto',label:'自動'},{value:'top',label:'俯瞰'},{value:'player',label:'球員'}]}/></div>
       <div className="sg-setting"><span>輔助線</span><SegmentedControl label="輔助線" value={settings.assist} onChange={value=>update({assist:value as Assist})} items={[{value:'full',label:'完整'},{value:'guide',label:'簡化'},{value:'off',label:'關閉'}]}/><small>完整：顯示入袋線同白球落點；簡化：只有短方向線；關閉：只有瞄準線同假想球。</small></div>
       <div className="sg-setting"><span>對手</span><SegmentedControl label="對手" value={settings.level} onChange={value=>update({level:value as Level})} items={(Object.keys(LEVELS) as Level[]).map(value=>({value,label:LEVELS[value].label}))}/><small>初哥乜都搏；球會級識得做防守；職業計兩步走位，冇六成把握唔出手。</small></div>
       <div className="sg-setting"><span>音效</span><SegmentedControl label="音效" value={settings.sound} onChange={value=>update({sound:value as Settings['sound']})} items={[{value:'on',label:'開'},{value:'off',label:'關'}]}/></div>
       <details className="sg-help"><summary>玩法同模擬範圍</summary>
         <p id="table-aim-help"><b>瞄準：</b>點一粒球，球桿會自動對準最易入嘅袋（再點轉袋）；點枱面任何位置就瞄向嗰度。喺枱面拖動可以轉向：慢慢拖係精細調整，快掃係大幅轉向；下面嘅微調尺再細十倍。鍵盤可用左右鍵，Shift 更精細。</p>
-        <p><b>出桿：</b>右邊力度條向下拉，球桿會跟住拉後，放手即出桿；拉返上頂取消。左下角白球可以揀高低桿同側旋。</p>
+        <p><b>出桿：</b>右邊力度條向下拖設定力度，球桿會跟住拉後；放手之後仍然可以再微調瞄準、擊點同力度，準備好先按「出桿」。力度以枱長計：25% 約半張枱、50% 約兩個枱長、75% 約六個枱長（白球中桿、無阻擋）。左下角白球可以揀高低桿同側旋。</p>
         <p><b>輔助線：</b>白線去到假想球（白球撞到目標球嗰刻嘅位置），金線係目標球路線，淡白線同白圈係白球之後嘅路線同停低位置。袋口發光代表呢個角度同力度入到。你嘅出桿只有好輕微嘅誤差。</p>
         <p><b>規則：</b>先紅後彩，紅球清晒就順序打黃、綠、啡、藍、粉紅、黑。開波同白球落袋之後，白球可以喺 D 區內自由擺位。簡化規則：自動判定彩球目標，冇自由球同犯規重打。成績唔計入球會 ELO。</p>
         <p><b>物理：</b>滑動轉滾動、跟進同拉桿、側旋碰庫、切球嘅「投擲」效應、圓角袋口（輕力可以擦袋角入，大力會彈出）。係數係近似值，未模擬跳球同弧線球。</p>
