@@ -1,25 +1,47 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { swipeAim } from '../../lib/snooker-aim';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
-import { predictShot, rack, type Spin, COLOURS, LENGTH, RADIUS, WIDTH, type Ball } from '../../lib/snooker-game';
-import { CUE_ADDRESS_GAP, CUE_HEIGHT, STROKE_END_MS, cueContactOffset, cueFeather, restSupport, cueStroke, type Stroke } from '../../lib/snooker-presentation';
+import { rack, type Prediction, type Spin, BAULK_Z, COLOURS, D_RADIUS, LENGTH, POCKETS, RADIUS, WIDTH, type Ball } from '../../lib/snooker-game';
+import { TABLE_POCKETS } from '../../lib/snooker-table';
+import { CUE_ADDRESS_GAP, CUE_HEIGHT, STROKE_CONTACT_MS, STROKE_END_MS, cueContactOffset, cueFeather, restSupport, cueStroke, type Stroke } from '../../lib/snooker-presentation';
 import { createCue } from './Cue';
 import { buildTournamentTable } from './TournamentTable';
 import { buildCrucibleArena } from './CrucibleArena';
 import { loadPlayerAvatar, type PlayerAvatar } from './PlayerAvatar';
 
-export default function Table({balls,angle,power,spin,camera,precise,aiming,stroke,onAim}:{balls:Ball[];angle:number;power:number;spin:Spin;camera:string;precise:boolean;aiming:boolean;stroke:Stroke|null;onAim:(angle:number)=>void}) {
-  const host=useRef<HTMLDivElement>(null),live=useRef({balls,angle,power,spin,camera,precise,aiming,stroke,onAim});
+export type TableView='aim'|'top'|'tv'|'player';
+export type Assist='full'|'guide'|'off';
+type Props={balls:Ball[];angle:number;power:number;spin:Spin;view:TableView;aiming:boolean;pulling:boolean;inHand:boolean;showD:boolean;turnKey:number;stroke:Stroke|null;
+  prediction:Prediction|null;assist:Assist;potOn:boolean;marker:{x:number;z:number}|null;
+  onAim:(angle:number)=>void;onPickBall:(id:number)=>void;onPlace:(x:number,z:number)=>void};
+type Point={x:number;z:number};
+const wrap=(angle:number)=>((angle+180)%360+360)%360-180;
+// Cut a sampled path into the part before `length` metres and the rest.
+function splitPath(points:Point[],length:number):[Point[],Point[]]{
+  let travelled=0;
+  for(let i=1;i<points.length;i++){
+    const step=Math.hypot(points[i].x-points[i-1].x,points[i].z-points[i-1].z);
+    if(travelled+step>=length){
+      const k=step?(length-travelled)/step:0,cut={x:points[i-1].x+(points[i].x-points[i-1].x)*k,z:points[i-1].z+(points[i].z-points[i-1].z)*k};
+      return [[...points.slice(0,i),cut],[cut,...points.slice(i)]];
+    }
+    travelled+=step;
+  }
+  return [points,[]];
+}
+
+export default function Table(props:Props) {
+  const {aiming,onAim}=props;
+  const host=useRef<HTMLDivElement>(null),live=useRef(props);
   const [failed,setFailed]=useState(false);
   const [modelStatus,setModelStatus]=useState('loading');
-  useEffect(()=>{live.current={balls,angle,power,spin,camera,precise,aiming,stroke,onAim};},[balls,angle,power,spin,camera,precise,aiming,stroke,onAim]);
+  useEffect(()=>{live.current=props;});
   useEffect(()=>{
     const element=host.current!;
     let renderer:THREE.WebGLRenderer;
-    try {renderer=new THREE.WebGLRenderer({antialias:true});}catch{queueMicrotask(()=>setFailed(true));return;}
+    try {renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});}catch{queueMicrotask(()=>setFailed(true));return;}
     renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
     renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;renderer.setClearColor('#100f16');element.appendChild(renderer.domElement);
     const scene=new THREE.Scene(),view=new THREE.PerspectiveCamera(39,1,.01,30);
@@ -64,24 +86,47 @@ export default function Table({balls,angle,power,spin,camera,precise,aiming,stro
     const contactMaterial=new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(shadowCanvas),transparent:true,depthWrite:false});
     const contacts=live.current.balls.map(()=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(RADIUS*3.6,RADIUS*3.6),contactMaterial);m.rotation.x=-Math.PI/2;scene.add(m);return m;});
     const meshes=live.current.balls.map(b=>{const mesh=new THREE.Mesh(new THREE.SphereGeometry(RADIUS,40,28),new THREE.MeshPhysicalMaterial({color:COLOURS[b.value],roughness:.12,metalness:0,clearcoat:.8,clearcoatRoughness:.08}));mesh.castShadow=true;scene.add(mesh);return mesh;});
-    function corridor(color:string){
-      const mesh=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.24,side:THREE.DoubleSide,depthWrite:false}));scene.add(mesh);return mesh;
+    // Aiming aids, drawn flat on the cloth: the line to the ghost ball, where the
+    // object ball goes, and where the cue ball travels and comes to rest.
+    function overlay(color:string,opacity:number,geometry:THREE.BufferGeometry=new THREE.BufferGeometry()){
+      const mesh=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({color,transparent:true,opacity,side:THREE.DoubleSide,depthWrite:false}));
+      mesh.visible=false;mesh.renderOrder=2;scene.add(mesh);return mesh;
     }
-    const objectAim=corridor('#f7df9a'),cueAim=corridor('#ffffff');
-    let predictionKey='';
-    function updateCorridor(mesh:THREE.Mesh,points:{x:number;z:number}[],spread:number){
-      const vertices:number[]=[],indices:number[]=[];let distance=0;
+    const flat=(geometry:THREE.BufferGeometry)=>geometry.rotateX(-Math.PI/2);
+    const aimLine=overlay('#ffffff',.62),objectLine=overlay('#f6d57a',.9),cueLine=overlay('#ffffff',.34);
+    const ghost=overlay('#ffffff',.26,new THREE.SphereGeometry(RADIUS,32,20));
+    const ghostRing=overlay('#ffffff',.85,flat(new THREE.RingGeometry(RADIUS*.9,RADIUS,48)));
+    const restRing=overlay('#ffffff',.8,flat(new THREE.RingGeometry(RADIUS*.8,RADIUS,48)));
+    const restDot=overlay('#ffffff',.22,flat(new THREE.CircleGeometry(RADIUS*.8,32)));
+    const pocketGlow=overlay('#ffd96b',.6,flat(new THREE.RingGeometry(.048,.066,48)));
+    const coachRing=overlay('#6fe3d2',.9,flat(new THREE.RingGeometry(RADIUS*1.25,RADIUS*1.55,48)));
+    const baulkD=overlay('#ffffff',.12,flat(new THREE.CircleGeometry(D_RADIUS,48,Math.PI,Math.PI)));
+    baulkD.position.set(0,.0045,BAULK_Z);
+    let drawn:Prediction|null=null,drawnAssist='';
+    function ribbon(mesh:THREE.Mesh,points:Point[],half:number){
+      mesh.visible=points.length>1;if(!mesh.visible)return;
+      const vertices:number[]=[],indices:number[]=[];
       points.forEach((p,i)=>{
         const previous=points[Math.max(0,i-1)],next=points[Math.min(points.length-1,i+1)];
-        if(i)distance+=Math.hypot(p.x-previous.x,p.z-previous.z);
         const dx=next.x-previous.x,dz=next.z-previous.z,length=Math.hypot(dx,dz)||1;
-        const width=Math.min(.09,.008+distance*spread);
-        for(const side of [-1,1])vertices.push(Math.max(-WIDTH/2,Math.min(WIDTH/2,p.x+side*dz/length*width)),.006,Math.max(-LENGTH/2,Math.min(LENGTH/2,p.z-side*dx/length*width)));
+        for(const side of [-1,1])vertices.push(p.x+side*dz/length*half,.0055,p.z-side*dx/length*half);
         if(i){const n=i*2;indices.push(n-2,n-1,n,n-1,n+1,n);}
       });
       mesh.geometry.dispose();mesh.geometry=new THREE.BufferGeometry();
       mesh.geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));mesh.geometry.setIndex(indices);mesh.geometry.computeBoundingSphere();
     }
+    function drawGuides(p:Prediction,assist:Assist){
+      const [approach,after]=splitPath(p.cuePath,Math.max(0,p.approach-.0005));
+      // Start the line at the cue ball's edge so it never hides the ball.
+      ribbon(aimLine,splitPath(approach,RADIUS*1.15)[1],.0022);
+      ghost.visible=ghostRing.visible=!!p.object;
+      ghost.position.set(p.contact.x,RADIUS,p.contact.z);ghostRing.position.set(p.contact.x,.006,p.contact.z);
+      ribbon(objectLine,assist==='off'?[]:assist==='guide'?splitPath(p.objectPath,.45)[0]:p.objectPath,.003);
+      ribbon(cueLine,assist==='off'?[]:assist==='guide'?splitPath(after,.3)[0]:after,.0022);
+      restRing.visible=restDot.visible=assist==='full'&&!p.cueEnd.potted;
+      restRing.position.set(p.cueEnd.x,.006,p.cueEnd.z);restDot.position.copy(restRing.position);
+    }
+    const pocketCentre=(index:number)=>{const [x,z]=POCKETS[index];return {x:z===0?x+Math.sign(x)*TABLE_POCKETS.middleSetback:x,z};};
     const cueModel=createCue(),cue=cueModel.root;scene.add(cue);
     const rest=new THREE.Group();
     const restPole=new THREE.Mesh(new THREE.CylinderGeometry(.005,.008,1,10),new THREE.MeshStandardMaterial({color:'#8a6540'}));rest.add(restPole);
@@ -93,49 +138,72 @@ export default function Table({balls,angle,power,spin,camera,precise,aiming,stro
       cross.position.copy(start).add(end).multiplyScalar(.5);cross.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),end.clone().sub(start).normalize());rest.add(cross);
     }
     scene.add(rest);
-    const ray=new THREE.Raycaster(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
-    const pointer=(event:PointerEvent)=>{if(!live.current.aiming)return;const rect=element.getBoundingClientRect();ray.setFromCamera(new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1),view);const hit=ray.ray.intersectPlane(plane,new THREE.Vector3());if(hit&&Math.abs(hit.x)<=WIDTH/2&&Math.abs(hit.z)<=LENGTH/2){const b=live.current.balls[0];if(Math.hypot(hit.x-b.x,hit.z-b.z)<=RADIUS)return;live.current.angle=Math.atan2(hit.x-b.x,b.z-hit.z)*180/Math.PI;live.current.onAim(live.current.angle);}};
+    const ray=new THREE.Raycaster(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),-RADIUS);
     const canvas=renderer.domElement;
-    let drag:{id:number;camera:THREE.PerspectiveCamera;x:number;y:number;lastX:number;lastY:number;moved:boolean}|null=null;
+    function tablePoint(event:PointerEvent){
+      const rect=element.getBoundingClientRect();
+      ray.setFromCamera(new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1),view);
+      return ray.ray.intersectPlane(plane,new THREE.Vector3());
+    }
+    function screenPoint(x:number,z:number){
+      const p=new THREE.Vector3(x,RADIUS,z),depth=p.distanceTo(view.position);p.project(view);
+      return {x:(p.x+1)/2*element.clientWidth,y:(1-p.y)/2*element.clientHeight,visible:p.z<1,
+        radius:RADIUS*element.clientHeight/(2*Math.tan(THREE.MathUtils.degToRad(view.fov/2))*depth)};
+    }
+    function nearBall(event:PointerEvent,ball:Ball,slack:number){
+      const rect=element.getBoundingClientRect(),p=screenPoint(ball.x,ball.z);
+      return p.visible&&Math.hypot(event.clientX-rect.left-p.x,event.clientY-rect.top-p.y)<Math.max(slack,p.radius*1.5);
+    }
+    // One gesture model for every camera. Tap a ball to line up its pot; tap
+    // the cloth to point there; drag to turn the cue. Drag speed sets the
+    // gearing, so a slow drag moves the ghost ball a quarter-millimetre per
+    // pixel however far away it is, and a flick swings the cue across the table.
+    let drag:{id:number;x:number;y:number;lastX:number;lastY:number;lastTime:number;moved:boolean;placing:boolean}|null=null;
+    let frozen:Pose|null=null;
     const down=(event:PointerEvent)=>{
-      if(!live.current.aiming||!event.isPrimary||event.button!==0||drag)return;
+      const state=live.current;
+      if(!state.aiming||!event.isPrimary||event.button!==0||drag)return;
       element.focus({preventScroll:true});
-      drag={id:event.pointerId,camera:view.clone(),x:event.clientX,y:event.clientY,lastX:event.clientX,lastY:event.clientY,moved:false};
+      const placing=state.inHand&&nearBall(event,state.balls[0],30);
+      drag={id:event.pointerId,x:event.clientX,y:event.clientY,lastX:event.clientX,lastY:event.clientY,lastTime:event.timeStamp,moved:false,placing};
       canvas.setPointerCapture(event.pointerId);
     };
-    // Tap selects a direction; dragging adjusts the existing aim without a jump.
-    // Project the positive rotation tangent so movement follows the visible aim in every camera.
     const move=(event:PointerEvent)=>{
-      if(!drag||drag.id!==event.pointerId||!live.current.aiming)return;
-      if(!drag.moved&&Math.hypot(event.clientX-drag.x,event.clientY-drag.y)<4)return;
-      drag.moved=true;
-      if(live.current.camera==='firstPerson'){
-        const next=swipeAim(live.current.angle,event.clientX-drag.lastX,element.clientWidth,live.current.precise||event.shiftKey);
-        live.current.angle=((next+180)%360+360)%360-180;
-        live.current.onAim(live.current.angle);
-        drag.lastX=event.clientX;drag.lastY=event.clientY;
-        return;
+      const state=live.current;
+      if(!drag||drag.id!==event.pointerId||!state.aiming)return;
+      if(!drag.moved&&Math.hypot(event.clientX-drag.x,event.clientY-drag.y)<6)return;
+      // Hold the camera still while dragging in any view it does not own.
+      if(!drag.moved){drag.moved=true;if((drag.placing||mode!=='aim')&&current)frozen=clonePose(current);drag.lastX=event.clientX;drag.lastY=event.clientY;drag.lastTime=event.timeStamp;}
+      const dx=event.clientX-drag.lastX,dy=event.clientY-drag.lastY,dt=Math.max(4,event.timeStamp-drag.lastTime);
+      drag.lastX=event.clientX;drag.lastY=event.clientY;drag.lastTime=event.timeStamp;
+      if(drag.placing){const hit=tablePoint(event);if(hit)state.onPlace(hit.x,hit.z);return;}
+      let pixels=dx;
+      if(mode!=='aim'){
+        // Follow the on-screen direction in which the aim line swings.
+        const b=state.balls[0],a=state.angle*Math.PI/180,reach=Math.max(.3,state.prediction?.approach??1);
+        const tip=screenPoint(b.x+Math.sin(a)*reach,b.z-Math.cos(a)*reach),swing=screenPoint(b.x+Math.sin(a)*reach+Math.cos(a)*.1,b.z-Math.cos(a)*reach+Math.sin(a)*.1);
+        const tx=swing.x-tip.x,ty=swing.y-tip.y,length=Math.hypot(tx,ty);
+        pixels=length>0?(dx*tx+dy*ty)/length:dx;
       }
-      const b=live.current.balls[0],a=live.current.angle*Math.PI/180;
-      const origin=new THREE.Vector3(b.x,.035,b.z).project(drag.camera);
-      const tangent=new THREE.Vector3(b.x+Math.cos(a),.035,b.z+Math.sin(a)).project(drag.camera);
-      const tx=(tangent.x-origin.x)*element.clientWidth,ty=-(tangent.y-origin.y)*element.clientHeight;
-      const length=Math.hypot(tx,ty);
-      if(length>0){
-        const delta=((event.clientX-drag.lastX)*tx+(event.clientY-drag.lastY)*ty)/length;
-        const next=live.current.angle+delta*((event.shiftKey||live.current.precise) ? .001 : .01);
-        live.current.angle=((next+180)%360+360)%360-180;
-        live.current.onAim(live.current.angle);
-      }
-      drag.lastX=event.clientX;drag.lastY=event.clientY;
+      const speed=Math.hypot(dx,dy)/dt,gear=event.shiftKey?1:Math.max(1,Math.min(16,1+(speed-.12)*26));
+      const reach=Math.max(.2,Math.min(3,state.prediction?.approach??1));
+      state.onAim(wrap(state.angle+pixels*gear*.00025/reach*180/Math.PI));
     };
     const up=(event:PointerEvent)=>{
       if(!drag||drag.id!==event.pointerId)return;
-      if(drag.moved)move(event);else if(live.current.camera!=='firstPerson')pointer(event);
-      drag=null;
+      const state=live.current,tapped=!drag.moved;
+      drag=null;if(frozen){frozen=null;restart();}
       if(canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);
+      if(!tapped||!state.aiming)return;
+      const cueBall=state.balls[0],picked=state.balls.filter(b=>b!==cueBall&&!b.potted&&nearBall(event,b,22))
+        .sort((a,b)=>{const rect=element.getBoundingClientRect(),pa=screenPoint(a.x,a.z),pb=screenPoint(b.x,b.z);
+          return Math.hypot(event.clientX-rect.left-pa.x,event.clientY-rect.top-pa.y)-Math.hypot(event.clientX-rect.left-pb.x,event.clientY-rect.top-pb.y);})[0];
+      if(picked){state.onPickBall(picked.id);return;}
+      const hit=tablePoint(event);
+      if(hit&&Math.abs(hit.x)<=WIDTH/2&&Math.abs(hit.z)<=LENGTH/2&&Math.hypot(hit.x-cueBall.x,hit.z-cueBall.z)>RADIUS*1.5)
+        state.onAim(Math.atan2(hit.x-cueBall.x,cueBall.z-hit.z)*180/Math.PI);
     };
-    const cancel=()=>{drag=null;};
+    const cancel=()=>{drag=null;if(frozen){frozen=null;restart();}};
     canvas.addEventListener('pointerdown',down);
     canvas.addEventListener('pointermove',move);
     canvas.addEventListener('pointerup',up);
@@ -143,76 +211,120 @@ export default function Table({balls,angle,power,spin,camera,precise,aiming,stro
     canvas.addEventListener('lostpointercapture',cancel);
     let resizeFrame=0;
     const observer=new ResizeObserver(()=>{cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(()=>{const w=element.clientWidth,h=element.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);view.aspect=w/h;view.updateProjectionMatrix();});});observer.observe(element);
+    // Cameras are poses that glide into one another instead of cutting.
+    type Pose={position:THREE.Vector3;quaternion:THREE.Quaternion;fov:number};
+    const clonePose=(p:Pose):Pose=>({position:p.position.clone(),quaternion:p.quaternion.clone(),fov:p.fov});
+    const probe=new THREE.PerspectiveCamera();
+    function pose(position:THREE.Vector3,target:THREE.Vector3,fov:number,up=new THREE.Vector3(0,1,0)):Pose{
+      probe.position.copy(position);probe.up.copy(up);probe.lookAt(target);probe.updateMatrixWorld();
+      return {position,quaternion:probe.quaternion.clone(),fov};
+    }
+    // Widen the lens until the whole table, rails included, is in shot.
+    function fitted(p:Pose,margin:number):Pose{
+      probe.position.copy(p.position);probe.quaternion.copy(p.quaternion);probe.updateMatrixWorld();
+      let tangent=0;
+      for(const x of [-WIDTH/2-.2,WIDTH/2+.2])for(const z of [-LENGTH/2-.2,LENGTH/2+.2])for(const y of [0,.08]){
+        const c=new THREE.Vector3(x,y,z).applyMatrix4(probe.matrixWorldInverse);
+        tangent=Math.max(tangent,Math.abs(c.y)/-c.z,Math.abs(c.x)/(-c.z*view.aspect));
+      }
+      return {...p,fov:THREE.MathUtils.radToDeg(2*Math.atan(tangent*margin))};
+    }
+    let mode:TableView='tv',current:Pose|null=null as Pose|null,from:Pose|null=null,changed=0,modeKey='',reachSmooth=1;
+    const restart=()=>{if(current){from=clonePose(current);changed=performance.now();}};
     let frame=0,previousRender=performance.now();
     let featherStarted=performance.now(),wasAiming=false,lastStroke=-1,initialWithdrawal=CUE_ADDRESS_GAP,lastWithdrawal=CUE_ADDRESS_GAP;
+    const sinking=new Map<number,{at:number;x:number;z:number}>(),wasPotted=live.current.balls.map(b=>b.potted);
     function render(){
       const now=performance.now(),renderDt=Math.min((now-previousRender)/1000,.05);previousRender=now;
-      // The visible preview uses the exact angle captured when shooting.
-      const state=live.current;
-      const cameraOrigin=state.aiming?state.balls[0]:state.stroke?.origin??state.balls[0];
-      const cameraAngle=(state.aiming?state.angle:state.stroke?.angle??state.angle)*Math.PI/180;
-      const firstPerson=state.camera==='firstPerson';
-      if(firstPerson){
-        const dx=Math.sin(cameraAngle),dz=-Math.cos(cameraAngle);
-        view.position.set(cameraOrigin.x-dx*.65,.24,cameraOrigin.z-dz*.65);
-        view.lookAt(cameraOrigin.x+dx*1.2,.035,cameraOrigin.z+dz*1.2);
-      }else if(state.camera==='player'){
-        const dx=Math.sin(cameraAngle),dz=-Math.cos(cameraAngle);
-        view.position.set(cameraOrigin.x-dx*1.7-dz*2.5,1.35,cameraOrigin.z-dz*1.7+dx*2.5);
-        view.lookAt(cameraOrigin.x-dx*.65,-.03,cameraOrigin.z-dz*.65);
-      }else {view.position.set(0,state.camera==='overhead'?7.5:3.5,state.camera==='overhead'?.001:4.9);view.lookAt(0,0,state.camera==='overhead'?0:.25);}
-      // Fit all eight table bounds in portrait, in either camera, with a 10% margin.
-      view.updateMatrixWorld();
-      let tangent=0;
-      if(view.aspect<1) for(const x of [-WIDTH/2-.55,WIDTH/2+.55]) for(const z of [-LENGTH/2-.65,LENGTH/2+.65]) for(const y of [-.85,.25]) {
-        const p=new THREE.Vector3(x,y,z).applyMatrix4(view.matrixWorldInverse);
-        tangent=Math.max(tangent,Math.abs(p.y)/-p.z,Math.abs(p.x)/(-p.z*view.aspect));
-      }
-      const playerFov=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(21))/Math.min(1,view.aspect)));
-      view.fov=firstPerson||state.camera==='player'?playerFov:view.aspect<1?THREE.MathUtils.radToDeg(2*Math.atan(tangent*1.1)):39;view.updateProjectionMatrix();
-      state.balls.forEach((b,i)=>{const mesh=meshes[i];contacts[i].visible=!b.potted;contacts[i].position.set(b.x,.001,b.z);mesh.visible=!b.potted;mesh.position.set(b.x,RADIUS,b.z);mesh.rotation.x+=(b.wx??b.vz/RADIUS)*renderDt;mesh.rotation.z+=(b.wz??-b.vx/RADIUS)*renderDt;mesh.rotation.y+=(b.wy??0)*renderDt;});
-      const elapsed=state.stroke?performance.now()-state.stroke.startedAt:Infinity;
+      const state=live.current,portrait=view.aspect<1;
+      const elapsed=state.stroke?now-state.stroke.startedAt:Infinity;
       const performing=!state.aiming&&state.stroke!==null&&elapsed<STROKE_END_MS;
       const origin=state.aiming?state.balls[0]:state.stroke?.origin??state.balls[0];
       const angle=state.aiming?state.angle:state.stroke?.angle??state.angle;
       const b=origin,a=angle*Math.PI/180,dx=Math.sin(a),dz=-Math.cos(a);
+      // Stay behind the cue through your own delivery, then pull out to watch.
+      mode=state.view==='tv'&&state.stroke?.player===0&&elapsed<STROKE_CONTACT_MS+140?'aim':state.view;
+      const reach=Math.max(.3,Math.min(2.4,state.prediction?.approach??reachSmooth));
+      reachSmooth+=(reach-reachSmooth)*(reducedMotion?1:1-Math.exp(-renderDt*4));
+      let target:Pose;
+      if(mode==='aim'){
+        // Over the cue, high enough to read the angle into the pocket; the
+        // further the object ball, the higher and further back we sit.
+        // The cue ball sits low in frame (clear of the controls), the pocket high.
+        const d=reachSmooth,back=portrait?.63+.3*d:.62+.18*d,height=portrait?.45+.25*d:.34+.2*d,ahead=portrait?.25+.32*d:.2+.17*d;
+        target=pose(new THREE.Vector3(b.x-dx*back,height,b.z-dz*back),new THREE.Vector3(b.x+dx*ahead,0,b.z+dz*ahead),portrait?50:36);
+      }else if(mode==='player'){
+        const playerFov=THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(21))/Math.min(1,view.aspect)));
+        target=pose(new THREE.Vector3(b.x-dx*1.7-dz*2.5,1.35,b.z-dz*1.7+dx*2.5),new THREE.Vector3(b.x-dx*.65,-.03,b.z-dz*.65),playerFov);
+      }else if(mode==='top'){
+        target=fitted(pose(new THREE.Vector3(0,7.5,0),new THREE.Vector3(0,0,0),30,portrait?new THREE.Vector3(0,0,-1):new THREE.Vector3(-1,0,0)),portrait?1.16:1.3);
+      }else{
+        target=portrait?fitted(pose(new THREE.Vector3(0,6.6,1.9),new THREE.Vector3(0,0,-.12),40),1.1)
+          :fitted(pose(new THREE.Vector3(0,3.3,4.7),new THREE.Vector3(0,0,.3),39),1.12);
+      }
+      const key=mode+'|'+state.turnKey;
+      if(key!==modeKey){modeKey=key;restart();}
+      if(!current){current=clonePose(target);from=null;}
+      const k=from&&!reducedMotion?Math.min(1,(now-changed)/850):1,ease=k*k*(3-2*k);
+      if(frozen)current=clonePose(frozen);
+      else if(k>=1||!from){current=clonePose(target);from=null;}
+      else current={position:from.position.clone().lerp(target.position,ease),quaternion:from.quaternion.clone().slerp(target.quaternion,ease),fov:from.fov+(target.fov-from.fov)*ease};
+      view.position.copy(current.position);view.quaternion.copy(current.quaternion);view.fov=current.fov;view.updateProjectionMatrix();view.updateMatrixWorld();
+      state.balls.forEach((ball,i)=>{
+        const mesh=meshes[i];
+        if(ball.potted&&!wasPotted[i])sinking.set(i,{at:now,x:ball.x,z:ball.z});
+        wasPotted[i]=ball.potted;
+        const sink=ball.potted?sinking.get(i):undefined,fall=sink?(now-sink.at)/260:1;
+        contacts[i].visible=!ball.potted;contacts[i].position.set(ball.x,.001,ball.z);
+        if(sink&&fall<1&&ball.pocket!==undefined&&ball.pocket>=0){
+          // Roll over the lip and drop, rather than vanishing.
+          const centre=pocketCentre(ball.pocket);
+          mesh.visible=true;mesh.position.set(sink.x+(centre.x-sink.x)*fall,RADIUS-fall*fall*.1,sink.z+(centre.z-sink.z)*fall);
+        }else{
+          mesh.visible=!ball.potted;mesh.position.set(ball.x,RADIUS,ball.z);
+          mesh.rotation.x+=(ball.wx??ball.vz/RADIUS)*renderDt;mesh.rotation.z+=(ball.wz??-ball.vx/RADIUS)*renderDt;mesh.rotation.y+=(ball.wy??0)*renderDt;
+        }
+      });
       if(state.aiming&&!wasAiming)featherStarted=now;
       wasAiming=state.aiming;
       if(state.stroke&&state.stroke.id!==lastStroke){lastStroke=state.stroke.id;initialWithdrawal=lastWithdrawal;}
       const shotPower=performing?state.stroke!.power:state.power;
-      const withdrawal=performing?cueStroke(elapsed,shotPower,initialWithdrawal):state.aiming&&!reducedMotion?cueFeather(now-featherStarted,shotPower):CUE_ADDRESS_GAP;
+      // Pulling the power bar draws the cue back exactly as far as the stroke will.
+      const pulled=CUE_ADDRESS_GAP+.065+.135*Math.max(0,Math.min(1,state.power/100));
+      const withdrawal=performing?cueStroke(elapsed,shotPower,initialWithdrawal):state.aiming&&state.pulling?lastWithdrawal+(pulled-lastWithdrawal)*Math.min(1,renderDt*18)
+        :state.aiming&&!reducedMotion&&!drag?cueFeather(now-featherStarted,Math.min(shotPower,40)):CUE_ADDRESS_GAP;
       lastWithdrawal=withdrawal;
       const address=state.aiming?1:state.stroke?1-THREE.MathUtils.smoothstep(elapsed,STROKE_END_MS,STROKE_END_MS+400):0;
       const shotSpin=state.aiming?state.spin:state.stroke?.spin??{top:0,side:0};
       const offset=cueContactOffset(angle,shotSpin);
       const contactDepth=Math.sqrt(Math.max(0,RADIUS**2-offset.x**2-offset.z**2-(CUE_HEIGHT+offset.y-RADIUS)**2));
-      const pose=avatar?.update(origin,angle,address,withdrawal+contactDepth-RADIUS,state.aiming?0:state.stroke?.player??0,shotPower,offset);
-      if(avatar)avatar.root.visible=!firstPerson;
-      if(state.camera==='player'&&avatar){
-        const player=avatar.root.position;
-        view.position.set(player.x+dx*.3-dz*2.5,1.35,player.z+dz*.3+dx*2.5);
-        view.lookAt(player.x+dx*.45,-.03,player.z+dz*.45);
-      }
+      const avatarPose=avatar?.update(origin,angle,address,withdrawal+contactDepth-RADIUS,state.aiming?0:state.stroke?.player??0,shotPower,offset);
+      if(avatar)avatar.root.visible=mode!=='aim';
       cue.visible=state.aiming||performing;
-      objectAim.visible=cueAim.visible=state.aiming;
-      const key=JSON.stringify([state.angle,state.power,state.spin,state.balls]);
-      if(state.aiming&&key!==predictionKey){
-        predictionKey=key;const prediction=predictShot(state.balls,state.angle,state.power,state.spin);
-        updateCorridor(objectAim,prediction.objectPath,prediction.spread);
-        updateCorridor(cueAim,prediction.cuePath,prediction.spread);
+      // Guides follow the prediction the HUD already computed for this aim.
+      const guide=state.aiming?state.prediction:null;
+      if(guide!==drawn||state.assist!==drawnAssist){
+        drawn=guide;drawnAssist=state.assist;
+        if(guide)drawGuides(guide,state.assist);
+        else for(const mesh of [aimLine,objectLine,cueLine,ghost,ghostRing,restRing,restDot])mesh.visible=false;
       }
-      cueModel.setExtension(pose?.extension??0);
+      const pulse=reducedMotion?.75:.6+.3*Math.sin(now/260);
+      pocketGlow.visible=!!guide&&state.assist==='full'&&state.potOn&&guide.objectPocket>=0;
+      if(pocketGlow.visible){const centre=pocketCentre(guide!.objectPocket);pocketGlow.position.set(centre.x,.04,centre.z);(pocketGlow.material as THREE.MeshBasicMaterial).opacity=pulse;}
+      coachRing.visible=state.aiming&&!!state.marker;
+      if(coachRing.visible){coachRing.position.set(state.marker!.x,.0065,state.marker!.z);(coachRing.material as THREE.MeshBasicMaterial).opacity=pulse;}
+      baulkD.visible=state.aiming&&state.showD;
+      cueModel.setExtension(avatarPose?.extension??0);
       // Contact lies on the spherical surface, closer to the centre plane for off-centre hits.
       cue.position.set(b.x+offset.x-dx*(contactDepth+withdrawal),CUE_HEIGHT+offset.y,b.z+offset.z-dz*(contactDepth+withdrawal));cue.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(dx,0,dz));
-      rest.visible=!!pose?.extended&&cue.visible;
-      if(rest.visible&&pose){
+      rest.visible=!!avatarPose?.extended&&cue.visible&&mode!=='aim';
+      if(rest.visible&&avatarPose){
         const support=restSupport(b,angle);
         rest.position.set(support.x+offset.x,offset.y,support.z+offset.z);rest.rotation.y=Math.atan2(dx,dz);rest.updateMatrixWorld(true);
-        const handle=rest.worldToLocal(pose.restHandle.clone()),head=new THREE.Vector3(0,.014,-.012),shaft=head.clone().sub(handle);
+        const handle=rest.worldToLocal(avatarPose.restHandle.clone()),head=new THREE.Vector3(0,.014,-.012),shaft=head.clone().sub(handle);
         restPole.scale.y=shaft.length();restPole.position.copy(handle).add(head).multiplyScalar(.5);
         restPole.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),shaft.normalize());
       }
-      if(drag&&state.aiming&&!firstPerson){view.position.copy(drag.camera.position);view.quaternion.copy(drag.camera.quaternion);view.fov=drag.camera.fov;view.updateProjectionMatrix();view.updateMatrixWorld();}
       renderer.render(scene,view);frame=requestAnimationFrame(render);
     }
     render();
@@ -222,9 +334,7 @@ export default function Table({balls,angle,power,spin,camera,precise,aiming,stro
   return <div className="snooker-table" ref={host} role="group" tabIndex={0} aria-label="3D 球檯瞄準" aria-disabled={!aiming} aria-describedby="table-aim-help" onKeyDown={event=>{
     if(!aiming||!['ArrowLeft','ArrowRight'].includes(event.key))return;
     event.preventDefault();
-    const next=live.current.angle+(event.key==='ArrowLeft'?-1:1)*(event.shiftKey ? .01 : .1);
-    live.current.angle=((next+180)%360+360)%360-180;
-    onAim(live.current.angle);
+    onAim(wrap(live.current.angle+(event.key==='ArrowLeft'?-1:1)*(event.shiftKey ? .01 : .1)));
   }}>{modelStatus!=='ready'&&!failed&&<span className="snooker-model-status" role="status">{modelStatus==='loading'?'球員載入中…':'球員載入失敗，請重新載入頁面。'}</span>}{failed&&<div className="snooker-webgl-error" role="alert">未能顯示 3D 球檯。請啟用瀏覽器硬件加速，然後重新載入。</div>}</div>;
 }
 

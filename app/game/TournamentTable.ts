@@ -31,16 +31,18 @@ export function buildTournamentTable(scene:THREE.Scene,anisotropy:number) {
   function rectangle(x:number,z:number) {const shape=new THREE.Shape();shape.moveTo(-x,-z);shape.lineTo(x,-z);shape.lineTo(x,z);shape.lineTo(-x,z);shape.closePath();return shape;}
   function perforated(x:number,z:number) {
     const shape=rectangle(x,z);
-    for(const [px,pz] of POCKETS){const hole=new THREE.Path();hole.absarc(px,pz,pocketCut(pz),0,Math.PI*2,true);shape.holes.push(hole);}
+    for(const [px,pz] of POCKETS){const hole=new THREE.Path();hole.absarc(pz===0?px+Math.sign(px)*TABLE_POCKETS.middleSetback:px,pz,pocketCut(pz),0,Math.PI*2,true);shape.holes.push(hole);}
     return shape;
   }
   // A continuous scalloped perimeter gives the bed six physical cut-outs.
-  const bed=new THREE.Shape(),r=TABLE_POCKETS.cornerCut,middle=TABLE_POCKETS.middleCut;
+  const bed=new THREE.Shape(),r=TABLE_POCKETS.cornerCut,middle=TABLE_POCKETS.middleCut,back=TABLE_POCKETS.middleSetback;
+  // The middle falls are set back behind the nose line, as on a real table.
+  const sweep=Math.acos(back/middle),mouth=middle*Math.sin(sweep);
   bed.moveTo(-w+r,-l);bed.lineTo(w-r,-l);bed.absarc(w,-l,r,Math.PI,Math.PI/2,true);
-  bed.lineTo(w,-middle);bed.absarc(w,0,middle,-Math.PI/2,-Math.PI*1.5,true);
+  bed.lineTo(w,-mouth);bed.absarc(w+back,0,middle,-Math.PI+sweep,-Math.PI-sweep,true);
   bed.lineTo(w,l-r);bed.absarc(w,l,r,-Math.PI/2,-Math.PI,true);
   bed.lineTo(-w+r,l);bed.absarc(-w,l,r,0,-Math.PI/2,true);
-  bed.lineTo(-w,middle);bed.absarc(-w,0,middle,Math.PI/2,-Math.PI/2,true);
+  bed.lineTo(-w,mouth);bed.absarc(-w-back,0,middle,sweep,-sweep,true);
   bed.lineTo(-w,-l+r);bed.absarc(-w,-l,r,Math.PI/2,0,true);bed.closePath();
   const canvas=document.createElement('canvas');canvas.width=canvas.height=256;
   const ctx=canvas.getContext('2d')!,pixels=ctx.createImageData(256,256);let seed=19;
@@ -85,8 +87,8 @@ export function buildTournamentTable(scene:THREE.Scene,anisotropy:number) {
   const netMaterial=new THREE.LineBasicMaterial({color:'#8b8571',transparent:true,opacity:.38});
   const threadMaterial=new THREE.LineBasicMaterial({color:'#f0e1bc'});
   function tube(points:THREE.Vector3[],radius:number,material:THREE.Material){return mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points),32,radius,6,false),material);}
-  for(const [x,z] of POCKETS){
-    const corner=z!==0,sx=Math.sign(x),sz=Math.sign(z),out=new THREE.Vector2(sx,corner?sz:0).normalize();
+  for(const [px,z] of POCKETS){
+    const corner=z!==0,sx=Math.sign(px),sz=Math.sign(z),x=corner?px:px+sx*back,out=new THREE.Vector2(sx,corner?sz:0).normalize();
     const centre=new THREE.Vector3(x,-.005,z),angle=Math.atan2(out.y,out.x),cut=pocketCut(z),outer=cut+TABLE_POCKETS.leatherWidth;
     // Leather follows only the OUTER arc; the incoming throat stays unobstructed.
     const iron=new THREE.Shape();const start=angle-Math.PI*.50,end=angle+Math.PI*.50;
