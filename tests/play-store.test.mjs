@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PlayError, playDashboard, playReady, playWrite, readSnapshot, venueAdmin } from "../db/play-store.ts";
+import { cityById } from "../lib/play/geo.ts";
+import { zonedDate } from "../lib/play/time.ts";
 import { GROUP_PRESETS } from "../lib/play/types.ts";
 import { at, fixture } from "./play-fixture.mjs";
 
@@ -8,7 +10,12 @@ const hk = "venue-scaa";
 const session = (extra = {}) => ({ venueId: hk, startAt: at(3), endAt: at(5), range: GROUP_PRESETS.open, ...extra });
 const write = (db, actor, action, input) => playWrite(db, actor, action, input);
 const rejects = (promise, status) => assert.rejects(promise, (e) => e instanceof PlayError && (status == null || e.status === status));
-const board = (db, viewer, extra = {}) => playDashboard(db, viewer, viewer != null, { city: "hong-kong", ...extra });
+/** Opens on the day the fixtures' windows (`at(2)`…`at(5)`) fall on, in the board's own zone. Left on
+    "today", a late-evening run puts them on tomorrow and the board shows none of them. */
+const board = (db, viewer, extra = {}) => {
+  const city = extra.city ?? "hong-kong";
+  return playDashboard(db, viewer, viewer != null, { city, date: zonedDate(at(3), cityById(city).tz), ...extra });
+};
 
 test("board snapshot uses one database round trip and decodes empty collections", async () => {
   const { db } = await fixture();
